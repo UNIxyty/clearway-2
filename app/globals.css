@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+  }
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 224 76% 48%;
+  }
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+@keyframes fly {
+  0%, 100% {
+    transform: translateX(-8px) rotate(-5deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateX(8px) rotate(5deg);
+    opacity: 1;
+  }
+}
+
+.animate-fly {
+  animation: fly 2s ease-in-out infinite;
+}
+
+/* Airport map: container and marker */
+.airport-map-container {
+  border-radius: 0 0 0.75rem 0.75rem;
+  overflow: hidden;
+  background: hsl(var(--muted));
+}
+
+.airport-map-container .leaflet-container {
+  font-family: inherit;
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.airport-map-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.airport-marker-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+  transition: transform 0.15s ease;
+}
+
+.airport-marker-inner:hover {
+  transform: scale(1.08);
+}
+
+/* Popup */
+.airport-map-popup-wrapper .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.airport-map-popup-wrapper .leaflet-popup-tip {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.airport-map-popup {
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.airport-map-popup-icao {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  color: hsl(221, 83%, 53%);
+}
+
+.airport-map-popup-name {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: hsl(215, 16%, 47%);
+}

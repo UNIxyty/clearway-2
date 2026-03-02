@@ -941,6 +941,10 @@ export default function AIPPortalPage() {
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.
         </p>
+        <div className="flex flex-col items-center gap-1.5 pt-4 shrink-0">
+          <span className="text-[10px] sm:text-xs text-muted-foreground/80 uppercase tracking-wider">Built by</span>
+          <img src="/logo.png" alt="Clearway" className="h-6 sm:h-8 w-auto max-w-[180px] object-contain opacity-90 hover:opacity-100 transition-opacity" />
+        </div>
             </div>
           </div>
 

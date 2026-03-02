@@ -293,7 +293,7 @@ export default function AIPPortalPage() {
           if (!res.ok || !res.body) {
             const text = await res.text();
             const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? text || "Sync failed");
+            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? (text || "Sync failed"));
             setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
             return;
           }

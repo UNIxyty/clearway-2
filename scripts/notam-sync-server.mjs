@@ -11,6 +11,7 @@ import { createServer } from "http";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { readFileSync, unlinkSync, existsSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -103,17 +104,45 @@ const server = createServer(async (req, res) => {
     });
     const send = (obj) => res.write("data: " + JSON.stringify(obj) + "\n\n");
 
-    // Send first step immediately so the client sees something (scraper progress may be buffered)
+    // Send first step immediately
     send({ step: "Starting scraper…" });
 
-    const env = { ...process.env, USE_HEADED: "1", CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome" };
+    const progressFile = join(PROJECT_ROOT, "scripts", `.notam-progress-${icao}-${Date.now()}`);
+    const env = {
+      ...process.env,
+      USE_HEADED: "1",
+      CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
+      NOTAM_PROGRESS_FILE: progressFile,
+    };
     const child = spawn(
       "xvfb-run",
       ["-a", "-s", "-screen 0 1920x1080x24", "node", "scripts/notam-scraper.mjs", "--json", icao],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
+    let lastProgressSize = 0;
+    const pollProgress = () => {
+      try {
+        if (!existsSync(progressFile)) return;
+        const content = readFileSync(progressFile, "utf8");
+        const newPart = content.slice(lastProgressSize);
+        lastProgressSize = content.length;
+        const lines = newPart.split("\n");
+        for (const line of lines) {
+          const m = line.match(/^PROGRESS:(.*)$/);
+          if (m) send({ step: m[1].trim() });
+        }
+      } catch (_) {}
+    };
+    const progressInterval = setInterval(pollProgress, 280);
+    const stopProgressPoll = () => {
+      clearInterval(progressInterval);
+      try {
+        if (existsSync(progressFile)) unlinkSync(progressFile);
+      } catch (_) {}
+    };
+    // Also read stderr in case progress file isn't used (e.g. old scraper)
     let stderrBuf = "";
-    const flushProgress = () => {
+    const flushStderr = () => {
       const lines = stderrBuf.split("\n");
       stderrBuf = lines.pop() ?? "";
       for (const line of lines) {
@@ -123,16 +152,19 @@ const server = createServer(async (req, res) => {
     };
     child.stderr?.on("data", (chunk) => {
       stderrBuf += chunk.toString();
-      flushProgress();
+      flushStderr();
     });
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
+      stopProgressPoll();
       send({ error: "Scraper timed out" });
       res.end();
     }, RUN_TIMEOUT_MS);
     child.on("close", (code) => {
       clearTimeout(timeout);
-      flushProgress();
+      stopProgressPoll();
+      pollProgress(); // one last read
+      flushStderr();
       if (code !== 0) {
         send({ error: "Scraper failed", detail: "Exit code " + code });
         res.end();
@@ -155,6 +187,7 @@ const server = createServer(async (req, res) => {
     });
     child.on("error", (err) => {
       clearTimeout(timeout);
+      stopProgressPoll();
       send({ error: err.message });
       res.end();
     });

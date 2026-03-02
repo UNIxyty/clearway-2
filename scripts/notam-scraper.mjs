@@ -11,7 +11,7 @@
  */
 
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, appendFileSync } from 'fs';
 
 const NOTAM_SEARCH_URL = 'https://notams.aim.faa.gov/notamSearch/nsapp.html#/';
 const DEFAULT_ICAO = 'KJFK';
@@ -21,9 +21,15 @@ function log(...args) {
   else console.log(...args);
 }
 
-/** Emit a progress step for sync server (stderr, prefix PROGRESS: so stream can parse) */
+/** Emit a progress step for sync server. Uses progress file if set (flushed immediately); else stderr. */
 function progress(msg) {
-  if (jsonMode) console.error("PROGRESS:" + msg);
+  const line = "PROGRESS:" + msg + "\n";
+  if (process.env.NOTAM_PROGRESS_FILE) {
+    try {
+      appendFileSync(process.env.NOTAM_PROGRESS_FILE, line);
+    } catch (_) {}
+  }
+  if (jsonMode) console.error(line.trim());
 }
 
 let jsonMode = false;

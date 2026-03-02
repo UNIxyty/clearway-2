@@ -15,6 +15,9 @@ out/
 # production
 /build
 
+# notam sync temp
+scripts/.notam-progress-*
+
 # misc
 .DS_Store
 *.pem

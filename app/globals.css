@@ -60,6 +60,50 @@ body {
   animation: fly 2s ease-in-out infinite;
 }
 
+/* Browse menu: slide down and fade in */
+@keyframes browse-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-browse-menu-in {
+  animation: browse-menu-in 0.25s ease-out forwards;
+}
+
+/* Step content: crossfade / slide */
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-step-enter {
+  animation: step-enter 0.2s ease-out forwards;
+}
+
+/* Stagger children (use with delay in JS or nth-child) */
+.stagger-1 { animation-delay: 0.03s; }
+.stagger-2 { animation-delay: 0.06s; }
+.stagger-3 { animation-delay: 0.09s; }
+.stagger-4 { animation-delay: 0.12s; }
+.stagger-5 { animation-delay: 0.15s; }
+.stagger-6 { animation-delay: 0.18s; }
+.stagger-7 { animation-delay: 0.21s; }
+.stagger-8 { animation-delay: 0.24s; }
+.stagger-9 { animation-delay: 0.27s; }
+.stagger-10 { animation-delay: 0.3s; }
+
 /* Airport map: container and marker */
 .airport-map-container {
   border-radius: 0 0 0.75rem 0.75rem;

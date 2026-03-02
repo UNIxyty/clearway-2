@@ -14,7 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, FileWarningIcon, PlusIcon, Trash2Icon, RefreshCwIcon, XIcon } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, PlusIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 
 export type NotamItem = {
@@ -35,6 +35,11 @@ const LOADING_STEPS = [
   { id: "website", label: "Loading up website", duration: 800 },
   { id: "reading", label: "Reading info", duration: 1200 },
   { id: "saving", label: "Saving data", duration: 600 },
+];
+
+const BROWSE_LOADING_STEPS = [
+  { id: "browse-1", label: "Loading…", duration: 400 },
+  { id: "browse-2", label: "Ready", duration: 250 },
 ];
 
 type AIPAirport = {
@@ -212,6 +217,13 @@ export default function AIPPortalPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [loadingCountry, setLoadingCountry] = useState(false);
+  const [browseMenuOpen, setBrowseMenuOpen] = useState(false);
+  const [browseStep, setBrowseStep] = useState<1 | 2 | 3>(1);
+  const [browseSelection, setBrowseSelection] = useState<AIPAirport[]>([]);
+  const [browseSelectedCountry, setBrowseSelectedCountry] = useState<string>("");
+  const [browseCountryAirports, setBrowseCountryAirports] = useState<AIPAirport[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
@@ -260,20 +272,16 @@ export default function AIPPortalPage() {
   }, [regions, selectedRegion]);
 
   useEffect(() => {
-    if (!selectedCountry) {
-      setResults(null);
-      return;
-    }
+    if (browseStep !== 3 || !browseSelectedCountry) return;
     setLoadingCountry(true);
-    fetch(`/api/airports?country=${encodeURIComponent(selectedCountry)}`)
+    fetch(`/api/airports?country=${encodeURIComponent(browseSelectedCountry)}`)
       .then((res) => res.json())
       .then((data) => {
-        setResults(data.results ?? []);
-        setError(null);
+        setBrowseCountryAirports(data.results ?? []);
       })
-      .catch(() => setResults([]))
+      .catch(() => setBrowseCountryAirports([]))
       .finally(() => setLoadingCountry(false));
-  }, [selectedCountry]);
+  }, [browseStep, browseSelectedCountry]);
 
   const addToSaved = useCallback((airport: AIPAirport) => {
     setSavedAirports((prev) => {
@@ -304,14 +312,14 @@ export default function AIPPortalPage() {
     setSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch NOTAMs when user selects airport: auto-sync if no cache, else use cache (Sync button forces sync)
+  // Fetch NOTAMs only on first view (no cache) or when user presses Sync. Do NOT re-scrape when re-entering a tab (use cache).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !viewingAirport?.lat) return;
 
     const hasCache = icao in notamsCache;
     const syncRequested = syncRequestedIcao === icao;
-    if (hasCache && !syncRequested) return;
+    if (hasCache && !syncRequested) return; // re-entering tab: use cached NOTAMs, do not scrape
 
     const isSync = syncRequested || !hasCache;
     setNotamsLoadingIcao(icao);
@@ -413,13 +421,23 @@ export default function AIPPortalPage() {
     }
   }, []);
 
+  const runBrowseLoading = useCallback(async (then: () => void) => {
+    setBrowseLoading(true);
+    setBrowseLoadingStepIndex(0);
+    for (let i = 0; i < BROWSE_LOADING_STEPS.length; i++) {
+      setBrowseLoadingStepIndex(i);
+      await new Promise((r) => setTimeout(r, BROWSE_LOADING_STEPS[i].duration));
+    }
+    then();
+    setBrowseLoading(false);
+  }, []);
+
   const search = useCallback(async () => {
     const q = query.trim();
     if (!q) return;
 
     setLoading(true);
     setError(null);
-    setResults(null);
 
     try {
       await runFakeLoadingSteps();
@@ -428,14 +446,23 @@ export default function AIPPortalPage() {
 
       if (!res.ok) {
         setError(data.error || "Search failed");
-        setResults([]);
         return;
       }
 
-      setResults(data.results ?? []);
+      const newResults = data.results ?? [];
+      setResults((prev) => {
+        const next = [...(prev ?? [])];
+        newResults.forEach((a: AIPAirport) => {
+          if (!next.some((x) => x.icao === a.icao)) next.push(a);
+        });
+        return next;
+      });
+      if (newResults.length > 0) {
+        setSelectedIcao(newResults[0].icao);
+        setActiveTabIndex(null);
+      }
     } catch {
       setError("Connection error. Please try again.");
-      setResults([]);
     } finally {
       setLoading(false);
       setStepIndex(0);
@@ -475,53 +502,260 @@ export default function AIPPortalPage() {
           </CardHeader>
           <CardContent className="space-y-4 px-4 sm:px-6">
             <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Browse by region and country
-              </p>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Label htmlFor="region" className="sr-only">Region</Label>
-                  <select
-                    id="region"
-                    value={selectedRegion}
-                    onChange={(e) => {
-                      setSelectedRegion(e.target.value);
-                      setSelectedCountry("");
-                    }}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[140px]"
-                  >
-                    <option value="">Select region</option>
-                    {regions.map((r) => (
-                      <option key={r.region} value={r.region}>{r.region}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2 min-w-0">
-                  <Label htmlFor="country" className="sr-only">Country</Label>
-                  <select
-                    id="country"
-                    value={selectedCountry}
-                    onChange={(e) => setSelectedCountry(e.target.value)}
-                    disabled={!selectedRegion || countriesInRegion.length === 0}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[160px]"
-                  >
-                    <option value="">Select country</option>
-                    {countriesInRegion.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  {selectedCountry && getCountryFlagUrl(selectedCountry) && (
-                    <img
-                      src={getCountryFlagUrl(selectedCountry)!}
-                      alt=""
-                      width={28}
-                      height={21}
-                      className="rounded-sm shrink-0 object-cover"
-                    />
-                  )}
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={() => {
+                    setBrowseMenuOpen((o) => !o);
+                    if (!browseMenuOpen) {
+                      setBrowseStep(1);
+                      setBrowseSelection([]);
+                    }
+                  }}
+                  aria-expanded={browseMenuOpen}
+                >
+                  <GlobeIcon className="size-4 shrink-0" />
+                  {selectedRegion && selectedCountry
+                    ? `${selectedRegion} → ${selectedCountry}`
+                    : "Browse by region & country"}
+                  {browseMenuOpen ? <ChevronUpIcon className="size-4 shrink-0" /> : <ChevronDownIcon className="size-4 shrink-0" />}
+                </Button>
+                {selectedCountry && getCountryFlagUrl(selectedCountry) && (
+                  <img
+                    src={getCountryFlagUrl(selectedCountry)!}
+                    alt=""
+                    width={28}
+                    height={21}
+                    className="rounded-sm shrink-0 object-cover border border-border"
+                  />
+                )}
                 {loadingCountry && <Spinner className="size-5 text-muted-foreground" />}
               </div>
+
+              {browseMenuOpen && (
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-4 shadow-sm animate-browse-menu-in overflow-hidden">
+                  {/* Step indicator */}
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3].map((s) => (
+                      <div
+                        key={s}
+                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                          browseStep >= s ? "bg-primary" : "bg-muted"
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {browseLoading ? (
+                    <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        <PlaneIcon className="size-6 text-primary animate-fly" strokeWidth={1.8} aria-hidden />
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          {browseStep === 1 ? "Loading region…" : browseStep === 2 ? "Loading country…" : "Adding airports…"}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {BROWSE_LOADING_STEPS.map((step, i) => (
+                          <div key={step.id} className="flex items-center gap-2 text-sm">
+                            {i < browseLoadingStepIndex ? (
+                              <span className="text-primary">✓</span>
+                            ) : i === browseLoadingStepIndex ? (
+                              <Spinner className="size-3.5 text-primary" />
+                            ) : (
+                              <span className="text-muted-foreground/50">○</span>
+                            )}
+                            <span className={i <= browseLoadingStepIndex ? "text-foreground" : "text-muted-foreground/70"}>
+                              {step.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <Progress value={((browseLoadingStepIndex + 1) / BROWSE_LOADING_STEPS.length) * 100} className="h-1.5" />
+                    </div>
+                  ) : browseStep === 1 ? (
+                    <div className="animate-step-enter space-y-4">
+                      <p className="text-sm font-semibold text-foreground">Select region</p>
+                      <div className="flex flex-wrap gap-2">
+                        {regions.map((r) => (
+                          <Button
+                            key={r.region}
+                            type="button"
+                            variant={selectedRegion === r.region ? "default" : "outline"}
+                            size="sm"
+                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
+                            onClick={() => {
+                              runBrowseLoading(() => {
+                                setSelectedRegion(r.region);
+                                setSelectedCountry("");
+                                setBrowseStep(2);
+                              });
+                            }}
+                          >
+                            {r.region}
+                            <ChevronRightIcon className="size-4" />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {!browseLoading && browseStep === 2 && (
+                    <div className="animate-step-enter space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">Select country</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => setBrowseStep(1)}
+                        >
+                          ← Back
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{selectedRegion}</p>
+                      <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto pr-1">
+                        {countriesInRegion.map((c, i) => (
+                          <Button
+                            key={c}
+                            type="button"
+                            variant={selectedCountry === c ? "default" : "outline"}
+                            size="sm"
+                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
+                            style={{ animationDelay: `${i * 30}ms` }}
+                            onClick={() => {
+                              runBrowseLoading(() => {
+                                setBrowseSelectedCountry(c);
+                                setBrowseStep(3);
+                              });
+                            }}
+                          >
+                            {getCountryFlagUrl(c) && (
+                              <img
+                                src={getCountryFlagUrl(c)!}
+                                alt=""
+                                width={20}
+                                height={15}
+                                className="rounded-sm shrink-0 object-cover"
+                              />
+                            )}
+                            {c}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!browseLoading && browseStep === 3 && (
+                    <div className="animate-step-enter space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">Select airport(s)</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => setBrowseStep(2)}
+                        >
+                          ← Back
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedRegion} → {browseSelectedCountry} · Click to toggle, then Done
+                      </p>
+                      <div className="max-h-[240px] overflow-y-auto space-y-1.5 pr-1">
+                        {loadingCountry ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Spinner className="size-6 text-primary" />
+                          </div>
+                        ) : browseCountryAirports.length > 0 ? (
+                          browseCountryAirports.map((airport, i) => {
+                            const isSelected = browseSelection.some((a) => a.icao === airport.icao);
+                            return (
+                              <button
+                                key={airport.icao}
+                                type="button"
+                                onClick={() => {
+                                  setBrowseSelection((prev) =>
+                                    isSelected
+                                      ? prev.filter((a) => a.icao !== airport.icao)
+                                      : [...prev, airport]
+                                  );
+                                }}
+                                className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                                  isSelected
+                                    ? "border-primary bg-primary/15 shadow-sm"
+                                    : "border-border/80 bg-background/80 hover:bg-primary/5 hover:border-primary/20"
+                                }`}
+                                style={{ animationDelay: `${i * 25}ms` }}
+                              >
+                                <span
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-medium transition-colors ${
+                                    isSelected
+                                      ? "border-primary bg-primary text-primary-foreground"
+                                      : "border-muted-foreground/40 bg-background"
+                                  }`}
+                                >
+                                  {isSelected ? "✓" : ""}
+                                </span>
+                                {getCountryFlagUrl(airport.country) && (
+                                  <img
+                                    src={getCountryFlagUrl(airport.country)!}
+                                    alt=""
+                                    width={24}
+                                    height={18}
+                                    className="rounded shrink-0 object-cover"
+                                  />
+                                )}
+                                <span className="font-mono text-sm font-semibold text-primary shrink-0">
+                                  {airport.icao}
+                                </span>
+                                <span className="text-sm text-muted-foreground truncate min-w-0">
+                                  {airport.name}
+                                </span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            No airports found for this country.
+                          </p>
+                        )}
+                      </div>
+                      {browseCountryAirports.length > 0 && (
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                          <span className="text-xs text-muted-foreground">
+                            {browseSelection.length} selected
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              if (browseSelection.length > 0) {
+                                runBrowseLoading(() => {
+                                  const merged = [...(results ?? []), ...browseSelection];
+                                  const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
+                                  setResults(byIcao);
+                                  setSelectedIcao(browseSelection[0].icao);
+                                  setSelectedCountry(browseSelectedCountry);
+                                  setActiveTabIndex(null);
+                                  setBrowseMenuOpen(false);
+                                });
+                              }
+                            }}
+                            disabled={browseSelection.length === 0}
+                          >
+                            Done{browseSelection.length > 0 ? ` (${browseSelection.length})` : ""}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="relative">
@@ -613,25 +847,82 @@ export default function AIPPortalPage() {
                   <p className="text-sm text-muted-foreground">
                     No airports found. Try another code or name.
                   </p>
+                ) : results.length === 1 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      1 result retrieved
+                    </p>
+                    <AIPResultCard
+                      key={`${results[0].icao}-${results[0].country}`}
+                      airport={results[0]}
+                      isSelected={true}
+                      onAddToList={results[0].lat != null && results[0].lon != null ? () => addToSaved(results[0]) : undefined}
+                      isInList={savedAirports.some((a) => a.icao === results[0].icao)}
+                    />
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {results.length} result{results.length !== 1 ? "s" : ""} retrieved
+                      {results.length} airports — switch tab to view
                     </p>
-                    {results.map((airport) => (
+                    <div className="flex items-end gap-0.5 overflow-x-auto min-h-[52px] border-b border-border -mx-1 px-1">
+                      {results.map((airport, i) => {
+                        const isActive = activeTabIndex === null && viewingAirport?.icao === airport.icao;
+                        const flagUrl = getCountryFlagUrl(airport.country);
+                        return (
+                          <div
+                            key={`${airport.icao}-${airport.country}`}
+                            className={`flex items-center rounded-t-lg border border-b-0 shrink-0 overflow-hidden transition-all duration-150 ${
+                              isActive
+                                ? "bg-card border-border shadow-[0_-1px_0_0_hsl(var(--card))] z-[1]"
+                                : "border-transparent bg-muted/50 hover:bg-muted/80"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTabIndex(null);
+                                setSelectedIcao(airport.icao);
+                              }}
+                              className="flex items-center gap-2 px-4 py-3 text-sm font-mono font-semibold text-foreground min-w-0"
+                            >
+                              {flagUrl && (
+                                <img
+                                  src={flagUrl}
+                                  alt=""
+                                  width={28}
+                                  height={21}
+                                  className="rounded shrink-0 object-cover border border-border/60"
+                                />
+                              )}
+                              {airport.icao}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const next = results.filter((_, j) => j !== i);
+                                setResults(next.length ? next : []);
+                                setSelectedIcao(next.length ? (next[0].icao === airport.icao ? next[0].icao : selectedIcao ?? next[0].icao) : null);
+                              }}
+                              className="p-2 text-muted-foreground hover:text-destructive hover:bg-muted/80 rounded-sm shrink-0"
+                              title="Close tab"
+                            >
+                              <XIcon className="size-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {viewingAirport && (
                       <AIPResultCard
-                        key={`${airport.icao}-${airport.country}`}
-                        airport={airport}
-                        isSelected={viewingAirport?.icao === airport.icao && activeTabIndex === null}
-                        onSelect={
-                          airport.lat != null && airport.lon != null
-                            ? () => { setActiveTabIndex(null); setSelectedIcao(airport.icao); }
-                            : undefined
-                        }
-                        onAddToList={airport.lat != null && airport.lon != null ? () => addToSaved(airport) : undefined}
-                        isInList={savedAirports.some((a) => a.icao === airport.icao)}
+                        key={`${viewingAirport.icao}-${viewingAirport.country}`}
+                        airport={viewingAirport}
+                        isSelected={true}
+                        onAddToList={viewingAirport.lat != null && viewingAirport.lon != null ? () => addToSaved(viewingAirport) : undefined}
+                        isInList={savedAirports.some((a) => a.icao === viewingAirport.icao)}
                       />
-                    ))}
+                    )}
                   </div>
                 )}
               </div>

@@ -587,11 +587,9 @@ export default function AIPPortalPage() {
                             size="sm"
                             className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
                             onClick={() => {
-                              runBrowseLoading(() => {
-                                setSelectedRegion(r.region);
-                                setSelectedCountry("");
-                                setBrowseStep(2);
-                              });
+                              setSelectedRegion(r.region);
+                              setSelectedCountry("");
+                              setBrowseStep(2);
                             }}
                           >
                             {r.region}
@@ -627,10 +625,8 @@ export default function AIPPortalPage() {
                             className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
                             style={{ animationDelay: `${i * 30}ms` }}
                             onClick={() => {
-                              runBrowseLoading(() => {
-                                setBrowseSelectedCountry(c);
-                                setBrowseStep(3);
-                              });
+                              setBrowseSelectedCountry(c);
+                              setBrowseStep(3);
                             }}
                           >
                             {getCountryFlagUrl(c) && (

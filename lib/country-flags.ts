@@ -35,6 +35,21 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   "Pakistan": "pk",
   "South Korea": "kr",
   "Myanmar": "mm",
+  // AIP data countries (region/country search)
+  "Iran": "ir",
+  "Austria": "at",
+  "Azerbaijan": "az",
+  "Bhutan": "bt",
+  "Bulgaria": "bg",
+  "Cuba": "cu",
+  "Czech Republic": "cz",
+  "Denmark": "dk",
+  "Ireland": "ie",
+  "Italy": "it",
+  "Japan": "jp",
+  "Libya": "ly",
+  "Maldives": "mv",
+  "Nepal": "np",
 };
 
 const FLAG_CDN = "https://flagcdn.com";

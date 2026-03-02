@@ -278,12 +278,11 @@ export default function AIPPortalPage() {
     if (hasCache && !syncRequested) return;
 
     const isSync = syncRequested;
-    setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
     setNotamsLoadingIcao(icao);
     if (isSync) setNotamsSyncingIcao(icao);
     // Only sync=1 when user pressed Sync; otherwise use stored/cached data from S3
-    const url = `/api/notams?icao=${encodeURIComponent(icao)}${isSync ? "&sync=1" : ""}`;
-    fetch(url)
+    const url = `/api/notams?icao=${encodeURIComponent(icao)}${isSync ? "&sync=1&_t=" + Date.now() : ""}`;
+    fetch(url, isSync ? { cache: "no-store" } : undefined)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
@@ -299,6 +298,7 @@ export default function AIPPortalPage() {
       .finally(() => {
         setNotamsLoadingIcao(null);
         if (isSync) setNotamsSyncingIcao(null);
+        setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
   }, [viewingAirport?.icao, viewingAirport?.lat, syncRequestedIcao, notamsCache]);
 

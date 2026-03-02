@@ -25,13 +25,26 @@ function progress(msg) {
   if (jsonMode) console.error(line.trim());
 }
 
+/** Remove CrewBriefing footer lines (company policy / US Military excluded). */
+function stripFooterLines(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\s*NOTAMs excluded in accordance with FSP CLEARWAY company policy\s*/gi, '')
+    .replace(/\s*US Military NOTAMs excluded\.?\s*/gi, '')
+    .replace(/(\n---\s*)+$/g, '')
+    .replace(/^\s*---\s*\n?/g, '')
+    .trim();
+}
+
 /** Parse CrewBriefing NOTAM table text into same shape as FAA scraper. */
 function parseNotamText(rawText, icao) {
   const notams = [];
   if (!rawText || typeof rawText !== 'string') return notams;
 
+  const cleaned = stripFooterLines(rawText);
+
   // Split into blocks: |#n| or line starting with A\d{4}/\d{2} NOTAM
-  const blocks = rawText
+  const blocks = cleaned
     .split(/\|\#\d+\|\s*\-+/)
     .map((b) => b.trim())
     .filter(Boolean);
@@ -51,6 +64,7 @@ function parseNotamText(rawText, icao) {
 
     const eMatch = block.match(/E\)\s*([\s\S]*?)(?=\n[A-Z]\)|$)/);
     let condition = (eMatch ? eMatch[1].replace(/\s+/g, ' ').trim() : block).slice(0, 2000);
+    condition = stripFooterLines(condition);
 
     if (!block.includes('A)')) continue; // skip header/footer
     notams.push({

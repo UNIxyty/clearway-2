@@ -199,6 +199,8 @@ function AIPResultCard({
   );
 }
 
+type RegionEntry = { region: string; countries: string[] };
+
 export default function AIPPortalPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -206,6 +208,10 @@ export default function AIPPortalPage() {
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
+  const [regions, setRegions] = useState<RegionEntry[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [loadingCountry, setLoadingCountry] = useState(false);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
@@ -240,6 +246,35 @@ export default function AIPPortalPage() {
     setSelectedIcao(withCoords?.icao ?? results[0].icao);
   }, [results]);
 
+  useEffect(() => {
+    fetch("/api/regions")
+      .then((res) => res.json())
+      .then((data) => setRegions(data.regions ?? []))
+      .catch(() => setRegions([]));
+  }, []);
+
+  const countriesInRegion = useMemo(() => {
+    if (!selectedRegion) return [];
+    const r = regions.find((x) => x.region === selectedRegion);
+    return r?.countries ?? [];
+  }, [regions, selectedRegion]);
+
+  useEffect(() => {
+    if (!selectedCountry) {
+      setResults(null);
+      return;
+    }
+    setLoadingCountry(true);
+    fetch(`/api/airports?country=${encodeURIComponent(selectedCountry)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setResults(data.results ?? []);
+        setError(null);
+      })
+      .catch(() => setResults([]))
+      .finally(() => setLoadingCountry(false));
+  }, [selectedCountry]);
+
   const addToSaved = useCallback((airport: AIPAirport) => {
     setSavedAirports((prev) => {
       if (prev.some((a) => a.icao === airport.icao)) return prev;
@@ -269,7 +304,7 @@ export default function AIPPortalPage() {
     setSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch NOTAMs only when no cache for this icao, or user pressed Sync
+  // Fetch NOTAMs when user selects airport: auto-sync if no cache, else use cache (Sync button forces sync)
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !viewingAirport?.lat) return;
@@ -278,7 +313,7 @@ export default function AIPPortalPage() {
     const syncRequested = syncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
-    const isSync = syncRequested;
+    const isSync = syncRequested || !hasCache;
     setNotamsLoadingIcao(icao);
     if (isSync) {
       setNotamsSyncingIcao(icao);
@@ -439,6 +474,65 @@ export default function AIPPortalPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 px-4 sm:px-6">
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Browse by region and country
+              </p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Label htmlFor="region" className="sr-only">Region</Label>
+                  <select
+                    id="region"
+                    value={selectedRegion}
+                    onChange={(e) => {
+                      setSelectedRegion(e.target.value);
+                      setSelectedCountry("");
+                    }}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[140px]"
+                  >
+                    <option value="">Select region</option>
+                    {regions.map((r) => (
+                      <option key={r.region} value={r.region}>{r.region}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Label htmlFor="country" className="sr-only">Country</Label>
+                  <select
+                    id="country"
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    disabled={!selectedRegion || countriesInRegion.length === 0}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[160px]"
+                  >
+                    <option value="">Select country</option>
+                    {countriesInRegion.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  {selectedCountry && getCountryFlagUrl(selectedCountry) && (
+                    <img
+                      src={getCountryFlagUrl(selectedCountry)!}
+                      alt=""
+                      width={28}
+                      height={21}
+                      className="rounded-sm shrink-0 object-cover"
+                    />
+                  )}
+                </div>
+                {loadingCountry && <Spinner className="size-5 text-muted-foreground" />}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or search</span>
+              </div>
+            </div>
+
             <div className="flex justify-start items-center gap-2">
               <div className="flex-1 flex items-center min-w-0">
                 <Label htmlFor="search" className="sr-only">

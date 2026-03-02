@@ -24,7 +24,7 @@ const MARKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 42" 
 export default function AirportMap({ lat, lon, icao, name, className = "" }: AirportMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const flyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flyTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;

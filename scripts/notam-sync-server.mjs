@@ -19,6 +19,13 @@ const PORT = Number(process.env.NOTAM_SYNC_PORT) || 3001;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 120_000;
 
+// crewbriefing = CrewBriefing NOTAMs (default); faa = FAA NOTAM scraper
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "crewbriefing").toLowerCase();
+const SCRAPER_SCRIPT =
+  NOTAM_SCRAPER === "faa"
+    ? "scripts/notam-scraper.mjs"
+    : "scripts/crewbriefing-notams.mjs";
+
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
   const header = req.headers["x-sync-secret"];
@@ -36,7 +43,7 @@ async function runScraper(icao) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", "scripts/notam-scraper.mjs", "--json", icao],
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", SCRAPER_SCRIPT, "--json", icao],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
     let stderr = "";
@@ -116,7 +123,7 @@ const server = createServer(async (req, res) => {
     };
     const child = spawn(
       "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", "scripts/notam-scraper.mjs", "--json", icao],
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", SCRAPER_SCRIPT, "--json", icao],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
     let lastProgressSize = 0;
@@ -208,5 +215,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("NOTAM sync server listening on port", PORT);
+  console.log("NOTAM sync server listening on port", PORT, "| scraper:", SCRAPER_SCRIPT);
 });

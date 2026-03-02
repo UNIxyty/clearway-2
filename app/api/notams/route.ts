@@ -4,7 +4,12 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
-const SCRIPT_PATH = join(process.cwd(), "scripts", "notam-scraper.mjs");
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "crewbriefing").toLowerCase();
+const SCRIPT_PATH = join(
+  process.cwd(),
+  "scripts",
+  NOTAM_SCRAPER === "faa" ? "notam-scraper.mjs" : "crewbriefing-notams.mjs"
+);
 const RUN_TIMEOUT_MS = 90_000;
 const SYNC_TIMEOUT_MS = 120_000;
 const NOTAMS_BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;

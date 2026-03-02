@@ -5,8 +5,10 @@ This guide walks you through running the NOTAM scraper on an EC2 instance with a
 **Architecture:**
 
 1. **EC2** – Runs the scraper (Chrome + Xvfb), uploads NOTAM JSON to S3. Optionally runs a **sync server** so the portal can trigger a live scrape when a user requests an ICAO.
-2. **S3** – Stores one JSON file per airport, e.g. `s3://YOUR-BUCKET/notams/KJFK.json`.
+2. **S3** – Stores one JSON file per airport, e.g. `s3://YOUR-BUCKET/notams/DBBB.json`.
 3. **Portal** – Next.js app. When the user enters an ICAO (e.g. DBBB), the app calls the EC2 sync server to run the scraper live, then returns the fresh data. With `AWS_NOTAMS_BUCKET` set it can also read cached data from S3.
+
+**NOTAM source:** By default the scraper uses **CrewBriefing** (login → Extra WX → NOTAM search), which avoids FAA IP blocking. Set `NOTAM_SCRAPER=faa` to use the FAA NOTAM site instead (requires unblocked access).
 
 ---
 
@@ -152,7 +154,7 @@ The script uses `@aws-sdk/client-s3` and `playwright` from `node_modules`; with 
 
 ## Step 5: Run the scraper with Xvfb and S3 upload
 
-On the EC2 instance, set your bucket and region, then run with a virtual display:
+On the EC2 instance, set your bucket, region, and (for CrewBriefing) credentials:
 
 ```bash
 cd ~/clearway-2
@@ -161,15 +163,26 @@ export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
 export USE_HEADED=1
 export CHROME_CHANNEL=chrome
+
+# Required for CrewBriefing (default scraper)
+export CREWBRIEFING_USER=your-crewbriefing-username
+export CREWBRIEFING_PASSWORD=your-crewbriefing-password
 ```
 
 Run for one airport (e.g. DBBB). Use `xvfb-run` so Chrome has a virtual display:
 
+**CrewBriefing (default):**
 ```bash
+xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/crewbriefing-notams.mjs --json DBBB
+```
+
+**FAA (if you set NOTAM_SCRAPER=faa):**
+```bash
+export NOTAM_SCRAPER=faa
 xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json DBBB
 ```
 
-- With `USE_HEADED=1`, the script runs Chrome in “headed” mode on display `:99` (provided by `xvfb-run`), which often avoids FAA “Access Denied”.
+- With `USE_HEADED=1`, the script runs Chrome in “headed” mode on display `:99` (provided by `xvfb-run`).
 - With `AWS_S3_BUCKET` set, the script uploads to `s3://myapp-notams-prod/notams/DBBB.json`.
 
 Check S3: in the bucket you should see `notams/DBBB.json`. If you see “Uploaded to s3://…” in the script output, it worked.
@@ -189,7 +202,7 @@ Then the object key will be `my-notams/DBBB.json`. The portal’s `AWS_NOTAMS_PR
 
 So that **each time a user enters an ICAO in the portal**, the app triggers the scraper on EC2 and returns fresh data from the FAA:
 
-1. On the EC2 instance, set env and start the sync server (same bucket as in Step 5):
+1. On the EC2 instance, set env and start the sync server (same bucket and CrewBriefing credentials as in Step 5):
 
 ```bash
 cd ~/clearway-2
@@ -197,10 +210,12 @@ export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
 export CHROME_CHANNEL=chrome
 export SYNC_SECRET=choose-a-long-random-secret-string
+export CREWBRIEFING_USER=your-crewbriefing-username
+export CREWBRIEFING_PASSWORD=your-crewbriefing-password
 node scripts/notam-sync-server.mjs
 ```
 
-The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
+The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). By default it runs the **CrewBriefing** scraper (`scripts/crewbriefing-notams.mjs`). Set `NOTAM_SCRAPER=faa` to use the FAA scraper instead. It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
 
 2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
 
@@ -292,22 +307,22 @@ To refresh NOTAMs periodically, use cron on the EC2 instance.
 crontab -e
 ```
 
-2. Add a line to run every 6 hours for one or more ICAOs (adjust path and bucket to match your setup):
+2. Add a line to run every 6 hours for one or more ICAOs (adjust path and bucket to match your setup). For CrewBriefing (default), set credentials:
 
 ```bash
-0 */6 * * * cd /home/ubuntu/clearway-2 && AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json DBBB >> /var/log/notam.log 2>&1
+0 */6 * * * cd /home/ubuntu/clearway-2 && AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/crewbriefing-notams.mjs --json DBBB >> /var/log/notam.log 2>&1
 ```
 
 For multiple airports, either add more lines (one per ICAO) or a small wrapper script that loops over ICAOs and calls the scraper for each.
 
-Example wrapper `~/clearway-2/scripts/run-notams.sh`:
+Example wrapper `~/clearway-2/scripts/run-notams.sh` (CrewBriefing):
 
 ```bash
 #!/bin/bash
 cd /home/ubuntu/clearway-2
-export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx
 for icao in DBBB KJFK EGLL; do
-  xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json "$icao" >> /var/log/notam.log 2>&1
+  xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/crewbriefing-notams.mjs --json "$icao" >> /var/log/notam.log 2>&1
   sleep 10
 done
 ```
@@ -352,7 +367,7 @@ When you press **Sync**, the portal calls your EC2 sync server to run a fresh sc
    export AWS_S3_BUCKET=your-bucket AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
    node scripts/notam-sync-server.mjs
    ```
-   You should see: `NOTAM sync server listening on port 3001`.
+   You should see: `NOTAM sync server listening on port 3001 | scraper: scripts/crewbriefing-notams.mjs`. Set `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD` in the same shell so the scraper can log in.
 
 2. **Port 3001 is open** – In EC2 → Security groups → your instance’s group → Inbound rules: allow **TCP 3001** from **0.0.0.0/0** (or your Vercel region IPs if you prefer).
 
@@ -374,7 +389,8 @@ After changing anything, redeploy the Vercel app so env vars are applied. When s
 
 | Problem | What to check |
 |--------|----------------|
-| **FAA “Access Denied”** | Run with `USE_HEADED=1` and `xvfb-run`. If it still blocks, try another region or a different IP; avoid violating FAA ToS. |
+| **FAA “Access Denied”** | Use CrewBriefing (default): set `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD`. Or run FAA with `USE_HEADED=1` and `xvfb-run`; if it still blocks, try another region or set `NOTAM_SCRAPER=crewbriefing`. |
+| **CrewBriefing login failed** | Ensure `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD` are set on EC2 (and in the same env as the sync server). |
 | **S3 upload fails (access denied)** | EC2 instance profile must be **NotamScraperEC2Role** with `s3:PutObject` (and optionally `s3:GetObject`) on `arn:aws:s3:::BUCKET/notams/*`. No need for `AWS_ACCESS_KEY_ID` on EC2 if using the role. |
 | **Portal returns no NOTAMs** | 1) Set `AWS_NOTAMS_BUCKET` (and optionally `AWS_NOTAMS_PREFIX`) in Vercel. 2) Ensure the object exists: `s3://BUCKET/notams/ICAO.json`. 3) Run the scraper once for that ICAo on EC2. 4) If using keys, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in Vercel and ensure that IAM user can `s3:GetObject` on that prefix. |
 | **Chrome not found** | Install Chrome (Step 3 user data or manually) and set `CHROME_CHANNEL=chrome`. Or install Chromium: `apt-get install -y chromium-browser` and remove `CHROME_CHANNEL` so Playwright uses Chromium. |
@@ -393,6 +409,9 @@ After changing anything, redeploy the Vercel app so env vars are applied. When s
 | `AWS_S3_PREFIX` | No | `notams` | Key prefix; default `notams` → `notams/ICAO.json`. |
 | `USE_HEADED` | Recommended | `1` | Run Chrome with virtual display (use with Xvfb). |
 | `CHROME_CHANNEL` | No | `chrome` | Use system Chrome instead of Playwright Chromium. |
+| `CREWBRIEFING_USER` | Yes (CrewBriefing) | (username) | CrewBriefing login (default scraper). |
+| `CREWBRIEFING_PASSWORD` | Yes (CrewBriefing) | (password) | CrewBriefing password. |
+| `NOTAM_SCRAPER` | No | `crewbriefing` | `crewbriefing` (default) or `faa`. |
 
 **On EC2 (sync server only):**
 
@@ -400,6 +419,7 @@ After changing anything, redeploy the Vercel app so env vars are applied. When s
 |----------|----------|---------|---------|
 | `SYNC_SECRET` | Recommended | (long random string) | Secret for `/sync`; Vercel sends it in `X-Sync-Secret`. |
 | `NOTAM_SYNC_PORT` | No | `3001` | Port the sync server listens on (default 3001). |
+| `CREWBRIEFING_USER` / `CREWBRIEFING_PASSWORD` | Yes (if using CrewBriefing) | (same as scraper) | Passed through to the scraper when sync runs. |
 
 **On Vercel / Next.js (portal):**
 

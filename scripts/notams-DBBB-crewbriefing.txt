@@ -1,0 +1,58 @@
+NOTAM search performed 2026-03-02 22:30:00.
+
+NOTAM number within each section shown above each NOTAM followed by separation line.
+If available, NOTAM uniform abbreviation for Q-code second and third letters signification
+shown in sharp brackets on right top of each NOTAM.
+In same sharp brackets, uniform abbreviation is followed by vertical line and number of days
+relative to NOTAM in effect time. Negative number indicates number of days till NOTAM will be effective.
+Company filter applied.
+---
+NOTAMs excluded in accordance with FSP CLEARWAY company policy
+US Military NOTAMs excluded.
+
+================================================================================
+Airport  DBBB
+================================================================================
+
+|#1|----------------------------------------------------------------------------
+A0037/26 NOTAMN                                                  [ils llz | -13]
+Q) DGAC/QILAS/I/NBO/A/000/999/0621N00223E005
+A) DBBB B) 2603160700 C) 2603181300
+D) 0700-1300
+E) ILS RWY 24, LOC PART UNSERVICEABLE DUE TO MAINTENANCE.
+
+|#2|----------------------------------------------------------------------------
+A0036/26 NOTAMN                                                    [ils gp | -6]
+Q) DGAC/QIGAS/I/NBO/A/000/999/0621N00223E005
+A) DBBB B) 2603090700 C) 2603101300
+D) 0700-1300
+E) ILS RWY 24, GP PART UNSERVICEABLE DUE TO MAINTENANCE.
+
+|#3|----------------------------------------------------------------------------
+A0035/26 NOTAMN                                                   [ils dme | -2]
+Q) DGAC/QIDAS/I/NBO/A/000/999/0621N00223E005
+A) DBBB B) 2603050700 C) 2603131300
+D) 05 12 13 0700-1300
+E) ILS RWY 24, DME PART UNSERVICEABLE DUE TO MAINTENANCE.
+
+|#4|----------------------------------------------------------------------------
+A0034/26 NOTAMN                                                       [dme | -1]
+Q) DGAC/QNDAS/IV/BO/AE/000/999/0622N00224E025
+A) DBBB B) 2603040700 C) 2603041300
+E) VOR/DME TYE 113.3MHZ/CH80X, DME PART UNSERVICEABLE DUE TO
+MAINTENANCE.
+
+|#5|----------------------------------------------------------------------------
+A0033/26 NOTAMN                                                [vor | NEW TODAY]
+Q) DGAC/QNVAS/IV/BO/AE/000/999/0622N00224E025
+A) DBBB B) 2603020700 C) 2603031300
+D) 0700-1300
+E) VOR/DME TYE 113.3MHZ/CH80X, VOR PART UNSERVICEABLE DUE TO
+MAINTENANCE.
+
+|#6|----------------------------------------------------------------------------
+A0030/26 NOTAMN                                                        [rwy | 9]
+Q) DGAC/QMRLC/IV/NBO/A/000/999/0621N00223E005
+A) DBBB B) 2602212100 C) 2604150700
+D) SAT 2100-2359, SUN 0000-0200, WED 0200-0700
+E) RWY 06/24 CLOSED DUE TO WIP.

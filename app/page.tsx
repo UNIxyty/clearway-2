@@ -294,7 +294,7 @@ export default function AIPPortalPage() {
         }
       })
       .catch((err) => {
-        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"`, updatedAt: null } }));
+        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
       })
       .finally(() => {
         setNotamsLoadingIcao(null);

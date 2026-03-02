@@ -1,5 +1,5 @@
 [
-  { "region": "Africa", "countries": ["Libya"] },
+  { "region": "Africa", "countries": ["Benin", "Libya"] },
   { "region": "Asia", "countries": ["Azerbaijan", "Bhutan", "Iran", "Japan", "Maldives", "Nepal"] },
   { "region": "Europe", "countries": ["Austria", "Bulgaria", "Czech Republic", "Denmark", "Ireland", "Italy"] },
   { "region": "North America & Caribbean", "countries": ["Cuba"] }

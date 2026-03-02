@@ -505,7 +505,7 @@ export default function AIPPortalPage() {
               Search airport data
             </CardTitle>
             <CardDescription className="text-muted-foreground text-sm">
-              Enter airport code (ICAO) or name (e.g. DBBB, CADJEHOUN, Benin)
+              Enter airport code (ICAO) or name (e.g. OIAA, Iran, ABADAN)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 px-4 sm:px-6">

@@ -73,6 +73,7 @@ async function readFromS3(icao) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
+  const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
 
   if (url.pathname !== "/sync" && url.pathname !== "/sync/") {
     res.writeHead(404, { "Content-Type": "application/json" });
@@ -89,6 +90,70 @@ const server = createServer(async (req, res) => {
   if (!requireAuth(req)) {
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Unauthorized" }));
+    return;
+  }
+
+  if (stream) {
+    // SSE stream: send progress steps then final result
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    const send = (obj) => res.write("data: " + JSON.stringify(obj) + "\n\n");
+
+    const env = { ...process.env, USE_HEADED: "1", CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome" };
+    const child = spawn(
+      "xvfb-run",
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", "scripts/notam-scraper.mjs", "--json", icao],
+      { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    let stderrBuf = "";
+    const flushProgress = () => {
+      const lines = stderrBuf.split("\n");
+      stderrBuf = lines.pop() ?? "";
+      for (const line of lines) {
+        const m = line.match(/^PROGRESS:(.*)$/);
+        if (m) send({ step: m[1].trim() });
+      }
+    };
+    child.stderr?.on("data", (chunk) => {
+      stderrBuf += chunk.toString();
+      flushProgress();
+    });
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      send({ error: "Scraper timed out" });
+      res.end();
+    }, RUN_TIMEOUT_MS);
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      flushProgress();
+      if (code !== 0) {
+        send({ error: "Scraper failed", detail: "Exit code " + code });
+        res.end();
+        return;
+      }
+      readFromS3(icao)
+        .then((data) => {
+          send({
+            done: true,
+            icao: data.icao ?? icao,
+            notams: data.notams ?? [],
+            updatedAt: data.updatedAt ?? null,
+          });
+          res.end();
+        })
+        .catch((err) => {
+          send({ error: "S3 read failed", detail: err.message });
+          res.end();
+        });
+    });
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      send({ error: err.message });
+      res.end();
+    });
     return;
   }
 

@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const icao = searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = searchParams.get("sync") === "1" || searchParams.get("sync") === "true";
+  const stream = searchParams.get("stream") === "1" || searchParams.get("stream") === "true";
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json(
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       );
     }
-    const syncUrl = `${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
+    const syncUrl = `${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
     try {
@@ -77,6 +78,16 @@ export async function GET(request: NextRequest) {
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
       clearTimeout(timeoutId);
+      // Stream mode: forward SSE from EC2 to client
+      if (stream && res.ok && res.body) {
+        return new Response(res.body, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
+      }
       if (res.ok) {
         const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
         return NextResponse.json({

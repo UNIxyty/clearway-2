@@ -208,7 +208,8 @@ export default function AIPPortalPage() {
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
-  const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null); // true when fetch is with sync=1
+  const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
+  const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
   const [savedAirports, setSavedAirports] = useState<AIPAirport[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number | null>(null);
@@ -279,10 +280,78 @@ export default function AIPPortalPage() {
 
     const isSync = syncRequested;
     setNotamsLoadingIcao(icao);
-    if (isSync) setNotamsSyncingIcao(icao);
-    // Only sync=1 when user pressed Sync; otherwise use stored/cached data from S3
-    const url = `/api/notams?icao=${encodeURIComponent(icao)}${isSync ? "&sync=1&_t=" + Date.now() : ""}`;
-    fetch(url, isSync ? { cache: "no-store" } : undefined)
+    if (isSync) {
+      setNotamsSyncingIcao(icao);
+      setNotamsSyncSteps([]);
+    }
+
+    if (isSync) {
+      // Stream sync: get progress steps from server, then final result
+      const url = `/api/notams?icao=${encodeURIComponent(icao)}&sync=1&stream=1&_t=${Date.now()}`;
+      fetch(url, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok || !res.body) {
+            const text = await res.text();
+            const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? text || "Sync failed");
+            setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
+            return;
+          }
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              const events = buf.split(/\n\n/);
+              buf = events.pop() ?? "";
+              for (const event of events) {
+                const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+                if (!dataLine) continue;
+                try {
+                  const data = JSON.parse(dataLine.slice(6));
+                  if (data.step) {
+                    setNotamsSyncSteps((prev) => [...prev, data.step]);
+                  } else if (data.done) {
+                    setNotamsCache((c) => ({
+                      ...c,
+                      [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null },
+                    }));
+                    return;
+                  } else if (data.error) {
+                    setNotamsCache((c) => ({
+                      ...c,
+                      [icao]: { notams: [], error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                    }));
+                    return;
+                  }
+                } catch (_) {}
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        })
+        .catch((err) => {
+          setNotamsCache((c) => ({
+            ...c,
+            [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null },
+          }));
+        })
+        .finally(() => {
+          setNotamsLoadingIcao(null);
+          setNotamsSyncingIcao(null);
+          setNotamsSyncSteps([]);
+          setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        });
+      return;
+    }
+
+    // Non-sync: plain JSON fetch
+    const url = `/api/notams?icao=${encodeURIComponent(icao)}`;
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
@@ -297,7 +366,6 @@ export default function AIPPortalPage() {
       })
       .finally(() => {
         setNotamsLoadingIcao(null);
-        if (isSync) setNotamsSyncingIcao(null);
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
   }, [viewingAirport?.icao, viewingAirport?.lat, syncRequestedIcao, notamsCache]);
@@ -546,10 +614,30 @@ export default function AIPPortalPage() {
                 </div>
                 <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
                   {notamsLoading && (
-                    <div className="flex flex-col items-center justify-center gap-2 py-6 text-sm text-muted-foreground text-center">
-                      <Spinner className="size-4" />
-                      <span>{notamsSyncing ? "Syncing live from FAA…" : "Loading NOTAMs…"}</span>
-                      {notamsSyncing && <span className="text-xs">Running scraper · can take 1–2 min</span>}
+                    <div className="flex flex-col gap-3 py-4 text-sm text-muted-foreground">
+                      {notamsSyncing ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0" />
+                            <span className="font-medium">Syncing live from FAA…</span>
+                          </div>
+                          {notamsSyncSteps.length > 0 && (
+                            <ul className="space-y-1 pl-6 list-disc text-xs">
+                              {notamsSyncSteps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {notamsSyncSteps.length === 0 && (
+                            <span className="text-xs">Starting scraper · can take 1–2 min</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Spinner className="size-4" />
+                          <span>Loading NOTAMs…</span>
+                        </>
+                      )}
                     </div>
                   )}
                   {!notamsLoading && notamsUpdatedAt && (

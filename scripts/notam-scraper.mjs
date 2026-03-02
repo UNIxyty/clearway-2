@@ -21,6 +21,11 @@ function log(...args) {
   else console.log(...args);
 }
 
+/** Emit a progress step for sync server (stderr, prefix PROGRESS: so stream can parse) */
+function progress(msg) {
+  if (jsonMode) console.error("PROGRESS:" + msg);
+}
+
 let jsonMode = false;
 let notamsOutput = [];
 
@@ -33,6 +38,7 @@ async function main() {
     process.exit(1);
   }
 
+  progress("Initializing browser");
   const { chromium } = await import('playwright');
   const useHeaded = process.env.USE_HEADED === '1' || process.env.DISPLAY;
   const browser = await chromium.launch({
@@ -52,12 +58,14 @@ async function main() {
   const downloadDir = join(process.cwd(), 'scripts');
 
   try {
+    progress("Navigating to FAA NOTAM Search");
     log('Navigating to FAA NOTAM Search...');
     await page.goto(NOTAM_SEARCH_URL, { waitUntil: 'networkidle', timeout: 30000 });
 
     // Step 1: Handle consent / disclaimer if present
     const disclaimerUrl = 'disclaimer.html';
     if (page.url().includes(disclaimerUrl)) {
+      progress("Accepting consent / disclaimer");
       log('Disclaimer page detected. Looking for consent control...');
       await page.waitForTimeout(2000);
 
@@ -97,6 +105,7 @@ async function main() {
     }
 
     // Step 2: Find search bar and enter ICAO
+    progress("Entering " + icao);
     log('Searching for ICAO:', icao);
     const searchSelectors = [
       'input[placeholder*="ICAO"]',
@@ -137,10 +146,12 @@ async function main() {
       log(body.slice(0, 1500));
     } else {
       // Step 3: Trigger search (button or Enter)
+      progress("Running search");
       await page.keyboard.press('Enter');
       await page.waitForTimeout(4000);
 
       // Step 4: Click "Select all" (checkbox/button in panel-heading .btn-group)
+      progress("Selecting all NOTAMs");
       const selectAllBtn = page.locator('.panel-heading .pull-right .btn-group .btn').first();
       if (await selectAllBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await selectAllBtn.click();
@@ -152,6 +163,7 @@ async function main() {
       }
 
       // Step 5: Click Excel export and wait for download
+      progress("Exporting to Excel");
       const excelBtn = page.locator('.panel-heading .pull-right .btn').filter({ has: page.locator('.icon-excel') });
       let downloadedPath = null;
       if (await excelBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -179,6 +191,7 @@ async function main() {
       }
 
       // Step 6: Parse Excel and extract NOTAMs
+      progress("Parsing NOTAMs");
       if (downloadedPath && existsSync(downloadedPath)) {
         const xlsx = await import('xlsx');
         const lib = xlsx.default || xlsx;
@@ -265,11 +278,13 @@ async function main() {
   } finally {
     await browser.close();
   }
+  progress("Done");
   if (jsonMode && notamsOutput.length >= 0) {
     console.log(JSON.stringify(notamsOutput));
   }
 
   if (process.env.AWS_S3_BUCKET && notamsOutput.length >= 0) {
+    progress("Uploading to S3");
     try {
       const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
       const bucket = process.env.AWS_S3_BUCKET;

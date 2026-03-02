@@ -212,6 +212,7 @@ export default function AIPPortalPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
   const [regions, setRegions] = useState<RegionEntry[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
@@ -442,7 +443,13 @@ export default function AIPPortalPage() {
     try {
       await runFakeLoadingSteps();
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
+      let data: { results?: AIPAirport[]; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        setError(res.ok ? "Invalid response from server." : "Search failed. Please try again.");
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error || "Search failed");
@@ -466,6 +473,7 @@ export default function AIPPortalPage() {
     } finally {
       setLoading(false);
       setStepIndex(0);
+      setHasSearched(true);
     }
   }, [query, runFakeLoadingSteps]);
 
@@ -833,17 +841,20 @@ export default function AIPPortalPage() {
               </div>
             )}
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-
-            {!loading && results !== null && (
+            {!loading && hasSearched && (
               <div className="space-y-3 pt-2">
-                {results.length === 0 ? (
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
+                {!error && results === null && (
+                  <p className="text-sm text-muted-foreground">Search failed. Try again.</p>
+                )}
+                {!error && results !== null && results.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No airports found. Try another code or name.
+                    No airports found. Try ICAO (e.g. OIAA), airport name, or country.
                   </p>
-                ) : results.length === 1 ? (
+                )}
+                {!error && results !== null && results.length === 1 && (
                   <div className="space-y-3">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       1 result retrieved
@@ -856,7 +867,8 @@ export default function AIPPortalPage() {
                       isInList={savedAirports.some((a) => a.icao === results[0].icao)}
                     />
                   </div>
-                ) : (
+                )}
+                {!error && results !== null && results.length > 1 && (
                   <div className="space-y-3">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       {results.length} airports — switch tab to view

@@ -6,8 +6,11 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const SCRIPT_PATH = join(process.cwd(), "scripts", "notam-scraper.mjs");
 const RUN_TIMEOUT_MS = 90_000;
+const SYNC_TIMEOUT_MS = 120_000;
 const NOTAMS_BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const NOTAMS_PREFIX = process.env.AWS_NOTAMS_PREFIX || "notams";
+const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, ""); // base URL of EC2 sync server
+const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 
 export type NotamItem = {
   location: string;
@@ -18,9 +21,35 @@ export type NotamItem = {
   condition: string;
 };
 
+async function getFromS3(icao: string): Promise<{ icao: string; notams: NotamItem[]; updatedAt: string | null } | null> {
+  if (!NOTAMS_BUCKET) return null;
+  try {
+    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    const key = `${NOTAMS_PREFIX}/${icao}.json`;
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: NOTAMS_BUCKET, Key: key })
+    );
+    const body = await res.Body?.transformToString();
+    if (!body) return null;
+    const data = JSON.parse(body) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
+    return {
+      icao: data.icao ?? icao,
+      notams: data.notams ?? [],
+      updatedAt: data.updatedAt ?? null,
+    };
+  } catch (e: unknown) {
+    const err = e as { name?: string; Code?: string };
+    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
+      console.error("S3 NOTAM read failed:", e);
+    }
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const icao = searchParams.get("icao")?.trim().toUpperCase() ?? "";
+  const sync = searchParams.get("sync") === "1" || searchParams.get("sync") === "true";
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json(
@@ -29,27 +58,39 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (NOTAMS_BUCKET) {
+  // When sync=1 and NOTAM_SYNC_URL is set, trigger live scrape on EC2 and return fresh data
+  if (sync && NOTAM_SYNC_URL) {
+    const syncUrl = `${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
     try {
-      const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-      const key = `${NOTAMS_PREFIX}/${icao}.json`;
-      const res = await client.send(
-        new GetObjectCommand({ Bucket: NOTAMS_BUCKET, Key: key })
-      );
-      const body = await res.Body?.transformToString();
-      if (body) {
-        const data = JSON.parse(body) as { icao?: string; notams?: NotamItem[] };
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
         return NextResponse.json({
           icao: data.icao ?? icao,
           notams: data.notams ?? [],
+          updatedAt: data.updatedAt ?? null,
         });
       }
-    } catch (e: unknown) {
-      const err = e as { name?: string; Code?: string };
-      if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-        console.error("S3 NOTAM read failed:", e);
-      }
+      const errBody = await res.text();
+      console.error("NOTAM sync failed:", res.status, errBody);
+    } catch (e) {
+      console.error("NOTAM sync request failed:", e);
+      // Fall through to S3 read
     }
+  }
+
+  const fromS3 = await getFromS3(icao);
+  if (fromS3) {
+    return NextResponse.json({
+      icao: fromS3.icao,
+      notams: fromS3.notams,
+      updatedAt: fromS3.updatedAt,
+    });
   }
 
   if (!existsSync(SCRIPT_PATH)) {
@@ -118,7 +159,7 @@ export async function GET(request: NextRequest) {
       try {
         const lastLine = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
         const notams: NotamItem[] = JSON.parse(lastLine);
-        resolve(NextResponse.json({ icao, notams }));
+        resolve(NextResponse.json({ icao, notams, updatedAt: null }));
       } catch {
         resolve(
           NextResponse.json(

@@ -206,8 +206,9 @@ export default function AIPPortalPage() {
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedIcao, setSelectedIcao] = useState<string | null>(null);
-  const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string }>>({});
+  const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
+  const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null); // true when fetch is with sync=1
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
   const [savedAirports, setSavedAirports] = useState<AIPAirport[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState<number | null>(null);
@@ -224,8 +225,10 @@ export default function AIPPortalPage() {
 
   const cachedNotams = viewingAirport ? notamsCache[viewingAirport.icao] : null;
   const notamsLoading = viewingAirport ? notamsLoadingIcao === viewingAirport.icao : false;
+  const notamsSyncing = viewingAirport ? notamsSyncingIcao === viewingAirport.icao : false;
   const notams = cachedNotams?.notams ?? null;
   const notamsError = cachedNotams?.error ?? null;
+  const notamsUpdatedAt = cachedNotams?.updatedAt ?? null;
 
   useEffect(() => {
     if (!results?.length) {
@@ -274,22 +277,29 @@ export default function AIPPortalPage() {
     const syncRequested = syncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
+    const isSync = syncRequested;
     setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
     setNotamsLoadingIcao(icao);
-    fetch(`/api/notams?icao=${encodeURIComponent(icao)}`)
+    if (isSync) setNotamsSyncingIcao(icao);
+    // Only sync=1 when user pressed Sync; otherwise use stored/cached data from S3
+    const url = `/api/notams?icao=${encodeURIComponent(icao)}${isSync ? "&sync=1" : ""}`;
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
           const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error ?? "Failed");
-          setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail } }));
+          setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
         } else {
-          setNotamsCache((c) => ({ ...c, [icao]: { notams: data.notams ?? [], error: null } }));
+          setNotamsCache((c) => ({ ...c, [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null } }));
         }
       })
       .catch((err) => {
-        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}` } }));
+        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"`, updatedAt: null } }));
       })
-      .finally(() => setNotamsLoadingIcao(null));
+      .finally(() => {
+        setNotamsLoadingIcao(null);
+        if (isSync) setNotamsSyncingIcao(null);
+      });
   }, [viewingAirport?.icao, viewingAirport?.lat, syncRequestedIcao, notamsCache]);
 
   const runFakeLoadingSteps = useCallback(async () => {
@@ -529,7 +539,7 @@ export default function AIPPortalPage() {
                     className="h-7 px-2 text-muted-foreground hover:text-foreground"
                     onClick={() => requestSyncNotams(viewingAirport.icao)}
                     disabled={notamsLoading}
-                    title="Refresh NOTAMs from source"
+                    title="Sync now: scrape FAA and refresh data"
                   >
                     <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
                   </Button>
@@ -538,9 +548,14 @@ export default function AIPPortalPage() {
                   {notamsLoading && (
                     <div className="flex flex-col items-center justify-center gap-2 py-6 text-sm text-muted-foreground text-center">
                       <Spinner className="size-4" />
-                      <span>Loading NOTAMs…</span>
-                      <span className="text-xs">Can take 1–2 min · uses FAA site (Chrome required)</span>
+                      <span>{notamsSyncing ? "Syncing live from FAA…" : "Loading NOTAMs…"}</span>
+                      {notamsSyncing && <span className="text-xs">Running scraper · can take 1–2 min</span>}
                     </div>
+                  )}
+                  {!notamsLoading && notamsUpdatedAt && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Last updated: {new Date(notamsUpdatedAt).toLocaleString()}
+                    </p>
                   )}
                   {!notamsLoading && notamsError && (
                     <div className="space-y-2 py-2">

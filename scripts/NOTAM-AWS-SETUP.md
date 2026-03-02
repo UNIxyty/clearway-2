@@ -1,112 +1,385 @@
-# NOTAM scraper on AWS (EC2 + virtual display)
+# NOTAM scraper on AWS – step-by-step setup
 
-Use an **EC2 instance** with a **virtual display (Xvfb)** so the browser runs in “headed” mode and is less likely to be blocked by the FAA site. The scraper uploads NOTAMs to **S3**; your portal reads from S3.
+This guide walks you through running the NOTAM scraper on an EC2 instance with a virtual display (Xvfb), uploading results to S3, and having your portal (e.g. on Vercel) read NOTAMs from S3 via the API.
 
-## Architecture
+**Architecture:**
 
-1. **EC2 worker** – Ubuntu, runs Chrome with Xvfb (virtual display), executes the NOTAM scraper.
-2. **S3 bucket** – Stores NOTAM JSON per ICAO, e.g. `s3://your-bucket/notams/DBBB.json`.
-3. **Portal** – Next.js API reads NOTAMs from S3 when `AWS_NOTAMS_BUCKET` is set (no local scraper run).
+1. **EC2** – Runs the scraper (Chrome + Xvfb), uploads NOTAM JSON to S3. Optionally runs a **sync server** so the portal can trigger a live scrape when a user requests an ICAO.
+2. **S3** – Stores one JSON file per airport, e.g. `s3://YOUR-BUCKET/notams/KJFK.json`.
+3. **Portal** – Next.js app. When the user enters an ICAO (e.g. DBBB), the app calls the EC2 sync server to run the scraper live, then returns the fresh data. With `AWS_NOTAMS_BUCKET` set it can also read cached data from S3.
 
-## 1. Create S3 bucket
+---
 
-- In AWS Console: S3 → Create bucket (e.g. `your-app-notams`).
-- (Optional) Restrict access with bucket policy; ensure the EC2 instance role and the Next.js app (if on AWS) can read/write as needed.
+## Step 1: Create the S3 bucket
 
-## 2. Launch EC2 instance
+1. In **AWS Console** go to **S3** → **Create bucket**.
+2. **Bucket name:** e.g. `myapp-notams-prod` (must be globally unique).
+3. **Region:** e.g. `us-east-1` (use the same region as EC2 and, if applicable, your app).
+4. Leave **Block Public Access** enabled (the portal will use IAM to read).
+5. Click **Create bucket**.
 
-- **AMI:** Ubuntu 22.04 LTS.
-- **Instance type:** e.g. `t3.small` (1 vCPU, 2 GB RAM).
-- **IAM role:** Attach a role that has `s3:PutObject`, `s3:GetObject` on your NOTAM bucket.
-- **User data** (optional) – or run the install steps once via SSH:
+No bucket policy is required if you use IAM roles (recommended). The EC2 role will need write access; the portal (e.g. Vercel) will need read access via IAM user/role or env credentials.
+
+---
+
+## Step 2: IAM role for EC2 (scraper uploads to S3)
+
+Create the policy **first**, then create the role and attach that policy (no “Create policy” button needed during role creation).
+
+### 2a. Create the policy
+
+1. In **AWS Console** go to **IAM** → **Policies** (left sidebar).
+2. Click **Create policy**.
+3. Open the **JSON** tab, delete the default text, and paste this (replace `myapp-notams-prod` with your bucket name):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::myapp-notams-prod/notams/*"
+    }
+  ]
+}
+```
+
+4. Click **Next**.
+5. **Policy name:** e.g. `NotamScraperS3Upload` → **Create policy**.
+
+### 2b. Create the role and attach the policy
+
+1. Go to **IAM** → **Roles** → **Create role**.
+2. **Trusted entity type:** **AWS service**.
+3. **Use case:** **EC2** → **Next**.
+4. **Permissions:** In the search box type `NotamScraperS3Upload`, tick the checkbox next to your policy → **Next**.
+5. **Role name:** e.g. `NotamScraperEC2Role` → **Create role**.
+
+You’ll attach this role to the EC2 instance in Step 3.
+
+---
+
+## Step 3: Launch the EC2 instance
+
+1. **EC2** → **Launch instance**.
+2. **Name:** e.g. `notam-scraper`.
+3. **AMI:** **Ubuntu Server 22.04 LTS**.
+4. **Instance type:** **t3.small** (2 vCPU, 2 GB RAM; minimum recommended for Chrome + Xvfb).
+5. **Key pair:** Create or select one so you can SSH.
+6. **Network:** Default VPC and a public subnet (or your own); allow SSH (port 22) in the security group.
+7. **IAM instance profile:** Scroll down or open **Advanced details** and set **IAM instance profile** to **NotamScraperEC2Role** (from Step 2). If you don’t see “Advanced details”, look for a **Summary** panel on the right—some consoles show instance profile there.
+8. **User data (optional):** Some EC2 UIs show **User data** only when you expand **Advanced details** at the bottom of the page. If you **don’t see a User data field**, skip it—you’ll install everything manually after SSH in Step 4 (see **4b** below).
+   - If you do see **User data**, paste this script so dependencies install on first boot:
 
 ```bash
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y xvfb chromium-browser nodejs npm unzip
-# Install Node 18+ if apt has older version
-# curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-# apt-get install -y nodejs
+apt-get install -y xvfb unzip
+
+# Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
+
+# Google Chrome (recommended for FAA site)
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-key.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+apt-get update && apt-get install -y google-chrome-stable
+
 npm install -g npm@latest
 ```
 
-Or install Chrome (official) instead of chromium-browser:
+9. Click **Launch instance**. Wait until the instance is **running** and note its **Public IP** (or use SSM Session Manager if you prefer).
+
+---
+
+## Step 4: Deploy the project on EC2
+
+SSH into the instance (replace `your-key.pem` and `EC2-PUBLIC-IP`):
 
 ```bash
-wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+ssh -i your-key.pem ubuntu@EC2-PUBLIC-IP
+```
+
+### 4a. If you skipped User data in Step 3 – install dependencies now
+
+Run this once on the EC2 instance (same as the User data script):
+
+```bash
+sudo bash -c 'export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y xvfb unzip
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-key.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
 apt-get update && apt-get install -y google-chrome-stable
+npm install -g npm@latest'
 ```
 
-## 3. Deploy the app (or just the script) on EC2
+(If you already used User data, wait 2–3 minutes after first boot for it to finish, then continue below.)
 
-Copy your project (or at least `scripts/notam-scraper.mjs`, `package.json`, and run `npm install` so Playwright + Chrome and `@aws-sdk/client-s3` are available).  
-If you use system Chrome instead of Playwright’s, install Playwright and then:
+### 4b. Clone the repo and install app dependencies
+
+On the EC2 instance:
+
+1. **Clone your repo** (or copy the project files):
 
 ```bash
-npx playwright install chromium
-# or use system Chrome only (see below)
+cd ~
+git clone https://github.com/YOUR-ORG/clearway-2.git
+cd clearway-2
 ```
 
-## 4. Run the scraper with virtual display and S3 upload
-
-Use **Xvfb** so the browser has a virtual display (often helps with “Access Denied”):
+2. **Install dependencies** (including Playwright; we’ll use system Chrome, so no need to install Chromium):
 
 ```bash
-export DISPLAY=:99
-Xvfb :99 -screen 0 1920x1080x24 &
-export USE_HEADED=1
-export AWS_S3_BUCKET=your-app-notams
+npm install
+# Do NOT run: npx playwright install chromium (we use system Chrome)
+```
+
+3. **Verify the scraper script exists:**
+
+```bash
+ls -la scripts/notam-scraper.mjs
+```
+
+The script uses `@aws-sdk/client-s3` and `playwright` from `node_modules`; with `CHROME_CHANNEL=chrome` it will use the system Chrome you installed in user data.
+
+---
+
+## Step 5: Run the scraper with Xvfb and S3 upload
+
+On the EC2 instance, set your bucket and region, then run with a virtual display:
+
+```bash
+cd ~/clearway-2
+
+export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
-# Optional: AWS credentials if not using instance role
-# export AWS_ACCESS_KEY_ID=...
-# export AWS_SECRET_ACCESS_KEY=...
-
-node scripts/notam-scraper.mjs --json DBBB
+export USE_HEADED=1
+export CHROME_CHANNEL=chrome
 ```
 
-Or in one line:
+Run for one airport (e.g. DBBB). Use `xvfb-run` so Chrome has a virtual display:
 
 ```bash
-xvfb-run -a -s "-screen 0 1920x1080x24" env USE_HEADED=1 AWS_S3_BUCKET=your-app-notams node scripts/notam-scraper.mjs --json DBBB
+xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json DBBB
 ```
 
-- With `USE_HEADED=1`, the script launches a headed browser (uses the virtual display).
-- With `AWS_S3_BUCKET` set, the script uploads NOTAMs to `s3://your-app-notams/notams/DBBB.json` (prefix `notams/` is default).
+- With `USE_HEADED=1`, the script runs Chrome in “headed” mode on display `:99` (provided by `xvfb-run`), which often avoids FAA “Access Denied”.
+- With `AWS_S3_BUCKET` set, the script uploads to `s3://myapp-notams-prod/notams/DBBB.json`.
 
-## 5. Point the portal at S3
+Check S3: in the bucket you should see `notams/DBBB.json`. If you see “Uploaded to s3://…” in the script output, it worked.
 
-On the machine (or container) where the Next.js app runs, set:
-
-- `AWS_NOTAMS_BUCKET=your-app-notams` (or reuse `AWS_S3_BUCKET` if you prefer).
-- (Optional) `AWS_NOTAMS_PREFIX=notams` if you use a different prefix.
-- `AWS_REGION=us-east-1` (or your bucket region).
-
-Restart the app. The `/api/notams?icao=DBBB` route will **read from S3** when the bucket is set; it no longer runs the scraper locally.
-
-## 6. When to run the scraper on EC2
-
-- **On demand** – SSH (or SSM) into EC2 and run the command above for one or more ICAOs.
-- **Cron** – e.g. every 6 hours for a list of ICAOs:
+**Optional – different S3 prefix:**  
+If you want a different folder than `notams/`, set:
 
 ```bash
-0 */6 * * * cd /home/ubuntu/your-app && xvfb-run -a env USE_HEADED=1 AWS_S3_BUCKET=your-app-notams node scripts/notam-scraper.mjs --json DBBB >> /var/log/notam.log 2>&1
+export AWS_S3_PREFIX=my-notams
 ```
 
-- **Triggered by API** – e.g. Lambda or another endpoint that sends a message to SQS; the EC2 instance runs a worker that consumes the queue and runs the scraper for the requested ICAO, then uploads to S3.
+Then the object key will be `my-notams/DBBB.json`. The portal’s `AWS_NOTAMS_PREFIX` must match (see Step 6).
 
-## 7. Using system Chrome on EC2
+---
 
-If you installed Google Chrome and want the script to use it instead of Playwright’s Chromium:
+## Step 5b: Run the sync server on EC2 (live sync when user requests an ICAO)
 
-- Install Playwright: `npm install playwright` (no need to install Chromium).
-- Set `CHROME_CHANNEL=chrome` (script already prefers `channel: 'chrome'` when available).
-- Run with Xvfb as above; the script will use the system Chrome binary.
+So that **each time a user enters an ICAO in the portal**, the app triggers the scraper on EC2 and returns fresh data from the FAA:
 
-## 8. Troubleshooting
+1. On the EC2 instance, set env and start the sync server (same bucket as in Step 5):
 
-- **Access Denied from FAA** – Run with `USE_HEADED=1` and Xvfb. If it still blocks, try a different region or a residential-style proxy (use with care and respect FAA ToS).
-- **S3 upload fails** – Check IAM permissions (`s3:PutObject`) and `AWS_S3_BUCKET` / `AWS_REGION`. On EC2, prefer an instance role over access keys.
-- **No NOTAMs in portal** – Ensure `AWS_NOTAMS_BUCKET` is set in the Next.js environment and the object exists at `s3://bucket/notams/ICAO.json` (run the scraper once for that ICAO).
+```bash
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod
+export AWS_REGION=us-east-1
+export CHROME_CHANNEL=chrome
+export SYNC_SECRET=choose-a-long-random-secret-string
+node scripts/notam-sync-server.mjs
+```
+
+The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
+
+2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
+
+```bash
+tmux new -s notam
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
+node scripts/notam-sync-server.mjs
+# Detach: Ctrl+B then D. Reattach: tmux attach -t notam
+```
+
+3. **Expose the server to the internet** so Vercel can call it: open port 3001 in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs if you prefer). The sync URL will be `http://EC2-PUBLIC-IP:3001` (or use a domain + reverse proxy if you have one).
+
+4. In **Vercel** (Step 6), add **NOTAM_SYNC_URL** and **NOTAM_SYNC_SECRET** so the portal triggers this server when the user requests NOTAMs.
+
+---
+
+## Step 6: Point the portal (Vercel) at S3 and live sync
+
+So that `/api/notams?icao=DBBB` can trigger a live scrape and read from S3:
+
+1. **Vercel** → your project → **Settings** → **Environment Variables**.
+2. Add:
+   - **Name:** `AWS_NOTAMS_BUCKET`  
+     **Value:** `myapp-notams-prod` (same bucket as on EC2).
+   - **Name:** `AWS_REGION`  
+     **Value:** `us-east-1`
+   - **Name:** `NOTAM_SYNC_URL`  
+     **Value:** `http://EC2-PUBLIC-IP:3001` (the sync server from Step 5b; no trailing slash).
+   - **Name:** `NOTAM_SYNC_SECRET`  
+     **Value:** the same `SYNC_SECRET` you set when starting the sync server on EC2.
+   - **Optional**, only if you changed the prefix on EC2:  
+     **Name:** `AWS_NOTAMS_PREFIX`  
+     **Value:** `notams` (or `my-notams` if you set `AWS_S3_PREFIX=my-notams`).
+
+3. **Vercel needs read access to S3.** Use an IAM user and access keys (see **Step 6a** below). If your app runs on AWS (e.g. ECS/Lambda), you can attach a role with `s3:GetObject` instead and skip access keys.
+
+4. **Redeploy** the app so the new env vars are applied.
+
+---
+
+### Step 6a: Create IAM user and access key (for Vercel)
+
+Do this in the AWS Console so Vercel can read NOTAMs from your S3 bucket.
+
+**If you already have a user:** IAM → **Users** → click the user name → **Security credentials** tab → **Access keys** → **Create access key** → choose “Application running outside AWS” or “CLI” → **Next** → **Create access key**, then copy the Access key ID and Secret access key into Vercel as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Make sure that user has a policy allowing `s3:GetObject` on `arn:aws:s3:::YOUR-BUCKET/notams/*` (attach the policy from step 3 below if not).
+
+**To create a new user and key:**
+
+1. **IAM** → **Users** → **Create user**.
+2. **User name:** e.g. `vercel-notams-reader` → **Next**.
+3. **Permissions:** Choose **Attach policies directly**. Click **Create policy** (opens new tab).
+   - **JSON** tab, paste (replace `myapp-notams-prod` with your bucket name):
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "s3:GetObject",
+         "Resource": "arn:aws:s3:::myapp-notams-prod/notams/*"
+       }
+     ]
+   }
+   ```
+
+   - **Next** → **Policy name:** e.g. `VercelNotamsReadOnly` → **Create policy**.
+4. Back in the **Create user** tab: **Refresh** the policy list, search for **VercelNotamsReadOnly**, tick it → **Next** → **Create user**.
+5. Open the new user → **Security credentials** tab → **Access keys** → **Create access key**.
+6. **Use case:** “Application running outside AWS” or “Command Line Interface (CLI)” → **Next** → **Create access key**.
+7. **Copy the Access key ID and Secret access key** (you won’t see the secret again). Add them in Vercel as:
+   - **Name:** `AWS_ACCESS_KEY_ID` → **Value:** (the Access key ID).
+   - **Name:** `AWS_SECRET_ACCESS_KEY` → **Value:** (the Secret access key).
+
+Keep the secret safe and don’t commit it to git.
+
+After that, when a user requests NOTAMs for an ICAO (e.g. DBBB), the portal calls the EC2 sync server (`NOTAM_SYNC_URL`), which runs the scraper and returns fresh data. If the sync server is unreachable, the API falls back to reading from S3 (cached data). The UI shows “Syncing live from FAA…” and “Last synced at …” when data was updated.
+
+---
+
+## Step 7: Automate the scraper (cron)
+
+To refresh NOTAMs periodically, use cron on the EC2 instance.
+
+1. SSH into EC2, then:
+
+```bash
+crontab -e
+```
+
+2. Add a line to run every 6 hours for one or more ICAOs (adjust path and bucket to match your setup):
+
+```bash
+0 */6 * * * cd /home/ubuntu/clearway-2 && AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json DBBB >> /var/log/notam.log 2>&1
+```
+
+For multiple airports, either add more lines (one per ICAO) or a small wrapper script that loops over ICAOs and calls the scraper for each.
+
+Example wrapper `~/clearway-2/scripts/run-notams.sh`:
+
+```bash
+#!/bin/bash
+cd /home/ubuntu/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 USE_HEADED=1 CHROME_CHANNEL=chrome
+for icao in DBBB KJFK EGLL; do
+  xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json "$icao" >> /var/log/notam.log 2>&1
+  sleep 10
+done
+```
+
+Then in crontab:
+
+```bash
+0 */6 * * * /home/ubuntu/clearway-2/scripts/run-notams.sh
+```
+
+---
+
+## Step 8: Troubleshooting
+
+### S3 bucket is empty
+
+The scraper only uploads when (1) it runs to the end without crashing, and (2) `AWS_S3_BUCKET` is set in the same shell where you run it. Check the following:
+
+1. **Run the full command from Step 5** (from `~/clearway-2`), with your real bucket name:
+   ```bash
+   cd ~/clearway-2
+   export AWS_S3_BUCKET=your-bucket-name
+   export AWS_REGION=us-east-1
+   export USE_HEADED=1
+   export CHROME_CHANNEL=chrome
+   xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/notam-scraper.mjs --json DBBB
+   ```
+2. **In the output, look for:** `Uploaded to s3://your-bucket-name/notams/DBBB.json`. If you see that, the file is in S3.
+3. **Where to look in S3:** In the AWS Console, open your bucket. Objects are under the **prefix** `notams/` (it may appear as a “folder” named `notams`). Open it and look for `DBBB.json`. The bucket root can look “empty” if you don’t open the `notams/` prefix.
+4. **If you see “S3 upload failed: …”** in the output, the EC2 instance role likely doesn’t have `s3:PutObject` on that bucket. Attach the **NotamScraperEC2Role** (Step 2) to the instance, or fix the policy.
+5. **If the script crashes before the upload** (e.g. FAA error, Chrome not found), fix that first; the upload step only runs after a successful scrape.
+
+---
+
+| Problem | What to check |
+|--------|----------------|
+| **FAA “Access Denied”** | Run with `USE_HEADED=1` and `xvfb-run`. If it still blocks, try another region or a different IP; avoid violating FAA ToS. |
+| **S3 upload fails (access denied)** | EC2 instance profile must be **NotamScraperEC2Role** with `s3:PutObject` (and optionally `s3:GetObject`) on `arn:aws:s3:::BUCKET/notams/*`. No need for `AWS_ACCESS_KEY_ID` on EC2 if using the role. |
+| **Portal returns no NOTAMs** | 1) Set `AWS_NOTAMS_BUCKET` (and optionally `AWS_NOTAMS_PREFIX`) in Vercel. 2) Ensure the object exists: `s3://BUCKET/notams/ICAO.json`. 3) Run the scraper once for that ICAo on EC2. 4) If using keys, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in Vercel and ensure that IAM user can `s3:GetObject` on that prefix. |
+| **Chrome not found** | Install Chrome (Step 3 user data or manually) and set `CHROME_CHANNEL=chrome`. Or install Chromium: `apt-get install -y chromium-browser` and remove `CHROME_CHANNEL` so Playwright uses Chromium. |
+| **Script timeout** | Default timeout is 90s in the API; the standalone script has its own timeouts. For slow runs, run only on EC2 and rely on S3; don’t trigger the scraper from the portal. |
+
+---
+
+## Quick reference – environment variables
+
+**On EC2 (scraper):**
+
+| Variable | Required | Example | Purpose |
+|----------|----------|---------|---------|
+| `AWS_S3_BUCKET` | Yes (for upload) | `myapp-notams-prod` | Bucket where NOTAM JSON is stored. |
+| `AWS_REGION` | No | `us-east-1` | Default `us-east-1`. |
+| `AWS_S3_PREFIX` | No | `notams` | Key prefix; default `notams` → `notams/ICAO.json`. |
+| `USE_HEADED` | Recommended | `1` | Run Chrome with virtual display (use with Xvfb). |
+| `CHROME_CHANNEL` | No | `chrome` | Use system Chrome instead of Playwright Chromium. |
+
+**On EC2 (sync server only):**
+
+| Variable | Required | Example | Purpose |
+|----------|----------|---------|---------|
+| `SYNC_SECRET` | Recommended | (long random string) | Secret for `/sync`; Vercel sends it in `X-Sync-Secret`. |
+| `NOTAM_SYNC_PORT` | No | `3001` | Port the sync server listens on (default 3001). |
+
+**On Vercel / Next.js (portal):**
+
+| Variable | Required | Example | Purpose |
+|----------|----------|---------|---------|
+| `AWS_NOTAMS_BUCKET` | Yes (to use S3) | `myapp-notams-prod` | Same bucket as scraper. |
+| `AWS_REGION` | No | `us-east-1` | Must match bucket region. |
+| `NOTAM_SYNC_URL` | For live sync | `http://EC2-IP:3001` | Base URL of EC2 sync server (no trailing slash). |
+| `NOTAM_SYNC_SECRET` | If SYNC_SECRET set on EC2 | (same as SYNC_SECRET) | Sent as `X-Sync-Secret` when calling sync. |
+| `AWS_NOTAMS_PREFIX` | No | `notams` | Must match `AWS_S3_PREFIX` if you changed it. |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | If not using IAM role | (from IAM user) | Needed for Vercel to read from S3 (fallback). |
+
+When `NOTAM_SYNC_URL` is set, each request for NOTAMs (e.g. user enters DBBB) triggers the scraper on EC2 and returns fresh data. If sync fails, the API falls back to reading from S3.

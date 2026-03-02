@@ -1,6 +1,6 @@
 [
-  { "region": "Africa", "countries": ["Benin", "Libya"] },
-  { "region": "Asia", "countries": ["Azerbaijan", "Bhutan", "Iran", "Japan", "Maldives", "Nepal"] },
+  { "region": "Africa", "countries": ["Benin", "Burkina Faso", "Cameroun", "Centrafrique", "Comores", "Congo", "Côte d'Ivoire", "Gabon", "Guinée Bissau", "Guinée Equatoriale", "Libya", "Madagascar", "Mali", "Mauritanie", "Niger", "Republic of Cabo Verde", "Rwanda", "Sénégal", "Somalia", "Tchad", "Togo"] },
+  { "region": "Asia", "countries": ["Armenia", "Azerbaijan", "Bahrain", "Bhutan", "Georgia", "Iran", "Israel", "Japan", "Kyrgyzstan", "Maldives", "Mongolia", "Myanmar", "Nepal", "Oman", "Pakistan", "Qatar", "Singapore", "South Korea"] },
   { "region": "Europe", "countries": ["Austria", "Bulgaria", "Czech Republic", "Denmark", "Ireland", "Italy"] },
   { "region": "North America & Caribbean", "countries": ["Cuba"] }
 ]

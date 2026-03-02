@@ -3,6 +3,7 @@
  * Flags loaded from https://flagcdn.com
  */
 export const COUNTRY_TO_ISO: Record<string, string> = {
+  "Benin": "bj",
   "Bénin": "bj",
   "Burkina Faso": "bf",
   "Cameroun": "cm",

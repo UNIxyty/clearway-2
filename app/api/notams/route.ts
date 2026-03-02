@@ -78,13 +78,14 @@ export async function GET(request: NextRequest) {
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
       clearTimeout(timeoutId);
-      // Stream mode: forward SSE from EC2 to client
+      // Stream mode: forward SSE from EC2 to client (no buffering)
       if (stream && res.ok && res.body) {
         return new Response(res.body, {
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
           },
         });
       }

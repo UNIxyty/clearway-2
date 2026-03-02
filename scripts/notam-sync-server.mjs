@@ -99,8 +99,12 @@ const server = createServer(async (req, res) => {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     });
     const send = (obj) => res.write("data: " + JSON.stringify(obj) + "\n\n");
+
+    // Send first step immediately so the client sees something (scraper progress may be buffered)
+    send({ step: "Starting scraper…" });
 
     const env = { ...process.env, USE_HEADED: "1", CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome" };
     const child = spawn(

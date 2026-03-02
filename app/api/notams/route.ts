@@ -58,8 +58,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // When sync=1 and NOTAM_SYNC_URL is set, trigger live scrape on EC2 and return fresh data
-  if (sync && NOTAM_SYNC_URL) {
+  // When sync=1 we must run the scraper on EC2; do not return stale S3 cache
+  if (sync) {
+    if (!NOTAM_SYNC_URL) {
+      return NextResponse.json(
+        {
+          error: "Sync not configured",
+          detail: "Set NOTAM_SYNC_URL in Vercel to your EC2 sync server (e.g. http://EC2-IP:3001). See scripts/NOTAM-AWS-SETUP.md Step 5b.",
+        },
+        { status: 503 }
+      );
+    }
     const syncUrl = `${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
@@ -78,9 +87,23 @@ export async function GET(request: NextRequest) {
       }
       const errBody = await res.text();
       console.error("NOTAM sync failed:", res.status, errBody);
+      return NextResponse.json(
+        {
+          error: "Sync failed",
+          detail: `EC2 sync server returned ${res.status}. Ensure the sync server is running on EC2 and the scraper completes. ${errBody.slice(0, 200)}`,
+        },
+        { status: 502 }
+      );
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       console.error("NOTAM sync request failed:", e);
-      // Fall through to S3 read
+      return NextResponse.json(
+        {
+          error: "Sync server unreachable",
+          detail: `Cannot reach EC2 sync server at NOTAM_SYNC_URL. Check: (1) Sync server is running on EC2 (node scripts/notam-sync-server.mjs). (2) EC2 security group allows inbound port 3001. (3) NOTAM_SYNC_URL is correct (http://EC2-PUBLIC-IP:3001). ${msg}`,
+        },
+        { status: 502 }
+      );
     }
   }
 

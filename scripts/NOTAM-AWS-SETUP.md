@@ -340,6 +340,36 @@ The scraper only uploads when (1) it runs to the end without crashing, and (2) `
 4. **If you see “S3 upload failed: …”** in the output, the EC2 instance role likely doesn’t have `s3:PutObject` on that bucket. Attach the **NotamScraperEC2Role** (Step 2) to the instance, or fix the policy.
 5. **If the script crashes before the upload** (e.g. FAA error, Chrome not found), fix that first; the upload step only runs after a successful scrape.
 
+### Sync button returns old data or “Sync server unreachable”
+
+When you press **Sync**, the portal calls your EC2 sync server to run a fresh scrape. If you see old data or an error, check the following.
+
+**On EC2:**
+
+1. **Sync server is running** – SSH into EC2 and run (or reattach to tmux/screen):
+   ```bash
+   cd ~/clearway-2
+   export AWS_S3_BUCKET=your-bucket AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
+   node scripts/notam-sync-server.mjs
+   ```
+   You should see: `NOTAM sync server listening on port 3001`.
+
+2. **Port 3001 is open** – In EC2 → Security groups → your instance’s group → Inbound rules: allow **TCP 3001** from **0.0.0.0/0** (or your Vercel region IPs if you prefer).
+
+3. **Test from EC2** – On the instance run:
+   ```bash
+   curl -s "http://localhost:3001/sync?icao=DBBB"
+   ```
+   If that works, the server is fine; the issue is reachability from the internet (security group or wrong NOTAM_SYNC_URL).
+
+**On Vercel:**
+
+4. **NOTAM_SYNC_URL** – Must be exactly your EC2 public URL, e.g. `http://3.84.12.34:3001` (no trailing slash). If you restarted EC2 and the public IP changed, update this.
+
+5. **NOTAM_SYNC_SECRET** – If you set `SYNC_SECRET` on EC2, set the same value as `NOTAM_SYNC_SECRET` in Vercel.
+
+After changing anything, redeploy the Vercel app so env vars are applied. When sync is configured correctly, pressing Sync runs the scraper on EC2 and returns fresh data; if something is wrong, the portal now shows a clear error instead of returning cached data.
+
 ---
 
 | Problem | What to check |

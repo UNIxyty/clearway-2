@@ -200,11 +200,14 @@ export default function AIPPortalPage() {
   const [regions, setRegions] = useState<RegionEntry[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [selectedState, setSelectedState] = useState<string>("");
   const [loadingCountry, setLoadingCountry] = useState(false);
   const [browseMenuOpen, setBrowseMenuOpen] = useState(false);
-  const [browseStep, setBrowseStep] = useState<1 | 2 | 3>(1);
+  const [browseStep, setBrowseStep] = useState<1 | 2 | 3 | 4>(1);
   const [browseSelection, setBrowseSelection] = useState<AIPAirport[]>([]);
   const [browseSelectedCountry, setBrowseSelectedCountry] = useState<string>("");
+  const [browseSelectedState, setBrowseSelectedState] = useState<string>("");
+  const [usaStates, setUsaStates] = useState<string[]>([]);
   const [browseCountryAirports, setBrowseCountryAirports] = useState<AIPAirport[]>([]);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
@@ -249,17 +252,34 @@ export default function AIPPortalPage() {
     return r?.countries ?? [];
   }, [regions, selectedRegion]);
 
+  const isUSABrowse = browseSelectedCountry === "United States of America";
+  const regionHasUSA = countriesInRegion.includes("United States of America");
+
   useEffect(() => {
-    if (browseStep !== 3 || !browseSelectedCountry) return;
+    if (isUSABrowse && browseStep === 3) {
+      fetch("/api/usa-states")
+        .then((res) => res.json())
+        .then((data) => setUsaStates(data.states ?? []))
+        .catch(() => setUsaStates([]));
+    }
+  }, [isUSABrowse, browseStep]);
+
+  useEffect(() => {
+    const shouldFetchNonUSA = browseStep === 3 && browseSelectedCountry && !isUSABrowse;
+    const shouldFetchUSA = browseStep === 4 && browseSelectedCountry === "United States of America" && browseSelectedState;
+    if (!shouldFetchNonUSA && !shouldFetchUSA) return;
     setLoadingCountry(true);
-    fetch(`/api/airports?country=${encodeURIComponent(browseSelectedCountry)}`)
+    const url = shouldFetchUSA
+      ? `/api/airports?country=${encodeURIComponent(browseSelectedCountry)}&state=${encodeURIComponent(browseSelectedState)}`
+      : `/api/airports?country=${encodeURIComponent(browseSelectedCountry)}`;
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         setBrowseCountryAirports(data.results ?? []);
       })
       .catch(() => setBrowseCountryAirports([]))
       .finally(() => setLoadingCountry(false));
-  }, [browseStep, browseSelectedCountry]);
+  }, [browseStep, browseSelectedCountry, browseSelectedState, isUSABrowse]);
 
   const requestSyncNotams = useCallback((icao: string) => {
     setSyncRequestedIcao(icao);
@@ -471,13 +491,16 @@ export default function AIPPortalPage() {
                     if (!browseMenuOpen) {
                       setBrowseStep(1);
                       setBrowseSelection([]);
+                      setBrowseSelectedState("");
                     }
                   }}
                   aria-expanded={browseMenuOpen}
                 >
                   <GlobeIcon className="size-4 shrink-0" />
                   {selectedRegion && selectedCountry
-                    ? `${selectedRegion} → ${selectedCountry}`
+                    ? selectedCountry === "United States of America" && (selectedState || browseSelectedState)
+                      ? `${selectedRegion} → ${selectedCountry} → ${selectedState || browseSelectedState}`
+                      : `${selectedRegion} → ${selectedCountry}`
                     : "Browse by region & country"}
                   {browseMenuOpen ? <ChevronUpIcon className="size-4 shrink-0" /> : <ChevronDownIcon className="size-4 shrink-0" />}
                 </Button>
@@ -495,9 +518,9 @@ export default function AIPPortalPage() {
 
               {browseMenuOpen && (
                 <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-4 shadow-sm animate-browse-menu-in overflow-hidden">
-                  {/* Step indicator */}
+                  {/* Step indicator: 4 steps when region has USA (region → country → state → airports), 3 otherwise */}
                   <div className="flex items-center gap-1.5">
-                    {[1, 2, 3].map((s) => (
+                    {(regionHasUSA ? [1, 2, 3, 4] : [1, 2, 3]).map((s) => (
                       <div
                         key={s}
                         className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
@@ -547,6 +570,7 @@ export default function AIPPortalPage() {
                             onClick={() => {
                               setSelectedRegion(r.region);
                               setSelectedCountry("");
+                              setSelectedState("");
                               setBrowseStep(2);
                             }}
                           >
@@ -603,10 +627,10 @@ export default function AIPPortalPage() {
                     </div>
                   )}
 
-                  {!browseLoading && browseStep === 3 && (
+                  {!browseLoading && browseStep === 3 && isUSABrowse && (
                     <div className="animate-step-enter space-y-4">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Select airport(s)</p>
+                        <p className="text-sm font-semibold text-foreground">Select state or territory</p>
                         <Button
                           type="button"
                           variant="ghost"
@@ -617,8 +641,47 @@ export default function AIPPortalPage() {
                           ← Back
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">{selectedRegion} → {browseSelectedCountry}</p>
+                      <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto pr-1">
+                        {usaStates.map((stateName, i) => (
+                          <Button
+                            key={stateName}
+                            type="button"
+                            variant={browseSelectedState === stateName ? "default" : "outline"}
+                            size="sm"
+                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
+                            style={{ animationDelay: `${i * 30}ms` }}
+                            onClick={() => {
+                              setBrowseSelectedState(stateName);
+                              setBrowseStep(4);
+                            }}
+                          >
+                            {stateName}
+                            <ChevronRightIcon className="size-4" />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!browseLoading && (browseStep === 3 && !isUSABrowse || browseStep === 4) && (
+                    <div className="animate-step-enter space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">Select airport(s)</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => browseStep === 4 ? setBrowseStep(3) : setBrowseStep(2)}
+                        >
+                          ← Back
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        {selectedRegion} → {browseSelectedCountry} · Click to toggle, then Done
+                        {browseStep === 4
+                          ? `${selectedRegion} → ${browseSelectedCountry} → ${browseSelectedState} · Click to toggle, then Done`
+                          : `${selectedRegion} → ${browseSelectedCountry} · Click to toggle, then Done`}
                       </p>
                       <div className="max-h-[240px] overflow-y-auto space-y-1.5 pr-1">
                         {loadingCountry ? (
@@ -695,6 +758,7 @@ export default function AIPPortalPage() {
                                   setResults(byIcao);
                                   setSelectedIcao(browseSelection[0].icao);
                                   setSelectedCountry(browseSelectedCountry);
+                                  setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);
                                   setHasSearched(true);
                                 });

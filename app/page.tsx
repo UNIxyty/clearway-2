@@ -490,12 +490,11 @@ export default function AIPPortalPage() {
           {/* Left column: search + results */}
           <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden" : "space-y-6 sm:space-y-8"}>
             <header className="text-center space-y-1.5 sm:space-y-2 shrink-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-foreground">
-                AIP Data Portal
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Aeronautical Information Publication lookup · Official source
-              </p>
+              <img
+                src="/header_logo_white.svg"
+                alt="Clearway"
+                className="mx-auto h-10 sm:h-12 w-auto max-w-[280px] object-contain [filter:brightness(0)]"
+              />
             </header>
 
             <div className={showMap ? "lg:min-h-0 lg:flex-1 lg:overflow-auto lg:space-y-6" : "space-y-6 sm:space-y-8"}>
@@ -943,7 +942,7 @@ export default function AIPPortalPage() {
         </p>
         <div className="flex flex-col items-center gap-1.5 pt-4 shrink-0">
           <span className="text-[10px] sm:text-xs text-muted-foreground/80 uppercase tracking-wider">Built by</span>
-          <img src="/logo.png" alt="Clearway" className="h-6 sm:h-8 w-auto max-w-[180px] object-contain opacity-90 hover:opacity-100 transition-opacity" />
+          <img src="/logo.png" alt="Clearway" className="h-14 sm:h-16 w-auto max-w-[320px] object-contain opacity-90 hover:opacity-100 transition-opacity" />
         </div>
             </div>
           </div>

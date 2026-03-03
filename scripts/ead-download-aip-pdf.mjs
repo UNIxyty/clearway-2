@@ -145,27 +145,40 @@ async function main() {
     await page.getByRole('button', { name: 'Search' }).click();
     await page.waitForTimeout(2000);
 
-    // —— Results: find row with Document Heading = "AD 2 <ICAO>" (exact match) ——
+    // —— Results: find row with Document Heading = "AD 2 <ICAO>" and base AIP file (no variation number) ——
+    // Prefer filename like ES_AD_2_ESGG_en.pdf, reject ES_AD_2_ESGG_4_en.pdf (number = variation, not base AIP)
     const headingText = `AD 2 ${icao}`;
     const table = page.locator('#mainForm\\:searchResults_data');
     await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
+    const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
     let pdfLink = null;
+    let fallbackLink = null;
     for (let i = 0; i < rowCount; i++) {
       const cells = rows.nth(i).locator('td');
       const cellCount = await cells.count();
       if (cellCount < 4) continue;
       const docHeading = await cells.nth(3).textContent().catch(() => '');
       if (docHeading.trim() !== headingText) continue;
-      pdfLink = rows.nth(i).locator('a.wrap-data').first();
+      const link = rows.nth(i).locator('a.wrap-data').first();
+      if ((await link.count()) === 0) continue;
+      const linkText = await link.textContent().catch(() => '') || '';
+      if (variationRe.test(linkText)) {
+        if (!fallbackLink) fallbackLink = link;
+        continue;
+      }
+      pdfLink = link;
       break;
     }
 
     if (!pdfLink || (await pdfLink.count()) === 0) {
-      log('No row with Document Heading "' + headingText + '", using first result row.');
-      pdfLink = page.locator('#mainForm\\:searchResults_data tr').first().locator('a.wrap-data').first();
+      pdfLink = fallbackLink || page.locator('#mainForm\\:searchResults_data tr').first().locator('a.wrap-data').first();
+      if (fallbackLink) log('Only variation file(s) found for "' + headingText + '"; using first matching row.');
+      else if (!fallbackLink) log('No row with Document Heading "' + headingText + '", using first result row.');
+    } else {
+      log('Using base AIP file (no variation number).');
     }
 
     const href = await pdfLink.getAttribute('href');

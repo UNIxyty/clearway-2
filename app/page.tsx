@@ -137,7 +137,7 @@ function AIPResultCard({
                   <span className="text-foreground">{label}</span>
                 )}
               </dt>
-              <dd className="text-foreground/90 min-w-0 leading-snug text-xs sm:text-sm flex items-center gap-2">
+              <dd className={`text-foreground/90 min-w-0 leading-snug text-xs sm:text-sm flex items-center gap-2 ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
                 {key === "country" && flagUrl ? (
                   <>
                     <img
@@ -926,9 +926,9 @@ export default function AIPPortalPage() {
                   </p>
                 )}
                 {!error && results !== null && results.length === 1 && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-w-2xl">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      1 result retrieved
+                      1 result — full AIP extracted data
                     </p>
                     <AIPResultCard
                       key={`${results[0].icao}-${results[0].country}`}

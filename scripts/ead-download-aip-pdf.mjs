@@ -2,15 +2,26 @@
  * EAD Basic – download AD 2 AIP PDF for a given ICAO.
  * Runs full flow: login → accept terms → AIP Library → search by ICAO → download PDF.
  *
- * Requires: EAD_USER, EAD_PASSWORD environment variables.
+ * Requires: EAD_USER, EAD_PASSWORD (env or in project .env).
  * Usage: node scripts/ead-download-aip-pdf.mjs [ICAO]
- * Example: EAD_USER=ClearWay EAD_PASSWORD='...' node scripts/ead-download-aip-pdf.mjs EVAD
  *
  * Output: PDF saved to data/ead-aip/<filename>.pdf
  */
 
 import { join } from 'path';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync } from 'fs';
+
+// Load .env from project root if present (so EAD_USER/EAD_PASSWORD can live there)
+try {
+  const envPath = join(process.cwd(), '.env');
+  if (existsSync(envPath)) {
+    const content = readFileSync(envPath, 'utf8');
+    for (const line of content.split('\n')) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim();
+    }
+  }
+} catch (_) {}
 
 const BASE = 'https://www.ead.eurocontrol.int';
 const LOGIN_URL = BASE + '/cms-eadbasic/opencms/en/login/ead-basic/';
@@ -145,15 +156,19 @@ async function main() {
     await page.getByRole('button', { name: 'Search' }).click();
     await page.waitForTimeout(2000);
 
-    // —— Results: find row with Document Heading = "AD 2 <ICAO>" and base AIP file (no variation number) ——
-    // Prefer filename like ES_AD_2_ESGG_en.pdf, reject ES_AD_2_ESGG_4_en.pdf (number = variation, not base AIP)
-    const headingText = `AD 2 ${icao}`;
+    // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
+    // Base: ES_AD_2_ESGG_en.pdf. Reject variation: ES_AD_2_ESGG_4_en.pdf. Match heading flexibly (spacing/format).
     const table = page.locator('#mainForm\\:searchResults_data');
     await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
     const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
+    const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
+    const isAd2Row = (s) => {
+      const n = headingNorm(s);
+      return n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao));
+    };
     let pdfLink = null;
     let fallbackLink = null;
     for (let i = 0; i < rowCount; i++) {
@@ -161,7 +176,7 @@ async function main() {
       const cellCount = await cells.count();
       if (cellCount < 4) continue;
       const docHeading = await cells.nth(3).textContent().catch(() => '');
-      if (docHeading.trim() !== headingText) continue;
+      if (!isAd2Row(docHeading)) continue;
       const link = rows.nth(i).locator('a.wrap-data').first();
       if ((await link.count()) === 0) continue;
       const linkText = await link.textContent().catch(() => '') || '';
@@ -174,9 +189,27 @@ async function main() {
     }
 
     if (!pdfLink || (await pdfLink.count()) === 0) {
-      pdfLink = fallbackLink || page.locator('#mainForm\\:searchResults_data tr').first().locator('a.wrap-data').first();
-      if (fallbackLink) log('Only variation file(s) found for "' + headingText + '"; using first matching row.');
-      else if (!fallbackLink) log('No row with Document Heading "' + headingText + '", using first result row.');
+      // Fallback: pick by filename (any row with _AD_2_<ICAO> in link; prefer base over variation)
+      const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
+      for (let i = 0; i < rowCount; i++) {
+        const link = rows.nth(i).locator('a.wrap-data').first();
+        if ((await link.count()) === 0) continue;
+        const linkText = await link.textContent().catch(() => '') || '';
+        if (!ad2LinkRe.test(linkText)) continue;
+        if (variationRe.test(linkText)) {
+          if (!fallbackLink) fallbackLink = link;
+          continue;
+        }
+        pdfLink = link;
+        break;
+      }
+      if (!pdfLink || (await pdfLink.count()) === 0) {
+        pdfLink = fallbackLink || page.locator('#mainForm\\:searchResults_data tr').first().locator('a.wrap-data').first();
+        if (fallbackLink) log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
+        else log('No row with AD 2 ' + icao + ' link; using first result row.');
+      } else {
+        log('Using base AIP file (no variation number).');
+      }
     } else {
       log('Using base AIP file (no variation number).');
     }

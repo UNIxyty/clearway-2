@@ -80,7 +80,8 @@ async function getTextFromPdf(pdfPath) {
 
 async function extractWithAI(text, icaoHint, apiKey) {
   const trimmed = trimToRelevant(text);
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  // Default: gpt-3.5-turbo (cheapest, fast). Set OPENAI_MODEL=gpt-4o-mini for slightly better extraction.
+  const model = process.env.OPENAI_MODEL || "gpt-3.5-turbo";
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {

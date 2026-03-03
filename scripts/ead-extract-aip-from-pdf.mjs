@@ -14,6 +14,7 @@
  * Usage: node scripts/ead-extract-aip-from-pdf.mjs [dir]
  * Default dir: data/ead-aip
  * Output: data/ead-aip-extracted.json (array of airport records)
+ * AI extraction: ead-extract-aip-from-pdf-ai.mjs (OPENAI_API_KEY).
  */
 
 import { readFile, readdir, writeFile } from "fs/promises";
@@ -86,13 +87,18 @@ function parseAd2Text(text, icaoFromFilename) {
     "AD2.6 AD category for fire fighting": "NIL",
   };
 
-  // ICAO from text if not from filename (e.g. "EVAD AD 2.1" or "EBAM AD 2.1")
-  const icaoMatch = text.match(/\b([A-Z]{4})\s+AD\s+2\.1\b/i);
+  // ICAO from text if not from filename (e.g. "EVAD AD 2.1" or "ESGG 2.1")
+  const icaoMatch = text.match(/\b([A-Z]{4})\s+AD\s+2\.1\b/i) || text.match(/\b([A-Z]{4})\s+2\.1\s+AERODROME/i);
   if (icaoMatch) out["Airport Code"] = icaoMatch[1].toUpperCase();
 
-  // AD 2.1 — Name: line like "EVAD — ADAZI" or "EBAM - AMOUGIES" (right after AD 2.1 title)
-  const ad21Block = extractBetween(text, "AD 2.1", "AD 2.2");
-  const nameMatch = ad21Block.match(/\b[A-Z]{4}\s*[—\-]\s*([^\n~]+)/) || text.match(/\b[A-Z]{4}\s*[—\-]\s*([A-Za-z\u00C0-\u024F\s\-']+?)(?=\s*~|\n\n|AD\s+2\.)/);
+  // AD 2.1 — Name: "EVAD — ADAZI", "EBAM - AMOUGIES", or "ESGG - GÖTEBORG/LANDVETTER" (EAD may use "ICAO 2.1" instead of "AD 2.1")
+  const ad21Block =
+    extractBetween(text, "AD 2.1", "AD 2.2") ||
+    extractBetween(text, icaoFromFilename + " 2.1", "2.2 ") ||
+    extractBetween(text, "2.1 AERODROME LOCATION", "2.2 ");
+  const nameMatch =
+    ad21Block.match(/\b[A-Z]{4}\s*[—\-]\s*([^\n~]+)/) ||
+    text.match(/\b[A-Z]{4}\s*[—\-]\s*([A-Za-z\u00C0-\u024F\s\-'/]+?)(?=\s*~|\n\n|AD\s+2\.|\d\.\d\s)/);
   if (nameMatch) {
     let name = normalize(nameMatch[1]);
     if (out["Airport Code"] && name.endsWith(" " + out["Airport Code"])) name = name.slice(0, -out["Airport Code"].length - 1).trim();
@@ -101,12 +107,22 @@ function parseAd2Text(text, icaoFromFilename) {
 
   // AD 2.2 block (until AD 2.3) — skip if section is "intentionally left blank"
   if (!blank22) {
-    const ad22 = extractBetween(text, "AD 2.2", "AD 2.3");
+    const ad22 =
+      extractBetween(text, icaoFromFilename + " 2.2", "2.3 ") ||
+      extractBetween(text, "2.2 AERODROME GEOGRAPHICAL", "2.3 ") ||
+      extractBetween(text, "AD 2.2 ", "AD 2.3 ") ||
+      extractBetween(text, "AD 2.2", "AD 2.3");
     if (ad22) {
-      const traffic = firstMatch(ad22, /(?:7\s+Types of traffic permitted\s*\(IFR\/VFR\))\s*([^\n8]+)/i)
+      const traffic = firstMatch(ad22, /(?:7\.?\s+)?Types of traffic permitted\s*\(IFR\/VFR\)\s*(IFR\/VFR\.?[^\n]*)/i)
+        || firstMatch(ad22, /(?:7\.?\s+)?Types of traffic permitted[^\n]*\s+(IFR\/VFR[^\n.]*)/i)
+        || firstMatch(ad22, /(?:7\s+Types of traffic permitted\s*\(IFR\/VFR\))\s*([^\n8]+)/i)
         || firstMatch(ad22, /Types of traffic permitted[^\n]*\s+([A-Za-z\s\/]+?)(?=\s*8\s+Remarks|\n8\s|$)/i)
-        || firstMatch(ad22, /\b(VFR(?:\s+by\s+day\/night)?|IFR(?:\s*\/\s*VFR)?)\b/);
-      if (traffic) out["AD2.2 Types of Traffic Permitted"] = firstLine(traffic, 80);
+        || firstMatch(ad22, /\b(IFR\s*\/\s*VFR|VFR(?:\s+by\s+day\/night)?|IFR)\b/);
+      if (traffic) {
+        let val = firstLine(traffic.replace(/\s*\.\s*Max.*$/i, "").trim(), 80);
+        if (val.trim() === "IFR" && /Types of traffic permitted\s*\(IFR|IFR\s*\/\s*VFR/i.test(ad22)) val = "IFR/VFR";
+        out["AD2.2 Types of Traffic Permitted"] = val;
+      }
       const remarks2 = firstMatch(ad22, /(?:8\s+)?Remarks\s+([^\n]+?)(?=\s*~|$)/i) || firstMatch(ad22, /Remarks\s+([^\n]+)/i);
       if (remarks2 && !/^NIL$/i.test(remarks2)) out["AD2.2 Remarks"] = firstLine(remarks2, 200);
     }
@@ -119,20 +135,27 @@ function parseAd2Text(text, icaoFromFilename) {
   const ad23 = extractBetween(text, "AD 2.3 OPERATIONAL", "AD 2.4");
   const ad23b = extractBetween(text, "AD 2.3 Operational", "AD 2.4");
   const ad23c = extractBetween(text, "AD 2.3", "AD 2.4");
-  const ad23Block = (ad23 || ad23b || ad23c).slice(0, 1200);
+  const ad23d = extractBetween(text, icaoFromFilename + " 2.3", "2.4 ");
+  const ad23Block = (ad23 || ad23b || ad23c || ad23d).slice(0, 1200);
   if (ad23Block) {
-    const operator = firstMatch(ad23Block, /AD operator[:\s]+(MON[- ]?FRI[^\n]+?)(?=\s*2\s+Customs|Customs)/i)
+    const operator = firstMatch(ad23Block, /(?:1\.?\s+)?AD operator[:\s]+(MON[- ]?FRI\s+[\d\-:()]+(?:\s*\([^)]+\))?)(?=\s*AD Operating|\s*2\.?\s+Customs|Customs|\n)/i)
+      || firstMatch(ad23Block, /AD operator[:\s]+(MON[- ]?FRI[^\n]+?)(?=\s*2\s+Customs|Customs)/i)
       || firstMatch(ad23Block, /(MON[- ]?FRI\s+[\d\-:()]+[^\n]*)/i)
       || firstMatch(ad23Block, /(?:1\s+)?AD operator[:\s]+([^\n]+?)(?=\s*2\s+Customs|Customs|$)/i)
       || firstMatch(ad23Block, /(H24|HS|O\/R)/i);
     if (operator) out["AD2.3 AD Operator"] = firstLine(operator, 120);
-    const customs = firstMatch(ad23Block, /(?:2\s+)?Customs and immigration\s+([^\n]+)/i);
+    const customs = firstMatch(ad23Block, /(?:2\.?\s+)?Customs and immigration\s+([^\n]+?)(?=\s*3\.?\s+Health|\d+\s+Health|$)/i)
+      || firstMatch(ad23Block, /(?:2\s+)?Customs and immigration\s+([^\n]+)/i);
     if (customs) out["AD 2.3 Customs and Immigration"] = firstLine(customs.split(/\d+\s+Health/)[0], 80);
-    const ats = firstMatch(ad23Block, /(?:7\s+ATS)\s+(NIL|H24|O\/R|AFIS[^\n]*?)(?=\s*8\s+Fuelling|\s*8\s+|\n|$)/i)
+    const ats = firstMatch(ad23Block, /\b7\.\s+ATS\s+(NIL|H24|O\/R|AFIS[^\n]*?)(?=\s*8\.?\s+Fuelling|\s*8\s+|\n|$)/i)
+      || firstMatch(ad23Block, /(?:7\.?\s+)?ATS\s+(NIL|H24|O\/R|AFIS[^\n]*?)(?=\s*8\s+Fuelling|\s*8\s+|\n|$)/i)
       || firstMatch(ad23Block, /(?:3\s+)?ATS\s+(NIL|H24|O\/R|AFIS[^\n]*?)(?=\s*\d+\s+|\n|$)/i);
     if (ats && !/sanitation|Health|ARO Riga|Briefing/i.test(ats)) out["AD2.3 ATS"] = firstLine(ats, 50);
-    const remarks3 = firstMatch(ad23Block, /(?:3\s+)?Remarks\s+([^\n]+)/i);
-    if (remarks3 && !/^NIL$/i.test(remarks3)) out["AD2.3 Remarks"] = firstLine(remarks3, 120);
+    const remarks3 = firstMatch(ad23Block, /(?:12\.?\s+)?Remarks\s+([^\n]+?)(?=\s*$|\n\s*$)/i)
+      || firstMatch(ad23Block, /(?:3\s+)?Remarks\s+([^\n]+)/i);
+    const remarksVal = remarks3 ? normalize(remarks3).replace(/^-?\s*/, "") : "";
+    if (remarks3 && !/^NIL$/i.test(remarksVal) && remarksVal.length > 0 && !/^[A-Z]{4}\s*$/i.test(remarksVal))
+      out["AD2.3 Remarks"] = firstLine(remarks3, 120);
   }
   }
 
@@ -141,9 +164,11 @@ function parseAd2Text(text, icaoFromFilename) {
     const ad26 = extractBetween(text, "AD 2.6 RESCUE", "AD 2.7");
     const ad26b = extractBetween(text, "AD 2.6", "AD 2.7");
     const ad26c = extractBetween(text, "AD 2.6", "AD 2.8");
-    const ad26Block = (ad26 || ad26b || ad26c).slice(0, 500);
+    const ad26d = extractBetween(text, icaoFromFilename + " 2.6", "2.7 ");
+    const ad26Block = (ad26 || ad26b || ad26c || ad26d).slice(0, 500);
     if (ad26Block) {
-      const fire = firstMatch(ad26Block, /(?:1\s+)?AD category for fire fighting\s+([^\n]+?)(?=\s*2\s+Rescue|\n2\s|$)/i);
+      const fire = firstMatch(ad26Block, /(?:1\.?\s+)?AD category for fire fighting\s+(CAT\s*\d+[^\n]*?)(?=\s*2\.?\s+Rescue|\n2\s|$)/i)
+        || firstMatch(ad26Block, /(?:1\s+)?AD category for fire fighting\s+([^\n]+?)(?=\s*2\s+Rescue|\n2\s|$)/i);
       if (fire) out["AD2.6 AD category for fire fighting"] = firstLine(fire, 80);
     }
   }

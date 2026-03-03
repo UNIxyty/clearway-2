@@ -154,3 +154,8 @@ Clicking the link opens/downloads the PDF (often `target="_blank"`).
    await download.saveAs(path.join(outDir, download.suggestedFilename()));
    ```
    Or get `href`, then `page.goto(fullUrl)` and save response body / use `request.get` with the same cookies if needed.
+
+### Extraction from PDFs
+
+- **Regex:** `scripts/ead-extract-aip-from-pdf.mjs` — parses AD 2.1–2.6 from PDF text; layout varies by country (e.g. "ESGG 2.1" vs "AD 2.1").
+- **AI:** `scripts/ead-extract-aip-from-pdf-ai.mjs` — uses OpenAI to extract the same schema from PDF text; set `OPENAI_API_KEY` in `.env`. Handles varying layouts and wording.

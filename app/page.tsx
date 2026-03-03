@@ -14,7 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, PlusIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 
 export type NotamItem = {
@@ -74,14 +74,10 @@ function AIPResultCard({
   airport,
   isSelected,
   onSelect,
-  onAddToList,
-  isInList,
 }: {
   airport: AIPAirport;
   isSelected?: boolean;
   onSelect?: () => void;
-  onAddToList?: () => void;
-  isInList?: boolean;
 }) {
   const [showGen, setShowGen] = useState(false);
 
@@ -108,19 +104,6 @@ function AIPResultCard({
           <CardTitle className="text-sm sm:text-base flex items-center gap-2 shrink-0">
             <span className="font-mono text-primary">{airport.icao}</span>
           </CardTitle>
-          {onAddToList && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 shrink-0"
-              onClick={(e) => { e.stopPropagation(); onAddToList(); }}
-              title={isInList ? "Already in list" : "Add to my airports"}
-              disabled={isInList}
-            >
-              <PlusIcon className={`size-4 ${isInList ? "opacity-50" : ""}`} />
-            </Button>
-          )}
         </div>
         <CardDescription className="font-normal text-foreground/90 text-xs sm:text-sm">
           {airport.name}
@@ -230,18 +213,12 @@ export default function AIPPortalPage() {
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
-  const [savedAirports, setSavedAirports] = useState<AIPAirport[]>([]);
-  const [activeTabIndex, setActiveTabIndex] = useState<number | null>(null);
-
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
   }, [results, selectedIcao]);
 
-  const viewingAirport = useMemo(() => {
-    if (activeTabIndex !== null && savedAirports[activeTabIndex]) return savedAirports[activeTabIndex];
-    return selectedAirport;
-  }, [activeTabIndex, savedAirports, selectedAirport]);
+  const viewingAirport = selectedAirport;
 
   const cachedNotams = viewingAirport ? notamsCache[viewingAirport.icao] : null;
   const notamsLoading = viewingAirport ? notamsLoadingIcao === viewingAirport.icao : false;
@@ -283,31 +260,6 @@ export default function AIPPortalPage() {
       .catch(() => setBrowseCountryAirports([]))
       .finally(() => setLoadingCountry(false));
   }, [browseStep, browseSelectedCountry]);
-
-  const addToSaved = useCallback((airport: AIPAirport) => {
-    setSavedAirports((prev) => {
-      if (prev.some((a) => a.icao === airport.icao)) return prev;
-      const next = [...prev, airport];
-      setActiveTabIndex(next.length - 1);
-      return next;
-    });
-  }, []);
-
-  const removeFromSaved = useCallback((icao: string) => {
-    setSavedAirports((prev) => {
-      const idx = prev.findIndex((a) => a.icao === icao);
-      if (idx < 0) return prev;
-      const next = prev.filter((a) => a.icao !== icao);
-      setNotamsCache((c) => {
-        const { [icao]: _, ...rest } = c;
-        return rest;
-      });
-      setActiveTabIndex((i) =>
-        i === null ? null : i >= next.length ? Math.max(0, next.length - 1) : i === idx ? Math.min(i, next.length - 1) : i > idx ? i - 1 : i
-      );
-      return next;
-    });
-  }, []);
 
   const requestSyncNotams = useCallback((icao: string) => {
     setSyncRequestedIcao(icao);
@@ -466,7 +418,6 @@ export default function AIPPortalPage() {
       });
       if (newResults.length > 0) {
         setSelectedIcao(newResults[0].icao);
-        setActiveTabIndex(null);
       }
     } catch {
       setError("Connection error. Please try again.");
@@ -481,7 +432,7 @@ export default function AIPPortalPage() {
     if (e.key === "Enter") search();
   };
 
-  const showMap = (results?.length && selectedAirport?.lat != null) || (savedAirports.length > 0 && viewingAirport?.lat != null);
+  const showMap = results?.length && selectedAirport?.lat != null;
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
@@ -744,7 +695,6 @@ export default function AIPPortalPage() {
                                   setResults(byIcao);
                                   setSelectedIcao(browseSelection[0].icao);
                                   setSelectedCountry(browseSelectedCountry);
-                                  setActiveTabIndex(null);
                                   setBrowseMenuOpen(false);
                                   setHasSearched(true);
                                 });
@@ -863,8 +813,6 @@ export default function AIPPortalPage() {
                       key={`${results[0].icao}-${results[0].country}`}
                       airport={results[0]}
                       isSelected={true}
-                      onAddToList={results[0].lat != null && results[0].lon != null ? () => addToSaved(results[0]) : undefined}
-                      isInList={savedAirports.some((a) => a.icao === results[0].icao)}
                     />
                   </div>
                 )}
@@ -875,7 +823,7 @@ export default function AIPPortalPage() {
                     </p>
                     <div className="flex items-end gap-0.5 overflow-x-auto min-h-[52px] border-b border-border -mx-1 px-1">
                       {results.map((airport, i) => {
-                        const isActive = activeTabIndex === null && viewingAirport?.icao === airport.icao;
+                        const isActive = viewingAirport?.icao === airport.icao;
                         const flagUrl = getCountryFlagUrl(airport.country);
                         return (
                           <div
@@ -889,7 +837,6 @@ export default function AIPPortalPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveTabIndex(null);
                                 setSelectedIcao(airport.icao);
                               }}
                               className="flex items-center gap-2 px-4 py-3 text-sm font-mono font-semibold text-foreground min-w-0"
@@ -927,8 +874,6 @@ export default function AIPPortalPage() {
                         key={`${viewingAirport.icao}-${viewingAirport.country}`}
                         airport={viewingAirport}
                         isSelected={true}
-                        onAddToList={viewingAirport.lat != null && viewingAirport.lon != null ? () => addToSaved(viewingAirport) : undefined}
-                        isInList={savedAirports.some((a) => a.icao === viewingAirport.icao)}
                       />
                     )}
                   </div>
@@ -951,34 +896,6 @@ export default function AIPPortalPage() {
           {/* Right column: map + NOTAMs (only when viewing an airport with coords) */}
           {showMap && viewingAirport && (
             <div className="hidden lg:flex lg:shrink-0 lg:w-[min(420px,42vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card">
-              {savedAirports.length > 0 && (
-                <div className="flex items-end gap-0.5 px-2 pt-2 pb-0 border-b border-border/60 bg-muted/30 shrink-0 overflow-x-auto min-h-[40px]">
-                  {savedAirports.map((a, i) => (
-                    <div
-                      key={a.icao}
-                      className={`flex items-center rounded-t-md border border-b-0 shrink-0 overflow-hidden transition-colors ${
-                        activeTabIndex === i ? "bg-card border-border/80 shadow-[0_-1px_0_0_hsl(var(--card))]" : "border-transparent bg-muted/50 hover:bg-muted"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => { setActiveTabIndex(i); setSelectedIcao(null); }}
-                        className="px-3 py-2 text-xs font-mono font-medium text-foreground"
-                      >
-                        {a.icao}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removeFromSaved(a.icao); }}
-                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-muted/80 rounded-sm"
-                        title="Close tab"
-                      >
-                        <XIcon className="size-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
               <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
                 <span>Location — {viewingAirport.icao}</span>
               </div>

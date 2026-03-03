@@ -18,6 +18,9 @@ out/
 # notam sync temp
 scripts/.notam-progress-*
 
+# EAD AIP downloaded PDFs (run script to fetch)
+data/ead-aip/*.pdf
+
 # misc
 .DS_Store
 *.pem

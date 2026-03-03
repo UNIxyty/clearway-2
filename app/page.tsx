@@ -746,6 +746,7 @@ export default function AIPPortalPage() {
                                   setSelectedCountry(browseSelectedCountry);
                                   setActiveTabIndex(null);
                                   setBrowseMenuOpen(false);
+                                  setHasSearched(true);
                                 });
                               }
                             }}

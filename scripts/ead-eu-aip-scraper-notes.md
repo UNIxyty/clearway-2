@@ -31,7 +31,21 @@ In Playwright/Puppeteer:
 
 Wait for the dialog to be visible before clicking (e.g. wait for `#termsDialog` or the button).
 
-## After consent
+## After consent – open AIP Library
 
-- Home page shows: **AIP Library**, Pre-Flight Briefing, SDO Reporting, Prepare my Flight, User Profile, Help.
-- **AIP Library** is the entry point for EU AIP data — navigate there next for country/section structure and download links.
+After accepting terms, click the **AIP Library** item in the top nav to reach the AIP overview.
+
+- **Link text:** “AIP Library”
+- **Target URL:** `/fwf-eadbasic/restricted/user/aip/aip_overview.faces` (relative to EAD base)
+- **Selector (ID):** `a#topForm\\:topMenu\\:j_idt17\\:3\\:j_idt18\\:j_idt28\\:j_idt29`  
+  (IDs contain colons; escape as `\\:` in CSS or use attribute selector below.)
+- **Attribute selector (more stable):** `a[href*="aip_overview.faces"]` or `a[href$="/user/aip/aip_overview.faces"]`
+- **DOM path:** `div#background2 > div#page > form#topForm > div#topArea > div#topNav > div.ui-menu... > ul... > li.menu-level0[1] > a#topForm:topMenu:j_idt17:3:j_idt18:j_idt28:j_idt29`
+- **HTML:** `<a id="topForm:topMenu:j_idt17:3:j_idt18:j_idt28:j_idt29" href="/fwf-eadbasic/restricted/user/aip/aip_overview.faces" class="ui-link ui-widget ui-menuitem-link ui-corner-all">AIP Library</a>`
+
+In Playwright/Puppeteer:
+
+- `page.click('a[href*="aip_overview.faces"]')`
+- Or: `page.getByRole('link', { name: 'AIP Library' }).click()`
+
+Then wait for AIP overview to load (e.g. URL contains `aip_overview.faces`) before scraping country/section structure.

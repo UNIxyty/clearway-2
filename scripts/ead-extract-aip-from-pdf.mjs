@@ -6,6 +6,11 @@
  *   AD2.3 AD Operator, AD 2.3 Customs and Immigration, AD2.3 ATS, AD2.3 Remarks,
  *   AD2.6 AD category for fire fighting
  *
+ * Before extracting, the script reads the PDF note "Note: The following sections in this
+ * chapter are intentionally left blank: AD 2.7, AD 2.10, ...". If AD 2.2, 2.3 or 2.6 are
+ * in that list, those fields are forced to NIL. AD 2.6 uses only the "AD category for
+ * fire fighting" value (remarks in that section are not appended).
+ *
  * Usage: node scripts/ead-extract-aip-from-pdf.mjs [dir]
  * Default dir: data/ead-aip
  * Output: data/ead-aip-extracted.json (array of airport records)
@@ -45,10 +50,30 @@ function firstMatch(text, regex) {
 }
 
 /**
+ * Parse "Note: The following sections... are intentionally left blank: AD 2.7, AD 2.10, ..."
+ * Returns a Set of section numbers we care about if blank: "2.2", "2.3", "2.6"
+ */
+function parseIntentionallyLeftBlank(text) {
+  const blank = new Set();
+  const noteMatch = text.match(/Note:\s*The following sections[^.]*intentionally left blank[:\s]*([\s\S]+?)(?=\n\n|[A-Z]{4}\s+AD\s+2\.|$)/i);
+  if (!noteMatch) return blank;
+  const list = noteMatch[1];
+  const re = /AD[- ]?2\.(\d+)/gi;
+  let m;
+  while ((m = re.exec(list)) !== null) blank.add("2." + m[1]);
+  return blank;
+}
+
+/**
  * Parse extracted PDF text for one AD 2 PDF and return one airport record
  * matching aip-data.json airport object shape.
+ * If the PDF notes that AD 2.2, 2.3 or 2.6 are "intentionally left blank", those fields are set to NIL.
  */
 function parseAd2Text(text, icaoFromFilename) {
+  const leftBlank = parseIntentionallyLeftBlank(text);
+  const blank22 = leftBlank.has("2.2");
+  const blank23 = leftBlank.has("2.3");
+  const blank26 = leftBlank.has("2.6");
   const out = {
     "Airport Code": icaoFromFilename,
     "Airport Name": "",
@@ -74,18 +99,23 @@ function parseAd2Text(text, icaoFromFilename) {
     out["Airport Name"] = name;
   }
 
-  // AD 2.2 block (until AD 2.3)
-  const ad22 = extractBetween(text, "AD 2.2", "AD 2.3");
-  if (ad22) {
-    const traffic = firstMatch(ad22, /(?:7\s+Types of traffic permitted\s*\(IFR\/VFR\))\s*([^\n8]+)/i)
-      || firstMatch(ad22, /Types of traffic permitted[^\n]*\s+([A-Za-z\s\/]+?)(?=\s*8\s+Remarks|\n8\s|$)/i)
-      || firstMatch(ad22, /\b(VFR(?:\s+by\s+day\/night)?|IFR(?:\s*\/\s*VFR)?)\b/);
-    if (traffic) out["AD2.2 Types of Traffic Permitted"] = firstLine(traffic, 80);
-    const remarks2 = firstMatch(ad22, /(?:8\s+)?Remarks\s+([^\n]+?)(?=\s*~|$)/i) || firstMatch(ad22, /Remarks\s+([^\n]+)/i);
-    if (remarks2 && !/^NIL$/i.test(remarks2)) out["AD2.2 Remarks"] = firstLine(remarks2, 200);
+  // AD 2.2 block (until AD 2.3) — skip if section is "intentionally left blank"
+  if (!blank22) {
+    const ad22 = extractBetween(text, "AD 2.2", "AD 2.3");
+    if (ad22) {
+      const traffic = firstMatch(ad22, /(?:7\s+Types of traffic permitted\s*\(IFR\/VFR\))\s*([^\n8]+)/i)
+        || firstMatch(ad22, /Types of traffic permitted[^\n]*\s+([A-Za-z\s\/]+?)(?=\s*8\s+Remarks|\n8\s|$)/i)
+        || firstMatch(ad22, /\b(VFR(?:\s+by\s+day\/night)?|IFR(?:\s*\/\s*VFR)?)\b/);
+      if (traffic) out["AD2.2 Types of Traffic Permitted"] = firstLine(traffic, 80);
+      const remarks2 = firstMatch(ad22, /(?:8\s+)?Remarks\s+([^\n]+?)(?=\s*~|$)/i) || firstMatch(ad22, /Remarks\s+([^\n]+)/i);
+      if (remarks2 && !/^NIL$/i.test(remarks2)) out["AD2.2 Remarks"] = firstLine(remarks2, 200);
+    }
+    if (/subject to prior permission from the operator/i.test(ad22) || /subject to prior permission from the operator/i.test(text))
+      out["AD2.2 Remarks"] = "The use of the aerodrome is subject to prior permission from the operator.";
   }
 
-  // AD 2.3 block: strictly until "AD 2.4" or "AD 2.6" (single digit after 2.)
+  // AD 2.3 block — skip if section is "intentionally left blank"
+  if (!blank23) {
   const ad23 = extractBetween(text, "AD 2.3 OPERATIONAL", "AD 2.4");
   const ad23b = extractBetween(text, "AD 2.3 Operational", "AD 2.4");
   const ad23c = extractBetween(text, "AD 2.3", "AD 2.4");
@@ -104,20 +134,17 @@ function parseAd2Text(text, icaoFromFilename) {
     const remarks3 = firstMatch(ad23Block, /(?:3\s+)?Remarks\s+([^\n]+)/i);
     if (remarks3 && !/^NIL$/i.test(remarks3)) out["AD2.3 Remarks"] = firstLine(remarks3, 120);
   }
+  }
 
-  // AD 2.6 block (stop at AD 2.7 or AD 2.8)
-  const ad26 = extractBetween(text, "AD 2.6 RESCUE", "AD 2.7");
-  const ad26b = extractBetween(text, "AD 2.6", "AD 2.7");
-  const ad26c = extractBetween(text, "AD 2.6", "AD 2.8");
-  const ad26Block = (ad26 || ad26b || ad26c).slice(0, 500);
-  if (ad26Block) {
-    const fire = firstMatch(ad26Block, /(?:1\s+)?AD category for fire fighting\s+([^\n]+?)(?=\s*2\s+Rescue|\n2\s|$)/i);
-    if (fire) out["AD2.6 AD category for fire fighting"] = firstLine(fire, 80);
-    const remarks6 = firstMatch(ad26Block, /(?:4\s+)?Remarks\s+([^\n]+?)(?=\s*~|$)/i) || firstMatch(ad26Block, /Remarks\s+([^\n]+)/i);
-    if (remarks6 && !/^NIL$/i.test(remarks6)) {
-      const current = out["AD2.6 AD category for fire fighting"];
-      const extra = firstLine(remarks6, 100);
-      out["AD2.6 AD category for fire fighting"] = current === "NIL" ? extra : `${current} ${extra}`.trim();
+  // AD 2.6 — use only "AD category for fire fighting" value (do not append Remarks). Skip if "intentionally left blank".
+  if (!blank26) {
+    const ad26 = extractBetween(text, "AD 2.6 RESCUE", "AD 2.7");
+    const ad26b = extractBetween(text, "AD 2.6", "AD 2.7");
+    const ad26c = extractBetween(text, "AD 2.6", "AD 2.8");
+    const ad26Block = (ad26 || ad26b || ad26c).slice(0, 500);
+    if (ad26Block) {
+      const fire = firstMatch(ad26Block, /(?:1\s+)?AD category for fire fighting\s+([^\n]+?)(?=\s*2\s+Rescue|\n2\s|$)/i);
+      if (fire) out["AD2.6 AD category for fire fighting"] = firstLine(fire, 80);
     }
   }
 

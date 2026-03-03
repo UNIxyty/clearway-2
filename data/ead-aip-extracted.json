@@ -1,12 +1,12 @@
 {
   "source": "EAD AD 2 PDFs",
-  "extracted": "2026-03-03T20:36:28.690Z",
+  "extracted": "2026-03-03T20:46:34.014Z",
   "airports": [
     {
       "Airport Code": "EBAM",
       "Airport Name": "AMOUGIES",
       "AD2.2 Types of Traffic Permitted": "IFR / VFR",
-      "AD2.2 Remarks": "NIL",
+      "AD2.2 Remarks": "The use of the aerodrome is subject to prior permission from the operator.",
       "AD2.3 AD Operator": "NIL",
       "AD 2.3 Customs and Immigration": "NIL",
       "AD2.3 ATS": "NIL",
@@ -23,7 +23,7 @@
       "AD 2.3 Customs and Immigration": "NIL",
       "AD2.3 ATS": "NIL",
       "AD2.3 Remarks": "NIL",
-      "AD2.6 AD category for fire fighting": "Fire brigade from Adazi AVBL",
+      "AD2.6 AD category for fire fighting": "NIL",
       "_source": "EV_AD_2_EVAD_en_2025-07-10.pdf"
     }
   ]

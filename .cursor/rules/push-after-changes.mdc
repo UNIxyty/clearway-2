@@ -1,0 +1,16 @@
+---
+description: Always push to git after making code or data changes
+alwaysApply: true
+---
+
+# Push to Git After Changes
+
+After you make any code or data changes in this project:
+
+1. **Stage** the relevant files (do not stage large binaries, PDFs, or CSV data unless the user asks).
+2. **Commit** with a clear, concise message describing what changed.
+3. **Push** to the remote (e.g. `git push`).
+
+Do this as the final step before replying that the work is done. If the user only asked for a push, run push. If the user asked for edits, do the edits then commit and push.
+
+Uncommitted changes should not be left behind unless the user explicitly says otherwise.

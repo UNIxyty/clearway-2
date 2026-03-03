@@ -43,6 +43,8 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   "Bhutan": "bt",
   "Bulgaria": "bg",
   "Cuba": "cu",
+  "United States of America": "us",
+  "USA": "us",
   "Czech Republic": "cz",
   "Denmark": "dk",
   "Ireland": "ie",

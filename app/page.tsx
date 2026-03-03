@@ -59,6 +59,17 @@ type AIPAirport = {
   lon?: number;
 };
 
+const USA_STATE_ABBR: Record<string, string> = {
+  "Alaska": "AK", "American Samoa": "AS", "Arizona": "AZ", "California": "CA", "Colorado": "CO",
+  "Connecticut": "CT", "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Guam": "GU",
+  "Hawaii": "HI", "Illinois": "IL", "Indiana": "IN", "Kansas": "KS", "Kentucky": "KY", "Louisiana": "LA",
+  "Maine": "ME", "Maryland": "MD", "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN",
+  "Missouri": "MO", "Nevada": "NV", "New Jersey": "NJ", "New York": "NY", "North Carolina": "NC",
+  "Northern Mariana Islands": "MP", "Ohio": "OH", "Oregon": "OR", "Palau Island": "PW",
+  "Pennsylvania": "PA", "Puerto Rico": "PR", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+  "Virgin Islands": "VI", "Washington": "WA", "Wisconsin": "WI",
+};
+
 const AIP_FIELD_LABELS: { key: keyof AIPAirport; section: string; label: string }[] = [
   { key: "country", section: "", label: "State" },
   { key: "trafficPermitted", section: "AD 2.2", label: "Types of traffic permitted" },
@@ -656,7 +667,14 @@ export default function AIPPortalPage() {
                               setBrowseStep(4);
                             }}
                           >
-                            {stateName}
+                            {USA_STATE_ABBR[stateName] ? (
+                              <>
+                                <span className="font-mono text-muted-foreground shrink-0">({USA_STATE_ABBR[stateName]})</span>
+                                {stateName}
+                              </>
+                            ) : (
+                              stateName
+                            )}
                             <ChevronRightIcon className="size-4" />
                           </Button>
                         ))}
@@ -756,7 +774,8 @@ export default function AIPPortalPage() {
                                   const merged = [...(results ?? []), ...browseSelection];
                                   const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
                                   setResults(byIcao);
-                                  setSelectedIcao(browseSelection[0].icao);
+                                  const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
+                                  setSelectedIcao(withCoords?.icao ?? browseSelection[0].icao);
                                   setSelectedCountry(browseSelectedCountry);
                                   setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);

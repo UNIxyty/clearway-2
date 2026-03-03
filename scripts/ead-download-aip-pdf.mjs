@@ -2,7 +2,7 @@
  * EAD Basic – download AD 2 AIP PDF for a given ICAO.
  * Runs full flow: login → accept terms → AIP Library → search by ICAO → download PDF.
  *
- * Requires: EAD_USER, EAD_PASSWORD (env or in project .env).
+ * Requires: EAD_USER, EAD_PASSWORD or EAD_PASSWORD_ENC (env or .env). Use scripts/ead-encode-password.mjs to create enc.
  * Usage: node scripts/ead-download-aip-pdf.mjs [ICAO]
  *
  * Output: PDF saved to data/ead-aip/<filename>.pdf
@@ -73,9 +73,16 @@ async function main() {
   }
 
   const user = process.env.EAD_USER;
-  const password = process.env.EAD_PASSWORD;
+  let password = process.env.EAD_PASSWORD;
+  if (!password && process.env.EAD_PASSWORD_ENC) {
+    try {
+      password = Buffer.from(process.env.EAD_PASSWORD_ENC, 'base64').toString('utf8');
+    } catch (_) {
+      password = '';
+    }
+  }
   if (!user || !password) {
-    console.error('Set EAD_USER and EAD_PASSWORD environment variables.');
+    console.error('Set EAD_USER and EAD_PASSWORD (or EAD_PASSWORD_ENC) in .env or environment.');
     process.exit(1);
   }
 

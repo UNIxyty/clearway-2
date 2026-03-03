@@ -24,6 +24,7 @@ data/ead-aip/*.pdf
 # misc
 .DS_Store
 *.pem
+.env
 .env*.local
 .vercel
 

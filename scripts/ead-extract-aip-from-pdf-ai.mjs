@@ -80,8 +80,8 @@ async function getTextFromPdf(pdfPath) {
 
 async function extractWithAI(text, icaoHint, apiKey) {
   const trimmed = trimToRelevant(text);
-  // Default: gpt-5-nano (fast, cheap). Or set OPENAI_MODEL=gpt-4o-mini, gpt-3.5-turbo, etc.
-  const model = process.env.OPENAI_MODEL || "gpt-5-nano";
+  // Default: gpt-4o-mini (reliable). gpt-5-nano may not be available on all accounts.
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -144,6 +144,11 @@ async function main() {
     } catch (e) {
       console.error("[EAD AI extract] Error", f, e.message);
     }
+  }
+
+  if (records.length === 0 && pdfs.length > 0) {
+    console.error("No airports extracted (all PDFs failed). Check OPENAI_API_KEY and OPENAI_MODEL. Not overwriting output.");
+    process.exit(1);
   }
 
   const out = { source: "EAD AD 2 PDFs (AI)", extracted: new Date().toISOString(), airports: records };

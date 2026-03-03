@@ -337,6 +337,41 @@ Then in crontab:
 
 ## Step 8: Troubleshooting
 
+### Instance status check failed / Can’t SSH / NOTAM server not responding
+
+If the EC2 instance shows **2/3 checks passed** or **Instance status check failed** and you can’t SSH in, the OS is likely hung (e.g. OOM, disk full, or kernel issue). Do this **from the AWS Console** (no SSH needed):
+
+1. **See why it failed**  
+   EC2 → select **notam-scraper** → **Actions** → **Monitor and troubleshoot** → **Get system log** and **Get instance screenshot**.  
+   - **System log**: look for `Out of memory`, `Killed process`, or disk errors.  
+   - **Screenshot**: shows the last console frame (e.g. kernel panic or login prompt).
+
+2. **Reboot the instance**  
+   EC2 → select **notam-scraper** → **Instance state** → **Reboot instance**.  
+   Wait 2–3 minutes, then try SSH again. The **public IP may change** if you don’t use an Elastic IP.
+
+3. **After SSH works again**  
+   - Restart the NOTAM sync server (it does not survive reboot unless you use systemd):
+     ```bash
+     ssh -i your-key.pem ubuntu@NEW-PUBLIC-IP
+     cd ~/clearway-2
+     export AWS_S3_BUCKET=your-bucket AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx
+     tmux new -s notam
+     node scripts/notam-sync-server.mjs
+     # Detach: Ctrl+B then D
+     ```
+   - If the **public IP changed**, update **NOTAM_SYNC_URL** in Vercel to `http://NEW-PUBLIC-IP:3001` and redeploy.
+
+4. **If reboot doesn’t fix it**  
+   Launch a **new** EC2 instance (same AMI, instance type, key pair, IAM role, security group). Copy over the project (clone repo, set env, install deps), start the sync server, then update **NOTAM_SYNC_URL** in Vercel. Optionally attach an **Elastic IP** to the new instance so the IP doesn’t change on reboot.
+
+5. **Reduce future failures**  
+   - Use at least **t3.small** (2 GB RAM); Chrome + Xvfb can use ~1.5 GB.  
+   - Add log rotation for scraper/cron logs so disk doesn’t fill.  
+   - Consider running the sync server under **systemd** so it restarts on reboot (see Step 5b for manual start).
+
+---
+
 ### S3 bucket is empty
 
 The scraper only uploads when (1) it runs to the end without crashing, and (2) `AWS_S3_BUCKET` is set in the same shell where you run it. Check the following:

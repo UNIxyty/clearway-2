@@ -227,6 +227,8 @@ export default function AIPPortalPage() {
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
+  const [eadAirports, setEadAirports] = useState<AIPAirport[]>([]);
+  const [eadAirportsLoading, setEadAirportsLoading] = useState(true);
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -255,6 +257,42 @@ export default function AIPPortalPage() {
       .then((res) => res.json())
       .then((data) => setRegions(data.regions ?? []))
       .catch(() => setRegions([]));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/ead-extracted")
+      .then((res) => res.json())
+      .then((data) => {
+        const list = (data.airports ?? []) as Array<{
+          "Airport Code"?: string;
+          "Airport Name"?: string;
+          "AD2.2 Types of Traffic Permitted"?: string;
+          "AD2.2 Remarks"?: string;
+          "AD2.3 AD Operator"?: string;
+          "AD 2.3 Customs and Immigration"?: string;
+          "AD2.3 ATS"?: string;
+          "AD2.3 Remarks"?: string;
+          "AD2.6 AD category for fire fighting"?: string;
+        }>;
+        setEadAirports(
+          list.map((a) => ({
+            country: "EAD (EU AIP)",
+            gen1_2: "",
+            gen1_2_point_4: "",
+            icao: a["Airport Code"] ?? "",
+            name: a["Airport Name"] ?? "",
+            trafficPermitted: a["AD2.2 Types of Traffic Permitted"] ?? "",
+            trafficRemarks: a["AD2.2 Remarks"] ?? "",
+            operator: a["AD2.3 AD Operator"] ?? "",
+            customsImmigration: a["AD 2.3 Customs and Immigration"] ?? "",
+            ats: a["AD2.3 ATS"] ?? "",
+            atsRemarks: a["AD2.3 Remarks"] ?? "",
+            fireFighting: a["AD2.6 AD category for fire fighting"] ?? "",
+          }))
+        );
+      })
+      .catch(() => setEadAirports([]))
+      .finally(() => setEadAirportsLoading(false));
   }, []);
 
   const countriesInRegion = useMemo(() => {
@@ -961,6 +999,42 @@ export default function AIPPortalPage() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md border-border/80 shrink-0">
+          <CardHeader className="pb-2 px-4 sm:px-6">
+            <CardTitle className="text-base sm:text-lg font-semibold">
+              EAD AIP extracted
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-sm">
+              Airports from EAD AD 2 PDFs (download &amp; extract via <a href="/aip-test" className="text-primary hover:underline">/aip-test</a>)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 sm:px-6 pb-4">
+            {eadAirportsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Spinner className="size-4" />
+                Loading…
+              </div>
+            ) : eadAirports.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Use <a href="/aip-test" className="text-primary hover:underline">/aip-test</a> to download and extract.</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {eadAirports.map((airport) => (
+                  <AIPResultCard
+                    key={airport.icao}
+                    airport={airport}
+                    isSelected={viewingAirport?.icao === airport.icao}
+                    onSelect={() => {
+                      setResults([airport]);
+                      setSelectedIcao(airport.icao);
+                      setHasSearched(true);
+                    }}
+                  />
+                ))}
               </div>
             )}
           </CardContent>

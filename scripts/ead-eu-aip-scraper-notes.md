@@ -159,3 +159,4 @@ Clicking the link opens/downloads the PDF (often `target="_blank"`).
 
 - **Regex:** `scripts/ead-extract-aip-from-pdf.mjs` — parses AD 2.1–2.6 from PDF text; layout varies by country (e.g. "ESGG 2.1" vs "AD 2.1").
 - **AI:** `scripts/ead-extract-aip-from-pdf-ai.mjs` — uses OpenAI to extract the same schema from PDF text; set `OPENAI_API_KEY` in `.env`. Handles varying layouts and wording.
+- **EC2:** Dedicated instance setup (clone, deps, EAD env, cron) is in `scripts/AIP-AWS-SETUP.md`.

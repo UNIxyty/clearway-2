@@ -219,16 +219,16 @@ node scripts/notam-sync-server.mjs
 
 The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). By default it runs the **CrewBriefing** scraper (`scripts/crewbriefing-notams.mjs`). Set `NOTAM_SCRAPER=faa` to use the FAA scraper instead. It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
 
-2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux` (always `cd` to project root first):
+2. **Keep it running:** use `tmux` or `screen`. Put your env vars in `.env` on EC2 (bucket, region, `SYNC_SECRET`, `CREWBRIEFING_USER`, `CREWBRIEFING_PASSWORD`, etc.), then run the same way as the AIP sync server:
 
 ```bash
+cd ~/clearway-2 && git pull
 tmux new -s notam
-cd ~/clearway-2   # project root – required so scripts/ is found
-export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
-export CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx
-node scripts/notam-sync-server.mjs
+./scripts/run-notam-sync-server.sh
 # Detach: Ctrl+B then D. Reattach: tmux attach -t notam
 ```
+
+The script loads `.env` from the project root and starts `node scripts/notam-sync-server.mjs`. Without a script, same pattern: `cd ~/clearway-2`, then `export AWS_S3_BUCKET=... SYNC_SECRET=... CREWBRIEFING_USER=... CREWBRIEFING_PASSWORD=...` and `node scripts/notam-sync-server.mjs`.
 
 3. **Expose the server to the internet** so Vercel can call it: open port 3001 in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs if you prefer). The sync URL will be `http://EC2-PUBLIC-IP:3001` (or use a domain + reverse proxy if you have one).
 

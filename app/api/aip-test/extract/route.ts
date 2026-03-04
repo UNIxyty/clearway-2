@@ -10,8 +10,14 @@ export async function POST(request: NextRequest) {
   const useAi = request.nextUrl.searchParams.get("useAi") === "1" || request.nextUrl.searchParams.get("useAi") === "true";
   const script = useAi ? SCRIPT_AI : SCRIPT_REGEX;
 
+  const env = { ...process.env };
+  try {
+    const body = (await request.json().catch(() => ({}))) as { openaiApiKey?: string; openaiModel?: string };
+    if (body.openaiApiKey?.trim()) env.OPENAI_API_KEY = body.openaiApiKey.trim();
+    if (body.openaiModel?.trim()) env.OPENAI_MODEL = body.openaiModel.trim();
+  } catch {}
+
   return new Promise<NextResponse>((resolve) => {
-    const env = { ...process.env };
     const child = spawn("node", [script], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";

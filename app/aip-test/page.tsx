@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { ArrowLeftIcon, DownloadIcon, FileTextIcon, Loader2Icon } from "lucide-react";
+import { ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon, FileTextIcon, Loader2Icon } from "lucide-react";
 
 type ExtractedAirport = {
   "Airport Code"?: string;
@@ -31,6 +31,10 @@ export default function AipTestPage() {
   const [pdfList, setPdfList] = useState<string[]>([]);
   const [extracted, setExtracted] = useState<{ airports: ExtractedAirport[] } | null>(null);
   const [listLoading, setListLoading] = useState(false);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [eadUser, setEadUser] = useState("");
+  const [eadPassword, setEadPassword] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   const fetchList = useCallback(async () => {
     setListLoading(true);
@@ -67,10 +71,13 @@ export default function AipTestPage() {
     setDownloadLoading(true);
     setDownloadResult(null);
     try {
+      const body: { icao: string; eadUser?: string; eadPassword?: string } = { icao: code };
+      if (eadUser.trim()) body.eadUser = eadUser.trim();
+      if (eadPassword.trim()) body.eadPassword = eadPassword.trim();
       const res = await fetch("/api/aip-test/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ icao: code }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       setDownloadResult({
@@ -91,7 +98,13 @@ export default function AipTestPage() {
     setExtractLoading(true);
     setExtractResult(null);
     try {
-      const res = await fetch(`/api/aip-test/extract?useAi=${useAi ? "1" : "0"}`, { method: "POST" });
+      const body: { openaiApiKey?: string; openaiModel?: string } = {};
+      if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
+      const res = await fetch(`/api/aip-test/extract?useAi=${useAi ? "1" : "0"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
       setExtractResult({
         ok: data.ok,
@@ -131,10 +144,60 @@ export default function AipTestPage() {
               AIP download &amp; extract test
             </CardTitle>
             <CardDescription>
-              Test EAD PDF download and extraction locally. Requires .env with EAD_USER and EAD_PASSWORD_ENC (and OPENAI_API_KEY for AI extract). Download runs Playwright and works when run locally or on EC2 with xvfb.
+              Test EAD PDF download and extraction. Pass credentials in the form below (or use server .env). Download runs Playwright; use locally or on EC2 with xvfb.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Optional credentials – pass in request instead of .env */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setCredentialsOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                {credentialsOpen ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                Credentials (optional – pass in request instead of server .env)
+              </button>
+              {credentialsOpen && (
+                <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">EAD user</Label>
+                    <Input
+                      type="text"
+                      placeholder="EAD_USER"
+                      value={eadUser}
+                      onChange={(e) => setEadUser(e.target.value)}
+                      className="font-mono text-sm"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">EAD password</Label>
+                    <Input
+                      type="password"
+                      placeholder="EAD_PASSWORD"
+                      value={eadPassword}
+                      onChange={(e) => setEadPassword(e.target.value)}
+                      className="font-mono text-sm"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">OpenAI API key (for AI extract)</Label>
+                    <Input
+                      type="password"
+                      placeholder="OPENAI_API_KEY"
+                      value={openaiApiKey}
+                      onChange={(e) => setOpenaiApiKey(e.target.value)}
+                      className="font-mono text-sm"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">If set, these are sent in the API request and not stored on the server. Leave blank to use server .env.</p>
+                </div>
+              )}
+            </div>
+
             {/* Download */}
             <div className="space-y-2">
               <Label>Download AIP PDF for ICAO</Label>

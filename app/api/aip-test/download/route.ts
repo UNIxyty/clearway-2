@@ -5,11 +5,29 @@ import { join } from "path";
 const SCRIPT = join(process.cwd(), "scripts", "ead-download-aip-pdf.mjs");
 const TIMEOUT_MS = 90_000;
 
+function decodePasswordEnc(enc: string): string {
+  try {
+    return Buffer.from(enc, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(request: NextRequest) {
   let icao: string;
+  let eadUser: string | undefined;
+  let eadPassword: string | undefined;
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = (await request.json().catch(() => ({}))) as {
+      icao?: string;
+      eadUser?: string;
+      eadPassword?: string;
+      eadPasswordEnc?: string;
+    };
     icao = (body.icao ?? request.nextUrl.searchParams.get("icao") ?? "").toString().trim().toUpperCase();
+    eadUser = body.eadUser?.trim();
+    if (body.eadPassword?.trim()) eadPassword = body.eadPassword.trim();
+    else if (body.eadPasswordEnc?.trim()) eadPassword = decodePasswordEnc(body.eadPasswordEnc.trim());
   } catch {
     icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   }
@@ -17,8 +35,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Valid 4-letter ICAO code required" }, { status: 400 });
   }
 
+  const env = { ...process.env };
+  if (eadUser && eadPassword) {
+    env.EAD_USER = eadUser;
+    env.EAD_PASSWORD = eadPassword;
+    delete env.EAD_PASSWORD_ENC;
+  }
+
   return new Promise<NextResponse>((resolve) => {
-    const env = { ...process.env };
     const child = spawn("node", [SCRIPT, icao], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";

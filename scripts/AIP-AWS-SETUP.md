@@ -134,9 +134,13 @@ Then in the project we use `CHROME_CHANNEL=chromium` so Playwright uses the syst
 
 ---
 
-## Step 4: Configure credentials
+## Step 4: Credentials (env or pass in API request)
 
-On the EC2 instance, create a `.env` in the project root (never commit this file):
+You can either store credentials on the EC2 in `.env`, or **not store them** and pass them in the API request (e.g. from the portal or a sync server that holds them in Vercel env), like NOTAMs.
+
+**Option A – Store on EC2 in `.env` (for cron / manual runs)**
+
+On the EC2 instance:
 
 ```bash
 cd ~/clearway-2
@@ -146,27 +150,22 @@ nano .env
 Add (replace with your real values):
 
 ```bash
-# EAD Basic – required for download
 EAD_USER=YourEadUsername
 EAD_PASSWORD_ENC=YourBase64EncodedPassword
-```
-
-To generate `EAD_PASSWORD_ENC` from your password (run once on your laptop or any machine with Node):
-
-```bash
-node scripts/ead-encode-password.mjs "YourEadPassword"
-```
-
-Paste the output into `.env` as `EAD_PASSWORD_ENC=...`.
-
-**Optional – for AI extraction:**
-
-```bash
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 ```
 
-Save and exit (Ctrl+O, Enter, Ctrl+X in nano).
+To generate `EAD_PASSWORD_ENC`: run `node scripts/ead-encode-password.mjs "YourEadPassword"` (e.g. on your laptop) and paste the output. Save and exit (Ctrl+O, Enter, Ctrl+X in nano).
+
+**Option B – Do not store on EC2; pass in request**
+
+If you trigger download/extract via the portal (**/aip-test**) or another API client:
+
+- **Download:** POST body can include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API uses these for the script and does not read `EAD_*` from env.
+- **Extract (AI):** POST body can include `openaiApiKey`, `openaiModel`. If present, the API passes them to the script.
+
+On the **/aip-test** page, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. So the AIP EC2 can run without a `.env` file if you always trigger from the portal with credentials filled in (or if your front-end sends credentials from Vercel env server-side).
 
 ---
 

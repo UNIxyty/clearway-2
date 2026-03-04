@@ -26,6 +26,7 @@ try {
 const BASE = 'https://www.ead.eurocontrol.int';
 const LOGIN_URL = BASE + '/cms-eadbasic/opencms/en/login/ead-basic/';
 const AIP_OVERVIEW_PATH = '/fwf-eadbasic/restricted/user/aip/aip_overview.faces';
+const AIP_OVERVIEW_URL = BASE + AIP_OVERVIEW_PATH;
 
 // ICAO prefix (first 2 letters) → EAD authority label, e.g. EV → "Latvia (EV)"
 const PREFIX_TO_COUNTRY = {
@@ -122,16 +123,23 @@ async function main() {
       await page.waitForTimeout(500);
     }
 
-    // —— AIP Library —— (link may take a moment after login; try role first, then text)
+    // —— AIP Library —— try direct URL first (avoids menu link); fallback: click "AIP Library"
     log('Opening AIP Library');
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.waitForTimeout(1500);
-    const aipLink = page
-      .getByRole('link', { name: /aip\s*library/i })
-      .or(page.locator('a').filter({ hasText: /aip\s*library/i }))
-      .first();
-    await aipLink.click({ timeout: 60000 });
-    await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
+    let wentToAip = false;
+    try {
+      await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      wentToAip = page.url().includes('aip_overview');
+    } catch (_) {}
+    if (!wentToAip) {
+      const aipLink = page
+        .getByRole('link', { name: /aip\s*library/i })
+        .or(page.locator('a').filter({ hasText: /aip\s*library/i }))
+        .first();
+      await aipLink.click({ timeout: 60000 });
+      await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
+    }
     await page.waitForTimeout(1000);
 
     // —— Authority (country) —— native select with id mainForm:selectAuthorityCode_input
@@ -244,6 +252,12 @@ async function main() {
   } catch (err) {
     log('Error: ' + err.message);
     if (process.env.DEBUG) console.error(err);
+    try {
+      const debugPath = join(outDir, 'ead-aip-debug.png');
+      await page.screenshot({ path: debugPath, fullPage: true });
+      log('Screenshot saved to ' + debugPath + ' – check what the page looks like after login.');
+      log('Page URL was: ' + (await page.url()));
+    } catch (_) {}
     process.exit(1);
   } finally {
     await browser.close();

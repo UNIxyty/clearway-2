@@ -177,3 +177,13 @@ Clicking the link opens/downloads the PDF (often `target="_blank"`).
 - **Script:** `scripts/ead-list-icaos-by-country.mjs` — logs in, opens AIP Library, then for each EAD country selects the authority, opens AD part, runs search (empty = all), paginates through results and extracts every AD 2 ICAO from the table. Output: `data/ead-all-icaos-by-country.json` (or `--output path`).
 - **Run (with virtual display on Linux):** `xvfb-run -a node scripts/ead-list-icaos-by-country.mjs`
 - Requires `EAD_USER` and `EAD_PASSWORD` (or `EAD_PASSWORD_ENC`) in `.env` or environment.
+
+### List all Document Names per country (search → table → paginate)
+
+Flow: select country, set AIP part to AD, press Search; read the results table; collect **Document Name** from every row; go to next page until no more; then next country (AIP part stays AD).
+
+- **Table (DOM):** `div#background2 > div#page > div#mainArea > div#mainCol > div#content > div#j_idt82 > div#j_idt82_content > form#mainForm > div#mainForm:searchResults > div.ui-datatable-tablewrapper > table`
+- **tbody:** `#mainForm:searchResults_data` — rows: `#mainForm\\:searchResults_data tr`. Columns: 0 = Effective Date, **1 = Document Name**, 2 = eAIP AIRAC, 3 = Document Heading. Read cell index 1 (or link text of `a.wrap-data` in that cell) for the document name (e.g. `LA_AD_2_LAKU_24 -5_EN.pdf`).
+- **Next page:** `a.ui-paginator-next` (aria-label "Next Page"); stop when `aria-disabled="true"` or class `ui-state-disabled`.
+- **Script:** `scripts/ead-list-document-names-by-country.mjs` — same login/AIP flow, then per country: authority + AD part → Search → for each page collect Document Name from all rows → click Next → repeat; writes `data/ead-document-names-by-country.json` (or `--output path`).
+- **Run:** `xvfb-run -a node scripts/ead-list-document-names-by-country.mjs`

@@ -8,15 +8,19 @@
  * Output: PDF saved to data/ead-aip/<filename>.pdf
  */
 
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { mkdirSync, existsSync, readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, '..');
 
 // Load .env from project root if present (so EAD_USER/EAD_PASSWORD can live there)
 try {
-  const envPath = join(process.cwd(), '.env');
+  const envPath = join(PROJECT_ROOT, '.env');
   if (existsSync(envPath)) {
     const content = readFileSync(envPath, 'utf8');
-    for (const line of content.split('\n')) {
+    for (const line of content.split(/\r?\n/)) {
       const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
       if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim();
     }
@@ -89,7 +93,7 @@ async function main() {
 
   const prefix = icao.slice(0, 2);
   const countryLabel = PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
-  const outDir = join(process.cwd(), 'data', 'ead-aip');
+  const outDir = join(PROJECT_ROOT, 'data', 'ead-aip');
   mkdirSync(outDir, { recursive: true });
 
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);

@@ -257,28 +257,30 @@ OPENAI_MODEL=gpt-4o-mini
 
 Save and exit (Ctrl+O, Enter, Ctrl+X). Optional: if you use system Chromium instead of Playwright’s, add `CHROME_CHANNEL=chromium`.
 
-2. **Run the sync server in tmux** (so it keeps running after you exit SSH):
+2. **Run the sync server in tmux** (same pattern as NOTAMs – so it keeps running after you exit SSH):
 
+**Start a new tmux session:**
 ```bash
 tmux new -s aip
+```
+Your prompt looks the same, but you're now inside tmux.
+
+**Go to the project and set env (if needed):**
+```bash
 cd ~/clearway-2
-set -a && . ./.env && set +a
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 SYNC_SECRET=your-secret
+export EAD_USER=YourEadUsername EAD_PASSWORD_ENC=YourBase64EncodedPassword
+export OPENAI_API_KEY=sk-... OPENAI_MODEL=gpt-4o-mini
+```
+
+**Start the server (foreground inside tmux):**
+```bash
 node scripts/aip-sync-server.mjs
 ```
 
 You should see: `AIP sync server listening on port 3002 | download: ... | extract: AI`. Then **detach** from tmux: press **Ctrl+B**, release, then **D**. You can close SSH; the server keeps running. To reattach later: `tmux attach -t aip`.
 
-**If you prefer not to use `.env`**, run the same in tmux but export vars by hand:
-
-```bash
-tmux new -s aip
-cd ~/clearway-2
-export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 SYNC_SECRET=your-secret
-export EAD_USER=YourEadUsername EAD_PASSWORD_ENC=YourBase64EncodedPassword
-export OPENAI_API_KEY=sk-... OPENAI_MODEL=gpt-4o-mini
-node scripts/aip-sync-server.mjs
-# Detach: Ctrl+B then D
-```
+**Alternatively:** if you put all vars in `.env` (Step 1 above), you can run `set -a && . ./.env && set +a` before `node scripts/aip-sync-server.mjs`, or use `./scripts/run-aip-sync-server.sh` (which loads `.env` and runs the server).
 
 The server listens on port **3002** (or `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs download for that ICAO, then AI extract, returns the JSON, and uploads to S3 (`aip/ead-aip-extracted.json` and `aip/ead/ICAO.json`) if `AWS_S3_BUCKET` is set.
 

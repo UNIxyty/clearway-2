@@ -30,6 +30,17 @@ try {
 const LOGIN_URL = 'https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/';
 
 async function main() {
+  if (!process.env.DISPLAY) {
+    console.error('No display (DISPLAY not set). To see the browser on your Mac:');
+    console.error('  1. On Mac: install XQuartz:  brew install --cask xquartz');
+    console.error('  2. Quit Terminal, reopen it, start XQuartz once.');
+    console.error('  3. Connect with X11 forwarding:  ssh -X -i your-key.pem ubuntu@YOUR_EC2_IP');
+    console.error('  4. On EC2 run:  cd ~/clearway-2 && node scripts/ead-manual-browse.mjs');
+    console.error('');
+    console.error('If you run without -X, the browser has nowhere to draw. Use ssh -X from your PC.');
+    process.exit(1);
+  }
+
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({
     headless: false,

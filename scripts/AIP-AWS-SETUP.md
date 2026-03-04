@@ -167,7 +167,7 @@ If you trigger download/extract via the portal (**/aip-test**) or another API cl
 - **Download:** POST body may include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API passes them into the script env and does not read `EAD_*` from process env.
 - **Extract (AI):** POST body may include `openaiApiKey`, `openaiModel`. If present, the API passes them into the script env.
 
-On **/aip-test**, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. The script then runs on **whatever server handles the API** (e.g. your laptop if you run the app locally, or Vercel – where Playwright may not be available). To have the **AIP EC2** run the jobs without storing credentials on the instance, you would run a small sync server on the EC2 (similar to the NOTAM sync server) that accepts requests with credentials and spawns the scripts; the doc here assumes either Option A (`.env` on EC2) or triggering from the portal with the app running locally.
+On **/aip-test**, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. To have the **AIP EC2** run the jobs when you click **Sync on EC2**, use the **AIP sync server** (Step 5b): it uses the **same sync secret** as the NOTAM sync server (`SYNC_SECRET` on EC2, `NOTAM_SYNC_SECRET` in Vercel), so you do not need a second secret.
 
 ---
 
@@ -216,6 +216,46 @@ You can copy them to your laptop with `scp`:
 scp -i your-key.pem -r ubuntu@EC2-PUBLIC-IP:~/clearway-2/data/ead-aip-extracted.json ./
 scp -i your-key.pem -r ubuntu@EC2-PUBLIC-IP:~/clearway-2/data/ead-aip ./
 ```
+
+---
+
+## Step 5b: Run the AIP sync server on EC2 (optional – "Sync on EC2" from portal)
+
+Like the NOTAM sync server, the AIP sync server runs on the EC2 and accepts authenticated requests from the portal. When you click **Sync on EC2** on **/aip-test**, the portal calls this server, which runs download + extract for the given ICAO and returns the result (and optionally uploads to S3). **The same sync secret is used as for NOTAMs:** set `SYNC_SECRET` on the AIP EC2 to the same value as `NOTAM_SYNC_SECRET` in Vercel.
+
+1. On the AIP EC2 instance, set env and start the sync server (same bucket and EAD/OpenAI credentials as in Step 4 Option A):
+
+```bash
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod
+export AWS_REGION=us-east-1
+export SYNC_SECRET=your-same-secret-as-notam-sync   # same as NOTAM_SYNC_SECRET in Vercel
+export EAD_USER=YourEadUsername
+export EAD_PASSWORD_ENC=YourBase64EncodedPassword
+export OPENAI_API_KEY=sk-...
+node scripts/aip-sync-server.mjs
+```
+
+The server listens on port **3002** (or set `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs the download script for that ICAO, then the AI extract script, then returns the extracted JSON (and uploads to `s3://bucket/aip/ead-aip-extracted.json` if `AWS_S3_BUCKET` is set).
+
+2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
+
+```bash
+tmux new -s aip
+cd ~/clearway-2
+. .env   # or export EAD_USER=... EAD_PASSWORD_ENC=... OPENAI_API_KEY=... SYNC_SECRET=...
+node scripts/aip-sync-server.mjs
+# Detach: Ctrl+B then D. Reattach: tmux attach -t aip
+```
+
+3. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
+
+4. **In Vercel** add:
+   - **Name:** `AIP_SYNC_URL`  
+     **Value:** `http://EC2-PUBLIC-IP:3002` (no trailing slash).
+   - **NOTAM_SYNC_SECRET** is already set for NOTAM sync; the AIP sync server uses the same secret (`SYNC_SECRET` on EC2 must match `NOTAM_SYNC_SECRET` in Vercel). No extra variable needed.
+
+After that, **Sync on EC2** on **/aip-test** will trigger the scraper on the AIP EC2 and return fresh extracted data.
 
 ---
 
@@ -269,7 +309,10 @@ The portal already reads EAD extracted data from the repo file `data/ead-aip-ext
 | 3 | SSH in; if no User data, install deps; clone repo, `npm install`, `npx playwright install chromium`. |
 | 4 | **Credentials:** Option A – `.env` on EC2 (`EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`). Option B – pass in API request from **/aip-test** (no `.env` on EC2). |
 | 5 | Run download (with `xvfb-run`) per ICAO, then extract (regex or AI). On EC2 CLI: needs Option A. Or trigger from portal **/aip-test** with Option B. |
+| 5b | Optional: AIP sync server – `node scripts/aip-sync-server.mjs` on EC2 (port 3002). Use **same** `SYNC_SECRET` as NOTAMs. In Vercel set `AIP_SYNC_URL`; reuse `NOTAM_SYNC_SECRET`. |
 | 6 | Optional: cron for daily run (requires Option A `.env` on EC2). |
 | 7 | Upload `ead-aip-extracted.json` to S3 (`your-bucket/aip/`). |
+
+**Env (EC2 sync server):** `SYNC_SECRET` (same as NOTAM), `EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`, `AWS_S3_BUCKET`, `AWS_REGION`. **Vercel:** `AIP_SYNC_URL` (e.g. `http://EC2-IP:3002`), reuse existing `NOTAM_SYNC_SECRET`.
 
 **Cost:** t3.small on-demand is about **$0.0208/hour** (~$15/month if 24/7). You can stop the instance when not needed to save cost.

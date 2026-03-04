@@ -28,6 +28,8 @@ export default function AipTestPage() {
   const [extractLoading, setExtractLoading] = useState(false);
   const [useAi, setUseAi] = useState(true);
   const [extractResult, setExtractResult] = useState<{ ok: boolean; airports?: ExtractedAirport[]; error?: string } | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ ok: boolean; message?: string; error?: string; airports?: ExtractedAirport[] } | null>(null);
   const [pdfList, setPdfList] = useState<string[]>([]);
   const [extracted, setExtracted] = useState<{ airports: ExtractedAirport[] } | null>(null);
   const [listLoading, setListLoading] = useState(false);
@@ -91,6 +93,34 @@ export default function AipTestPage() {
       setDownloadResult({ ok: false, error: e instanceof Error ? e.message : "Request failed" });
     } finally {
       setDownloadLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    const code = icao.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(code)) {
+      setSyncResult({ ok: false, error: "Enter a valid 4-letter ICAO (e.g. ESGG)." });
+      return;
+    }
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`/api/aip-test/sync?icao=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      setSyncResult({
+        ok: data.ok && !data.error,
+        message: data.ok ? `Downloaded and extracted ${code}` : undefined,
+        error: data.error ?? data.detail,
+        airports: data.airports,
+      });
+      if (data.ok && data.airports?.length) {
+        setExtracted({ airports: data.airports });
+        fetchExtracted();
+      }
+    } catch (e) {
+      setSyncResult({ ok: false, error: e instanceof Error ? e.message : "Request failed" });
+    } finally {
+      setSyncLoading(false);
     }
   }
 
@@ -218,10 +248,25 @@ export default function AipTestPage() {
                     "Download PDF"
                   )}
                 </Button>
+                <Button onClick={handleSync} disabled={syncLoading} variant="outline" title="Run download + extract on AIP EC2 (same sync secret as NOTAMs)">
+                  {syncLoading ? (
+                    <>
+                      <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                      Syncing on EC2…
+                    </>
+                  ) : (
+                    "Sync on EC2"
+                  )}
+                </Button>
               </div>
               {downloadResult && (
                 <p className={`text-sm ${downloadResult.ok ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
                   {downloadResult.ok ? downloadResult.message ?? downloadResult.path : downloadResult.error}
+                </p>
+              )}
+              {syncResult && (
+                <p className={`text-sm ${syncResult.ok ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                  {syncResult.ok ? syncResult.message : syncResult.error}
                 </p>
               )}
             </div>

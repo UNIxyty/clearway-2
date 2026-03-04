@@ -227,33 +227,61 @@ Like the NOTAM sync server, the AIP sync server runs on the EC2 and accepts auth
 
 **Note:** If EAD returns "Access denied" for your EC2 IP (see note at the top of this doc), **Sync on EC2** will fail at the download step. In that case run **Download PDF** and **Extract** from **/aip-test** on your laptop instead, or run download locally and copy PDFs to EC2 for extract/upload.
 
-1. On the AIP EC2 instance, set env and start the sync server (same bucket and EAD/OpenAI credentials as in Step 4 Option A):
+1. **Create a `.env` on EC2** (recommended) so you don’t type secrets in the shell. From the project root:
 
 ```bash
 cd ~/clearway-2
-export AWS_S3_BUCKET=myapp-notams-prod
-export AWS_REGION=us-east-1
-export SYNC_SECRET=your-same-secret-as-notam-sync   # same as NOTAM_SYNC_SECRET in Vercel
-export EAD_USER=YourEadUsername
-export EAD_PASSWORD_ENC=YourBase64EncodedPassword
-export OPENAI_API_KEY=sk-...
-node scripts/aip-sync-server.mjs
+nano .env
 ```
 
-The server listens on port **3002** (or set `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs the download script for that ICAO, then the AI extract script, then returns the extracted JSON (and uploads to `s3://bucket/aip/ead-aip-extracted.json` if `AWS_S3_BUCKET` is set).
+Add (replace with your values):
 
-1. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
+```bash
+# Sync auth (same value as NOTAM_SYNC_SECRET in Vercel)
+SYNC_SECRET=your-same-secret-as-notam-sync
+
+# S3 (same bucket as NOTAMs – portal reads aip/ead/ICAO.json from here)
+AWS_S3_BUCKET=myapp-notams-prod
+AWS_REGION=eu-north-1
+
+# EAD Basic login (use EAD_PASSWORD_ENC from: node scripts/ead-encode-password.mjs "YourPassword")
+EAD_USER=YourEadUsername
+EAD_PASSWORD_ENC=YourBase64EncodedPassword
+
+# OpenAI (for AI extract; optional OPENAI_MODEL, default gpt-4o-mini)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Save and exit (Ctrl+O, Enter, Ctrl+X). Optional: if you use system Chromium instead of Playwright’s, add `CHROME_CHANNEL=chromium`.
+
+2. **Run the sync server in tmux** (so it keeps running after you exit SSH):
 
 ```bash
 tmux new -s aip
 cd ~/clearway-2
-. .env   # or export EAD_USER=... EAD_PASSWORD_ENC=... OPENAI_API_KEY=... SYNC_SECRET=...
+set -a && . ./.env && set +a
 node scripts/aip-sync-server.mjs
-# Detach: Ctrl+B then D. Reattach: tmux attach -t aip
 ```
 
-1. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
-2. **In Vercel** add:
+You should see: `AIP sync server listening on port 3002 | download: ... | extract: AI`. Then **detach** from tmux: press **Ctrl+B**, release, then **D**. You can close SSH; the server keeps running. To reattach later: `tmux attach -t aip`.
+
+**If you prefer not to use `.env`**, run the same in tmux but export vars by hand:
+
+```bash
+tmux new -s aip
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 SYNC_SECRET=your-secret
+export EAD_USER=YourEadUsername EAD_PASSWORD_ENC=YourBase64EncodedPassword
+export OPENAI_API_KEY=sk-... OPENAI_MODEL=gpt-4o-mini
+node scripts/aip-sync-server.mjs
+# Detach: Ctrl+B then D
+```
+
+The server listens on port **3002** (or `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs download for that ICAO, then AI extract, returns the JSON, and uploads to S3 (`aip/ead-aip-extracted.json` and `aip/ead/ICAO.json`) if `AWS_S3_BUCKET` is set.
+
+3. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
+4. **In Vercel** add:
   - **Name:** `AIP_SYNC_URL`  
    **Value:** `http://EC2-PUBLIC-IP:3002` (no trailing slash).
   - **NOTAM_SYNC_SECRET** is already set for NOTAM sync; the AIP sync server uses the same secret (`SYNC_SECRET` on EC2 must match `NOTAM_SYNC_SECRET` in Vercel). No extra variable needed.

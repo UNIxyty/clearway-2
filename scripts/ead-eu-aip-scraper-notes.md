@@ -89,6 +89,17 @@ On `aip_overview.faces` the search form uses **custom JSF/PrimeFaces dropdowns**
 - **HTML:** `<input id="mainForm:documentHeader" name="mainForm:documentHeader" type="text" ...>`
 - **Flow:** After opening Advanced Search, fill this input with the **airport ICAO code** (e.g. EVRA for Riga).
 
+### Why the server can set country and AIP part but the internal browser cannot (same way)
+
+The **server Playwright scripts** (e.g. `ead-download-aip-pdf.mjs`, `ead-list-icaos-by-country.mjs`) set **Authority** and **AIP Part** by:
+
+1. **Authority:** Locating a **native `<select>`** with id `mainForm:selectAuthorityCode_input` (PrimeFaces often renders a hidden select for the form value) and calling `selectOption({ label: countryLabel })`.
+2. **AIP Part:** Running **JavaScript in the page** (`page.evaluate()`): find the hidden `<select id="mainForm:selectAipPart_input">`, find the option with text `"AD"`, set `el.value = opt.value`, and `dispatchEvent(new Event('change', { bubbles: true }))`.
+
+So the server never opens the visible custom dropdown; it manipulates the hidden select that backs the PrimeFaces component.
+
+The **Cursor internal browser** (cursor-ide-browser MCP) has **no “run JavaScript in the page”** tool. It only has click, type, select_option, press_key, etc. The snapshot exposes the visible **combobox** (a div), not the hidden `<select>`. So here we can only try the **visible flow**: click the AIP Part combobox to open it, then click or keyboard to choose “AD”. In practice, the dropdown overlay often does not appear in the accessibility snapshot (it’s in a separate layer), and keyboard focus may not land on the list, so selecting “AD” reliably in the internal browser is not possible with the current MCP tools. **To set country and AIP part programmatically, use the existing Playwright scripts** (e.g. `ead-list-icaos-by-country.mjs` or `ead-download-aip-pdf.mjs`).
+
 ### Playwright example (conceptual)
 
 ```js

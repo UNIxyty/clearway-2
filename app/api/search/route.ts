@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
+import eadExtracted from "@/data/ead-aip-extracted.json";
 
 type AIPCountry = {
   country: string;
@@ -70,10 +71,54 @@ function flattenAIP(): AIPAirport[] {
   return list;
 }
 
+type EADAirportRow = {
+  "Airport Code"?: string;
+  "Airport Name"?: string;
+  "AD2.2 Types of Traffic Permitted"?: string;
+  "AD2.2 Remarks"?: string;
+  "AD2.3 AD Operator"?: string;
+  "AD 2.3 Customs and Immigration"?: string;
+  "AD2.3 ATS"?: string;
+  "AD2.3 Remarks"?: string;
+  "AD2.6 AD category for fire fighting"?: string;
+};
+
+function flattenEAD(): AIPAirport[] {
+  const data = eadExtracted as { airports?: EADAirportRow[] };
+  const airports = data.airports ?? [];
+  return airports.map((a) => {
+    const icao = (a["Airport Code"] ?? "").trim();
+    const coord = coordsMap[icao];
+    return {
+      country: "EAD (EU AIP)",
+      gen1_2: "",
+      gen1_2_point_4: "",
+      icao,
+      name: (a["Airport Name"] ?? "").trim(),
+      trafficPermitted: a["AD2.2 Types of Traffic Permitted"] ?? "",
+      trafficRemarks: a["AD2.2 Remarks"] ?? "",
+      operator: a["AD2.3 AD Operator"] ?? "",
+      customsImmigration: a["AD 2.3 Customs and Immigration"] ?? "",
+      ats: a["AD2.3 ATS"] ?? "",
+      atsRemarks: a["AD2.3 Remarks"] ?? "",
+      fireFighting: a["AD2.6 AD category for fire fighting"] ?? "",
+      lat: coord?.lat,
+      lon: coord?.lon,
+    };
+  });
+}
+
 let cachedList: AIPAirport[] | null = null;
 
 function getList(): AIPAirport[] {
-  if (!cachedList) cachedList = flattenAIP();
+  if (!cachedList) {
+    const aip = flattenAIP();
+    const ead = flattenEAD();
+    const byIcao = new Map<string, AIPAirport>();
+    for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of ead) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    cachedList = Array.from(byIcao.values());
+  }
   return cachedList;
 }
 

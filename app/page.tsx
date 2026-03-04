@@ -586,7 +586,111 @@ export default function AIPPortalPage() {
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
       <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
         <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
-          {/* Left column: search + results */}
+          {/* Left column: map and NOTAMs only */}
+          {showMap && viewingAirport && (
+            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card order-first">
+              <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
+                <span>Location — {viewingAirport.icao}</span>
+              </div>
+              <div className="flex-1 min-h-[240px] shrink-0">
+                <AirportMap
+                  lat={viewingAirport.lat!}
+                  lon={viewingAirport.lon!}
+                  icao={viewingAirport.icao}
+                  name={viewingAirport.name}
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
+                <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <FileWarningIcon className="size-3.5" />
+                    NOTAMs — {viewingAirport.icao}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => requestSyncNotams(viewingAirport.icao)}
+                    disabled={notamsLoading}
+                    title="Sync now: scrape FAA and refresh data"
+                  >
+                    <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
+                  {notamsLoading && (
+                    <div className="flex flex-col gap-3 py-4 text-sm text-muted-foreground">
+                      {notamsSyncing ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0" />
+                            <span className="font-medium">Syncing live from FAA…</span>
+                          </div>
+                          {notamsSyncSteps.length > 0 && (
+                            <ul className="space-y-1 pl-6 list-disc text-xs">
+                              {notamsSyncSteps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {notamsSyncSteps.length === 0 && (
+                            <span className="text-xs">Starting scraper · can take 1–2 min</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Spinner className="size-4" />
+                          <span>Loading NOTAMs…</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {!notamsLoading && notamsUpdatedAt && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Last updated: {new Date(notamsUpdatedAt).toLocaleString()}
+                    </p>
+                  )}
+                  {!notamsLoading && notamsError && (
+                    <div className="space-y-2 py-2">
+                      <p className="text-sm text-destructive font-medium">NOTAMs unavailable</p>
+                      <p className="text-xs text-muted-foreground break-words">{notamsError}</p>
+                      <p className="text-xs text-muted-foreground">Run locally: <code className="bg-muted px-1 rounded">npm run notam {viewingAirport?.icao}</code> to fetch NOTAMs and check Chrome/Playwright.</p>
+                    </div>
+                  )}
+                  {!notamsLoading && !notamsError && notams && notams.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-2">No NOTAMs returned.</p>
+                  )}
+                  {!notamsLoading && !notamsError && notams && notams.length > 0 && (
+                    <ul className="space-y-3">
+                      {notams.slice(0, 50).map((n, i) => (
+                        <li key={`${n.number}-${i}`} className="text-xs border-b border-border/50 pb-2 last:border-0">
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
+                            <span className="font-mono">{n.number}</span>
+                            <span className="text-muted-foreground">{n.class}</span>
+                            {(n.startDateUtc || n.endDateUtc) && (
+                              <span className="text-muted-foreground">
+                                {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">{n.condition}</p>
+                        </li>
+                      ))}
+                      {notams.length > 50 && (
+                        <li className="text-muted-foreground text-xs pt-1">
+                          +{notams.length - 50} more NOTAMs
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Center column: search + AIP data (stored or scraped) */}
           <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden" : "space-y-6 sm:space-y-8"}>
             <header className="text-center space-y-1.5 sm:space-y-2 shrink-0">
               <img
@@ -1083,13 +1187,69 @@ export default function AIPPortalPage() {
           </CardContent>
         </Card>
 
+            {/* AIP (EAD) – center: when viewing an airport in an EAD country (stored or synced from server) */}
+            {viewingAirport && isEadIcao(viewingAirport.icao) && (
+              <Card className="shadow-md border-border/80 shrink-0">
+                <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base sm:text-lg font-semibold">
+                      AIP (EAD) — {viewingAirport.icao}
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground text-sm">
+                      From EAD (EU). Use Sync to refresh from server.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => requestSyncAipEad(viewingAirport.icao)}
+                    disabled={aipEadLoadingIcao === viewingAirport.icao}
+                    title="Sync: fetch from EC2 and refresh"
+                  >
+                    <RefreshCwIcon className={`size-4 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                  </Button>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-4">
+                  {aipEadLoadingIcao === viewingAirport.icao && (
+                    <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
+                      {aipEadSyncingIcao === viewingAirport.icao ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0" />
+                            <span className="font-medium">Syncing from EAD…</span>
+                          </div>
+                          <span className="text-xs">Download + extract on server · can take 1–2 min</span>
+                        </>
+                      ) : (
+                        <>
+                          <Spinner className="size-4" />
+                          <span>Loading AIP…</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
+                    <p className="text-sm text-destructive py-2">{aipEadCache[viewingAirport.icao].error}</p>
+                  )}
+                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
+                    <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
+                  )}
+                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
+                    <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
         <Card className="shadow-md border-border/80 shrink-0">
           <CardHeader className="pb-2 px-4 sm:px-6">
             <CardTitle className="text-base sm:text-lg font-semibold">
               EAD AIP extracted
             </CardTitle>
             <CardDescription className="text-muted-foreground text-sm">
-              Airports from EAD (EU). When you select an airport in an EAD country, AIP details appear in the right column; use Sync to refresh.
+              Airports from EAD (EU). When you select an airport in an EAD country, AIP details appear in the center; use Sync to refresh.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-4 sm:px-6 pb-4">
@@ -1099,7 +1259,7 @@ export default function AIPPortalPage() {
                 Loading…
               </div>
             ) : eadAirports.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Select an airport in an EAD country (e.g. ES, EV) and use Sync in the right column.</p>
+              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Select an airport in an EAD country (e.g. ES, EV) and use Sync in the center column.</p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {eadAirports.map((airport) => (
@@ -1129,158 +1289,6 @@ export default function AIPPortalPage() {
             </div>
           </div>
 
-          {/* Right column: map + NOTAMs (only when viewing an airport with coords) */}
-          {showMap && viewingAirport && (
-            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(420px,42vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card">
-              <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                <span>Location — {viewingAirport.icao}</span>
-              </div>
-              <div className="flex-1 min-h-[240px] shrink-0">
-                <AirportMap
-                  lat={viewingAirport.lat!}
-                  lon={viewingAirport.lon!}
-                  icao={viewingAirport.icao}
-                  name={viewingAirport.name}
-                  className="w-full h-full"
-                />
-              </div>
-              <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
-                <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <FileWarningIcon className="size-3.5" />
-                    NOTAMs — {viewingAirport.icao}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => requestSyncNotams(viewingAirport.icao)}
-                    disabled={notamsLoading}
-                    title="Sync now: scrape FAA and refresh data"
-                  >
-                    <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
-                <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
-                  {notamsLoading && (
-                    <div className="flex flex-col gap-3 py-4 text-sm text-muted-foreground">
-                      {notamsSyncing ? (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0" />
-                            <span className="font-medium">Syncing live from FAA…</span>
-                          </div>
-                          {notamsSyncSteps.length > 0 && (
-                            <ul className="space-y-1 pl-6 list-disc text-xs">
-                              {notamsSyncSteps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {notamsSyncSteps.length === 0 && (
-                            <span className="text-xs">Starting scraper · can take 1–2 min</span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <Spinner className="size-4" />
-                          <span>Loading NOTAMs…</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {!notamsLoading && notamsUpdatedAt && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Last updated: {new Date(notamsUpdatedAt).toLocaleString()}
-                    </p>
-                  )}
-                  {!notamsLoading && notamsError && (
-                    <div className="space-y-2 py-2">
-                      <p className="text-sm text-destructive font-medium">NOTAMs unavailable</p>
-                      <p className="text-xs text-muted-foreground break-words">{notamsError}</p>
-                      <p className="text-xs text-muted-foreground">Run locally: <code className="bg-muted px-1 rounded">npm run notam {viewingAirport?.icao}</code> to fetch NOTAMs and check Chrome/Playwright.</p>
-                    </div>
-                  )}
-                  {!notamsLoading && !notamsError && notams && notams.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-2">No NOTAMs returned.</p>
-                  )}
-                  {!notamsLoading && !notamsError && notams && notams.length > 0 && (
-                    <ul className="space-y-3">
-                      {notams.slice(0, 50).map((n, i) => (
-                        <li key={`${n.number}-${i}`} className="text-xs border-b border-border/50 pb-2 last:border-0">
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
-                            <span className="font-mono">{n.number}</span>
-                            <span className="text-muted-foreground">{n.class}</span>
-                            {(n.startDateUtc || n.endDateUtc) && (
-                              <span className="text-muted-foreground">
-                                {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">{n.condition}</p>
-                        </li>
-                      ))}
-                      {notams.length > 50 && (
-                        <li className="text-muted-foreground text-xs pt-1">
-                          +{notams.length - 50} more NOTAMs
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              {/* AIP (EAD) – when viewing an airport in an EAD country; sync from EC2 */}
-              {viewingAirport && isEadIcao(viewingAirport.icao) && (
-                <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
-                  <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                    <span>AIP (EAD) — {viewingAirport.icao}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                      onClick={() => requestSyncAipEad(viewingAirport.icao)}
-                      disabled={aipEadLoadingIcao === viewingAirport.icao}
-                      title="Sync: fetch from EC2 and refresh"
-                    >
-                      <RefreshCwIcon className={`size-3.5 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
-                    </Button>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
-                    {aipEadLoadingIcao === viewingAirport.icao && (
-                      <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
-                        {aipEadSyncingIcao === viewingAirport.icao ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <Spinner className="size-4 shrink-0" />
-                              <span className="font-medium">Syncing from EAD…</span>
-                            </div>
-                            <span className="text-xs">Download + extract on server · can take 1–2 min</span>
-                          </>
-                        ) : (
-                          <>
-                            <Spinner className="size-4" />
-                            <span>Loading AIP…</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
-                      <p className="text-sm text-destructive py-2">{aipEadCache[viewingAirport.icao].error}</p>
-                    )}
-                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
-                      <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
-                    )}
-                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
-                      <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 
 export type NotamItem = {
@@ -344,14 +344,16 @@ export default function AIPPortalPage() {
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
-    const isSync = syncRequested || !hasCache;
+    const isPlaceholder = isEadPlaceholder(viewingAirport);
+    const autoSync = isPlaceholder && !hasCache;
+    const isSync = syncRequested || autoSync || !hasCache;
     setAipEadLoadingIcao(icao);
     if (isSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncStepIndex(0);
     }
 
-    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${syncRequested ? "&sync=1" : ""}&_t=${Date.now()}`;
+    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${syncRequested || autoSync ? "&sync=1" : ""}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
@@ -609,9 +611,9 @@ export default function AIPPortalPage() {
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
       <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
         <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
-          {/* Left column: map and NOTAMs only */}
+          {/* Map and NOTAMs — right side (order-2) */}
           {showMap && viewingAirport && (
-            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card order-first">
+            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2">
               <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
                 <span>Location — {viewingAirport.icao}</span>
               </div>
@@ -719,8 +721,8 @@ export default function AIPPortalPage() {
             </div>
           )}
 
-          {/* Center column: search + AIP data (stored or scraped) */}
-          <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden" : "space-y-6 sm:space-y-8"}>
+          {/* Center column: search + AIP data — left side (order-1) */}
+          <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden lg:order-1" : "space-y-6 sm:space-y-8"}>
             <header className="text-center space-y-1.5 sm:space-y-2 shrink-0">
               <img
                 src="/header_logo_white.svg"
@@ -1242,17 +1244,28 @@ export default function AIPPortalPage() {
                       From EAD (EU). Use Sync to refresh from server.
                     </CardDescription>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => requestSyncAipEad(viewingAirport.icao)}
-                    disabled={aipEadLoadingIcao === viewingAirport.icao}
-                    title="Sync: fetch from EC2 and refresh"
-                  >
-                    <RefreshCwIcon className={`size-4 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9 shrink-0"
+                      title="Download current AIP PDF (AD 2)"
+                    >
+                      <Download className="size-4" />
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 h-9 w-9 p-0"
+                      onClick={() => requestSyncAipEad(viewingAirport.icao)}
+                      disabled={aipEadLoadingIcao === viewingAirport.icao}
+                      title="Sync: fetch from EC2 and refresh"
+                    >
+                      <RefreshCwIcon className={`size-4 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   {aipEadLoadingIcao === viewingAirport.icao && (

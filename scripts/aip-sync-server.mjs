@@ -12,10 +12,11 @@ import { createServer } from "http";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
+const EAD_AIP_DIR = join(PROJECT_ROOT, "data", "ead-aip");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
@@ -86,6 +87,54 @@ async function uploadToS3() {
   );
 }
 
+async function deleteOldFromS3(icao) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket) return;
+  const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  const keys = [`aip/ead/${icao}.json`, `aip/ead-pdf/${icao}.pdf`];
+  for (const Key of keys) {
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key }));
+    } catch (_) {}
+  }
+}
+
+function findDownloadedPdf(icao) {
+  if (!existsSync(EAD_AIP_DIR)) return null;
+  const icaoUpper = icao.toUpperCase();
+  const files = readdirSync(EAD_AIP_DIR).filter((f) => f.endsWith(".pdf") && f.toUpperCase().includes(icaoUpper));
+  if (files.length === 0) return null;
+  files.sort((a, b) => {
+    try {
+      return statSync(join(EAD_AIP_DIR, b)).mtimeMs - statSync(join(EAD_AIP_DIR, a)).mtimeMs;
+    } catch (_) {
+      return 0;
+    }
+  });
+  return join(EAD_AIP_DIR, files[0]);
+}
+
+async function uploadPdfToS3(icao) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket) return;
+  const pdfPath = findDownloadedPdf(icao);
+  if (!pdfPath) return;
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  const body = readFileSync(pdfPath);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `aip/ead-pdf/${icao}.pdf`,
+      Body: body,
+      ContentType: "application/pdf",
+    })
+  );
+}
+
 async function uploadPerIcaoToS3(icao, data) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
@@ -133,12 +182,14 @@ const server = createServer(async (req, res) => {
 
   res.setHeader("Content-Type", "application/json");
   try {
+    if (process.env.AWS_S3_BUCKET) await deleteOldFromS3(icao);
     await runDownload(icao);
     await runExtract(useAi);
     const data = readExtracted();
     if (process.env.AWS_S3_BUCKET) {
       await uploadToS3();
       await uploadPerIcaoToS3(icao, data);
+      await uploadPdfToS3(icao);
     }
     res.writeHead(200);
     res.end(

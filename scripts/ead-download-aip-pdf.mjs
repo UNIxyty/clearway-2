@@ -122,10 +122,16 @@ async function main() {
       await page.waitForTimeout(500);
     }
 
-    // —— AIP Library ——
+    // —— AIP Library —— (link may take a moment after login; try role first, then text)
     log('Opening AIP Library');
-    await page.getByRole('link', { name: 'AIP Library' }).click();
-    await page.waitForURL(/aip_overview\.faces/, { timeout: 15000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(1500);
+    const aipLink = page
+      .getByRole('link', { name: /aip\s*library/i })
+      .or(page.locator('a').filter({ hasText: /aip\s*library/i }))
+      .first();
+    await aipLink.click({ timeout: 60000 });
+    await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     await page.waitForTimeout(1000);
 
     // —— Authority (country) —— native select with id mainForm:selectAuthorityCode_input

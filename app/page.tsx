@@ -37,6 +37,19 @@ const LOADING_STEPS = [
   { id: "saving", label: "Saving data", duration: 600 },
 ];
 
+const EAD_SEARCH_LOADING_STEPS = [
+  { id: "search-stored", label: "Searching stored data", duration: 400 },
+  { id: "search-ead", label: "Checking EAD airports", duration: 500 },
+  { id: "ready", label: "Ready", duration: 300 },
+];
+
+const EAD_SYNC_STEPS = [
+  "Requesting EAD sync…",
+  "Downloading PDF on server…",
+  "Extracting AIP data…",
+  "Done",
+];
+
 const BROWSE_LOADING_STEPS = [
   { id: "browse-1", label: "Loading…", duration: 400 },
   { id: "browse-2", label: "Ready", duration: 250 },
@@ -214,6 +227,8 @@ export default function AIPPortalPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [searchLoadingSteps, setSearchLoadingSteps] = useState(LOADING_STEPS);
+  const [aipEadSyncStepIndex, setAipEadSyncStepIndex] = useState(0);
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -362,7 +377,10 @@ export default function AIPPortalPage() {
 
     const isSync = syncRequested || !hasCache;
     setAipEadLoadingIcao(icao);
-    if (isSync) setAipEadSyncingIcao(icao);
+    if (isSync) {
+      setAipEadSyncingIcao(icao);
+      setAipEadSyncStepIndex(0);
+    }
 
     const url = `/api/aip/sync?icao=${encodeURIComponent(icao)}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
@@ -410,8 +428,22 @@ export default function AIPPortalPage() {
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        setAipEadSyncStepIndex(EAD_SYNC_STEPS.length - 1);
       });
   }, [viewingAirport?.icao, aipEadSyncRequestedIcao]);
+
+  // Advance EAD sync step progress while syncing (server does: request → download PDF → extract)
+  useEffect(() => {
+    if (!aipEadSyncingIcao) {
+      setAipEadSyncStepIndex(0);
+      return;
+    }
+    const maxStep = EAD_SYNC_STEPS.length - 2;
+    const t = setInterval(() => {
+      setAipEadSyncStepIndex((i) => (i < maxStep ? i + 1 : i));
+    }, 20000);
+    return () => clearInterval(t);
+  }, [aipEadSyncingIcao]);
 
   // Fetch NOTAMs only on first view (no cache) or when user presses Sync. Do NOT re-scrape when re-entering a tab (use cache).
   useEffect(() => {
@@ -514,11 +546,11 @@ export default function AIPPortalPage() {
       });
   }, [viewingAirport?.icao, viewingAirport?.lat, syncRequestedIcao, notamsCache]);
 
-  const runFakeLoadingSteps = useCallback(async () => {
+  const runFakeLoadingSteps = useCallback(async (steps: { id: string; label: string; duration: number }[] = LOADING_STEPS) => {
     setStepIndex(0);
-    for (let i = 0; i < LOADING_STEPS.length; i++) {
+    for (let i = 0; i < steps.length; i++) {
       setStepIndex(i);
-      await new Promise((r) => setTimeout(r, LOADING_STEPS[i].duration));
+      await new Promise((r) => setTimeout(r, steps[i].duration));
     }
   }, []);
 
@@ -539,9 +571,11 @@ export default function AIPPortalPage() {
 
     setLoading(true);
     setError(null);
+    const isEadSearch = q.length === 4 && isEadIcao(q.toUpperCase());
+    setSearchLoadingSteps(isEadSearch ? EAD_SEARCH_LOADING_STEPS : LOADING_STEPS);
 
     try {
-      await runFakeLoadingSteps();
+      await runFakeLoadingSteps(isEadSearch ? EAD_SEARCH_LOADING_STEPS : LOADING_STEPS);
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       let data: { results?: AIPAirport[]; error?: string };
       try {
@@ -556,7 +590,27 @@ export default function AIPPortalPage() {
         return;
       }
 
-      const newResults = data.results ?? [];
+      let newResults = data.results ?? [];
+      const qUpper = q.trim().toUpperCase();
+      if (qUpper.length === 4 && isEadIcao(qUpper) && !newResults.some((r: AIPAirport) => r.icao.toUpperCase() === qUpper)) {
+        newResults = [
+          ...newResults,
+          {
+            country: "EAD (EU AIP)",
+            gen1_2: "",
+            gen1_2_point_4: "",
+            icao: qUpper,
+            name: "EAD airport (sync to load)",
+            trafficPermitted: "",
+            trafficRemarks: "",
+            operator: "",
+            customsImmigration: "",
+            ats: "",
+            atsRemarks: "",
+            fireFighting: "",
+          } as AIPAirport,
+        ];
+      }
       setResults((prev) => {
         const next = [...(prev ?? [])];
         newResults.forEach((a: AIPAirport) => {
@@ -1067,7 +1121,7 @@ export default function AIPPortalPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  {LOADING_STEPS.map((step, i) => (
+                  {searchLoadingSteps.map((step, i) => (
                     <div
                       key={step.id}
                       className="flex items-center gap-2 text-sm"
@@ -1091,7 +1145,7 @@ export default function AIPPortalPage() {
                     </div>
                   ))}
                 </div>
-                <Progress value={((stepIndex + 1) / LOADING_STEPS.length) * 100} className="h-1.5" />
+                <Progress value={searchLoadingSteps.length ? ((stepIndex + 1) / searchLoadingSteps.length) * 100 : 0} className="h-1.5" />
               </div>
             )}
 
@@ -1215,13 +1269,23 @@ export default function AIPPortalPage() {
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0" />
-                            <span className="font-medium">Syncing from EAD…</span>
-                          </div>
-                          <span className="text-xs">Download + extract on server · can take 1–2 min</span>
-                        </>
+                        <div className="space-y-2">
+                          {EAD_SYNC_STEPS.map((label, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              {i < aipEadSyncStepIndex ? (
+                                <span className="text-primary">✓</span>
+                              ) : i === aipEadSyncStepIndex ? (
+                                <Spinner className="size-3.5 text-primary shrink-0" />
+                              ) : (
+                                <span className="text-muted-foreground/50">○</span>
+                              )}
+                              <span className={i <= aipEadSyncStepIndex ? "text-foreground" : "text-muted-foreground/70"}>
+                                {label}
+                              </span>
+                            </div>
+                          ))}
+                          <p className="text-xs text-muted-foreground pt-1">Can take 1–2 min on server.</p>
+                        </div>
                       ) : (
                         <>
                           <Spinner className="size-4" />

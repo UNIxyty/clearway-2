@@ -223,6 +223,8 @@ scp -i your-key.pem -r ubuntu@EC2-PUBLIC-IP:~/clearway-2/data/ead-aip ./
 
 ## Step 5b: Run the AIP sync server on EC2 (optional – "Sync on EC2" from portal)
 
+**All steps in this section are on the AIP EC2 instance** (SSH in first). Nothing here runs on your laptop.
+
 Like the NOTAM sync server, the AIP sync server runs on the EC2 and accepts authenticated requests from the portal. When you click **Sync on EC2** on **/aip-test**, the portal calls this server, which runs download + extract for the given ICAO and returns the result (and optionally uploads to S3). **The same sync secret is used as for NOTAMs:** set `SYNC_SECRET` on the AIP EC2 to the same value as `NOTAM_SYNC_SECRET` in Vercel.
 
 **Note:** If EAD returns "Access denied" for your EC2 IP (see note at the top of this doc), **Sync on EC2** will fail at the download step. In that case run **Download PDF** and **Extract** from **/aip-test** on your laptop instead, or run download locally and copy PDFs to EC2 for extract/upload.

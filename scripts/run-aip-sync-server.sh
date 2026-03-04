@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Load .env from project root and run the AIP sync server.
-# Usage: run inside tmux so it survives SSH disconnect.
+# Run on AIP EC2 (SSH in first). Loads .env from project root and starts the AIP sync server.
+# Usage (all on EC2):
+#   cd ~/clearway-2 && git pull
 #   tmux new -s aip
-#   cd ~/clearway-2 && ./scripts/run-aip-sync-server.sh
-#   Detach: Ctrl+B then D
+#   ./scripts/run-aip-sync-server.sh
+#   Detach: Ctrl+B then D. Reattach: tmux attach -t aip
 
 set -e
 cd "$(dirname "$0")/.."

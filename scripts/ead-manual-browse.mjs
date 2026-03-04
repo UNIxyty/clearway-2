@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 /**
- * Open EAD login in a visible browser on EC2. Use with SSH X11 forwarding so you see the window on your Mac.
+ * Open EAD login in a browser on EC2.
  *
- * On your Mac:  brew install --cask xquartz   (then start XQuartz or log out/in)
- *              ssh -X -i your-key.pem ubuntu@EC2_IP
- * On EC2:      cd ~/clearway-2 && node scripts/ead-manual-browse.mjs
+ * With display (ssh -X from Mac):  node scripts/ead-manual-browse.mjs
+ *   → Visible window; log in and click through.
  *
- * Browser will open; you can log in and click through manually. Close the browser window to exit.
+ * Without display (Tabby or no X11):  node scripts/ead-manual-browse.mjs
+ *   → Runs headless, fills credentials, clicks Login, saves a screenshot so you can see the result.
+ *   → Download:  scp -i key.pem ubuntu@EC2_IP:~/clearway-2/data/ead-aip/ead-manual-browse.png ./
  */
 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
@@ -28,22 +29,14 @@ try {
 } catch (_) {}
 
 const LOGIN_URL = 'https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/';
+const SCREENSHOT_DIR = join(PROJECT_ROOT, 'data', 'ead-aip');
+const SCREENSHOT_PATH = join(SCREENSHOT_DIR, 'ead-manual-browse.png');
 
 async function main() {
-  if (!process.env.DISPLAY) {
-    console.error('No display (DISPLAY not set). To see the browser on your Mac:');
-    console.error('  1. On Mac: install XQuartz:  brew install --cask xquartz');
-    console.error('  2. Quit Terminal, reopen it, start XQuartz once.');
-    console.error('  3. Connect with X11 forwarding:  ssh -X -i your-key.pem ubuntu@YOUR_EC2_IP');
-    console.error('  4. On EC2 run:  cd ~/clearway-2 && node scripts/ead-manual-browse.mjs');
-    console.error('');
-    console.error('If you run without -X, the browser has nowhere to draw. Use ssh -X from your PC.');
-    process.exit(1);
-  }
-
+  const hasDisplay = !!process.env.DISPLAY;
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({
-    headless: false,
+    headless: !hasDisplay,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const context = await browser.newContext({
@@ -52,7 +45,12 @@ async function main() {
   });
   const page = await context.newPage();
 
-  console.log('Opening EAD login in browser. Use the window to log in and browse. Close the browser to exit.');
+  if (hasDisplay) {
+    console.log('Opening EAD login in browser. Use the window to log in and browse. Close the browser to exit.');
+  } else {
+    console.log('No DISPLAY – running headless. Will open login, fill credentials, click Login, then save a screenshot.');
+  }
+
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
   const user = process.env.EAD_USER;
@@ -65,12 +63,29 @@ async function main() {
   if (user && password) {
     await page.getByLabel(/user name/i).fill(user);
     await page.getByLabel(/password/i).fill(password);
-    console.log('Credentials filled from .env. Click Login in the browser.');
+    await page.locator('input[type="submit"][value="Login"]').click();
+    await page.waitForTimeout(5000);
+    if (!hasDisplay) {
+      mkdirSync(SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true });
+      console.log('Screenshot saved to:', SCREENSHOT_PATH);
+      console.log('Download to your Mac:  scp -i your-key.pem ubuntu@YOUR_EC2_IP:~/clearway-2/data/ead-aip/ead-manual-browse.png ./');
+      await browser.close();
+      return;
+    }
+    console.log('Credentials filled and Login clicked. Use the browser window.');
   } else {
+    if (!hasDisplay) {
+      mkdirSync(SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true });
+      console.log('No credentials in .env. Screenshot of login page saved to:', SCREENSHOT_PATH);
+      await browser.close();
+      return;
+    }
     console.log('No EAD_USER/EAD_PASSWORD_ENC in .env – enter credentials in the browser.');
   }
 
-  await page.waitForTimeout(60 * 60 * 1000).catch(() => {}); // keep open up to 1 hour
+  await page.waitForTimeout(60 * 60 * 1000).catch(() => {});
   await browser.close();
 }
 

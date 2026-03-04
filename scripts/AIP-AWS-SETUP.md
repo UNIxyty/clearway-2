@@ -6,7 +6,7 @@ This guide walks you through creating a **separate** EC2 instance dedicated to E
 
 1. **Download:** `ead-download-aip-pdf.mjs` – Playwright + Chromium, one ICAO per run.
 2. **Extract:** `ead-extract-aip-from-pdf.mjs` (regex) or `ead-extract-aip-from-pdf-ai.mjs` (OpenAI).
-3. **Upload (optional):** `ead-aip-extracted.json` → S3 `your-bucket/aip/`.
+3. **Upload (optional):** `ead-aip-extracted.json` → S3 `your-bucket/aip/`; and per-ICAO cache → `your-bucket/aip/ead/ICAO.json` (portal reads from S3 like NOTAMs).
 
 **Triggering runs:** You can run the scripts via SSH/cron on EC2 (then credentials must be in `.env`), or trigger them from the **portal** at **/aip-test** by passing credentials in the request (no `.env` on EC2 needed).
 

@@ -86,6 +86,28 @@ async function uploadToS3() {
   );
 }
 
+async function uploadPerIcaoToS3(icao, data) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket || !data?.airports) return;
+  const match = data.airports.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
+  if (!match) return;
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  const body = JSON.stringify({
+    airports: [match],
+    updatedAt: new Date().toISOString(),
+  });
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `aip/ead/${icao}.json`,
+      Body: body,
+      ContentType: "application/json",
+    })
+  );
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
@@ -114,7 +136,10 @@ const server = createServer(async (req, res) => {
     await runDownload(icao);
     await runExtract(useAi);
     const data = readExtracted();
-    if (process.env.AWS_S3_BUCKET) await uploadToS3();
+    if (process.env.AWS_S3_BUCKET) {
+      await uploadToS3();
+      await uploadPerIcaoToS3(icao, data);
+    }
     res.writeHead(200);
     res.end(
       JSON.stringify({

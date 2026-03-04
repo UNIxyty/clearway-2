@@ -75,7 +75,7 @@ type AIPAirport = {
 // ICAO prefixes for EAD (EU) countries – when user views an airport with this prefix, we show AIP (EAD) and can sync from EC2
 const EAD_ICAO_PREFIXES = new Set([
   "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
-  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES",
+  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC",
 ]);
 
 function isEadIcao(icao: string): boolean {
@@ -257,8 +257,6 @@ export default function AIPPortalPage() {
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
-  const [eadAirports, setEadAirports] = useState<AIPAirport[]>([]);
-  const [eadAirportsLoading, setEadAirportsLoading] = useState(true);
   const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null }>>({});
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
@@ -291,42 +289,6 @@ export default function AIPPortalPage() {
       .then((res) => res.json())
       .then((data) => setRegions(data.regions ?? []))
       .catch(() => setRegions([]));
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/ead-extracted")
-      .then((res) => res.json())
-      .then((data) => {
-        const list = (data.airports ?? []) as Array<{
-          "Airport Code"?: string;
-          "Airport Name"?: string;
-          "AD2.2 Types of Traffic Permitted"?: string;
-          "AD2.2 Remarks"?: string;
-          "AD2.3 AD Operator"?: string;
-          "AD 2.3 Customs and Immigration"?: string;
-          "AD2.3 ATS"?: string;
-          "AD2.3 Remarks"?: string;
-          "AD2.6 AD category for fire fighting"?: string;
-        }>;
-        setEadAirports(
-          list.map((a) => ({
-            country: "EAD (EU AIP)",
-            gen1_2: "",
-            gen1_2_point_4: "",
-            icao: a["Airport Code"] ?? "",
-            name: a["Airport Name"] ?? "",
-            trafficPermitted: a["AD2.2 Types of Traffic Permitted"] ?? "",
-            trafficRemarks: a["AD2.2 Remarks"] ?? "",
-            operator: a["AD2.3 AD Operator"] ?? "",
-            customsImmigration: a["AD 2.3 Customs and Immigration"] ?? "",
-            ats: a["AD2.3 ATS"] ?? "",
-            atsRemarks: a["AD2.3 Remarks"] ?? "",
-            fireFighting: a["AD2.6 AD category for fire fighting"] ?? "",
-          }))
-        );
-      })
-      .catch(() => setEadAirports([]))
-      .finally(() => setEadAirportsLoading(false));
   }, []);
 
   const countriesInRegion = useMemo(() => {
@@ -389,7 +351,7 @@ export default function AIPPortalPage() {
       setAipEadSyncStepIndex(0);
     }
 
-    const url = `/api/aip/sync?icao=${encodeURIComponent(icao)}&_t=${Date.now()}`;
+    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${syncRequested ? "&sync=1" : ""}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
@@ -1330,42 +1292,6 @@ export default function AIPPortalPage() {
                 </CardContent>
               </Card>
             )}
-
-        <Card className="shadow-md border-border/80 shrink-0">
-          <CardHeader className="pb-2 px-4 sm:px-6">
-            <CardTitle className="text-base sm:text-lg font-semibold">
-              EAD AIP extracted
-            </CardTitle>
-            <CardDescription className="text-muted-foreground text-sm">
-              Airports from EAD (EU). When you select an airport in an EAD country, AIP details appear in the center; use Sync to refresh.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6 pb-4">
-            {eadAirportsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                <Spinner className="size-4" />
-                Loading…
-              </div>
-            ) : eadAirports.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Select an airport in an EAD country (e.g. ES, EV) and use Sync in the center column.</p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {eadAirports.map((airport) => (
-                  <AIPResultCard
-                    key={airport.icao}
-                    airport={airport}
-                    isSelected={viewingAirport?.icao === airport.icao}
-                    onSelect={() => {
-                      setResults([airport]);
-                      setSelectedIcao(airport.icao);
-                      setHasSearched(true);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

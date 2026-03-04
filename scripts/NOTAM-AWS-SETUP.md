@@ -415,11 +415,19 @@ When you press **Sync**, the portal calls your EC2 sync server to run a fresh sc
    ```
    If that works, the server is fine; the issue is reachability from the internet (security group or wrong NOTAM_SYNC_URL).
 
+4. **Test from outside EC2** – From your laptop (or any machine that isn’t the EC2 box), run (replace with your EC2 public IP and, if you use auth, add `&secret=YOUR_SYNC_SECRET`):
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" "http://YOUR-EC2-PUBLIC-IP:3001/sync?icao=DBBB"
+   ```
+   - **Connection refused / timeout** → Port 3001 is not reachable. Open **TCP 3001** in the EC2 **security group** (Inbound rules: Type Custom TCP, Port 3001, Source 0.0.0.0/0).
+   - **401** → Secret mismatch: `NOTAM_SYNC_SECRET` in Vercel must equal `SYNC_SECRET` on EC2.
+   - **200 or 502** → Server is reachable; if the portal still errors, check NOTAM_SYNC_URL and NOTAM_SYNC_SECRET in Vercel and redeploy.
+
 **On Vercel:**
 
-4. **NOTAM_SYNC_URL** – Must be exactly your EC2 public URL, e.g. `http://3.84.12.34:3001` (no trailing slash). If you restarted EC2 and the public IP changed, update this.
+5. **NOTAM_SYNC_URL** – Must be exactly your EC2 public URL, e.g. `http://13.48.1.100:3001` (no trailing slash, no typo). If you restarted EC2 and the public IP changed, update this and redeploy.
 
-5. **NOTAM_SYNC_SECRET** – If you set `SYNC_SECRET` on EC2, set the same value as `NOTAM_SYNC_SECRET` in Vercel.
+6. **NOTAM_SYNC_SECRET** – If you set `SYNC_SECRET` on EC2, set the **exact same** value as `NOTAM_SYNC_SECRET` in Vercel (no extra spaces).
 
 After changing anything, redeploy the Vercel app so env vars are applied. When sync is configured correctly, pressing Sync runs the scraper on EC2 and returns fresh data; if something is wrong, the portal now shows a clear error instead of returning cached data.
 

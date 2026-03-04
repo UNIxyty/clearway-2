@@ -147,6 +147,13 @@ async function main() {
     await page.waitForTimeout(2000);
     await page.waitForLoadState('networkidle').catch(() => {});
 
+    const bodyText = await page.locator('body').textContent().catch(() => '');
+    if (/Access denied|IB-101/i.test(bodyText)) {
+      throw new Error(
+        'EAD returned "Access denied" (often when running from a datacenter/cloud IP like EC2). Run the download script from your PC or a non-datacenter network instead, then copy data/ead-aip/*.pdf to the server for extract. See scripts/AIP-AWS-SETUP.md.'
+      );
+    }
+
     // —— Authority (country) —— JSF may render select after AJAX; id can be mainForm:... or j_idtX:... on server
     log('Selecting country: ' + countryLabel);
     const authoritySelect = page

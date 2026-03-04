@@ -10,11 +10,13 @@ This guide walks you through creating a **separate** EC2 instance dedicated to E
 
 **Triggering runs:** You can run the scripts via SSH/cron on EC2 (then credentials must be in `.env`), or trigger them from the **portal** at **/aip-test** by passing credentials in the request (no `.env` on EC2 needed).
 
+**Important – EAD may block EC2/datacenter IPs:** The EAD Basic site sometimes returns **"IB-101: Access denied"** for requests from cloud/datacenter IPs (e.g. AWS EC2). If you see that on EC2, the **download** step cannot run there. **Workaround:** run the download **locally** (your PC or a machine on a non-datacenter network), then either (a) copy `data/ead-aip/*.pdf` to EC2 and run extract + S3 upload on EC2, or (b) run extract locally and upload `ead-aip-extracted.json` to S3. Use **Sync on EC2** only if EAD allows your EC2 IP; otherwise use **Download PDF** and **Extract** on **/aip-test** from your laptop.
+
 ---
 
 ## Step 0: IAM for AIP EC2 (reuse same bucket as NOTAMs)
 
-You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.g. for Vercel to read NOTAMs). For the **new AIP EC2** you only need a **new role** so this instance can write to S3. Use the **same bucket** as NOTAMs (e.g. `myapp-notams-prod`) with prefix **`aip/`**.
+You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.g. for Vercel to read NOTAMs). For the **new AIP EC2** you only need a **new role** so this instance can write to S3. Use the **same bucket** as NOTAMs (e.g. `myapp-notams-prod`) with prefix `**aip/`**.
 
 ### 0a. Create a policy for AIP S3 upload (same bucket, `aip/` prefix)
 
@@ -34,7 +36,7 @@ You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.
 }
 ```
 
-3. **Next** → **Policy name:** e.g. `AIPScraperS3Upload` → **Create policy**.
+1. **Next** → **Policy name:** e.g. `AIPScraperS3Upload` → **Create policy**.
 
 ### 0b. Create a role for the AIP EC2 instance
 
@@ -45,7 +47,7 @@ You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.
 
 You will attach this role to the AIP EC2 in Step 1. Your NOTAM EC2 keeps its existing role unchanged.
 
-**If the portal (Vercel) should read AIP from S3:** Ensure the IAM **user** you use for S3 read access has `s3:GetObject` on the bucket (or on `aip/*`). If that user already has access to the whole bucket (e.g. `arn:aws:s3:::myapp-notams-prod/*`), it can already read `aip/ead-aip-extracted.json`; no change needed.
+**If the portal (Vercel) should read AIP from S3:** Ensure the IAM **user** you use for S3 read access has `s3:GetObject` on the bucket (or on `aip/`*). If that user already has access to the whole bucket (e.g. `arn:aws:s3:::myapp-notams-prod/*`), it can already read `aip/ead-aip-extracted.json`; no change needed.
 
 ---
 
@@ -59,8 +61,8 @@ You will attach this role to the AIP EC2 in Step 1. Your NOTAM EC2 keeps its exi
 6. **Network:** Default VPC, public subnet. **Security group:** allow **SSH (port 22)** from your IP.
 7. **Storage:** 8–20 GB.
 8. **Advanced details:**
-   - **IAM instance profile:** Select **AIPScraperEC2Role** (from Step 0). This gives the instance S3 access to `your-bucket/aip/*` without storing keys.
-   - **User data:** Optional. If available, paste the script from **Step 2** so dependencies install on first boot. Otherwise install manually in Step 3.
+  - **IAM instance profile:** Select **AIPScraperEC2Role** (from Step 0). This gives the instance S3 access to `your-bucket/aip/`* without storing keys.
+  - **User data:** Optional. If available, paste the script from **Step 2** so dependencies install on first boot. Otherwise install manually in Step 3.
 9. **Launch instance**. Note the **Public IPv4 address** once it is running.
 
 ---
@@ -98,7 +100,7 @@ If you use **User data**, wait 2–3 minutes after the instance is running befor
 ssh -i /path/to/your-key.pem ubuntu@EC2-PUBLIC-IP
 ```
 
-2. **Install dependencies** (skip if User data already did it):
+1. **Install dependencies** (skip if User data already did it):
 
 ```bash
 sudo bash -c 'export DEBIAN_FRONTEND=noninteractive
@@ -110,7 +112,7 @@ apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium
 npm install -g npm@latest'
 ```
 
-3. **Clone the repo** and install Node dependencies:
+1. **Clone the repo** and install Node dependencies:
 
 ```bash
 cd ~
@@ -119,7 +121,7 @@ cd clearway-2
 npm install
 ```
 
-4. **Install Playwright browsers** (Chromium – used by the download script):
+1. **Install Playwright browsers** (Chromium – used by the download script):
 
 ```bash
 npx playwright install chromium
@@ -164,7 +166,7 @@ To generate `EAD_PASSWORD_ENC`: run `node scripts/ead-encode-password.mjs "YourE
 
 If you trigger download/extract via the portal (**/aip-test**) or another API client, the request body can carry credentials so the server does not need them in `.env`:
 
-- **Download:** POST body may include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API passes them into the script env and does not read `EAD_*` from process env.
+- **Download:** POST body may include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API passes them into the script env and does not read `EAD_`* from process env.
 - **Extract (AI):** POST body may include `openaiApiKey`, `openaiModel`. If present, the API passes them into the script env.
 
 On **/aip-test**, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. To have the **AIP EC2** run the jobs when you click **Sync on EC2**, use the **AIP sync server** (Step 5b): it uses the **same sync secret** as the NOTAM sync server (`SYNC_SECRET` on EC2, `NOTAM_SYNC_SECRET` in Vercel), so you do not need a second secret.
@@ -175,7 +177,7 @@ On **/aip-test**, open “Credentials (optional – pass in request instead of s
 
 **Where to run:** Either on the EC2 instance via SSH (or cron), or from the **portal** at **/aip-test** (credentials passed in the request; see Step 4 Option B).
 
-**On EC2 via SSH** – All commands below are run on the instance, from `~/clearway-2`. For these CLI runs the scripts read `EAD_*` and `OPENAI_*` from the environment, so you need **Option A** (`.env` on the instance). If you prefer not to store credentials on EC2, trigger download/extract from the portal (**/aip-test**) and fill in the optional credentials form; the API will pass them into the script.
+**On EC2 via SSH** – All commands below are run on the instance, from `~/clearway-2`. For these CLI runs the scripts read `EAD_`* and `OPENAI_*` from the environment, so you need **Option A** (`.env` on the instance). If you prefer not to store credentials on EC2, trigger download/extract from the portal (**/aip-test**) and fill in the optional credentials form; the API will pass them into the script.
 
 **Single ICAO (download then extract):**
 
@@ -223,6 +225,8 @@ scp -i your-key.pem -r ubuntu@EC2-PUBLIC-IP:~/clearway-2/data/ead-aip ./
 
 Like the NOTAM sync server, the AIP sync server runs on the EC2 and accepts authenticated requests from the portal. When you click **Sync on EC2** on **/aip-test**, the portal calls this server, which runs download + extract for the given ICAO and returns the result (and optionally uploads to S3). **The same sync secret is used as for NOTAMs:** set `SYNC_SECRET` on the AIP EC2 to the same value as `NOTAM_SYNC_SECRET` in Vercel.
 
+**Note:** If EAD returns "Access denied" for your EC2 IP (see note at the top of this doc), **Sync on EC2** will fail at the download step. In that case run **Download PDF** and **Extract** from **/aip-test** on your laptop instead, or run download locally and copy PDFs to EC2 for extract/upload.
+
 1. On the AIP EC2 instance, set env and start the sync server (same bucket and EAD/OpenAI credentials as in Step 4 Option A):
 
 ```bash
@@ -238,7 +242,7 @@ node scripts/aip-sync-server.mjs
 
 The server listens on port **3002** (or set `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs the download script for that ICAO, then the AI extract script, then returns the extracted JSON (and uploads to `s3://bucket/aip/ead-aip-extracted.json` if `AWS_S3_BUCKET` is set).
 
-2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
+1. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
 
 ```bash
 tmux new -s aip
@@ -248,12 +252,11 @@ node scripts/aip-sync-server.mjs
 # Detach: Ctrl+B then D. Reattach: tmux attach -t aip
 ```
 
-3. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
-
-4. **In Vercel** add:
-   - **Name:** `AIP_SYNC_URL`  
-     **Value:** `http://EC2-PUBLIC-IP:3002` (no trailing slash).
-   - **NOTAM_SYNC_SECRET** is already set for NOTAM sync; the AIP sync server uses the same secret (`SYNC_SECRET` on EC2 must match `NOTAM_SYNC_SECRET` in Vercel). No extra variable needed.
+1. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
+2. **In Vercel** add:
+  - **Name:** `AIP_SYNC_URL`  
+   **Value:** `http://EC2-PUBLIC-IP:3002` (no trailing slash).
+  - **NOTAM_SYNC_SECRET** is already set for NOTAM sync; the AIP sync server uses the same secret (`SYNC_SECRET` on EC2 must match `NOTAM_SYNC_SECRET` in Vercel). No extra variable needed.
 
 After that, **Sync on EC2** on **/aip-test** will trigger the scraper on the AIP EC2 and return fresh extracted data.
 
@@ -301,17 +304,19 @@ The portal already reads EAD extracted data from the repo file `data/ead-aip-ext
 
 ## Summary
 
-| Step | Action |
-|------|--------|
-| 0 | IAM: policy `AIPScraperS3Upload` (bucket `aip/*`), role `AIPScraperEC2Role`. |
-| 1 | Launch EC2 (Ubuntu 22.04, t3.small), attach **AIPScraperEC2Role**, open SSH (22). |
-| 2 | Optional: User data to install Node, Xvfb, Chromium. |
-| 3 | SSH in; if no User data, install deps; clone repo, `npm install`, `npx playwright install chromium`. |
-| 4 | **Credentials:** Option A – `.env` on EC2 (`EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`). Option B – pass in API request from **/aip-test** (no `.env` on EC2). |
-| 5 | Run download (with `xvfb-run`) per ICAO, then extract (regex or AI). On EC2 CLI: needs Option A. Or trigger from portal **/aip-test** with Option B. |
-| 5b | Optional: AIP sync server – `node scripts/aip-sync-server.mjs` on EC2 (port 3002). Use **same** `SYNC_SECRET` as NOTAMs. In Vercel set `AIP_SYNC_URL`; reuse `NOTAM_SYNC_SECRET`. |
-| 6 | Optional: cron for daily run (requires Option A `.env` on EC2). |
-| 7 | Upload `ead-aip-extracted.json` to S3 (`your-bucket/aip/`). |
+
+| Step | Action                                                                                                                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | IAM: policy `AIPScraperS3Upload` (bucket `aip/*`), role `AIPScraperEC2Role`.                                                                                                      |
+| 1    | Launch EC2 (Ubuntu 22.04, t3.small), attach **AIPScraperEC2Role**, open SSH (22).                                                                                                 |
+| 2    | Optional: User data to install Node, Xvfb, Chromium.                                                                                                                              |
+| 3    | SSH in; if no User data, install deps; clone repo, `npm install`, `npx playwright install chromium`.                                                                              |
+| 4    | **Credentials:** Option A – `.env` on EC2 (`EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`). Option B – pass in API request from **/aip-test** (no `.env` on EC2).               |
+| 5    | Run download (with `xvfb-run`) per ICAO, then extract (regex or AI). On EC2 CLI: needs Option A. Or trigger from portal **/aip-test** with Option B.                              |
+| 5b   | Optional: AIP sync server – `node scripts/aip-sync-server.mjs` on EC2 (port 3002). Use **same** `SYNC_SECRET` as NOTAMs. In Vercel set `AIP_SYNC_URL`; reuse `NOTAM_SYNC_SECRET`. |
+| 6    | Optional: cron for daily run (requires Option A `.env` on EC2).                                                                                                                   |
+| 7    | Upload `ead-aip-extracted.json` to S3 (`your-bucket/aip/`).                                                                                                                       |
+
 
 **Env (EC2 sync server):** `SYNC_SECRET` (same as NOTAM), `EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`, `AWS_S3_BUCKET`, `AWS_REGION`. **Vercel:** `AIP_SYNC_URL` (e.g. `http://EC2-IP:3002`), reuse existing `NOTAM_SYNC_SECRET`.
 

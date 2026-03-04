@@ -29,7 +29,7 @@ You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
       "Resource": "arn:aws:s3:::myapp-notams-prod/aip/*"
     }
   ]
@@ -282,7 +282,7 @@ You should see: `AIP sync server listening on port 3002 | download: ... | extrac
 
 **Alternatively:** if you put all vars in `.env` (Step 1 above), you can run `set -a && . ./.env && set +a` before `node scripts/aip-sync-server.mjs`, or use `./scripts/run-aip-sync-server.sh` (which loads `.env` and runs the server).
 
-The server listens on port **3002** (or `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it runs download for that ICAO, then AI extract, returns the JSON, and uploads to S3 (`aip/ead-aip-extracted.json` and `aip/ead/ICAO.json`) if `AWS_S3_BUCKET` is set.
+The server listens on port **3002** (or `AIP_SYNC_PORT`). It accepts `GET /sync?icao=XXXX`; when called, it **deletes** any existing `aip/ead/ICAO.json` and `aip/ead-pdf/ICAO.pdf` in S3, runs download for that ICAO, then AI extract, uploads JSON to S3, and **uploads the downloaded PDF** to `aip/ead-pdf/ICAO.pdf` so the portal can offer “Download AIP PDF”.
 
 3. **Expose the server:** open port **3002** in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs). The sync URL will be `http://EC2-PUBLIC-IP:3002`.
 4. **In Vercel** add:
@@ -291,6 +291,28 @@ The server listens on port **3002** (or `AIP_SYNC_PORT`). It accepts `GET /sync?
   - **NOTAM_SYNC_SECRET** is already set for NOTAM sync; the AIP sync server uses the same secret (`SYNC_SECRET` on EC2 must match `NOTAM_SYNC_SECRET` in Vercel). No extra variable needed.
 
 After that, **Sync on EC2** on **/aip-test** will trigger the scraper on the AIP EC2 and return fresh extracted data.
+
+---
+
+## Updating the server code
+
+After you push changes to the repo (e.g. sync server now uploads PDFs and deletes old objects), update the code on EC2 and restart the AIP sync server:
+
+```bash
+# SSH into your AIP EC2 instance, then:
+
+cd ~/clearway-2   # or your project path
+git pull
+
+# Restart the AIP sync server (if running in tmux):
+tmux attach -t aip
+# Press Ctrl+C to stop the current process
+set -a && . ./.env && set +a   # load env if you use .env
+node scripts/aip-sync-server.mjs
+# Ctrl+B then D to detach
+```
+
+If you use the run script: `./scripts/run-aip-sync-server.sh` (after `git pull`), then reattach to tmux, Ctrl+C, and run that script again.
 
 ---
 

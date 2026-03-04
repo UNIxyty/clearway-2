@@ -144,11 +144,18 @@ async function main() {
       await aipLink.click({ timeout: 60000 });
       await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     }
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {});
 
-    // —— Authority (country) —— native select with id mainForm:selectAuthorityCode_input
+    // —— Authority (country) —— JSF may render select after AJAX; id can be mainForm:... or j_idtX:... on server
     log('Selecting country: ' + countryLabel);
-    await page.locator(jsfId('mainForm:selectAuthorityCode_input')).selectOption({ label: countryLabel });
+    const authoritySelect = page
+      .locator(jsfId('mainForm:selectAuthorityCode_input'))
+      .or(page.locator('select[id$="selectAuthorityCode_input"]'))
+      .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
+      .first();
+    await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
+    await authoritySelect.selectOption({ label: countryLabel });
     await page.waitForTimeout(500);
 
     // —— Language: English —— (hidden select; set value and trigger change)

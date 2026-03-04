@@ -154,10 +154,10 @@ nano .env
 Add (replace with your real values):
 
 ```bash
-EAD_USER=YourEadUsername
-EAD_PASSWORD_ENC=YourBase64EncodedPassword
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+export EAD_USER=YourEadUsername
+export EAD_PASSWORD_ENC=YourBase64EncodedPassword
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-4o-mini
 ```
 
 To generate `EAD_PASSWORD_ENC`: run `node scripts/ead-encode-password.mjs "YourEadPassword"` (e.g. on your laptop) and paste the output. Save and exit (Ctrl+O, Enter, Ctrl+X in nano).
@@ -240,19 +240,19 @@ Add (replace with your values):
 
 ```bash
 # Sync auth (same value as NOTAM_SYNC_SECRET in Vercel)
-SYNC_SECRET=your-same-secret-as-notam-sync
+export SYNC_SECRET=your-same-secret-as-notam-sync
 
 # S3 (same bucket as NOTAMs – portal reads aip/ead/ICAO.json from here)
-AWS_S3_BUCKET=myapp-notams-prod
-AWS_REGION=eu-north-1
+export AWS_S3_BUCKET=myapp-notams-prod
+export AWS_REGION=eu-north-1
 
 # EAD Basic login (use EAD_PASSWORD_ENC from: node scripts/ead-encode-password.mjs "YourPassword")
-EAD_USER=YourEadUsername
-EAD_PASSWORD_ENC=YourBase64EncodedPassword
+export EAD_USER=YourEadUsername
+export EAD_PASSWORD_ENC=YourBase64EncodedPassword
 
 # OpenAI (for AI extract; optional OPENAI_MODEL, default gpt-4o-mini)
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+export OPENAI_API_KEY=sk-...
+export OPENAI_MODEL=gpt-4o-mini
 ```
 
 Save and exit (Ctrl+O, Enter, Ctrl+X). Optional: if you use system Chromium instead of Playwright’s, add `CHROME_CHANNEL=chromium`.

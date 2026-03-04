@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
+import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
 
 type AIPCountry = {
   country: string;
@@ -125,6 +126,31 @@ function getAll(): AIPAirport[] {
   return cachedList;
 }
 
+function flattenEadCountry(countryLabel: string): AIPAirport[] {
+  const data = eadIcaosFromDocNames as { countries?: Record<string, string[]> };
+  const icaos = data.countries?.[countryLabel];
+  if (!icaos || !Array.isArray(icaos)) return [];
+  return icaos.map((icao) => {
+    const coord = coordsMap[icao];
+    return {
+      country: countryLabel,
+      gen1_2: "",
+      gen1_2_point_4: "",
+      icao,
+      name: "EAD airport (sync to load)",
+      trafficPermitted: "",
+      trafficRemarks: "",
+      operator: "",
+      customsImmigration: "",
+      ats: "",
+      atsRemarks: "",
+      fireFighting: "",
+      lat: coord?.lat,
+      lon: coord?.lon,
+    };
+  });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
@@ -132,6 +158,12 @@ export async function GET(request: NextRequest) {
 
   if (country === "United States of America" && state) {
     const list = flattenUSAByState(state);
+    return NextResponse.json({ results: list });
+  }
+
+  const eadData = eadIcaosFromDocNames as { countries?: Record<string, unknown> };
+  if (country && eadData.countries && country in eadData.countries) {
+    const list = flattenEadCountry(country);
     return NextResponse.json({ results: list });
   }
 

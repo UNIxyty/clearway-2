@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadExtracted from "@/data/ead-aip-extracted.json";
+import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
 
 type AIPCountry = {
   country: string;
@@ -109,6 +110,7 @@ function flattenEAD(): AIPAirport[] {
 }
 
 let cachedList: AIPAirport[] | null = null;
+let cachedEadIcaoSet: Set<string> | null = null;
 
 function getList(): AIPAirport[] {
   if (!cachedList) {
@@ -120,6 +122,18 @@ function getList(): AIPAirport[] {
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;
+}
+
+function getAllEadIcaos(): Set<string> {
+  if (!cachedEadIcaoSet) {
+    const data = eadIcaosFromDocNames as { countries?: Record<string, string[]> };
+    const set = new Set<string>();
+    for (const list of Object.values(data.countries ?? {})) {
+      if (Array.isArray(list)) for (const icao of list) set.add(icao.toUpperCase());
+    }
+    cachedEadIcaoSet = set;
+  }
+  return cachedEadIcaoSet;
 }
 
 export async function GET(request: NextRequest) {
@@ -135,12 +149,36 @@ export async function GET(request: NextRequest) {
   }
 
   const list = getList();
-  const results = list.filter(
+  let results = list.filter(
     (a) =>
       a.icao.toUpperCase().includes(qUpper) ||
       a.name.toUpperCase().includes(qUpper) ||
       a.country.toUpperCase().includes(qUpper)
   );
+
+  // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
+  if (qUpper.length === 4) {
+    const eadSet = getAllEadIcaos();
+    if (eadSet.has(qUpper) && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+      results = [
+        ...results,
+        {
+          country: "EAD (EU AIP)",
+          gen1_2: "",
+          gen1_2_point_4: "",
+          icao: qUpper,
+          name: "EAD airport (sync to load)",
+          trafficPermitted: "",
+          trafficRemarks: "",
+          operator: "",
+          customsImmigration: "",
+          ats: "",
+          atsRemarks: "",
+          fireFighting: "",
+        } as AIPAirport,
+      ];
+    }
+  }
 
   return NextResponse.json({ results });
 }

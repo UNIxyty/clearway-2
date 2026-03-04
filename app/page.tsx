@@ -414,10 +414,10 @@ export default function AIPPortalPage() {
     return () => clearInterval(t);
   }, [aipEadSyncingIcao]);
 
-  // Fetch NOTAMs only on first view (no cache) or when user presses Sync. Do NOT re-scrape when re-entering a tab (use cache).
+  // Fetch NOTAMs when an airport is selected (search or browse). Load/sync even without coords so map + NOTAMs show after user initiates.
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !viewingAirport?.lat) return;
+    if (!icao) return;
 
     const hasCache = icao in notamsCache;
     const syncRequested = syncRequestedIcao === icao;
@@ -513,7 +513,7 @@ export default function AIPPortalPage() {
         setNotamsLoadingIcao(null);
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
-  }, [viewingAirport?.icao, viewingAirport?.lat, syncRequestedIcao, notamsCache]);
+  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache]);
 
   const runFakeLoadingSteps = useCallback(async (steps: { id: string; label: string; duration: number }[] = LOADING_STEPS) => {
     setStepIndex(0);
@@ -603,7 +603,7 @@ export default function AIPPortalPage() {
     if (e.key === "Enter") search();
   };
 
-  const showMap = results?.length && selectedAirport?.lat != null;
+  const showMap = !!(results?.length && viewingAirport);
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
@@ -616,13 +616,19 @@ export default function AIPPortalPage() {
                 <span>Location — {viewingAirport.icao}</span>
               </div>
               <div className="flex-1 min-h-[240px] shrink-0">
-                <AirportMap
-                  lat={viewingAirport.lat!}
-                  lon={viewingAirport.lon!}
-                  icao={viewingAirport.icao}
-                  name={viewingAirport.name}
-                  className="w-full h-full"
-                />
+                {viewingAirport.lat != null && viewingAirport.lon != null ? (
+                  <AirportMap
+                    lat={viewingAirport.lat}
+                    lon={viewingAirport.lon}
+                    icao={viewingAirport.icao}
+                    name={viewingAirport.name}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-muted/30 text-sm text-muted-foreground p-4 text-center">
+                    Coordinates will appear after AIP sync or when available from data.
+                  </div>
+                )}
               </div>
               <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
                 <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">

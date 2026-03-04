@@ -1,12 +1,14 @@
 # AIP scraper on AWS EC2 – step-by-step setup
 
-This guide walks you through creating a **separate** EC2 instance dedicated to EAD AIP scraping: login to EAD Basic, download AD 2 PDFs, and extract airport data (regex or AI). Uses the **same S3 bucket** as your NOTAM scraper (different prefix `aip/`).
+This guide walks you through creating a **separate** EC2 instance dedicated to EAD AIP scraping: login to EAD Basic, download AD 2 PDFs, and extract airport data (regex or AI). Uses the **same S3 bucket** as your NOTAM scraper (different prefix `aip/`). **Credentials** can be stored on the instance in `.env` (for cron or SSH runs) or **passed in the API request** when you trigger download/extract from the portal (**/aip-test**), so the EC2 does not need to store them (like NOTAMs).
 
 **What runs on this instance:**
 
 1. **Download:** `ead-download-aip-pdf.mjs` – Playwright + Chromium, one ICAO per run.
 2. **Extract:** `ead-extract-aip-from-pdf.mjs` (regex) or `ead-extract-aip-from-pdf-ai.mjs` (OpenAI).
 3. **Upload (optional):** `ead-aip-extracted.json` → S3 `your-bucket/aip/`.
+
+**Triggering runs:** You can run the scripts via SSH/cron on EC2 (then credentials must be in `.env`), or trigger them from the **portal** at **/aip-test** by passing credentials in the request (no `.env` on EC2 needed).
 
 ---
 
@@ -158,24 +160,26 @@ OPENAI_MODEL=gpt-4o-mini
 
 To generate `EAD_PASSWORD_ENC`: run `node scripts/ead-encode-password.mjs "YourEadPassword"` (e.g. on your laptop) and paste the output. Save and exit (Ctrl+O, Enter, Ctrl+X in nano).
 
-**Option B – Do not store on EC2; pass in request**
+**Option B – Do not store on server; pass in request**
 
-If you trigger download/extract via the portal (**/aip-test**) or another API client:
+If you trigger download/extract via the portal (**/aip-test**) or another API client, the request body can carry credentials so the server does not need them in `.env`:
 
-- **Download:** POST body can include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API uses these for the script and does not read `EAD_*` from env.
-- **Extract (AI):** POST body can include `openaiApiKey`, `openaiModel`. If present, the API passes them to the script.
+- **Download:** POST body may include `eadUser`, `eadPassword` (or `eadPasswordEnc` base64). If present, the API passes them into the script env and does not read `EAD_*` from process env.
+- **Extract (AI):** POST body may include `openaiApiKey`, `openaiModel`. If present, the API passes them into the script env.
 
-On the **/aip-test** page, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. So the AIP EC2 can run without a `.env` file if you always trigger from the portal with credentials filled in (or if your front-end sends credentials from Vercel env server-side).
+On **/aip-test**, open “Credentials (optional – pass in request instead of server .env)” and enter EAD user/password and OpenAI key. They are sent only in that request and are not stored on the server. The script then runs on **whatever server handles the API** (e.g. your laptop if you run the app locally, or Vercel – where Playwright may not be available). To have the **AIP EC2** run the jobs without storing credentials on the instance, you would run a small sync server on the EC2 (similar to the NOTAM sync server) that accepts requests with credentials and spawns the scripts; the doc here assumes either Option A (`.env` on EC2) or triggering from the portal with the app running locally.
 
 ---
 
 ## Step 5: Run download and extract
 
-All commands below are run on the EC2 instance, from `~/clearway-2`.
+**Where to run:** Either on the EC2 instance via SSH (or cron), or from the **portal** at **/aip-test** (credentials passed in the request; see Step 4 Option B).
+
+**On EC2 via SSH** – All commands below are run on the instance, from `~/clearway-2`. For these CLI runs the scripts read `EAD_*` and `OPENAI_*` from the environment, so you need **Option A** (`.env` on the instance). If you prefer not to store credentials on EC2, trigger download/extract from the portal (**/aip-test**) and fill in the optional credentials form; the API will pass them into the script.
 
 **Single ICAO (download then extract):**
 
-The download script runs headless. On EC2, `xvfb-run` is recommended in case the environment needs a virtual display:
+The download script runs headless. On EC2, `xvfb-run` is recommended:
 
 ```bash
 cd ~/clearway-2
@@ -183,7 +187,7 @@ xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs ES
 node scripts/ead-extract-aip-from-pdf.mjs
 ```
 
-Use **AI extraction** instead of regex:
+Use **AI extraction** instead of regex (requires `OPENAI_API_KEY` in `.env` for CLI):
 
 ```bash
 node scripts/ead-extract-aip-from-pdf-ai.mjs
@@ -200,7 +204,7 @@ node scripts/ead-extract-aip-from-pdf.mjs
 # or: node scripts/ead-extract-aip-from-pdf-ai.mjs
 ```
 
-Results:
+**Results:**
 
 - PDFs: `~/clearway-2/data/ead-aip/*.pdf`
 - Extracted JSON: `~/clearway-2/data/ead-aip-extracted.json`
@@ -217,19 +221,22 @@ scp -i your-key.pem -r ubuntu@EC2-PUBLIC-IP:~/clearway-2/data/ead-aip ./
 
 ## Step 6: Run on a schedule (optional)
 
+Cron runs the scripts **directly on EC2**, so it does not go through the API. You must use **Option A** (`.env` on the instance) for cron; credentials cannot be “passed in request” for cron.
+
 To run AIP download + extract daily (e.g. at 03:00 UTC):
 
 ```bash
 crontab -e
 ```
 
-Add:
+Add (replace ICAO list and bucket if needed):
 
 ```
 0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs
 ```
 
-Adjust the list of ICAOs and the extraction script (regex vs AI) as needed. Ensure `.env` is in `/home/ubuntu/clearway-2` and that cron can read it (e.g. no interactive prompts).
+- Ensure `.env` exists in `/home/ubuntu/clearway-2` with `EAD_USER`, `EAD_PASSWORD_ENC`, and (for AI) `OPENAI_API_KEY`.
+- If you use **Option B only** (no `.env` on EC2), you cannot use cron; trigger runs from the portal **/aip-test** instead.
 
 ---
 
@@ -260,9 +267,9 @@ The portal already reads EAD extracted data from the repo file `data/ead-aip-ext
 | 1 | Launch EC2 (Ubuntu 22.04, t3.small), attach **AIPScraperEC2Role**, open SSH (22). |
 | 2 | Optional: User data to install Node, Xvfb, Chromium. |
 | 3 | SSH in; if no User data, install deps; clone repo, `npm install`, `npx playwright install chromium`. |
-| 4 | Create `.env` with `EAD_USER`, `EAD_PASSWORD_ENC`, optional `OPENAI_API_KEY`. |
-| 5 | Run download (with `xvfb-run`) per ICAO, then extract (regex or AI). |
-| 6 | Optional: cron for daily run. |
+| 4 | **Credentials:** Option A – `.env` on EC2 (`EAD_USER`, `EAD_PASSWORD_ENC`, `OPENAI_API_KEY`). Option B – pass in API request from **/aip-test** (no `.env` on EC2). |
+| 5 | Run download (with `xvfb-run`) per ICAO, then extract (regex or AI). On EC2 CLI: needs Option A. Or trigger from portal **/aip-test** with Option B. |
+| 6 | Optional: cron for daily run (requires Option A `.env` on EC2). |
 | 7 | Upload `ead-aip-extracted.json` to S3 (`your-bucket/aip/`). |
 
 **Cost:** t3.small on-demand is about **$0.0208/hour** (~$15/month if 24/7). You can stop the instance when not needed to save cost.

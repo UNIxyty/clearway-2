@@ -1,0 +1,2 @@
+# Shell scripts must use LF so they run on Linux (e.g. EC2)
+*.sh text eol=lf

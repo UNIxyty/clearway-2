@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120_000);
+    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 min for download + extract on EC2
     const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
     clearTimeout(timeout);
     const data = await res.json().catch(() => ({}));

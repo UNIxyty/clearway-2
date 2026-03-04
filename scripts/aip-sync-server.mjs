@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
-const RUN_TIMEOUT_MS = 180_000; // download + extract can be slow
+const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const EXTRACT_SCRIPT_AI = "scripts/ead-extract-aip-from-pdf-ai.mjs";
@@ -55,7 +55,7 @@ function run(cmd, args, env = process.env) {
 }
 
 async function runDownload(icao) {
-  await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1080x24", "node", DOWNLOAD_SCRIPT, icao]);
+  await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
 }
 
 async function runExtract(useAi = true) {

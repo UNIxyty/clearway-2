@@ -183,7 +183,7 @@ The download script runs headless. On EC2, `xvfb-run` is recommended:
 
 ```bash
 cd ~/clearway-2
-xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs ESGG
+xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs ESGG
 node scripts/ead-extract-aip-from-pdf.mjs
 ```
 
@@ -198,7 +198,7 @@ node scripts/ead-extract-aip-from-pdf-ai.mjs
 ```bash
 cd ~/clearway-2
 for icao in ESGG EVAD EBAM; do
-  xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs "$icao"
+  xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"
 done
 node scripts/ead-extract-aip-from-pdf.mjs
 # or: node scripts/ead-extract-aip-from-pdf-ai.mjs
@@ -272,7 +272,7 @@ crontab -e
 Add (replace ICAO list and bucket if needed):
 
 ```
-0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs
+0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs
 ```
 
 - Ensure `.env` exists in `/home/ubuntu/clearway-2` with `EAD_USER`, `EAD_PASSWORD_ENC`, and (for AI) `OPENAI_API_KEY`.
@@ -292,7 +292,7 @@ aws s3 cp data/ead-aip-extracted.json s3://myapp-notams-prod/aip/ead-aip-extract
 **Include in cron (Step 6)** so every run uploads to S3:
 
 ```
-0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1080x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs && aws s3 cp data/ead-aip-extracted.json s3://myapp-notams-prod/aip/ead-aip-extracted.json
+0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs && aws s3 cp data/ead-aip-extracted.json s3://myapp-notams-prod/aip/ead-aip-extracted.json
 ```
 
 The portal already reads EAD extracted data from the repo file `data/ead-aip-extracted.json`. To have it read from S3 instead (e.g. after deploy), you’d add an API or build step that fetches `s3://myapp-notams-prod/aip/ead-aip-extracted.json`; your existing IAM user used for S3 (e.g. by Vercel) can read this object if it has access to the bucket.

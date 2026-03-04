@@ -59,6 +59,16 @@ type AIPAirport = {
   lon?: number;
 };
 
+// ICAO prefixes for EAD (EU) countries – when user views an airport with this prefix, we show AIP (EAD) and can sync from EC2
+const EAD_ICAO_PREFIXES = new Set([
+  "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
+  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES",
+]);
+
+function isEadIcao(icao: string): boolean {
+  return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
+}
+
 const USA_STATE_ABBR: Record<string, string> = {
   "Alaska": "AK", "American Samoa": "AS", "Arizona": "AZ", "California": "CA", "Colorado": "CO",
   "Connecticut": "CT", "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Guam": "GU",
@@ -229,6 +239,10 @@ export default function AIPPortalPage() {
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
   const [eadAirports, setEadAirports] = useState<AIPAirport[]>([]);
   const [eadAirportsLoading, setEadAirportsLoading] = useState(true);
+  const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null }>>({});
+  const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
+  const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
+  const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -333,6 +347,71 @@ export default function AIPPortalPage() {
   const requestSyncNotams = useCallback((icao: string) => {
     setSyncRequestedIcao(icao);
   }, []);
+
+  const requestSyncAipEad = useCallback((icao: string) => {
+    setAipEadSyncRequestedIcao(icao);
+  }, []);
+
+  // Fetch AIP (EAD) when viewing an airport in an EAD country: use cache or call sync when user presses Sync.
+  useEffect(() => {
+    const icao = viewingAirport?.icao ?? null;
+    if (!icao || !isEadIcao(icao)) return;
+    const hasCache = icao in aipEadCache;
+    const syncRequested = aipEadSyncRequestedIcao === icao;
+    if (hasCache && !syncRequested) return;
+
+    const isSync = syncRequested || !hasCache;
+    setAipEadLoadingIcao(icao);
+    if (isSync) setAipEadSyncingIcao(icao);
+
+    const url = `/api/aip/sync?icao=${encodeURIComponent(icao)}&_t=${Date.now()}`;
+    fetch(url, { cache: "no-store" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? "Sync failed");
+          setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg } }));
+          return;
+        }
+        const list = (data.airports ?? []) as Array<{
+          "Airport Code"?: string;
+          "Airport Name"?: string;
+          "AD2.2 Types of Traffic Permitted"?: string;
+          "AD2.2 Remarks"?: string;
+          "AD2.3 AD Operator"?: string;
+          "AD 2.3 Customs and Immigration"?: string;
+          "AD2.3 ATS"?: string;
+          "AD2.3 Remarks"?: string;
+          "AD2.6 AD category for fire fighting"?: string;
+        }>;
+        const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
+        const airport: AIPAirport | null = match
+          ? {
+              country: "EAD (EU AIP)",
+              gen1_2: "",
+              gen1_2_point_4: "",
+              icao: match["Airport Code"] ?? "",
+              name: match["Airport Name"] ?? "",
+              trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
+              trafficRemarks: match["AD2.2 Remarks"] ?? "",
+              operator: match["AD2.3 AD Operator"] ?? "",
+              customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
+              ats: match["AD2.3 ATS"] ?? "",
+              atsRemarks: match["AD2.3 Remarks"] ?? "",
+              fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
+            }
+          : null;
+        setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null } }));
+      })
+      .catch((err) => {
+        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}` } }));
+      })
+      .finally(() => {
+        setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
+        setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+        setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+      });
+  }, [viewingAirport?.icao, aipEadSyncRequestedIcao]);
 
   // Fetch NOTAMs only on first view (no cache) or when user presses Sync. Do NOT re-scrape when re-entering a tab (use cache).
   useEffect(() => {
@@ -1010,7 +1089,7 @@ export default function AIPPortalPage() {
               EAD AIP extracted
             </CardTitle>
             <CardDescription className="text-muted-foreground text-sm">
-              Airports from EAD AD 2 PDFs (download &amp; extract via <a href="/aip-test" className="text-primary hover:underline">/aip-test</a>)
+              Airports from EAD (EU). When you select an airport in an EAD country, AIP details appear in the right column; use Sync to refresh.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-4 sm:px-6 pb-4">
@@ -1020,7 +1099,7 @@ export default function AIPPortalPage() {
                 Loading…
               </div>
             ) : eadAirports.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Use <a href="/aip-test" className="text-primary hover:underline">/aip-test</a> to download and extract.</p>
+              <p className="text-sm text-muted-foreground py-4">No EAD data yet. Select an airport in an EAD country (e.g. ES, EV) and use Sync in the right column.</p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {eadAirports.map((airport) => (
@@ -1151,6 +1230,55 @@ export default function AIPPortalPage() {
                   )}
                 </div>
               </div>
+
+              {/* AIP (EAD) – when viewing an airport in an EAD country; sync from EC2 */}
+              {viewingAirport && isEadIcao(viewingAirport.icao) && (
+                <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
+                  <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
+                    <span>AIP (EAD) — {viewingAirport.icao}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => requestSyncAipEad(viewingAirport.icao)}
+                      disabled={aipEadLoadingIcao === viewingAirport.icao}
+                      title="Sync: fetch from EC2 and refresh"
+                    >
+                      <RefreshCwIcon className={`size-3.5 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
+                    {aipEadLoadingIcao === viewingAirport.icao && (
+                      <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
+                        {aipEadSyncingIcao === viewingAirport.icao ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Spinner className="size-4 shrink-0" />
+                              <span className="font-medium">Syncing from EAD…</span>
+                            </div>
+                            <span className="text-xs">Download + extract on server · can take 1–2 min</span>
+                          </>
+                        ) : (
+                          <>
+                            <Spinner className="size-4" />
+                            <span>Loading AIP…</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
+                      <p className="text-sm text-destructive py-2">{aipEadCache[viewingAirport.icao].error}</p>
+                    )}
+                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
+                      <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
+                    )}
+                    {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
+                      <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -33,12 +33,29 @@ const SCREENSHOT_DIR = join(PROJECT_ROOT, 'data', 'ead-aip');
 const SCREENSHOT_PATH = join(SCREENSHOT_DIR, 'ead-manual-browse.png');
 
 async function main() {
-  const hasDisplay = !!process.env.DISPLAY;
+  const forceHeadless = process.env.EAD_HEADLESS === '1' || process.env.EAD_HEADLESS === 'true';
+  let hasDisplay = !!process.env.DISPLAY && !forceHeadless;
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch({
-    headless: !hasDisplay,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+
+  let browser;
+  try {
+    browser = await chromium.launch({
+      headless: !hasDisplay,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  } catch (err) {
+    if (hasDisplay && /XServer|DISPLAY|has been closed/i.test(String(err && err.message))) {
+      console.log('Headed launch failed (no usable display). Running headless and saving a screenshot.');
+      hasDisplay = false;
+      browser = await chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    } else {
+      throw err;
+    }
+  }
+
   const context = await browser.newContext({
     acceptDownloads: true,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

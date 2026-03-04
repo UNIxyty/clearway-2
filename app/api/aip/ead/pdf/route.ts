@@ -13,13 +13,24 @@ export async function GET(request: NextRequest) {
 
   if (!BUCKET) {
     return NextResponse.json(
-      { error: "PDF storage not configured", detail: "Set AWS_S3_BUCKET (or AWS_NOTAMS_BUCKET)." },
+      { error: "PDF storage not configured", detail: "Set AWS_S3_BUCKET (or AWS_NOTAMS_BUCKET) in Vercel." },
+      { status: 503 }
+    );
+  }
+
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    return NextResponse.json(
+      {
+        error: "S3 credentials not configured",
+        detail: "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Vercel (same as for NOTAMs). IAM user must have s3:GetObject on your bucket, including aip/ead-pdf/*.",
+      },
       { status: 503 }
     );
   }
 
   try {
-    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    const client = new S3Client({ region });
     const key = `${AIP_EAD_PDF_PREFIX}/${icao}.pdf`;
     const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
     const body = res.Body;
@@ -36,14 +47,25 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
+    const err = e as { name?: string; Code?: string; message?: string };
     if (err?.name === "NoSuchKey" || err?.Code === "NoSuchKey") {
       return NextResponse.json(
         { error: "PDF not found", detail: "Sync this airport first to download the AIP PDF." },
         { status: 404 }
       );
     }
+    const msg = err?.message ?? String(e);
+    const isAccessDenied =
+      err?.name === "AccessDenied" ||
+      err?.Code === "AccessDenied" ||
+      /access denied|credentials/i.test(msg);
+    const hint = isAccessDenied
+      ? " Ensure the IAM user has s3:GetObject on this bucket for keys under aip/ead-pdf/*."
+      : "";
     console.error("S3 AIP PDF read failed:", e);
-    return NextResponse.json({ error: "Failed to load PDF" }, { status: 502 });
+    return NextResponse.json(
+      { error: "Failed to load PDF", detail: msg + hint },
+      { status: 502 }
+    );
   }
 }

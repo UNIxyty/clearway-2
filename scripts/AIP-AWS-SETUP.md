@@ -47,7 +47,16 @@ You already have an IAM policy/role for the NOTAM EC2 and an IAM user for S3 (e.
 
 You will attach this role to the AIP EC2 in Step 1. Your NOTAM EC2 keeps its existing role unchanged.
 
-**If the portal (Vercel) should read AIP from S3:** Ensure the IAM **user** you use for S3 read access has `s3:GetObject` on the bucket (or on `aip/`*). If that user already has access to the whole bucket (e.g. `arn:aws:s3:::myapp-notams-prod/*`), it can already read `aip/ead-aip-extracted.json`; no change needed.
+**If the portal (Vercel) should read AIP from S3:** Ensure the IAM **user** you use for S3 read access has `s3:GetObject` on the bucket (or on `aip/*`). If that user already has access to the whole bucket (e.g. `arn:aws:s3:::myapp-notams-prod/*`), it can already read `aip/ead-aip-extracted.json` and `aip/ead-pdf/ICAO.pdf`; no change needed.
+
+**Portal “Download AIP PDF” not working (PDF is in S3):** The PDF API runs on Vercel and reads from S3. In **Vercel** → Project → **Settings** → **Environment Variables**, set (same as for NOTAMs):
+
+- `AWS_ACCESS_KEY_ID` – IAM user access key
+- `AWS_SECRET_ACCESS_KEY` – IAM user secret key
+- `AWS_NOTAMS_BUCKET` or `AWS_S3_BUCKET` – e.g. `myapp-notams-prod`
+- `AWS_REGION` – e.g. `eu-north-1`
+
+Redeploy after changing env. The IAM user must have `s3:GetObject` on the bucket (at least for `aip/*`). If the download still fails, the portal will show the error detail (e.g. “Access Denied” → add `s3:GetObject` for `aip/*` to the IAM policy).
 
 ---
 

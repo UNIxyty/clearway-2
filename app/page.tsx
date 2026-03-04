@@ -82,6 +82,11 @@ function isEadIcao(icao: string): boolean {
   return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
 }
 
+/** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
+function isEadPlaceholder(airport: AIPAirport | null): boolean {
+  return airport?.name === "EAD airport (sync to load)";
+}
+
 const USA_STATE_ABBR: Record<string, string> = {
   "Alaska": "AK", "American Samoa": "AS", "Arizona": "AZ", "California": "CA", "Colorado": "CO",
   "Connecticut": "CT", "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Guam": "GU",
@@ -367,10 +372,12 @@ export default function AIPPortalPage() {
     setAipEadSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch AIP (EAD) when viewing an airport in an EAD country: use cache or call sync when user presses Sync.
+  // Fetch AIP (EAD) when viewing an airport in an EAD country: use stored data, cache, or call sync when user presses Sync.
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
+    const hasStoredData = viewingAirport && !isEadPlaceholder(viewingAirport);
+    if (hasStoredData && aipEadSyncRequestedIcao !== icao) return; // use stored data on portal, do not call EAD server
     const hasCache = icao in aipEadCache;
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
@@ -1164,14 +1171,22 @@ export default function AIPPortalPage() {
                 )}
                 {!error && results !== null && results.length === 1 && (
                   <div className="space-y-3 max-w-2xl">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      1 result — full AIP extracted data
-                    </p>
-                    <AIPResultCard
-                      key={`${results[0].icao}-${results[0].country}`}
-                      airport={results[0]}
-                      isSelected={true}
-                    />
+                    {isEadPlaceholder(results[0]) ? (
+                      <p className="text-sm text-muted-foreground py-2">
+                        No stored data for {results[0].icao}. Use the AIP (EAD) section below to sync from the server.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          1 result — full AIP extracted data
+                        </p>
+                        <AIPResultCard
+                          key={`${results[0].icao}-${results[0].country}`}
+                          airport={results[0]}
+                          isSelected={true}
+                        />
+                      </>
+                    )}
                   </div>
                 )}
                 {!error && results !== null && results.length > 1 && (
@@ -1228,11 +1243,17 @@ export default function AIPPortalPage() {
                       })}
                     </div>
                     {viewingAirport && (
-                      <AIPResultCard
-                        key={`${viewingAirport.icao}-${viewingAirport.country}`}
-                        airport={viewingAirport}
-                        isSelected={true}
-                      />
+                      isEadPlaceholder(viewingAirport) ? (
+                        <p className="text-sm text-muted-foreground py-2">
+                          No stored data for {viewingAirport.icao}. Use the AIP (EAD) section below to sync from the server.
+                        </p>
+                      ) : (
+                        <AIPResultCard
+                          key={`${viewingAirport.icao}-${viewingAirport.country}`}
+                          airport={viewingAirport}
+                          isSelected={true}
+                        />
+                      )
                     )}
                   </div>
                 )}
@@ -1299,6 +1320,9 @@ export default function AIPPortalPage() {
                   )}
                   {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
                     <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
+                  )}
+                  {aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
+                    <AIPResultCard airport={viewingAirport} />
                   )}
                   {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
                     <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>

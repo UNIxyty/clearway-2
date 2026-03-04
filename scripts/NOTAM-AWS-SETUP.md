@@ -204,8 +204,10 @@ So that **each time a user enters an ICAO in the portal**, the app triggers the 
 
 1. On the EC2 instance, set env and start the sync server (same bucket and CrewBriefing credentials as in Step 5):
 
+   **Important:** You must run the sync server from the **project root** (the directory that contains `scripts/` and `package.json`). If you run `node scripts/notam-sync-server.mjs` from your home directory (`~`), Node will look for `/home/ubuntu/scripts/...` and fail with "Cannot find module". Clone or copy the repo first, then `cd` into it.
+
 ```bash
-cd ~/clearway-2
+cd ~/clearway-2   # or wherever you cloned the repo (must contain scripts/notam-sync-server.mjs)
 export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
 export CHROME_CHANNEL=chrome
@@ -217,12 +219,13 @@ node scripts/notam-sync-server.mjs
 
 The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). By default it runs the **CrewBriefing** scraper (`scripts/crewbriefing-notams.mjs`). Set `NOTAM_SCRAPER=faa` to use the FAA scraper instead. It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
 
-2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux`:
+2. **Keep it running:** use `tmux` or `screen`, or run as a systemd service. Example with `tmux` (always `cd` to project root first):
 
 ```bash
 tmux new -s notam
-cd ~/clearway-2
+cd ~/clearway-2   # project root – required so scripts/ is found
 export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
+export CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx
 node scripts/notam-sync-server.mjs
 # Detach: Ctrl+B then D. Reattach: tmux attach -t notam
 ```

@@ -182,5 +182,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const placeholderName = "EAD airport (sync to load)";
+  results.sort((a, b) => {
+    const aHasName = a.name !== placeholderName ? 1 : 0;
+    const bHasName = b.name !== placeholderName ? 1 : 0;
+    if (bHasName !== aHasName) return bHasName - aHasName;
+    return (a.name || a.icao).localeCompare(b.name || b.icao);
+  });
+
   return NextResponse.json({ results });
 }

@@ -128,18 +128,21 @@ function getAll(): AIPAirport[] {
   return cachedList;
 }
 
+const EAD_PLACEHOLDER_NAME = "EAD airport (sync to load)";
+
 function flattenEadCountry(countryLabel: string): AIPAirport[] {
   const data = eadIcaosFromDocNames as { countries?: Record<string, string[]> };
   const icaos = data.countries?.[countryLabel];
   if (!icaos || !Array.isArray(icaos)) return [];
-  return icaos.map((icao) => {
+  const list = icaos.map((icao) => {
     const coord = coordsMap[icao];
+    const name = eadNamesMap[icao] ?? EAD_PLACEHOLDER_NAME;
     return {
       country: countryLabel,
       gen1_2: "",
       gen1_2_point_4: "",
       icao,
-      name: eadNamesMap[icao] ?? "EAD airport (sync to load)",
+      name,
       trafficPermitted: "",
       trafficRemarks: "",
       operator: "",
@@ -151,6 +154,13 @@ function flattenEadCountry(countryLabel: string): AIPAirport[] {
       lon: coord?.lon,
     };
   });
+  list.sort((a, b) => {
+    const aHasName = a.name !== EAD_PLACEHOLDER_NAME ? 1 : 0;
+    const bHasName = b.name !== EAD_PLACEHOLDER_NAME ? 1 : 0;
+    if (bHasName !== aHasName) return bHasName - aHasName;
+    return (a.name || a.icao).localeCompare(b.name || b.icao);
+  });
+  return list;
 }
 
 export async function GET(request: NextRequest) {

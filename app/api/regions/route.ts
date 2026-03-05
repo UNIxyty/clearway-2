@@ -4,51 +4,80 @@ import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
 
 type RegionEntry = { region: string; countries: string[] };
 
-const EAD_REGIONS: Record<string, string[]> = {
-  "EAD — Northern Europe": [
-    "Denmark (EK)",
-    "Estonia (EE)",
-    "Finland (EF)",
-    "Ireland (EI)",
-    "Latvia (EV)",
-    "Lithuania (EY)",
-    "Sweden (ES)",
-  ],
-  "EAD — Western Europe": [
-    "Belgium (EB)",
-    "France (LF)",
-    "Germany (ED)",
-    "Luxembourg (EL)",
-    "Netherlands (EH)",
-  ],
-  "EAD — Southern Europe": [
-    "Albania (LA)",
-    "Greece (LG)",
-    "Italy (LI)",
-    "Malta (LM)",
-    "Portugal (LP)",
-    "Spain (LE)",
-    "Spain (GC)",
-  ],
-  "EAD — Central Europe": [
-    "Austria (LO)",
-    "Bulgaria (LB)",
-    "Czech Republic (LK)",
-    "Hungary (LH)",
-    "Poland (EP)",
-    "Romania (LR)",
-    "Slovakia (LZ)",
-    "Slovenia (LJ)",
-  ],
+/** Map EAD country label (e.g. "Croatia (LD)") to world region name. Used to merge EAD into existing regions. */
+const EAD_COUNTRY_TO_REGION: Record<string, string> = {
+  "Albania (LA)": "Europe",
+  "Armenia (UD)": "Asia",
+  "Austria (LO)": "Europe",
+  "Azerbaijan (UB)": "Asia",
+  "Belgium (EB)": "Europe",
+  "Bosnia/Herzeg. (LQ)": "Europe",
+  "Bulgaria (LB)": "Europe",
+  "Croatia (LD)": "Europe",
+  "Cyprus (LC)": "Europe",
+  "Czech Republic (LK)": "Europe",
+  "Denmark (EK)": "Europe",
+  "Estonia (EE)": "Europe",
+  "Faroe Islands (XX)": "Europe",
+  "Finland (EF)": "Europe",
+  "France (LF)": "Europe",
+  "Georgia (UG)": "Asia",
+  "Germany (ED)": "Europe",
+  "Greece (LG)": "Europe",
+  "Greenland (BG)": "North America & Caribbean",
+  "Hungary (LH)": "Europe",
+  "Iceland (BI)": "Europe",
+  "Ireland (EI)": "Europe",
+  "Italy (LI)": "Europe",
+  "Jordan (OJ)": "Asia",
+  "KFOR SECTOR (BK)": "Europe",
+  "Kazakhstan (UA)": "Asia",
+  "Kyrgyzstan (UC)": "Asia",
+  "Latvia (EV)": "Europe",
+  "Lithuania (EY)": "Europe",
+  "Malta (LM)": "Europe",
+  "Moldova (LU)": "Europe",
+  "Netherlands (EH)": "Europe",
+  "Norway (EN)": "Europe",
+  "Philippines (RP)": "Asia",
+  "Poland (EP)": "Europe",
+  "Portugal (LP)": "Europe",
+  "Republic of North Macedonia (LW)": "Europe",
+  "Romania (LR)": "Europe",
+  "Serbia and Montenegro (LY)": "Europe",
+  "Slovakia (LZ)": "Europe",
+  "Slovenia (LJ)": "Europe",
+  "Spain (LE)": "Europe",
+  "Spain (GC)": "Europe",
+  "Sweden (ES)": "Europe",
+  "Switzerland (LS)": "Europe",
+  "Turkey (LT)": "Europe",
+  "Ukraine (UK)": "Europe",
+  "United Kingdom (EG)": "Europe",
 };
 
 export async function GET() {
   const regions = regionsData as RegionEntry[];
-  const eadCountryKeys = Object.keys((eadIcaosFromDocNames as { countries?: Record<string, unknown> }).countries ?? {});
-  const eadRegionEntries: RegionEntry[] = Object.entries(EAD_REGIONS).map(([region, countries]) => ({
-    region,
-    countries: countries.filter((c) => eadCountryKeys.includes(c)),
+  const eadCountries = (eadIcaosFromDocNames as { countries?: Record<string, unknown> }).countries ?? {};
+  const eadCountryKeys = Object.keys(eadCountries);
+
+  const regionByName = new Map<string, string[]>();
+  for (const r of regions) {
+    regionByName.set(r.region, [...r.countries]);
+  }
+
+  for (const eadLabel of eadCountryKeys) {
+    const region = EAD_COUNTRY_TO_REGION[eadLabel];
+    if (!region) continue;
+    const list = regionByName.get(region);
+    if (list && !list.includes(eadLabel)) list.push(eadLabel);
+    else if (!list) regionByName.set(region, [eadLabel]);
+  }
+
+  const withEad: RegionEntry[] = [...regions].map((r) => ({
+    region: r.region,
+    countries: regionByName.get(r.region) ?? r.countries,
   }));
-  const withEad: RegionEntry[] = [...eadRegionEntries, ...regions];
+
   return NextResponse.json({ regions: withEad });
 }

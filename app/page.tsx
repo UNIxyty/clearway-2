@@ -399,7 +399,7 @@ export default function AIPPortalPage() {
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
       })
       .catch((err) => {
-        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"`, updatedAt: null } }));
+        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
       })
       .finally(() => {
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));

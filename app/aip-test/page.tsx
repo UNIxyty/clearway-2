@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon, DownloadIcon, FileTextIcon, Loader2Icon } from "lucide-react";
+import { formatTimesInAipText } from "@/lib/format-aip-time";
 
 type ExtractedAirport = {
   "Airport Code"?: string;
@@ -352,10 +353,10 @@ export default function AipTestPage() {
                         <tr key={i} className="border-b last:border-0">
                           <td className="p-2 font-mono">{a["Airport Code"] ?? ""}</td>
                           <td className="p-2 max-w-[140px] truncate" title={a["Airport Name"] ?? ""}>{a["Airport Name"] ?? ""}</td>
-                          <td className="p-2 max-w-[100px] truncate" title={a["AD2.2 Types of Traffic Permitted"] ?? ""}>{a["AD2.2 Types of Traffic Permitted"] ?? ""}</td>
-                          <td className="p-2 max-w-[120px] truncate" title={a["AD2.3 AD Operator"] ?? ""}>{a["AD2.3 AD Operator"] ?? ""}</td>
-                          <td className="p-2 max-w-[80px] truncate">{a["AD2.3 ATS"] ?? ""}</td>
-                          <td className="p-2 max-w-[80px] truncate">{a["AD2.6 AD category for fire fighting"] ?? ""}</td>
+                          <td className="p-2 max-w-[100px] truncate" title={a["AD2.2 Types of Traffic Permitted"] ?? ""}>{formatTimesInAipText(a["AD2.2 Types of Traffic Permitted"] ?? "")}</td>
+                          <td className="p-2 max-w-[120px] truncate" title={a["AD2.3 AD Operator"] ?? ""}>{formatTimesInAipText(a["AD2.3 AD Operator"] ?? "")}</td>
+                          <td className="p-2 max-w-[80px] truncate">{formatTimesInAipText(a["AD2.3 ATS"] ?? "")}</td>
+                          <td className="p-2 max-w-[80px] truncate">{formatTimesInAipText(a["AD2.6 AD category for fire fighting"] ?? "")}</td>
                         </tr>
                       ))}
                     </tbody>

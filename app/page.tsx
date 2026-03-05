@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
+import { formatTimesInAipText } from "@/lib/format-aip-time";
 
 export type NotamItem = {
   location: string;
@@ -178,7 +179,7 @@ function AIPResultCard({
                     <span>{value}</span>
                   </>
                 ) : (
-                  value
+                  formatTimesInAipText(value)
                 )}
               </dd>
             </div>
@@ -261,12 +262,18 @@ export default function AIPPortalPage() {
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
+  const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
   }, [results, selectedIcao]);
 
   const viewingAirport = selectedAirport;
+
+  useEffect(() => {
+    setPdfDownloadError(null);
+  }, [viewingAirport?.icao]);
 
   const cachedNotams = viewingAirport ? notamsCache[viewingAirport.icao] : null;
   const notamsLoading = viewingAirport ? notamsLoadingIcao === viewingAirport.icao : false;
@@ -1245,15 +1252,41 @@ export default function AIPPortalPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <a
-                      href={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9 shrink-0"
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 h-9 w-9 p-0"
+                      disabled={pdfDownloading}
                       title="Download current AIP PDF (AD 2)"
+                      onClick={async () => {
+                        if (!viewingAirport?.icao) return;
+                        setPdfDownloadError(null);
+                        setPdfDownloading(true);
+                        try {
+                          const res = await fetch(`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`);
+                          if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            const msg = data.detail || data.error || "Failed to load PDF";
+                            setPdfDownloadError(msg);
+                            return;
+                          }
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${viewingAirport.icao}_AIP_AD2.pdf`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch (err) {
+                          setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
+                        } finally {
+                          setPdfDownloading(false);
+                        }
+                      }}
                     >
-                      <Download className="size-4" />
-                    </a>
+                      <Download className={`size-4 ${pdfDownloading ? "animate-pulse" : ""}`} />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1268,6 +1301,9 @@ export default function AIPPortalPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
+                  {pdfDownloadError && (
+                    <p className="text-sm text-destructive mb-2">{pdfDownloadError}</p>
+                  )}
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
                       {aipEadSyncingIcao === viewingAirport.icao ? (

@@ -3,6 +3,7 @@ import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadExtracted from "@/data/ead-aip-extracted.json";
 import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
+import eadAirportNames from "@/data/ead-airport-names.json";
 
 type AIPCountry = {
   country: string;
@@ -40,6 +41,7 @@ export type AIPAirport = {
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
+const eadNamesMap = eadAirportNames as Record<string, string>;
 
 function flattenAIP(): AIPAirport[] {
   const countries = aipData as AIPCountry[];
@@ -167,7 +169,7 @@ export async function GET(request: NextRequest) {
           gen1_2: "",
           gen1_2_point_4: "",
           icao: qUpper,
-          name: "EAD airport (sync to load)",
+          name: eadNamesMap[qUpper] ?? "EAD airport (sync to load)",
           trafficPermitted: "",
           trafficRemarks: "",
           operator: "",

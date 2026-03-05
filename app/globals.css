@@ -76,6 +76,51 @@ body {
   animation: browse-menu-in 0.25s ease-out forwards;
 }
 
+/* Apple Intelligence–style border (AI reading document) */
+@keyframes ai-border-shimmer {
+  0%, 100% {
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.15), inset 0 0 12px rgba(99, 102, 241, 0.03);
+  }
+  50% {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 18px rgba(139, 92, 246, 0.2), inset 0 0 12px rgba(139, 92, 246, 0.04);
+  }
+}
+
+.border-ai-glow {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
+}
+
+.bg-ai-glow-subtle {
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+.animate-ai-border {
+  animation: ai-border-shimmer 2.5s ease-in-out infinite;
+}
+
+/* Page/section fade-in */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.35s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.3s ease-out forwards;
+}
+
 /* Step content: crossfade / slide */
 @keyframes step-enter {
   from {

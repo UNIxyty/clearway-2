@@ -47,7 +47,7 @@ const EAD_SEARCH_LOADING_STEPS = [
 const EAD_SYNC_STEPS = [
   "Requesting EAD sync…",
   "Downloading PDF on server…",
-  "Extracting AIP data…",
+  "AI reading document…",
   "Done",
 ];
 
@@ -135,7 +135,7 @@ function AIPResultCard({
 
   return (
     <Card
-      className={`bg-card/80 border-border/60 transition-colors ${isSelected ? "ring-2 ring-primary" : ""} ${onSelect ? "cursor-pointer hover:bg-card" : ""}`}
+      className={`bg-card/80 border-border/60 transition-all duration-200 ${isSelected ? "ring-2 ring-primary" : ""} ${onSelect ? "cursor-pointer hover:bg-card hover:shadow-md" : ""}`}
       role={onSelect ? "button" : undefined}
       onClick={onSelect}
     >
@@ -258,7 +258,7 @@ export default function AIPPortalPage() {
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
-  const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null }>>({});
+  const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null; updatedAt?: string | null }>>({});
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
@@ -341,7 +341,7 @@ export default function AIPPortalPage() {
     setAipEadSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch AIP (EAD) when viewing an airport in an EAD country: use stored data, cache, or call sync when user presses Sync.
+  // Fetch AIP (EAD) when viewing an airport in an EAD country. Auto-start sync when no cache (same as NOTAMs/map).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
@@ -351,24 +351,23 @@ export default function AIPPortalPage() {
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
-    const isPlaceholder = isEadPlaceholder(viewingAirport);
-    const autoSync = isPlaceholder && !hasCache;
-    const isSync = syncRequested || autoSync || !hasCache;
+    const doSync = syncRequested || !hasCache;
     setAipEadLoadingIcao(icao);
-    if (isSync) {
+    if (doSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncStepIndex(0);
     }
 
-    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${syncRequested || autoSync ? "&sync=1" : ""}&_t=${Date.now()}`;
+    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${doSync ? "&sync=1" : ""}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? "Sync failed");
-          setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg } }));
+          setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg, updatedAt: null } }));
           return;
         }
+        const updatedAt = (data.updatedAt as string | null | undefined) ?? (doSync ? new Date().toISOString() : null);
         const list = (data.airports ?? []) as Array<{
           "Airport Code"?: string;
           "Airport Name"?: string;
@@ -397,10 +396,10 @@ export default function AIPPortalPage() {
               fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
             }
           : null;
-        setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null } }));
+        setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
       })
       .catch((err) => {
-        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}` } }));
+        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"`, updatedAt: null } }));
       })
       .finally(() => {
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
@@ -620,7 +619,7 @@ export default function AIPPortalPage() {
         <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
           {/* Map and NOTAMs — right side (order-2) */}
           {showMap && viewingAirport && (
-            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2">
+            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2 animate-fade-in-up">
               <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
                 <span>Location — {viewingAirport.icao}</span>
               </div>
@@ -730,16 +729,16 @@ export default function AIPPortalPage() {
 
           {/* Center column: search + AIP data — left side (order-1) */}
           <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden lg:order-1" : "space-y-6 sm:space-y-8"}>
-            <header className="text-center space-y-1.5 sm:space-y-2 shrink-0">
+            <header className="text-center space-y-1.5 sm:space-y-2 shrink-0 animate-fade-in-up">
               <img
                 src="/header_logo_white.svg"
                 alt="Clearway"
-                className="mx-auto h-10 sm:h-12 w-auto max-w-[280px] object-contain [filter:brightness(0)]"
+                className="mx-auto h-10 sm:h-12 w-auto max-w-[280px] object-contain [filter:brightness(0)] transition-transform duration-200 hover:scale-[1.02]"
               />
             </header>
 
             <div className={showMap ? "lg:min-h-0 lg:flex-1 lg:overflow-auto lg:space-y-6" : "space-y-6 sm:space-y-8"}>
-        <Card className="shadow-md border-border/80 shrink-0">
+        <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
           <CardHeader className="pb-2 px-4 sm:px-6">
             <CardTitle className="text-base sm:text-lg font-semibold">
               Search airport data
@@ -1241,14 +1240,16 @@ export default function AIPPortalPage() {
 
             {/* AIP (EAD) – center: when viewing an airport in an EAD country (stored or synced from server) */}
             {viewingAirport && isEadIcao(viewingAirport.icao) && (
-              <Card className="shadow-md border-border/80 shrink-0">
+              <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
                 <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
                   <div>
                     <CardTitle className="text-base sm:text-lg font-semibold">
                       AIP (EAD) — {viewingAirport.icao}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground text-sm">
-                      From EAD (EU). Use Sync to refresh from server.
+                      {aipEadCache[viewingAirport.icao]?.updatedAt
+                        ? `Cached ${new Date(aipEadCache[viewingAirport.icao].updatedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. Use Sync to refresh.`
+                        : "From EAD (EU). Use Sync to refresh from server."}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -1307,7 +1308,13 @@ export default function AIPPortalPage() {
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <div className="space-y-2">
+                        <div
+                          className={`space-y-2 rounded-xl border-2 p-4 transition-all duration-300 ${
+                            aipEadSyncStepIndex === 2
+                              ? "border-[length:2px] border-ai-glow bg-ai-glow-subtle animate-ai-border"
+                              : "border-border/60 bg-muted/20"
+                          }`}
+                        >
                           {EAD_SYNC_STEPS.map((label, i) => (
                             <div key={i} className="flex items-center gap-2">
                               {i < aipEadSyncStepIndex ? (

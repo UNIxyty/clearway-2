@@ -20,6 +20,11 @@ scripts/.notam-progress-*
 
 # EAD AIP downloaded PDFs (run script to fetch)
 data/ead-aip/*.pdf
+# EAD GEN / ENR downloaded PDFs and extracted text
+data/ead-gen/*.pdf
+data/ead-gen/*.txt
+data/ead-enr/*.pdf
+data/ead-enr/*.txt
 
 # misc
 .DS_Store

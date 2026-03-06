@@ -118,12 +118,12 @@ async function main() {
     if (await termsBtn.isVisible()) {
       log('Accepting terms and conditions');
       await termsBtn.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(200);
     }
 
     log('Opening AIP Library');
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1500);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForTimeout(400);
     let wentToAip = false;
     try {
       await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
@@ -134,8 +134,7 @@ async function main() {
       await aipLink.click({ timeout: 60000 });
       await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     }
-    await page.waitForTimeout(2000);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(600);
 
     const bodyText = await page.locator('body').textContent().catch(() => '');
     if (/Access denied|IB-101/i.test(bodyText)) {
@@ -150,7 +149,7 @@ async function main() {
       .first();
     await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
     await authoritySelect.selectOption({ label: countryLabel });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     await page.evaluate((id) => {
       const el = document.querySelector(`[id="${id}"]`);
@@ -159,7 +158,7 @@ async function main() {
         if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
       }
     }, 'mainForm:selectLanguage_input');
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(250);
 
     log('Selecting AIP Part: ENR');
     await page.evaluate((id) => {
@@ -169,30 +168,32 @@ async function main() {
         if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
       }
     }, 'mainForm:selectAipPart_input');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(400);
 
     log('Opening Advanced Search and searching for ENR 1.1');
     await page.getByText('Advanced Search').first().click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(350);
     const docHeader = page.locator(jsfId('mainForm:documentHeader')).or(page.locator('input[id$="documentHeader"]'));
-    await docHeader.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await docHeader.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     await docHeader.fill('1.1');
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.waitForTimeout(2000);
+    await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(400);
 
     const table = page.locator('#mainForm\\:searchResults_data');
-    await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
     const enr11Re = /ENR\s*1\.1/i;
     const enRe = /_en\.pdf$/i;
+    const docHeadingCol = 4;
     let pdfLink = null;
     for (let i = 0; i < rowCount; i++) {
       const cells = rows.nth(i).locator('td');
-      if ((await cells.count()) < 4) continue;
-      const docHeading = await cells.nth(3).textContent().catch(() => '');
+      if ((await cells.count()) <= docHeadingCol) continue;
+      const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
       if (!enr11Re.test(docHeading)) continue;
       const link = rows.nth(i).locator('a.wrap-data').first();
       if ((await link.count()) === 0) continue;
@@ -205,12 +206,13 @@ async function main() {
     if (!pdfLink || (await pdfLink.count()) === 0) {
       await docHeader.fill('');
       await page.getByRole('button', { name: 'Search' }).click();
-      await page.waitForTimeout(2000);
+      await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+      await page.waitForTimeout(400);
       const rows2 = page.locator('#mainForm\\:searchResults_data tr');
       for (let i = 0; i < (await rows2.count()); i++) {
         const cells = rows2.nth(i).locator('td');
-        if ((await cells.count()) < 4) continue;
-        const docHeading = await cells.nth(3).textContent().catch(() => '');
+        if ((await cells.count()) <= docHeadingCol) continue;
+        const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
         if (!enr11Re.test(docHeading)) continue;
         const link = rows2.nth(i).locator('a.wrap-data').first();
         const linkText = (await link.textContent().catch(() => '')) || '';

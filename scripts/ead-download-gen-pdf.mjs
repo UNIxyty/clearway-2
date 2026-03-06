@@ -141,13 +141,13 @@ async function main() {
     if (await termsBtn.isVisible()) {
       log('Accepting terms and conditions');
       await termsBtn.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(200);
     }
 
     // —— AIP Library ——
     log('Opening AIP Library');
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1500);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForTimeout(400);
     let wentToAip = false;
     try {
       await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
@@ -161,8 +161,7 @@ async function main() {
       await aipLink.click({ timeout: 60000 });
       await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     }
-    await page.waitForTimeout(2000);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(600);
 
     const bodyText = await page.locator('body').textContent().catch(() => '');
     if (/Access denied|IB-101/i.test(bodyText)) {
@@ -180,7 +179,7 @@ async function main() {
       .first();
     await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
     await authoritySelect.selectOption({ label: countryLabel });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     // —— Language: English ——
     await page.evaluate((id) => {
@@ -193,7 +192,7 @@ async function main() {
         }
       }
     }, 'mainForm:selectLanguage_input');
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(250);
 
     // —— AIP Part: GEN ——
     log('Selecting AIP Part: GEN');
@@ -207,23 +206,25 @@ async function main() {
         }
       }
     }, 'mainForm:selectAipPart_input');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(400);
 
-    // —— Advanced Search + "GEN 1.2" or "1.2" to narrow ——
+    // —— Advanced Search + "1.2" then wait for results table ——
     log('Opening Advanced Search and searching for GEN 1.2');
     await page.getByText('Advanced Search').first().click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(350);
     const docHeader = page.locator(jsfId('mainForm:documentHeader')).or(page.locator('input[id$="documentHeader"]'));
-    await docHeader.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await docHeader.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     await docHeader.fill('1.2');
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.waitForTimeout(2000);
+    // Wait for results table instead of fixed long delay
+    await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(400);
 
     // —— Results: find row with Document Heading "GEN 1.2" and English (_en) ——
     // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading
     const table = page.locator('#mainForm\\:searchResults_data');
-    await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
@@ -249,7 +250,8 @@ async function main() {
       // Fallback: search empty and find GEN 1.2 in any row
       await docHeader.fill('');
       await page.getByRole('button', { name: 'Search' }).click();
-      await page.waitForTimeout(2000);
+      await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+      await page.waitForTimeout(400);
       const rows2 = page.locator('#mainForm\\:searchResults_data tr');
       const count2 = await rows2.count();
       for (let i = 0; i < count2; i++) {

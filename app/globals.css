@@ -47,24 +47,24 @@ body {
 
 @keyframes fly {
   0%, 100% {
-    transform: translateX(-8px) rotate(-5deg);
-    opacity: 0.9;
+    transform: translateX(-6px) rotate(-4deg);
+    opacity: 0.92;
   }
   50% {
-    transform: translateX(8px) rotate(5deg);
+    transform: translateX(6px) rotate(4deg);
     opacity: 1;
   }
 }
 
 .animate-fly {
-  animation: fly 2s ease-in-out infinite;
+  animation: fly 2.2s ease-in-out infinite;
 }
 
 /* Browse menu: slide down and fade in */
 @keyframes browse-menu-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -73,7 +73,7 @@ body {
 }
 
 .animate-browse-menu-in {
-  animation: browse-menu-in 0.25s ease-out forwards;
+  animation: browse-menu-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Apple Intelligence–style border (AI reading document) */
@@ -105,7 +105,7 @@ body {
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -114,18 +114,23 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.35s ease-out forwards;
+  animation: fade-in-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-fade-in-up-stagger {
+  animation: fade-in-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 60ms forwards;
+  animation-fill-mode: backwards;
 }
 
 .animate-fade-in {
-  animation: fade-in-up 0.3s ease-out forwards;
+  animation: fade-in-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Step content: crossfade / slide */
 @keyframes step-enter {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(8px);
   }
   to {
     opacity: 1;
@@ -134,7 +139,7 @@ body {
 }
 
 .animate-step-enter {
-  animation: step-enter 0.2s ease-out forwards;
+  animation: step-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Stagger children (use with delay in JS or nth-child) */
@@ -148,6 +153,16 @@ body {
 .stagger-8 { animation-delay: 0.24s; }
 .stagger-9 { animation-delay: 0.27s; }
 .stagger-10 { animation-delay: 0.3s; }
+
+/* Section loading skeleton */
+@keyframes section-skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.section-loading-skeleton {
+  animation: section-skeleton-pulse 1.4s ease-in-out infinite;
+}
 
 /* Airport map: container and marker */
 .airport-map-container {

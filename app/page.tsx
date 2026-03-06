@@ -32,18 +32,6 @@ const AirportMap = dynamic(() => import("@/components/AirportMap"), {
   loading: () => <div className="bg-muted/30 rounded-lg flex items-center justify-center min-h-[240px] text-sm text-muted-foreground">Loading map…</div>,
 });
 
-const LOADING_STEPS = [
-  { id: "website", label: "Loading up website", duration: 800 },
-  { id: "reading", label: "Reading info", duration: 1200 },
-  { id: "saving", label: "Saving data", duration: 600 },
-];
-
-const EAD_SEARCH_LOADING_STEPS = [
-  { id: "search-stored", label: "Searching stored data", duration: 400 },
-  { id: "search-ead", label: "Checking EAD airports", duration: 500 },
-  { id: "ready", label: "Ready", duration: 300 },
-];
-
 const EAD_SYNC_STEPS = [
   "Requesting EAD sync…",
   "Downloading PDF on server…",
@@ -232,8 +220,6 @@ type RegionEntry = { region: string; countries: string[] };
 export default function AIPPortalPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [searchLoadingSteps, setSearchLoadingSteps] = useState(LOADING_STEPS);
   const [aipEadSyncStepIndex, setAipEadSyncStepIndex] = useState(0);
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -523,14 +509,6 @@ export default function AIPPortalPage() {
       });
   }, [viewingAirport?.icao, syncRequestedIcao, notamsCache]);
 
-  const runFakeLoadingSteps = useCallback(async (steps: { id: string; label: string; duration: number }[] = LOADING_STEPS) => {
-    setStepIndex(0);
-    for (let i = 0; i < steps.length; i++) {
-      setStepIndex(i);
-      await new Promise((r) => setTimeout(r, steps[i].duration));
-    }
-  }, []);
-
   const runBrowseLoading = useCallback(async (then: () => void) => {
     setBrowseLoading(true);
     setBrowseLoadingStepIndex(0);
@@ -548,11 +526,8 @@ export default function AIPPortalPage() {
 
     setLoading(true);
     setError(null);
-    const isEadSearch = q.length === 4 && isEadIcao(q.toUpperCase());
-    setSearchLoadingSteps(isEadSearch ? EAD_SEARCH_LOADING_STEPS : LOADING_STEPS);
 
     try {
-      await runFakeLoadingSteps(isEadSearch ? EAD_SEARCH_LOADING_STEPS : LOADING_STEPS);
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       let data: { results?: AIPAirport[]; error?: string };
       try {
@@ -602,10 +577,9 @@ export default function AIPPortalPage() {
       setError("Connection error. Please try again.");
     } finally {
       setLoading(false);
-      setStepIndex(0);
       setHasSearched(true);
     }
-  }, [query, runFakeLoadingSteps]);
+  }, [query]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") search();
@@ -619,7 +593,7 @@ export default function AIPPortalPage() {
         <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
           {/* Map and NOTAMs — right side (order-2) */}
           {showMap && viewingAirport && (
-            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2 animate-fade-in-up">
+            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2 animate-fade-in-up-stagger">
               <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
                 <span>Location — {viewingAirport.icao}</span>
               </div>
@@ -658,29 +632,39 @@ export default function AIPPortalPage() {
                 </div>
                 <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
                   {notamsLoading && (
-                    <div className="flex flex-col gap-3 py-4 text-sm text-muted-foreground">
+                    <div className="flex flex-col gap-4 py-4 animate-fade-in">
                       {notamsSyncing ? (
-                        <>
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
                           <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0" />
-                            <span className="font-medium">Syncing live from FAA…</span>
+                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <span className="text-sm font-medium">Syncing live from FAA…</span>
                           </div>
                           {notamsSyncSteps.length > 0 && (
-                            <ul className="space-y-1 pl-6 list-disc text-xs">
+                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
                               {notamsSyncSteps.map((step, i) => (
                                 <li key={i}>{step}</li>
                               ))}
                             </ul>
                           )}
                           {notamsSyncSteps.length === 0 && (
-                            <span className="text-xs">Starting scraper · can take 1–2 min</span>
+                            <span className="text-xs text-muted-foreground">Starting scraper · can take 1–2 min</span>
                           )}
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          <Spinner className="size-4" />
-                          <span>Loading NOTAMs…</span>
-                        </>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <span>Loading NOTAMs…</span>
+                          </div>
+                          <div className="space-y-2 section-loading-skeleton">
+                            <div className="h-3 w-full rounded bg-muted" />
+                            <div className="h-3 w-4/5 rounded bg-muted" />
+                            <div className="h-3 w-3/4 rounded bg-muted" />
+                            <div className="h-12 w-full rounded bg-muted mt-2" />
+                            <div className="h-3 w-2/3 rounded bg-muted" />
+                            <div className="h-12 w-full rounded bg-muted mt-2" />
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1092,44 +1076,10 @@ export default function AIPPortalPage() {
             </div>
 
             {loading && (
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
-                <div className="flex items-center justify-center gap-3 mb-2">
-                  <PlaneIcon
-                    className="size-8 text-primary animate-fly"
-                    strokeWidth={1.8}
-                    aria-hidden
-                  />
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Retrieving from AIP source
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {searchLoadingSteps.map((step, i) => (
-                    <div
-                      key={step.id}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      {i < stepIndex ? (
-                        <span className="text-primary">✓</span>
-                      ) : i === stepIndex ? (
-                        <Spinner className="size-3.5 text-primary" />
-                      ) : (
-                        <span className="text-muted-foreground/50">○</span>
-                      )}
-                      <span
-                        className={
-                          i <= stepIndex
-                            ? "text-foreground"
-                            : "text-muted-foreground/70"
-                        }
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <Progress value={searchLoadingSteps.length ? ((stepIndex + 1) / searchLoadingSteps.length) * 100 : 0} className="h-1.5" />
-              </div>
+              <p className="text-sm text-muted-foreground flex items-center gap-2 animate-fade-in">
+                <Spinner className="size-4 shrink-0" />
+                Searching…
+              </p>
             )}
 
             {!loading && hasSearched && (
@@ -1306,7 +1256,7 @@ export default function AIPPortalPage() {
                     <p className="text-sm text-destructive mb-2">{pdfDownloadError}</p>
                   )}
                   {aipEadLoadingIcao === viewingAirport.icao && (
-                    <div className="flex flex-col gap-2 py-4 text-sm text-muted-foreground">
+                    <div className="flex flex-col gap-4 py-4 animate-fade-in">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
                         <div
                           className={`space-y-2 rounded-xl border-2 p-4 transition-all duration-300 ${
@@ -1332,10 +1282,20 @@ export default function AIPPortalPage() {
                           <p className="text-xs text-muted-foreground pt-1">Can take 1–2 min on server.</p>
                         </div>
                       ) : (
-                        <>
-                          <Spinner className="size-4" />
-                          <span>Loading AIP…</span>
-                        </>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <span>Loading AIP…</span>
+                          </div>
+                          <div className="space-y-2 section-loading-skeleton rounded-lg border border-border/60 bg-muted/20 p-4">
+                            <div className="h-4 w-24 rounded bg-muted" />
+                            <div className="h-3 w-full rounded bg-muted" />
+                            <div className="h-3 w-5/6 rounded bg-muted" />
+                            <div className="h-3 w-4/5 rounded bg-muted mt-3" />
+                            <div className="h-3 w-full rounded bg-muted" />
+                            <div className="h-3 w-2/3 rounded bg-muted mt-3" />
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

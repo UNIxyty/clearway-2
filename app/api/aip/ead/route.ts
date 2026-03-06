@@ -1,24 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PREFIX = "aip/ead";
 const SYNC_TIMEOUT_MS = 600_000;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
+
+function s3Client() {
+  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+}
 
 async function getFromS3(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
   if (!BUCKET) return null;
   try {
-    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    const client = s3Client();
     const key = `${AIP_EAD_PREFIX}/${icao}.json`;
     const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
     const body = await res.Body?.transformToString();
     if (!body) return null;
     const data = JSON.parse(body) as { airports?: unknown[]; updatedAt?: string | null };
+    const updatedAt = data.updatedAt ?? null;
+    if (updatedAt) {
+      const age = Date.now() - new Date(updatedAt).getTime();
+      if (age >= CACHE_TTL_MS) {
+        await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key })).catch((e) => console.error("S3 AIP EAD delete stale failed:", e));
+        return null;
+      }
+    }
     return {
       airports: Array.isArray(data.airports) ? data.airports : [],
-      updatedAt: data.updatedAt ?? null,
+      updatedAt,
     };
   } catch (e: unknown) {
     const err = e as { name?: string; Code?: string };
@@ -26,6 +39,24 @@ async function getFromS3(icao: string): Promise<{ airports: unknown[]; updatedAt
       console.error("S3 AIP EAD read failed:", e);
     }
     return null;
+  }
+}
+
+async function putToS3(icao: string, payload: { airports: unknown[]; updatedAt: string }): Promise<void> {
+  if (!BUCKET) return;
+  try {
+    const client = s3Client();
+    const key = `${AIP_EAD_PREFIX}/${icao}.json`;
+    await client.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: JSON.stringify(payload),
+        ContentType: "application/json",
+      })
+    );
+  } catch (e) {
+    console.error("S3 AIP EAD write failed:", e);
   }
 }
 
@@ -71,7 +102,10 @@ export async function GET(request: NextRequest) {
         { status: res.status === 401 ? 401 : 502 }
       );
     }
-    return NextResponse.json(data);
+    const airports = Array.isArray(data.airports) ? data.airports : [];
+    const updatedAt = new Date().toISOString();
+    await putToS3(icao, { airports, updatedAt });
+    return NextResponse.json({ airports, updatedAt });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(

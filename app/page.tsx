@@ -257,6 +257,9 @@ export default function AIPPortalPage() {
 
   const viewingAirport = selectedAirport;
 
+  const resultsLengthRef = useRef(0);
+  const aipEadInFlightRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     setPdfDownloadError(null);
   }, [viewingAirport?.icao]);
@@ -268,14 +271,17 @@ export default function AIPPortalPage() {
   const notamsError = cachedNotams?.error ?? null;
   const notamsUpdatedAt = cachedNotams?.updatedAt ?? null;
 
-  // When results change: clear selection if empty; only pick a tab if current selection is no longer in the list
-  // (so search/menu can set selectedIcao to the new airport without this effect overwriting it)
+  // When results change: clear selection if empty; when tabs are added (search/menu), switch to the new tab
   useEffect(() => {
     if (!results?.length) {
       setSelectedIcao(null);
+      resultsLengthRef.current = 0;
       return;
     }
+    const prevLen = resultsLengthRef.current;
+    resultsLengthRef.current = results.length;
     setSelectedIcao((current) => {
+      if (results.length > prevLen) return results[results.length - 1].icao;
       if (current && results.some((a) => a.icao === current)) return current;
       const withCoords = results.find((a) => a.lat != null && a.lon != null);
       return withCoords?.icao ?? results[0].icao;
@@ -333,14 +339,17 @@ export default function AIPPortalPage() {
   }, []);
 
   // Fetch AIP (EAD) when viewing an airport in an EAD country. Always check S3/cache; auto-start sync when empty.
+  // Don't start a second fetch for an ICAO that's already in flight (so switching tabs doesn't restart sync).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
+    if (aipEadInFlightRef.current.has(icao)) return;
     const hasCache = icao in aipEadCache;
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
     const doSync = syncRequested || !hasCache;
+    aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
       setAipEadSyncingIcao(icao);
@@ -400,6 +409,7 @@ export default function AIPPortalPage() {
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       })
       .finally(() => {
+        aipEadInFlightRef.current.delete(icao);
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncStepIndex(EAD_SYNC_STEPS.length - 1);
@@ -1196,7 +1206,7 @@ export default function AIPPortalPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="shrink-0 h-9 w-9 p-0"
+                      className="shrink-0 h-9 gap-1.5 px-2"
                       disabled={pdfDownloading}
                       title="Download current AIP PDF (AD 2)"
                       onClick={async () => {
@@ -1225,18 +1235,20 @@ export default function AIPPortalPage() {
                         }
                       }}
                     >
-                      <Download className={`size-4 ${pdfDownloading ? "animate-pulse" : ""}`} />
+                      <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
+                      <span className="text-xs hidden sm:inline">Download PDF</span>
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="shrink-0 h-9 w-9 p-0"
+                      className="shrink-0 h-9 gap-1.5 px-2"
                       onClick={() => requestSyncAipEad(viewingAirport.icao)}
                       disabled={aipEadLoadingIcao === viewingAirport.icao}
                       title="Sync: fetch from EC2 and refresh"
                     >
-                      <RefreshCwIcon className={`size-4 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                      <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                      <span className="text-xs hidden sm:inline">Sync</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -1304,7 +1316,7 @@ export default function AIPPortalPage() {
               </Card>
             )}
 
-            {/* Single AIP section: stored (non-EAD) data only */}
+            {/* Single AIP section: stored (non-EAD) data only — Download/Sync are on the AIP (EAD) card for EU airports */}
             {viewingAirport && !isEadIcao(viewingAirport.icao) && (
               <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
                 <CardHeader className="pb-2 px-4 sm:px-6">
@@ -1312,7 +1324,7 @@ export default function AIPPortalPage() {
                     AIP — {viewingAirport.icao}
                   </CardTitle>
                   <CardDescription className="text-muted-foreground text-sm">
-                    Stored AIP data from portal.
+                    Stored AIP data from portal. For EAD (EU) airports, search an ICAO like EDQA or LBBG to see Download PDF and Sync.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">

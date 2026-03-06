@@ -268,13 +268,18 @@ export default function AIPPortalPage() {
   const notamsError = cachedNotams?.error ?? null;
   const notamsUpdatedAt = cachedNotams?.updatedAt ?? null;
 
+  // When results change: clear selection if empty; only pick a tab if current selection is no longer in the list
+  // (so search/menu can set selectedIcao to the new airport without this effect overwriting it)
   useEffect(() => {
     if (!results?.length) {
       setSelectedIcao(null);
       return;
     }
-    const withCoords = results.find((a) => a.lat != null && a.lon != null);
-    setSelectedIcao(withCoords?.icao ?? results[0].icao);
+    setSelectedIcao((current) => {
+      if (current && results.some((a) => a.icao === current)) return current;
+      const withCoords = results.find((a) => a.lat != null && a.lon != null);
+      return withCoords?.icao ?? results[0].icao;
+    });
   }, [results]);
 
   useEffect(() => {

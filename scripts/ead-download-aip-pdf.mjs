@@ -125,13 +125,13 @@ async function main() {
     if (await termsBtn.isVisible()) {
       log('Accepting terms and conditions');
       await termsBtn.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(200);
     }
 
     // —— AIP Library —— try direct URL first (avoids menu link); fallback: click "AIP Library"
     log('Opening AIP Library');
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1500);
+    await page.waitForLoadState('domcontentloaded').catch(() => {});
+    await page.waitForTimeout(400);
     let wentToAip = false;
     try {
       await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
@@ -145,8 +145,7 @@ async function main() {
       await aipLink.click({ timeout: 60000 });
       await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     }
-    await page.waitForTimeout(2000);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(600);
 
     const bodyText = await page.locator('body').textContent().catch(() => '');
     if (/Access denied|IB-101/i.test(bodyText)) {
@@ -164,7 +163,7 @@ async function main() {
       .first();
     await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
     await authoritySelect.selectOption({ label: countryLabel });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     // —— Language: English —— (hidden select; set value and trigger change)
     await page.evaluate((id) => {
@@ -189,21 +188,24 @@ async function main() {
     // —— Advanced Search + ICAO ——
     log('Opening Advanced Search and entering ICAO');
     await page.getByText('Advanced Search').first().click();
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(350);
     await page.locator(jsfId('mainForm:documentHeader')).fill(icao);
 
     // —— Search ——
     await page.getByRole('button', { name: 'Search' }).click();
-    await page.waitForTimeout(2000);
+    await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(400);
 
     // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
     // Base: ES_AD_2_ESGG_en.pdf. Reject variation: ES_AD_2_ESGG_4_en.pdf. Match heading flexibly (spacing/format).
     const table = page.locator('#mainForm\\:searchResults_data');
-    await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
     const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
+    // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading
+    const docHeadingCol = 4;
     const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
     const isAd2Row = (s) => {
       const n = headingNorm(s);
@@ -214,8 +216,8 @@ async function main() {
     for (let i = 0; i < rowCount; i++) {
       const cells = rows.nth(i).locator('td');
       const cellCount = await cells.count();
-      if (cellCount < 4) continue;
-      const docHeading = await cells.nth(3).textContent().catch(() => '');
+      if (cellCount <= docHeadingCol) continue;
+      const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
       if (!isAd2Row(docHeading)) continue;
       const link = rows.nth(i).locator('a.wrap-data').first();
       if ((await link.count()) === 0) continue;

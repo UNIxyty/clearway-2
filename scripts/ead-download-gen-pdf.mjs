@@ -221,6 +221,7 @@ async function main() {
     await page.waitForTimeout(2000);
 
     // —— Results: find row with Document Heading "GEN 1.2" and English (_en) ——
+    // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading
     const table = page.locator('#mainForm\\:searchResults_data');
     await table.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 
@@ -228,12 +229,13 @@ async function main() {
     const rowCount = await rows.count();
     const gen12Re = /GEN\s*1\.2/i;
     const enRe = /_en\.pdf$/i;
+    const docHeadingCol = 4;
     let pdfLink = null;
     for (let i = 0; i < rowCount; i++) {
       const cells = rows.nth(i).locator('td');
       const cellCount = await cells.count();
-      if (cellCount < 4) continue;
-      const docHeading = await cells.nth(3).textContent().catch(() => '');
+      if (cellCount <= docHeadingCol) continue;
+      const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
       if (!gen12Re.test(docHeading)) continue;
       const link = rows.nth(i).locator('a.wrap-data').first();
       if ((await link.count()) === 0) continue;
@@ -252,8 +254,8 @@ async function main() {
       const count2 = await rows2.count();
       for (let i = 0; i < count2; i++) {
         const cells = rows2.nth(i).locator('td');
-        if ((await cells.count()) < 4) continue;
-        const docHeading = await cells.nth(3).textContent().catch(() => '');
+        if ((await cells.count()) <= docHeadingCol) continue;
+        const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
         if (!gen12Re.test(docHeading)) continue;
         const link = rows2.nth(i).locator('a.wrap-data').first();
         const linkText = (await link.textContent().catch(() => '')) || '';

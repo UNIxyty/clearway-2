@@ -58,6 +58,23 @@ You will attach this role to the AIP EC2 in Step 1. Your NOTAM EC2 keeps its exi
 
 Redeploy after changing env. The IAM user must have `s3:GetObject` on the bucket (at least for `aip/*`). If the download still fails, the portal will show the error detail (e.g. “Access Denied” → add `s3:GetObject` for `aip/*` to the IAM policy).
 
+**Portal AIP EAD cache (read + write + delete):** The portal writes AIP EAD cache to S3 when the user clicks Sync, and deletes cache older than 24h when reading. The **same IAM user** (Vercel credentials) needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on `aip/ead/*`. If your user only had `s3:GetObject`, add an inline policy (or extend the existing one) with this (bucket `myapp-notams-prod` as in this guide):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::myapp-notams-prod/aip/ead/*"
+    }
+  ]
+}
+```
+
+Replace `myapp-notams-prod` with your actual bucket name if different. No redeploy needed; the next API request will use the new permissions.
+
 ---
 
 ## Step 1: Launch the EC2 instance

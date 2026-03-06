@@ -327,12 +327,10 @@ export default function AIPPortalPage() {
     setAipEadSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch AIP (EAD) when viewing an airport in an EAD country. Auto-start sync when no cache (same as NOTAMs/map).
+  // Fetch AIP (EAD) when viewing an airport in an EAD country. Always check S3/cache; auto-start sync when empty.
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
-    const hasStoredData = viewingAirport && !isEadPlaceholder(viewingAirport);
-    if (hasStoredData && aipEadSyncRequestedIcao !== icao) return; // use stored data on portal, do not call EAD server
     const hasCache = icao in aipEadCache;
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;

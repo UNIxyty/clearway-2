@@ -431,7 +431,8 @@ export default function AIPPortalPage() {
                 try {
                   const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; detail?: string; airports?: unknown[] };
                   if (data.step) {
-                    setAipEadSyncSteps((prev) => [...prev, data.step]);
+                    const step = data.step;
+                    setAipEadSyncSteps((prev) => [...prev, step]);
                   } else if (data.done && Array.isArray(data.airports)) {
                     const list = data.airports as Array<{
                       "Airport Code"?: string;

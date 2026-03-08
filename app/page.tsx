@@ -362,7 +362,7 @@ export default function AIPPortalPage() {
               if (!dataLine) continue;
               try {
                 const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string };
-                if (data.step) setGenSyncSteps((prev) => [...prev, data.step]);
+                if (typeof data.step === "string") setGenSyncSteps((prev) => [...prev, data.step]);
                 else if (data.done || data.error) {
                   const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
                   const genData = (await genRes.json().catch(() => ({}))) as { raw?: string; rewritten?: string; updatedAt?: string | null };

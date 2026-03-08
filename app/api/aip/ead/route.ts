@@ -63,6 +63,7 @@ async function putToS3(icao: string, payload: { airports: unknown[]; updatedAt: 
 export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = request.nextUrl.searchParams.get("sync") === "1" || request.nextUrl.searchParams.get("sync") === "true";
+  const stream = request.nextUrl.searchParams.get("stream") === "1" || request.nextUrl.searchParams.get("stream") === "true";
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 
@@ -95,7 +96,17 @@ export async function GET(request: NextRequest) {
     const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
     const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
     clearTimeout(timeout);
-    const data = await res.json().catch(() => ({}));
+    if (stream && res.ok && res.body) {
+      return new Response(res.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
+    const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; airports?: unknown[]; done?: boolean };
     if (!res.ok) {
       return NextResponse.json(
         { error: data.error ?? "Sync failed", detail: data.detail },

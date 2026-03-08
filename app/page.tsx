@@ -32,13 +32,6 @@ const AirportMap = dynamic(() => import("@/components/AirportMap"), {
   loading: () => <div className="bg-muted/30 rounded-lg flex items-center justify-center min-h-[240px] text-sm text-muted-foreground">Loading map…</div>,
 });
 
-const EAD_SYNC_STEPS = [
-  "Requesting EAD sync…",
-  "Downloading PDF on server…",
-  "AI reading document…",
-  "Done",
-];
-
 const BROWSE_LOADING_STEPS = [
   { id: "browse-1", label: "Loading…", duration: 400 },
   { id: "browse-2", label: "Ready", duration: 250 },
@@ -220,7 +213,7 @@ type RegionEntry = { region: string; countries: string[] };
 export default function AIPPortalPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [aipEadSyncStepIndex, setAipEadSyncStepIndex] = useState(0);
+  const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -252,6 +245,8 @@ export default function AIPPortalPage() {
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genCache, setGenCache] = useState<Record<string, { raw: string; rewritten: string; updatedAt: string | null }>>({});
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
+  const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
+  const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
@@ -341,8 +336,62 @@ export default function AIPPortalPage() {
     setAipEadSyncRequestedIcao(icao);
   }, []);
 
-  // Fetch AIP (EAD) when viewing an airport in an EAD country. Always check S3/cache; auto-start sync when empty.
-  // Don't start a second fetch for an ICAO that's already in flight (so switching tabs doesn't restart sync).
+  const startGenSync = useCallback((icao: string) => {
+    const prefix = icao.slice(0, 2).toUpperCase();
+    setGenSyncingPrefix(prefix);
+    setGenSyncSteps([]);
+    setGenLoadingPrefix(prefix);
+    fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok || !res.body) {
+          setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } }));
+          return;
+        }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const events = buf.split(/\n\n/);
+            buf = events.pop() ?? "";
+            for (const event of events) {
+              const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+              if (!dataLine) continue;
+              try {
+                const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string };
+                if (data.step) setGenSyncSteps((prev) => [...prev, data.step]);
+                else if (data.done || data.error) {
+                  const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
+                  const genData = (await genRes.json().catch(() => ({}))) as { raw?: string; rewritten?: string; updatedAt?: string | null };
+                  setGenCache((c) => ({
+                    ...c,
+                    [prefix]: {
+                      raw: typeof genData.raw === "string" ? genData.raw : "",
+                      rewritten: typeof genData.rewritten === "string" ? genData.rewritten : "",
+                      updatedAt: genData.updatedAt ?? null,
+                    },
+                  }));
+                  return;
+                }
+              } catch (_) {}
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      })
+      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } })))
+      .finally(() => {
+        setGenSyncingPrefix(null);
+        setGenLoadingPrefix(null);
+        setGenSyncSteps([]);
+      });
+  }, []);
+
+  // Fetch AIP (EAD) when viewing an airport in an EAD country. When sync requested, use stream=1 and show server steps; after AIP done, start GEN sync.
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
@@ -356,16 +405,92 @@ export default function AIPPortalPage() {
     setAipEadLoadingIcao(icao);
     if (doSync) {
       setAipEadSyncingIcao(icao);
-      setAipEadSyncStepIndex(0);
+      setAipEadSyncSteps([]);
     }
 
-    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${doSync ? "&sync=1" : ""}&_t=${Date.now()}`;
+    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${doSync ? "&sync=1&stream=1" : ""}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
+        if (doSync && res.ok && res.body) {
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              const events = buf.split(/\n\n/);
+              buf = events.pop() ?? "";
+              for (const event of events) {
+                const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+                if (!dataLine) continue;
+                try {
+                  const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; detail?: string; airports?: unknown[] };
+                  if (data.step) {
+                    setAipEadSyncSteps((prev) => [...prev, data.step]);
+                  } else if (data.done && Array.isArray(data.airports)) {
+                    const list = data.airports as Array<{
+                      "Airport Code"?: string;
+                      "Airport Name"?: string;
+                      "AD2.2 Types of Traffic Permitted"?: string;
+                      "AD2.2 Remarks"?: string;
+                      "AD2.3 AD Operator"?: string;
+                      "AD 2.3 Customs and Immigration"?: string;
+                      "AD2.3 ATS"?: string;
+                      "AD2.3 Remarks"?: string;
+                      "AD2.6 AD category for fire fighting"?: string;
+                    }>;
+                    const updatedAt = new Date().toISOString();
+                    const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
+                    const airport: AIPAirport | null = match
+                      ? {
+                          country: "EAD (EU AIP)",
+                          gen1_2: "",
+                          gen1_2_point_4: "",
+                          icao: match["Airport Code"] ?? "",
+                          name: match["Airport Name"] ?? "",
+                          trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
+                          trafficRemarks: match["AD2.2 Remarks"] ?? "",
+                          operator: match["AD2.3 AD Operator"] ?? "",
+                          customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
+                          ats: match["AD2.3 ATS"] ?? "",
+                          atsRemarks: match["AD2.3 Remarks"] ?? "",
+                          fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
+                        }
+                      : null;
+                    setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
+                    setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+                    setAipEadSyncSteps([]);
+                    const prefix = icao.slice(0, 2).toUpperCase();
+                    setGenCache((c) => {
+                      const next = { ...c };
+                      delete next[prefix];
+                      return next;
+                    });
+                    startGenSync(icao);
+                    return;
+                  } else if (data.error) {
+                    setAipEadCache((c) => ({
+                      ...c,
+                      [icao]: { airport: null, error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                    }));
+                    setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+                    return;
+                  }
+                } catch (_) {}
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+          return;
+        }
+        const data = await res.json().catch(() => ({})) as { error?: string; detail?: string; airports?: unknown[] };
         if (!res.ok) {
           const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? "Sync failed");
           setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg, updatedAt: null } }));
+          setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
           return;
         }
         const list = (data.airports ?? []) as Array<{
@@ -383,10 +508,9 @@ export default function AIPPortalPage() {
           setAipEadSyncRequestedIcao(icao);
           setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
           setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
-          setAipEadSyncStepIndex(EAD_SYNC_STEPS.length - 1);
           return;
         }
-        const updatedAt = (data.updatedAt as string | null | undefined) ?? (doSync ? new Date().toISOString() : null);
+        const updatedAt = new Date().toISOString();
         const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
         const airport: AIPAirport | null = match
           ? {
@@ -406,14 +530,6 @@ export default function AIPPortalPage() {
           : null;
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
-        if (doSync) {
-          const p = icao.slice(0, 2).toUpperCase();
-          setGenCache((c) => {
-            const next = { ...c };
-            delete next[p];
-            return next;
-          });
-        }
       })
       .catch((err) => {
         setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
@@ -423,23 +539,9 @@ export default function AIPPortalPage() {
         aipEadInFlightRef.current.delete(icao);
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
-        setAipEadSyncStepIndex(EAD_SYNC_STEPS.length - 1);
-        // Do not clear aipEadSyncRequestedIcao here – success/error paths clear it so that empty-S3 retry keeps syncRequested set
+        setAipEadSyncSteps([]);
       });
-  }, [viewingAirport?.icao, aipEadSyncRequestedIcao]);
-
-  // Advance EAD sync step progress while syncing (server does: request → download PDF → extract)
-  useEffect(() => {
-    if (!aipEadSyncingIcao) {
-      setAipEadSyncStepIndex(0);
-      return;
-    }
-    const maxStep = EAD_SYNC_STEPS.length - 2;
-    const t = setInterval(() => {
-      setAipEadSyncStepIndex((i) => (i < maxStep ? i + 1 : i));
-    }, 20000);
-    return () => clearInterval(t);
-  }, [aipEadSyncingIcao]);
+  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, startGenSync]);
 
   // Fetch GEN (scraped GEN 1.2) when viewing an EAD airport. Cached by country prefix.
   useEffect(() => {
@@ -1295,28 +1397,21 @@ export default function AIPPortalPage() {
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-4 py-4 animate-fade-in">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <div
-                          className={`space-y-2 rounded-xl border-2 p-4 transition-all duration-300 ${
-                            aipEadSyncStepIndex === 2
-                              ? "border-[length:2px] border-ai-glow bg-ai-glow-subtle animate-ai-border"
-                              : "border-border/60 bg-muted/20"
-                          }`}
-                        >
-                          {EAD_SYNC_STEPS.map((label, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              {i < aipEadSyncStepIndex ? (
-                                <span className="text-primary">✓</span>
-                              ) : i === aipEadSyncStepIndex ? (
-                                <Spinner className="size-3.5 text-primary shrink-0" />
-                              ) : (
-                                <span className="text-muted-foreground/50">○</span>
-                              )}
-                              <span className={i <= aipEadSyncStepIndex ? "text-foreground" : "text-muted-foreground/70"}>
-                                {label}
-                              </span>
-                            </div>
-                          ))}
-                          <p className="text-xs text-muted-foreground pt-1">Can take 1–2 min on server.</p>
+                        <div className="space-y-2 rounded-xl border-2 border-border/60 bg-muted/20 p-4">
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <span className="text-sm font-medium">Syncing AIP from server…</span>
+                          </div>
+                          {aipEadSyncSteps.length > 0 && (
+                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
+                              {aipEadSyncSteps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {aipEadSyncSteps.length === 0 && (
+                            <span className="text-xs text-muted-foreground">Starting… can take 1–2 min.</span>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -1352,16 +1447,46 @@ export default function AIPPortalPage() {
               </Card>
             )}
 
-            {/* GEN (General) section for EAD: scraped GEN 1.2 with Raw / AI rewritten toggle */}
+            {/* GEN (General) section for EAD: scraped GEN 1.2 with Raw / AI rewritten toggle; separate sync with steps overlay on hover */}
             {viewingAirport && isEadIcao(viewingAirport.icao) && (
               <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
-                <CardHeader className="pb-2 px-4 sm:px-6">
-                  <CardTitle className="text-base sm:text-lg font-semibold">
-                    GEN (General — {viewingAirport.icao.slice(0, 2)})
-                  </CardTitle>
-                  <CardDescription className="text-muted-foreground text-sm">
-                    Country-level GEN 1.2 from EAD. Refreshed when you Sync AIP above.
-                  </CardDescription>
+                <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base sm:text-lg font-semibold">
+                      GEN (General — {viewingAirport.icao.slice(0, 2)})
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground text-sm">
+                      Country-level GEN 1.2 from EAD. Sync AIP above first, then sync GEN here.
+                    </CardDescription>
+                  </div>
+                  <div className="relative shrink-0 group">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-1.5 px-2"
+                      onClick={() => startGenSync(viewingAirport.icao)}
+                      disabled={genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase()}
+                      title="Sync GEN 1.2 from server"
+                    >
+                      <RefreshCwIcon className={`size-4 shrink-0 ${genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? "animate-spin" : ""}`} />
+                      <span className="text-xs hidden sm:inline">Sync</span>
+                    </Button>
+                    {genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() && (
+                      <div className="absolute right-0 top-full z-50 mt-1 hidden group-hover:block w-64 rounded-lg border border-border/80 bg-popover shadow-md p-3">
+                        <p className="text-xs font-semibold text-foreground mb-2">GEN sync steps</p>
+                        {genSyncSteps.length > 0 ? (
+                          <ul className="space-y-1 list-disc pl-4 text-xs text-muted-foreground">
+                            {genSyncSteps.map((step, i) => (
+                              <li key={i}>{step}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Starting…</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   {genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (

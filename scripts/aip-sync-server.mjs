@@ -216,11 +216,94 @@ async function uploadGenToS3(prefix, payload) {
   );
 }
 
+// AIP-only sync steps (sent when stream=1)
+const AIP_STEPS = [
+  "Deleting old from S3…",
+  "Downloading AIP PDF…",
+  "Extracting with AI…",
+  "Uploading to S3…",
+];
+
+// GEN-only sync steps (sent when /sync/gen stream=1)
+const GEN_STEPS = [
+  "Downloading GEN PDF…",
+  "Extracting text…",
+  "Rewriting with AI…",
+  "Uploading GEN to S3…",
+];
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
+  const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
   const useAi = url.searchParams.get("extract") !== "regex";
 
+  // —— /sync/gen: GEN-only sync (separate from AIP) ——
+  if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
+    const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
+    if (!/^[A-Z]{2}$/.test(prefix)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Valid icao or prefix required (e.g. icao=EDQA or prefix=ED)" }));
+      return;
+    }
+    if (!requireAuth(req)) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    const send = (obj) => {
+      if (!stream) return;
+      res.write("data: " + JSON.stringify(obj) + "\n\n");
+    };
+    if (stream) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      send({ step: GEN_STEPS[0] });
+    } else {
+      res.setHeader("Content-Type", "application/json");
+    }
+    try {
+      await runGenDownload(prefix);
+      if (stream) send({ step: GEN_STEPS[1] });
+      const raw = readGenText(prefix);
+      if (raw) {
+        if (stream) send({ step: GEN_STEPS[2] });
+        const apiKey = process.env.OPENAI_API_KEY;
+        const rewritten = apiKey ? await rewriteGenWithAI(raw, apiKey) : raw;
+        if (process.env.AWS_S3_BUCKET) {
+          if (stream) send({ step: GEN_STEPS[3] });
+          await uploadGenToS3(prefix, {
+            raw,
+            rewritten: rewritten || raw,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+      if (stream) {
+        send({ done: true, prefix });
+        res.end();
+      } else {
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true, prefix }));
+      }
+    } catch (genErr) {
+      console.error("GEN sync failed for", prefix, genErr.message);
+      if (stream) {
+        send({ error: "GEN sync failed", detail: genErr.message });
+        res.end();
+      } else {
+        res.writeHead(502);
+        res.end(JSON.stringify({ error: "GEN sync failed", detail: genErr.message }));
+      }
+    }
+    return;
+  }
+
+  // —— /sync: AIP-only sync ——
   if (url.pathname !== "/sync" && url.pathname !== "/sync/") {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
@@ -239,49 +322,59 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  res.setHeader("Content-Type", "application/json");
+  const send = (obj) => {
+    if (!stream) return;
+    res.write("data: " + JSON.stringify(obj) + "\n\n");
+  };
+
+  if (stream) {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+  } else {
+    res.setHeader("Content-Type", "application/json");
+  }
+
   try {
+    send({ step: AIP_STEPS[0] });
     if (process.env.AWS_S3_BUCKET) await deleteOldFromS3(icao);
+    send({ step: AIP_STEPS[1] });
     await runDownload(icao);
+    send({ step: AIP_STEPS[2] });
     await runExtract(useAi);
     const data = readExtracted();
+    send({ step: AIP_STEPS[3] });
     if (process.env.AWS_S3_BUCKET) {
       await uploadToS3();
       await uploadPerIcaoToS3(icao, data);
       await uploadPdfToS3(icao);
     }
-    // GEN: after AIP, scrape GEN 1.2 for this country (prefix = first 2 letters), rewrite with AI, upload to S3
-    const prefix = icao.slice(0, 2).toUpperCase();
-    try {
-      await runGenDownload(prefix);
-      const raw = readGenText(prefix);
-      if (raw) {
-        const apiKey = process.env.OPENAI_API_KEY;
-        const rewritten = apiKey ? await rewriteGenWithAI(raw, apiKey) : raw;
-        if (process.env.AWS_S3_BUCKET) {
-          await uploadGenToS3(prefix, {
-            raw,
-            rewritten: rewritten || raw,
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      }
-    } catch (genErr) {
-      console.error("GEN sync failed for", prefix, genErr.message);
+    const payload = {
+      done: true,
+      ok: true,
+      icao,
+      airports: data?.airports ?? [],
+      source: data?.source ?? null,
+    };
+    if (stream) {
+      send(payload);
+      res.end();
+    } else {
+      res.writeHead(200);
+      res.end(JSON.stringify(payload));
     }
-    res.writeHead(200);
-    res.end(
-      JSON.stringify({
-        ok: true,
-        icao,
-        airports: data?.airports ?? [],
-        source: data?.source ?? null,
-      })
-    );
   } catch (err) {
     console.error("AIP sync failed for", icao, err);
-    res.writeHead(502);
-    res.end(JSON.stringify({ error: "Sync failed", detail: err.message }));
+    if (stream) {
+      send({ error: "Sync failed", detail: err.message });
+      res.end();
+    } else {
+      res.writeHead(502);
+      res.end(JSON.stringify({ error: "Sync failed", detail: err.message }));
+    }
   }
 });
 

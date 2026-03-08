@@ -17,11 +17,13 @@ import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
 const EAD_AIP_DIR = join(PROJECT_ROOT, "data", "ead-aip");
+const EAD_GEN_DIR = join(PROJECT_ROOT, "data", "ead-gen");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
+const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const EXTRACT_SCRIPT_AI = "scripts/ead-extract-aip-from-pdf-ai.mjs";
 const EXTRACT_SCRIPT_REGEX = "scripts/ead-extract-aip-from-pdf.mjs";
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
@@ -157,6 +159,63 @@ async function uploadPerIcaoToS3(icao, data) {
   );
 }
 
+async function runGenDownload(prefix) {
+  await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", GEN_SCRIPT, prefix]);
+}
+
+function readGenText(prefix) {
+  const txtPath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.txt`);
+  if (!existsSync(txtPath)) return null;
+  return readFileSync(txtPath, "utf8").trim() || null;
+}
+
+/** Rewrite GEN 1.2 text with OpenAI. Best model for long text analysis: gpt-4o-mini (default) or gpt-4o for higher quality. */
+async function rewriteGenWithAI(rawText, apiKey) {
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section for clarity and consistency. Preserve all regulatory information, requirements, and references. Output only the rewritten text, no preamble.",
+        },
+        { role: "user", content: rawText.slice(0, 120000) },
+      ],
+      temperature: 0.2,
+      max_tokens: 4096,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenAI API ${res.status}: ${err}`);
+  }
+  const data = await res.json();
+  return (data.choices?.[0]?.message?.content ?? "").trim();
+}
+
+async function uploadGenToS3(prefix, payload) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket) return;
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `aip/gen/${prefix}.json`,
+      Body: JSON.stringify(payload),
+      ContentType: "application/json",
+    })
+  );
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
@@ -190,6 +249,25 @@ const server = createServer(async (req, res) => {
       await uploadToS3();
       await uploadPerIcaoToS3(icao, data);
       await uploadPdfToS3(icao);
+    }
+    // GEN: after AIP, scrape GEN 1.2 for this country (prefix = first 2 letters), rewrite with AI, upload to S3
+    const prefix = icao.slice(0, 2).toUpperCase();
+    try {
+      await runGenDownload(prefix);
+      const raw = readGenText(prefix);
+      if (raw) {
+        const apiKey = process.env.OPENAI_API_KEY;
+        const rewritten = apiKey ? await rewriteGenWithAI(raw, apiKey) : raw;
+        if (process.env.AWS_S3_BUCKET) {
+          await uploadGenToS3(prefix, {
+            raw,
+            rewritten: rewritten || raw,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (genErr) {
+      console.error("GEN sync failed for", prefix, genErr.message);
     }
     res.writeHead(200);
     res.end(

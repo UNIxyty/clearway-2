@@ -250,6 +250,9 @@ export default function AIPPortalPage() {
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [genCache, setGenCache] = useState<Record<string, { raw: string; rewritten: string; updatedAt: string | null }>>({});
+  const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
+  const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -403,6 +406,14 @@ export default function AIPPortalPage() {
           : null;
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        if (doSync) {
+          const p = icao.slice(0, 2).toUpperCase();
+          setGenCache((c) => {
+            const next = { ...c };
+            delete next[p];
+            return next;
+          });
+        }
       })
       .catch((err) => {
         setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
@@ -429,6 +440,31 @@ export default function AIPPortalPage() {
     }, 20000);
     return () => clearInterval(t);
   }, [aipEadSyncingIcao]);
+
+  // Fetch GEN (scraped GEN 1.2) when viewing an EAD airport. Cached by country prefix.
+  useEffect(() => {
+    const icao = viewingAirport?.icao ?? null;
+    if (!icao || !isEadIcao(icao)) return;
+    const prefix = icao.slice(0, 2).toUpperCase();
+    if (prefix in genCache || genLoadingPrefix === prefix) return;
+    setGenLoadingPrefix(prefix);
+    fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { raw?: string; rewritten?: string; updatedAt?: string | null }) => {
+        setGenCache((c) => ({
+          ...c,
+          [prefix]: {
+            raw: typeof data.raw === "string" ? data.raw : "",
+            rewritten: typeof data.rewritten === "string" ? data.rewritten : (typeof data.raw === "string" ? data.raw : ""),
+            updatedAt: data.updatedAt ?? null,
+          },
+        }));
+      })
+      .catch(() => {
+        setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } }));
+      })
+      .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));
+  }, [viewingAirport?.icao, genCache, genLoadingPrefix]);
 
   // Fetch NOTAMs when an airport is selected (search or browse). Load/sync even without coords so map + NOTAMs show after user initiates.
   useEffect(() => {
@@ -1312,6 +1348,73 @@ export default function AIPPortalPage() {
                   {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
                     <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* GEN (General) section for EAD: scraped GEN 1.2 with Raw / AI rewritten toggle */}
+            {viewingAirport && isEadIcao(viewingAirport.icao) && (
+              <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
+                <CardHeader className="pb-2 px-4 sm:px-6">
+                  <CardTitle className="text-base sm:text-lg font-semibold">
+                    GEN (General — {viewingAirport.icao.slice(0, 2)})
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground text-sm">
+                    Country-level GEN 1.2 from EAD. Refreshed when you Sync AIP above.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-4">
+                  {genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                      <Spinner className="size-4 shrink-0 text-primary" />
+                      <span>Loading GEN…</span>
+                    </div>
+                  ) : (() => {
+                    const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
+                    const gen = genCache[prefix];
+                    const hasContent = gen && (gen.raw || gen.rewritten);
+                    if (!hasContent) {
+                      return (
+                        <p className="text-sm text-muted-foreground py-2">
+                          No GEN data yet. Sync AIP above to scrape GEN 1.2 for this country.
+                        </p>
+                      );
+                    }
+                    const text = genViewMode === "rewritten" ? (gen.rewritten || gen.raw) : gen.raw;
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">View</span>
+                          <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
+                            <button
+                              type="button"
+                              onClick={() => setGenViewMode("raw")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genViewMode === "raw" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              Raw version
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGenViewMode("rewritten")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genViewMode === "rewritten" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              AI rewritten
+                            </button>
+                          </div>
+                          {gen.updatedAt && (
+                            <span className="text-xs text-muted-foreground">
+                              Updated {new Date(gen.updatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                            </span>
+                          )}
+                        </div>
+                        <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
+                          <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7 whitespace-pre-wrap break-words">
+                            {text}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             )}

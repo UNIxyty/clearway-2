@@ -45,24 +45,32 @@ const MODEL = process.env.OPENROUTER_GEN_MODEL || "anthropic/claude-3.5-sonnet";
 
 const SYSTEM_PROMPT = `You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output only the rewritten text, no preamble or commentary.`;
 
-function splitGenIntoParts(fullText) {
-  if (!fullText || typeof fullText !== "string") return { general: "", part4: "" };
+const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*Non[- ]scheduled/im;
+const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*Private\s+flights/im;
+
+function splitGenIntoThreeParts(fullText) {
+  if (!fullText || typeof fullText !== "string") return { general: "", nonScheduled: "", privateFlights: "" };
   const trimmed = fullText.trim();
-  const part4HeadingRe = /Part\s+4\b|4\.\s*(?:Private|Non\s*scheduled)|^(?:Private\s+flights|Non\s*scheduled\s+flights)\b/im;
   const lines = trimmed.split(/\r?\n/);
-  let part4StartIndex = -1;
+  let idxNonSched = -1;
+  let idxPrivate = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (part4HeadingRe.test(lines[i].trim())) {
-      part4StartIndex = i;
-      break;
-    }
+    const line = lines[i].trim();
+    if (idxNonSched < 0 && NON_SCHEDULED_RE.test(line)) idxNonSched = i;
+    if (idxPrivate < 0 && PRIVATE_FLIGHTS_RE.test(line)) idxPrivate = i;
   }
-  if (part4StartIndex >= 0) {
-    const general = lines.slice(0, part4StartIndex).join("\n").trim();
-    const part4 = lines.slice(part4StartIndex).join("\n").trim();
-    return { general, part4 };
+  const indices = [idxNonSched, idxPrivate].filter((i) => i >= 0).sort((a, b) => a - b);
+  const firstIdx = indices[0];
+  const secondIdx = indices[1];
+  if (firstIdx === undefined) {
+    return { general: trimmed, nonScheduled: "", privateFlights: "" };
   }
-  return { general: trimmed, part4: "" };
+  const general = lines.slice(0, firstIdx).join("\n").trim();
+  const firstBlock = secondIdx !== undefined ? lines.slice(firstIdx, secondIdx).join("\n").trim() : lines.slice(firstIdx).join("\n").trim();
+  const secondBlock = secondIdx !== undefined ? lines.slice(secondIdx).join("\n").trim() : "";
+  const nonScheduled = idxNonSched === firstIdx ? firstBlock : idxNonSched === secondIdx ? secondBlock : "";
+  const privateFlights = idxPrivate === firstIdx ? firstBlock : idxPrivate === secondIdx ? secondBlock : "";
+  return { general, nonScheduled, privateFlights };
 }
 
 async function rewriteWithClaude(rawText, apiKey) {
@@ -137,18 +145,21 @@ async function main() {
   const fullText = inputPath.toLowerCase().endsWith(".pdf")
     ? (await getTextFromPdf(inputPath)).trim()
     : readFileSync(inputPath, "utf8").trim();
-  const { general: generalRaw, part4: part4Raw } = splitGenIntoParts(fullText);
+  const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(fullText);
 
   console.error("Model:", MODEL);
   console.error("GENERAL length:", generalRaw.length, "chars");
-  console.error("Part 4 length:", part4Raw.length, "chars");
+  console.error("Non scheduled length:", nonSchedRaw.length, "chars");
+  console.error("Private flights length:", privateRaw.length, "chars");
 
   const generalRewritten = generalRaw ? await rewriteWithClaude(generalRaw, apiKey) : "";
-  const part4Rewritten = part4Raw ? await rewriteWithClaude(part4Raw, apiKey) : "";
+  const nonSchedRewritten = nonSchedRaw ? await rewriteWithClaude(nonSchedRaw, apiKey) : "";
+  const privateRewritten = privateRaw ? await rewriteWithClaude(privateRaw, apiKey) : "";
 
   const result = {
     general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
-    part4: { raw: part4Raw, rewritten: part4Rewritten || part4Raw },
+    nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
+    privateFlights: { raw: privateRaw, rewritten: privateRewritten || privateRaw },
     updatedAt: new Date().toISOString(),
   };
 

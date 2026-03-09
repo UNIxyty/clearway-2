@@ -1,14 +1,15 @@
-# Prompt for GEN 1.2 rewriting with OpenAI
+# Prompt for GEN 1.2 rewriting with OpenAI / Claude
 
-Use this with **Chat Completions** to rewrite AIP GEN 1.2 sections for clarity and consistency. Only two parts of the document are rewritten: **GENERAL** (usually the first part) and **Part 4** (Private flights / Non scheduled flights). The rest of the document is not sent to the model. The same prompt is used in `scripts/aip-sync-server.mjs` (OpenAI) and `scripts/gen-rewrite-claude-openrouter.mjs` (Claude via OpenRouter); you can paste it into the API or another client.
+Use this with **Chat Completions** to rewrite AIP GEN 1.2 sections for clarity and consistency. Three parts are extracted and rewritten: **GENERAL**, **Non scheduled flights**, and **Private flights**. Non scheduled and Private are distinct; if only one is present in the document, the other is left blank. The same prompt is used in `scripts/aip-sync-server.mjs` (OpenAI) and `scripts/gen-rewrite-claude-openrouter.mjs` (Claude via OpenRouter); you can paste it into the API or another client.
 
 ---
 
 ## Scope (what you said)
 
-- **Do not rewrite the entire document.** Only these two parts are shown and rewritten:
-  1. **GENERAL** — the first part of GEN 1.2 (up to where Part 4 starts).
-  2. **Part 4** — Private flights (may be titled "Non scheduled flights" or "Part 4").
+- **Do not rewrite the entire document.** Only these three parts are shown and rewritten:
+  1. **GENERAL** — the first part of GEN 1.2 (up to the first of Non scheduled / Private).
+  2. **Non scheduled flights** — section headed e.g. "Non scheduled", "Non scheduled flights", "Part X Non scheduled". If absent, leave blank.
+  3. **Private flights** — section headed e.g. "Private flights", "Part 4 Private". If absent, leave blank.
 - Preserve all regulatory information, requirements, and references.
 - Output only the rewritten text for the section you were given; no preamble or commentary.
 
@@ -44,15 +45,16 @@ You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into conti
 
 ## User message
 
-Send **only the raw text of one section** — either the GENERAL section or the Part 4 section (Private flights / Non scheduled flights). Do not send the full GEN document; the pipeline splits it and calls the model once per section.
+Send **only the raw text of one section** — GENERAL, Non scheduled flights, or Private flights. The pipeline splits the document into three parts and calls the model once per section (missing sections are left blank).
 
-- For **GENERAL**: text from the start of the document up to (but not including) the line where Part 4 begins.
-- For **Part 4**: text from the Part 4 heading (e.g. "Part 4", "Private flights", "Non scheduled flights") to the end of the document.
+- **GENERAL**: from the start up to the first of (Non scheduled / Private flights).
+- **Non scheduled**: from the "Non scheduled" heading to the next major section or end.
+- **Private flights**: from the "Private flights" heading to the next major section or end.
 
 Trim to ~120 000 characters if the section is very long.
 
 ```
-<raw text of the GENERAL section OR the Part 4 section>
+<raw text of one section>
 ```
 
 No extra instructions are needed in the user message; the system prompt defines the task.

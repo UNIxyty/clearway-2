@@ -245,12 +245,12 @@ export default function AIPPortalPage() {
   const [pdfDownloading, setPdfDownloading] = useState(false);
   type GenPart = { raw: string; rewritten: string };
   const emptyGenPart = (): GenPart => ({ raw: "", rewritten: "" });
-  const [genCache, setGenCache] = useState<Record<string, { general: GenPart; part4: GenPart; updatedAt: string | null }>>({});
+  const [genCache, setGenCache] = useState<Record<string, { general: GenPart; nonScheduled: GenPart; privateFlights: GenPart; updatedAt: string | null }>>({});
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
   const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
   const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
-  const [genPartMode, setGenPartMode] = useState<"general" | "part4">("general");
+  const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -347,7 +347,7 @@ export default function AIPPortalPage() {
     fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok || !res.body) {
-          setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } }));
+          setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
           return;
         }
         const reader = res.body.getReader();
@@ -371,12 +371,13 @@ export default function AIPPortalPage() {
                 }
                 else if (data.done || data.error) {
                   const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
-                  const genData = (await genRes.json().catch(() => ({}))) as { general?: GenPart; part4?: GenPart; updatedAt?: string | null };
+                  const genData = (await genRes.json().catch(() => ({}))) as { general?: GenPart; nonScheduled?: GenPart; privateFlights?: GenPart; part4?: GenPart; updatedAt?: string | null };
                   const g = genData.general && typeof genData.general === "object" ? genData.general : emptyGenPart();
-                  const p = genData.part4 && typeof genData.part4 === "object" ? genData.part4 : emptyGenPart();
+                  const ns = genData.nonScheduled && typeof genData.nonScheduled === "object" ? genData.nonScheduled : emptyGenPart();
+                  const pf = (genData.privateFlights && typeof genData.privateFlights === "object" ? genData.privateFlights : genData.part4 && typeof genData.part4 === "object" ? genData.part4 : null) ?? emptyGenPart();
                   setGenCache((c) => ({
                     ...c,
-                    [prefix]: { general: g, part4: p, updatedAt: genData.updatedAt ?? null },
+                    [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: genData.updatedAt ?? null },
                   }));
                   return;
                 }
@@ -387,7 +388,7 @@ export default function AIPPortalPage() {
           reader.releaseLock();
         }
       })
-      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } })))
+      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } })))
       .finally(() => {
         setGenSyncingPrefix(null);
         setGenLoadingPrefix(null);
@@ -557,16 +558,17 @@ export default function AIPPortalPage() {
     setGenLoadingPrefix(prefix);
     fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { general?: GenPart; part4?: GenPart; updatedAt?: string | null }) => {
+      .then((data: { general?: GenPart; nonScheduled?: GenPart; privateFlights?: GenPart; part4?: GenPart; updatedAt?: string | null }) => {
         const g = data.general && typeof data.general === "object" ? data.general : emptyGenPart();
-        const p = data.part4 && typeof data.part4 === "object" ? data.part4 : emptyGenPart();
+        const ns = data.nonScheduled && typeof data.nonScheduled === "object" ? data.nonScheduled : emptyGenPart();
+        const pf = (data.privateFlights && typeof data.privateFlights === "object" ? data.privateFlights : data.part4 && typeof data.part4 === "object" ? data.part4 : null) ?? emptyGenPart();
         setGenCache((c) => ({
           ...c,
-          [prefix]: { general: g, part4: p, updatedAt: data.updatedAt ?? null },
+          [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: data.updatedAt ?? null },
         }));
       })
       .catch(() => {
-        setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } }));
+        setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
       })
       .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));
   }, [viewingAirport?.icao, genCache, genLoadingPrefix]);
@@ -1500,8 +1502,8 @@ export default function AIPPortalPage() {
                   ) : (() => {
                     const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
                     const gen = genCache[prefix];
-                    const part = genPartMode === "general" ? gen?.general : gen?.part4;
-                    const hasContent = gen && (gen.general?.raw || gen.general?.rewritten || gen.part4?.raw || gen.part4?.rewritten);
+                    const part = gen ? gen[genPartMode] : null;
+                    const hasContent = gen && (gen.general?.raw || gen.general?.rewritten || gen.nonScheduled?.raw || gen.nonScheduled?.rewritten || gen.privateFlights?.raw || gen.privateFlights?.rewritten);
                     if (!hasContent) {
                       return (
                         <p className="text-sm text-muted-foreground py-2">
@@ -1524,10 +1526,17 @@ export default function AIPPortalPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setGenPartMode("part4")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "part4" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                              onClick={() => setGenPartMode("nonScheduled")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "nonScheduled" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                             >
-                              Part 4 (Private flights)
+                              Non scheduled
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGenPartMode("privateFlights")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "privateFlights" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              Private flights
                             </button>
                           </div>
                           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">View</span>
@@ -1555,7 +1564,7 @@ export default function AIPPortalPage() {
                         </div>
                         <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
                           <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7 whitespace-pre-wrap break-words">
-                            {text || (genPartMode === "part4" ? "No Part 4 content in this GEN." : "No GENERAL content.")}
+                            {text || (genPartMode === "general" ? "No GENERAL content." : genPartMode === "nonScheduled" ? "No Non scheduled content in this GEN." : "No Private flights content in this GEN.")}
                           </p>
                         </div>
                       </div>

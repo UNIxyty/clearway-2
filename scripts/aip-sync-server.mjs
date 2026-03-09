@@ -169,25 +169,35 @@ function readGenText(prefix) {
   return readFileSync(txtPath, "utf8").trim() || null;
 }
 
-/** Split full GEN 1.2 text into GENERAL (usually first) and Part 4 (Private / Non scheduled flights). Only these parts are shown and rewritten. */
-function splitGenIntoParts(fullText) {
-  if (!fullText || typeof fullText !== "string") return { general: "", part4: "" };
+/** Match "Non scheduled" / "Non-scheduled" / "Non scheduled flights" type headings. */
+const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*Non[- ]scheduled/im;
+/** Match "Private flights" type headings. */
+const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*Private\s+flights/im;
+
+/** Split full GEN 1.2 into GENERAL, Non scheduled flights, and Private flights. Non scheduled and Private are distinct; if only one is present the other is left blank. */
+function splitGenIntoThreeParts(fullText) {
+  if (!fullText || typeof fullText !== "string") return { general: "", nonScheduled: "", privateFlights: "" };
   const trimmed = fullText.trim();
-  const part4HeadingRe = /Part\s+4\b|4\.\s*(?:Private|Non\s*scheduled)|^(?:Private\s+flights|Non\s*scheduled\s+flights)\b/im;
   const lines = trimmed.split(/\r?\n/);
-  let part4StartIndex = -1;
+  let idxNonSched = -1;
+  let idxPrivate = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (part4HeadingRe.test(lines[i].trim())) {
-      part4StartIndex = i;
-      break;
-    }
+    const line = lines[i].trim();
+    if (idxNonSched < 0 && NON_SCHEDULED_RE.test(line)) idxNonSched = i;
+    if (idxPrivate < 0 && PRIVATE_FLIGHTS_RE.test(line)) idxPrivate = i;
   }
-  if (part4StartIndex >= 0) {
-    const general = lines.slice(0, part4StartIndex).join("\n").trim();
-    const part4 = lines.slice(part4StartIndex).join("\n").trim();
-    return { general, part4 };
+  const indices = [idxNonSched, idxPrivate].filter((i) => i >= 0).sort((a, b) => a - b);
+  const firstIdx = indices[0];
+  const secondIdx = indices[1];
+  if (firstIdx === undefined) {
+    return { general: trimmed, nonScheduled: "", privateFlights: "" };
   }
-  return { general: trimmed, part4: "" };
+  const general = lines.slice(0, firstIdx).join("\n").trim();
+  const firstBlock = secondIdx !== undefined ? lines.slice(firstIdx, secondIdx).join("\n").trim() : lines.slice(firstIdx).join("\n").trim();
+  const secondBlock = secondIdx !== undefined ? lines.slice(secondIdx).join("\n").trim() : "";
+  const nonScheduled = idxNonSched === firstIdx ? firstBlock : idxNonSched === secondIdx ? secondBlock : "";
+  const privateFlights = idxPrivate === firstIdx ? firstBlock : idxPrivate === secondIdx ? secondBlock : "";
+  return { general, nonScheduled, privateFlights };
 }
 
 /** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. OPENAI_MODEL: see docs/OPENAI-MODELS-GEN.md (e.g. gpt-5.4, gpt-5-mini, gpt-4.1, gpt-4o-mini). */
@@ -293,16 +303,18 @@ const server = createServer(async (req, res) => {
       if (stream) send({ step: GEN_STEPS[1] });
       const raw = readGenText(prefix);
       if (raw) {
-        const { general: generalRaw, part4: part4Raw } = splitGenIntoParts(raw);
+        const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
         if (stream) send({ step: GEN_STEPS[2] });
         const apiKey = process.env.OPENAI_API_KEY;
         const generalRewritten = generalRaw && apiKey ? await rewriteGenWithAI(generalRaw, apiKey) : generalRaw;
-        const part4Rewritten = part4Raw && apiKey ? await rewriteGenWithAI(part4Raw, apiKey) : part4Raw;
+        const nonSchedRewritten = nonSchedRaw && apiKey ? await rewriteGenWithAI(nonSchedRaw, apiKey) : nonSchedRaw;
+        const privateRewritten = privateRaw && apiKey ? await rewriteGenWithAI(privateRaw, apiKey) : privateRaw;
         if (process.env.AWS_S3_BUCKET) {
           if (stream) send({ step: GEN_STEPS[3] });
           await uploadGenToS3(prefix, {
             general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
-            part4: { raw: part4Raw, rewritten: part4Rewritten || part4Raw },
+            nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
+            privateFlights: { raw: privateRaw, rewritten: privateRewritten || privateRaw },
             updatedAt: new Date().toISOString(),
           });
         }

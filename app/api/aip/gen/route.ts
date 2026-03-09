@@ -11,12 +11,24 @@ function s3Client() {
 export type GenPart = { raw: string; rewritten: string };
 export type GenPayload = {
   general: GenPart;
-  part4: GenPart;
+  nonScheduled: GenPart;
+  privateFlights: GenPart;
   updatedAt: string;
 };
 
 function emptyPart(): GenPart {
   return { raw: "", rewritten: "" };
+}
+
+function normPart(p: unknown): GenPart {
+  if (p && typeof p === "object" && "raw" in p) {
+    const o = p as { raw?: string; rewritten?: string };
+    return {
+      raw: typeof o.raw === "string" ? o.raw : "",
+      rewritten: typeof o.rewritten === "string" ? o.rewritten : (o.raw ?? ""),
+    };
+  }
+  return emptyPart();
 }
 
 async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
@@ -32,18 +44,18 @@ async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
       rewritten?: string;
       general?: GenPart;
       part4?: GenPart;
+      nonScheduled?: GenPart;
+      privateFlights?: GenPart;
       updatedAt?: string;
     };
-    // New format: general + part4
+    // New format: general + nonScheduled + privateFlights
     if (data.general && typeof data.general === "object") {
       return {
-        general: {
-          raw: typeof data.general.raw === "string" ? data.general.raw : "",
-          rewritten: typeof data.general.rewritten === "string" ? data.general.rewritten : (data.general.raw ?? ""),
-        },
-        part4: data.part4 && typeof data.part4 === "object"
-          ? { raw: typeof data.part4.raw === "string" ? data.part4.raw : "", rewritten: typeof data.part4.rewritten === "string" ? data.part4.rewritten : (data.part4.raw ?? "") }
-          : emptyPart(),
+        general: normPart(data.general),
+        nonScheduled: normPart(data.nonScheduled),
+        privateFlights: data.privateFlights && typeof data.privateFlights === "object"
+          ? normPart(data.privateFlights)
+          : normPart(data.part4),
         updatedAt: data.updatedAt ?? new Date().toISOString(),
       };
     }
@@ -51,7 +63,8 @@ async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
     if (typeof data.raw !== "string") return null;
     return {
       general: { raw: data.raw, rewritten: typeof data.rewritten === "string" ? data.rewritten : data.raw },
-      part4: emptyPart(),
+      nonScheduled: emptyPart(),
+      privateFlights: emptyPart(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
     };
   } catch (e: unknown) {
@@ -78,7 +91,7 @@ export async function GET(request: NextRequest) {
   const payload = await getGenFromS3(prefix);
   if (!payload) {
     return NextResponse.json(
-      { general: emptyPart(), part4: emptyPart(), updatedAt: null },
+      { general: emptyPart(), nonScheduled: emptyPart(), privateFlights: emptyPart(), updatedAt: null },
       { status: 200 }
     );
   }

@@ -80,8 +80,8 @@ async function getTextFromPdf(pdfPath) {
 
 async function extractWithAI(text, icaoHint, apiKey) {
   const trimmed = trimToRelevant(text);
-  // Default: gpt-4o-mini (reliable). gpt-5-nano may not be available on all accounts.
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  // Default: gpt-4.1-mini. Override with OPENAI_MODEL (e.g. gpt-5.4, gpt-4.1).
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {

@@ -9,11 +9,10 @@
  *
  * Usage (run from repo root):
  *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs EB
- *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs path/to/GEN-1.2.txt --out result.json
- *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs /path/to/EB_GEN_1_2_en.pdf --out data/ead-gen/EB-gen-rewritten.json
+ *   OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/gen-rewrite-claude-openrouter.mjs path/to/file.pdf --out out.json
+ *   ... --model google/gemini-2.0-flash   (override model; default: anthropic/claude-3.5-sonnet)
  *
- *   Input: 2-letter prefix (data/ead-gen/<prefix>-GEN-1.2.txt), or path to .txt or .pdf (GEN 1.2).
- *   Optional: --out file.json writes { general, part4 } to a file instead of stdout.
+ * Output: { general, nonScheduled, privateFlights, updatedAt, model, durationSeconds }. Time printed to stderr and in JSON.
  */
 
 import { readFileSync, existsSync, writeFileSync } from "fs";
@@ -41,7 +40,7 @@ function loadEnv() {
 loadEnv();
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = process.env.OPENROUTER_GEN_MODEL || "anthropic/claude-3.5-sonnet";
+const DEFAULT_MODEL = "anthropic/claude-3.5-sonnet";
 
 const SYSTEM_PROMPT = `You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output only the rewritten text, no preamble or commentary.`;
 
@@ -74,7 +73,7 @@ function splitGenIntoThreeParts(fullText) {
   return { general, nonScheduled, privateFlights };
 }
 
-async function rewriteWithClaude(rawText, apiKey) {
+async function rewriteWithClaude(rawText, apiKey, model) {
   if (!rawText || !rawText.trim()) return "";
   const res = await fetch(OPENROUTER_URL, {
     method: "POST",
@@ -83,7 +82,7 @@ async function rewriteWithClaude(rawText, apiKey) {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: rawText.slice(0, 120000) },
@@ -119,13 +118,29 @@ async function getTextFromPdf(pdfPath) {
 }
 
 async function main() {
-  const arg = process.argv[2];
-  const outPath = process.argv[3] === "--out" ? process.argv[4] : null;
+  const argv = process.argv.slice(2);
+  let pathArg = null;
+  let outPath = null;
+  let modelOverride = null;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--out" && argv[i + 1]) {
+      outPath = argv[i + 1];
+      i++;
+    } else if (argv[i] === "--model" && argv[i + 1]) {
+      modelOverride = argv[i + 1];
+      i++;
+    } else if (!argv[i].startsWith("--")) {
+      pathArg = argv[i];
+    }
+  }
 
-  if (!arg || (outPath === undefined && process.argv[3] === "--out")) {
-    console.error("Usage: OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/gen-rewrite-claude-openrouter.mjs <path-or-prefix> [--out file.json]");
-    console.error("  path-or-prefix: path to GEN 1.2 .txt or .pdf, or 2-letter prefix (e.g. EB) for data/ead-gen/<prefix>-GEN-1.2.txt");
-    console.error("  API key: pass in the command, e.g. OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/... (or use .env)");
+  const model = modelOverride || process.env.OPENROUTER_GEN_MODEL || DEFAULT_MODEL;
+
+  if (!pathArg || (outPath === undefined && argv.includes("--out"))) {
+    console.error("Usage: OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/gen-rewrite-claude-openrouter.mjs <path-or-prefix> [--model <model-id>] [--out file.json]");
+    console.error("  path-or-prefix: path to GEN 1.2 .txt or .pdf, or 2-letter prefix (e.g. EB)");
+    console.error("  --model: OpenRouter model id (e.g. anthropic/claude-3.5-sonnet, google/gemini-2.0-flash)");
+    console.error("  API key: pass in the command or set OPENROUTER_API_KEY in .env");
     process.exit(1);
   }
 
@@ -137,9 +152,9 @@ async function main() {
     process.exit(1);
   }
 
-  const inputPath = getInputPath(arg);
+  const inputPath = getInputPath(pathArg);
   if (!inputPath || !existsSync(inputPath)) {
-    console.error("File not found:", inputPath || arg);
+    console.error("File not found:", inputPath || pathArg);
     process.exit(1);
   }
 
@@ -148,20 +163,28 @@ async function main() {
     : readFileSync(inputPath, "utf8").trim();
   const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(fullText);
 
-  console.error("Model:", MODEL);
+  console.error("Model:", model);
   console.error("GENERAL length:", generalRaw.length, "chars");
   console.error("Non scheduled length:", nonSchedRaw.length, "chars");
   console.error("Private flights length:", privateRaw.length, "chars");
 
-  const generalRewritten = generalRaw ? await rewriteWithClaude(generalRaw, apiKey) : "";
-  const nonSchedRewritten = nonSchedRaw ? await rewriteWithClaude(nonSchedRaw, apiKey) : "";
-  const privateRewritten = privateRaw ? await rewriteWithClaude(privateRaw, apiKey) : "";
+  const startMs = Date.now();
+
+  const generalRewritten = generalRaw ? await rewriteWithClaude(generalRaw, apiKey, model) : "";
+  const nonSchedRewritten = nonSchedRaw ? await rewriteWithClaude(nonSchedRaw, apiKey, model) : "";
+  const privateRewritten = privateRaw ? await rewriteWithClaude(privateRaw, apiKey, model) : "";
+
+  const durationMs = Date.now() - startMs;
+  const durationSeconds = Math.round(durationMs) / 1000;
+  console.error("Completed in", durationSeconds.toFixed(2), "s");
 
   const result = {
     general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
     nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
     privateFlights: { raw: privateRaw, rewritten: privateRewritten || privateRaw },
     updatedAt: new Date().toISOString(),
+    model,
+    durationSeconds: Math.round(durationSeconds * 100) / 100,
   };
 
   const json = JSON.stringify(result, null, 2);

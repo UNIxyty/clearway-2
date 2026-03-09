@@ -1,6 +1,6 @@
 # OpenAI models for GEN / AIP rewriting
 
-Use these with **Chat Completions** for GEN 1.2 rewriting (GENERAL and Part 4). Set `OPENAI_MODEL` in `.env` or when running the sync server.
+Use these with **Chat Completions** for GEN 1.2 rewriting (GENERAL and Part 4) and for [AIP data extraction](AIP-EXTRACT-PROMPT.md). Set `OPENAI_MODEL` in `.env` or when running the sync server.
 
 Model IDs are as used in the API (e.g. `model: "gpt-5.4"`). Availability may vary by account; check [platform.openai.com/docs/models](https://platform.openai.com/docs/models).
 

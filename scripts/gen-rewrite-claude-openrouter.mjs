@@ -4,16 +4,15 @@
  * Reads a GEN 1.2 text file, splits into GENERAL and Part 4 (Private flights),
  * rewrites each with Claude, and outputs two objects: { general, part4 }.
  *
- * API key: put OPENROUTER_API_KEY in .env (project root) or set in the environment.
+ * API key: pass it in the command that starts the script (or use .env).
  * Get a key at https://openrouter.ai/keys
  *
- * Usage:
- *   node scripts/gen-rewrite-claude-openrouter.mjs <path-to-GEN-1.2.txt>
- *   node scripts/gen-rewrite-claude-openrouter.mjs EB
- *     (reads data/ead-gen/EB-GEN-1.2.txt)
+ * Usage (run from repo root):
+ *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs EB
+ *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs path/to/GEN-1.2.txt --out result.json
  *
- * Output: JSON to stdout with { general: { raw, rewritten }, part4: { raw, rewritten } }
- * Optional: --out file.json to write result to a file.
+ *   EB = reads data/ead-gen/EB-GEN-1.2.txt; or pass any path to a GEN 1.2 .txt file.
+ *   Optional: --out file.json writes { general, part4 } to a file instead of stdout.
  */
 
 import { readFileSync, existsSync, writeFileSync } from "fs";
@@ -103,15 +102,16 @@ async function main() {
   const outPath = process.argv[3] === "--out" ? process.argv[4] : null;
 
   if (!arg || (outPath === undefined && process.argv[3] === "--out")) {
-    console.error("Usage: node scripts/gen-rewrite-claude-openrouter.mjs <path-or-prefix> [--out file.json]");
+    console.error("Usage: OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/gen-rewrite-claude-openrouter.mjs <path-or-prefix> [--out file.json]");
     console.error("  path-or-prefix: path to GEN 1.2 .txt file, or 2-letter prefix (e.g. EB) for data/ead-gen/<prefix>-GEN-1.2.txt");
-    console.error("  API key: set OPENROUTER_API_KEY in .env or in the environment (https://openrouter.ai/keys)");
+    console.error("  API key: pass in the command, e.g. OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/... (or use .env)");
     process.exit(1);
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    console.error("Missing OPENROUTER_API_KEY. Put it in .env in the project root or set the environment variable.");
+    console.error("Missing OPENROUTER_API_KEY. Run with the key in the command:");
+    console.error("  OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs EB");
     console.error("Get a key at https://openrouter.ai/keys");
     process.exit(1);
   }

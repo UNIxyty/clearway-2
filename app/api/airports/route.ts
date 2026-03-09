@@ -5,6 +5,8 @@ import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/data/ead-country-icaos.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
+export const dynamic = "force-dynamic";
+
 type AIPCountry = {
   country: string;
   GEN_1_2?: string;
@@ -176,7 +178,10 @@ export async function GET(request: NextRequest) {
   const eadData = eadCountryIcaos as Record<string, unknown>;
   if (country && country in eadData) {
     const list = flattenEadCountry(country);
-    return NextResponse.json({ results: list });
+    return NextResponse.json(
+      { results: list },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 
   const list = country ? flattenAIP(country) : getAll();

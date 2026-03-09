@@ -319,7 +319,7 @@ export default function AIPPortalPage() {
     const url = shouldFetchUSA
       ? `/api/airports?country=${encodeURIComponent(browseSelectedCountry)}&state=${encodeURIComponent(browseSelectedState)}`
       : `/api/airports?country=${encodeURIComponent(browseSelectedCountry)}`;
-    fetch(url)
+    fetch(url, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setBrowseCountryAirports(data.results ?? []);

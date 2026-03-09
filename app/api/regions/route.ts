@@ -1,21 +1,11 @@
 import { NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import regionsData from "@/data/regions.json";
-import eadCountryIcaosBundle from "@/data/ead-country-icaos.json";
+import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export const dynamic = "force-dynamic";
 
 function getEadCountryIcaos(): Record<string, unknown> {
-  const path = join(process.cwd(), "data", "ead-country-icaos.json");
-  if (existsSync(path)) {
-    try {
-      return JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
-    } catch {
-      // fall through
-    }
-  }
-  return eadCountryIcaosBundle as Record<string, unknown>;
+  return eadCountryIcaos as Record<string, unknown>;
 }
 
 type RegionEntry = { region: string; countries: string[] };

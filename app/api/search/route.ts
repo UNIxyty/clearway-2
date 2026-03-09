@@ -1,27 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadExtracted from "@/data/ead-aip-extracted.json";
-import eadCountryIcaosBundle from "@/data/ead-country-icaos.json";
+import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
 function getEadCountryIcaos(): Record<string, string[]> {
-  const path = join(process.cwd(), "data", "ead-country-icaos.json");
-  if (existsSync(path)) {
-    try {
-      const data = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
-      const out: Record<string, string[]> = {};
-      for (const [key, val] of Object.entries(data)) {
-        if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
-      }
-      return out;
-    } catch {
-      // fall through
-    }
-  }
-  const data = eadCountryIcaosBundle as Record<string, unknown>;
+  const data = eadCountryIcaos as Record<string, unknown>;
   const out: Record<string, string[]> = {};
   for (const [key, val] of Object.entries(data)) {
     if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());

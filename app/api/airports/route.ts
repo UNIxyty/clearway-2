@@ -1,74 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
-import eadCountryIcaosBundle from "@/data/ead-country-icaos.json";
+import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
 export const dynamic = "force-dynamic";
 
-/** Normalize JSON to Record<string, string[]>. */
-function toEadMap(data: Record<string, unknown>): Record<string, string[]> {
+/** EAD country → ICAOs: from lib/ead-country-icaos.generated.json (written at build by scripts/embed-ead-icaos.mjs). No fetch, no cache issues on Vercel. */
+function getEadCountryIcaos(): Record<string, string[]> {
+  const data = eadCountryIcaos as Record<string, unknown>;
   const out: Record<string, string[]> = {};
   for (const [key, val] of Object.entries(data)) {
     if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
   }
   return out;
-}
-
-/** Base URL for fetching public/ead-country-icaos.json (Vercel has no data/ on disk). Prefer VERCEL_URL so serverless always hits the deployment. */
-function getBaseUrl(request: NextRequest): string {
-  const vercelUrl = process.env.VERCEL_URL;
-  if (vercelUrl) return `https://${vercelUrl}`;
-  try {
-    const u = new URL(request.url);
-    return u.origin;
-  } catch {
-    return "";
-  }
-}
-
-/** Read EAD country→ICAOs at runtime; on Vercel when data/ is missing, fetch from public asset. Merge with bundle and prefer longer list. */
-async function getEadCountryIcaos(baseUrl: string): Promise<Record<string, string[]>> {
-  const bundle = toEadMap(eadCountryIcaosBundle as Record<string, unknown>);
-  const filePath = join(process.cwd(), "data", "ead-country-icaos.json");
-  if (existsSync(filePath)) {
-    try {
-      const raw = readFileSync(filePath, "utf-8");
-      const fromDisk = toEadMap(JSON.parse(raw) as Record<string, unknown>);
-      return mergeEadMaps(bundle, fromDisk);
-    } catch {
-      return bundle;
-    }
-  }
-  if (baseUrl) {
-    try {
-      const res = await fetch(`${baseUrl}/ead-country-icaos.json`, { cache: "no-store" });
-      if (res.ok) {
-        const fromNet = (await res.json()) as Record<string, unknown>;
-        return mergeEadMaps(bundle, toEadMap(fromNet));
-      }
-    } catch {
-      // fall through to bundle
-    }
-  }
-  return bundle;
-}
-
-function mergeEadMaps(bundle: Record<string, string[]>, other: Record<string, string[]>): Record<string, string[]> {
-  const merged: Record<string, string[]> = {};
-  const allKeys = new Set([...Object.keys(bundle), ...Object.keys(other)]);
-  for (const key of allKeys) {
-    const a = bundle[key];
-    const b = other[key];
-    if (!a && !b) continue;
-    if (!a) merged[key] = b!;
-    else if (!b) merged[key] = a;
-    else merged[key] = a.length >= b.length ? a : b;
-  }
-  return merged;
 }
 
 type AIPCountry = {
@@ -238,7 +184,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: list });
   }
 
-  const eadData = await getEadCountryIcaos(getBaseUrl(request));
+  const eadData = getEadCountryIcaos();
   if (country && country in eadData) {
     const list = flattenEadCountry(country, eadData);
     return NextResponse.json(

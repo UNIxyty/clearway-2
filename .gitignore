@@ -11,8 +11,9 @@
 # next
 /.next/
 out/
-# EAD country ICAOs copy (built from data/ at build time)
+# EAD country ICAOs (built from data/ at build time)
 /public/ead-country-icaos.json
+/lib/ead-country-icaos.generated.json
 
 # production
 /build

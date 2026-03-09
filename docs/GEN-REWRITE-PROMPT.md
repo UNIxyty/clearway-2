@@ -1,6 +1,6 @@
 # Prompt for GEN 1.2 rewriting with OpenAI
 
-Use this with **Chat Completions** to rewrite AIP GEN 1.2 sections for clarity and consistency. Only two parts of the document are rewritten: **GENERAL** (usually the first part) and **Part 4** (Private flights / Non scheduled flights). The rest of the document is not sent to the model. The same prompt is used in `scripts/aip-sync-server.mjs` for both sections; you can paste it into the API or another client.
+Use this with **Chat Completions** to rewrite AIP GEN 1.2 sections for clarity and consistency. Only two parts of the document are rewritten: **GENERAL** (usually the first part) and **Part 4** (Private flights / Non scheduled flights). The rest of the document is not sent to the model. The same prompt is used in `scripts/aip-sync-server.mjs` (OpenAI) and `scripts/gen-rewrite-claude-openrouter.mjs` (Claude via OpenRouter); you can paste it into the API or another client.
 
 ---
 

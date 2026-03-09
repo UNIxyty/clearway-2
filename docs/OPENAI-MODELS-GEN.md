@@ -6,6 +6,16 @@ Model IDs are as used in the API (e.g. `model: "gpt-5.4"`). Availability may var
 
 ---
 
+## Top 3 for GEN rewriting
+
+| Rank | Model ID     | Why |
+|------|--------------|-----|
+| **1** | **gpt-5.4**  | Best quality; most capable for regulatory text. |
+| **2** | **gpt-5.4-pro** | Highest precision; use when clarity and consistency matter most. |
+| **3** | **gpt-4.1**  | Best non–Gen 5 option; strong editing/rewriting, often cheaper than 5.4. |
+
+---
+
 ## Gen 5 (latest)
 
 | Model ID       | Description |

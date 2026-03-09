@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadExtracted from "@/data/ead-aip-extracted.json";
-import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
+import eadCountryIcaos from "@/data/ead-country-icaos.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
 type AIPCountry = {
@@ -128,9 +128,9 @@ function getList(): AIPAirport[] {
 
 function getAllEadIcaos(): Set<string> {
   if (!cachedEadIcaoSet) {
-    const data = eadIcaosFromDocNames as { countries?: Record<string, string[]> };
+    const data = eadCountryIcaos as Record<string, string[]>;
     const set = new Set<string>();
-    for (const list of Object.values(data.countries ?? {})) {
+    for (const list of Object.values(data)) {
       if (Array.isArray(list)) for (const icao of list) set.add(icao.toUpperCase());
     }
     cachedEadIcaoSet = set;

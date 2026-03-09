@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Adds coordinates for EAD ICAOs (from ead-icaos-from-document-names.json) using
+ * Adds coordinates for EAD ICAOs (from ead-country-icaos.json) using
  * OurAirports CSV, and merges into data/airport-coords.json (keeps existing entries).
  * Run: node scripts/add-ead-airport-coords.mjs
  */
@@ -10,12 +10,12 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");
-const eadPath = path.join(projectRoot, "data", "ead-icaos-from-document-names.json");
+const eadPath = path.join(projectRoot, "data", "ead-country-icaos.json");
 const coordsPath = path.join(projectRoot, "data", "airport-coords.json");
 
 const ead = JSON.parse(fs.readFileSync(eadPath, "utf8"));
 const eadIcaoSet = new Set();
-for (const list of Object.values(ead.countries ?? {})) {
+for (const list of Object.values(ead)) {
   if (Array.isArray(list)) for (const icao of list) eadIcaoSet.add(String(icao).toUpperCase());
 }
 

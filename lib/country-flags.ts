@@ -53,7 +53,7 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   "Libya": "ly",
   "Maldives": "mv",
   "Nepal": "np",
-  // EAD (EU AIP) countries – labels from ead-icaos-from-document-names.json
+  // EAD (EU AIP) countries – labels from ead-country-icaos.json
   "Albania (LA)": "al",
   "Austria (LO)": "at",
   "Belgium (EB)": "be",

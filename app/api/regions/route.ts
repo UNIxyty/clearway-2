@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import regionsData from "@/data/regions.json";
-import eadIcaosFromDocNames from "@/data/ead-icaos-from-document-names.json";
+import eadCountryIcaos from "@/data/ead-country-icaos.json";
 
 type RegionEntry = { region: string; countries: string[] };
 
@@ -58,7 +58,7 @@ const EAD_COUNTRY_TO_REGION: Record<string, string> = {
 
 export async function GET() {
   const regions = regionsData as RegionEntry[];
-  const eadCountries = (eadIcaosFromDocNames as { countries?: Record<string, unknown> }).countries ?? {};
+  const eadCountries = eadCountryIcaos as Record<string, unknown>;
   const eadCountryKeys = Object.keys(eadCountries);
 
   const regionByName = new Map<string, string[]>();

@@ -10,8 +10,8 @@ const src = join(root, "data", "ead-country-icaos.json");
 const dest = join(root, "public", "ead-country-icaos.json");
 
 if (!existsSync(src)) {
-  console.warn("copy-ead-icaos-to-public: source not found, skipping:", src);
-  process.exit(0);
+  console.error("copy-ead-icaos-to-public: source not found (required for Vercel):", src);
+  process.exit(1);
 }
 mkdirSync(dirname(dest), { recursive: true });
 copyFileSync(src, dest);

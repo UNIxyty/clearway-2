@@ -18,8 +18,10 @@ function toEadMap(data: Record<string, unknown>): Record<string, string[]> {
   return out;
 }
 
-/** Get base URL for same-origin fetch (Vercel has no data/ on disk; we fetch public/ead-country-icaos.json). */
+/** Base URL for fetching public/ead-country-icaos.json (Vercel has no data/ on disk). Prefer VERCEL_URL so serverless always hits the deployment. */
 function getBaseUrl(request: NextRequest): string {
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) return `https://${vercelUrl}`;
   try {
     const u = new URL(request.url);
     return u.origin;

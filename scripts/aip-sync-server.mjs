@@ -169,10 +169,10 @@ function readGenText(prefix) {
   return readFileSync(txtPath, "utf8").trim() || null;
 }
 
-/** Match "Non scheduled" / "Non-scheduled" / "Non scheduled flights" type headings. */
-const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*Non[- ]scheduled/im;
-/** Match "Private flights" type headings. */
-const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*Private\s+flights/im;
+/** Match "Non scheduled" / "Non-scheduled" / "3.\tNON-SCHEDULED COMMERCIAL FLIGHTS" type headings. Allow optional dot after number. */
+const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*\.?\s*Non[- ]scheduled/im;
+/** Match "Private flights" / "4. PRIVATE FLIGHTS" type headings. */
+const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*\.?\s*Private\s+flights/im;
 
 /** Split full GEN 1.2 into GENERAL, Non scheduled flights, and Private flights. Non scheduled and Private are distinct; if only one is present the other is left blank. */
 function splitGenIntoThreeParts(fullText) {

@@ -45,8 +45,9 @@ const MODEL = process.env.OPENROUTER_GEN_MODEL || "anthropic/claude-3.5-sonnet";
 
 const SYSTEM_PROMPT = `You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output only the rewritten text, no preamble or commentary.`;
 
-const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*Non[- ]scheduled/im;
-const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*Private\s+flights/im;
+// Numbered headings: "3.\tNON-SCHEDULED COMMERCIAL FLIGHTS" or "4. PRIVATE FLIGHTS" (allow optional dot and whitespace after digit)
+const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*\.?\s*Non[- ]scheduled/im;
+const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*\.?\s*Private\s+flights/im;
 
 function splitGenIntoThreeParts(fullText) {
   if (!fullText || typeof fullText !== "string") return { general: "", nonScheduled: "", privateFlights: "" };

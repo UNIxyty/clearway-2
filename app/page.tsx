@@ -243,11 +243,14 @@ export default function AIPPortalPage() {
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
-  const [genCache, setGenCache] = useState<Record<string, { raw: string; rewritten: string; updatedAt: string | null }>>({});
+  type GenPart = { raw: string; rewritten: string };
+  const emptyGenPart = (): GenPart => ({ raw: "", rewritten: "" });
+  const [genCache, setGenCache] = useState<Record<string, { general: GenPart; part4: GenPart; updatedAt: string | null }>>({});
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
   const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
   const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
+  const [genPartMode, setGenPartMode] = useState<"general" | "part4">("general");
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -344,7 +347,7 @@ export default function AIPPortalPage() {
     fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok || !res.body) {
-          setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } }));
+          setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } }));
           return;
         }
         const reader = res.body.getReader();
@@ -368,14 +371,12 @@ export default function AIPPortalPage() {
                 }
                 else if (data.done || data.error) {
                   const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
-                  const genData = (await genRes.json().catch(() => ({}))) as { raw?: string; rewritten?: string; updatedAt?: string | null };
+                  const genData = (await genRes.json().catch(() => ({}))) as { general?: GenPart; part4?: GenPart; updatedAt?: string | null };
+                  const g = genData.general && typeof genData.general === "object" ? genData.general : emptyGenPart();
+                  const p = genData.part4 && typeof genData.part4 === "object" ? genData.part4 : emptyGenPart();
                   setGenCache((c) => ({
                     ...c,
-                    [prefix]: {
-                      raw: typeof genData.raw === "string" ? genData.raw : "",
-                      rewritten: typeof genData.rewritten === "string" ? genData.rewritten : "",
-                      updatedAt: genData.updatedAt ?? null,
-                    },
+                    [prefix]: { general: g, part4: p, updatedAt: genData.updatedAt ?? null },
                   }));
                   return;
                 }
@@ -386,7 +387,7 @@ export default function AIPPortalPage() {
           reader.releaseLock();
         }
       })
-      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } })))
+      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } })))
       .finally(() => {
         setGenSyncingPrefix(null);
         setGenLoadingPrefix(null);
@@ -556,18 +557,16 @@ export default function AIPPortalPage() {
     setGenLoadingPrefix(prefix);
     fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { raw?: string; rewritten?: string; updatedAt?: string | null }) => {
+      .then((data: { general?: GenPart; part4?: GenPart; updatedAt?: string | null }) => {
+        const g = data.general && typeof data.general === "object" ? data.general : emptyGenPart();
+        const p = data.part4 && typeof data.part4 === "object" ? data.part4 : emptyGenPart();
         setGenCache((c) => ({
           ...c,
-          [prefix]: {
-            raw: typeof data.raw === "string" ? data.raw : "",
-            rewritten: typeof data.rewritten === "string" ? data.rewritten : (typeof data.raw === "string" ? data.raw : ""),
-            updatedAt: data.updatedAt ?? null,
-          },
+          [prefix]: { general: g, part4: p, updatedAt: data.updatedAt ?? null },
         }));
       })
       .catch(() => {
-        setGenCache((c) => ({ ...c, [prefix]: { raw: "", rewritten: "", updatedAt: null } }));
+        setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), part4: emptyGenPart(), updatedAt: null } }));
       })
       .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));
   }, [viewingAirport?.icao, genCache, genLoadingPrefix]);
@@ -1501,7 +1500,8 @@ export default function AIPPortalPage() {
                   ) : (() => {
                     const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
                     const gen = genCache[prefix];
-                    const hasContent = gen && (gen.raw || gen.rewritten);
+                    const part = genPartMode === "general" ? gen?.general : gen?.part4;
+                    const hasContent = gen && (gen.general?.raw || gen.general?.rewritten || gen.part4?.raw || gen.part4?.rewritten);
                     if (!hasContent) {
                       return (
                         <p className="text-sm text-muted-foreground py-2">
@@ -1509,10 +1509,27 @@ export default function AIPPortalPage() {
                         </p>
                       );
                     }
-                    const text = genViewMode === "rewritten" ? (gen.rewritten || gen.raw) : gen.raw;
+                    const text = part ? (genViewMode === "rewritten" ? (part.rewritten || part.raw) : part.raw) : "";
                     return (
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Part</span>
+                          <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
+                            <button
+                              type="button"
+                              onClick={() => setGenPartMode("general")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "general" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              GENERAL
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGenPartMode("part4")}
+                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "part4" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                              Part 4 (Private flights)
+                            </button>
+                          </div>
                           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">View</span>
                           <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
                             <button
@@ -1520,7 +1537,7 @@ export default function AIPPortalPage() {
                               onClick={() => setGenViewMode("raw")}
                               className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genViewMode === "raw" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                             >
-                              Raw version
+                              Raw
                             </button>
                             <button
                               type="button"
@@ -1538,7 +1555,7 @@ export default function AIPPortalPage() {
                         </div>
                         <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
                           <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7 whitespace-pre-wrap break-words">
-                            {text}
+                            {text || (genPartMode === "part4" ? "No Part 4 content in this GEN." : "No GENERAL content.")}
                           </p>
                         </div>
                       </div>

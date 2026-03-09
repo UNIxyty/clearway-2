@@ -169,8 +169,30 @@ function readGenText(prefix) {
   return readFileSync(txtPath, "utf8").trim() || null;
 }
 
-/** Rewrite GEN 1.2 text with OpenAI. Best model for long text analysis: gpt-4o-mini (default) or gpt-4o for higher quality. */
+/** Split full GEN 1.2 text into GENERAL (usually first) and Part 4 (Private / Non scheduled flights). Only these parts are shown and rewritten. */
+function splitGenIntoParts(fullText) {
+  if (!fullText || typeof fullText !== "string") return { general: "", part4: "" };
+  const trimmed = fullText.trim();
+  const part4HeadingRe = /Part\s+4\b|4\.\s*(?:Private|Non\s*scheduled)|^(?:Private\s+flights|Non\s*scheduled\s+flights)\b/im;
+  const lines = trimmed.split(/\r?\n/);
+  let part4StartIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (part4HeadingRe.test(lines[i].trim())) {
+      part4StartIndex = i;
+      break;
+    }
+  }
+  if (part4StartIndex >= 0) {
+    const general = lines.slice(0, part4StartIndex).join("\n").trim();
+    const part4 = lines.slice(part4StartIndex).join("\n").trim();
+    return { general, part4 };
+  }
+  return { general: trimmed, part4: "" };
+}
+
+/** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. */
 async function rewriteGenWithAI(rawText, apiKey) {
+  if (!rawText || !rawText.trim()) return "";
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -271,14 +293,16 @@ const server = createServer(async (req, res) => {
       if (stream) send({ step: GEN_STEPS[1] });
       const raw = readGenText(prefix);
       if (raw) {
+        const { general: generalRaw, part4: part4Raw } = splitGenIntoParts(raw);
         if (stream) send({ step: GEN_STEPS[2] });
         const apiKey = process.env.OPENAI_API_KEY;
-        const rewritten = apiKey ? await rewriteGenWithAI(raw, apiKey) : raw;
+        const generalRewritten = generalRaw && apiKey ? await rewriteGenWithAI(generalRaw, apiKey) : generalRaw;
+        const part4Rewritten = part4Raw && apiKey ? await rewriteGenWithAI(part4Raw, apiKey) : part4Raw;
         if (process.env.AWS_S3_BUCKET) {
           if (stream) send({ step: GEN_STEPS[3] });
           await uploadGenToS3(prefix, {
-            raw,
-            rewritten: rewritten || raw,
+            general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
+            part4: { raw: part4Raw, rewritten: part4Rewritten || part4Raw },
             updatedAt: new Date().toISOString(),
           });
         }

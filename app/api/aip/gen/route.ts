@@ -8,11 +8,16 @@ function s3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
 }
 
+export type GenPart = { raw: string; rewritten: string };
 export type GenPayload = {
-  raw: string;
-  rewritten: string;
+  general: GenPart;
+  part4: GenPart;
   updatedAt: string;
 };
+
+function emptyPart(): GenPart {
+  return { raw: "", rewritten: "" };
+}
 
 async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
   if (!BUCKET) return null;
@@ -22,11 +27,31 @@ async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
     const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
     const body = await res.Body?.transformToString();
     if (!body) return null;
-    const data = JSON.parse(body) as { raw?: string; rewritten?: string; updatedAt?: string };
+    const data = JSON.parse(body) as {
+      raw?: string;
+      rewritten?: string;
+      general?: GenPart;
+      part4?: GenPart;
+      updatedAt?: string;
+    };
+    // New format: general + part4
+    if (data.general && typeof data.general === "object") {
+      return {
+        general: {
+          raw: typeof data.general.raw === "string" ? data.general.raw : "",
+          rewritten: typeof data.general.rewritten === "string" ? data.general.rewritten : (data.general.raw ?? ""),
+        },
+        part4: data.part4 && typeof data.part4 === "object"
+          ? { raw: typeof data.part4.raw === "string" ? data.part4.raw : "", rewritten: typeof data.part4.rewritten === "string" ? data.part4.rewritten : (data.part4.raw ?? "") }
+          : emptyPart(),
+        updatedAt: data.updatedAt ?? new Date().toISOString(),
+      };
+    }
+    // Legacy: single raw/rewritten
     if (typeof data.raw !== "string") return null;
     return {
-      raw: data.raw,
-      rewritten: typeof data.rewritten === "string" ? data.rewritten : data.raw,
+      general: { raw: data.raw, rewritten: typeof data.rewritten === "string" ? data.rewritten : data.raw },
+      part4: emptyPart(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
     };
   } catch (e: unknown) {
@@ -52,7 +77,10 @@ export async function GET(request: NextRequest) {
 
   const payload = await getGenFromS3(prefix);
   if (!payload) {
-    return NextResponse.json({ raw: "", rewritten: "", updatedAt: null }, { status: 200 });
+    return NextResponse.json(
+      { general: emptyPart(), part4: emptyPart(), updatedAt: null },
+      { status: 200 }
+    );
   }
   return NextResponse.json(payload);
 }

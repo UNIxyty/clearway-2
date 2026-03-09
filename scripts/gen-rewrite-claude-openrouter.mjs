@@ -10,13 +10,16 @@
  * Usage (run from repo root):
  *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs EB
  *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs path/to/GEN-1.2.txt --out result.json
+ *   OPENROUTER_API_KEY=sk-or-v1-yourkey node scripts/gen-rewrite-claude-openrouter.mjs /path/to/EB_GEN_1_2_en.pdf --out data/ead-gen/EB-gen-rewritten.json
  *
- *   EB = reads data/ead-gen/EB-GEN-1.2.txt; or pass any path to a GEN 1.2 .txt file.
+ *   Input: 2-letter prefix (data/ead-gen/<prefix>-GEN-1.2.txt), or path to .txt or .pdf (GEN 1.2).
  *   Optional: --out file.json writes { general, part4 } to a file instead of stdout.
  */
 
 import { readFileSync, existsSync, writeFileSync } from "fs";
-import { join, dirname } from "path";
+import { readFile } from "fs/promises";
+import { PDFParse } from "pdf-parse";
+import { join, dirname, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,13 +91,22 @@ async function rewriteWithClaude(rawText, apiKey) {
   return (data.choices?.[0]?.message?.content ?? "").trim();
 }
 
-function getGenTextPath(input) {
+function getInputPath(input) {
   if (!input) return null;
   const s = input.trim();
   if (s.length === 2 && /^[A-Za-z]{2}$/.test(s)) {
     return join(EAD_GEN_DIR, `${s.toUpperCase()}-GEN-1.2.txt`);
   }
+  if (isAbsolute(s)) return s;
   return join(process.cwd(), s);
+}
+
+async function getTextFromPdf(pdfPath) {
+  const buf = await readFile(pdfPath);
+  const parser = new PDFParse({ data: buf });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result?.text ?? (result?.pages && result.pages.map((p) => p.text).join("\n")) ?? "";
 }
 
 async function main() {
@@ -103,7 +115,7 @@ async function main() {
 
   if (!arg || (outPath === undefined && process.argv[3] === "--out")) {
     console.error("Usage: OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/gen-rewrite-claude-openrouter.mjs <path-or-prefix> [--out file.json]");
-    console.error("  path-or-prefix: path to GEN 1.2 .txt file, or 2-letter prefix (e.g. EB) for data/ead-gen/<prefix>-GEN-1.2.txt");
+    console.error("  path-or-prefix: path to GEN 1.2 .txt or .pdf, or 2-letter prefix (e.g. EB) for data/ead-gen/<prefix>-GEN-1.2.txt");
     console.error("  API key: pass in the command, e.g. OPENROUTER_API_KEY=sk-or-v1-xxx node scripts/... (or use .env)");
     process.exit(1);
   }
@@ -116,13 +128,15 @@ async function main() {
     process.exit(1);
   }
 
-  const txtPath = getGenTextPath(arg);
-  if (!txtPath || !existsSync(txtPath)) {
-    console.error("File not found:", txtPath || arg);
+  const inputPath = getInputPath(arg);
+  if (!inputPath || !existsSync(inputPath)) {
+    console.error("File not found:", inputPath || arg);
     process.exit(1);
   }
 
-  const fullText = readFileSync(txtPath, "utf8").trim();
+  const fullText = inputPath.toLowerCase().endsWith(".pdf")
+    ? (await getTextFromPdf(inputPath)).trim()
+    : readFileSync(inputPath, "utf8").trim();
   const { general: generalRaw, part4: part4Raw } = splitGenIntoParts(fullText);
 
   console.error("Model:", MODEL);

@@ -287,7 +287,7 @@ export default function AIPPortalPage() {
   }, [results]);
 
   useEffect(() => {
-    fetch("/api/regions")
+    fetch("/api/regions", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => setRegions(data.regions ?? []))
       .catch(() => setRegions([]));

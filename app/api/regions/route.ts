@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import regionsData from "@/data/regions.json";
 import eadCountryIcaos from "@/data/ead-country-icaos.json";
 
+export const dynamic = "force-dynamic";
+
 type RegionEntry = { region: string; countries: string[] };
 
 /** Map EAD country label (e.g. "Croatia (LD)") to world region name. Used to merge EAD into existing regions. */
@@ -79,5 +81,8 @@ export async function GET() {
     countries: regionByName.get(r.region) ?? r.countries,
   }));
 
-  return NextResponse.json({ regions: withEad });
+  return NextResponse.json(
+    { regions: withEad },
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
+  );
 }

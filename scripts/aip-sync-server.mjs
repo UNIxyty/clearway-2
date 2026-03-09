@@ -190,7 +190,7 @@ function splitGenIntoParts(fullText) {
   return { general: trimmed, part4: "" };
 }
 
-/** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. */
+/** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. OPENAI_MODEL: see docs/OPENAI-MODELS-GEN.md (e.g. gpt-5.4, gpt-5-mini, gpt-4.1, gpt-4o-mini). */
 async function rewriteGenWithAI(rawText, apiKey) {
   if (!rawText || !rawText.trim()) return "";
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";

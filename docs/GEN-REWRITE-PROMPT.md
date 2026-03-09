@@ -23,10 +23,21 @@ Set `OPENAI_MODEL` in `.env` or when running the sync server.
 
 ---
 
+## Output format (match hardcoded GEN style)
+
+The rewritten text should look like the GEN parts in `data/aip-data.json` and `scripts/merge_usa_into_aip_data.js` (USA, Benin, Burkina, etc.):
+
+- **Continuous prose** — flowing paragraphs only. No section numbers (1.1.1, 1.1.2), no headings, no bullet or numbered lists in the output.
+- **Convert structure into sentences** — turn subsections and list items into clear, connected sentences and paragraphs.
+- **Preserve everything regulatory** — requirements, conditions, exceptions, references (e.g. Regulation EU 2016/399, ICAO Annex 16, 14 CFR 99.7), and contact details (addresses, phone, email, URLs) where they are part of the rules or procedures.
+- **Dense but readable** — same level of detail as the source, in a consistent editorial style.
+
+---
+
 ## System prompt
 
 ```
-You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section for clarity and consistency. Preserve all regulatory information, requirements, and references. Output only the rewritten text, no preamble.
+You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output only the rewritten text, no preamble or commentary.
 ```
 
 ---
@@ -59,4 +70,4 @@ No extra instructions are needed in the user message; the system prompt defines 
 
 ## Expected output
 
-The model returns **only** the rewritten text for that section: same content as the input, clarified and made consistent, with no intro, no "Here is the rewritten section", and no markdown. Preserve paragraph structure and any numbering that is part of the AIP.
+The model returns **only** the rewritten text: continuous prose paragraphs (like the USA/Benin examples in `aip-data.json`), with no intro, no "Here is the rewritten section", and no markdown. No section numbers or list formatting in the output — everything in flowing paragraphs.

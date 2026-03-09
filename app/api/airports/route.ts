@@ -18,28 +18,55 @@ function toEadMap(data: Record<string, unknown>): Record<string, string[]> {
   return out;
 }
 
-/** Read EAD country→ICAOs at runtime; merge with bundle and prefer the longer list per country so we never show fewer airports. */
-function getEadCountryIcaos(): Record<string, string[]> {
+/** Get base URL for same-origin fetch (Vercel has no data/ on disk; we fetch public/ead-country-icaos.json). */
+function getBaseUrl(request: NextRequest): string {
+  try {
+    const u = new URL(request.url);
+    return u.origin;
+  } catch {
+    return "";
+  }
+}
+
+/** Read EAD country→ICAOs at runtime; on Vercel when data/ is missing, fetch from public asset. Merge with bundle and prefer longer list. */
+async function getEadCountryIcaos(baseUrl: string): Promise<Record<string, string[]>> {
   const bundle = toEadMap(eadCountryIcaosBundle as Record<string, unknown>);
   const filePath = join(process.cwd(), "data", "ead-country-icaos.json");
-  if (!existsSync(filePath)) return bundle;
-  try {
-    const raw = readFileSync(filePath, "utf-8");
-    const fromDisk = toEadMap(JSON.parse(raw) as Record<string, unknown>);
-    const merged: Record<string, string[]> = {};
-    const allKeys = new Set([...Object.keys(bundle), ...Object.keys(fromDisk)]);
-    for (const key of allKeys) {
-      const a = bundle[key];
-      const b = fromDisk[key];
-      if (!a && !b) continue;
-      if (!a) merged[key] = b!;
-      else if (!b) merged[key] = a;
-      else merged[key] = a.length >= b.length ? a : b;
+  if (existsSync(filePath)) {
+    try {
+      const raw = readFileSync(filePath, "utf-8");
+      const fromDisk = toEadMap(JSON.parse(raw) as Record<string, unknown>);
+      return mergeEadMaps(bundle, fromDisk);
+    } catch {
+      return bundle;
     }
-    return merged;
-  } catch {
-    return bundle;
   }
+  if (baseUrl) {
+    try {
+      const res = await fetch(`${baseUrl}/ead-country-icaos.json`, { cache: "no-store" });
+      if (res.ok) {
+        const fromNet = (await res.json()) as Record<string, unknown>;
+        return mergeEadMaps(bundle, toEadMap(fromNet));
+      }
+    } catch {
+      // fall through to bundle
+    }
+  }
+  return bundle;
+}
+
+function mergeEadMaps(bundle: Record<string, string[]>, other: Record<string, string[]>): Record<string, string[]> {
+  const merged: Record<string, string[]> = {};
+  const allKeys = new Set([...Object.keys(bundle), ...Object.keys(other)]);
+  for (const key of allKeys) {
+    const a = bundle[key];
+    const b = other[key];
+    if (!a && !b) continue;
+    if (!a) merged[key] = b!;
+    else if (!b) merged[key] = a;
+    else merged[key] = a.length >= b.length ? a : b;
+  }
+  return merged;
 }
 
 type AIPCountry = {
@@ -209,7 +236,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: list });
   }
 
-  const eadData = getEadCountryIcaos();
+  const eadData = await getEadCountryIcaos(getBaseUrl(request));
   if (country && country in eadData) {
     const list = flattenEadCountry(country, eadData);
     return NextResponse.json(

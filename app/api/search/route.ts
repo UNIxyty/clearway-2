@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadExtracted from "@/data/ead-aip-extracted.json";
-import eadCountryIcaos from "@/data/ead-country-icaos.json";
+import eadCountryIcaosBundle from "@/data/ead-country-icaos.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
+
+function getEadCountryIcaos(): Record<string, string[]> {
+  const path = join(process.cwd(), "data", "ead-country-icaos.json");
+  if (existsSync(path)) {
+    try {
+      const data = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+      const out: Record<string, string[]> = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+      }
+      return out;
+    } catch {
+      // fall through
+    }
+  }
+  const data = eadCountryIcaosBundle as Record<string, unknown>;
+  const out: Record<string, string[]> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+  }
+  return out;
+}
 
 type AIPCountry = {
   country: string;
@@ -112,7 +136,6 @@ function flattenEAD(): AIPAirport[] {
 }
 
 let cachedList: AIPAirport[] | null = null;
-let cachedEadIcaoSet: Set<string> | null = null;
 
 function getList(): AIPAirport[] {
   if (!cachedList) {
@@ -127,15 +150,12 @@ function getList(): AIPAirport[] {
 }
 
 function getAllEadIcaos(): Set<string> {
-  if (!cachedEadIcaoSet) {
-    const data = eadCountryIcaos as Record<string, string[]>;
-    const set = new Set<string>();
-    for (const list of Object.values(data)) {
-      if (Array.isArray(list)) for (const icao of list) set.add(icao.toUpperCase());
-    }
-    cachedEadIcaoSet = set;
+  const data = getEadCountryIcaos();
+  const set = new Set<string>();
+  for (const list of Object.values(data)) {
+    if (Array.isArray(list)) for (const icao of list) set.add(icao.toUpperCase());
   }
-  return cachedEadIcaoSet;
+  return set;
 }
 
 export async function GET(request: NextRequest) {

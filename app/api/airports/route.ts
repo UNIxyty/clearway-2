@@ -1,11 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
-import eadCountryIcaos from "@/data/ead-country-icaos.json";
+import eadCountryIcaosBundle from "@/data/ead-country-icaos.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
 export const dynamic = "force-dynamic";
+
+/** Read EAD country→ICAOs at runtime when possible so the full list is used; fallback to bundled copy. */
+function getEadCountryIcaos(): Record<string, string[]> {
+  const path = join(process.cwd(), "data", "ead-country-icaos.json");
+  if (existsSync(path)) {
+    try {
+      const raw = readFileSync(path, "utf-8");
+      const data = JSON.parse(raw) as Record<string, unknown>;
+      const out: Record<string, string[]> = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+      }
+      return out;
+    } catch {
+      // fall through to bundle
+    }
+  }
+  const data = eadCountryIcaosBundle as Record<string, unknown>;
+  const out: Record<string, string[]> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+  }
+  return out;
+}
 
 type AIPCountry = {
   country: string;
@@ -132,9 +158,8 @@ function getAll(): AIPAirport[] {
 
 const EAD_PLACEHOLDER_NAME = "EAD airport (sync to load)";
 
-function flattenEadCountry(countryLabel: string): AIPAirport[] {
-  const data = eadCountryIcaos as Record<string, string[]>;
-  const icaos = data[countryLabel];
+function flattenEadCountry(countryLabel: string, eadData: Record<string, string[]>): AIPAirport[] {
+  const icaos = eadData[countryLabel];
   if (!icaos || !Array.isArray(icaos)) return [];
   const list = icaos.map((icao) => {
     const coord = coordsMap[icao];
@@ -175,9 +200,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: list });
   }
 
-  const eadData = eadCountryIcaos as Record<string, unknown>;
+  const eadData = getEadCountryIcaos();
   if (country && country in eadData) {
-    const list = flattenEadCountry(country);
+    const list = flattenEadCountry(country, eadData);
     return NextResponse.json(
       { results: list },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

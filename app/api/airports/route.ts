@@ -9,28 +9,37 @@ import eadAirportNames from "@/data/ead-airport-names.json";
 
 export const dynamic = "force-dynamic";
 
-/** Read EAD country→ICAOs at runtime when possible so the full list is used; fallback to bundled copy. */
-function getEadCountryIcaos(): Record<string, string[]> {
-  const path = join(process.cwd(), "data", "ead-country-icaos.json");
-  if (existsSync(path)) {
-    try {
-      const raw = readFileSync(path, "utf-8");
-      const data = JSON.parse(raw) as Record<string, unknown>;
-      const out: Record<string, string[]> = {};
-      for (const [key, val] of Object.entries(data)) {
-        if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
-      }
-      return out;
-    } catch {
-      // fall through to bundle
-    }
-  }
-  const data = eadCountryIcaosBundle as Record<string, unknown>;
+/** Normalize JSON to Record<string, string[]>. */
+function toEadMap(data: Record<string, unknown>): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [key, val] of Object.entries(data)) {
     if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
   }
   return out;
+}
+
+/** Read EAD country→ICAOs at runtime; merge with bundle and prefer the longer list per country so we never show fewer airports. */
+function getEadCountryIcaos(): Record<string, string[]> {
+  const bundle = toEadMap(eadCountryIcaosBundle as Record<string, unknown>);
+  const filePath = join(process.cwd(), "data", "ead-country-icaos.json");
+  if (!existsSync(filePath)) return bundle;
+  try {
+    const raw = readFileSync(filePath, "utf-8");
+    const fromDisk = toEadMap(JSON.parse(raw) as Record<string, unknown>);
+    const merged: Record<string, string[]> = {};
+    const allKeys = new Set([...Object.keys(bundle), ...Object.keys(fromDisk)]);
+    for (const key of allKeys) {
+      const a = bundle[key];
+      const b = fromDisk[key];
+      if (!a && !b) continue;
+      if (!a) merged[key] = b!;
+      else if (!b) merged[key] = a;
+      else merged[key] = a.length >= b.length ? a : b;
+    }
+    return merged;
+  } catch {
+    return bundle;
+  }
 }
 
 type AIPCountry = {

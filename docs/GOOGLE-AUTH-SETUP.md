@@ -25,10 +25,11 @@ Full workflow so "Sign in with Google" works for the portal.
 
 1. Left menu: **APIs & Services** → **OAuth consent screen**.
 2. Choose **External** (unless you use a Google Workspace org) → **Create**.
-3. Fill:
+3. Fill the required branding fields:
    - **App name**: e.g. "Clearway Portal"
    - **User support email**: your email
    - **Developer contact**: your email
+   You can leave **Application home page**, **Privacy policy**, and **Terms of service** blank for now; they’re optional in Testing and only required when you publish the app to Production.
 4. **Save and Continue**.
 5. **Scopes**: **Add or remove scopes** → add `.../auth/userinfo.email` and `.../auth/userinfo.profile` (OpenID) → **Save**.
 6. **Test users** (if app is "Testing"): add your email so you can sign in.

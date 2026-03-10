@@ -43,8 +43,14 @@ export default async function StatsPage() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            Failed to load stats: {error.message}
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1">
+            <p>Failed to load stats: {error.message}</p>
+            {(error.message.includes("search_events") || error.message.includes("does not exist")) && (
+              <p className="text-muted-foreground">
+                Run the SQL in <code className="bg-muted px-1 rounded">docs/supabase-search-events.sql</code> in your
+                Supabase project → SQL Editor. See <code className="bg-muted px-1 rounded">docs/SUPABASE-SETUP.md</code>.
+              </p>
+            )}
           </div>
         )}
 

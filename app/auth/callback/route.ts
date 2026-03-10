@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: Request) {
@@ -32,11 +33,12 @@ export async function GET(request: Request) {
 
   const redirectTo = new URL(next, requestUrl.origin);
   const response = NextResponse.redirect(redirectTo);
+  const cookieStore = cookies();
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {
-        return request.cookies.getAll();
+        return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
         for (const { name, value, options } of cookiesToSet) {

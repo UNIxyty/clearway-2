@@ -93,6 +93,7 @@ Important: Google redirects to **Supabase’s** URL (`...supabase.co/auth/v1/cal
 
 ## 6. If Google still doesn’t work
 
+- **Redirected back to login after you press Allow on Google**: Usually Supabase’s **Redirect URLs** don’t include the exact URL your app uses. In Supabase → Authentication → URL Configuration, add your full callback URL, e.g. `https://your-app.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`. After the fix, try again; the login page will now show a specific error message if the session exchange fails.
 - **Redirect mismatch**: In Google Console, the redirect URI must be exactly Supabase’s (no trailing slash, correct project ref). In Supabase, Redirect URLs must include your app’s `https://.../auth/callback` (and `http://localhost:3000/auth/callback` for dev).
 - **Consent screen**: If the app is in "Testing", only test users can sign in. Add your email under OAuth consent screen → Test users, or publish the app.
 - **Cookies / third‑party**: Try in an incognito window; ensure cookies aren’t blocked for your site and Supabase.

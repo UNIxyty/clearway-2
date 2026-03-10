@@ -14,9 +14,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  oauth_failed:
+    "Google sign-in was denied or misconfigured. Check Supabase Redirect URLs and Google authorized redirect URI.",
+  oauth_no_code: "Google did not return a sign-in code. Try again.",
+  session_exchange_failed:
+    "Session could not be created after Google sign-in. You may need to add this app’s URL to Supabase Redirect URLs.",
+};
+
 export default function LoginCard() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
+  const urlError = searchParams.get("error");
+  const urlMessage = searchParams.get("message");
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -24,6 +34,14 @@ export default function LoginCard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  const redirectError = useMemo(() => {
+    if (!urlError) return null;
+    if (urlMessage) return urlMessage;
+    return OAUTH_ERROR_MESSAGES[urlError] ?? `Sign-in failed (${urlError}).`;
+  }, [urlError, urlMessage]);
+
+  const displayError = error ?? redirectError;
 
   async function sendMagicLink() {
     setError(null);
@@ -90,9 +108,9 @@ export default function LoginCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && (
+        {displayError && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
+            {displayError}
           </div>
         )}
         {info && (

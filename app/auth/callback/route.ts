@@ -4,6 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const error = requestUrl.searchParams.get("error");
+  const errorDescription = requestUrl.searchParams.get("error_description");
   const next = requestUrl.searchParams.get("next") || "/";
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,24 +14,45 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/login?error=missing_supabase`, requestUrl.origin));
   }
 
-  const response = NextResponse.redirect(new URL(next, requestUrl.origin));
+  // Supabase/Google sent an error (e.g. redirect_uri_mismatch, access_denied)
+  if (error) {
+    const loginUrl = new URL("/login", requestUrl.origin);
+    loginUrl.searchParams.set("error", "oauth_failed");
+    loginUrl.searchParams.set("message", errorDescription || error);
+    loginUrl.searchParams.set("next", next);
+    return NextResponse.redirect(loginUrl);
+  }
 
-  if (code) {
-    const supabase = createServerClient(url, anonKey, {
-      cookies: {
-        getAll() {
-          // Cookies not needed from Request in this callback.
-          return [];
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
-        },
+  if (!code) {
+    const loginUrl = new URL("/login", requestUrl.origin);
+    loginUrl.searchParams.set("error", "oauth_no_code");
+    loginUrl.searchParams.set("next", next);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const redirectTo = new URL(next, requestUrl.origin);
+  const response = NextResponse.redirect(redirectTo);
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    });
+      setAll(cookiesToSet) {
+        for (const { name, value, options } of cookiesToSet) {
+          response.cookies.set(name, value, options);
+        }
+      },
+    },
+  });
 
-    await supabase.auth.exchangeCodeForSession(code);
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) {
+    const loginUrl = new URL("/login", requestUrl.origin);
+    loginUrl.searchParams.set("error", "session_exchange_failed");
+    loginUrl.searchParams.set("message", exchangeError.message);
+    loginUrl.searchParams.set("next", next);
+    return NextResponse.redirect(loginUrl);
   }
 
   return response;

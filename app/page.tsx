@@ -741,6 +741,9 @@ export default function AIPPortalPage() {
       }
 
       // Fire-and-forget search analytics (per-user, Supabase-backed)
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[search/log] sending", { query: q, resultCount: newResults.length });
+      }
       fetch("/api/search/log", {
         method: "POST",
         credentials: "include",
@@ -756,13 +759,15 @@ export default function AIPPortalPage() {
               return { raw: text };
             }
           })();
-          if (!res.ok) {
-            console.warn("[search/log]", res.status, data);
-          } else if (process.env.NODE_ENV === "development") {
-            console.warn("[search/log]", res.status, data.logged !== undefined ? { logged: data.logged } : data);
+          if (typeof console !== "undefined" && console.warn) {
+            console.warn("[search/log] response", res.status, data);
           }
         })
-        .catch((err) => console.warn("[search/log] fetch failed", err));
+        .catch((err) => {
+          if (typeof console !== "undefined" && console.warn) {
+            console.warn("[search/log] fetch failed", err);
+          }
+        });
     } catch {
       setError("Connection error. Please try again.");
     } finally {

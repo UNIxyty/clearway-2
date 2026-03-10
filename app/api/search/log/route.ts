@@ -23,6 +23,12 @@ export async function POST(request: Request) {
     }
 
     const requestCookies = parseCookieHeader(request.headers.get("cookie"));
+    if (requestCookies.length === 0) {
+      return NextResponse.json(
+        { error: "Unauthorized", detail: "No cookies in request (session not sent)" },
+        { status: 401 },
+      );
+    }
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
@@ -39,7 +45,10 @@ export async function POST(request: Request) {
       error: userErr,
     } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized", detail: userErr?.message }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized", detail: userErr?.message ?? "getUser failed" },
+        { status: 401 },
+      );
     }
 
     const body = (await request.json().catch(() => ({}))) as {

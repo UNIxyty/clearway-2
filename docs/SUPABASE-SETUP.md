@@ -20,4 +20,12 @@ That creates:
 
 After this, `/stats` will load and search events will be stored when users search.
 
-**If searches still don’t save:** Run the SQL above if you haven’t. In development, run a search and check the browser console for `[search/log] 401` (session not sent or invalid) or `[search/log] 500` (table missing or RLS; read the message).
+**If searches still don’t save:**
+
+1. Run the SQL above in Supabase if you haven’t.
+2. Open **DevTools → Console** (enable “Warnings” or “All levels”). Run a search. You should see:
+   - `[search/log] sending { query: "...", resultCount: N }` — the log request is being sent.
+   - `[search/log] response 200 { logged: true }` — row was inserted.
+   - `[search/log] response 401 { detail: "..." }` — no session (e.g. “No cookies in request” = cookies not sent).
+   - `[search/log] response 500 { error: "..." }` — table/RLS or other server error.
+3. In **DevTools → Network**, filter by “log” or find the request to `/api/search/log` and check **Status** and **Response**.

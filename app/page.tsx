@@ -747,12 +747,22 @@ export default function AIPPortalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, resultCount: newResults.length, source: "search" }),
       })
-        .then((res) => {
-          if (!res.ok && process.env.NODE_ENV === "development") {
-            res.text().then((t) => console.warn("[search/log]", res.status, t));
+        .then(async (res) => {
+          const text = await res.text();
+          const data = (() => {
+            try {
+              return JSON.parse(text);
+            } catch {
+              return { raw: text };
+            }
+          })();
+          if (!res.ok) {
+            console.warn("[search/log]", res.status, data);
+          } else if (process.env.NODE_ENV === "development") {
+            console.warn("[search/log]", res.status, data.logged !== undefined ? { logged: data.logged } : data);
           }
         })
-        .catch(() => {});
+        .catch((err) => console.warn("[search/log] fetch failed", err));
     } catch {
       setError("Connection error. Please try again.");
     } finally {

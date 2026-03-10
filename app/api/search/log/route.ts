@@ -1,15 +1,45 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+
+/** Parse Cookie header into { name, value }[] for Supabase */
+function parseCookieHeader(cookieHeader: string | null): { name: string; value: string }[] {
+  if (!cookieHeader?.trim()) return [];
+  return cookieHeader.split(";").map((part) => {
+    const eq = part.trim().indexOf("=");
+    if (eq <= 0) return { name: part.trim(), value: "" };
+    return {
+      name: part.slice(0, eq).trim(),
+      value: part.slice(eq + 1).trim(),
+    };
+  });
+}
 
 export async function POST(request: Request) {
   try {
-    const supabase = createSupabaseServerClient();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) {
+      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+    }
+
+    const requestCookies = parseCookieHeader(request.headers.get("cookie"));
+    const supabase = createServerClient(url, anonKey, {
+      cookies: {
+        getAll() {
+          return requestCookies;
+        },
+        setAll() {
+          // No-op: we only need to read session for this route
+        },
+      },
+    });
+
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
     if (userErr || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized", detail: userErr?.message }, { status: 401 });
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -19,7 +49,7 @@ export async function POST(request: Request) {
     };
     const query = (body.query ?? "").trim();
     if (!query) {
-      return NextResponse.json({ ok: true }, { status: 200 });
+      return NextResponse.json({ ok: true, logged: false }, { status: 200 });
     }
 
     const { error } = await supabase.from("search_events").insert({
@@ -31,7 +61,7 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true, logged: true }, { status: 200 });
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
   }

@@ -19,3 +19,5 @@ That creates:
 - RLS so users can only insert and read their own rows.
 
 After this, `/stats` will load and search events will be stored when users search.
+
+**If searches still don’t save:** Run the SQL above if you haven’t. In development, run a search and check the browser console for `[search/log] 401` (session not sent or invalid) or `[search/log] 500` (table missing or RLS; read the message).

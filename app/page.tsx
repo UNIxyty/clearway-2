@@ -743,9 +743,16 @@ export default function AIPPortalPage() {
       // Fire-and-forget search analytics (per-user, Supabase-backed)
       fetch("/api/search/log", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, resultCount: newResults.length, source: "search" }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok && process.env.NODE_ENV === "development") {
+            res.text().then((t) => console.warn("[search/log]", res.status, t));
+          }
+        })
+        .catch(() => {});
     } catch {
       setError("Connection error. Please try again.");
     } finally {

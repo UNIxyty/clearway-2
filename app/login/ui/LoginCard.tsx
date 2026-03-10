@@ -1,20 +1,20 @@
-\"use client\";
+"use client";
 
-import { useMemo, useState } from \"react\";
-import { useSearchParams } from \"next/navigation\";
-import { createSupabaseBrowserClient } from \"@/lib/supabase/client\";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from \"@/components/ui/card\";
-import { Input } from \"@/components/ui/input\";
-import { Button } from \"@/components/ui/button\";
-import { Label } from \"@/components/ui/label\";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export default function LoginCard() {
   const searchParams = useSearchParams();
-  const next = searchParams.get(\"next\") || \"/\";
+  const next = searchParams.get("next") || "/";
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const [email, setEmail] = useState(\"\");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -32,9 +32,9 @@ export default function LoginCard() {
         },
       });
       if (otpErr) throw otpErr;
-      setInfo(\"We sent you a sign-in link. Open your email and click the link to finish signing in.\");
+      setInfo("We sent you a sign-in link. Open your email and click the link to finish signing in.");
     } catch (e: unknown) {
-      setError((e as { message?: string })?.message || \"Failed to send sign-in link.\");
+      setError((e as { message?: string })?.message || "Failed to send sign-in link.");
     } finally {
       setLoading(false);
     }
@@ -46,7 +46,7 @@ export default function LoginCard() {
     setLoading(true);
     try {
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-        provider: \"google\",
+        provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
@@ -54,7 +54,7 @@ export default function LoginCard() {
       if (oauthErr) throw oauthErr;
       // Supabase will redirect; we keep the button in loading state until navigation.
     } catch (e: unknown) {
-      setError((e as { message?: string })?.message || \"Failed to start Google sign-in.\");
+      setError((e as { message?: string })?.message || "Failed to start Google sign-in.");
       setLoading(false);
     }
   }

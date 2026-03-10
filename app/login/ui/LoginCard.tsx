@@ -44,10 +44,14 @@ export default function LoginCard() {
         "We sent you a sign-in link. Open your email and click the link to finish signing in.",
       );
     } catch (e: unknown) {
-      setError(
-        (e as { message?: string })?.message ||
-          "Failed to send sign-in link.",
-      );
+      const msg = (e as { message?: string })?.message ?? "";
+      if (msg.includes("429") || /rate limit|too many requests/i.test(msg)) {
+        setError(
+          "Too many sign-in emails. Wait a few minutes or sign in with Google instead.",
+        );
+      } else {
+        setError(msg || "Failed to send sign-in link.");
+      }
     } finally {
       setLoading(false);
     }

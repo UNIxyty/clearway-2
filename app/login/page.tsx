@@ -1,5 +1,8 @@
 import LoginCard from "./ui/LoginCard";
 
+// This page uses useSearchParams() in a client component; force dynamic rendering
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">

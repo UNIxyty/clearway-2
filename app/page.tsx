@@ -17,6 +17,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
+import UserBadge from "@/components/UserBadge";
 
 export type NotamItem = {
   location: string;
@@ -738,6 +739,13 @@ export default function AIPPortalPage() {
       if (newResults.length > 0) {
         setSelectedIcao(newResults[0].icao);
       }
+
+      // Fire-and-forget search analytics (per-user, Supabase-backed)
+      fetch("/api/search/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q, resultCount: newResults.length, source: "search" }),
+      }).catch(() => {});
     } catch {
       setError("Connection error. Please try again.");
     } finally {
@@ -755,6 +763,15 @@ export default function AIPPortalPage() {
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
       <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
+        <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Clearway</p>
+              <p className="text-sm text-muted-foreground">AIP Data Portal</p>
+            </div>
+            <UserBadge />
+          </div>
+        </div>
         <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
           {/* Map and NOTAMs — right side (order-2) */}
           {showMap && viewingAirport && (

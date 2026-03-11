@@ -31,28 +31,16 @@ export default function LoginPage() {
               </g>
             </svg>
             <div className="h-6 w-px bg-border/70" />
-            <svg
-              viewBox="0 0 320 64"
-              className="hidden"
-            >
-              <title>Verxyl</title>
-              <text
-                x="0"
-                y="46"
-                fill="currentColor"
-                fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
-                fontSize="40"
-                fontWeight="700"
-                letterSpacing="2"
-              >
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="Verxyl"
+                className="hidden sm:block h-7 w-auto opacity-90"
+              />
+              <span className="text-xs font-semibold tracking-[0.35em] uppercase text-foreground/80">
                 VERXYL
-              </text>
-            </svg>
-            <img
-              src="/logo.png"
-              alt="Verxyl"
-              className="h-7 w-auto opacity-90"
-            />
+              </span>
+            </div>
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">

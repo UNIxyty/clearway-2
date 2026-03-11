@@ -8,8 +8,19 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-primary/10 border border-primary/20">
-            <span className="font-semibold text-primary">CW</span>
+          <div className="flex items-center justify-center gap-3">
+            <img
+              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg"
+              alt="Clearway"
+              className="h-8 w-auto"
+              style={{ filter: "invert(1)" }}
+            />
+            <div className="h-6 w-px bg-border/70" />
+            <img
+              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
+              alt="Verxyl"
+              className="h-7 w-auto opacity-90"
+            />
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">

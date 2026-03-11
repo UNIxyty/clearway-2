@@ -1,18 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-
-/** Parse Cookie header into { name, value }[] for Supabase */
-function parseCookieHeader(cookieHeader: string | null): { name: string; value: string }[] {
-  if (!cookieHeader?.trim()) return [];
-  return cookieHeader.split(";").map((part) => {
-    const eq = part.trim().indexOf("=");
-    if (eq <= 0) return { name: part.trim(), value: "" };
-    return {
-      name: part.slice(0, eq).trim(),
-      value: part.slice(eq + 1).trim(),
-    };
-  });
-}
 
 export async function POST(request: Request) {
   try {
@@ -22,17 +10,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
     }
 
-    const requestCookies = parseCookieHeader(request.headers.get("cookie"));
-    if (requestCookies.length === 0) {
-      return NextResponse.json(
-        { error: "Unauthorized", detail: "No cookies in request (session not sent)" },
-        { status: 401 },
-      );
-    }
+    const cookieStore = cookies();
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
-          return requestCookies;
+          return cookieStore.getAll();
         },
         setAll() {
           // No-op: we only need to read session for this route

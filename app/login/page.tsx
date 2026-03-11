@@ -33,9 +33,7 @@ export default function LoginPage() {
             <div className="h-6 w-px bg-border/70" />
             <svg
               viewBox="0 0 320 64"
-              className="h-7 w-auto text-foreground/80"
-              aria-label="Verxyl"
-              role="img"
+              className="hidden"
             >
               <title>Verxyl</title>
               <text
@@ -50,6 +48,11 @@ export default function LoginPage() {
                 VERXYL
               </text>
             </svg>
+            <img
+              src="/logo.png"
+              alt="Verxyl"
+              className="h-7 w-auto opacity-90"
+            />
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">

@@ -1226,6 +1226,17 @@ export default function AIPPortalPage() {
                                   setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);
                                   setHasSearched(true);
+
+                                  // Log browse as search event
+                                  const query = browseSelectedCountry === "United States of America" && browseSelectedState
+                                    ? `${browseSelectedCountry} → ${browseSelectedState}`
+                                    : browseSelectedCountry;
+                                  fetch("/api/search/log", {
+                                    method: "POST",
+                                    credentials: "include",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ query, resultCount: browseSelection.length, source: "browse" }),
+                                  }).catch(() => {});
                                 });
                               }
                             }}

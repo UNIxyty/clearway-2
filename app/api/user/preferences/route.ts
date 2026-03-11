@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     // Build update object with only provided fields
     const updates: {
       user_id: string;
-      display_name?: string;
+      display_name?: string | null;
       aip_model?: string;
       gen_model?: string;
     } = {

@@ -1,19 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserIcon, SettingsIcon, BarChartIcon, LogOutIcon } from "lucide-react";
 
 export default function UserBadge() {
+  const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [email, setEmail] = useState<string | null>(null);
-  const [id, setId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setEmail(data.user?.email ?? null);
-      setId(data.user?.id ?? null);
     });
+
+    fetch("/api/user/preferences")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.preferences?.display_name) {
+          setDisplayName(data.preferences.display_name);
+        }
+      })
+      .catch(() => {});
   }, [supabase]);
 
   async function signOut() {
@@ -21,19 +39,53 @@ export default function UserBadge() {
     window.location.href = "/login";
   }
 
+  const displayText = displayName || email || "User";
+
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      <div className="rounded-lg border border-border/70 bg-card/70 px-3 py-2">
-        <div className="text-xs text-muted-foreground">Signed in</div>
-        <div className="text-sm font-medium leading-5">{email ?? "—"}</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">
-          ID <span className="font-mono">{id ?? "—"}</span>
-        </div>
-      </div>
-      <Button type="button" variant="outline" onClick={signOut} className="h-10">
-        Sign out
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/70 px-3 py-2 hover:bg-card/90 transition-colors"
+        >
+          <div className="flex items-center justify-center size-7 rounded-full bg-primary/10 border border-primary/20">
+            <UserIcon className="size-4 text-primary" />
+          </div>
+          <div className="text-left">
+            <div className="text-sm font-medium leading-tight">{displayText}</div>
+            <div className="text-xs text-muted-foreground">Account</div>
+          </div>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{displayText}</p>
+            {displayName && email && (
+              <p className="text-xs leading-none text-muted-foreground">{email}</p>
+            )}
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push("/profile")}>
+          <UserIcon className="mr-2 size-4" />
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings")}>
+          <SettingsIcon className="mr-2 size-4" />
+          AI Model Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/stats")}>
+          <BarChartIcon className="mr-2 size-4" />
+          Stats
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={signOut}>
+          <LogOutIcon className="mr-2 size-4" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

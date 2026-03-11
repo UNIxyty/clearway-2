@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
@@ -87,7 +89,41 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
+  // Read user's AIP model preference
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let userAipModel = "gpt-4.1-mini";
+  
+  if (url && anonKey) {
+    try {
+      const cookieStore = cookies();
+      const supabase = createServerClient(url, anonKey, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll() {},
+        },
+      });
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prefs } = await supabase
+          .from("user_preferences")
+          .select("aip_model")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (prefs?.aip_model) {
+          userAipModel = prefs.aip_model;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to read user AIP model pref:", e);
+    }
+  }
+
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(userAipModel)}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 

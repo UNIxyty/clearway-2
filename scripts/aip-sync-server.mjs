@@ -61,9 +61,10 @@ async function runDownload(icao) {
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
 }
 
-async function runExtract(useAi = true) {
+async function runExtract(useAi = true, model = null) {
   const script = useAi ? EXTRACT_SCRIPT_AI : EXTRACT_SCRIPT_REGEX;
-  await run("node", [script]);
+  const env = model ? { OPENAI_MODEL: model } : {};
+  await run("node", [script], env);
 }
 
 function readExtracted() {
@@ -201,9 +202,9 @@ function splitGenIntoThreeParts(fullText) {
 }
 
 /** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. OPENAI_MODEL: see docs/OPENAI-MODELS-GEN.md (e.g. gpt-5.4, gpt-5-mini, gpt-4.1, gpt-4o-mini). */
-async function rewriteGenWithAI(rawText, apiKey) {
+async function rewriteGenWithAI(rawText, apiKey, modelOverride = null) {
   if (!rawText || !rawText.trim()) return "";
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const model = modelOverride || process.env.OPENAI_MODEL || "gpt-4o-mini";
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -269,6 +270,7 @@ const server = createServer(async (req, res) => {
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
   const useAi = url.searchParams.get("extract") !== "regex";
+  const modelOverride = url.searchParams.get("model")?.trim() || null;
 
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
@@ -306,9 +308,9 @@ const server = createServer(async (req, res) => {
         const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
         if (stream) send({ step: GEN_STEPS[2] });
         const apiKey = process.env.OPENAI_API_KEY;
-        const generalRewritten = generalRaw && apiKey ? await rewriteGenWithAI(generalRaw, apiKey) : generalRaw;
-        const nonSchedRewritten = nonSchedRaw && apiKey ? await rewriteGenWithAI(nonSchedRaw, apiKey) : nonSchedRaw;
-        const privateRewritten = privateRaw && apiKey ? await rewriteGenWithAI(privateRaw, apiKey) : privateRaw;
+        const generalRewritten = generalRaw && apiKey ? await rewriteGenWithAI(generalRaw, apiKey, modelOverride) : generalRaw;
+        const nonSchedRewritten = nonSchedRaw && apiKey ? await rewriteGenWithAI(nonSchedRaw, apiKey, modelOverride) : nonSchedRaw;
+        const privateRewritten = privateRaw && apiKey ? await rewriteGenWithAI(privateRaw, apiKey, modelOverride) : privateRaw;
         if (process.env.AWS_S3_BUCKET) {
           if (stream) send({ step: GEN_STEPS[3] });
           await uploadGenToS3(prefix, {
@@ -380,7 +382,7 @@ const server = createServer(async (req, res) => {
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
     send({ step: AIP_STEPS[2] });
-    await runExtract(useAi);
+    await runExtract(useAi, modelOverride);
     const data = readExtracted();
     send({ step: AIP_STEPS[3] });
     if (process.env.AWS_S3_BUCKET) {

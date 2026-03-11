@@ -18,6 +18,7 @@ import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarnin
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
+import { FirstLoginModelPicker } from "@/components/FirstLoginModelPicker";
 
 export type NotamItem = {
   location: string;
@@ -212,6 +213,8 @@ function AIPResultCard({
 type RegionEntry = { region: string; countries: string[] };
 
 export default function AIPPortalPage() {
+  const [showFirstLoginPicker, setShowFirstLoginPicker] = useState(false);
+  const [checkingPrefs, setCheckingPrefs] = useState(true);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
@@ -295,6 +298,20 @@ export default function AIPPortalPage() {
       .then((res) => res.json())
       .then((data) => setRegions(data.regions ?? []))
       .catch(() => setRegions([]));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/user/preferences")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.preferences) {
+          setShowFirstLoginPicker(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setCheckingPrefs(false);
+      });
   }, []);
 
   const countriesInRegion = useMemo(() => {
@@ -781,6 +798,24 @@ export default function AIPPortalPage() {
   };
 
   const showMap = !!(results?.length && viewingAirport);
+
+  if (checkingPrefs) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100">
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      </div>
+    );
+  }
+
+  if (showFirstLoginPicker) {
+    return (
+      <FirstLoginModelPicker
+        onComplete={() => {
+          setShowFirstLoginPicker(false);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">

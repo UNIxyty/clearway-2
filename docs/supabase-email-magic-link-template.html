@@ -1,0 +1,118 @@
+<!-- Supabase Email template (Magic Link) -->
+<!-- Paste into Supabase Dashboard → Authentication → Email Templates → Magic Link -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sign in to Clearway</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      background: #f6f7fb;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+    "
+  >
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent">
+      Your sign-in link for Clearway.
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background: #f6f7fb; padding: 32px 12px">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px">
+            <tr>
+              <td style="padding: 0 8px 14px 8px">
+                <!-- Clearway logo (inverted; may not render in all email clients) -->
+                <img
+                  src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg"
+                  width="170"
+                  height="auto"
+                  alt="Clearway"
+                  style="display: block; border: 0; outline: none; text-decoration: none; filter: invert(1); -webkit-filter: invert(1)"
+                />
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  background: #ffffff;
+                  border: 1px solid #e6e8ef;
+                  border-radius: 16px;
+                  padding: 24px 22px;
+                  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+                "
+              >
+                <h1 style="margin: 0 0 8px 0; font-size: 18px; line-height: 1.3">Sign in to Clearway</h1>
+
+                <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.55; color: #334155">
+                  Click the button below to securely sign in. This link can only be used once and will expire shortly.
+                </p>
+
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 18px 0 18px 0">
+                  <tr>
+                    <td>
+                      <a
+                        href="{{ .ConfirmationURL }}"
+                        style="
+                          display: inline-block;
+                          background: #111827;
+                          color: #ffffff;
+                          text-decoration: none;
+                          font-weight: 600;
+                          font-size: 14px;
+                          padding: 12px 16px;
+                          border-radius: 10px;
+                        "
+                      >
+                        Sign in
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.55; color: #64748b">
+                  If the button doesn’t work, use this link:
+                </p>
+
+                <p style="margin: 0; font-size: 12px; line-height: 1.55">
+                  <a href="{{ .ConfirmationURL }}" style="color: #2563eb; text-decoration: underline">Log in to Clearway</a>
+                </p>
+
+                <hr style="border: 0; border-top: 1px solid #eef2f7; margin: 18px 0" />
+
+                <p style="margin: 0; font-size: 12px; line-height: 1.55; color: #64748b">
+                  If you didn’t request this email, you can safely ignore it.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding: 14px 8px 0 8px">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="font-size: 11px; line-height: 1.6; color: #94a3b8">Clearway</td>
+                    <td align="right">
+                      <!-- Verxyl logo (wider) -->
+                      <img
+                        src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
+                        width="120"
+                        height="auto"
+                        alt="Verxyl"
+                        style="display: block; border: 0; outline: none; text-decoration: none; opacity: 0.9"
+                      />
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+

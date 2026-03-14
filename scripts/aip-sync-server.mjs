@@ -170,6 +170,25 @@ async function runGenDownload(prefix) {
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", GEN_SCRIPT, prefix]);
 }
 
+async function uploadGenPdfToS3(prefix) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket) return;
+  const pdfPath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.pdf`);
+  if (!existsSync(pdfPath)) return;
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  const body = readFileSync(pdfPath);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
+      Body: body,
+      ContentType: "application/pdf",
+    })
+  );
+}
+
 function readGenText(prefix) {
   const txtPath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.txt`);
   if (!existsSync(txtPath)) return null;
@@ -314,6 +333,7 @@ const server = createServer(async (req, res) => {
     }
     try {
       await runGenDownload(prefix);
+      if (process.env.AWS_S3_BUCKET) await uploadGenPdfToS3(prefix);
       if (stream) send({ step: GEN_STEPS[1] });
       const raw = readGenText(prefix);
       if (raw) {

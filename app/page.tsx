@@ -247,6 +247,8 @@ export default function AIPPortalPage() {
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
+  const [genPdfDownloading, setGenPdfDownloading] = useState(false);
   type GenPart = { raw: string; rewritten: string };
   const emptyGenPart = (): GenPart => ({ raw: "", rewritten: "" });
   const [genCache, setGenCache] = useState<Record<string, { general: GenPart; nonScheduled: GenPart; privateFlights: GenPart; updatedAt: string | null }>>({});
@@ -267,6 +269,7 @@ export default function AIPPortalPage() {
 
   useEffect(() => {
     setPdfDownloadError(null);
+    setGenPdfDownloadError(null);
   }, [viewingAirport?.icao]);
 
   const cachedNotams = viewingAirport ? notamsCache[viewingAirport.icao] : null;
@@ -1548,23 +1551,35 @@ export default function AIPPortalPage() {
                       variant="ghost"
                       size="sm"
                       className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={!genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.raw && !genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.rewritten}
-                      title={genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.raw ? "Download GEN data as JSON" : "Sync GEN first to download"}
-                      onClick={() => {
+                      disabled={genPdfDownloading || !genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.updatedAt}
+                      title={genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.updatedAt ? "Download GEN 1.2 PDF" : "Sync GEN first to download the PDF"}
+                      onClick={async () => {
                         const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
-                        const gen = genCache[prefix];
-                        if (!gen) return;
-                        const blob = new Blob([JSON.stringify(gen, null, 2)], { type: "application/json" });
-                        const blobUrl = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = blobUrl;
-                        a.download = `${prefix}_GEN.json`;
-                        a.click();
-                        URL.revokeObjectURL(blobUrl);
+                        setGenPdfDownloadError(null);
+                        setGenPdfDownloading(true);
+                        try {
+                          const res = await fetch(`/api/aip/gen/pdf?prefix=${encodeURIComponent(prefix)}`);
+                          if (!res.ok) {
+                            const data = await res.json().catch(() => ({}));
+                            setGenPdfDownloadError(data.detail || data.error || "Failed to load GEN PDF");
+                            return;
+                          }
+                          const blob = await res.blob();
+                          const blobUrl = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = blobUrl;
+                          a.download = `${prefix}_GEN_1.2.pdf`;
+                          a.click();
+                          URL.revokeObjectURL(blobUrl);
+                        } catch (err) {
+                          setGenPdfDownloadError(err instanceof Error ? err.message : "Failed to load GEN PDF");
+                        } finally {
+                          setGenPdfDownloading(false);
+                        }
                       }}
                     >
-                      <Download className="size-4 shrink-0" />
-                      <span className="text-xs hidden sm:inline">Download</span>
+                      <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
+                      <span className="text-xs hidden sm:inline">Download PDF</span>
                     </Button>
                     <Button
                       type="button"
@@ -1581,6 +1596,9 @@ export default function AIPPortalPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
+                  {genPdfDownloadError && (
+                    <p className="text-sm text-destructive mb-2">{genPdfDownloadError}</p>
+                  )}
                   {genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
                     <div className="flex flex-col gap-3 py-4 animate-fade-in">
                       {genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (

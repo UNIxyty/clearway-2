@@ -44,7 +44,7 @@ export function ModelPicker({
   const [showConsent, setShowConsent] = useState(false);
   const [pendingModel, setPendingModel] = useState<string | null>(null);
 
-  const { openai, anthropic } = getModelsByProvider();
+  const { openai, anthropic, google } = getModelsByProvider();
   const selectedModel = getModel(value);
 
   const handleChange = (modelId: string) => {
@@ -107,6 +107,17 @@ export function ModelPicker({
           <SelectGroup>
             <SelectLabel>Anthropic (OpenRouter)</SelectLabel>
             {anthropic.map((model) => (
+              <SelectItem key={model.id} value={model.id}>
+                <span className="flex items-center">
+                  {model.name}
+                  {model.expensive && <ExpensiveBadge />}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+          <SelectGroup>
+            <SelectLabel>Google (OpenRouter)</SelectLabel>
+            {google.map((model) => (
               <SelectItem key={model.id} value={model.id}>
                 <span className="flex items-center">
                   {model.name}

@@ -89,10 +89,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Read user's AIP model preference
+  // Read user's AIP model preference (no default — user must choose in Settings)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let userAipModel = "gpt-4.1-mini";
+  let userAipModel: string | null = null;
   
   if (url && anonKey) {
     try {
@@ -121,6 +121,13 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       console.error("Failed to read user AIP model pref:", e);
     }
+  }
+
+  if (!userAipModel) {
+    return NextResponse.json(
+      { error: "No AI model selected", detail: "Go to Settings and choose an AIP model before syncing." },
+      { status: 400 }
+    );
   }
 
   const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(userAipModel)}`;

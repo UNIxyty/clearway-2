@@ -197,60 +197,80 @@ async function main() {
     await page.waitForTimeout(400);
 
     // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
-    // Base: ES_AD_2_ESGG_en.pdf. Reject variation: ES_AD_2_ESGG_4_en.pdf. Match heading flexibly (spacing/format).
-    const table = page.locator('#mainForm\\:searchResults_data');
-    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-
-    const rows = page.locator('#mainForm\\:searchResults_data tr');
-    const rowCount = await rows.count();
+    // Paginate through results if not found on the first page (up to MAX_PAGES).
+    const MAX_PAGES = 10;
     const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
-    // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading
+    const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
     const docHeadingCol = 4;
     const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
     const isAd2Row = (s) => {
       const n = headingNorm(s);
       return n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao));
     };
-    let pdfLink = null;
-    let fallbackLink = null;
-    for (let i = 0; i < rowCount; i++) {
-      const cells = rows.nth(i).locator('td');
-      const cellCount = await cells.count();
-      if (cellCount <= docHeadingCol) continue;
-      const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
-      if (!isAd2Row(docHeading)) continue;
-      const link = rows.nth(i).locator('a.wrap-data').first();
-      if ((await link.count()) === 0) continue;
-      const linkText = await link.textContent().catch(() => '') || '';
-      if (variationRe.test(linkText)) {
-        if (!fallbackLink) fallbackLink = link;
-        continue;
-      }
-      pdfLink = link;
-      break;
-    }
 
-    if (!pdfLink || (await pdfLink.count()) === 0) {
-      // Fallback: pick by filename (any row with _AD_2_<ICAO> in link; prefer base over variation)
-      const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
+    async function scanCurrentPage() {
+      const rows = page.locator('#mainForm\\:searchResults_data tr');
+      const rowCount = await rows.count();
+      let found = null;
+      let fallback = null;
       for (let i = 0; i < rowCount; i++) {
+        const cells = rows.nth(i).locator('td');
+        const cellCount = await cells.count();
+        if (cellCount <= docHeadingCol) continue;
+        const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
+        if (!isAd2Row(docHeading)) continue;
         const link = rows.nth(i).locator('a.wrap-data').first();
         if ((await link.count()) === 0) continue;
         const linkText = await link.textContent().catch(() => '') || '';
-        if (!ad2LinkRe.test(linkText)) continue;
         if (variationRe.test(linkText)) {
-          if (!fallbackLink) fallbackLink = link;
+          if (!fallback) fallback = link;
           continue;
         }
-        pdfLink = link;
+        found = link;
         break;
       }
-      if (!pdfLink || (await pdfLink.count()) === 0) {
-        pdfLink = fallbackLink || page.locator('#mainForm\\:searchResults_data tr').first().locator('a.wrap-data').first();
-        if (fallbackLink) log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
-        else log('No row with AD 2 ' + icao + ' link; using first result row.');
+      if (!found) {
+        for (let i = 0; i < rowCount; i++) {
+          const link = rows.nth(i).locator('a.wrap-data').first();
+          if ((await link.count()) === 0) continue;
+          const linkText = await link.textContent().catch(() => '') || '';
+          if (!ad2LinkRe.test(linkText)) continue;
+          if (variationRe.test(linkText)) {
+            if (!fallback) fallback = link;
+            continue;
+          }
+          found = link;
+          break;
+        }
+      }
+      return { found, fallback };
+    }
+
+    const table = page.locator('#mainForm\\:searchResults_data');
+    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
+    let pdfLink = null;
+    let fallbackLink = null;
+
+    for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
+      const { found, fallback } = await scanCurrentPage();
+      if (found) { pdfLink = found; break; }
+      if (fallback && !fallbackLink) fallbackLink = fallback;
+
+      const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
+      if ((await nextBtn.count()) === 0) break;
+      log(`AD 2 ${icao} not on page ${pageNum + 1}, going to next page…`);
+      await nextBtn.click();
+      await page.waitForTimeout(800);
+      await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    }
+
+    if (!pdfLink || (await pdfLink.count()) === 0) {
+      if (fallbackLink) {
+        pdfLink = fallbackLink;
+        log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
       } else {
-        log('Using base AIP file (no variation number).');
+        throw new Error(`AD 2 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
       }
     } else {
       log('Using base AIP file (no variation number).');

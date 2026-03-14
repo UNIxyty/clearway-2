@@ -63,7 +63,13 @@ async function runDownload(icao) {
 
 async function runExtract(useAi = true, model = null) {
   const script = useAi ? EXTRACT_SCRIPT_AI : EXTRACT_SCRIPT_REGEX;
-  const env = model ? { OPENAI_MODEL: model } : {};
+  const env = {};
+  if (model) {
+    env.OPENAI_MODEL = model;
+    if (model.includes("/") && process.env.OPENROUTER_API_KEY) {
+      env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    }
+  }
   await run("node", [script], env);
 }
 
@@ -201,11 +207,17 @@ function splitGenIntoThreeParts(fullText) {
   return { general, nonScheduled, privateFlights };
 }
 
-/** Rewrite a single GEN section (GENERAL or Part 4) with OpenAI. OPENAI_MODEL: see docs/OPENAI-MODELS-GEN.md (e.g. gpt-5.4, gpt-5-mini, gpt-4.1, gpt-4o-mini). */
-async function rewriteGenWithAI(rawText, apiKey, modelOverride = null) {
+/** Rewrite a single GEN section with AI. Routes to OpenRouter for anthropic/ and google/ models. */
+async function rewriteGenWithAI(rawText, _unused, modelOverride = null) {
   if (!rawText || !rawText.trim()) return "";
   const model = modelOverride || process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const isOpenRouter = model.includes("/");
+  const apiUrl = isOpenRouter
+    ? "https://openrouter.ai/api/v1/chat/completions"
+    : "https://api.openai.com/v1/chat/completions";
+  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error(isOpenRouter ? "OPENROUTER_API_KEY not set on server" : "OPENAI_API_KEY not set on server");
+  const res = await fetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -227,7 +239,7 @@ async function rewriteGenWithAI(rawText, apiKey, modelOverride = null) {
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`OpenAI API ${res.status}: ${err}`);
+    throw new Error(`${isOpenRouter ? "OpenRouter" : "OpenAI"} API ${res.status}: ${err}`);
   }
   const data = await res.json();
   return (data.choices?.[0]?.message?.content ?? "").trim();
@@ -307,10 +319,10 @@ const server = createServer(async (req, res) => {
       if (raw) {
         const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
         if (stream) send({ step: GEN_STEPS[2] });
-        const apiKey = process.env.OPENAI_API_KEY;
-        const generalRewritten = generalRaw && apiKey ? await rewriteGenWithAI(generalRaw, apiKey, modelOverride) : generalRaw;
-        const nonSchedRewritten = nonSchedRaw && apiKey ? await rewriteGenWithAI(nonSchedRaw, apiKey, modelOverride) : nonSchedRaw;
-        const privateRewritten = privateRaw && apiKey ? await rewriteGenWithAI(privateRaw, apiKey, modelOverride) : privateRaw;
+        const hasKey = modelOverride?.includes("/") ? !!process.env.OPENROUTER_API_KEY : !!process.env.OPENAI_API_KEY;
+        const generalRewritten = generalRaw && hasKey ? await rewriteGenWithAI(generalRaw, null, modelOverride) : generalRaw;
+        const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteGenWithAI(nonSchedRaw, null, modelOverride) : nonSchedRaw;
+        const privateRewritten = privateRaw && hasKey ? await rewriteGenWithAI(privateRaw, null, modelOverride) : privateRaw;
         if (process.env.AWS_S3_BUCKET) {
           if (stream) send({ step: GEN_STEPS[3] });
           await uploadGenToS3(prefix, {

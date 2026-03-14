@@ -5,7 +5,7 @@
 export type ModelInfo = {
   id: string;
   name: string;
-  provider: "openai" | "anthropic";
+  provider: "openai" | "anthropic" | "google";
   inputPrice: number; // per 1M tokens
   outputPrice: number; // per 1M tokens
   speed: number; // 1-10 bar (10 = fastest)
@@ -139,6 +139,41 @@ export const MODELS: ModelInfo[] = [
     consistency: 10,
     expensive: false,
   },
+
+  // Google models (via OpenRouter)
+  {
+    id: "google/gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    provider: "google",
+    inputPrice: 1.25,
+    outputPrice: 10,
+    speed: 6,
+    thinking: 9,
+    consistency: 8,
+    expensive: true,
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "google",
+    inputPrice: 0.15,
+    outputPrice: 0.6,
+    speed: 9,
+    thinking: 7,
+    consistency: 7,
+    expensive: false,
+  },
+  {
+    id: "google/gemini-2.0-flash-001",
+    name: "Gemini 2.0 Flash",
+    provider: "google",
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+    speed: 10,
+    thinking: 6,
+    consistency: 6,
+    expensive: false,
+  },
 ];
 
 /**
@@ -154,10 +189,12 @@ export function getModel(modelId: string): ModelInfo | undefined {
 export function getModelsByProvider(): {
   openai: ModelInfo[];
   anthropic: ModelInfo[];
+  google: ModelInfo[];
 } {
   return {
     openai: MODELS.filter((m) => m.provider === "openai"),
     anthropic: MODELS.filter((m) => m.provider === "anthropic"),
+    google: MODELS.filter((m) => m.provider === "google"),
   };
 }
 

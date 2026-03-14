@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const GEN_PREFIX = "aip/gen";
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function s3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
@@ -94,6 +95,15 @@ export async function GET(request: NextRequest) {
       { general: emptyPart(), nonScheduled: emptyPart(), privateFlights: emptyPart(), updatedAt: null },
       { status: 200 }
     );
+  }
+  if (payload.updatedAt) {
+    const age = Date.now() - new Date(payload.updatedAt).getTime();
+    if (age >= CACHE_TTL_MS) {
+      return NextResponse.json(
+        { general: emptyPart(), nonScheduled: emptyPart(), privateFlights: emptyPart(), updatedAt: null, expired: true },
+        { status: 200 }
+      );
+    }
   }
   return NextResponse.json(payload);
 }

@@ -486,13 +486,6 @@ export default function AIPPortalPage() {
                     setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
                     setAipEadSyncSteps([]);
-                    const prefix = icao.slice(0, 2).toUpperCase();
-                    setGenCache((c) => {
-                      const next = { ...c };
-                      delete next[prefix];
-                      return next;
-                    });
-                    startGenSync(icao);
                     return;
                   } else if (data.error) {
                     setAipEadCache((c) => ({
@@ -565,7 +558,7 @@ export default function AIPPortalPage() {
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
-  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, startGenSync]);
+  }, [viewingAirport?.icao, aipEadSyncRequestedIcao]);
 
   // Fetch GEN (scraped GEN 1.2) when viewing an EAD airport. Cached by country prefix.
   useEffect(() => {
@@ -952,7 +945,7 @@ export default function AIPPortalPage() {
 
           {/* Center column: search + AIP data — left side (order-1) */}
           <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden lg:order-1" : "space-y-6 sm:space-y-8"}>
-            <header className="text-center space-y-1.5 sm:space-y-2 shrink-0 animate-fade-in-up">
+            <header className="text-center space-y-1.5 sm:space-y-2 shrink-0 animate-fade-in-up py-3 mb-2">
               <img
                 src="/header_logo_white.svg"
                 alt="Clearway"
@@ -1435,8 +1428,8 @@ export default function AIPPortalPage() {
                       variant="ghost"
                       size="sm"
                       className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={pdfDownloading}
-                      title="Download current AIP PDF (AD 2)"
+                      disabled={pdfDownloading || !aipEadCache[viewingAirport.icao]?.updatedAt}
+                      title={aipEadCache[viewingAirport.icao]?.updatedAt ? "Download current AIP PDF (AD 2)" : "Sync this airport first to download the PDF"}
                       onClick={async () => {
                         if (!viewingAirport?.icao) return;
                         setPdfDownloadError(null);
@@ -1549,7 +1542,30 @@ export default function AIPPortalPage() {
                       Country-level GEN 1.2 from EAD. Sync AIP above first, then sync GEN here.
                     </CardDescription>
                   </div>
-                  <div className="relative shrink-0 group">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 h-9 gap-1.5 px-2"
+                      disabled={!genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.raw && !genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.rewritten}
+                      title={genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.general?.raw ? "Download GEN data as JSON" : "Sync GEN first to download"}
+                      onClick={() => {
+                        const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
+                        const gen = genCache[prefix];
+                        if (!gen) return;
+                        const blob = new Blob([JSON.stringify(gen, null, 2)], { type: "application/json" });
+                        const blobUrl = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = blobUrl;
+                        a.download = `${prefix}_GEN.json`;
+                        a.click();
+                        URL.revokeObjectURL(blobUrl);
+                      }}
+                    >
+                      <Download className="size-4 shrink-0" />
+                      <span className="text-xs hidden sm:inline">Download</span>
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1562,27 +1578,33 @@ export default function AIPPortalPage() {
                       <RefreshCwIcon className={`size-4 shrink-0 ${genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? "animate-spin" : ""}`} />
                       <span className="text-xs hidden sm:inline">Sync</span>
                     </Button>
-                    {genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() && (
-                      <div className="absolute right-0 top-full z-50 mt-1 hidden group-hover:block w-64 rounded-lg border border-border/80 bg-popover shadow-md p-3">
-                        <p className="text-xs font-semibold text-foreground mb-2">GEN sync steps</p>
-                        {genSyncSteps.length > 0 ? (
-                          <ul className="space-y-1 list-disc pl-4 text-xs text-muted-foreground">
-                            {genSyncSteps.map((step, i) => (
-                              <li key={i}>{step}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Starting…</p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   {genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                      <Spinner className="size-4 shrink-0 text-primary" />
-                      <span>Loading GEN…</span>
+                    <div className="flex flex-col gap-3 py-4 animate-fade-in">
+                      {genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
+                        <div className="space-y-2 rounded-xl border-2 border-border/60 bg-muted/20 p-4">
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <span className="text-sm font-medium">Syncing GEN from server…</span>
+                          </div>
+                          {genSyncSteps.length > 0 ? (
+                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
+                              {genSyncSteps.map((step, i) => (
+                                <li key={i}>{step}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Starting… can take 1–2 min.</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Spinner className="size-4 shrink-0 text-primary" />
+                          <span>Loading GEN…</span>
+                        </div>
+                      )}
                     </div>
                   ) : (() => {
                     const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();

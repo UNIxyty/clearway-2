@@ -78,11 +78,16 @@ async function getTextFromPdf(pdfPath) {
   return result?.text ?? (result?.pages && result.pages.map((p) => p.text).join("\n")) ?? "";
 }
 
-async function extractWithAI(text, icaoHint, apiKey) {
+async function extractWithAI(text, icaoHint) {
   const trimmed = trimToRelevant(text);
-  // Default: gpt-4.1-mini. Override with OPENAI_MODEL (e.g. gpt-5.4, gpt-4.1).
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const isOpenRouter = model.includes("/");
+  const apiUrl = isOpenRouter
+    ? "https://openrouter.ai/api/v1/chat/completions"
+    : "https://api.openai.com/v1/chat/completions";
+  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error(isOpenRouter ? "OPENROUTER_API_KEY not set" : "OPENAI_API_KEY not set");
+  const res = await fetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -103,7 +108,7 @@ async function extractWithAI(text, icaoHint, apiKey) {
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`OpenAI API ${res.status}: ${err}`);
+    throw new Error(`${isOpenRouter ? "OpenRouter" : "OpenAI"} API ${res.status}: ${err}`);
   }
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content?.trim() || "";
@@ -117,9 +122,14 @@ async function extractWithAI(text, icaoHint, apiKey) {
 
 async function main() {
   const dir = process.argv[2] || DEFAULT_DIR;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const isOpenRouter = model.includes("/");
+  if (!isOpenRouter && !process.env.OPENAI_API_KEY) {
     console.error("Set OPENAI_API_KEY in .env or environment.");
+    process.exit(1);
+  }
+  if (isOpenRouter && !process.env.OPENROUTER_API_KEY) {
+    console.error("Set OPENROUTER_API_KEY in .env or environment (model is routed via OpenRouter).");
     process.exit(1);
   }
 
@@ -137,7 +147,7 @@ async function main() {
     const icaoHint = icaoMatch ? icaoMatch[1].toUpperCase() : f.slice(0, 4).toUpperCase();
     try {
       const text = await getTextFromPdf(path);
-      const rec = await extractWithAI(text, icaoHint, apiKey);
+      const rec = await extractWithAI(text, icaoHint);
       rec._source = f;
       records.push(rec);
       console.error("[EAD AI extract]", rec["Airport Code"], rec["Airport Name"] || "(no name)");

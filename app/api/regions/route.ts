@@ -54,7 +54,6 @@ const EAD_COUNTRY_TO_REGION: Record<string, string> = {
   "Slovakia (LZ)": "Europe",
   "Slovenia (LJ)": "Europe",
   "Spain (LE)": "Europe",
-  "Spain (GC)": "Europe",
   "Sweden (ES)": "Europe",
   "Switzerland (LS)": "Europe",
   "Turkey (LT)": "Europe",

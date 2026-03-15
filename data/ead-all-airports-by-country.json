@@ -1,0 +1,3394 @@
+{
+  "Albania (LA)": [
+    {
+      "icao": "LAKU",
+      "name": "Kukës International Airport"
+    },
+    {
+      "icao": "LATI",
+      "name": "Tirana International Airport Mother Teresa"
+    }
+  ],
+  "Armenia (UD)": [],
+  "Austria (LO)": [
+    {
+      "icao": "LOAA",
+      "name": "Ottenschlag Airfield"
+    },
+    {
+      "icao": "LOAB",
+      "name": "Dobersberg Airfield"
+    },
+    {
+      "icao": "LOAD",
+      "name": "Völtendorf Airfield"
+    },
+    {
+      "icao": "LOAN",
+      "name": "Wiener Neustadt East Airport"
+    },
+    {
+      "icao": "LOAR",
+      "name": "Altlichtenwarth Gliderfield"
+    },
+    {
+      "icao": "LOAT",
+      "name": "Wiener Neustadt Air Police Base"
+    },
+    {
+      "icao": "LOAV",
+      "name": "Vöslau-Kottingbrunn Airfield"
+    },
+    {
+      "icao": "LOBU",
+      "name": "LOBU (name unknown)"
+    },
+    {
+      "icao": "LODK",
+      "name": "LODK (name unknown)"
+    },
+    {
+      "icao": "LODO",
+      "name": "Oberwart ÖAMTC Heliport"
+    },
+    {
+      "icao": "LOGG",
+      "name": "Punitz-Güssing Airfield"
+    },
+    {
+      "icao": "LOGH",
+      "name": "Graz University Hospital Helipad"
+    },
+    {
+      "icao": "LOGO",
+      "name": "Niederöblarn Airfield"
+    },
+    {
+      "icao": "LOGP",
+      "name": "Pinkafeld Airfield"
+    },
+    {
+      "icao": "LOGZ",
+      "name": "Graz Children's Hospital Helipad"
+    },
+    {
+      "icao": "LOIH",
+      "name": "Hohenems-Dornbirn Airfield"
+    },
+    {
+      "icao": "LOIJ",
+      "name": "Sankt Johann Airfield"
+    },
+    {
+      "icao": "LOJD",
+      "name": "Dornbirn City Hospital Heliport"
+    },
+    {
+      "icao": "LOKG",
+      "name": "Ferlach-Glainach Airfield"
+    },
+    {
+      "icao": "LOKH",
+      "name": "Friesach/Hirt Airfield"
+    },
+    {
+      "icao": "LOKL",
+      "name": "Lienz-Nikolsdorf Airfield"
+    },
+    {
+      "icao": "LOKM",
+      "name": "Mayerhofen Airfield"
+    },
+    {
+      "icao": "LOKN",
+      "name": "Nötsch im Gailtal Airfield"
+    },
+    {
+      "icao": "LOKR",
+      "name": "Sankt Donat / Mairist Airfield"
+    },
+    {
+      "icao": "LOKW",
+      "name": "Wolfsberg Airfield"
+    },
+    {
+      "icao": "LOLC",
+      "name": "Scharnstein Airfield"
+    },
+    {
+      "icao": "LOLE",
+      "name": "Eferding Airfield"
+    },
+    {
+      "icao": "LOLF",
+      "name": "Freistadt Airfield"
+    },
+    {
+      "icao": "LOLG",
+      "name": "Sankt Georgen-Ybbsfeld Airfield"
+    },
+    {
+      "icao": "LOLH",
+      "name": "Hofkirchen Airfield"
+    },
+    {
+      "icao": "LOLI",
+      "name": "LOLI (name unknown)"
+    },
+    {
+      "icao": "LOLK",
+      "name": "Ried-Kirchheim Airfield"
+    },
+    {
+      "icao": "LOLM",
+      "name": "Micheldorf Airfield"
+    },
+    {
+      "icao": "LOLO",
+      "name": "Linz-East Glider Field"
+    },
+    {
+      "icao": "LOLR",
+      "name": "LOLR (name unknown)"
+    },
+    {
+      "icao": "LOLS",
+      "name": "Schärding-Suben Airfield"
+    },
+    {
+      "icao": "LOLT",
+      "name": "Flugplatz Seitenstetten"
+    },
+    {
+      "icao": "LOLU",
+      "name": "Gmunden-Laakirchen Airfield"
+    },
+    {
+      "icao": "LOLV",
+      "name": "LOLV (name unknown)"
+    },
+    {
+      "icao": "LOLW",
+      "name": "Wels Airfield"
+    },
+    {
+      "icao": "LOPB",
+      "name": "LOPB (name unknown)"
+    },
+    {
+      "icao": "LOPF",
+      "name": "LOPF (name unknown)"
+    },
+    {
+      "icao": "LOPG",
+      "name": "LOPG (name unknown)"
+    },
+    {
+      "icao": "LOPI",
+      "name": "LOPI (name unknown)"
+    },
+    {
+      "icao": "LOPK",
+      "name": "LOPK (name unknown)"
+    },
+    {
+      "icao": "LOPR",
+      "name": "LOPR (name unknown)"
+    },
+    {
+      "icao": "LOPT",
+      "name": "LOPT (name unknown)"
+    },
+    {
+      "icao": "LOSM",
+      "name": "Mauterndorf Airfield"
+    },
+    {
+      "icao": "LOWG",
+      "name": "Graz Airport"
+    },
+    {
+      "icao": "LOWI",
+      "name": "Innsbruck Airport"
+    },
+    {
+      "icao": "LOWK",
+      "name": "Klagenfurt Airport"
+    },
+    {
+      "icao": "LOWL",
+      "name": "Linz-Hörsching Airport"
+    },
+    {
+      "icao": "LOWS",
+      "name": "Salzburg Airport"
+    },
+    {
+      "icao": "LOWW",
+      "name": "Vienna International Airport"
+    },
+    {
+      "icao": "LOWZ",
+      "name": "Zell am See Airfield"
+    },
+    {
+      "icao": "LOXA",
+      "name": "Fiala-Fernbrugg Air Base"
+    },
+    {
+      "icao": "LOXN",
+      "name": "Wiener Neustadt West Airport"
+    },
+    {
+      "icao": "LOXT",
+      "name": "Brumowski  Air Base"
+    },
+    {
+      "icao": "LOXZ",
+      "name": "Hinterstoisser Air Base"
+    }
+  ],
+  "Azerbaijan (UB)": [],
+  "Belgium (EB)": [
+    {
+      "icao": "EBAW",
+      "name": "Antwerp International Airport (Deurne)"
+    },
+    {
+      "icao": "EBBE",
+      "name": "Beauvechain Air Base"
+    },
+    {
+      "icao": "EBBL",
+      "name": "Kleine Brogel Air Base"
+    },
+    {
+      "icao": "EBBR",
+      "name": "Brussels Airport"
+    },
+    {
+      "icao": "EBCI",
+      "name": "Brussels South Charleroi Airport"
+    },
+    {
+      "icao": "EBCT",
+      "name": "EBCT (name unknown)"
+    },
+    {
+      "icao": "EBCV",
+      "name": "Chièvres Air Base"
+    },
+    {
+      "icao": "EBFN",
+      "name": "Koksijde Air Base"
+    },
+    {
+      "icao": "EBFS",
+      "name": "Florennes Air Base"
+    },
+    {
+      "icao": "EBGB",
+      "name": "Grimbergen Airfield"
+    },
+    {
+      "icao": "EBKH",
+      "name": "Balen-Keiheuvel Airfield"
+    },
+    {
+      "icao": "EBKT",
+      "name": "Flanders International Airport Kortrijk-Wevelgem"
+    },
+    {
+      "icao": "EBLG",
+      "name": "Liège Airport"
+    },
+    {
+      "icao": "EBMA",
+      "name": "EBMA (name unknown)"
+    },
+    {
+      "icao": "EBMO",
+      "name": "Moorsele Airfield"
+    },
+    {
+      "icao": "EBOS",
+      "name": "Ostend-Bruges International Airport"
+    },
+    {
+      "icao": "EBSP",
+      "name": "Spa-La Sauvenière Airfield"
+    },
+    {
+      "icao": "EBST",
+      "name": "Sint-Truiden / Brustem Airfield"
+    },
+    {
+      "icao": "EBSU",
+      "name": "Saint Hubert Air Base"
+    },
+    {
+      "icao": "ELEA",
+      "name": "ELEA (name unknown)"
+    },
+    {
+      "icao": "ELLC",
+      "name": "ELLC (name unknown)"
+    },
+    {
+      "icao": "ELLX",
+      "name": "Luxembourg-Findel International Airport"
+    }
+  ],
+  "Bosnia/Herzeg. (LQ)": [],
+  "Bulgaria (LB)": [
+    {
+      "icao": "LBBG",
+      "name": "Burgas Airport"
+    },
+    {
+      "icao": "LBLS",
+      "name": "Lesnovo Airfield"
+    },
+    {
+      "icao": "LBPN",
+      "name": "LBPN (name unknown)"
+    },
+    {
+      "icao": "LBPV",
+      "name": "LBPV (name unknown)"
+    },
+    {
+      "icao": "LBRS",
+      "name": "Ruse Airport"
+    },
+    {
+      "icao": "LBSF",
+      "name": "Sofia Airport"
+    },
+    {
+      "icao": "LBSP",
+      "name": "LBSP (name unknown)"
+    },
+    {
+      "icao": "LBWN",
+      "name": "Varna Airport"
+    }
+  ],
+  "Croatia (LD)": [],
+  "Cyprus (LC)": [],
+  "Czech Republic (LK)": [
+    {
+      "icao": "LKPD",
+      "name": "Pardubice Airport"
+    },
+    {
+      "icao": "LKPR",
+      "name": "Václav Havel Airport Prague"
+    },
+    {
+      "icao": "LKTB",
+      "name": "Brno-Tuřany Airport"
+    },
+    {
+      "icao": "LKVO",
+      "name": "Vodochody Airport"
+    }
+  ],
+  "Denmark (EK)": [
+    {
+      "icao": "EKRB",
+      "name": "Bornholm Hospital Heliport"
+    },
+    {
+      "icao": "EKRH",
+      "name": "EKRH (name unknown)"
+    },
+    {
+      "icao": "EKYT",
+      "name": "Aalborg Airport"
+    }
+  ],
+  "Estonia (EE)": [
+    {
+      "icao": "EETU",
+      "name": "Tartu Airport"
+    }
+  ],
+  "Faroe Islands (XX)": [],
+  "Finland (EF)": [
+    {
+      "icao": "EFET",
+      "name": "Enontekio Airport"
+    },
+    {
+      "icao": "EFFH",
+      "name": "EFFH (name unknown)"
+    },
+    {
+      "icao": "EFHA",
+      "name": "Halli Airport"
+    },
+    {
+      "icao": "EFHH",
+      "name": "Kanta-Hämeen Central Hospital Heliport"
+    },
+    {
+      "icao": "EFHK",
+      "name": "Helsinki Vantaa Airport"
+    },
+    {
+      "icao": "EFHO",
+      "name": "Oulun University Hospital Heliport"
+    },
+    {
+      "icao": "EFHS",
+      "name": "Seinäjoen Central Hospital Heliport"
+    },
+    {
+      "icao": "EFHY",
+      "name": "Meilahti Hospital Helipad"
+    },
+    {
+      "icao": "EFIM",
+      "name": "Immola Airfield"
+    },
+    {
+      "icao": "EFIV",
+      "name": "Ivalo Airport"
+    },
+    {
+      "icao": "EFJE",
+      "name": "North Karelia Central Hospital Heliport"
+    },
+    {
+      "icao": "EFJO",
+      "name": "Joensuu Airport"
+    },
+    {
+      "icao": "EFJV",
+      "name": "Central Finland Central Hospital Heliport"
+    },
+    {
+      "icao": "EFJY",
+      "name": "Jyväskylä Airport"
+    },
+    {
+      "icao": "EFKA",
+      "name": "Kauhava Airfield"
+    },
+    {
+      "icao": "EFKE",
+      "name": "Kemi-Tornio Airport"
+    },
+    {
+      "icao": "EFKI",
+      "name": "Kajaani Airport"
+    },
+    {
+      "icao": "EFKK",
+      "name": "Kokkola-Pietarsaari Airport"
+    },
+    {
+      "icao": "EFKS",
+      "name": "Kuusamo Airport"
+    },
+    {
+      "icao": "EFKT",
+      "name": "Kittilä International Airport"
+    },
+    {
+      "icao": "EFKU",
+      "name": "Kuopio Airport"
+    },
+    {
+      "icao": "EFLA",
+      "name": "Lahti Vesivehmaa Airfield"
+    },
+    {
+      "icao": "EFLP",
+      "name": "Lappeenranta Airport"
+    },
+    {
+      "icao": "EFLR",
+      "name": "Lapland Central Hospital Heliport"
+    },
+    {
+      "icao": "EFMA",
+      "name": "Mariehamn Airport"
+    },
+    {
+      "icao": "EFMH",
+      "name": "EFMH (name unknown)"
+    },
+    {
+      "icao": "EFMI",
+      "name": "Mikkeli Airport"
+    },
+    {
+      "icao": "EFMS",
+      "name": "EFMS (name unknown)"
+    },
+    {
+      "icao": "EFNU",
+      "name": "Nummela Airfield"
+    },
+    {
+      "icao": "EFOU",
+      "name": "Oulu Airport"
+    },
+    {
+      "icao": "EFPJ",
+      "name": "Kuopio University Hospital Heliport"
+    },
+    {
+      "icao": "EFPL",
+      "name": "Päijät-Hämeen Central Hospital Heliport"
+    },
+    {
+      "icao": "EFPO",
+      "name": "Pori Airport"
+    },
+    {
+      "icao": "EFPR",
+      "name": "Helsinki East-Redstone Aerodrome"
+    },
+    {
+      "icao": "EFPT",
+      "name": "Tampere University Hospital Heliport"
+    },
+    {
+      "icao": "EFRO",
+      "name": "Rovaniemi Airport"
+    },
+    {
+      "icao": "EFSA",
+      "name": "Savonlinna Airport"
+    },
+    {
+      "icao": "EFSI",
+      "name": "Seinäjoki Airport"
+    },
+    {
+      "icao": "EFSO",
+      "name": "Sodankyla Airport"
+    },
+    {
+      "icao": "EFTP",
+      "name": "Tampere-Pirkkala Airport"
+    },
+    {
+      "icao": "EFTU",
+      "name": "Turku Airport"
+    },
+    {
+      "icao": "EFTV",
+      "name": "Turku University Central Hospital Heliport"
+    },
+    {
+      "icao": "EFUT",
+      "name": "Utti Air Base"
+    },
+    {
+      "icao": "EFVA",
+      "name": "Vaasa Airport"
+    },
+    {
+      "icao": "EFVR",
+      "name": "Varkaus Airport"
+    }
+  ],
+  "France (LF)": [
+    {
+      "icao": "DINA",
+      "name": "DINA (name unknown)"
+    },
+    {
+      "icao": "HABB",
+      "name": "HABB (name unknown)"
+    },
+    {
+      "icao": "HABI",
+      "name": "HABI (name unknown)"
+    },
+    {
+      "icao": "HACH",
+      "name": "HACH (name unknown)"
+    },
+    {
+      "icao": "HACS",
+      "name": "HACS (name unknown)"
+    },
+    {
+      "icao": "HALB",
+      "name": "HALB (name unknown)"
+    },
+    {
+      "icao": "HALE",
+      "name": "HALE (name unknown)"
+    },
+    {
+      "icao": "HALP",
+      "name": "HALP (name unknown)"
+    },
+    {
+      "icao": "HALS",
+      "name": "HALS (name unknown)"
+    },
+    {
+      "icao": "HAMB",
+      "name": "HAMB (name unknown)"
+    },
+    {
+      "icao": "HAMI",
+      "name": "HAMI (name unknown)"
+    },
+    {
+      "icao": "HAMS",
+      "name": "HAMS (name unknown)"
+    },
+    {
+      "icao": "HAMY",
+      "name": "HAMY (name unknown)"
+    },
+    {
+      "icao": "HANE",
+      "name": "HANE (name unknown)"
+    },
+    {
+      "icao": "HANG",
+      "name": "Negele Airport"
+    },
+    {
+      "icao": "HANO",
+      "name": "HANO (name unknown)"
+    },
+    {
+      "icao": "HANT",
+      "name": "HANT (name unknown)"
+    },
+    {
+      "icao": "HAPT",
+      "name": "HAPT (name unknown)"
+    },
+    {
+      "icao": "HARG",
+      "name": "HARG (name unknown)"
+    },
+    {
+      "icao": "HARS",
+      "name": "HARS (name unknown)"
+    },
+    {
+      "icao": "HAUB",
+      "name": "HAUB (name unknown)"
+    },
+    {
+      "icao": "HAUC",
+      "name": "HAUC (name unknown)"
+    },
+    {
+      "icao": "HAUL",
+      "name": "HAUL (name unknown)"
+    },
+    {
+      "icao": "HAUX",
+      "name": "HAUX (name unknown)"
+    },
+    {
+      "icao": "HAVO",
+      "name": "HAVO (name unknown)"
+    },
+    {
+      "icao": "HBAG",
+      "name": "HBAG (name unknown)"
+    },
+    {
+      "icao": "HBAY",
+      "name": "HBAY (name unknown)"
+    },
+    {
+      "icao": "HBEA",
+      "name": "HBEA (name unknown)"
+    },
+    {
+      "icao": "HBEB",
+      "name": "HBEB (name unknown)"
+    },
+    {
+      "icao": "HBEL",
+      "name": "HBEL (name unknown)"
+    },
+    {
+      "icao": "HBER",
+      "name": "HBER (name unknown)"
+    },
+    {
+      "icao": "HBES",
+      "name": "HBES (name unknown)"
+    },
+    {
+      "icao": "HBEZ",
+      "name": "HBEZ (name unknown)"
+    },
+    {
+      "icao": "HBHL",
+      "name": "HBHL (name unknown)"
+    },
+    {
+      "icao": "HBJA",
+      "name": "HBJA (name unknown)"
+    },
+    {
+      "icao": "HBLA",
+      "name": "HBLA (name unknown)"
+    },
+    {
+      "icao": "HBLO",
+      "name": "HBLO (name unknown)"
+    },
+    {
+      "icao": "HBO2",
+      "name": "HBO2 (name unknown)"
+    },
+    {
+      "icao": "HBOR",
+      "name": "HBOR (name unknown)"
+    },
+    {
+      "icao": "HBOU",
+      "name": "HBOU (name unknown)"
+    },
+    {
+      "icao": "HBRG",
+      "name": "HBRG (name unknown)"
+    },
+    {
+      "icao": "HBRI",
+      "name": "HBRI (name unknown)"
+    },
+    {
+      "icao": "HBRN",
+      "name": "HBRN (name unknown)"
+    },
+    {
+      "icao": "HBSM",
+      "name": "HBSM (name unknown)"
+    },
+    {
+      "icao": "HCAE",
+      "name": "HCAE (name unknown)"
+    },
+    {
+      "icao": "HCAL",
+      "name": "HCAL (name unknown)"
+    },
+    {
+      "icao": "HCAM",
+      "name": "HCAM (name unknown)"
+    },
+    {
+      "icao": "HCAN",
+      "name": "HCAN (name unknown)"
+    },
+    {
+      "icao": "HCAS",
+      "name": "HCAS (name unknown)"
+    },
+    {
+      "icao": "HCHA",
+      "name": "HCHA (name unknown)"
+    },
+    {
+      "icao": "HCHL",
+      "name": "HCHL (name unknown)"
+    },
+    {
+      "icao": "HCHS",
+      "name": "HCHS (name unknown)"
+    },
+    {
+      "icao": "HCLE",
+      "name": "HCLE (name unknown)"
+    },
+    {
+      "icao": "HCLV",
+      "name": "HCLV (name unknown)"
+    },
+    {
+      "icao": "HCMX",
+      "name": "HCMX (name unknown)"
+    },
+    {
+      "icao": "HCMY",
+      "name": "HCMY (name unknown)"
+    },
+    {
+      "icao": "HCOR",
+      "name": "HCOR (name unknown)"
+    },
+    {
+      "icao": "HCRL",
+      "name": "HCRL (name unknown)"
+    },
+    {
+      "icao": "HCSS",
+      "name": "HCSS (name unknown)"
+    },
+    {
+      "icao": "HCTA",
+      "name": "HCTA (name unknown)"
+    },
+    {
+      "icao": "HCTX",
+      "name": "HCTX (name unknown)"
+    },
+    {
+      "icao": "HDAX",
+      "name": "HDAX (name unknown)"
+    },
+    {
+      "icao": "HDIG",
+      "name": "HDIG (name unknown)"
+    },
+    {
+      "icao": "HDIJ",
+      "name": "HDIJ (name unknown)"
+    },
+    {
+      "icao": "HDOI",
+      "name": "HDOI (name unknown)"
+    },
+    {
+      "icao": "HDOL",
+      "name": "HDOL (name unknown)"
+    },
+    {
+      "icao": "HDPE",
+      "name": "HDPE (name unknown)"
+    },
+    {
+      "icao": "HDUN",
+      "name": "HDUN (name unknown)"
+    },
+    {
+      "icao": "HEPI",
+      "name": "HEPI (name unknown)"
+    },
+    {
+      "icao": "HEST",
+      "name": "HEST (name unknown)"
+    },
+    {
+      "icao": "HEVR",
+      "name": "HEVR (name unknown)"
+    },
+    {
+      "icao": "HFEC",
+      "name": "HFEC (name unknown)"
+    },
+    {
+      "icao": "HFLE",
+      "name": "HFLE (name unknown)"
+    },
+    {
+      "icao": "HFON",
+      "name": "HFON (name unknown)"
+    },
+    {
+      "icao": "HFRE",
+      "name": "HFRE (name unknown)"
+    },
+    {
+      "icao": "HGAP",
+      "name": "HGAP (name unknown)"
+    },
+    {
+      "icao": "HGEF",
+      "name": "HGEF (name unknown)"
+    },
+    {
+      "icao": "HGIE",
+      "name": "HGIE (name unknown)"
+    },
+    {
+      "icao": "HGRA",
+      "name": "HGRA (name unknown)"
+    },
+    {
+      "icao": "HGRE",
+      "name": "HGRE (name unknown)"
+    },
+    {
+      "icao": "HGRT",
+      "name": "HGRT (name unknown)"
+    },
+    {
+      "icao": "HISS",
+      "name": "HISS (name unknown)"
+    },
+    {
+      "icao": "HLAC",
+      "name": "HLAC (name unknown)"
+    },
+    {
+      "icao": "HLAI",
+      "name": "HLAI (name unknown)"
+    },
+    {
+      "icao": "HLAN",
+      "name": "HLAN (name unknown)"
+    },
+    {
+      "icao": "HLAO",
+      "name": "HLAO (name unknown)"
+    },
+    {
+      "icao": "HLAP",
+      "name": "HLAP (name unknown)"
+    },
+    {
+      "icao": "HLBL",
+      "name": "HLBL (name unknown)"
+    },
+    {
+      "icao": "HLEP",
+      "name": "HLEP (name unknown)"
+    },
+    {
+      "icao": "HLIL",
+      "name": "HLIL (name unknown)"
+    },
+    {
+      "icao": "HLLS",
+      "name": "Sabha Airport"
+    },
+    {
+      "icao": "HLMA",
+      "name": "HLMA (name unknown)"
+    },
+    {
+      "icao": "HLNN",
+      "name": "HLNN (name unknown)"
+    },
+    {
+      "icao": "HLOC",
+      "name": "HLOC (name unknown)"
+    },
+    {
+      "icao": "HLOR",
+      "name": "HLOR (name unknown)"
+    },
+    {
+      "icao": "HLOT",
+      "name": "HLOT (name unknown)"
+    },
+    {
+      "icao": "HLRC",
+      "name": "HLRC (name unknown)"
+    },
+    {
+      "icao": "HLYL",
+      "name": "HLYL (name unknown)"
+    },
+    {
+      "icao": "HLYO",
+      "name": "HLYO (name unknown)"
+    },
+    {
+      "icao": "HLYS",
+      "name": "HLYS (name unknown)"
+    },
+    {
+      "icao": "HMAC",
+      "name": "HMAC (name unknown)"
+    },
+    {
+      "icao": "HMAN",
+      "name": "HMAN (name unknown)"
+    },
+    {
+      "icao": "HMAR",
+      "name": "HMAR (name unknown)"
+    },
+    {
+      "icao": "HMAU",
+      "name": "HMAU (name unknown)"
+    },
+    {
+      "icao": "HMDM",
+      "name": "HMDM (name unknown)"
+    },
+    {
+      "icao": "HMEL",
+      "name": "HMEL (name unknown)"
+    },
+    {
+      "icao": "HMER",
+      "name": "HMER (name unknown)"
+    },
+    {
+      "icao": "HMEZ",
+      "name": "HMEZ (name unknown)"
+    },
+    {
+      "icao": "HMHN",
+      "name": "HMHN (name unknown)"
+    },
+    {
+      "icao": "HMIN",
+      "name": "HMIN (name unknown)"
+    },
+    {
+      "icao": "HMLN",
+      "name": "HMLN (name unknown)"
+    },
+    {
+      "icao": "HMON",
+      "name": "HMON (name unknown)"
+    },
+    {
+      "icao": "HNAN",
+      "name": "HNAN (name unknown)"
+    },
+    {
+      "icao": "HNAR",
+      "name": "HNAR (name unknown)"
+    },
+    {
+      "icao": "HNCT",
+      "name": "HNCT (name unknown)"
+    },
+    {
+      "icao": "HNDS",
+      "name": "HNDS (name unknown)"
+    },
+    {
+      "icao": "HNFC",
+      "name": "HNFC (name unknown)"
+    },
+    {
+      "icao": "HNIM",
+      "name": "HNIM (name unknown)"
+    },
+    {
+      "icao": "HNIO",
+      "name": "HNIO (name unknown)"
+    },
+    {
+      "icao": "HNQM",
+      "name": "HNQM (name unknown)"
+    },
+    {
+      "icao": "HOLO",
+      "name": "HOLO (name unknown)"
+    },
+    {
+      "icao": "HOME",
+      "name": "HOME (name unknown)"
+    },
+    {
+      "icao": "HORA",
+      "name": "HORA (name unknown)"
+    },
+    {
+      "icao": "HORL",
+      "name": "HORL (name unknown)"
+    },
+    {
+      "icao": "HPAR",
+      "name": "HPAR (name unknown)"
+    },
+    {
+      "icao": "HPER",
+      "name": "HPER (name unknown)"
+    },
+    {
+      "icao": "HPLR",
+      "name": "HPLR (name unknown)"
+    },
+    {
+      "icao": "HPOI",
+      "name": "HPOI (name unknown)"
+    },
+    {
+      "icao": "HPON",
+      "name": "HPON (name unknown)"
+    },
+    {
+      "icao": "HPOR",
+      "name": "HPOR (name unknown)"
+    },
+    {
+      "icao": "HPOS",
+      "name": "HPOS (name unknown)"
+    },
+    {
+      "icao": "HPRE",
+      "name": "HPRE (name unknown)"
+    },
+    {
+      "icao": "HPSE",
+      "name": "HPSE (name unknown)"
+    },
+    {
+      "icao": "HPUY",
+      "name": "HPUY (name unknown)"
+    },
+    {
+      "icao": "HQUI",
+      "name": "HQUI (name unknown)"
+    },
+    {
+      "icao": "HRAN",
+      "name": "HRAN (name unknown)"
+    },
+    {
+      "icao": "HREM",
+      "name": "HREM (name unknown)"
+    },
+    {
+      "icao": "HREP",
+      "name": "HREP (name unknown)"
+    },
+    {
+      "icao": "HRMS",
+      "name": "HRMS (name unknown)"
+    },
+    {
+      "icao": "HROA",
+      "name": "HROA (name unknown)"
+    },
+    {
+      "icao": "HROC",
+      "name": "HROC (name unknown)"
+    },
+    {
+      "icao": "HROU",
+      "name": "HROU (name unknown)"
+    },
+    {
+      "icao": "HRYN",
+      "name": "Nemba Airport"
+    },
+    {
+      "icao": "HSAL",
+      "name": "HSAL (name unknown)"
+    },
+    {
+      "icao": "HSAU",
+      "name": "HSAU (name unknown)"
+    },
+    {
+      "icao": "HSCH",
+      "name": "HSCH (name unknown)"
+    },
+    {
+      "icao": "HSDI",
+      "name": "HSDI (name unknown)"
+    },
+    {
+      "icao": "HSEL",
+      "name": "HSEL (name unknown)"
+    },
+    {
+      "icao": "HSEN",
+      "name": "HSEN (name unknown)"
+    },
+    {
+      "icao": "HSES",
+      "name": "HSES (name unknown)"
+    },
+    {
+      "icao": "HSET",
+      "name": "HSET (name unknown)"
+    },
+    {
+      "icao": "HSJM",
+      "name": "HSJM (name unknown)"
+    },
+    {
+      "icao": "HSPS",
+      "name": "HSPS (name unknown)"
+    },
+    {
+      "icao": "HSTB",
+      "name": "HSTB (name unknown)"
+    },
+    {
+      "icao": "HSTC",
+      "name": "HSTC (name unknown)"
+    },
+    {
+      "icao": "HSTM",
+      "name": "HSTM (name unknown)"
+    },
+    {
+      "icao": "HSTN",
+      "name": "HSTN (name unknown)"
+    },
+    {
+      "icao": "HSTQ",
+      "name": "HSTQ (name unknown)"
+    },
+    {
+      "icao": "HSTS",
+      "name": "HSTS (name unknown)"
+    },
+    {
+      "icao": "HTHO",
+      "name": "HTHO (name unknown)"
+    },
+    {
+      "icao": "HTIM",
+      "name": "HTIM (name unknown)"
+    },
+    {
+      "icao": "HTON",
+      "name": "HTON (name unknown)"
+    },
+    {
+      "icao": "HTOT",
+      "name": "HTOT (name unknown)"
+    },
+    {
+      "icao": "HTPP",
+      "name": "HTPP (name unknown)"
+    },
+    {
+      "icao": "HTRP",
+      "name": "HTRP (name unknown)"
+    },
+    {
+      "icao": "HTSM",
+      "name": "HTSM (name unknown)"
+    },
+    {
+      "icao": "HVAL",
+      "name": "HVAL (name unknown)"
+    },
+    {
+      "icao": "HVAN",
+      "name": "HVAN (name unknown)"
+    },
+    {
+      "icao": "HVDI",
+      "name": "HVDI (name unknown)"
+    },
+    {
+      "icao": "HVEN",
+      "name": "HVEN (name unknown)"
+    },
+    {
+      "icao": "HVER",
+      "name": "HVER (name unknown)"
+    },
+    {
+      "icao": "HVES",
+      "name": "HVES (name unknown)"
+    },
+    {
+      "icao": "HVIL",
+      "name": "HVIL (name unknown)"
+    },
+    {
+      "icao": "HVOI",
+      "name": "HVOI (name unknown)"
+    },
+    {
+      "icao": "HVON",
+      "name": "HVON (name unknown)"
+    },
+    {
+      "icao": "HVSA",
+      "name": "HVSA (name unknown)"
+    },
+    {
+      "icao": "HVTH",
+      "name": "HVTH (name unknown)"
+    },
+    {
+      "icao": "LFBD",
+      "name": "Bordeaux–Mérignac Airport"
+    },
+    {
+      "icao": "LFBO",
+      "name": "Toulouse-Blagnac Airport"
+    },
+    {
+      "icao": "LFBP",
+      "name": "Pau Pyrénées Airport"
+    },
+    {
+      "icao": "LFBZ",
+      "name": "Biarritz Pays Basque airport"
+    },
+    {
+      "icao": "LFKB",
+      "name": "Bastia-Poretta International airport"
+    },
+    {
+      "icao": "LFLJ",
+      "name": "Courchevel Altiport"
+    },
+    {
+      "icao": "LFLL",
+      "name": "Lyon Saint-Exupéry Airport"
+    },
+    {
+      "icao": "LFMD",
+      "name": "Cannes Mandelieu Airport"
+    },
+    {
+      "icao": "LFML",
+      "name": "Marseille Provence Airport"
+    },
+    {
+      "icao": "LFMN",
+      "name": "Nice-Côte d'Azur Airport"
+    },
+    {
+      "icao": "LFMT",
+      "name": "Montpellier-Méditerranée Airport"
+    },
+    {
+      "icao": "LFPB",
+      "name": "Paris-Le Bourget International Airport"
+    },
+    {
+      "icao": "LFPG",
+      "name": "Charles de Gaulle International Airport"
+    },
+    {
+      "icao": "LFPI",
+      "name": "Paris Issy-les-Moulineaux Heliport"
+    },
+    {
+      "icao": "LFPN",
+      "name": "Toussus-le-Noble Airport"
+    },
+    {
+      "icao": "LFPO",
+      "name": "Paris-Orly Airport"
+    },
+    {
+      "icao": "LFPV",
+      "name": "Vélizy-Villacoublay Air Base"
+    },
+    {
+      "icao": "LFPZ",
+      "name": "Saint-Cyr-l'École Airport"
+    },
+    {
+      "icao": "LFQL",
+      "name": "Lens-Bénifontaine Airfield"
+    },
+    {
+      "icao": "LFQM",
+      "name": "Besançon La Vèze Airfield"
+    },
+    {
+      "icao": "LFQN",
+      "name": "Saint-Omer Wizernes Airfield"
+    },
+    {
+      "icao": "LFQO",
+      "name": "Marcq-en-Baroeul Airfield"
+    },
+    {
+      "icao": "LFQP",
+      "name": "Phalsbourg-Bourscheid Air Base"
+    },
+    {
+      "icao": "LFQQ",
+      "name": "Lille Airport"
+    },
+    {
+      "icao": "LFQS",
+      "name": "Vitry-en-Artois Airfield"
+    },
+    {
+      "icao": "LFQT",
+      "name": "Merville-Calonne Airport"
+    },
+    {
+      "icao": "LFQU",
+      "name": "Sarre-Union Airfield"
+    },
+    {
+      "icao": "LFQV",
+      "name": "Charleville-Mézières Ardennes-Etienne Riché Airfield"
+    },
+    {
+      "icao": "LFQW",
+      "name": "Vesoul-Frotey Airfield"
+    },
+    {
+      "icao": "LFQX",
+      "name": "Juvancourt Aerodrome"
+    },
+    {
+      "icao": "LFQY",
+      "name": "Saverne Steinbourg Airfield"
+    },
+    {
+      "icao": "LFQZ",
+      "name": "Dieuze-Guéblange Airfield"
+    },
+    {
+      "icao": "LFRB",
+      "name": "Brest Bretagne airport"
+    },
+    {
+      "icao": "LFRC",
+      "name": "Cherbourg Manche airport"
+    },
+    {
+      "icao": "LFRD",
+      "name": "Dinard Pleurtuit Saint-Malo airport"
+    },
+    {
+      "icao": "LFRE",
+      "name": "La Baule-Escoublac Airport"
+    },
+    {
+      "icao": "LFRF",
+      "name": "Granville Airport"
+    },
+    {
+      "icao": "LFRG",
+      "name": "Deauville Normandie airport"
+    },
+    {
+      "icao": "LFRH",
+      "name": "Lorient South Brittany (Bretagne Sud) Airport"
+    },
+    {
+      "icao": "LFRI",
+      "name": "La Roche-sur-Yon Les Ajoncs Airport"
+    },
+    {
+      "icao": "LFRJ",
+      "name": "Landivisiau Air Base"
+    },
+    {
+      "icao": "LFRK",
+      "name": "Caen Carpiquet airport"
+    },
+    {
+      "icao": "LFRL",
+      "name": "Lanvéoc-Poulmic Air Base"
+    },
+    {
+      "icao": "LFRM",
+      "name": "Le Mans-Arnage Airport"
+    },
+    {
+      "icao": "LFRN",
+      "name": "Rennes-Saint-Jacques Airport"
+    },
+    {
+      "icao": "LFRO",
+      "name": "Lannion Airport"
+    },
+    {
+      "icao": "LFRP",
+      "name": "Ploërmel Loyat Airfield"
+    },
+    {
+      "icao": "LFRQ",
+      "name": "Quimper-Cornouaille Airport"
+    },
+    {
+      "icao": "LFRS",
+      "name": "Nantes Atlantique Airport"
+    },
+    {
+      "icao": "LFRT",
+      "name": "Saint-Brieuc-Armor Airport"
+    },
+    {
+      "icao": "LFRU",
+      "name": "Morlaix-Ploujean Airport"
+    },
+    {
+      "icao": "LFRV",
+      "name": "Vannes-Meucon Airport"
+    },
+    {
+      "icao": "LFRW",
+      "name": "Avranches Le Val-Saint-Père Airfield"
+    },
+    {
+      "icao": "LFRZ",
+      "name": "Saint-Nazaire-Montoir Airport"
+    },
+    {
+      "icao": "LFSA",
+      "name": "Besançon-Thise Airfield"
+    },
+    {
+      "icao": "LFSB",
+      "name": "EuroAirport Basel–Mulhouse–Freiburg"
+    },
+    {
+      "icao": "LFSD",
+      "name": "Dijon Longvic airport"
+    },
+    {
+      "icao": "LFSE",
+      "name": "Épinal Dogneville Airfield"
+    },
+    {
+      "icao": "LFSG",
+      "name": "Épinal Mirecourt Airport"
+    },
+    {
+      "icao": "LFSH",
+      "name": "Haguenau Airfield"
+    },
+    {
+      "icao": "LFSJ",
+      "name": "Sédan Douzy Airfield"
+    },
+    {
+      "icao": "LFSK",
+      "name": "Vitry-le-François Vauclerc Airfield"
+    },
+    {
+      "icao": "LFSL",
+      "name": "Brive Souillac airport"
+    },
+    {
+      "icao": "LFSM",
+      "name": "Montbéliard-Courcelles Airfield"
+    },
+    {
+      "icao": "LFSN",
+      "name": "Nancy-Essey Airport"
+    },
+    {
+      "icao": "LFSP",
+      "name": "Pontarlier Airfield"
+    },
+    {
+      "icao": "LFSR",
+      "name": "LFSR (name unknown)"
+    },
+    {
+      "icao": "LFSS",
+      "name": "Saint Sulpice des Landes"
+    },
+    {
+      "icao": "LFST",
+      "name": "Strasbourg Airport"
+    },
+    {
+      "icao": "LFSU",
+      "name": "Langres-Rolampont Airfield"
+    },
+    {
+      "icao": "LFSV",
+      "name": "Pont-Saint-Vincent Airfield"
+    },
+    {
+      "icao": "LFSW",
+      "name": "Épernay Plivot Airfield"
+    },
+    {
+      "icao": "LFTB",
+      "name": "LFTB (name unknown)"
+    },
+    {
+      "icao": "LFTF",
+      "name": "Cuers-Pierrefeu Airfield"
+    },
+    {
+      "icao": "LFTH",
+      "name": "Toulon-Hyères Airport"
+    },
+    {
+      "icao": "LFTL",
+      "name": "LFTL (name unknown)"
+    },
+    {
+      "icao": "LFTM",
+      "name": "Serres - La Bâtie-Montsaléon Airfield"
+    },
+    {
+      "icao": "LFTN",
+      "name": "La Grand'combe Airfield"
+    },
+    {
+      "icao": "LFTP",
+      "name": "Puimoisson Airfield"
+    },
+    {
+      "icao": "LFTQ",
+      "name": "Châteaubriant Pouancé Airfield"
+    },
+    {
+      "icao": "LFTW",
+      "name": "Nîmes-Arles-Camargue Airport"
+    },
+    {
+      "icao": "LFTZ",
+      "name": "La Môle Airport"
+    },
+    {
+      "icao": "LFWB",
+      "name": "LFWB (name unknown)"
+    },
+    {
+      "icao": "LFWD",
+      "name": "LFWD (name unknown)"
+    },
+    {
+      "icao": "LFWF",
+      "name": "LFWF (name unknown)"
+    },
+    {
+      "icao": "LFWH",
+      "name": "LFWH (name unknown)"
+    },
+    {
+      "icao": "LFWM",
+      "name": "LFWM (name unknown)"
+    },
+    {
+      "icao": "LFWN",
+      "name": "LFWN (name unknown)"
+    },
+    {
+      "icao": "LFWO",
+      "name": "LFWO (name unknown)"
+    },
+    {
+      "icao": "LFXA",
+      "name": "Ambérieu Air Base (BA 278)"
+    },
+    {
+      "icao": "LFXB",
+      "name": "Saintes Thénac Airfield"
+    },
+    {
+      "icao": "LFXU",
+      "name": "Les Mureaux Airfield"
+    },
+    {
+      "icao": "LFYG",
+      "name": "Cambrai Niergnies Airfield"
+    },
+    {
+      "icao": "LFYR",
+      "name": "Romorantin Pruniers Airbase"
+    },
+    {
+      "icao": "LFYS",
+      "name": "Ste Léocadie Airfield"
+    },
+    {
+      "icao": "LFYV",
+      "name": "Yvetot Lucien Camu Airfield"
+    },
+    {
+      "icao": "LNMC",
+      "name": "Monaco Heliport"
+    }
+  ],
+  "Georgia (UG)": [],
+  "Germany (ED)": [
+    {
+      "icao": "EDAB",
+      "name": "Bautzen Airfield"
+    },
+    {
+      "icao": "EDAC",
+      "name": "Leipzig–Altenburg Airport"
+    },
+    {
+      "icao": "EDAH",
+      "name": "Heringsdorf Airport"
+    },
+    {
+      "icao": "EDAY",
+      "name": "Strausberg Airfield"
+    },
+    {
+      "icao": "EDAZ",
+      "name": "Schönhagen Airfield"
+    },
+    {
+      "icao": "EDBC",
+      "name": "Cochstedt Airport"
+    },
+    {
+      "icao": "EDBH",
+      "name": "Stralsund-Barth Airport"
+    },
+    {
+      "icao": "EDBM",
+      "name": "Magdeburg City Airfield"
+    },
+    {
+      "icao": "EDBN",
+      "name": "Neubrandenburg Trollenhagen Airport"
+    },
+    {
+      "icao": "EDDB",
+      "name": "Berlin Brandenburg Airport"
+    },
+    {
+      "icao": "EDDC",
+      "name": "Dresden Airport"
+    },
+    {
+      "icao": "EDDE",
+      "name": "Erfurt-Weimar Airport"
+    },
+    {
+      "icao": "EDDF",
+      "name": "Frankfurt Main Airport"
+    },
+    {
+      "icao": "EDDG",
+      "name": "Münster Osnabrück Airport"
+    },
+    {
+      "icao": "EDDH",
+      "name": "Hamburg Helmut Schmidt Airport"
+    },
+    {
+      "icao": "EDDK",
+      "name": "Cologne Bonn Airport"
+    },
+    {
+      "icao": "EDDL",
+      "name": "Düsseldorf Airport"
+    },
+    {
+      "icao": "EDDM",
+      "name": "Munich Airport"
+    },
+    {
+      "icao": "EDDN",
+      "name": "Nuremberg Airport"
+    },
+    {
+      "icao": "EDDP",
+      "name": "Leipzig/Halle Airport"
+    },
+    {
+      "icao": "EDDR",
+      "name": "Saarbrücken Airport"
+    },
+    {
+      "icao": "EDDS",
+      "name": "Stuttgart Airport"
+    },
+    {
+      "icao": "EDDV",
+      "name": "Hannover Airport"
+    },
+    {
+      "icao": "EDDW",
+      "name": "Bremen Airport"
+    },
+    {
+      "icao": "EDFH",
+      "name": "Frankfurt-Hahn Airport"
+    },
+    {
+      "icao": "EDFM",
+      "name": "Mannheim-City Airport"
+    },
+    {
+      "icao": "EDFQ",
+      "name": "Allendorf-Eder Airfield"
+    },
+    {
+      "icao": "EDGS",
+      "name": "Siegerland Airport"
+    },
+    {
+      "icao": "EDHI",
+      "name": "Hamburg-Finkenwerder Airport"
+    },
+    {
+      "icao": "EDHK",
+      "name": "Kiel-Holtenau Airport"
+    },
+    {
+      "icao": "EDHL",
+      "name": "Lübeck Blankensee Airport"
+    },
+    {
+      "icao": "EDJA",
+      "name": "Memmingen Allgau Airport"
+    },
+    {
+      "icao": "EDLN",
+      "name": "Mönchengladbach Airport"
+    },
+    {
+      "icao": "EDLP",
+      "name": "Paderborn Lippstadt Airport"
+    },
+    {
+      "icao": "EDLV",
+      "name": "Weeze (Niederrhein) Airport"
+    },
+    {
+      "icao": "EDLW",
+      "name": "Dortmund Airport"
+    },
+    {
+      "icao": "EDMA",
+      "name": "Augsburg Airport"
+    },
+    {
+      "icao": "EDME",
+      "name": "Eggenfelden Airfield"
+    },
+    {
+      "icao": "EDMO",
+      "name": "Oberpfaffenhofen Airport"
+    },
+    {
+      "icao": "EDMS",
+      "name": "Straubing Airport"
+    },
+    {
+      "icao": "EDMX",
+      "name": "Oberschleissheim Heliport"
+    },
+    {
+      "icao": "EDNY",
+      "name": "Bodensee Airport Friedrichshafen"
+    },
+    {
+      "icao": "EDPR",
+      "name": "Donauwörth Heliport"
+    },
+    {
+      "icao": "EDQA",
+      "name": "Bamberg-Breitenau Airfield"
+    },
+    {
+      "icao": "EDQC",
+      "name": "Coburg-Brandensteinsebene Airfield"
+    },
+    {
+      "icao": "EDQD",
+      "name": "Bayreuth Airport"
+    },
+    {
+      "icao": "EDQG",
+      "name": "Giebelstadt Airport"
+    },
+    {
+      "icao": "EDQM",
+      "name": "Hof-Plauen Airport"
+    },
+    {
+      "icao": "EDRY",
+      "name": "Speyer Airfield"
+    },
+    {
+      "icao": "EDRZ",
+      "name": "Zweibrücken Airport"
+    },
+    {
+      "icao": "EDSB",
+      "name": "Karlsruhe Baden-Baden Airport"
+    },
+    {
+      "icao": "EDTD",
+      "name": "Donaueschingen-Villingen Airfield"
+    },
+    {
+      "icao": "EDTL",
+      "name": "Lahr Airport"
+    },
+    {
+      "icao": "EDTM",
+      "name": "Mengen-Hohentengen Airfield"
+    },
+    {
+      "icao": "EDTY",
+      "name": "Adolf Würth Airport"
+    },
+    {
+      "icao": "EDVE",
+      "name": "Braunschweig-Wolfsburg Airport"
+    },
+    {
+      "icao": "EDVK",
+      "name": "Kassel Airport"
+    },
+    {
+      "icao": "EDWE",
+      "name": "Emden Airport"
+    },
+    {
+      "icao": "EDWI",
+      "name": "JadeWeser Airport"
+    },
+    {
+      "icao": "EDXW",
+      "name": "Westerland Sylt Airport"
+    },
+    {
+      "icao": "ETHN",
+      "name": "Niederstetten Army Air Base"
+    },
+    {
+      "icao": "ETMN",
+      "name": "Sea-Airport Cuxhaven/Nordholz / Nordholz Naval Airbase"
+    },
+    {
+      "icao": "ETNL",
+      "name": "Rostock-Laage Airport"
+    },
+    {
+      "icao": "ETSI",
+      "name": "Ingolstadt Manching Airport"
+    }
+  ],
+  "Greece (LG)": [
+    {
+      "icao": "LGAV",
+      "name": "Athens Eleftherios Venizelos International Airport"
+    },
+    {
+      "icao": "LGRP",
+      "name": "Rhodes International Airport \"Diagoras\""
+    },
+    {
+      "icao": "LGTS",
+      "name": "Thessaloniki Macedonia International Airport"
+    }
+  ],
+  "Greenland (BG)": [],
+  "Hungary (LH)": [
+    {
+      "icao": "LHBC",
+      "name": "Békéscsaba Airfield"
+    },
+    {
+      "icao": "LHBP",
+      "name": "Budapest Liszt Ferenc International Airport"
+    },
+    {
+      "icao": "LHDC",
+      "name": "Debrecen International Airport"
+    },
+    {
+      "icao": "LHNY",
+      "name": "Nyíregyháza Airfield"
+    },
+    {
+      "icao": "LHPP",
+      "name": "Pécs-Pogány International Airport"
+    },
+    {
+      "icao": "LHPR",
+      "name": "Győr-Pér Airport"
+    },
+    {
+      "icao": "LHSM",
+      "name": "Hévíz–Balaton Airport"
+    },
+    {
+      "icao": "LHUD",
+      "name": "Szeged Airport"
+    }
+  ],
+  "Iceland (BI)": [],
+  "Ireland (EI)": [
+    {
+      "icao": "EIAB",
+      "name": "Abbeyshrule Aerodrome"
+    },
+    {
+      "icao": "EIBN",
+      "name": "Bantry Aerodrome"
+    },
+    {
+      "icao": "EIBR",
+      "name": "Birr Aerodrome"
+    },
+    {
+      "icao": "EICA",
+      "name": "Connemara Regional Airport"
+    },
+    {
+      "icao": "EICK",
+      "name": "Cork International Airport"
+    },
+    {
+      "icao": "EICL",
+      "name": "Clonbullogue Aerodrome"
+    },
+    {
+      "icao": "EICN",
+      "name": "Coonagh Aerodrome"
+    },
+    {
+      "icao": "EIDL",
+      "name": "Donegal Airport"
+    },
+    {
+      "icao": "EIDW",
+      "name": "Dublin Airport"
+    },
+    {
+      "icao": "EIIM",
+      "name": "Inishmore Aerodrome"
+    },
+    {
+      "icao": "EIIR",
+      "name": "Inisheer Aerodrome"
+    },
+    {
+      "icao": "EIKK",
+      "name": "Kilkenny Airport"
+    },
+    {
+      "icao": "EIKN",
+      "name": "Ireland West Airport Knock"
+    },
+    {
+      "icao": "EIKY",
+      "name": "Kerry Airport"
+    },
+    {
+      "icao": "EIMH",
+      "name": "Athboy Airfield"
+    },
+    {
+      "icao": "EIMN",
+      "name": "Inishmaan Aerodrome"
+    },
+    {
+      "icao": "EINC",
+      "name": "Newcastle Aerodrome"
+    },
+    {
+      "icao": "EINN",
+      "name": "Shannon Airport"
+    },
+    {
+      "icao": "EIRT",
+      "name": "Rathcoole Aerodrome"
+    },
+    {
+      "icao": "EISG",
+      "name": "Sligo Airport"
+    },
+    {
+      "icao": "EIWF",
+      "name": "Waterford Airport"
+    },
+    {
+      "icao": "EIWT",
+      "name": "Weston Airport"
+    }
+  ],
+  "Italy (LI)": [
+    {
+      "icao": "LIBD",
+      "name": "Bari Karol Wojtyła International Airport"
+    },
+    {
+      "icao": "LIBF",
+      "name": "Foggia Gino Lisa Airport"
+    },
+    {
+      "icao": "LIBG",
+      "name": "Taranto-Grottaglie Marcello Arlotta Airport"
+    },
+    {
+      "icao": "LIBI",
+      "name": "LIBI (name unknown)"
+    },
+    {
+      "icao": "LIBP",
+      "name": "Abruzzo Airport"
+    },
+    {
+      "icao": "LIBR",
+      "name": "Brindisi Airport"
+    },
+    {
+      "icao": "LICA",
+      "name": "Lamezia Terme Sant'Eufemia International Airport"
+    },
+    {
+      "icao": "LICB",
+      "name": "Comiso Airport"
+    },
+    {
+      "icao": "LICC",
+      "name": "Catania-Fontanarossa Airport"
+    },
+    {
+      "icao": "LICD",
+      "name": "Lampedusa Airport"
+    },
+    {
+      "icao": "LICG",
+      "name": "Pantelleria Airport"
+    },
+    {
+      "icao": "LICJ",
+      "name": "Falcone–Borsellino Airport"
+    },
+    {
+      "icao": "LICP",
+      "name": "Palermo-Boccadifalco Airport"
+    },
+    {
+      "icao": "LICR",
+      "name": "Reggio Calabria Airport"
+    },
+    {
+      "icao": "LICT",
+      "name": "Vincenzo Florio Airport Trapani-Birgi"
+    },
+    {
+      "icao": "LIDA",
+      "name": "Asiago Romeo Sartori Airfield"
+    },
+    {
+      "icao": "LIDB",
+      "name": "Belluno Arturo dell'Oro Airport"
+    },
+    {
+      "icao": "LIDE",
+      "name": "Reggio Emilia Airport"
+    },
+    {
+      "icao": "LIDF",
+      "name": "Fano Airfield"
+    },
+    {
+      "icao": "LIDG",
+      "name": "Lugo Francesco Baracca Airfield"
+    },
+    {
+      "icao": "LIDH",
+      "name": "Thiene Arturo Ferrarin Airfield"
+    },
+    {
+      "icao": "LIDL",
+      "name": "Legnago Airfield"
+    },
+    {
+      "icao": "LIDP",
+      "name": "Pavullo Airfield"
+    },
+    {
+      "icao": "LIDR",
+      "name": "Ravenna Airport"
+    },
+    {
+      "icao": "LIDT",
+      "name": "Trento-Mattarello Airport"
+    },
+    {
+      "icao": "LIDU",
+      "name": "Carpi-Budrione Airfield"
+    },
+    {
+      "icao": "LIDV",
+      "name": "Prati Vecchi d'Aguscello Airfield"
+    },
+    {
+      "icao": "LIEA",
+      "name": "Alghero-Fertilia Airport"
+    },
+    {
+      "icao": "LIEE",
+      "name": "Cagliari Elmas Airport"
+    },
+    {
+      "icao": "LIEO",
+      "name": "Olbia Costa Smeralda Airport"
+    },
+    {
+      "icao": "LIER",
+      "name": "Oristano-Fenosu Airport"
+    },
+    {
+      "icao": "LIET",
+      "name": "Tortolì Airport"
+    },
+    {
+      "icao": "LIKA",
+      "name": "Arco Hospital Helipad"
+    },
+    {
+      "icao": "LIKB",
+      "name": "LIKB (name unknown)"
+    },
+    {
+      "icao": "LIKC",
+      "name": "Valli del Noce Hospital Helipad"
+    },
+    {
+      "icao": "LILA",
+      "name": "Alessandria Airfield"
+    },
+    {
+      "icao": "LILB",
+      "name": "Alzate Brianza Airfield"
+    },
+    {
+      "icao": "LILC",
+      "name": "Calcinate del Pesce Airfield"
+    },
+    {
+      "icao": "LILE",
+      "name": "Biella-Cerrione Airfield"
+    },
+    {
+      "icao": "LILG",
+      "name": "Vergiate Airfield"
+    },
+    {
+      "icao": "LILH",
+      "name": "Voghera-Rivanazzano Airfield"
+    },
+    {
+      "icao": "LILI",
+      "name": "Vercelli Airport"
+    },
+    {
+      "icao": "LILM",
+      "name": "Casale Monferrato Airfield"
+    },
+    {
+      "icao": "LILN",
+      "name": "Varese-Venegono Airport"
+    },
+    {
+      "icao": "LILQ",
+      "name": "Massa Cinquale Municipal Airfield"
+    },
+    {
+      "icao": "LILR",
+      "name": "Cremona-Migliaro Airfield"
+    },
+    {
+      "icao": "LILV",
+      "name": "Valbrembo Airfield"
+    },
+    {
+      "icao": "LILY",
+      "name": "Como (Idroscalo - Water Ad) Hidroport"
+    },
+    {
+      "icao": "LIMA",
+      "name": "Torino-Aeritalia Airport"
+    },
+    {
+      "icao": "LIMB",
+      "name": "Milano-Bresso Airfield"
+    },
+    {
+      "icao": "LIMC",
+      "name": "Milan Malpensa International Airport"
+    },
+    {
+      "icao": "LIME",
+      "name": "Il Caravaggio International Airport"
+    },
+    {
+      "icao": "LIMF",
+      "name": "Turin Airport"
+    },
+    {
+      "icao": "LIMG",
+      "name": "Riviera Villanova d'Albenga International Airport"
+    },
+    {
+      "icao": "LIMJ",
+      "name": "Genoa Cristoforo Colombo Airport"
+    },
+    {
+      "icao": "LIML",
+      "name": "Milano Linate Airport"
+    },
+    {
+      "icao": "LIMP",
+      "name": "Parma Airport"
+    },
+    {
+      "icao": "LIMR",
+      "name": "Novi Ligure Eugenio Mossi Airfield"
+    },
+    {
+      "icao": "LIMW",
+      "name": "Aosta Corrado Gex Airport"
+    },
+    {
+      "icao": "LIMZ",
+      "name": "Cuneo International Airport"
+    },
+    {
+      "icao": "LINA",
+      "name": "Alidaunia Foggia Heliport"
+    },
+    {
+      "icao": "LINI",
+      "name": "San Domino Island Heliport"
+    },
+    {
+      "icao": "LINL",
+      "name": "Lecce-San Cataldo Lepore Airfield"
+    },
+    {
+      "icao": "LIPB",
+      "name": "Bolzano Airport"
+    },
+    {
+      "icao": "LIPD",
+      "name": "Udine-Campoformido Airfield"
+    },
+    {
+      "icao": "LIPE",
+      "name": "Bologna Guglielmo Marconi Airport"
+    },
+    {
+      "icao": "LIPF",
+      "name": "Ferrara-San Luca Airfield"
+    },
+    {
+      "icao": "LIPG",
+      "name": "Gorizia Duca d'Aosta Airfield"
+    },
+    {
+      "icao": "LIPH",
+      "name": "Treviso Airport"
+    },
+    {
+      "icao": "LIPK",
+      "name": "Forlì-Luigi Ridolfi International Airport"
+    },
+    {
+      "icao": "LIPM",
+      "name": "Modena-Marzaglia Airfield"
+    },
+    {
+      "icao": "LIPN",
+      "name": "Verona-Boscomantico Airfield"
+    },
+    {
+      "icao": "LIPO",
+      "name": "Brescia Gabriele d'Annunzio Airport"
+    },
+    {
+      "icao": "LIPQ",
+      "name": "Trieste Airport"
+    },
+    {
+      "icao": "LIPR",
+      "name": "Federico Fellini International Airport"
+    },
+    {
+      "icao": "LIPU",
+      "name": "Padova Gino Allegri Airfield"
+    },
+    {
+      "icao": "LIPV",
+      "name": "Venice-Lido Giovanni Nicelli Airfield"
+    },
+    {
+      "icao": "LIPX",
+      "name": "Verona Villafranca Valerio Catullo Airport"
+    },
+    {
+      "icao": "LIPY",
+      "name": "Marche Airport"
+    },
+    {
+      "icao": "LIPZ",
+      "name": "Venice Marco Polo Airport"
+    },
+    {
+      "icao": "LIQB",
+      "name": "Arezzo Molin Blanco Airfield"
+    },
+    {
+      "icao": "LIQL",
+      "name": "Lucca-Tassignano Airport"
+    },
+    {
+      "icao": "LIQN",
+      "name": "Rieti Airfield"
+    },
+    {
+      "icao": "LIQS",
+      "name": "Siena-Ampugnano Airport"
+    },
+    {
+      "icao": "LIQW",
+      "name": "Sarzana-Luni Air Base"
+    },
+    {
+      "icao": "LIRA",
+      "name": "Ciampino–G. B. Pastine International Airport"
+    },
+    {
+      "icao": "LIRF",
+      "name": "Rome–Fiumicino Leonardo da Vinci International Airport"
+    },
+    {
+      "icao": "LIRG",
+      "name": "Guidonia Air Base"
+    },
+    {
+      "icao": "LIRI",
+      "name": "Salerno Costa d'Amalfi Airport"
+    },
+    {
+      "icao": "LIRJ",
+      "name": "Marina di Campo Airport"
+    },
+    {
+      "icao": "LIRL",
+      "name": "Latina Air Base"
+    },
+    {
+      "icao": "LIRN",
+      "name": "Naples International Airport"
+    },
+    {
+      "icao": "LIRP",
+      "name": "Pisa International Airport"
+    },
+    {
+      "icao": "LIRQ",
+      "name": "Florence Airport, Peretola"
+    },
+    {
+      "icao": "LIRS",
+      "name": "Grosseto Corrado Baccarini Air Base / Grosseto Airport"
+    },
+    {
+      "icao": "LIRU",
+      "name": "Rome Urbe Airport"
+    },
+    {
+      "icao": "LIRV",
+      "name": "Viterbo Airport"
+    },
+    {
+      "icao": "LIRZ",
+      "name": "Perugia San Francesco d'Assisi – Umbria International Airport"
+    },
+    {
+      "icao": "LIYB",
+      "name": "LIYB (name unknown)"
+    },
+    {
+      "icao": "LIYC",
+      "name": "LIYC (name unknown)"
+    },
+    {
+      "icao": "LIYP",
+      "name": "LIYP (name unknown)"
+    },
+    {
+      "icao": "LIYS",
+      "name": "LIYS (name unknown)"
+    }
+  ],
+  "Jordan (OJ)": [],
+  "KFOR SECTOR (BK)": [],
+  "Kazakhstan (UA)": [],
+  "Kyrgyzstan (UC)": [],
+  "Latvia (EV)": [
+    {
+      "icao": "EVHN",
+      "name": "EVHN (name unknown)"
+    },
+    {
+      "icao": "EVLU",
+      "name": "Ludza Helipad"
+    },
+    {
+      "icao": "EVRA",
+      "name": "Riga International Airport"
+    },
+    {
+      "icao": "EVRS",
+      "name": "Spilve Aerodrome"
+    },
+    {
+      "icao": "EVSM",
+      "name": "M-Sola Heliport"
+    },
+    {
+      "icao": "EVVA",
+      "name": "Ventspils International Airport"
+    }
+  ],
+  "Lithuania (EY)": [
+    {
+      "icao": "EYSA",
+      "name": "Šiauliai International Airport"
+    },
+    {
+      "icao": "EYVI",
+      "name": "Vilnius International Airport"
+    }
+  ],
+  "Malta (LM)": [
+    {
+      "icao": "LMMG",
+      "name": "Xewkija Heliport"
+    },
+    {
+      "icao": "LMML",
+      "name": "Malta International Airport"
+    }
+  ],
+  "Moldova (LU)": [],
+  "Netherlands (EH)": [
+    {
+      "icao": "EHAM",
+      "name": "Amsterdam Airport Schiphol"
+    },
+    {
+      "icao": "EHBK",
+      "name": "Maastricht Aachen Airport"
+    },
+    {
+      "icao": "EHEH",
+      "name": "Eindhoven Airport"
+    },
+    {
+      "icao": "EHGG",
+      "name": "Groningen Airport Eelde"
+    },
+    {
+      "icao": "EHHA",
+      "name": "Amsterdam Heliport"
+    },
+    {
+      "icao": "EHHE",
+      "name": "Eemshaven Heliport"
+    },
+    {
+      "icao": "EHHO",
+      "name": "Hoogeveen Airfield"
+    },
+    {
+      "icao": "EHHV",
+      "name": "Hilversum Airfield"
+    },
+    {
+      "icao": "EHKD",
+      "name": "De Kooy Airfield / Den Helder Naval Air Station"
+    },
+    {
+      "icao": "EHLE",
+      "name": "Lelystad Airport"
+    },
+    {
+      "icao": "EHMZ",
+      "name": "Midden-Zeeland Airfield"
+    },
+    {
+      "icao": "EHRD",
+      "name": "Rotterdam The Hague Airport"
+    },
+    {
+      "icao": "EHSE",
+      "name": "Breda International Airport"
+    },
+    {
+      "icao": "EHST",
+      "name": "Stadskanaal Airfield"
+    },
+    {
+      "icao": "EHTE",
+      "name": "Teuge Airport"
+    },
+    {
+      "icao": "EHTL",
+      "name": "Terlet Glidersite"
+    },
+    {
+      "icao": "EHTW",
+      "name": "Twente Airport"
+    },
+    {
+      "icao": "EHTX",
+      "name": "Texel International Airport"
+    }
+  ],
+  "Norway (EN)": [],
+  "Philippines (RP)": [],
+  "Poland (EP)": [
+    {
+      "icao": "EPBA",
+      "name": "Bielsko-Biała Aleksandrowice Airfield"
+    },
+    {
+      "icao": "EPBC",
+      "name": "Warsaw Babice Airport"
+    },
+    {
+      "icao": "EPBH",
+      "name": "Bydgoszcz Baza Lpr Heliport"
+    },
+    {
+      "icao": "EPBK",
+      "name": "Białystok-Krywlany Airfield"
+    },
+    {
+      "icao": "EPBO",
+      "name": "Borsk Airfield"
+    },
+    {
+      "icao": "EPCD",
+      "name": "Depułtycze Królewskie Airfield"
+    },
+    {
+      "icao": "EPEL",
+      "name": "Elbląg Airfield"
+    },
+    {
+      "icao": "EPGE",
+      "name": "Giże Airfield"
+    },
+    {
+      "icao": "EPGI",
+      "name": "Grudziądz Lisie Kąty Airfield"
+    },
+    {
+      "icao": "EPGL",
+      "name": "Gliwice-Trynek Airfield"
+    },
+    {
+      "icao": "EPGY",
+      "name": "Grądy Airfield"
+    },
+    {
+      "icao": "EPIN",
+      "name": "Inowrocław Airfield"
+    },
+    {
+      "icao": "EPJG",
+      "name": "Jelenia Góra Airfield"
+    },
+    {
+      "icao": "EPJS",
+      "name": "Jeżów Sudecki Airfield"
+    },
+    {
+      "icao": "EPKA",
+      "name": "Kielce-Masłów Airfield"
+    },
+    {
+      "icao": "EPKC",
+      "name": "EPKC (name unknown)"
+    },
+    {
+      "icao": "EPKE",
+      "name": "Kȩtrzyn-Wilamowo Airfield"
+    },
+    {
+      "icao": "EPKG",
+      "name": "Kołobrzeg-Bagicz Airfield"
+    },
+    {
+      "icao": "EPKH",
+      "name": "EPKH (name unknown)"
+    },
+    {
+      "icao": "EPKI",
+      "name": "Kikity"
+    },
+    {
+      "icao": "EPKM",
+      "name": "Katowice-Muchowiec Airfield"
+    },
+    {
+      "icao": "EPKO",
+      "name": "EPKO (name unknown)"
+    },
+    {
+      "icao": "EPKP",
+      "name": "Pobiednik Wielki Airfield"
+    },
+    {
+      "icao": "EPKR",
+      "name": "Krosno Airfield"
+    },
+    {
+      "icao": "EPKW",
+      "name": "Bielsko-Biała Kaniów Airfield"
+    },
+    {
+      "icao": "EPKX",
+      "name": "Kokotowie LPR HEMS Heliport"
+    },
+    {
+      "icao": "EPLI",
+      "name": "EPLI (name unknown)"
+    },
+    {
+      "icao": "EPLR",
+      "name": "Lublin Radwiec Airfield"
+    },
+    {
+      "icao": "EPLS",
+      "name": "Leszno-Strzyzewice Airfield"
+    },
+    {
+      "icao": "EPLU",
+      "name": "Lubin Airfield"
+    },
+    {
+      "icao": "EPML",
+      "name": "Mielec Airfield"
+    },
+    {
+      "icao": "EPMR",
+      "name": "Mirosławice Private Airfield"
+    },
+    {
+      "icao": "EPMX",
+      "name": "Milewo Airfield"
+    },
+    {
+      "icao": "EPMY",
+      "name": "Myślibórz-Giżyn Airfield"
+    },
+    {
+      "icao": "EPNC",
+      "name": "EPNC (name unknown)"
+    },
+    {
+      "icao": "EPNL",
+      "name": "Nowy Sącz-Łososina Dolna Airfield"
+    },
+    {
+      "icao": "EPNT",
+      "name": "Nowy Targ Airfield"
+    },
+    {
+      "icao": "EPOD",
+      "name": "Olsztyn-Dajtki Airfield"
+    },
+    {
+      "icao": "EPOM",
+      "name": "Ostrów Wielkopolski Michałków Airfield"
+    },
+    {
+      "icao": "EPOP",
+      "name": "Opole-Polska Nowa Wieś Airfield"
+    },
+    {
+      "icao": "EPPB",
+      "name": "EPPB (name unknown)"
+    },
+    {
+      "icao": "EPPG",
+      "name": "Kakolewo (former military)"
+    },
+    {
+      "icao": "EPPI",
+      "name": "Piła Airfield"
+    },
+    {
+      "icao": "EPPK",
+      "name": "Poznań-Kobylnica Airfield"
+    },
+    {
+      "icao": "EPPL",
+      "name": "Płock Airfield"
+    },
+    {
+      "icao": "EPPT",
+      "name": "Piotrków Trybunalski-Bujny Airfield"
+    },
+    {
+      "icao": "EPPZ",
+      "name": "EPPZ (name unknown)"
+    },
+    {
+      "icao": "EPRD",
+      "name": "Mazury Air Camp Airfield"
+    },
+    {
+      "icao": "EPRG",
+      "name": "Rybnik-Gotartowice Glider Field"
+    },
+    {
+      "icao": "EPRJ",
+      "name": "Rzeszów Sports Airfield"
+    },
+    {
+      "icao": "EPRP",
+      "name": "Radom-Piastrów Airfield"
+    },
+    {
+      "icao": "EPRU",
+      "name": "Częstochowa-Rudniki Airport"
+    },
+    {
+      "icao": "EPSA",
+      "name": "EPSA (name unknown)"
+    },
+    {
+      "icao": "EPSD",
+      "name": "Szczecin-Dąbie Airfield"
+    },
+    {
+      "icao": "EPSI",
+      "name": "EPSI (name unknown)"
+    },
+    {
+      "icao": "EPSK",
+      "name": "Słupsk-Krȩpa Airfield"
+    },
+    {
+      "icao": "EPSL",
+      "name": "EPSL (name unknown)"
+    },
+    {
+      "icao": "EPSS",
+      "name": "Świdnica - Krzczonów Airstrip"
+    },
+    {
+      "icao": "EPST",
+      "name": "Stalowa Wola-Turbia Airfield"
+    },
+    {
+      "icao": "EPSU",
+      "name": "Suwałki Airfield"
+    },
+    {
+      "icao": "EPSW",
+      "name": "Świdnik Airfield"
+    },
+    {
+      "icao": "EPTO",
+      "name": "Toruń Airfield"
+    },
+    {
+      "icao": "EPWA",
+      "name": "Warsaw Chopin Airport"
+    },
+    {
+      "icao": "EPWK",
+      "name": "Włocławek-Kruszyn Airfield"
+    },
+    {
+      "icao": "EPWR",
+      "name": "Copernicus Wrocław Airport"
+    },
+    {
+      "icao": "EPWS",
+      "name": "Wrocław-Szymanów Airfield"
+    },
+    {
+      "icao": "EPWT",
+      "name": "EPWT (name unknown)"
+    },
+    {
+      "icao": "EPZA",
+      "name": "Zamość-Mokre Airfield"
+    },
+    {
+      "icao": "EPZE",
+      "name": "EPZE (name unknown)"
+    },
+    {
+      "icao": "EPZG",
+      "name": "Zielona Góra-Babimost Airport"
+    },
+    {
+      "icao": "EPZP",
+      "name": "Zielona Góra-Przylep Airfield"
+    },
+    {
+      "icao": "EPZR",
+      "name": "Żar Airfield"
+    },
+    {
+      "icao": "EPZW",
+      "name": "EPZW (name unknown)"
+    }
+  ],
+  "Portugal (LP)": [
+    {
+      "icao": "LPPD",
+      "name": "João Paulo II Airport"
+    },
+    {
+      "icao": "LPPR",
+      "name": "Francisco de Sá Carneiro Airport"
+    },
+    {
+      "icao": "LPPS",
+      "name": "Porto Santo Airport"
+    },
+    {
+      "icao": "LPPT",
+      "name": "Lisbon Humberto Delgado Airport"
+    },
+    {
+      "icao": "LPSO",
+      "name": "Aeródromo Municipal de Ponte de Sor"
+    }
+  ],
+  "Republic of North Macedonia (LW)": [],
+  "Romania (LR)": [
+    {
+      "icao": "LRBG",
+      "name": "IAR Brașov / Airbus Helicopters Heliport"
+    },
+    {
+      "icao": "LRCX",
+      "name": "Cobrex Heliport"
+    },
+    {
+      "icao": "LRDD",
+      "name": "LRDD (name unknown)"
+    },
+    {
+      "icao": "LRHO",
+      "name": "Oradea / Smurd Bh 2 Heliport"
+    },
+    {
+      "icao": "LRMA",
+      "name": "Mir Aero Heliport"
+    },
+    {
+      "icao": "LRMC",
+      "name": "Năvodari Heliport"
+    },
+    {
+      "icao": "LRPW",
+      "name": "Ploiești-Strejnicu Airfield"
+    },
+    {
+      "icao": "LRSB",
+      "name": "Sibiu International Airport"
+    },
+    {
+      "icao": "LRSM",
+      "name": "Satu Mare International Airport"
+    },
+    {
+      "icao": "LRSP",
+      "name": "Sânpetru-Brașov Aerodrome"
+    },
+    {
+      "icao": "LRSV",
+      "name": "Suceava Ștefan cel Mare International Airport"
+    },
+    {
+      "icao": "LRTC",
+      "name": "Tulcea Danube Delta Airport"
+    },
+    {
+      "icao": "LRTM",
+      "name": "Târgu Mureş Transilvania International Airport"
+    },
+    {
+      "icao": "LRTR",
+      "name": "Timișoara Traian Vuia International Airport"
+    },
+    {
+      "icao": "LRTZ",
+      "name": "Tuzla Airport"
+    }
+  ],
+  "Serbia and Montenegro (LY)": [],
+  "Slovakia (LZ)": [
+    {
+      "icao": "LZIB",
+      "name": "M. R. Štefánik Airport"
+    },
+    {
+      "icao": "LZPP",
+      "name": "Piešťany Airport"
+    },
+    {
+      "icao": "LZZI",
+      "name": "Žilina-Dolný Hričov Airport"
+    }
+  ],
+  "Slovenia (LJ)": [
+    {
+      "icao": "LJAJ",
+      "name": "Ajdovščina Airfield"
+    },
+    {
+      "icao": "LJBL",
+      "name": "Lesce Airfield"
+    },
+    {
+      "icao": "LJBO",
+      "name": "Bovec Airfield"
+    },
+    {
+      "icao": "LJCE",
+      "name": "Cerklje ob Krki Air Base"
+    },
+    {
+      "icao": "LJCL",
+      "name": "Celje Airfield"
+    },
+    {
+      "icao": "LJDI",
+      "name": "Divača Airfield"
+    },
+    {
+      "icao": "LJLJ",
+      "name": "Ljubljana Jože Pučnik Airport"
+    },
+    {
+      "icao": "LJMS",
+      "name": "Murska Sobota Airfield"
+    },
+    {
+      "icao": "LJNM",
+      "name": "Novo Mesto Airfield"
+    },
+    {
+      "icao": "LJPO",
+      "name": "Postojna Airfield"
+    },
+    {
+      "icao": "LJPT",
+      "name": "Ptuj Airfield"
+    },
+    {
+      "icao": "LJPZ",
+      "name": "Portorož Airport"
+    },
+    {
+      "icao": "LJSG",
+      "name": "Slovenj Gradec Airfield"
+    },
+    {
+      "icao": "LJSK",
+      "name": "Slovenske Konjice Airfield"
+    },
+    {
+      "icao": "LJSO",
+      "name": "LJSO (name unknown)"
+    }
+  ],
+  "Spain (LE)": [
+    {
+      "icao": "GCFV",
+      "name": "Fuerteventura Airport"
+    },
+    {
+      "icao": "GCGM",
+      "name": "La Gomera Airport"
+    },
+    {
+      "icao": "GCHI",
+      "name": "El Hierro Airport"
+    },
+    {
+      "icao": "GCLA",
+      "name": "La Palma Airport"
+    },
+    {
+      "icao": "GCLP",
+      "name": "Gran Canaria Airport"
+    },
+    {
+      "icao": "GCRR",
+      "name": "César Manrique-Lanzarote Airport"
+    },
+    {
+      "icao": "GCTS",
+      "name": "Tenerife Sur Airport"
+    },
+    {
+      "icao": "GCXM",
+      "name": "Los Rodeos Army Heliport"
+    },
+    {
+      "icao": "GCXO",
+      "name": "Tenerife Norte-Ciudad de La Laguna Airport"
+    },
+    {
+      "icao": "GECE",
+      "name": "Ceuta Heliport"
+    },
+    {
+      "icao": "GEHM",
+      "name": "Melilla Heliport"
+    },
+    {
+      "icao": "GEML",
+      "name": "Melilla Airport"
+    },
+    {
+      "icao": "GSAI",
+      "name": "GSAI (name unknown)"
+    },
+    {
+      "icao": "GSVO",
+      "name": "GSVO (name unknown)"
+    },
+    {
+      "icao": "LEAB",
+      "name": "Albacete Airport / Los Llanos Air Base"
+    },
+    {
+      "icao": "LEAG",
+      "name": "LEAG (name unknown)"
+    },
+    {
+      "icao": "LEAL",
+      "name": "Alicante-Elche Miguel Hernández Airport"
+    },
+    {
+      "icao": "LEAM",
+      "name": "Almería Airport"
+    },
+    {
+      "icao": "LEAO",
+      "name": "LEAO (name unknown)"
+    },
+    {
+      "icao": "LEAS",
+      "name": "Asturias Airport"
+    },
+    {
+      "icao": "LEBA",
+      "name": "Córdoba Airport"
+    },
+    {
+      "icao": "LEBB",
+      "name": "Bilbao Airport"
+    },
+    {
+      "icao": "LEBG",
+      "name": "Burgos Airport"
+    },
+    {
+      "icao": "LEBL",
+      "name": "Josep Tarradellas Barcelona-El Prat Airport"
+    },
+    {
+      "icao": "LEBT",
+      "name": "LEBT (name unknown)"
+    },
+    {
+      "icao": "LEBZ",
+      "name": "Badajoz Airport"
+    },
+    {
+      "icao": "LECH",
+      "name": "Castellón-Costa Azahar Airport"
+    },
+    {
+      "icao": "LECO",
+      "name": "A Coruña Airport"
+    },
+    {
+      "icao": "LECU",
+      "name": "Madrid-Cuatro Vientos Airport"
+    },
+    {
+      "icao": "LECV",
+      "name": "Base Aérea de Colmenar Viejo"
+    },
+    {
+      "icao": "LEDA",
+      "name": "Lleida-Alguaire Airport"
+    },
+    {
+      "icao": "LEEC",
+      "name": "Base Aérea de El Copero"
+    },
+    {
+      "icao": "LEGA",
+      "name": "Armilla Air Base"
+    },
+    {
+      "icao": "LEGE",
+      "name": "Girona-Costa Brava Airport"
+    },
+    {
+      "icao": "LEGR",
+      "name": "F.G.L. Airport Granada-Jaén Airport"
+    },
+    {
+      "icao": "LEGT",
+      "name": "Getafe Air Base"
+    },
+    {
+      "icao": "LEHC",
+      "name": "Huesca-Pirineos Airport"
+    },
+    {
+      "icao": "LEIB",
+      "name": "Ibiza Airport"
+    },
+    {
+      "icao": "LEJR",
+      "name": "Jerez Airport"
+    },
+    {
+      "icao": "LELC",
+      "name": "San Javier Airport"
+    },
+    {
+      "icao": "LELL",
+      "name": "Sabadell Airfield"
+    },
+    {
+      "icao": "LELN",
+      "name": "León Int'l Airport"
+    },
+    {
+      "icao": "LELO",
+      "name": "Logroño-Agoncillo Airport"
+    },
+    {
+      "icao": "LEMD",
+      "name": "Adolfo Suárez Madrid–Barajas Airport"
+    },
+    {
+      "icao": "LEMG",
+      "name": "Málaga-Costa del Sol Airport"
+    },
+    {
+      "icao": "LEMH",
+      "name": "Menorca Airport"
+    },
+    {
+      "icao": "LEMI",
+      "name": "Region of Murcia International Airport"
+    },
+    {
+      "icao": "LEMO",
+      "name": "Moron Air Base"
+    },
+    {
+      "icao": "LEPA",
+      "name": "Palma de Mallorca Airport"
+    },
+    {
+      "icao": "LEPO",
+      "name": "LEPO (name unknown)"
+    },
+    {
+      "icao": "LEPP",
+      "name": "Pamplona Airport"
+    },
+    {
+      "icao": "LERI",
+      "name": "Alcantarilla Air Base"
+    },
+    {
+      "icao": "LERJ",
+      "name": "LERJ (name unknown)"
+    },
+    {
+      "icao": "LERL",
+      "name": "Ciudad Real International Airport"
+    },
+    {
+      "icao": "LERS",
+      "name": "Reus Airport"
+    },
+    {
+      "icao": "LERT",
+      "name": "Rota Naval Station Airport"
+    },
+    {
+      "icao": "LESA",
+      "name": "Salamanca Airport"
+    },
+    {
+      "icao": "LESB",
+      "name": "Son Bonet Airfield"
+    },
+    {
+      "icao": "LESO",
+      "name": "San Sebastián Airport"
+    },
+    {
+      "icao": "LEST",
+      "name": "Santiago-Rosalía de Castro Airport"
+    },
+    {
+      "icao": "LESU",
+      "name": "Pirineus - la Seu d'Urgel Airport"
+    },
+    {
+      "icao": "LETA",
+      "name": "Servei Generals Del Circuit De Catalunya Heliport"
+    },
+    {
+      "icao": "LETL",
+      "name": "Teruel Airport"
+    },
+    {
+      "icao": "LETO",
+      "name": "Madrid–Torrejón Airport / Torrejón Air Base"
+    },
+    {
+      "icao": "LEVC",
+      "name": "Valencia Airport"
+    },
+    {
+      "icao": "LEVD",
+      "name": "Valladolid Airport"
+    },
+    {
+      "icao": "LEVT",
+      "name": "Vitoria Airport"
+    },
+    {
+      "icao": "LEVX",
+      "name": "Vigo Airport"
+    },
+    {
+      "icao": "LEXJ",
+      "name": "Seve Ballesteros-Santander Airport"
+    },
+    {
+      "icao": "LEZG",
+      "name": "Zaragoza Airport"
+    },
+    {
+      "icao": "LEZL",
+      "name": "Seville Airport"
+    },
+    {
+      "icao": "LXGB",
+      "name": "Gibraltar Airport"
+    }
+  ],
+  "Sweden (ES)": [
+    {
+      "icao": "ESUP",
+      "name": "Pajala Airport"
+    },
+    {
+      "icao": "ESUT",
+      "name": "Hemavan Airport"
+    }
+  ],
+  "Switzerland (LS)": [],
+  "Turkey (LT)": [],
+  "Ukraine (UK)": [],
+  "United Kingdom (EG)": []
+}

@@ -61,7 +61,6 @@ const PREFIX_TO_COUNTRY = {
   LJ: 'Slovenia (LJ)',
   LE: 'Spain (LE)',
   ES: 'Sweden (ES)',
-  GC: 'Spain (GC)', // Canary Islands
 };
 
 function log(msg) {

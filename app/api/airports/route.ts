@@ -7,12 +7,22 @@ import eadAirportNames from "@/data/ead-airport-names.json";
 
 export const dynamic = "force-dynamic";
 
-/** EAD country → ICAOs: from lib/ead-country-icaos.generated.json (written at build by scripts/embed-ead-icaos.mjs). No fetch, no cache issues on Vercel. */
-function getEadCountryIcaos(): Record<string, string[]> {
+/** EAD country → ICAOs with names: from lib/ead-country-icaos.generated.json (written at build by scripts/embed-ead-icaos.mjs). No fetch, no cache issues on Vercel. */
+function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
-  const out: Record<string, string[]> = {};
+  const out: Record<string, Array<{ icao: string; name: string }>> = {};
   for (const [key, val] of Object.entries(data)) {
-    if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+    if (Array.isArray(val)) {
+      out[key] = val.map((v) => {
+        if (typeof v === 'object' && v !== null && 'icao' in v) {
+          return {
+            icao: String(v.icao).toUpperCase(),
+            name: String((v as any).name || '')
+          };
+        }
+        return { icao: String(v).toUpperCase(), name: '' };
+      });
+    }
   }
   return out;
 }
@@ -142,12 +152,13 @@ function getAll(): AIPAirport[] {
 
 const EAD_PLACEHOLDER_NAME = "EAD airport (sync to load)";
 
-function flattenEadCountry(countryLabel: string, eadData: Record<string, string[]>): AIPAirport[] {
-  const icaos = eadData[countryLabel];
-  if (!icaos || !Array.isArray(icaos)) return [];
-  const list = icaos.map((icao) => {
+function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{ icao: string; name: string }>>): AIPAirport[] {
+  const airports = eadData[countryLabel];
+  if (!airports || !Array.isArray(airports)) return [];
+  const list = airports.map((airport) => {
+    const icao = airport.icao;
     const coord = coordsMap[icao];
-    const name = eadNamesMap[icao] ?? EAD_PLACEHOLDER_NAME;
+    const name = airport.name || EAD_PLACEHOLDER_NAME;
     return {
       country: countryLabel,
       gen1_2: "",

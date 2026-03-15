@@ -14,7 +14,7 @@ import { join } from "path";
 const ROOT = join(process.cwd());
 const NAMES_PATH = join(ROOT, "data", "ead-airport-names.json");
 const EXTRACTED_PATH = join(ROOT, "data", "ead-aip-extracted.json");
-const COUNTRY_ICAOS_PATH = join(ROOT, "data", "ead-country-icaos.json");
+const COUNTRY_ICAOS_PATH = join(ROOT, "data", "ead-icaos-from-document-names.json");
 const OURAIRPORTS_URL =
   "https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv";
 
@@ -63,11 +63,28 @@ async function fetchOurairportsIcaoToName() {
 }
 
 function main() {
-  const existing = JSON.parse(readFileSync(NAMES_PATH, "utf-8"));
+  let existing = {};
+  try {
+    existing = JSON.parse(readFileSync(NAMES_PATH, "utf-8"));
+  } catch (_) {}
+  
   const countryIcaos = JSON.parse(readFileSync(COUNTRY_ICAOS_PATH, "utf-8"));
   const allEad = new Set();
-  for (const arr of Object.values(countryIcaos)) {
-    for (const icao of arr) allEad.add(icao.toUpperCase());
+  
+  // Handle new format: { countries: { "Country (XX)": ["ICAO1", "ICAO2"] } }
+  if (countryIcaos.countries) {
+    for (const arr of Object.values(countryIcaos.countries)) {
+      if (Array.isArray(arr)) {
+        for (const icao of arr) allEad.add(icao.toUpperCase());
+      }
+    }
+  } else {
+    // Old format: { "Country": ["ICAO1", "ICAO2"] }
+    for (const arr of Object.values(countryIcaos)) {
+      if (Array.isArray(arr)) {
+        for (const icao of arr) allEad.add(icao.toUpperCase());
+      }
+    }
   }
 
   let extracted = {};

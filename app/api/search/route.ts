@@ -5,11 +5,21 @@ import eadExtracted from "@/data/ead-aip-extracted.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import eadAirportNames from "@/data/ead-airport-names.json";
 
-function getEadCountryIcaos(): Record<string, string[]> {
+function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
-  const out: Record<string, string[]> = {};
+  const out: Record<string, Array<{ icao: string; name: string }>> = {};
   for (const [key, val] of Object.entries(data)) {
-    if (Array.isArray(val)) out[key] = val.map((v) => String(v).toUpperCase());
+    if (Array.isArray(val)) {
+      out[key] = val.map((v) => {
+        if (typeof v === 'object' && v !== null && 'icao' in v) {
+          return {
+            icao: String(v.icao).toUpperCase(),
+            name: String((v as any).name || '')
+          };
+        }
+        return { icao: String(v).toUpperCase(), name: '' };
+      });
+    }
   }
   return out;
 }
@@ -138,7 +148,7 @@ function getAllEadIcaos(): Set<string> {
   const data = getEadCountryIcaos();
   const set = new Set<string>();
   for (const list of Object.values(data)) {
-    if (Array.isArray(list)) for (const icao of list) set.add(icao.toUpperCase());
+    if (Array.isArray(list)) for (const airport of list) set.add(airport.icao.toUpperCase());
   }
   return set;
 }
@@ -165,16 +175,30 @@ export async function GET(request: NextRequest) {
 
   // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
   if (qUpper.length === 4) {
-    const eadSet = getAllEadIcaos();
-    if (eadSet.has(qUpper) && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+    const eadData = getEadCountryIcaos();
+    let found = false;
+    let foundName = "";
+    let foundCountry = "";
+    
+    for (const [country, airports] of Object.entries(eadData)) {
+      const match = airports.find(a => a.icao.toUpperCase() === qUpper);
+      if (match) {
+        found = true;
+        foundName = match.name || eadNamesMap[qUpper] || "EAD airport (sync to load)";
+        foundCountry = country;
+        break;
+      }
+    }
+    
+    if (found && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
       results = [
         ...results,
         {
-          country: "EAD (EU AIP)",
+          country: foundCountry || "EAD (EU AIP)",
           gen1_2: "",
           gen1_2_point_4: "",
           icao: qUpper,
-          name: eadNamesMap[qUpper] ?? "EAD airport (sync to load)",
+          name: foundName,
           trafficPermitted: "",
           trafficRemarks: "",
           operator: "",

@@ -72,6 +72,17 @@ function jsfId(id) {
   return `[id="${id}"]`;
 }
 
+async function dismissIdleDialog(page) {
+  try {
+    const mask = page.locator('#idleDialog_modal').or(page.locator('.ui-widget-overlay.ui-dialog-mask'));
+    const visible = await mask.isVisible().catch(() => false);
+    if (visible) {
+      await page.locator('#idleDialog').locator('button').first().click({ timeout: 3000, force: true }).catch(() => {});
+      await page.waitForTimeout(800);
+    }
+  } catch (_) {}
+}
+
 async function main() {
   const user = process.env.EAD_USER;
   let password = process.env.EAD_PASSWORD;
@@ -92,8 +103,30 @@ async function main() {
     ? join(process.cwd(), process.argv[outArg + 1])
     : join(PROJECT_ROOT, 'data', 'ead-document-names-by-country.json');
 
-  const countryLabels = [...new Set(Object.values(PREFIX_TO_COUNTRY))];
-  const results = { countries: {}, scrapedAt: new Date().toISOString() };
+  const onlyFailedArg = process.argv.indexOf('--only-failed');
+  const onlyFailed = onlyFailedArg !== -1;
+
+  let countryLabels = [...new Set(Object.values(PREFIX_TO_COUNTRY))];
+  let results = { countries: {}, scrapedAt: new Date().toISOString() };
+
+  if (existsSync(outputPath)) {
+    const existing = JSON.parse(readFileSync(outputPath, 'utf8'));
+    results = existing;
+    results.scrapedAt = new Date().toISOString();
+    if (onlyFailed) {
+      const failedCountries = Object.entries(existing.countries)
+        .filter(([_, docs]) => docs.length === 0)
+        .map(([country, _]) => country);
+      countryLabels = failedCountries;
+      log('Running only failed countries (' + failedCountries.length + '): ' + failedCountries.join(', '));
+    } else {
+      const toSkip = Object.entries(existing.countries)
+        .filter(([_, docs]) => docs.length > 0)
+        .map(([country, _]) => country);
+      countryLabels = countryLabels.filter(c => !toSkip.includes(c));
+      log('Skipping ' + toSkip.length + ' countries with data, running ' + countryLabels.length + ' remaining');
+    }
+  }
 
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({
@@ -144,6 +177,8 @@ async function main() {
       const documentNames = [];
 
       try {
+        await dismissIdleDialog(page);
+        
         // —— Authority (country) ——
         const authoritySelect = page
           .locator(jsfId('mainForm:selectAuthorityCode_input'))
@@ -152,7 +187,7 @@ async function main() {
           .first();
         await authoritySelect.waitFor({ state: 'visible', timeout: 15000 });
         await authoritySelect.selectOption({ label: countryLabel }).catch(() => null);
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(1200);
 
         // —— Language: English ——
         await page.evaluate((id) => {
@@ -162,7 +197,7 @@ async function main() {
             if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
           }
         }, 'mainForm:selectLanguage_input');
-        await page.waitForTimeout(400);
+        await page.waitForTimeout(600);
 
         // —— AIP Part: AD (stays same for all countries) ——
         await page.evaluate((id) => {
@@ -172,15 +207,37 @@ async function main() {
             if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
           }
         }, 'mainForm:selectAipPart_input');
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(1000);
 
         // —— Open Advanced Search, leave empty, press Search ——
         log('  Opening Advanced Search and searching');
-        await page.getByText('Advanced Search').first().click();
-        await page.waitForTimeout(800);
-        await page.locator(jsfId('mainForm:documentHeader')).fill('');
-        await page.getByRole('button', { name: 'Search' }).click();
-        await page.waitForTimeout(2500);
+        let searchFormReady = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            await dismissIdleDialog(page);
+            const advSearchBtn = page.getByText('Advanced Search').first();
+            await advSearchBtn.waitFor({ state: 'visible', timeout: 10000 });
+            await advSearchBtn.click();
+            await page.waitForTimeout(1200);
+            const docHeaderInput = page.locator(jsfId('mainForm:documentHeader')).or(page.locator('input[id$="documentHeader"]'));
+            await docHeaderInput.waitFor({ state: 'visible', timeout: 15000 });
+            await docHeaderInput.fill('');
+            await page.waitForTimeout(300);
+            await page.getByRole('button', { name: 'Search' }).click();
+            await page.waitForTimeout(3000);
+            searchFormReady = true;
+            break;
+          } catch (e) {
+            if (attempt === 0) {
+              log('  Advanced Search form timeout, retrying...');
+              await page.getByText('Simple Search').first().click().catch(() => {});
+              await page.waitForTimeout(800);
+            } else {
+              throw e;
+            }
+          }
+        }
+        if (!searchFormReady) throw new Error('Advanced Search form not ready after retries');
 
         // —— Results table: div#mainForm:searchResults > div.ui-datatable-tablewrapper > table, tbody#mainForm:searchResults_data
         // Columns: 0=Effective Date, 1=Document Name, 2=eAIP AIRAC, 3=Document Heading
@@ -214,6 +271,7 @@ async function main() {
             hasMore = false;
             break;
           }
+          await dismissIdleDialog(page);
           await nextBtn.click();
           await page.waitForTimeout(1500);
           pageNum += 1;
@@ -224,6 +282,15 @@ async function main() {
       } catch (err) {
         log('  Error: ' + err.message);
         results.countries[countryLabel] = [];
+      }
+
+      // Save progress after each country
+      try {
+        mkdirSync(pathDirname(outputPath), { recursive: true });
+        const json = JSON.stringify(results, null, 2);
+        writeFileSync(outputPath, json, 'utf8');
+      } catch (e) {
+        log('  Warning: failed to save progress: ' + e.message);
       }
     }
 

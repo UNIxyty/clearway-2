@@ -21,6 +21,7 @@ const EAD_GEN_DIR = join(PROJECT_ROOT, "data", "ead-gen");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
+const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
@@ -284,7 +285,7 @@ async function uploadGenToS3(prefix, payload) {
 const AIP_STEPS = [
   "Deleting old from S3…",
   "Downloading AIP PDF…",
-  "Extracting with AI…",
+  DISABLE_AI_FOR_TESTING ? "Extracting with regex (AI disabled for testing)…" : "Extracting with AI…",
   "Uploading to S3…",
 ];
 
@@ -292,7 +293,7 @@ const AIP_STEPS = [
 const GEN_STEPS = [
   "Downloading GEN PDF…",
   "Extracting text…",
-  "Rewriting with AI…",
+  DISABLE_AI_FOR_TESTING ? "Rewriting skipped (AI disabled for testing)…" : "Rewriting with AI…",
   "Uploading GEN to S3…",
 ];
 
@@ -300,7 +301,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
-  const useAi = url.searchParams.get("extract") !== "regex";
+  const useAi = !DISABLE_AI_FOR_TESTING && url.searchParams.get("extract") !== "regex";
   const modelOverride = url.searchParams.get("model")?.trim() || null;
 
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
@@ -339,7 +340,8 @@ const server = createServer(async (req, res) => {
       if (raw) {
         const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
         if (stream) send({ step: GEN_STEPS[2] });
-        const hasKey = modelOverride?.includes("/") ? !!process.env.OPENROUTER_API_KEY : !!process.env.OPENAI_API_KEY;
+        const hasKey = !DISABLE_AI_FOR_TESTING
+          && (modelOverride?.includes("/") ? !!process.env.OPENROUTER_API_KEY : !!process.env.OPENAI_API_KEY);
         const generalRewritten = generalRaw && hasKey ? await rewriteGenWithAI(generalRaw, null, modelOverride) : generalRaw;
         const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteGenWithAI(nonSchedRaw, null, modelOverride) : nonSchedRaw;
         const privateRewritten = privateRaw && hasKey ? await rewriteGenWithAI(privateRaw, null, modelOverride) : privateRaw;
@@ -449,5 +451,12 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("AIP sync server listening on port", PORT, "| download:", DOWNLOAD_SCRIPT, "| extract: AI");
+  console.log(
+    "AIP sync server listening on port",
+    PORT,
+    "| download:",
+    DOWNLOAD_SCRIPT,
+    "| extract:",
+    DISABLE_AI_FOR_TESTING ? "REGEX (AI disabled for testing)" : "AI"
+  );
 });

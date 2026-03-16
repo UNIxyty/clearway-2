@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 300_000;
+const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
@@ -56,14 +57,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!userGenModel) {
+  if (!userGenModel && !DISABLE_AI_FOR_TESTING) {
     return NextResponse.json(
       { error: "No AI model selected", detail: "Go to Settings and choose a GEN model before syncing." },
       { status: 400 }
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync/gen?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(userGenModel)}`;
+  const modelParam = userGenModel || "testing-disabled-ai";
+  const syncUrl = `${AIP_SYNC_URL}/sync/gen?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(modelParam)}`;
   const headers: HeadersInit = {};
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 

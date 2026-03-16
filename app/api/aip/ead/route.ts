@@ -9,6 +9,7 @@ const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PREFIX = "aip/ead";
 const SYNC_TIMEOUT_MS = 600_000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
+const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 function s3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
@@ -123,14 +124,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!userAipModel) {
+  if (!userAipModel && !DISABLE_AI_FOR_TESTING) {
     return NextResponse.json(
       { error: "No AI model selected", detail: "Go to Settings and choose an AIP model before syncing." },
       { status: 400 }
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(userAipModel)}`;
+  const modelParam = userAipModel || "testing-disabled-ai";
+  const extractParam = DISABLE_AI_FOR_TESTING ? "&extract=regex" : "";
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(modelParam)}${extractParam}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { chromium } from "playwright";
-import { mkdirSync, existsSync, writeFileSync } from "fs";
+import readline from "readline";
+import { mkdirSync, existsSync, writeFileSync, readFileSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 
 const PORTAL_URL = (process.env.PORTAL_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -12,7 +13,49 @@ const COUNTRY_FILTER = process.env.COUNTRY_FILTER || "";
 const OUTPUT_DIR = process.env.TEST_RESULTS_DIR || "test-results";
 const STORAGE_STATE_PATH = process.env.PLAYWRIGHT_STORAGE_STATE_PATH || join(OUTPUT_DIR, "auth-state.json");
 const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || "";
+const MAGIC_LINK_URL = (process.env.MAGIC_LINK_URL || "").trim();
 const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
+
+const MAGIC_LINK_FILE = join(OUTPUT_DIR, "magic-link.txt");
+
+function promptForMagicLink() {
+  return new Promise((resolve) => {
+    ensureDir(OUTPUT_DIR);
+
+    const magicLinkPath = join(process.cwd(), MAGIC_LINK_FILE);
+    const msg = [
+      "",
+      "================================================================================",
+      "  MAGIC LINK SENT. Paste the link here and press Enter.",
+      `  Or, in ANOTHER terminal: echo 'YOUR_LINK' > ${magicLinkPath}`,
+      "================================================================================",
+      "> ",
+    ].join("\n");
+    process.stdout.write(msg);
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question("", (answer) => {
+      clearInterval(interval);
+      rl.close();
+      resolve((answer || "").trim());
+    });
+
+    const interval = setInterval(() => {
+      try {
+        if (existsSync(MAGIC_LINK_FILE)) {
+          const link = String(readFileSync(MAGIC_LINK_FILE, "utf8")).trim();
+          if (link.startsWith("http")) {
+            unlinkSync(MAGIC_LINK_FILE);
+            clearInterval(interval);
+            rl.close();
+            resolve(link);
+          }
+        }
+      } catch (_) {}
+    }, 500);
+    rl.on("close", () => clearInterval(interval));
+  });
+}
 
 const EAD_ICAO_PREFIXES = new Set([
   "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
@@ -68,7 +111,22 @@ async function ensureAuthenticated(page, context) {
   await page.goto(PORTAL_URL, { waitUntil: "load" });
   if (!page.url().includes("/login")) return;
 
-  if (TEST_USER_EMAIL) {
+  // If MAGIC_LINK_URL is set, skip email/send and go straight to the link
+  if (MAGIC_LINK_URL && MAGIC_LINK_URL.startsWith("http")) {
+    console.log("Using MAGIC_LINK_URL from environment.");
+    const magicLink = MAGIC_LINK_URL;
+    await page.goto(magicLink, { waitUntil: "load", timeout: 30000 });
+    await page.waitForTimeout(2000);
+    if (page.url().includes("/login")) {
+      throw new Error("Authentication failed. The magic link may have expired or already been used.");
+    }
+    await context.storageState({ path: STORAGE_STATE_PATH });
+    console.log(`Saved auth storage state to ${STORAGE_STATE_PATH}`);
+    return;
+  }
+
+  // Only fill and send magic link when we don't already have the link
+  if (TEST_USER_EMAIL && !MAGIC_LINK_URL) {
     const emailInput = page.locator("#email");
     if (await emailInput.count()) {
       await emailInput.waitFor({ state: "visible", timeout: 10000 });
@@ -98,8 +156,17 @@ async function ensureAuthenticated(page, context) {
     );
   }
 
-  console.log("Waiting for manual login in browser...");
-  await page.waitForFunction(() => !window.location.pathname.startsWith("/login"), null, { timeout: AUTH_TIMEOUT_MS });
+  // Use MAGIC_LINK_URL if provided (avoids interactive prompt; useful when terminal stdin doesn't work)
+  const magicLink = MAGIC_LINK_URL || (await promptForMagicLink());
+  if (!magicLink || !magicLink.startsWith("http")) {
+    throw new Error("Invalid magic link URL. Must start with http:// or https://");
+  }
+  console.log("Navigating to magic link...");
+  await page.goto(magicLink, { waitUntil: "load", timeout: 30000 });
+  await page.waitForTimeout(2000); // Allow auth callback redirect to complete
+  if (page.url().includes("/login")) {
+    throw new Error("Authentication failed. The magic link may have expired or already been used.");
+  }
   await context.storageState({ path: STORAGE_STATE_PATH });
   console.log(`Saved auth storage state to ${STORAGE_STATE_PATH}`);
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Creates data/countries-and-icaos.md: all countries with their ICAOs, divided by EAD and non-EAD.
- * EAD section uses ead-icaos-summary.md as primary source (portal data; this script never overwrites it).
+ * EAD data from ead-icaos-from-document-names.json. (ead-icaos-summary.md is just a readable view of that JSON.)
  * Run: node scripts/build-countries-icaos-doc.mjs
  */
 import fs from "fs";
@@ -11,47 +11,16 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
-const eadSummaryPath = path.join(root, "data", "ead-icaos-summary.md");
 const eadJsonPath = path.join(root, "data", "ead-icaos-from-document-names.json");
 const aipPath = path.join(root, "data", "aip-data.json");
 const usaPath = path.join(root, "data", "usa-aip-icaos-by-state.json");
 const outPath = path.join(root, "data", "countries-and-icaos.md");
 
-// Load EAD: use ead-icaos-summary.md as primary (portal source, never overwrite), merge with JSON for structure
-function parseEadSummary(content) {
-  const countries = {};
-  const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^###\s+(.+?)\s+\((\d+)\s+ICAOs?\)\s*$/);
-    if (m) {
-      const label = m[1].trim();
-      let j = i + 1;
-      while (j < lines.length && !lines[j].trim()) j++;
-      const icaoLine = lines[j]?.trim();
-      const icaos = icaoLine
-        ? icaoLine.split(/,/).map((s) => s.trim().toUpperCase()).filter(Boolean)
-        : [];
-      countries[label] = [...new Set(icaos)];
-    }
-  }
-  return countries;
-}
-
-let eadCountries = {};
-if (fs.existsSync(eadSummaryPath)) {
-  const summary = fs.readFileSync(eadSummaryPath, "utf8");
-  eadCountries = parseEadSummary(summary);
-}
+// Load EAD from JSON (portal uses same source via embed-ead-icaos.mjs)
 const eadJson = fs.existsSync(eadJsonPath)
   ? JSON.parse(fs.readFileSync(eadJsonPath, "utf8"))
   : { countries: {} };
-// Merge: summary is authoritative for ICAOs; add any country keys from JSON not in summary (with their ICAOs)
-for (const [label, icaos] of Object.entries(eadJson.countries || {})) {
-  if (!eadCountries[label] || eadCountries[label].length === 0) {
-    const list = (icaos || []).map((i) => String(i).toUpperCase()).filter(Boolean);
-    eadCountries[label] = [...new Set(list)];
-  }
-}
+const eadCountries = eadJson.countries || {};
 
 // EAD base names (e.g. "Austria" from "Austria (LO)") for exclusion from non-EAD
 const eadBaseNames = new Set();
@@ -105,7 +74,7 @@ lines.push("---");
 lines.push("");
 lines.push("## EAD Countries (European AIP - EU)")
 lines.push("");
-lines.push("Data from ead-icaos-summary.md (primary; portal source—never overwritten) and ead-icaos-from-document-names.json. These countries use the EAD sync workflow.");
+lines.push("Data from ead-icaos-from-document-names.json. These countries use the EAD sync workflow.");
 lines.push("");
 
 const eadEntries = Object.entries(eadCountries).sort(sortCountry);

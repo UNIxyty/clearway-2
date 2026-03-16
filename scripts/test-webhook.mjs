@@ -16,6 +16,12 @@ function makePayload() {
     timestamp: new Date().toISOString(),
     message: "Testing n8n webhook for E2E portal testing",
     source: "scripts/test-webhook.mjs",
+    summary: {
+      total: 10,
+      passed: 8,
+      failed: 2,
+    },
+    reportUrl: "https://example.com/test-results/sample-report.md",
   };
 }
 

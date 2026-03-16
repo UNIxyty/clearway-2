@@ -227,12 +227,18 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
   }
 
   try {
-    const mapVisible = await page.locator(".leaflet-container").first().isVisible({ timeout: 4000 }).catch(() => false);
+    // Map is dynamically rendered; allow a short delay before asserting.
+    await page.waitForTimeout(5000);
     const noCoord = await page.getByText("Coordinates will appear after AIP sync or when available from data.", { exact: false }).first().isVisible().catch(() => false);
-    result.checks.map.hasCoords = mapVisible;
+    const mapVisible = await page.locator(".leaflet-container").first().isVisible({ timeout: 3000 }).catch(() => false);
+    result.checks.map.hasCoords = mapVisible && !noCoord;
     result.checks.map.pass = mapVisible && !noCoord;
-    if (!result.checks.map.pass && noCoord) {
-      result.errors.push("Map check failed: no coordinates available.");
+    if (!result.checks.map.pass) {
+      if (noCoord) {
+        result.errors.push("Map check failed: coordinates placeholder still visible.");
+      } else if (!mapVisible) {
+        result.errors.push("Map check failed: leaflet map did not render.");
+      }
     }
   } catch (error) {
     result.errors.push(`Map check failed: ${error instanceof Error ? error.message : String(error)}`);

@@ -63,7 +63,7 @@ EAD_PASSWORD_ENC=...
 # Webhook
 N8N_WEBHOOK_URL=https://your-n8n-webhook-url
 
-# S3 report link settings
+# S3 report + screenshot link settings
 AWS_S3_BUCKET=myapp-notams-prod
 AWS_REGION=us-east-1
 E2E_REPORTS_S3_PREFIX=e2e-reports
@@ -173,7 +173,8 @@ Webhook sender options:
 node scripts/send-test-webhook.mjs --report-path=test-results/report-xxx.md --report-url=https://...
 ```
 
-By default, `send-test-webhook.mjs` uploads the report to S3 and sends a presigned download URL in `reportUrl`.
+By default, `send-test-webhook.mjs` uploads the report to S3 and sends a presigned download URL in `reportUrl`.  
+When `AWS_S3_BUCKET` is set, `generate-test-report.mjs` also uploads screenshots and writes presigned screenshot URLs into the markdown report.
 
 ## 9) Output Locations
 

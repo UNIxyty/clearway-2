@@ -208,7 +208,8 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
   };
 
   try {
-    await page.goto(PORTAL_URL, { waitUntil: "domcontentloaded" });
+    await page.goto(PORTAL_URL, { waitUntil: "load" });
+    await page.locator("#search").first().waitFor({ state: "visible", timeout: 15000 });
     await page.locator("#search").fill(icao);
     await page.getByRole("button", { name: /^find$/i }).click();
 

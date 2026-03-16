@@ -25,6 +25,12 @@ export async function GET() {
       error: userErr,
     } = await supabase.auth.getUser();
 
+    const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
+    if (disableAuthForTesting && (userErr || !user)) {
+      // In test mode, allow portal UI to render without a session.
+      return NextResponse.json({ preferences: {} });
+    }
+
     if (userErr || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

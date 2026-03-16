@@ -340,7 +340,7 @@ export EAD_PASSWORD_ENC=your-base64-encoded-password
 # OpenRouter (NOT NEEDED when DISABLE_AI_FOR_TESTING=true - skip these)
 # export OPENROUTER_API_KEY=sk-or-v1-...
 
-# AWS S3 (for caching and report uploads)
+# AWS S3 (for caching, report uploads, and screenshot links in report)
 export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
 
@@ -1173,16 +1173,16 @@ npm run test:e2e:webhook:send
 ### Optional
 
 
-| Variable                 | Default        | Purpose                            |
-| ------------------------ | -------------- | ---------------------------------- |
-| `HEADLESS`               | `true`         | Set to `false` for visible browser |
-| `MAX_AIRPORTS`           | `0` (all)      | Limit number of airports to test   |
-| `COUNTRY_FILTER`         | `""`           | Filter countries by name           |
-| `TEST_RESULTS_DIR`       | `test-results` | Output directory                   |
-| `AWS_S3_BUCKET`          | `myapp-notams-prod` | S3 bucket for report uploads   |
-| `AWS_REGION`             | `us-east-1`    | AWS region                         |
-| `E2E_REPORTS_S3_PREFIX`  | `e2e-reports`  | S3 key prefix for report files     |
-| `E2E_REPORT_URL_EXPIRES_IN` | `259200`    | Presigned URL expiration (seconds) |
+| Variable                    | Default             | Purpose                            |
+| --------------------------- | ------------------- | ---------------------------------- |
+| `HEADLESS`                  | `true`              | Set to `false` for visible browser |
+| `MAX_AIRPORTS`              | `0` (all)           | Limit number of airports to test   |
+| `COUNTRY_FILTER`            | `""`                | Filter countries by name           |
+| `TEST_RESULTS_DIR`          | `test-results`      | Output directory                   |
+| `AWS_S3_BUCKET`             | `myapp-notams-prod` | S3 bucket for report + screenshot uploads |
+| `AWS_REGION`                | `us-east-1`         | AWS region                         |
+| `E2E_REPORTS_S3_PREFIX`     | `e2e-reports`       | S3 key prefix for report files and screenshots |
+| `E2E_REPORT_URL_EXPIRES_IN` | `259200`            | Presigned URL expiration (seconds) |
 
 
 ---
@@ -1464,7 +1464,7 @@ AI disabled for testing: true
 - AIP Loaded: ✅ (AI skipped)
 - GEN Loaded: ✅ (AI skipped)
 - Screenshot: ✅
-- Screenshot Path: [LAKU.png](screenshots/Albania_LA/LAKU.png)
+- Screenshot Path: [LAKU.png](https://...presigned-s3-url...)
 
 #### ✅ LATI - Tirana International Airport Mother Teresa
 
@@ -1474,9 +1474,11 @@ AI disabled for testing: true
 - AIP Loaded: ✅ (AI skipped)
 - GEN Loaded: ✅ (AI skipped)
 - Screenshot: ✅
-- Screenshot Path: [LATI.png](screenshots/Albania_LA/LATI.png)
+- Screenshot Path: [LATI.png](https://...presigned-s3-url...)
 
 [... continues for all countries ...]
+
+If `AWS_S3_BUCKET` is configured, screenshot links are presigned S3 URLs and can be opened/downloaded on any device. Without S3, the report falls back to local relative screenshot paths.
 ```
 
 ---

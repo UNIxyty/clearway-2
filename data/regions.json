@@ -1,6 +1,81 @@
 [
-  { "region": "Africa", "countries": ["Benin", "Burkina Faso", "Cameroun", "Centrafrique", "Comores", "Congo", "Côte d'Ivoire", "Gabon", "Guinée Bissau", "Guinée Equatoriale", "Libya", "Madagascar", "Mali", "Mauritanie", "Niger", "Republic of Cabo Verde", "Rwanda", "Sénégal", "Somalia", "Tchad", "Togo"] },
-  { "region": "Asia", "countries": ["Armenia", "Azerbaijan", "Bahrain", "Bhutan", "Georgia", "Iran", "Israel", "Japan", "Kyrgyzstan", "Maldives", "Mongolia", "Myanmar", "Nepal", "Oman", "Pakistan", "Qatar", "Singapore", "South Korea"] },
-  { "region": "Europe", "countries": ["Austria", "Bulgaria", "Czech Republic", "Denmark", "Ireland", "Italy"] },
-  { "region": "North America & Caribbean", "countries": ["Cuba", "United States of America"] }
+  {
+    "region": "Africa",
+    "countries": [
+      "Benin",
+      "Burkina Faso",
+      "Cameroun",
+      "Centrafrique",
+      "Comores",
+      "Congo",
+      "Côte d'Ivoire",
+      "Gabon",
+      "Guinée Bissau",
+      "Guinée Equatoriale",
+      "Libya",
+      "Madagascar",
+      "Mali",
+      "Mauritanie",
+      "Niger",
+      "Republic of Cabo Verde",
+      "Rwanda",
+      "Sénégal",
+      "Somalia",
+      "Tchad",
+      "Togo"
+    ]
+  },
+  {
+    "region": "Asia",
+    "countries": [
+      "Armenia",
+      "Azerbaijan",
+      "Bahrain",
+      "Bhutan",
+      "Georgia",
+      "Hong Kong",
+      "Iran",
+      "Israel",
+      "Japan",
+      "Kyrgyzstan",
+      "Maldives",
+      "Mongolia",
+      "Myanmar",
+      "Nepal",
+      "Oman",
+      "Pakistan",
+      "Qatar",
+      "Saudi Arabia",
+      "Singapore",
+      "South Korea",
+      "Sri Lanka",
+      "Taiwan",
+      "Tajikistan",
+      "Thailand",
+      "Turkmenistan",
+      "United Arab Emirates"
+    ]
+  },
+  {
+    "region": "Europe",
+    "countries": [
+      "Austria",
+      "Belarus",
+      "Bulgaria",
+      "Czech Republic",
+      "Denmark",
+      "France",
+      "Ireland",
+      "Italy",
+      "Kosovo"
+    ]
+  },
+  {
+    "region": "North America & Caribbean",
+    "countries": [
+      "Costa Rica",
+      "Cuba",
+      "United States of America"
+    ]
+  }
 ]

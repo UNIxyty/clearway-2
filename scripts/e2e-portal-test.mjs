@@ -72,7 +72,20 @@ async function ensureAuthenticated(page, context) {
     const emailInput = page.locator("#email");
     if (await emailInput.count()) {
       await emailInput.fill(TEST_USER_EMAIL);
-      await page.getByRole("button", { name: /send sign-in link/i }).click();
+      await emailInput.blur(); // Trigger validation
+
+      const signInButton = page.getByRole("button", { name: /send sign-in link/i });
+      await signInButton.waitFor({ state: "visible", timeout: 10000 });
+      // Wait for button to become enabled (validation / React state update)
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline) {
+        if (await signInButton.isEnabled()) break;
+        await page.waitForTimeout(200);
+      }
+      if (!(await signInButton.isEnabled())) {
+        throw new Error("Send sign-in link button did not become enabled in time. Check email format and page load.");
+      }
+      await signInButton.click();
     }
   }
 

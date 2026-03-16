@@ -63,8 +63,11 @@ EAD_PASSWORD_ENC=...
 # Webhook
 N8N_WEBHOOK_URL=https://your-n8n-webhook-url
 
-# Optional public report link base (for webhook payload)
-PUBLIC_REPORT_BASE_URL=https://your-public-host/test-results
+# S3 report link settings
+AWS_S3_BUCKET=myapp-notams-prod
+AWS_REGION=us-east-1
+E2E_REPORTS_S3_PREFIX=e2e-reports
+E2E_REPORT_URL_EXPIRES_IN=259200
 ```
 
 ## 4) Start Services
@@ -90,6 +93,32 @@ DISABLE_AUTH_FOR_TESTING=true
 ```
 
 No Playwright login setup or auth-state files are required.
+
+## 5b) Clean Start Commands
+
+Light clean (keep repo and env):
+
+```bash
+tmux kill-session -t portal 2>/dev/null || true
+tmux kill-session -t aip-sync 2>/dev/null || true
+tmux kill-session -t e2e-test 2>/dev/null || true
+pkill -f "next dev" 2>/dev/null || true
+pkill -f "aip-sync-server" 2>/dev/null || true
+cd ~/clearway-2 && rm -rf test-results/* && mkdir -p test-results/raw test-results/screenshots
+```
+
+Full clean (like new instance):
+
+```bash
+tmux kill-server 2>/dev/null || true
+pkill -f "node" 2>/dev/null || true
+cd ~ && rm -rf clearway-2
+git clone <your-repo-url>
+cd clearway-2
+npm install
+npx playwright install --with-deps chromium
+# Recreate .env from section 3
+```
 
 ## 6) Mandatory Webhook Test Before Full Run
 
@@ -144,6 +173,8 @@ Webhook sender options:
 node scripts/send-test-webhook.mjs --report-path=test-results/report-xxx.md --report-url=https://...
 ```
 
+By default, `send-test-webhook.mjs` uploads the report to S3 and sends a presigned download URL in `reportUrl`.
+
 ## 9) Output Locations
 
 - Raw results JSON:
@@ -155,8 +186,6 @@ node scripts/send-test-webhook.mjs --report-path=test-results/report-xxx.md --re
 
 ## 10) Troubleshooting
 
-- If redirected to `/login` in headless:
-  - regenerate auth state with `HEADLESS=false`
 - If AIP/GEN sync fails:
   - confirm `AIP_SYNC_URL`, `SYNC_SECRET`, and sync server logs
 - If webhook fails:

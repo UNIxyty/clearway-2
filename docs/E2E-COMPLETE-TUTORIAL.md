@@ -255,6 +255,44 @@ npx playwright install-deps chromium
 
 This downloads Chromium and its system dependencies for Playwright.
 
+### 5d. Clean Start (Reset Server State)
+
+If you want to restart from scratch, use one of these options.
+
+**Option A - Light clean (keep repo and env):**
+
+```bash
+tmux kill-session -t portal 2>/dev/null || true
+tmux kill-session -t aip-sync 2>/dev/null || true
+tmux kill-session -t e2e-test 2>/dev/null || true
+pkill -f "next dev" 2>/dev/null || true
+pkill -f "aip-sync-server" 2>/dev/null || true
+cd ~/clearway-2
+rm -rf test-results/*
+mkdir -p test-results/raw test-results/screenshots
+```
+
+**Option B - Full clean (like a new instance):**
+
+```bash
+# Optional backup of .env
+# scp -i key.pem ubuntu@EC2_IP:~/clearway-2/.env ./env-backup.txt
+
+tmux kill-server 2>/dev/null || true
+pkill -f "node" 2>/dev/null || true
+
+cd ~
+rm -rf clearway-2
+git clone https://github.com/YOUR-USERNAME/clearway-2.git
+cd clearway-2
+npm install
+npx playwright install --with-deps chromium
+
+# Recreate env from section 6
+nano .env
+set -a && source .env && set +a
+```
+
 ---
 
 ## 6) Configure Environment Variables
@@ -303,14 +341,15 @@ export EAD_PASSWORD_ENC=your-base64-encoded-password
 # export OPENROUTER_API_KEY=sk-or-v1-...
 
 # AWS S3 (for caching and report uploads)
-export AWS_S3_BUCKET=your-bucket-name
+export AWS_S3_BUCKET=myapp-notams-prod
 export AWS_REGION=us-east-1
 
 # n8n Webhook (you'll get this in step 8)
 export N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/xxxxx
 
-# Optional: Public URL for report access
-export PUBLIC_REPORT_BASE_URL=https://your-domain.com/test-results
+# Optional: S3 report key prefix and URL expiry (seconds)
+export E2E_REPORTS_S3_PREFIX=e2e-reports
+export E2E_REPORT_URL_EXPIRES_IN=259200
 
 # Test results directory
 export TEST_RESULTS_DIR=/home/ubuntu/clearway-2/test-results
@@ -688,9 +727,10 @@ node scripts/send-test-webhook.mjs
 Expected output:
 
 ```
+Uploaded report to s3://myapp-notams-prod/e2e-reports/report-2026-03-05T12-35-00-123Z.md
 Webhook sent successfully.
 Report file: test-results/report-2026-03-05T12-35-00-123Z.md
-Report URL: (not provided)
+Report URL: https://myapp-notams-prod.s3.... (presigned download link)
 Response: ok
 ```
 
@@ -700,7 +740,7 @@ You should receive a message in Telegram with:
 
 - Event: `e2e_test_complete`
 - Summary stats (5 total, 4 passed, 1 failed)
-- Report URL (if you set `PUBLIC_REPORT_BASE_URL`)
+- Report URL (presigned S3 download link)
 
 **If webhook fails here:**
 
@@ -821,18 +861,8 @@ grep -n "❌" test-results/report-*.md | head -n 20
 
 ### 14c. Optional: Upload Report to S3
 
-If you want the report accessible via URL:
-
-```bash
-REPORT_FILE=$(ls -t test-results/report-*.md | head -n 1)
-aws s3 cp "$REPORT_FILE" s3://$AWS_S3_BUCKET/e2e-reports/$(basename "$REPORT_FILE") --content-type "text/markdown"
-```
-
-Get public URL (if bucket allows public read, or use presigned URL):
-
-```bash
-aws s3 presign s3://$AWS_S3_BUCKET/e2e-reports/$(basename "$REPORT_FILE") --expires-in 604800
-```
+`send-test-webhook.mjs` now uploads the report to S3 and generates a presigned download URL automatically.
+Manual `aws s3 cp` and `aws s3 presign` are no longer required for the normal flow.
 
 ### 14d. Send Final Webhook to Telegram
 
@@ -1149,9 +1179,10 @@ npm run test:e2e:webhook:send
 | `MAX_AIRPORTS`           | `0` (all)      | Limit number of airports to test   |
 | `COUNTRY_FILTER`         | `""`           | Filter countries by name           |
 | `TEST_RESULTS_DIR`       | `test-results` | Output directory                   |
-| `PUBLIC_REPORT_BASE_URL` | `""`           | Base URL for report links          |
-| `AWS_S3_BUCKET`          | `""`           | S3 bucket for uploads              |
+| `AWS_S3_BUCKET`          | `myapp-notams-prod` | S3 bucket for report uploads   |
 | `AWS_REGION`             | `us-east-1`    | AWS region                         |
+| `E2E_REPORTS_S3_PREFIX`  | `e2e-reports`  | S3 key prefix for report files     |
+| `E2E_REPORT_URL_EXPIRES_IN` | `259200`    | Presigned URL expiration (seconds) |
 
 
 ---

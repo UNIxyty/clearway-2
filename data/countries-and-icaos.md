@@ -6,7 +6,7 @@ All countries in the Clearway portal with their airport ICAO codes, divided by d
 
 ## EAD Countries (European AIP - EU)
 
-Data from ead-icaos-summary.md (primary; portal source—never overwritten) and ead-icaos-from-document-names.json. These countries use the EAD sync workflow.
+Data from ead-icaos-from-document-names.json. These countries use the EAD sync workflow.
 
 ### Albania (LA)
 **2 airports**

@@ -302,12 +302,12 @@ export SYNC_SECRET=your-sync-secret-here
 export EAD_USER=your-ead-username
 export EAD_PASSWORD_ENC=your-base64-encoded-password
 
-# OpenAI (optional - only if not using DISABLE_AI_FOR_TESTING)
-export OPENAI_API_KEY=sk-...
-export OPENAI_MODEL=gpt-4o-mini
+# OpenAI (NOT NEEDED when DISABLE_AI_FOR_TESTING=true - skip these)
+# export OPENAI_API_KEY=sk-...
+# export OPENAI_MODEL=gpt-4o-mini
 
-# OpenRouter (optional - for alternative models)
-export OPENROUTER_API_KEY=sk-or-v1-...
+# OpenRouter (NOT NEEDED when DISABLE_AI_FOR_TESTING=true - skip these)
+# export OPENROUTER_API_KEY=sk-or-v1-...
 
 # AWS S3 (for caching and report uploads)
 export AWS_S3_BUCKET=your-bucket-name
@@ -419,18 +419,16 @@ DO UPDATE SET aip_model = 'gpt-4o-mini', gen_model = 'gpt-4o-mini';
 ```
 🧪 E2E Test Notification
 
-Event: {{ $json.event }}
-Timestamp: {{ $json.timestamp }}
-Message: {{ $json.message }}
+Event: {{ $json.event || "nil" }}
+Timestamp: {{ $json.timestamp || "nil" }}
+Message: {{ $json.message || "nil" }}
 
-{% if $json.summary %}
 📊 Summary:
-- Total: {{ $json.summary.total }}
-- Passed: {{ $json.summary.passed }}
-- Failed: {{ $json.summary.failed }}
+- Total: {{ $json.summary.total || "nil" }}
+- Passed: {{ $json.summary.passed || "nil" }}
+- Failed: {{ $json.summary.failed || "nil" }}
 
-📄 Report: {{ $json.reportUrl }}
-{% endif %}
+📄 Report: {{ $json.reportUrl || "nil" }}
 ```
 
 5. **Connect** Webhook → Telegram nodes

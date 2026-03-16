@@ -65,18 +65,21 @@ async function getCountryAirports() {
 }
 
 async function ensureAuthenticated(page, context) {
-  await page.goto(PORTAL_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(PORTAL_URL, { waitUntil: "load" });
   if (!page.url().includes("/login")) return;
 
   if (TEST_USER_EMAIL) {
     const emailInput = page.locator("#email");
     if (await emailInput.count()) {
-      await emailInput.fill(TEST_USER_EMAIL);
-      await emailInput.blur(); // Trigger validation
+      await emailInput.waitFor({ state: "visible", timeout: 10000 });
+      await emailInput.click();
+      await emailInput.clear();
+      // Use pressSequentially to trigger React's onChange (controlled input)
+      await emailInput.pressSequentially(TEST_USER_EMAIL, { delay: 30 });
 
       const signInButton = page.getByRole("button", { name: /send sign-in link/i });
       await signInButton.waitFor({ state: "visible", timeout: 10000 });
-      // Wait for button to become enabled (validation / React state update)
+      // Wait for button to become enabled (React state: disabled when !email.trim())
       const deadline = Date.now() + 15000;
       while (Date.now() < deadline) {
         if (await signInButton.isEnabled()) break;

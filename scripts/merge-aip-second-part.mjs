@@ -13,10 +13,21 @@ const projectRoot = path.join(__dirname, "..");
 const secondPartPath = path.join(projectRoot, "data", "AIP_SECOND_PART.json");
 const aipPath = path.join(projectRoot, "data", "aip-data.json");
 const regionsPath = path.join(projectRoot, "data", "regions.json");
+const eadIcaosPath = path.join(projectRoot, "data", "ead-icaos-from-document-names.json");
 
 const secondPart = JSON.parse(fs.readFileSync(secondPartPath, "utf8"));
 const aipData = JSON.parse(fs.readFileSync(aipPath, "utf8"));
 const regions = JSON.parse(fs.readFileSync(regionsPath, "utf8"));
+
+/** EAD country base names to skip (e.g. "Austria" from "Austria (LO)") */
+let eadCountryBaseNames = new Set();
+try {
+  const eadData = JSON.parse(fs.readFileSync(eadIcaosPath, "utf8"));
+  for (const label of Object.keys(eadData.countries || {})) {
+    const base = label.replace(/\s*\([A-Z0-9]+\)\s*$/, "").trim();
+    if (base) eadCountryBaseNames.add(base);
+  }
+} catch (_) {}
 
 /** Map new country -> region */
 const COUNTRY_TO_REGION = {
@@ -68,46 +79,43 @@ for (const row of secondPart) {
 const existingCountrySet = new Set(aipData.map((c) => c.country));
 let rowCounter = aipData.reduce((n, c) => n + (c.airports?.length || 0), 0) + 2;
 
-// Merge: add new countries, merge airports for overlapping countries
+let skippedExisting = 0;
+let skippedEad = 0;
+
+// Add only new countries: skip if already in aip-data or if EAD country
 for (const [country, rows] of byCountry.entries()) {
+  if (existingCountrySet.has(country)) {
+    skippedExisting++;
+    continue;
+  }
+  if (eadCountryBaseNames.has(country)) {
+    skippedEad++;
+    continue;
+  }
+
   const airports = rows.map((r, i) => mapRowToAirport(r, rowCounter + i - 2));
   rowCounter += airports.length;
 
-  if (existingCountrySet.has(country)) {
-    // Country exists: merge airports by ICAO, prefer existing, add new from second part
-    const existing = aipData.find((c) => c.country === country);
-    const existingIcaos = new Set(
-      (existing.airports || []).map((a) => (a["Airport Code"] ?? "").toUpperCase())
-    );
-    for (const ap of airports) {
-      const icao = (ap["Airport Code"] ?? "").toUpperCase();
-      if (!existingIcaos.has(icao)) {
-        existing.airports = existing.airports ?? [];
-        existing.airports.push(ap);
-        existingIcaos.add(icao);
-      }
-    }
-  } else {
-    // New country: add with empty GEN (skip GEN parts)
-    aipData.push({
-      country,
-      GEN_1_2: "",
-      GEN_1_2_POINT_4: "",
-      airports,
-    });
-    existingCountrySet.add(country);
+  aipData.push({
+    country,
+    GEN_1_2: "",
+    GEN_1_2_POINT_4: "",
+    airports,
+  });
+  existingCountrySet.add(country);
 
-    // Add to regions
-    const region = COUNTRY_TO_REGION[country];
-    if (region) {
-      const regionEntry = regions.find((r) => r.region === region);
-      if (regionEntry && !regionEntry.countries.includes(country)) {
-        regionEntry.countries.push(country);
-        regionEntry.countries.sort();
-      }
+  const region = COUNTRY_TO_REGION[country];
+  if (region) {
+    const regionEntry = regions.find((r) => r.region === region);
+    if (regionEntry && !regionEntry.countries.includes(country)) {
+      regionEntry.countries.push(country);
+      regionEntry.countries.sort();
     }
   }
 }
+
+if (skippedExisting) console.log("  Skipped (already in aip-data):", skippedExisting);
+if (skippedEad) console.log("  Skipped (EAD countries):", skippedEad);
 
 fs.writeFileSync(aipPath, JSON.stringify(aipData, null, 2), "utf8");
 fs.writeFileSync(regionsPath, JSON.stringify(regions, null, 2), "utf8");

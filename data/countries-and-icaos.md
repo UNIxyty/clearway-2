@@ -16,9 +16,11 @@ LAKU, LATI
 ```
 
 ### Armenia (UD)
-**0 airports**
+**3 airports**
 
-*(No ICAOs)*
+```
+UDSG, UDYE, UDYZ
+```
 
 ### Austria (LO)
 **59 airports**
@@ -28,9 +30,11 @@ LOAA, LOAB, LOAD, LOAN, LOAR, LOAT, LOAV, LOBU, LODK, LODO, LOGG, LOGH, LOGO, LO
 ```
 
 ### Azerbaijan (UB)
-**0 airports**
+**6 airports**
 
-*(No ICAOs)*
+```
+UBBN, UBBQ, UBBY, UBBZ, UBEE, UBLC
+```
 
 ### Belgium (EB)
 **22 airports**
@@ -40,9 +44,11 @@ EBAW, EBBE, EBBL, EBBR, EBCI, EBCT, EBCV, EBFN, EBFS, EBGB, EBKH, EBKT, EBLG, EB
 ```
 
 ### Bosnia/Herzeg. (LQ)
-**0 airports**
+**4 airports**
 
-*(No ICAOs)*
+```
+LQBK, LQMO, LQSA, LQTZ
+```
 
 ### Bulgaria (LB)
 **8 airports**
@@ -52,14 +58,18 @@ LBBG, LBLS, LBPN, LBPV, LBRS, LBSF, LBSP, LBWN
 ```
 
 ### Croatia (LD)
-**0 airports**
+**9 airports**
 
-*(No ICAOs)*
+```
+LDDU, LDLO, LDOS, LDPL, LDRI, LDSB, LDSP, LDZA, LDZD
+```
 
 ### Cyprus (LC)
-**0 airports**
+**1 airport**
 
-*(No ICAOs)*
+```
+LCPH
+```
 
 ### Czech Republic (LK)
 **4 airports**
@@ -83,9 +93,11 @@ EETU
 ```
 
 ### Faroe Islands (XX)
-**0 airports**
+**1 airport**
 
-*(No ICAOs)*
+```
+EKVG
+```
 
 ### Finland (EF)
 **45 airports**
@@ -102,9 +114,11 @@ DINA, HABB, HABI, HACH, HACS, HALB, HALE, HALP, HALS, HAMB, HAMI, HAMS, HAMY, HA
 ```
 
 ### Georgia (UG)
-**0 airports**
+**5 airports**
 
-*(No ICAOs)*
+```
+UGKO, UGMS, UGSA, UGSB, UGTB
+```
 
 ### Germany (ED)
 **64 airports**
@@ -121,9 +135,11 @@ LGAV, LGRP, LGTS
 ```
 
 ### Greenland (BG)
-**0 airports**
+**60 airports**
 
-*(No ICAOs)*
+```
+BGAA, BGAG, BGAK, BGAM, BGAP, BGAQ, BGAR, BGAS, BGAT, BGBW, BGCH, BGCO, BGET, BGFD, BGGH, BGGN, BGIA, BGIG, BGIK, BGIL, BGIN, BGIQ, BGIS, BGIT, BGJH, BGJN, BGKA, BGKK, BGKL, BGKM, BGKQ, BGKS, BGKT, BGMQ, BGNK, BGNN, BGNS, BGNT, BGNU, BGPT, BGQE, BGQQ, BGQT, BGSA, BGSC, BGSF, BGSG, BGSI, BGSQ, BGSS, BGST, BGSV, BGTA, BGTL, BGTN, BGTQ, BGUK, BGUM, BGUQ, BGUT
+```
 
 ### Hungary (LH)
 **8 airports**
@@ -133,9 +149,11 @@ LHBC, LHBP, LHDC, LHNY, LHPP, LHPR, LHSM, LHUD
 ```
 
 ### Iceland (BI)
-**0 airports**
+**30 airports**
 
-*(No ICAOs)*
+```
+BIKF, BIKL, BIKP, BIKR, BIMK, BIMM, BIMS, BIND, BINF, BIRE, BIRF, BIRG, BIRK, BIRL, BIRS, BISA, BISF, BISI, BISK, BISL, BISR, BISS, BIST, BISV, BITE, BITM, BITN, BIVI, BIVM, BIVO
+```
 
 ### Ireland (EI)
 **22 airports**
@@ -152,14 +170,18 @@ LIBD, LIBF, LIBG, LIBI, LIBP, LIBR, LICA, LICB, LICC, LICD, LICG, LICJ, LICP, LI
 ```
 
 ### Jordan (OJ)
-**0 airports**
+**3 airports**
 
-*(No ICAOs)*
+```
+OJAI, OJAM, OJAQ
+```
 
 ### Kazakhstan (UA)
-**0 airports**
+**26 airports**
 
-*(No ICAOs)*
+```
+UAAA, UAAH, UAAL, UAAR, UAAT, UACC, UACK, UACP, UADD, UAII, UAIK, UAIT, UAKD, UAKK, UAOO, UARR, UASK, UASP, UASS, UASU, UASZ, UATE, UATG, UATT, UATZ, UAUU
+```
 
 ### KFOR SECTOR (BK)
 **0 airports**
@@ -167,9 +189,11 @@ LIBD, LIBF, LIBG, LIBI, LIBP, LIBR, LICA, LICB, LICC, LICD, LICG, LICJ, LICP, LI
 *(No ICAOs)*
 
 ### Kyrgyzstan (UC)
-**0 airports**
+**3 airports**
 
-*(No ICAOs)*
+```
+UCFM, UCFV, UCFZ
+```
 
 ### Latvia (EV)
 **6 airports**
@@ -193,9 +217,11 @@ LMMG, LMML
 ```
 
 ### Moldova (LU)
-**0 airports**
+**2 airports**
 
-*(No ICAOs)*
+```
+LUKK, LUKV
+```
 
 ### Netherlands (EH)
 **18 airports**
@@ -205,14 +231,18 @@ EHAM, EHBK, EHEH, EHGG, EHHA, EHHE, EHHO, EHHV, EHKD, EHLE, EHMZ, EHRD, EHSE, EH
 ```
 
 ### Norway (EN)
-**0 airports**
+**56 airports**
 
-*(No ICAOs)*
+```
+ENAL, ENAN, ENAS, ENAT, ENBH, ENBL, ENBN, ENBO, ENBR, ENBS, ENBV, ENCN, ENDU, ENEG, ENEV, ENFL, ENGK, ENGM, ENHD, ENHF, ENHK, ENHV, ENKB, ENKJ, ENKR, ENLK, ENMH, ENML, ENMS, ENNA, ENNM, ENNO, ENOL, ENOV, ENRA, ENRE, ENRM, ENRO, ENRS, ENRY, ENSA, ENSB, ENSD, ENSG, ENSH, ENSK, ENSO, ENSR, ENSS, ENST, ENTC, ENTO, ENVA, ENVD, ENVR, ENZV
+```
 
 ### Philippines (RP)
-**0 airports**
+**3 airports**
 
-*(No ICAOs)*
+```
+RPVB, RPVR, RPVV
+```
 
 ### Poland (EP)
 **73 airports**
@@ -229,9 +259,11 @@ LPPD, LPPR, LPPS, LPPT, LPSO
 ```
 
 ### Republic of North Macedonia (LW)
-**0 airports**
+**2 airports**
 
-*(No ICAOs)*
+```
+LWOH, LWSK
+```
 
 ### Romania (LR)
 **15 airports**
@@ -241,9 +273,11 @@ LRBG, LRCX, LRDD, LRHO, LRMA, LRMC, LRPW, LRSB, LRSM, LRSP, LRSV, LRTC, LRTM, LR
 ```
 
 ### Serbia and Montenegro (LY)
-**0 airports**
+**40 airports**
 
-*(No ICAOs)*
+```
+LYBE, LYBJ, LYBS, LYBT, LYCU, LYEV, LYKA, LYKG, LYKS, LYKT, LYKU, LYKV, LYLC, LYLU, LYNI, LYNK, LYNS, LYPA, LYPG, LYPJ, LYPN, LYPO, LYPR, LYPT, LYPZ, LYSD, LYSM, LYSP, LYSU, LYTA, LYTP, LYTR, LYTV, LYUZ, LYVA, LYVJ, LYVR, LYZP, LYZR, NOVI
+```
 
 ### Slovakia (LZ)
 **3 airports**
@@ -274,24 +308,32 @@ ESUP, ESUT
 ```
 
 ### Switzerland (LS)
-**0 airports**
+**2 airports**
 
-*(No ICAOs)*
+```
+LSZH, LSZR
+```
 
 ### Turkey (LT)
-**0 airports**
+**86 airports**
 
-*(No ICAOs)*
+```
+LTAB, LTAC, LTAD, LTAE, LTAF, LTAG, LTAH, LTAI, LTAJ, LTAL, LTAN, LTAO, LTAP, LTAR, LTAS, LTAT, LTAU, LTAV, LTAW, LTAY, LTAZ, LTBA, LTBD, LTBF, LTBG, LTBH, LTBI, LTBJ, LTBK, LTBL, LTBN, LTBO, LTBP, LTBQ, LTBR, LTBS, LTBT, LTBU, LTBV, LTBW, LTBX, LTBY, LTBZ, LTCA, LTCB, LTCC, LTCD, LTCE, LTCF, LTCG, LTCI, LTCJ, LTCK, LTCL, LTCM, LTCN, LTCO, LTCP, LTCR, LTCS, LTCT, LTCU, LTCV, LTCW, LTDA, LTDB, LTFA, LTFB, LTFC, LTFD, LTFE, LTFG, LTFH, LTFJ, LTFK, LTFL, LTFM, LTFN, LTFO, LTHA, LTHB, LTHC, LTHD, LTHE, LTHF, LTHG
+```
 
 ### Ukraine (UK)
-**0 airports**
+**1 airport**
 
-*(No ICAOs)*
+```
+UKOH
+```
 
 ### United Kingdom (EG)
-**0 airports**
+**81 airports**
 
-*(No ICAOs)*
+```
+EGDP, EGGD, EGGP, EGGW, EGHA, EGHC, EGHE, EGHF, EGHG, EGHH, EGHI, EGHK, EGHO, EGHQ, EGHR, EGHT, EGJA, EGJB, EGJJ, EGKA, EGKB, EGKH, EGKK, EGKR, EGLC, EGLD, EGLF, EGLJ, EGLK, EGLL, EGLM, EGLW, EGMC, EGMD, EGNE, EGNF, EGNH, EGNJ, EGNL, EGNM, EGNO, EGNR, EGNS, EGNT, EGNV, EGNW, EGNX, EGPA, EGPB, EGPC, EGPD, EGPE, EGPF, EGPG, EGPH, EGPI, EGPK, EGPL, EGPN, EGPO, EGPR, EGPT, EGPU, EGSC, EGSG, EGSH, EGSL, EGSR, EGSS, EGSU, EGSV, EGSY, EGTB, EGTC, EGTE, EGTF, EGTH, EGTK, EGTO, EGTR, EGTU
+```
 
 ---
 
@@ -641,6 +683,6 @@ KATL, KBDL, KBGR, KBNA, KBOS, KBWI, KCLE, KCLT, KCMH, KCVG, KDEN, KDFW, KDTW, KE
 
 | Source | Countries | Airports |
 |--------|-----------|----------|
-| EAD | 47 | 830 |
+| EAD | 47 | 1254 |
 | Non-EAD | 48 | 621 |
-| **Total** | **95** | **1451** |
+| **Total** | **95** | **1875** |

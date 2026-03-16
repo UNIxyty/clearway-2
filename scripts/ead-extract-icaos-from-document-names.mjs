@@ -2,7 +2,7 @@
 /**
  * Extract ICAO codes from EAD document names (ead-document-names-by-country.json).
  *
- * Pattern: _AD_2_XXXX, _AD_3_XXXX, or _AD_4_XXXX → ICAO is the 4-char code after _AD_[234]_.
+ * Pattern: _AD_N_XXXX where N is 2, 3, 4, or 5 (aerodromes, heliports, local, etc.) → ICAO is the 4-char code.
  * Handles underscores, dashes, and dots as separators after the ICAO.
  * Examples:
  *   LE_AD_2_LEHC_AOC_4_en.pdf  → LEHC
@@ -10,6 +10,7 @@
  *   LI_AD_3_LIKB_en.pdf        → LIKB
  *   EP_AD_4_EPBA_en.pdf        → EPBA
  *   LJ_AD_4_LJAJ-3_en.pdf      → LJAJ
+ *   XX_AD_5_XXXX_en.pdf        → XXXX (if AD_5 exists)
  *
  * Usage: node scripts/ead-extract-icaos-from-document-names.mjs [--input data/ead-document-names-by-country.json] [--output data/ead-icaos-from-document-names.json]
  */

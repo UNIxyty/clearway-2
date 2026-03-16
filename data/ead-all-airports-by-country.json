@@ -9,7 +9,20 @@
       "name": "Tirana International Airport Mother Teresa"
     }
   ],
-  "Armenia (UD)": [],
+  "Armenia (UD)": [
+    {
+      "icao": "UDSG",
+      "name": "Shirak International Airport"
+    },
+    {
+      "icao": "UDYE",
+      "name": "Erebuni Airport"
+    },
+    {
+      "icao": "UDYZ",
+      "name": "Zvartnots International Airport"
+    }
+  ],
   "Austria (LO)": [
     {
       "icao": "LOAA",
@@ -41,11 +54,11 @@
     },
     {
       "icao": "LOBU",
-      "name": "LOBU (name unknown)"
+      "name": ""
     },
     {
       "icao": "LODK",
-      "name": "LODK (name unknown)"
+      "name": ""
     },
     {
       "icao": "LODO",
@@ -133,7 +146,7 @@
     },
     {
       "icao": "LOLI",
-      "name": "LOLI (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOLK",
@@ -149,7 +162,7 @@
     },
     {
       "icao": "LOLR",
-      "name": "LOLR (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOLS",
@@ -165,7 +178,7 @@
     },
     {
       "icao": "LOLV",
-      "name": "LOLV (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOLW",
@@ -173,31 +186,31 @@
     },
     {
       "icao": "LOPB",
-      "name": "LOPB (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPF",
-      "name": "LOPF (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPG",
-      "name": "LOPG (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPI",
-      "name": "LOPI (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPK",
-      "name": "LOPK (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPR",
-      "name": "LOPR (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOPT",
-      "name": "LOPT (name unknown)"
+      "name": ""
     },
     {
       "icao": "LOSM",
@@ -248,7 +261,32 @@
       "name": "Hinterstoisser Air Base"
     }
   ],
-  "Azerbaijan (UB)": [],
+  "Azerbaijan (UB)": [
+    {
+      "icao": "UBBN",
+      "name": "Nakhchivan International Airport"
+    },
+    {
+      "icao": "UBBQ",
+      "name": "Gabala International Airport"
+    },
+    {
+      "icao": "UBBY",
+      "name": "Zaqatala International Airport"
+    },
+    {
+      "icao": "UBBZ",
+      "name": "Zangilan International Airport"
+    },
+    {
+      "icao": "UBEE",
+      "name": "Yevlakh Airport"
+    },
+    {
+      "icao": "UBLC",
+      "name": ""
+    }
+  ],
   "Belgium (EB)": [
     {
       "icao": "EBAW",
@@ -272,7 +310,7 @@
     },
     {
       "icao": "EBCT",
-      "name": "EBCT (name unknown)"
+      "name": ""
     },
     {
       "icao": "EBCV",
@@ -304,7 +342,7 @@
     },
     {
       "icao": "EBMA",
-      "name": "EBMA (name unknown)"
+      "name": ""
     },
     {
       "icao": "EBMO",
@@ -328,18 +366,35 @@
     },
     {
       "icao": "ELEA",
-      "name": "ELEA (name unknown)"
+      "name": ""
     },
     {
       "icao": "ELLC",
-      "name": "ELLC (name unknown)"
+      "name": ""
     },
     {
       "icao": "ELLX",
       "name": "Luxembourg-Findel International Airport"
     }
   ],
-  "Bosnia/Herzeg. (LQ)": [],
+  "Bosnia/Herzeg. (LQ)": [
+    {
+      "icao": "LQBK",
+      "name": "Banja Luka International Airport"
+    },
+    {
+      "icao": "LQMO",
+      "name": "Mostar International Airport"
+    },
+    {
+      "icao": "LQSA",
+      "name": "Sarajevo International Airport"
+    },
+    {
+      "icao": "LQTZ",
+      "name": "Tuzla International Airport"
+    }
+  ],
   "Bulgaria (LB)": [
     {
       "icao": "LBBG",
@@ -351,11 +406,11 @@
     },
     {
       "icao": "LBPN",
-      "name": "LBPN (name unknown)"
+      "name": ""
     },
     {
       "icao": "LBPV",
-      "name": "LBPV (name unknown)"
+      "name": ""
     },
     {
       "icao": "LBRS",
@@ -367,15 +422,57 @@
     },
     {
       "icao": "LBSP",
-      "name": "LBSP (name unknown)"
+      "name": ""
     },
     {
       "icao": "LBWN",
       "name": "Varna Airport"
     }
   ],
-  "Croatia (LD)": [],
-  "Cyprus (LC)": [],
+  "Croatia (LD)": [
+    {
+      "icao": "LDDU",
+      "name": "Dubrovnik Ruđer Bošković Airport"
+    },
+    {
+      "icao": "LDLO",
+      "name": "Lošinj Airport"
+    },
+    {
+      "icao": "LDOS",
+      "name": "Osijek Airport"
+    },
+    {
+      "icao": "LDPL",
+      "name": "Pula Airport"
+    },
+    {
+      "icao": "LDRI",
+      "name": "Rijeka Airport"
+    },
+    {
+      "icao": "LDSB",
+      "name": "Brač Airport"
+    },
+    {
+      "icao": "LDSP",
+      "name": "Split Saint Jerome Airport"
+    },
+    {
+      "icao": "LDZA",
+      "name": "Zagreb Franjo Tuđman International Airport"
+    },
+    {
+      "icao": "LDZD",
+      "name": "Zadar Airport"
+    }
+  ],
+  "Cyprus (LC)": [
+    {
+      "icao": "LCPH",
+      "name": "Paphos International Airport"
+    }
+  ],
   "Czech Republic (LK)": [
     {
       "icao": "LKPD",
@@ -401,7 +498,7 @@
     },
     {
       "icao": "EKRH",
-      "name": "EKRH (name unknown)"
+      "name": ""
     },
     {
       "icao": "EKYT",
@@ -414,7 +511,12 @@
       "name": "Tartu Airport"
     }
   ],
-  "Faroe Islands (XX)": [],
+  "Faroe Islands (XX)": [
+    {
+      "icao": "EKVG",
+      "name": "Vágar Airport"
+    }
+  ],
   "Finland (EF)": [
     {
       "icao": "EFET",
@@ -422,7 +524,7 @@
     },
     {
       "icao": "EFFH",
-      "name": "EFFH (name unknown)"
+      "name": ""
     },
     {
       "icao": "EFHA",
@@ -518,7 +620,7 @@
     },
     {
       "icao": "EFMH",
-      "name": "EFMH (name unknown)"
+      "name": ""
     },
     {
       "icao": "EFMI",
@@ -526,7 +628,7 @@
     },
     {
       "icao": "EFMS",
-      "name": "EFMS (name unknown)"
+      "name": ""
     },
     {
       "icao": "EFNU",
@@ -600,59 +702,59 @@
   "France (LF)": [
     {
       "icao": "DINA",
-      "name": "DINA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HABB",
-      "name": "HABB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HABI",
-      "name": "HABI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HACH",
-      "name": "HACH (name unknown)"
+      "name": ""
     },
     {
       "icao": "HACS",
-      "name": "HACS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HALB",
-      "name": "HALB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HALE",
-      "name": "HALE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HALP",
-      "name": "HALP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HALS",
-      "name": "HALS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAMB",
-      "name": "HAMB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAMI",
-      "name": "HAMI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAMS",
-      "name": "HAMS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAMY",
-      "name": "HAMY (name unknown)"
+      "name": ""
     },
     {
       "icao": "HANE",
-      "name": "HANE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HANG",
@@ -660,303 +762,303 @@
     },
     {
       "icao": "HANO",
-      "name": "HANO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HANT",
-      "name": "HANT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAPT",
-      "name": "HAPT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HARG",
-      "name": "HARG (name unknown)"
+      "name": ""
     },
     {
       "icao": "HARS",
-      "name": "HARS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAUB",
-      "name": "HAUB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAUC",
-      "name": "HAUC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAUL",
-      "name": "HAUL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAUX",
-      "name": "HAUX (name unknown)"
+      "name": ""
     },
     {
       "icao": "HAVO",
-      "name": "HAVO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBAG",
-      "name": "HBAG (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBAY",
-      "name": "HBAY (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBEA",
-      "name": "HBEA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBEB",
-      "name": "HBEB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBEL",
-      "name": "HBEL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBER",
-      "name": "HBER (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBES",
-      "name": "HBES (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBEZ",
-      "name": "HBEZ (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBHL",
-      "name": "HBHL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBJA",
-      "name": "HBJA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBLA",
-      "name": "HBLA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBLO",
-      "name": "HBLO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBO2",
-      "name": "HBO2 (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBOR",
-      "name": "HBOR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBOU",
-      "name": "HBOU (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBRG",
-      "name": "HBRG (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBRI",
-      "name": "HBRI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBRN",
-      "name": "HBRN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HBSM",
-      "name": "HBSM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCAE",
-      "name": "HCAE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCAL",
-      "name": "HCAL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCAM",
-      "name": "HCAM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCAN",
-      "name": "HCAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCAS",
-      "name": "HCAS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCHA",
-      "name": "HCHA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCHL",
-      "name": "HCHL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCHS",
-      "name": "HCHS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCLE",
-      "name": "HCLE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCLV",
-      "name": "HCLV (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCMX",
-      "name": "HCMX (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCMY",
-      "name": "HCMY (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCOR",
-      "name": "HCOR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCRL",
-      "name": "HCRL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCSS",
-      "name": "HCSS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCTA",
-      "name": "HCTA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HCTX",
-      "name": "HCTX (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDAX",
-      "name": "HDAX (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDIG",
-      "name": "HDIG (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDIJ",
-      "name": "HDIJ (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDOI",
-      "name": "HDOI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDOL",
-      "name": "HDOL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDPE",
-      "name": "HDPE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HDUN",
-      "name": "HDUN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HEPI",
-      "name": "HEPI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HEST",
-      "name": "HEST (name unknown)"
+      "name": ""
     },
     {
       "icao": "HEVR",
-      "name": "HEVR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HFEC",
-      "name": "HFEC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HFLE",
-      "name": "HFLE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HFON",
-      "name": "HFON (name unknown)"
+      "name": ""
     },
     {
       "icao": "HFRE",
-      "name": "HFRE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGAP",
-      "name": "HGAP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGEF",
-      "name": "HGEF (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGIE",
-      "name": "HGIE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGRA",
-      "name": "HGRA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGRE",
-      "name": "HGRE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HGRT",
-      "name": "HGRT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HISS",
-      "name": "HISS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLAC",
-      "name": "HLAC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLAI",
-      "name": "HLAI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLAN",
-      "name": "HLAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLAO",
-      "name": "HLAO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLAP",
-      "name": "HLAP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLBL",
-      "name": "HLBL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLEP",
-      "name": "HLEP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLIL",
-      "name": "HLIL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLLS",
@@ -964,207 +1066,207 @@
     },
     {
       "icao": "HLMA",
-      "name": "HLMA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLNN",
-      "name": "HLNN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLOC",
-      "name": "HLOC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLOR",
-      "name": "HLOR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLOT",
-      "name": "HLOT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLRC",
-      "name": "HLRC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLYL",
-      "name": "HLYL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLYO",
-      "name": "HLYO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HLYS",
-      "name": "HLYS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMAC",
-      "name": "HMAC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMAN",
-      "name": "HMAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMAR",
-      "name": "HMAR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMAU",
-      "name": "HMAU (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMDM",
-      "name": "HMDM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMEL",
-      "name": "HMEL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMER",
-      "name": "HMER (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMEZ",
-      "name": "HMEZ (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMHN",
-      "name": "HMHN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMIN",
-      "name": "HMIN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMLN",
-      "name": "HMLN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HMON",
-      "name": "HMON (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNAN",
-      "name": "HNAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNAR",
-      "name": "HNAR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNCT",
-      "name": "HNCT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNDS",
-      "name": "HNDS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNFC",
-      "name": "HNFC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNIM",
-      "name": "HNIM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNIO",
-      "name": "HNIO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HNQM",
-      "name": "HNQM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HOLO",
-      "name": "HOLO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HOME",
-      "name": "HOME (name unknown)"
+      "name": ""
     },
     {
       "icao": "HORA",
-      "name": "HORA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HORL",
-      "name": "HORL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPAR",
-      "name": "HPAR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPER",
-      "name": "HPER (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPLR",
-      "name": "HPLR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPOI",
-      "name": "HPOI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPON",
-      "name": "HPON (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPOR",
-      "name": "HPOR (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPOS",
-      "name": "HPOS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPRE",
-      "name": "HPRE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPSE",
-      "name": "HPSE (name unknown)"
+      "name": ""
     },
     {
       "icao": "HPUY",
-      "name": "HPUY (name unknown)"
+      "name": ""
     },
     {
       "icao": "HQUI",
-      "name": "HQUI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HRAN",
-      "name": "HRAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HREM",
-      "name": "HREM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HREP",
-      "name": "HREP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HRMS",
-      "name": "HRMS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HROA",
-      "name": "HROA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HROC",
-      "name": "HROC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HROU",
-      "name": "HROU (name unknown)"
+      "name": ""
     },
     {
       "icao": "HRYN",
@@ -1172,139 +1274,139 @@
     },
     {
       "icao": "HSAL",
-      "name": "HSAL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSAU",
-      "name": "HSAU (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSCH",
-      "name": "HSCH (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSDI",
-      "name": "HSDI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSEL",
-      "name": "HSEL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSEN",
-      "name": "HSEN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSES",
-      "name": "HSES (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSET",
-      "name": "HSET (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSJM",
-      "name": "HSJM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSPS",
-      "name": "HSPS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTB",
-      "name": "HSTB (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTC",
-      "name": "HSTC (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTM",
-      "name": "HSTM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTN",
-      "name": "HSTN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTQ",
-      "name": "HSTQ (name unknown)"
+      "name": ""
     },
     {
       "icao": "HSTS",
-      "name": "HSTS (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTHO",
-      "name": "HTHO (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTIM",
-      "name": "HTIM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTON",
-      "name": "HTON (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTOT",
-      "name": "HTOT (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTPP",
-      "name": "HTPP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTRP",
-      "name": "HTRP (name unknown)"
+      "name": ""
     },
     {
       "icao": "HTSM",
-      "name": "HTSM (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVAL",
-      "name": "HVAL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVAN",
-      "name": "HVAN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVDI",
-      "name": "HVDI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVEN",
-      "name": "HVEN (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVER",
-      "name": "HVER (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVES",
-      "name": "HVES (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVIL",
-      "name": "HVIL (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVOI",
-      "name": "HVOI (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVON",
-      "name": "HVON (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVSA",
-      "name": "HVSA (name unknown)"
+      "name": ""
     },
     {
       "icao": "HVTH",
-      "name": "HVTH (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFBD",
@@ -1572,7 +1674,7 @@
     },
     {
       "icao": "LFSR",
-      "name": "LFSR (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFSS",
@@ -1596,7 +1698,7 @@
     },
     {
       "icao": "LFTB",
-      "name": "LFTB (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFTF",
@@ -1608,7 +1710,7 @@
     },
     {
       "icao": "LFTL",
-      "name": "LFTL (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFTM",
@@ -1636,31 +1738,31 @@
     },
     {
       "icao": "LFWB",
-      "name": "LFWB (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWD",
-      "name": "LFWD (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWF",
-      "name": "LFWF (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWH",
-      "name": "LFWH (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWM",
-      "name": "LFWM (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWN",
-      "name": "LFWN (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFWO",
-      "name": "LFWO (name unknown)"
+      "name": ""
     },
     {
       "icao": "LFXA",
@@ -1695,7 +1797,28 @@
       "name": "Monaco Heliport"
     }
   ],
-  "Georgia (UG)": [],
+  "Georgia (UG)": [
+    {
+      "icao": "UGKO",
+      "name": "David the Builder Kutaisi International Airport"
+    },
+    {
+      "icao": "UGMS",
+      "name": "Mestia Queen Tamar Airport"
+    },
+    {
+      "icao": "UGSA",
+      "name": "Natakhtari Airfield"
+    },
+    {
+      "icao": "UGSB",
+      "name": "Alexander Kartveli Batumi International Airport"
+    },
+    {
+      "icao": "UGTB",
+      "name": "Tbilisi International Airport"
+    }
+  ],
   "Germany (ED)": [
     {
       "icao": "EDAB",
@@ -1968,7 +2091,248 @@
       "name": "Thessaloniki Macedonia International Airport"
     }
   ],
-  "Greenland (BG)": [],
+  "Greenland (BG)": [
+    {
+      "icao": "BGAA",
+      "name": "Aasiaat Airport"
+    },
+    {
+      "icao": "BGAG",
+      "name": "Aappilattoq Heliport"
+    },
+    {
+      "icao": "BGAK",
+      "name": ""
+    },
+    {
+      "icao": "BGAM",
+      "name": "Tasiilaq Heliport"
+    },
+    {
+      "icao": "BGAP",
+      "name": "Alluitsup Paa Heliport"
+    },
+    {
+      "icao": "BGAQ",
+      "name": "Aappilattoq Heliport"
+    },
+    {
+      "icao": "BGAR",
+      "name": "Arsuk Heliport"
+    },
+    {
+      "icao": "BGAS",
+      "name": "Ammassivik Heliport"
+    },
+    {
+      "icao": "BGAT",
+      "name": "Attu Heliport"
+    },
+    {
+      "icao": "BGBW",
+      "name": "Narsarsuaq Airport"
+    },
+    {
+      "icao": "BGCH",
+      "name": "Qasigiannguit Heliport"
+    },
+    {
+      "icao": "BGCO",
+      "name": "Neerlerit Inaat Airport"
+    },
+    {
+      "icao": "BGET",
+      "name": "Eqalugaarsuit Heliport"
+    },
+    {
+      "icao": "BGFD",
+      "name": "Narsarmijit Heliport"
+    },
+    {
+      "icao": "BGGH",
+      "name": "Nuuk International Airport"
+    },
+    {
+      "icao": "BGGN",
+      "name": "Qeqertarsuaq Heliport"
+    },
+    {
+      "icao": "BGIA",
+      "name": "Ikerasak Heliport"
+    },
+    {
+      "icao": "BGIG",
+      "name": "Iginniarfik Heliport"
+    },
+    {
+      "icao": "BGIK",
+      "name": "Ikerassaarsuk Heliport"
+    },
+    {
+      "icao": "BGIL",
+      "name": "Ilimanaq Heliport"
+    },
+    {
+      "icao": "BGIN",
+      "name": "Innarsuit Heliport"
+    },
+    {
+      "icao": "BGIQ",
+      "name": ""
+    },
+    {
+      "icao": "BGIS",
+      "name": "Isortoq Heliport"
+    },
+    {
+      "icao": "BGIT",
+      "name": "Ikamiut Heliport"
+    },
+    {
+      "icao": "BGJH",
+      "name": "Qaqortoq Heliport"
+    },
+    {
+      "icao": "BGJN",
+      "name": "Ilulissat Airport"
+    },
+    {
+      "icao": "BGKA",
+      "name": "Kangaatsiaq Heliport"
+    },
+    {
+      "icao": "BGKK",
+      "name": "Kulusuk Airport"
+    },
+    {
+      "icao": "BGKL",
+      "name": "Upernavik Kujalleq Heliport"
+    },
+    {
+      "icao": "BGKM",
+      "name": "Kuummiut Heliport"
+    },
+    {
+      "icao": "BGKQ",
+      "name": "Kullorsuaq Heliport"
+    },
+    {
+      "icao": "BGKS",
+      "name": "Kangersuatsiaq Heliport"
+    },
+    {
+      "icao": "BGKT",
+      "name": "Kitsissuarsuit Heliport"
+    },
+    {
+      "icao": "BGMQ",
+      "name": "Maniitsoq Airport"
+    },
+    {
+      "icao": "BGNK",
+      "name": "Niaqornaarsuk Heliport"
+    },
+    {
+      "icao": "BGNN",
+      "name": "Nanortalik Heliport"
+    },
+    {
+      "icao": "BGNS",
+      "name": "Narsaq Heliport"
+    },
+    {
+      "icao": "BGNT",
+      "name": "Niaqornat Heliport"
+    },
+    {
+      "icao": "BGNU",
+      "name": "Nuussuaq Heliport"
+    },
+    {
+      "icao": "BGPT",
+      "name": "Paamiut Airport"
+    },
+    {
+      "icao": "BGQE",
+      "name": "Qeqertaq Heliport"
+    },
+    {
+      "icao": "BGQQ",
+      "name": "Qaanaaq Airport"
+    },
+    {
+      "icao": "BGQT",
+      "name": "Qassimiut Heliport"
+    },
+    {
+      "icao": "BGSA",
+      "name": ""
+    },
+    {
+      "icao": "BGSC",
+      "name": "Ittoqqortoormiit Heliport"
+    },
+    {
+      "icao": "BGSF",
+      "name": "Kangerlussuaq International Airport"
+    },
+    {
+      "icao": "BGSG",
+      "name": "Sermiligaaq Heliport"
+    },
+    {
+      "icao": "BGSI",
+      "name": "Siorapaluk Heliport"
+    },
+    {
+      "icao": "BGSQ",
+      "name": "Saqqaq Heliport"
+    },
+    {
+      "icao": "BGSS",
+      "name": "Sisimiut Airport"
+    },
+    {
+      "icao": "BGST",
+      "name": "Saattut Heliport"
+    },
+    {
+      "icao": "BGSV",
+      "name": "Savissivik Heliport"
+    },
+    {
+      "icao": "BGTA",
+      "name": "Tasiusaq Heliport"
+    },
+    {
+      "icao": "BGTL",
+      "name": "Pituffik Space Base"
+    },
+    {
+      "icao": "BGTN",
+      "name": "Tiniteqilaaq Heliport"
+    },
+    {
+      "icao": "BGTQ",
+      "name": "Tasiusaq Heliport"
+    },
+    {
+      "icao": "BGUK",
+      "name": "Upernavik Airport"
+    },
+    {
+      "icao": "BGUM",
+      "name": "Uummannaq Heliport"
+    },
+    {
+      "icao": "BGUQ",
+      "name": "Qaarsut Airport"
+    },
+    {
+      "icao": "BGUT",
+      "name": "Ukkusissat Heliport"
+    }
+  ],
   "Hungary (LH)": [
     {
       "icao": "LHBC",
@@ -2003,7 +2367,128 @@
       "name": "Szeged Airport"
     }
   ],
-  "Iceland (BI)": [],
+  "Iceland (BI)": [
+    {
+      "icao": "BIKF",
+      "name": "Keflavik International Airport"
+    },
+    {
+      "icao": "BIKL",
+      "name": "Kirkjubæjarklaustur Airport"
+    },
+    {
+      "icao": "BIKP",
+      "name": "Kópasker Airport"
+    },
+    {
+      "icao": "BIKR",
+      "name": "Sauðárkrókur Airport"
+    },
+    {
+      "icao": "BIMK",
+      "name": "Múlakot Airport"
+    },
+    {
+      "icao": "BIMM",
+      "name": "Melgerðismelar Airport"
+    },
+    {
+      "icao": "BIMS",
+      "name": "Tungubakkar Airport"
+    },
+    {
+      "icao": "BIND",
+      "name": "Nýjidalur Airport"
+    },
+    {
+      "icao": "BINF",
+      "name": "Norðfjörður Airport"
+    },
+    {
+      "icao": "BIRE",
+      "name": "Reykhólar Airport"
+    },
+    {
+      "icao": "BIRF",
+      "name": "Rif Airport"
+    },
+    {
+      "icao": "BIRG",
+      "name": "Raufarhöfn Airport"
+    },
+    {
+      "icao": "BIRK",
+      "name": "Reykjavík Domestic Airport"
+    },
+    {
+      "icao": "BIRL",
+      "name": "Mývatn Airport"
+    },
+    {
+      "icao": "BIRS",
+      "name": "Reykjanes Airport"
+    },
+    {
+      "icao": "BISA",
+      "name": "Sauðárflugvöllur"
+    },
+    {
+      "icao": "BISF",
+      "name": "Selfoss Airport"
+    },
+    {
+      "icao": "BISI",
+      "name": "Siglufjörður Airport"
+    },
+    {
+      "icao": "BISK",
+      "name": "Skógasandur Airport"
+    },
+    {
+      "icao": "BISL",
+      "name": "Skaftafell Airport"
+    },
+    {
+      "icao": "BISR",
+      "name": "Stórikroppur Airport"
+    },
+    {
+      "icao": "BISS",
+      "name": "Sandskeið Airport"
+    },
+    {
+      "icao": "BIST",
+      "name": "Stykkishólmur Airport"
+    },
+    {
+      "icao": "BISV",
+      "name": "Skálavatn Airport"
+    },
+    {
+      "icao": "BITE",
+      "name": "Þingeyri Airport"
+    },
+    {
+      "icao": "BITM",
+      "name": "Þórsmörk Airport"
+    },
+    {
+      "icao": "BITN",
+      "name": "Þórshöfn Airport"
+    },
+    {
+      "icao": "BIVI",
+      "name": "Vík Airport"
+    },
+    {
+      "icao": "BIVM",
+      "name": "Vestmannaeyjar Airport"
+    },
+    {
+      "icao": "BIVO",
+      "name": "Vopnafjörður Airport"
+    }
+  ],
   "Ireland (EI)": [
     {
       "icao": "EIAB",
@@ -2109,7 +2594,7 @@
     },
     {
       "icao": "LIBI",
-      "name": "LIBI (name unknown)"
+      "name": ""
     },
     {
       "icao": "LIBP",
@@ -2229,7 +2714,7 @@
     },
     {
       "icao": "LIKB",
-      "name": "LIKB (name unknown)"
+      "name": ""
     },
     {
       "icao": "LIKC",
@@ -2489,29 +2974,160 @@
     },
     {
       "icao": "LIYB",
-      "name": "LIYB (name unknown)"
+      "name": ""
     },
     {
       "icao": "LIYC",
-      "name": "LIYC (name unknown)"
+      "name": ""
     },
     {
       "icao": "LIYP",
-      "name": "LIYP (name unknown)"
+      "name": ""
     },
     {
       "icao": "LIYS",
-      "name": "LIYS (name unknown)"
+      "name": ""
     }
   ],
-  "Jordan (OJ)": [],
+  "Jordan (OJ)": [
+    {
+      "icao": "OJAI",
+      "name": "Queen Alia International Airport"
+    },
+    {
+      "icao": "OJAM",
+      "name": "Marka International (Amman Civil) Airport"
+    },
+    {
+      "icao": "OJAQ",
+      "name": "King Hussein International Airport"
+    }
+  ],
   "KFOR SECTOR (BK)": [],
-  "Kazakhstan (UA)": [],
-  "Kyrgyzstan (UC)": [],
+  "Kazakhstan (UA)": [
+    {
+      "icao": "UAAA",
+      "name": "Almaty International Airport"
+    },
+    {
+      "icao": "UAAH",
+      "name": "Balkhash Airport"
+    },
+    {
+      "icao": "UAAL",
+      "name": "Usharal Airport"
+    },
+    {
+      "icao": "UAAR",
+      "name": "Boralday Airport"
+    },
+    {
+      "icao": "UAAT",
+      "name": "Taldykorgan Airport"
+    },
+    {
+      "icao": "UACC",
+      "name": "Nursultan Nazarbayev International Airport"
+    },
+    {
+      "icao": "UACK",
+      "name": "Kokshetau International Airport"
+    },
+    {
+      "icao": "UACP",
+      "name": "Petropavl International Airport"
+    },
+    {
+      "icao": "UADD",
+      "name": "Taraz International Airport"
+    },
+    {
+      "icao": "UAII",
+      "name": "Shymkent International Airport"
+    },
+    {
+      "icao": "UAIK",
+      "name": ""
+    },
+    {
+      "icao": "UAIT",
+      "name": "Hazrat Sultan International Airport"
+    },
+    {
+      "icao": "UAKD",
+      "name": "Zhezkazgan National Airport"
+    },
+    {
+      "icao": "UAKK",
+      "name": "Sary-Arka Airport"
+    },
+    {
+      "icao": "UAOO",
+      "name": "Korkyt Ata International Airport"
+    },
+    {
+      "icao": "UARR",
+      "name": "Manshuk Mametova International Airport"
+    },
+    {
+      "icao": "UASK",
+      "name": "Oskemen International Airport"
+    },
+    {
+      "icao": "UASP",
+      "name": "Pavlodar International Airport"
+    },
+    {
+      "icao": "UASS",
+      "name": "Semei International Airport"
+    },
+    {
+      "icao": "UASU",
+      "name": ""
+    },
+    {
+      "icao": "UASZ",
+      "name": "Zaysan Airport"
+    },
+    {
+      "icao": "UATE",
+      "name": "Aktau International Airport"
+    },
+    {
+      "icao": "UATG",
+      "name": "Atyrau International Airport"
+    },
+    {
+      "icao": "UATT",
+      "name": "Aktobe International Airport"
+    },
+    {
+      "icao": "UATZ",
+      "name": "Tengiz Airport"
+    },
+    {
+      "icao": "UAUU",
+      "name": "Kostanay International Airport"
+    }
+  ],
+  "Kyrgyzstan (UC)": [
+    {
+      "icao": "UCFM",
+      "name": "Manas International Airport"
+    },
+    {
+      "icao": "UCFV",
+      "name": ""
+    },
+    {
+      "icao": "UCFZ",
+      "name": ""
+    }
+  ],
   "Latvia (EV)": [
     {
       "icao": "EVHN",
-      "name": "EVHN (name unknown)"
+      "name": ""
     },
     {
       "icao": "EVLU",
@@ -2554,7 +3170,16 @@
       "name": "Malta International Airport"
     }
   ],
-  "Moldova (LU)": [],
+  "Moldova (LU)": [
+    {
+      "icao": "LUKK",
+      "name": "Chişinău International Airport"
+    },
+    {
+      "icao": "LUKV",
+      "name": ""
+    }
+  ],
   "Netherlands (EH)": [
     {
       "icao": "EHAM",
@@ -2629,7 +3254,232 @@
       "name": "Texel International Airport"
     }
   ],
-  "Norway (EN)": [],
+  "Norway (EN)": [
+    {
+      "icao": "ENAL",
+      "name": "Ålesund Airport"
+    },
+    {
+      "icao": "ENAN",
+      "name": "Andøya Airport, Andenes"
+    },
+    {
+      "icao": "ENAS",
+      "name": "Ny-Ålesund Airport, Hamnerabben"
+    },
+    {
+      "icao": "ENAT",
+      "name": "Alta Airport"
+    },
+    {
+      "icao": "ENBH",
+      "name": ""
+    },
+    {
+      "icao": "ENBL",
+      "name": "Førde Airport, Bringeland"
+    },
+    {
+      "icao": "ENBN",
+      "name": "Brønnøysund Airport, Brønnøy"
+    },
+    {
+      "icao": "ENBO",
+      "name": "Bodø Airport"
+    },
+    {
+      "icao": "ENBR",
+      "name": "Bergen Airport, Flesland"
+    },
+    {
+      "icao": "ENBS",
+      "name": "Båtsfjord Airport"
+    },
+    {
+      "icao": "ENBV",
+      "name": "Berlevåg Airport"
+    },
+    {
+      "icao": "ENCN",
+      "name": "Kristiansand Airport"
+    },
+    {
+      "icao": "ENDU",
+      "name": "Bardufoss Airport"
+    },
+    {
+      "icao": "ENEG",
+      "name": "Hønefoss Airfield, Eggemoen"
+    },
+    {
+      "icao": "ENEV",
+      "name": "Harstad/Narvik Airport"
+    },
+    {
+      "icao": "ENFL",
+      "name": "Florø Airport"
+    },
+    {
+      "icao": "ENGK",
+      "name": "Arendal Airfield, Gullknapp"
+    },
+    {
+      "icao": "ENGM",
+      "name": "Oslo-Gardermoen International Airport"
+    },
+    {
+      "icao": "ENHD",
+      "name": "Haugesund Airport, Karmøy"
+    },
+    {
+      "icao": "ENHF",
+      "name": "Hammerfest Airport"
+    },
+    {
+      "icao": "ENHK",
+      "name": "Hasvik Airport"
+    },
+    {
+      "icao": "ENHV",
+      "name": "Honningsvåg Airport, Valan"
+    },
+    {
+      "icao": "ENKB",
+      "name": "Kristiansund Airport, Kvernberget"
+    },
+    {
+      "icao": "ENKJ",
+      "name": "Lillestrøm Airfield, Kjeller"
+    },
+    {
+      "icao": "ENKR",
+      "name": "Kirkenes Airport, Høybuktmoen"
+    },
+    {
+      "icao": "ENLK",
+      "name": "Leknes Airport"
+    },
+    {
+      "icao": "ENMH",
+      "name": "Mehamn Airport"
+    },
+    {
+      "icao": "ENML",
+      "name": "Molde Airport, Årø"
+    },
+    {
+      "icao": "ENMS",
+      "name": "Mosjøen Airport, Kjærstad"
+    },
+    {
+      "icao": "ENNA",
+      "name": "Lakselv Airport, Banak"
+    },
+    {
+      "icao": "ENNM",
+      "name": "Namsos Airport"
+    },
+    {
+      "icao": "ENNO",
+      "name": "Notodden Airport"
+    },
+    {
+      "icao": "ENOL",
+      "name": "Ørland Airport"
+    },
+    {
+      "icao": "ENOV",
+      "name": "Ørsta-Volda Airport, Hovden"
+    },
+    {
+      "icao": "ENRA",
+      "name": "Mo i Rana Airport, Røssvoll"
+    },
+    {
+      "icao": "ENRE",
+      "name": ""
+    },
+    {
+      "icao": "ENRM",
+      "name": "Rørvik Airport, Ryum"
+    },
+    {
+      "icao": "ENRO",
+      "name": "Røros Airport"
+    },
+    {
+      "icao": "ENRS",
+      "name": "Røst Airport"
+    },
+    {
+      "icao": "ENRY",
+      "name": "Moss Airport, Rygge"
+    },
+    {
+      "icao": "ENSA",
+      "name": ""
+    },
+    {
+      "icao": "ENSB",
+      "name": "Svalbard Airport, Longyear"
+    },
+    {
+      "icao": "ENSD",
+      "name": "Sandane Airport, Anda"
+    },
+    {
+      "icao": "ENSG",
+      "name": "Sogndal Airport, Haukåsen"
+    },
+    {
+      "icao": "ENSH",
+      "name": "Svolvær Airport, Helle"
+    },
+    {
+      "icao": "ENSK",
+      "name": "Stokmarknes Airport, Skagen"
+    },
+    {
+      "icao": "ENSO",
+      "name": "Stord Airport, Sørstokken"
+    },
+    {
+      "icao": "ENSR",
+      "name": "Sørkjosen Airport"
+    },
+    {
+      "icao": "ENSS",
+      "name": "Vardø Airport, Svartnes"
+    },
+    {
+      "icao": "ENST",
+      "name": "Sandnessjøen Airport, Stokka"
+    },
+    {
+      "icao": "ENTC",
+      "name": "Tromsø Airport"
+    },
+    {
+      "icao": "ENTO",
+      "name": "Sandefjord Airport, Torp"
+    },
+    {
+      "icao": "ENVA",
+      "name": "Trondheim Airport, Værnes"
+    },
+    {
+      "icao": "ENVD",
+      "name": "Vadsø Airport"
+    },
+    {
+      "icao": "ENVR",
+      "name": "Værøy Heliport"
+    },
+    {
+      "icao": "ENZV",
+      "name": "Stavanger Airport, Sola"
+    }
+  ],
   "Philippines (RP)": [],
   "Poland (EP)": [
     {
@@ -2694,7 +3544,7 @@
     },
     {
       "icao": "EPKC",
-      "name": "EPKC (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPKE",
@@ -2706,7 +3556,7 @@
     },
     {
       "icao": "EPKH",
-      "name": "EPKH (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPKI",
@@ -2718,7 +3568,7 @@
     },
     {
       "icao": "EPKO",
-      "name": "EPKO (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPKP",
@@ -2738,7 +3588,7 @@
     },
     {
       "icao": "EPLI",
-      "name": "EPLI (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPLR",
@@ -2770,7 +3620,7 @@
     },
     {
       "icao": "EPNC",
-      "name": "EPNC (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPNL",
@@ -2794,7 +3644,7 @@
     },
     {
       "icao": "EPPB",
-      "name": "EPPB (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPPG",
@@ -2818,7 +3668,7 @@
     },
     {
       "icao": "EPPZ",
-      "name": "EPPZ (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPRD",
@@ -2842,7 +3692,7 @@
     },
     {
       "icao": "EPSA",
-      "name": "EPSA (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPSD",
@@ -2850,7 +3700,7 @@
     },
     {
       "icao": "EPSI",
-      "name": "EPSI (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPSK",
@@ -2858,7 +3708,7 @@
     },
     {
       "icao": "EPSL",
-      "name": "EPSL (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPSS",
@@ -2898,7 +3748,7 @@
     },
     {
       "icao": "EPWT",
-      "name": "EPWT (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPZA",
@@ -2906,7 +3756,7 @@
     },
     {
       "icao": "EPZE",
-      "name": "EPZE (name unknown)"
+      "name": ""
     },
     {
       "icao": "EPZG",
@@ -2922,7 +3772,7 @@
     },
     {
       "icao": "EPZW",
-      "name": "EPZW (name unknown)"
+      "name": ""
     }
   ],
   "Portugal (LP)": [
@@ -2959,7 +3809,7 @@
     },
     {
       "icao": "LRDD",
-      "name": "LRDD (name unknown)"
+      "name": ""
     },
     {
       "icao": "LRHO",
@@ -3084,7 +3934,7 @@
     },
     {
       "icao": "LJSO",
-      "name": "LJSO (name unknown)"
+      "name": ""
     }
   ],
   "Spain (LE)": [
@@ -3138,11 +3988,11 @@
     },
     {
       "icao": "GSAI",
-      "name": "GSAI (name unknown)"
+      "name": ""
     },
     {
       "icao": "GSVO",
-      "name": "GSVO (name unknown)"
+      "name": ""
     },
     {
       "icao": "LEAB",
@@ -3150,7 +4000,7 @@
     },
     {
       "icao": "LEAG",
-      "name": "LEAG (name unknown)"
+      "name": ""
     },
     {
       "icao": "LEAL",
@@ -3162,7 +4012,7 @@
     },
     {
       "icao": "LEAO",
-      "name": "LEAO (name unknown)"
+      "name": ""
     },
     {
       "icao": "LEAS",
@@ -3186,7 +4036,7 @@
     },
     {
       "icao": "LEBT",
-      "name": "LEBT (name unknown)"
+      "name": ""
     },
     {
       "icao": "LEBZ",
@@ -3286,7 +4136,7 @@
     },
     {
       "icao": "LEPO",
-      "name": "LEPO (name unknown)"
+      "name": ""
     },
     {
       "icao": "LEPP",
@@ -3298,7 +4148,7 @@
     },
     {
       "icao": "LERJ",
-      "name": "LERJ (name unknown)"
+      "name": ""
     },
     {
       "icao": "LERL",

@@ -69,9 +69,9 @@ Before starting, gather these credentials:
 }
 ```
 
-4. Click **Next**
-5. **Policy name:** `E2ETestingS3Access`
-6. Click **Create policy**
+1. Click **Next**
+2. **Policy name:** `E2ETestingS3Access`
+3. Click **Create policy**
 
 ### 2b. Create IAM Role for EC2
 
@@ -89,49 +89,42 @@ Before starting, gather these credentials:
 ### Step-by-Step Instance Creation
 
 1. **AWS Console** → **EC2** → **Instances** → **Launch instances**
-
 2. **Name and tags:**
-   - Name: `e2e-testing-portal`
-
+  - Name: `e2e-testing-portal`
 3. **Application and OS Images (AMI):**
-   - Click **Quick Start**
-   - Select **Ubuntu**
-   - Choose **Ubuntu Server 22.04 LTS (HVM), SSD Volume Type**
-   - Architecture: **64-bit (x86)**
-
+  - Click **Quick Start**
+  - Select **Ubuntu**
+  - Choose **Ubuntu Server 22.04 LTS (HVM), SSD Volume Type**
+  - Architecture: **64-bit (x86)**
 4. **Instance type:**
-   - Select **t3.medium** (4 vCPU, 4 GB RAM)
-   - This is recommended for running browser automation
-
+  - Select **t3.medium** (4 vCPU, 4 GB RAM)
+  - This is recommended for running browser automation
 5. **Key pair (login):**
-   - **IMPORTANT:** Click **Create new key pair**
-   - Key pair name: `e2e-testing-key`
-   - Key pair type: **RSA**
-   - Private key file format: **.pem**
-   - Click **Create key pair**
-   - **Your browser will download `e2e-testing-key.pem`** - save it securely!
-
+  - **IMPORTANT:** Click **Create new key pair**
+  - Key pair name: `e2e-testing-key`
+  - Key pair type: **RSA**
+  - Private key file format: **.pem**
+  - Click **Create key pair**
+  - **Your browser will download `e2e-testing-key.pem`** - save it securely!
 6. **Network settings:**
-   - Click **Edit**
-   - **Auto-assign public IP:** Enable
-   - **Firewall (security groups):** Create security group
-   - Security group name: `e2e-testing-sg`
-   - Description: `E2E testing security group`
-   - **Inbound security groups rules:**
-     - Rule 1: SSH, TCP 22, Source type: My IP (or your IP)
-     - Click **Add security group rule**
-     - Rule 2: Custom TCP, Port 3000, Source type: My IP (for portal access)
-     - Click **Add security group rule**
-     - Rule 3: Custom TCP, Port 3002, Source type: My IP (for AIP sync server)
-
+  - Click **Edit**
+  - **Auto-assign public IP:** Enable
+  - **Firewall (security groups):** Create security group
+  - Security group name: `e2e-testing-sg`
+  - Description: `E2E testing security group`
+  - **Inbound security groups rules:**
+    - Rule 1: SSH, TCP 22, Source type: My IP (or your IP)
+    - Click **Add security group rule**
+    - Rule 2: Custom TCP, Port 3000, Source type: My IP (for portal access)
+    - Click **Add security group rule**
+    - Rule 3: Custom TCP, Port 3002, Source type: My IP (for AIP sync server)
 7. **Configure storage:**
-   - Size: **30 GiB**
-   - Volume type: **gp3**
-
+  - Size: **30 GiB**
+  - Volume type: **gp3**
 8. **Advanced details:**
-   - Scroll down to **IAM instance profile**
-   - Select **E2ETestingEC2Role** (from step 2b)
-   - **User data:** Paste this to auto-install dependencies on first boot:
+  - Scroll down to **IAM instance profile**
+  - Select **E2ETestingEC2Role** (from step 2b)
+  - **User data:** Paste this to auto-install dependencies on first boot:
 
 ```bash
 #!/bin/bash
@@ -157,12 +150,11 @@ npm install -g npm@latest
 echo "EC2 user data script completed" > /var/log/user-data-complete.log
 ```
 
-9. **Summary:**
-   - Review all settings
-   - Click **Launch instance**
-
-10. **Wait for instance to be running:**
-    - Go to **Instances** in EC2 console
+1. **Summary:**
+  - Review all settings
+  - Click **Launch instance**
+2. **Wait for instance to be running:**
+  - Go to **Instances** in EC2 console
     - Wait until **Instance state** shows **Running**
     - Wait until **Status checks** shows **2/2 checks passed** (takes 2-3 minutes)
     - Note the **Public IPv4 address** (e.g., `3.123.45.67`)
@@ -242,6 +234,7 @@ cd clearway-2
 Replace `YOUR-USERNAME` with your GitHub username/org.
 
 If your repo is private, you may need to:
+
 - Use SSH: `git clone git@github.com:YOUR-USERNAME/clearway-2.git` (requires SSH key)
 - Or use a personal access token: `git clone https://YOUR-TOKEN@github.com/YOUR-USERNAME/clearway-2.git`
 
@@ -286,8 +279,8 @@ export PORTAL_URL=http://localhost:3000
 # Disable AI to save tokens during testing
 export DISABLE_AI_FOR_TESTING=true
 
-# Test account credentials (create in step 7)
-export TEST_USER_EMAIL=test@clearway.com
+# Disable portal auth on isolated test instance
+export DISABLE_AUTH_FOR_TESTING=true
 
 # Supabase (copy from your Vercel env or Supabase dashboard)
 export NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
@@ -319,9 +312,6 @@ export N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/xxxxx
 # Optional: Public URL for report access
 export PUBLIC_REPORT_BASE_URL=https://your-domain.com/test-results
 
-# Playwright auth state path
-export PLAYWRIGHT_STORAGE_STATE_PATH=/home/ubuntu/clearway-2/test-results/auth-state.json
-
 # Test results directory
 export TEST_RESULTS_DIR=/home/ubuntu/clearway-2/test-results
 ```
@@ -329,6 +319,7 @@ export TEST_RESULTS_DIR=/home/ubuntu/clearway-2/test-results
 ### 6c. Save and Load Environment
 
 Save the file:
+
 - Press `Ctrl+O` (WriteOut)
 - Press `Enter` (confirm filename)
 - Press `Ctrl+X` (exit nano)
@@ -344,6 +335,7 @@ Verify they're loaded:
 ```bash
 echo $PORTAL_URL
 echo $DISABLE_AI_FOR_TESTING
+echo $DISABLE_AUTH_FOR_TESTING
 ```
 
 ---
@@ -402,19 +394,18 @@ DO UPDATE SET aip_model = 'gpt-4o-mini', gen_model = 'gpt-4o-mini';
 1. Open your **n8n instance** (self-hosted or cloud)
 2. Create a **New Workflow**
 3. Add a **Webhook** node:
-   - Click **+** → Search "Webhook" → Select **Webhook**
-   - **HTTP Method:** POST
-   - **Path:** Choose a path like `e2e-portal-test`
-   - **Authentication:** None (or Basic if you prefer)
-   - Click **Execute Node** to get the webhook URL
-   - Copy the **Test URL** (e.g., `https://your-n8n.com/webhook-test/e2e-portal-test`)
-
+  - Click **+** → Search "Webhook" → Select **Webhook**
+  - **HTTP Method:** POST
+  - **Path:** Choose a path like `e2e-portal-test`
+  - **Authentication:** None (or Basic if you prefer)
+  - Click **Execute Node** to get the webhook URL
+  - Copy the **Test URL** (e.g., `https://your-n8n.com/webhook-test/e2e-portal-test`)
 4. Add a **Telegram** node:
-   - Click **+** after Webhook → Search "Telegram" → Select **Telegram**
-   - **Credential:** Add your Telegram Bot credentials
-   - **Chat ID:** Your Telegram chat/channel ID
-   - **Message Type:** Text
-   - **Text:** Use expressions to format the webhook data:
+  - Click **+** after Webhook → Search "Telegram" → Select **Telegram**
+  - **Credential:** Add your Telegram Bot credentials
+  - **Chat ID:** Your Telegram chat/channel ID
+  - **Message Type:** Text
+  - **Text:** Use expressions to format the webhook data:
 
 ```
 🧪 E2E Test Notification
@@ -431,10 +422,10 @@ Message: {{ $json.message || "nil" }}
 📄 Report: {{ $json.reportUrl || "nil" }}
 ```
 
-5. **Connect** Webhook → Telegram nodes
-6. **Save** the workflow
-7. **Activate** the workflow (toggle in top-right)
-8. Copy the **Production URL** (e.g., `https://your-n8n.com/webhook/e2e-portal-test`)
+1. **Connect** Webhook → Telegram nodes
+2. **Save** the workflow
+3. **Activate** the workflow (toggle in top-right)
+4. Copy the **Production URL** (e.g., `https://your-n8n.com/webhook/e2e-portal-test`)
 
 ### 8b. Update EC2 Environment
 
@@ -494,20 +485,24 @@ Message: Testing n8n webhook for E2E portal testing
 If the webhook test fails:
 
 **Error: "Missing webhook URL"**
+
 - Check `.env` has `N8N_WEBHOOK_URL` set
 - Reload env: `set -a && source ~/clearway-2/.env && set +a`
 
 **Error: "Webhook test failed (404)"**
+
 - Verify the webhook URL is correct
 - Check n8n workflow is **activated** (toggle in top-right)
 - Use the **Production URL**, not Test URL
 
 **Error: "Webhook test failed (500)"**
+
 - Check n8n workflow logs for errors
 - Verify Telegram node is configured correctly
 - Test the Telegram node independently in n8n
 
 **No message in Telegram:**
+
 - Verify Telegram bot token is correct
 - Verify chat ID is correct
 - Check n8n execution history for errors
@@ -530,8 +525,8 @@ tmux new -s portal
 cd ~/clearway-2
 set -a && source .env && set +a
 
-# Start portal with AI disabled
-DISABLE_AI_FOR_TESTING=true npm run dev
+# Start portal with AI + auth disabled for E2E testing
+DISABLE_AI_FOR_TESTING=true DISABLE_AUTH_FOR_TESTING=true npm run dev
 ```
 
 Wait until you see:
@@ -553,8 +548,8 @@ tmux new -s aip-sync
 cd ~/clearway-2
 set -a && source .env && set +a
 
-# Start AIP sync server with AI disabled
-DISABLE_AI_FOR_TESTING=true node scripts/aip-sync-server.mjs
+# Start AIP sync server with AI disabled (auth flag kept consistent)
+DISABLE_AI_FOR_TESTING=true DISABLE_AUTH_FOR_TESTING=true node scripts/aip-sync-server.mjs
 ```
 
 Wait until you see:
@@ -585,6 +580,7 @@ tmux ls
 ```
 
 You should see:
+
 - Portal returns HTML
 - AIP sync returns 404 (expected - needs `/sync` path)
 - Two tmux sessions: `portal` and `aip-sync`
@@ -607,82 +603,14 @@ tmux attach -t aip-sync
 
 ## 11) Run Authentication Setup
 
-The E2E script needs to authenticate with your test account. We'll do this once in headed mode to save the auth state.
-
-### 11a. Run Single Airport Test with Manual Login
+Authentication is disabled for E2E runs via:
 
 ```bash
-cd ~/clearway-2
-HEADLESS=false MAX_AIRPORTS=1 node scripts/e2e-portal-test.mjs
+export DISABLE_AUTH_FOR_TESTING=true
 ```
 
-**What happens:**
-1. A browser window opens (via Xvfb, visible through VNC if you set it up, or you can use X forwarding)
-2. Script navigates to the portal
-3. You'll see the login page
-
-**Problem:** Running headed mode on a headless EC2 requires X11 forwarding or VNC.
-
-### 11b. Better Approach: Use Playwright Codegen
-
-Instead of manual headed mode, use Playwright's codegen to authenticate and save state:
-
-```bash
-cd ~/clearway-2
-
-# Start Playwright in codegen mode with auth
-npx playwright codegen \
-  --save-storage=test-results/auth-state.json \
-  http://localhost:3000
-```
-
-**This requires X11 forwarding.** If you don't have that set up, use this alternative:
-
-### 11c. Alternative: Create Auth State Locally, Then Upload
-
-**On your local machine** (not EC2):
-
-1. Make sure your portal is accessible (either deployed or running locally)
-2. Run this:
-
-```bash
-# Clone repo locally if you haven't
-git clone https://github.com/YOUR-USERNAME/clearway-2.git
-cd clearway-2
-npm install
-
-# Generate auth state
-npx playwright codegen \
-  --save-storage=auth-state.json \
-  https://your-portal-url.com
-```
-
-3. In the browser that opens:
-   - Go to login page
-   - Enter `test@clearway.com`
-   - Click "Send sign-in link"
-   - Check email and click the magic link
-   - Once logged in, close the browser
-   - The auth state is saved to `auth-state.json`
-
-4. Upload to EC2:
-
-```bash
-scp -i ~/.ssh/aws-keys/e2e-testing-key.pem \
-  auth-state.json \
-  ubuntu@3.123.45.67:~/clearway-2/test-results/auth-state.json
-```
-
-### 11d. Verify Auth State Exists
-
-On EC2:
-
-```bash
-ls -lh ~/clearway-2/test-results/auth-state.json
-cat ~/clearway-2/test-results/auth-state.json | head -n 20
-```
-
-You should see a JSON file with cookies and storage data.
+No magic links, login browser flows, or Playwright auth-state setup are required.
+Skip directly to Section 12.
 
 ---
 
@@ -696,7 +624,7 @@ Before running the full test (2,000+ airports, 4-6 hours), run a small sample to
 cd ~/clearway-2
 set -a && source .env && set +a
 
-MAX_AIRPORTS=5 node scripts/e2e-portal-test.mjs
+DISABLE_AUTH_FOR_TESTING=true MAX_AIRPORTS=5 node scripts/e2e-portal-test.mjs
 ```
 
 ### 12b. Monitor Progress
@@ -769,11 +697,13 @@ Response: ok
 ### 12f. Check Telegram
 
 You should receive a message in Telegram with:
+
 - Event: `e2e_test_complete`
 - Summary stats (5 total, 4 passed, 1 failed)
 - Report URL (if you set `PUBLIC_REPORT_BASE_URL`)
 
 **If webhook fails here:**
+
 - Check `N8N_WEBHOOK_URL` in `.env`
 - Verify n8n workflow is still activated
 - Run `node scripts/test-webhook.mjs` again
@@ -794,14 +724,14 @@ The full test takes 4-6 hours. Recommendations:
 tmux new -s e2e-test
 ```
 
-2. **Load environment:**
+1. **Load environment:**
 
 ```bash
 cd ~/clearway-2
 set -a && source .env && set +a
 ```
 
-3. **Optional: Test specific country first:**
+1. **Optional: Test specific country first:**
 
 ```bash
 COUNTRY_FILTER=albania node scripts/e2e-portal-test.mjs
@@ -827,6 +757,7 @@ E2E run complete. Raw results: test-results/raw/e2e-results-2026-03-05T18-45-00-
 ```
 
 You can detach from tmux and check back later:
+
 - **Detach:** `Ctrl+B` then `D`
 - **Reattach:** `tmux attach -t e2e-test`
 
@@ -999,7 +930,7 @@ curl http://localhost:3000
 tmux attach -t portal
 ```
 
-**Error: "fetch failed for http://localhost:3000/api/regions"**
+**Error: "fetch failed for [http://localhost:3000/api/regions](http://localhost:3000/api/regions)"**
 
 - Portal isn't fully started yet
 - Wait 30 seconds and try again
@@ -1016,6 +947,7 @@ This is expected for some airports. The test marks it as failed but continues.
 **Error: "NOTAMs unavailable"**
 
 Possible causes:
+
 - NOTAM sync server not running (should be, but E2E doesn't require it)
 - ICAO not found in CrewBriefing/FAA
 - Network timeout
@@ -1076,6 +1008,7 @@ set -a && source ~/clearway-2/.env && set +a
 ### EC2 Instance Becomes Unresponsive
 
 **Symptoms:**
+
 - SSH hangs
 - Can't connect
 - Status checks fail
@@ -1090,6 +1023,7 @@ set -a && source ~/clearway-2/.env && set +a
 6. Restart services (follow step 10)
 
 **Prevention:**
+
 - Use at least t3.medium (4 GB RAM)
 - Monitor memory: `free -h`
 - Monitor disk: `df -h`
@@ -1150,7 +1084,7 @@ cd ~/clearway-2
 set -a && source .env && set +a
 
 # Sample test (5 airports)
-MAX_AIRPORTS=5 node scripts/e2e-portal-test.mjs
+DISABLE_AUTH_FOR_TESTING=true MAX_AIRPORTS=5 node scripts/e2e-portal-test.mjs
 
 # Generate report
 node scripts/generate-test-report.mjs
@@ -1160,7 +1094,7 @@ node scripts/send-test-webhook.mjs
 
 # Full test (all airports, 4-6 hours)
 tmux new -s e2e-test
-node scripts/e2e-portal-test.mjs
+DISABLE_AUTH_FOR_TESTING=true node scripts/e2e-portal-test.mjs
 # Ctrl+B then D to detach
 
 # After full test completes
@@ -1190,31 +1124,35 @@ npm run test:e2e:webhook:send
 
 ### Required for E2E Testing
 
-| Variable | Example | Purpose |
-|----------|---------|---------|
-| `PORTAL_URL` | `http://localhost:3000` | Portal URL to test |
-| `DISABLE_AI_FOR_TESTING` | `true` | Skip AI calls to save tokens |
-| `TEST_USER_EMAIL` | `test@clearway.com` | Test account email |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxx.supabase.co` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | Supabase anon key |
-| `AIP_SYNC_URL` | `http://localhost:3002` | AIP sync server URL |
-| `NOTAM_SYNC_SECRET` | `your-secret` | Sync authentication |
-| `SYNC_SECRET` | `your-secret` | Same as NOTAM_SYNC_SECRET |
-| `EAD_USER` | `username` | EAD login username |
-| `EAD_PASSWORD_ENC` | `base64...` | Base64 encoded password |
-| `N8N_WEBHOOK_URL` | `https://n8n.com/webhook/...` | Webhook endpoint |
+
+| Variable                        | Example                       | Purpose                      |
+| ------------------------------- | ----------------------------- | ---------------------------- |
+| `PORTAL_URL`                    | `http://localhost:3000`       | Portal URL to test           |
+| `DISABLE_AI_FOR_TESTING`        | `true`                        | Skip AI calls to save tokens |
+| `DISABLE_AUTH_FOR_TESTING`      | `true`                        | Bypass portal login for E2E  |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxx.supabase.co`     | Supabase project URL         |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...`                      | Supabase anon key            |
+| `AIP_SYNC_URL`                  | `http://localhost:3002`       | AIP sync server URL          |
+| `NOTAM_SYNC_SECRET`             | `your-secret`                 | Sync authentication          |
+| `SYNC_SECRET`                   | `your-secret`                 | Same as NOTAM_SYNC_SECRET    |
+| `EAD_USER`                      | `username`                    | EAD login username           |
+| `EAD_PASSWORD_ENC`              | `base64...`                   | Base64 encoded password      |
+| `N8N_WEBHOOK_URL`               | `https://n8n.com/webhook/...` | Webhook endpoint             |
+
 
 ### Optional
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `HEADLESS` | `true` | Set to `false` for visible browser |
-| `MAX_AIRPORTS` | `0` (all) | Limit number of airports to test |
-| `COUNTRY_FILTER` | `""` | Filter countries by name |
-| `TEST_RESULTS_DIR` | `test-results` | Output directory |
-| `PUBLIC_REPORT_BASE_URL` | `""` | Base URL for report links |
-| `AWS_S3_BUCKET` | `""` | S3 bucket for uploads |
-| `AWS_REGION` | `us-east-1` | AWS region |
+
+| Variable                 | Default        | Purpose                            |
+| ------------------------ | -------------- | ---------------------------------- |
+| `HEADLESS`               | `true`         | Set to `false` for visible browser |
+| `MAX_AIRPORTS`           | `0` (all)      | Limit number of airports to test   |
+| `COUNTRY_FILTER`         | `""`           | Filter countries by name           |
+| `TEST_RESULTS_DIR`       | `test-results` | Output directory                   |
+| `PUBLIC_REPORT_BASE_URL` | `""`           | Base URL for report links          |
+| `AWS_S3_BUCKET`          | `""`           | S3 bucket for uploads              |
+| `AWS_REGION`             | `us-east-1`    | AWS region                         |
+
 
 ---
 
@@ -1288,11 +1226,13 @@ test-results/
 **Purpose:** Test n8n webhook before running E2E
 
 **Usage:**
+
 ```bash
 node scripts/test-webhook.mjs
 ```
 
 **What it does:**
+
 1. Reads `N8N_WEBHOOK_URL` from env
 2. Sends test payload with `event: "webhook_test"`
 3. Logs success/failure
@@ -1307,6 +1247,7 @@ node scripts/test-webhook.mjs
 **Purpose:** Main E2E test automation
 
 **Usage:**
+
 ```bash
 # Full test
 node scripts/e2e-portal-test.mjs
@@ -1316,19 +1257,20 @@ MAX_AIRPORTS=10 COUNTRY_FILTER=albania node scripts/e2e-portal-test.mjs
 ```
 
 **What it does:**
+
 1. Launches Playwright browser (headless by default)
 2. Loads auth state from `test-results/auth-state.json`
 3. Fetches all countries from `/api/regions`
 4. For each country, fetches airports from `/api/airports`
 5. For each airport:
-   - Navigates to portal with ICAO
-   - Checks page loads
-   - Checks map loads
-   - Clicks NOTAM sync and waits
-   - Clicks AIP sync (EAD only) and waits
-   - Clicks GEN sync (EAD only) and waits
-   - Takes full-page screenshot
-   - Saves results incrementally to JSON
+  - Navigates to portal with ICAO
+  - Checks page loads
+  - Checks map loads
+  - Clicks NOTAM sync and waits
+  - Clicks AIP sync (EAD only) and waits
+  - Clicks GEN sync (EAD only) and waits
+  - Takes full-page screenshot
+  - Saves results incrementally to JSON
 6. Outputs final summary
 
 **Output:** `test-results/raw/e2e-results-{timestamp}.json`
@@ -1340,6 +1282,7 @@ MAX_AIRPORTS=10 COUNTRY_FILTER=albania node scripts/e2e-portal-test.mjs
 **Purpose:** Convert raw JSON to readable markdown
 
 **Usage:**
+
 ```bash
 # Auto-picks latest results
 node scripts/generate-test-report.mjs
@@ -1349,13 +1292,14 @@ node scripts/generate-test-report.mjs --input=test-results/raw/e2e-results-xxx.j
 ```
 
 **What it does:**
+
 1. Reads raw JSON results
 2. Generates markdown with:
-   - Summary stats
-   - Per-country sections
-   - Per-airport checklist with pass/fail
-   - Screenshot links
-   - Error details
+  - Summary stats
+  - Per-country sections
+  - Per-airport checklist with pass/fail
+  - Screenshot links
+  - Error details
 3. Saves to `test-results/report-{timestamp}.md`
 
 **Output:** `test-results/report-{timestamp}.md`
@@ -1367,6 +1311,7 @@ node scripts/generate-test-report.mjs --input=test-results/raw/e2e-results-xxx.j
 **Purpose:** Send final report notification to Telegram via n8n
 
 **Usage:**
+
 ```bash
 # Auto-picks latest report
 node scripts/send-test-webhook.mjs
@@ -1379,12 +1324,13 @@ node scripts/send-test-webhook.mjs \
 ```
 
 **What it does:**
+
 1. Finds latest report markdown
 2. Finds latest raw JSON for summary stats
 3. Constructs webhook payload with:
-   - Event: `e2e_test_complete`
-   - Summary (total/passed/failed)
-   - Report URL (if provided)
+  - Event: `e2e_test_complete`
+  - Summary (total/passed/failed)
+  - Report URL (if provided)
 4. POSTs to `N8N_WEBHOOK_URL`
 5. Logs success/failure
 
@@ -1407,8 +1353,8 @@ graph TB
     TestWebhook[8. Test Webhook<br/>node scripts/test-webhook.mjs]
     VerifyTelegram{9. Message in<br/>Telegram?}
     StartServices[10. Start Portal + AIP Sync<br/>in tmux sessions]
-    SetupAuth[11. Create Auth State<br/>auth-state.json]
-    SampleTest[12. Run Sample Test<br/>MAX_AIRPORTS=5]
+    AuthDisabled[11. Auth Disabled for Testing<br/>skip login setup]
+    SampleTest[12. Run Sample Test<br/>DISABLE_AUTH_FOR_TESTING=true]
     CheckSample{13. Sample<br/>passed?}
     FullTest[14. Run Full Test<br/>all 2059 airports]
     GenReport[15. Generate Report<br/>node scripts/generate-test-report.mjs]
@@ -1426,8 +1372,8 @@ graph TB
     TestWebhook --> VerifyTelegram
     VerifyTelegram -->|No| SetupWebhook
     VerifyTelegram -->|Yes| StartServices
-    StartServices --> SetupAuth
-    SetupAuth --> SampleTest
+    StartServices --> AuthDisabled
+    AuthDisabled --> SampleTest
     SampleTest --> CheckSample
     CheckSample -->|No| StartServices
     CheckSample -->|Yes| FullTest
@@ -1435,6 +1381,8 @@ graph TB
     GenReport --> SendWebhook
     SendWebhook --> Done
 ```
+
+
 
 ---
 
@@ -1444,15 +1392,17 @@ graph TB
 
 Based on the portal's current state:
 
-| Check | Expected Pass Rate | Common Failures |
-|-------|-------------------|-----------------|
-| Page Load | 99%+ | Network errors only |
-| Map | 95%+ | Missing coordinates in data |
-| NOTAMs | 90%+ | ICAO not in CrewBriefing/FAA |
-| AIP (Hardcoded) | 100% | Static data always available |
-| AIP (EAD) | 85%+ | Sync timeout, EAD blocks IP |
-| GEN | 80%+ | Depends on AIP success |
-| Screenshot | 99%+ | Disk full, permission errors |
+
+| Check           | Expected Pass Rate | Common Failures              |
+| --------------- | ------------------ | ---------------------------- |
+| Page Load       | 99%+               | Network errors only          |
+| Map             | 95%+               | Missing coordinates in data  |
+| NOTAMs          | 90%+               | ICAO not in CrewBriefing/FAA |
+| AIP (Hardcoded) | 100%               | Static data always available |
+| AIP (EAD)       | 85%+               | Sync timeout, EAD blocks IP  |
+| GEN             | 80%+               | Depends on AIP success       |
+| Screenshot      | 99%+               | Disk full, permission errors |
+
 
 ### Sample Report Output
 
@@ -1511,18 +1461,16 @@ AI disabled for testing: true
 ### Recommendations
 
 1. **Stop instance when not testing:**
-   ```bash
+  ```bash
    # From AWS Console: Instance state → Stop instance
-   ```
+  ```
    You only pay for storage (~$3/month for 30 GB)
-
 2. **Use Spot Instances:**
-   - Same specs, ~70% cheaper
-   - May be interrupted (rare for short runs)
-
+  - Same specs, ~70% cheaper
+  - May be interrupted (rare for short runs)
 3. **Delete after testing:**
-   - If you only need this once, terminate the instance after downloading results
-   - Keep the auth state and scripts locally for future runs
+  - If you only need this once, terminate the instance after downloading results
+  - Keep the auth state and scripts locally for future runs
 
 ---
 
@@ -1541,6 +1489,7 @@ AIP Sync (3002): Remove or restrict to VPN
 ### 2. Don't Commit Secrets
 
 The `.env` file is gitignored. Never commit:
+
 - `auth-state.json`
 - `.env` or `.env.local`
 - Any files in `test-results/`
@@ -1548,6 +1497,7 @@ The `.env` file is gitignored. Never commit:
 ### 3. Rotate Credentials
 
 After testing:
+
 - Change test account password in Supabase
 - Rotate `SYNC_SECRET` if exposed
 - Consider deleting test account if no longer needed
@@ -1555,6 +1505,7 @@ After testing:
 ### 4. Use Elastic IP (Optional)
 
 If you'll run tests regularly:
+
 1. **EC2** → **Elastic IPs** → **Allocate Elastic IP address**
 2. **Actions** → **Associate Elastic IP address**
 3. Select your instance
@@ -1583,60 +1534,51 @@ For now, the serial approach is more reliable and easier to debug.
 
 ### New Files Created
 
-1. **`scripts/test-webhook.mjs`**
-   - Tests n8n webhook connectivity
-   - Sends test payload
-   - Must run before E2E test
-
-2. **`scripts/e2e-portal-test.mjs`**
-   - Main Playwright automation
-   - Tests all airports across all countries
-   - Saves raw JSON results + screenshots
-
-3. **`scripts/generate-test-report.mjs`**
-   - Converts raw JSON to markdown
-   - Includes summary stats and per-airport details
-   - Links to screenshots
-
-4. **`scripts/send-test-webhook.mjs`**
-   - Sends final report notification
-   - Posts to n8n webhook
-   - Includes summary and report URL
-
-5. **`docs/E2E-TEST-EC2-SETUP.md`**
-   - Quick reference guide
-   - Shorter version of this tutorial
-
-6. **`test-results/.gitkeep`**
-   - Ensures directory exists in git
-   - Actual test results are gitignored
+1. `**scripts/test-webhook.mjs`**
+  - Tests n8n webhook connectivity
+  - Sends test payload
+  - Must run before E2E test
+2. `**scripts/e2e-portal-test.mjs**`
+  - Main Playwright automation
+  - Tests all airports across all countries
+  - Saves raw JSON results + screenshots
+3. `**scripts/generate-test-report.mjs**`
+  - Converts raw JSON to markdown
+  - Includes summary stats and per-airport details
+  - Links to screenshots
+4. `**scripts/send-test-webhook.mjs**`
+  - Sends final report notification
+  - Posts to n8n webhook
+  - Includes summary and report URL
+5. `**docs/E2E-TEST-EC2-SETUP.md**`
+  - Quick reference guide
+  - Shorter version of this tutorial
+6. `**test-results/.gitkeep**`
+  - Ensures directory exists in git
+  - Actual test results are gitignored
 
 ### Modified Files
 
-1. **`app/api/aip/ead/route.ts`**
-   - Added `DISABLE_AI_FOR_TESTING` check
-   - Skips model validation when testing
-   - Passes `extract=regex` to sync server
-
-2. **`app/api/aip/gen/sync/route.ts`**
-   - Added `DISABLE_AI_FOR_TESTING` check
-   - Skips model validation when testing
-
-3. **`scripts/aip-sync-server.mjs`**
-   - Respects `DISABLE_AI_FOR_TESTING` flag
-   - Uses regex extraction instead of AI
-   - Updates step labels to indicate testing mode
-
-4. **`.gitignore`**
-   - Added `test-results/*` (except `.gitkeep`)
-   - Prevents committing test outputs
-
-5. **`package.json`**
-   - Added npm scripts:
-     - `test:e2e` - Run E2E test
-     - `test:e2e:report` - Generate report
-     - `test:e2e:webhook:test` - Test webhook
-     - `test:e2e:webhook:send` - Send final webhook
+1. `**app/api/aip/ead/route.ts**`
+  - Added `DISABLE_AI_FOR_TESTING` check
+  - Skips model validation when testing
+  - Passes `extract=regex` to sync server
+2. `**app/api/aip/gen/sync/route.ts**`
+  - Added `DISABLE_AI_FOR_TESTING` check
+  - Skips model validation when testing
+3. `**scripts/aip-sync-server.mjs**`
+  - Respects `DISABLE_AI_FOR_TESTING` flag
+  - Uses regex extraction instead of AI
+  - Updates step labels to indicate testing mode
+4. `**.gitignore**`
+  - Added `test-results/*` (except `.gitkeep`)
+  - Prevents committing test outputs
+5. `**package.json**`
+  - Added npm scripts:
+    - `test:e2e` - Run E2E test
+    - `test:e2e:report` - Generate report
+    - `test:e2e:webhook:test` - Test webhook
+    - `test:e2e:webhook:send` - Send final webhook
 
 ---
 
@@ -1644,21 +1586,21 @@ For now, the serial approach is more reliable and easier to debug.
 
 Before running the full test, ensure:
 
-- [ ] EC2 instance created with key pair
-- [ ] Can SSH to EC2 successfully
-- [ ] All dependencies installed (Node, Chromium, Xvfb)
-- [ ] Repository cloned and `npm install` completed
-- [ ] `.env` file created with all variables
-- [ ] Test account created in Supabase
-- [ ] n8n webhook created and URL added to `.env`
-- [ ] **Webhook tested successfully** (`node scripts/test-webhook.mjs`)
-- [ ] **Test message received in Telegram**
-- [ ] Portal running on `localhost:3000`
-- [ ] AIP sync server running on `localhost:3002`
-- [ ] Auth state file created (`test-results/auth-state.json`)
-- [ ] Sample test passed (5-10 airports)
-- [ ] Sample report generated successfully
-- [ ] Sample webhook sent successfully
+- EC2 instance created with key pair
+- Can SSH to EC2 successfully
+- All dependencies installed (Node, Chromium, Xvfb)
+- Repository cloned and `npm install` completed
+- `.env` file created with all variables
+- Test account created in Supabase
+- n8n webhook created and URL added to `.env`
+- **Webhook tested successfully** (`node scripts/test-webhook.mjs`)
+- **Test message received in Telegram**
+- Portal running on `localhost:3000`
+- AIP sync server running on `localhost:3002`
+- Auth state file created (`test-results/auth-state.json`)
+- Sample test passed (5-10 airports)
+- Sample report generated successfully
+- Sample webhook sent successfully
 
 Once all items are checked, you're ready for the full test run.
 
@@ -1669,29 +1611,25 @@ Once all items are checked, you're ready for the full test run.
 If you encounter issues not covered in troubleshooting:
 
 1. **Check service logs:**
-   ```bash
+  ```bash
    tmux attach -t portal    # Portal logs
    tmux attach -t aip-sync  # AIP sync logs
-   ```
-
+  ```
 2. **Check E2E test output:**
-   ```bash
+  ```bash
    cat test-results/raw/e2e-results-*.json | jq '.countries[0].airports[0]'
-   ```
-
+  ```
 3. **Verify services are reachable:**
-   ```bash
+  ```bash
    curl http://localhost:3000
    curl http://localhost:3002/sync?icao=EDDF
-   ```
-
+  ```
 4. **Check EC2 system resources:**
-   ```bash
+  ```bash
    free -h          # Memory
    df -h            # Disk
    top              # CPU/processes
-   ```
-
+  ```
 5. **Review this tutorial** and the plan file for missed steps
 
 ---
@@ -1721,6 +1659,7 @@ grep "❌" test-results/report-*.md | grep "GEN" | wc -l
 ### 3. Fix Issues
 
 Based on failures:
+
 - **Map failures:** Add missing coordinates to `data/airport-coords.json`
 - **NOTAM failures:** Expected for some ICAOs (not in sources)
 - **AIP/GEN failures:** Check EAD access, sync server logs
@@ -1739,11 +1678,13 @@ COUNTRY_FILTER="austria" node scripts/e2e-portal-test.mjs
 ### 5. Stop or Terminate EC2
 
 **Stop (keeps data, small storage cost):**
+
 ```bash
 # From AWS Console: Instance state → Stop instance
 ```
 
 **Terminate (deletes everything, no cost):**
+
 ```bash
 # From AWS Console: Instance state → Terminate instance
 ```

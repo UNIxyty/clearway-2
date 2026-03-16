@@ -3,6 +3,12 @@ import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
+
+  // Bypass auth checks on isolated test environments.
+  if (disableAuthForTesting) {
+    return NextResponse.next();
+  }
 
   // Public routes
   if (

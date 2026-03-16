@@ -45,6 +45,7 @@ Create `.env.local` (or export vars in shell):
 ```bash
 PORTAL_URL=http://localhost:3000
 DISABLE_AI_FOR_TESTING=true
+DISABLE_AUTH_FOR_TESTING=true
 
 # Supabase env already required by app
 NEXT_PUBLIC_SUPABASE_URL=...
@@ -80,25 +81,15 @@ Terminal 2 (AIP sync server):
 DISABLE_AI_FOR_TESTING=true node scripts/aip-sync-server.mjs
 ```
 
-## 5) Authentication Setup for Playwright
+## 5) Authentication for Test Runs
 
-The app requires Supabase auth for page access.
-
-Recommended:
-1. Run once with headed browser and manual login.
-2. Save Playwright auth state file.
-3. Reuse that state for headless batch runs.
-
-Example:
+Authentication is disabled for the isolated E2E instance via:
 
 ```bash
-HEADLESS=false MAX_AIRPORTS=1 node scripts/e2e-portal-test.mjs
+DISABLE_AUTH_FOR_TESTING=true
 ```
 
-After manual login succeeds, auth state is saved to:
-- `test-results/auth-state.json`
-
-Later headless runs can reuse it automatically.
+No Playwright login setup or auth-state files are required.
 
 ## 6) Mandatory Webhook Test Before Full Run
 
@@ -115,7 +106,7 @@ Only continue when the test payload is visible in Telegram through your n8n flow
 1. Quick smoke run:
 
 ```bash
-MAX_AIRPORTS=10 node scripts/e2e-portal-test.mjs
+DISABLE_AUTH_FOR_TESTING=true MAX_AIRPORTS=10 node scripts/e2e-portal-test.mjs
 ```
 
 2. Generate markdown report:

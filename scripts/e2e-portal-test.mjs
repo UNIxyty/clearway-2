@@ -14,6 +14,7 @@ const OUTPUT_DIR = process.env.TEST_RESULTS_DIR || "test-results";
 const STORAGE_STATE_PATH = process.env.PLAYWRIGHT_STORAGE_STATE_PATH || join(OUTPUT_DIR, "auth-state.json");
 const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || "";
 const MAGIC_LINK_URL = (process.env.MAGIC_LINK_URL || "").trim();
+const DISABLE_AUTH_FOR_TESTING = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
 const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 const MAGIC_LINK_FILE = join(OUTPUT_DIR, "magic-link.txt");
@@ -321,11 +322,16 @@ async function main() {
   );
   const page = await context.newPage();
 
-  await ensureAuthenticated(page, context);
+  if (!DISABLE_AUTH_FOR_TESTING) {
+    await ensureAuthenticated(page, context);
+  } else {
+    await page.goto(PORTAL_URL, { waitUntil: "load" });
+  }
 
   const output = {
     startedAt: nowIso(),
     portalUrl: PORTAL_URL,
+    disableAuthForTesting: DISABLE_AUTH_FOR_TESTING,
     disableAiForTesting: DISABLE_AI_FOR_TESTING,
     countries: [],
     summary: {

@@ -242,12 +242,15 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
     const notamSyncButton = page.locator('button[title*="Sync now: scrape FAA"]').first();
     if (await notamSyncButton.count()) {
       await notamSyncButton.click();
-      await waitForQuiet(page, ["Syncing live from FAA", "Loading NOTAMs"], 45000);
+      // CrewBriefing/FAA sync can take up to ~2 minutes on slower instances.
+      await waitForQuiet(page, ["Syncing live from FAA", "Loading NOTAMs"], 120000);
       const unavailable = await page.getByText("NOTAMs unavailable", { exact: false }).first().isVisible().catch(() => false);
       if (unavailable) {
+        const detail = await page.locator("p.text-xs.text-muted-foreground.break-words").first().textContent().catch(() => "");
         result.checks.notams.pass = false;
-        result.errors.push("NOTAM check failed: NOTAMs unavailable.");
+        result.errors.push(`NOTAM check failed: NOTAMs unavailable.${detail ? ` Detail: ${detail.trim().slice(0, 250)}` : ""}`);
       } else {
+        // "No NOTAMs returned." is a valid operational result, not a sync failure.
         result.checks.notams.pass = true;
       }
     } else {
@@ -264,9 +267,15 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
       await aipSyncButton.click();
       await waitForQuiet(page, ["Syncing AIP from server", "Loading AIP"], 70000);
       const aipError = await page.locator("text=/No AI model selected|Sync failed|AIP sync request failed/").first().isVisible().catch(() => false);
-      result.checks.aip.pass = !aipError;
+      const downloadReady = await page.locator('button[title*="Download current AIP PDF"]').first().isEnabled().catch(() => false);
+      const noDataNotice = await page.getByText("No AIP data for this airport in this sync.", { exact: false }).first().isVisible().catch(() => false);
+      result.checks.aip.pass = !aipError && (downloadReady || noDataNotice);
       result.checks.aip.skippedAi = DISABLE_AI_FOR_TESTING;
-      if (aipError) result.errors.push("AIP check failed: sync returned error state.");
+      if (aipError) {
+        result.errors.push("AIP check failed: sync returned error state.");
+      } else if (!downloadReady && !noDataNotice) {
+        result.errors.push("AIP check failed: sync completed but no downloadable AIP PDF or explicit no-data state was detected.");
+      }
     } catch (error) {
       result.errors.push(`AIP check failed: ${error instanceof Error ? error.message : String(error)}`);
     }

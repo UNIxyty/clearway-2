@@ -53,12 +53,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 # Sync server
 AIP_SYNC_URL=http://localhost:3002
+NOTAM_SYNC_URL=http://localhost:3001
 NOTAM_SYNC_SECRET=...
 SYNC_SECRET=...
 
 # EAD credentials for sync scripts
 EAD_USER=...
 EAD_PASSWORD_ENC=...
+
+# CrewBriefing credentials for NOTAM scraper
+CREWBRIEFING_USER=...
+CREWBRIEFING_PASSWORD=...
 
 # Webhook
 N8N_WEBHOOK_URL=https://your-n8n-webhook-url
@@ -82,6 +87,12 @@ Terminal 2 (AIP sync server):
 
 ```bash
 DISABLE_AI_FOR_TESTING=true node scripts/aip-sync-server.mjs
+```
+
+Terminal 3 (NOTAM sync server):
+
+```bash
+DISABLE_AI_FOR_TESTING=true node scripts/notam-sync-server.mjs
 ```
 
 ## 5) Authentication for Test Runs
@@ -189,6 +200,10 @@ When `AWS_S3_BUCKET` is set, `generate-test-report.mjs` also uploads screenshots
 
 - If AIP/GEN sync fails:
   - confirm `AIP_SYNC_URL`, `SYNC_SECRET`, and sync server logs
+- If NOTAM sync fails:
+  - confirm `NOTAM_SYNC_URL=http://localhost:3001`
+  - confirm `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD` are set
+  - check NOTAM sync server logs (`node scripts/notam-sync-server.mjs`)
 - If webhook fails:
   - verify `N8N_WEBHOOK_URL` and test again with `scripts/test-webhook.mjs`
 - If map fails often:

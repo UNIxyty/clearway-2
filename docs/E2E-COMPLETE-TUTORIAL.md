@@ -326,12 +326,17 @@ export NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Sync server configuration
 export AIP_SYNC_URL=http://localhost:3002
+export NOTAM_SYNC_URL=http://localhost:3001
 export NOTAM_SYNC_SECRET=your-sync-secret-here
 export SYNC_SECRET=your-sync-secret-here
 
 # EAD credentials for AIP sync
 export EAD_USER=your-ead-username
 export EAD_PASSWORD_ENC=your-base64-encoded-password
+
+# CrewBriefing credentials for NOTAM sync scraper
+export CREWBRIEFING_USER=your-crewbriefing-username
+export CREWBRIEFING_PASSWORD=your-crewbriefing-password
 
 # OpenAI (NOT NEEDED when DISABLE_AI_FOR_TESTING=true - skip these)
 # export OPENAI_API_KEY=sk-...
@@ -552,7 +557,7 @@ If the webhook test fails:
 
 ## 10) Start Portal and Sync Services
 
-You need 3 terminal sessions running simultaneously. Use `tmux` to manage them.
+You need 4 terminal sessions running simultaneously. Use `tmux` to manage them.
 
 ### 10a. Terminal 1: Portal (Next.js)
 
@@ -599,11 +604,33 @@ AIP sync server listening on port 3002 | download: scripts/ead-download-aip-pdf.
 
 **Detach from tmux:** Press `Ctrl+B`, release, then press `D`
 
-### 10c. Terminal 3: Your Working Terminal
+### 10c. Terminal 3: NOTAM Sync Server
+
+```bash
+# Create new tmux session
+tmux new -s notam-sync
+
+# Load environment
+cd ~/clearway-2
+set -a && source .env && set +a
+
+# Start NOTAM sync server
+DISABLE_AI_FOR_TESTING=true DISABLE_AUTH_FOR_TESTING=true node scripts/notam-sync-server.mjs
+```
+
+Wait until you see:
+
+```
+NOTAM sync server listening on port 3001 | scraper: scripts/crewbriefing-notams.mjs
+```
+
+**Detach from tmux:** Press `Ctrl+B`, release, then press `D`
+
+### 10d. Terminal 4: Your Working Terminal
 
 This is your main terminal where you'll run E2E commands. Keep this one active (don't detach).
 
-### 10d. Verify Services Are Running
+### 10e. Verify Services Are Running
 
 Check all services are up:
 
@@ -614,6 +641,9 @@ curl -s http://localhost:3000 | head -n 20
 # Check AIP sync server
 curl -s http://localhost:3002/
 
+# Check NOTAM sync server
+curl -s "http://localhost:3001/sync?icao=DFFD&secret=$SYNC_SECRET"
+
 # List tmux sessions
 tmux ls
 ```
@@ -622,9 +652,10 @@ You should see:
 
 - Portal returns HTML
 - AIP sync returns 404 (expected - needs `/sync` path)
-- Two tmux sessions: `portal` and `aip-sync`
+- NOTAM sync returns JSON (or sync error detail if credentials are wrong)
+- Three tmux sessions: `portal`, `aip-sync`, and `notam-sync`
 
-### 10e. Reattach to tmux Sessions (if needed)
+### 10f. Reattach to tmux Sessions (if needed)
 
 To view logs or restart services:
 
@@ -635,6 +666,10 @@ tmux attach -t portal
 
 # View AIP sync logs
 tmux attach -t aip-sync
+# Ctrl+B then D to detach
+
+# View NOTAM sync logs
+tmux attach -t notam-sync
 # Ctrl+B then D to detach
 ```
 
@@ -1163,26 +1198,29 @@ npm run test:e2e:webhook:send
 | `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxx.supabase.co`     | Supabase project URL         |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...`                      | Supabase anon key            |
 | `AIP_SYNC_URL`                  | `http://localhost:3002`       | AIP sync server URL          |
+| `NOTAM_SYNC_URL`                | `http://localhost:3001`       | NOTAM sync server URL        |
 | `NOTAM_SYNC_SECRET`             | `your-secret`                 | Sync authentication          |
 | `SYNC_SECRET`                   | `your-secret`                 | Same as NOTAM_SYNC_SECRET    |
 | `EAD_USER`                      | `username`                    | EAD login username           |
 | `EAD_PASSWORD_ENC`              | `base64...`                   | Base64 encoded password      |
+| `CREWBRIEFING_USER`             | `username`                    | CrewBriefing login username (NOTAM scraper) |
+| `CREWBRIEFING_PASSWORD`         | `password`                    | CrewBriefing login password (NOTAM scraper) |
 | `N8N_WEBHOOK_URL`               | `https://n8n.com/webhook/...` | Webhook endpoint             |
 
 
 ### Optional
 
 
-| Variable                    | Default             | Purpose                            |
-| --------------------------- | ------------------- | ---------------------------------- |
-| `HEADLESS`                  | `true`              | Set to `false` for visible browser |
-| `MAX_AIRPORTS`              | `0` (all)           | Limit number of airports to test   |
-| `COUNTRY_FILTER`            | `""`                | Filter countries by name           |
-| `TEST_RESULTS_DIR`          | `test-results`      | Output directory                   |
-| `AWS_S3_BUCKET`             | `myapp-notams-prod` | S3 bucket for report + screenshot uploads |
-| `AWS_REGION`                | `us-east-1`         | AWS region                         |
+| Variable                    | Default             | Purpose                                        |
+| --------------------------- | ------------------- | ---------------------------------------------- |
+| `HEADLESS`                  | `true`              | Set to `false` for visible browser             |
+| `MAX_AIRPORTS`              | `0` (all)           | Limit number of airports to test               |
+| `COUNTRY_FILTER`            | `""`                | Filter countries by name                       |
+| `TEST_RESULTS_DIR`          | `test-results`      | Output directory                               |
+| `AWS_S3_BUCKET`             | `myapp-notams-prod` | S3 bucket for report + screenshot uploads      |
+| `AWS_REGION`                | `us-east-1`         | AWS region                                     |
 | `E2E_REPORTS_S3_PREFIX`     | `e2e-reports`       | S3 key prefix for report files and screenshots |
-| `E2E_REPORT_URL_EXPIRES_IN` | `259200`            | Presigned URL expiration (seconds) |
+| `E2E_REPORT_URL_EXPIRES_IN` | `259200`            | Presigned URL expiration (seconds)             |
 
 
 ---

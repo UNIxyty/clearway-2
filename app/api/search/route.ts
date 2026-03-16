@@ -130,15 +130,47 @@ function flattenEAD(): AIPAirport[] {
   });
 }
 
+function flattenEadFromGenerated(): AIPAirport[] {
+  const data = getEadCountryIcaos();
+  const list: AIPAirport[] = [];
+  for (const [country, airports] of Object.entries(data)) {
+    if (!Array.isArray(airports)) continue;
+    for (const a of airports) {
+      const icao = (a.icao ?? "").trim().toUpperCase();
+      if (!icao) continue;
+      const coord = coordsMap[icao];
+      list.push({
+        country,
+        gen1_2: "",
+        gen1_2_point_4: "",
+        icao,
+        name: a.name || "EAD UNDEFINED",
+        trafficPermitted: "",
+        trafficRemarks: "",
+        operator: "",
+        customsImmigration: "",
+        ats: "",
+        atsRemarks: "",
+        fireFighting: "",
+        lat: coord?.lat,
+        lon: coord?.lon,
+      });
+    }
+  }
+  return list;
+}
+
 let cachedList: AIPAirport[] | null = null;
 
 function getList(): AIPAirport[] {
   if (!cachedList) {
     const aip = flattenAIP();
-    const ead = flattenEAD();
+    const eadExtractedList = flattenEAD();
+    const eadGeneratedList = flattenEadFromGenerated();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of ead) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of eadExtractedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;
@@ -184,7 +216,7 @@ export async function GET(request: NextRequest) {
       const match = airports.find(a => a.icao.toUpperCase() === qUpper);
       if (match) {
         found = true;
-        foundName = match.name || eadNamesMap[qUpper] || "EAD airport (sync to load)";
+        foundName = match.name || eadNamesMap[qUpper] || "EAD UNDEFINED";
         foundCountry = country;
         break;
       }
@@ -211,7 +243,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const placeholderName = "EAD airport (sync to load)";
+  const placeholderName = "EAD UNDEFINED";
   results.sort((a, b) => {
     const aHasName = a.name !== placeholderName ? 1 : 0;
     const bHasName = b.name !== placeholderName ? 1 : 0;

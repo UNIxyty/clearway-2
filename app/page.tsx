@@ -68,7 +68,7 @@ function isEadIcao(icao: string): boolean {
 
 /** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
 function isEadPlaceholder(airport: AIPAirport | null): boolean {
-  return airport?.name === "EAD airport (sync to load)";
+  return airport?.name === "EAD UNDEFINED";
 }
 
 const USA_STATE_ABBR: Record<string, string> = {
@@ -731,7 +731,7 @@ export default function AIPPortalPage() {
             gen1_2: "",
             gen1_2_point_4: "",
             icao: qUpper,
-            name: "EAD airport (sync to load)",
+            name: "EAD UNDEFINED",
             trafficPermitted: "",
             trafficRemarks: "",
             operator: "",

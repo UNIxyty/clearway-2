@@ -31,9 +31,9 @@ const outputPath = outputArg !== -1 && process.argv[outputArg + 1]
   ? join(process.cwd(), process.argv[outputArg + 1])
   : join(PROJECT_ROOT, 'data', 'ead-icaos-from-document-names.json');
 
-// Match _AD_2_XXXX, _AD_3_XXXX, or _AD_4_XXXX where XXXX is exactly 4 alphanumeric (ICAO), then _ or - or .
-// Examples: _AD_2_LEHC_, _AD_3_LIKB., _AD_4_EPBA_, _AD_4_LJAJ-
-const ICAO_RE = /_AD_[234]_([A-Z0-9]{4})(?:_|-|\.)/gi;
+// Match _AD_N_XXXX where N is 2–9 (aerodromes, heliports, local, etc.), XXXX is 4-char ICAO, then _ or - or .
+// Examples: _AD_2_LEHC_, _AD_3_LIKB., _AD_4_EPBA_, _AD_5_XXXX_
+const ICAO_RE = /_AD_[2-9]_([A-Z0-9]{4})(?:_|-|\.)/gi;
 
 function extractIcaosFromDocName(name) {
   const icaos = new Set();

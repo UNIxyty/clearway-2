@@ -150,7 +150,7 @@ function getAll(): AIPAirport[] {
   return cachedList;
 }
 
-const EAD_PLACEHOLDER_NAME = "EAD airport (sync to load)";
+const EAD_PLACEHOLDER_NAME = "EAD UNDEFINED";
 
 function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{ icao: string; name: string }>>): AIPAirport[] {
   const airports = eadData[countryLabel];

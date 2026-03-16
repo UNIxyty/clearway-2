@@ -31,7 +31,7 @@ const result = {};
 for (const [country, icaos] of Object.entries(icaosData.countries || {})) {
   result[country] = icaos.map(icao => ({
     icao,
-    name: namesData[icao] || ''
+    name: namesData[icao] || 'EAD UNDEFINED'
   }));
 }
 

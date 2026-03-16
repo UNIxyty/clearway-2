@@ -123,7 +123,7 @@ function main() {
       );
       const stillMissing = [...allEad].filter((i) => !merged[i]).length;
       if (stillMissing > 0) {
-        console.log(`  EAD ICAOs still without name: ${stillMissing}`);
+        console.log(`  EAD ICAOs still without name (will show as EAD UNDEFINED): ${stillMissing}`);
       }
     })
     .catch((err) => {

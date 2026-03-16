@@ -1,0 +1,646 @@
+# Countries and ICAO Codes
+
+All countries in the Clearway portal with their airport ICAO codes, divided by data source.
+
+---
+
+## EAD Countries (European AIP - EU)
+
+Data from ead-icaos-summary.md (primary; portal source—never overwritten) and ead-icaos-from-document-names.json. These countries use the EAD sync workflow.
+
+### Albania (LA)
+**2 airports**
+
+```
+LAKU, LATI
+```
+
+### Armenia (UD)
+**0 airports**
+
+*(No ICAOs)*
+
+### Austria (LO)
+**59 airports**
+
+```
+LOAA, LOAB, LOAD, LOAN, LOAR, LOAT, LOAV, LOBU, LODK, LODO, LOGG, LOGH, LOGO, LOGP, LOGZ, LOIH, LOIJ, LOJD, LOKG, LOKH, LOKL, LOKM, LOKN, LOKR, LOKW, LOLC, LOLE, LOLF, LOLG, LOLH, LOLI, LOLK, LOLM, LOLO, LOLR, LOLS, LOLT, LOLU, LOLV, LOLW, LOPB, LOPF, LOPG, LOPI, LOPK, LOPR, LOPT, LOSM, LOWG, LOWI, LOWK, LOWL, LOWS, LOWW, LOWZ, LOXA, LOXN, LOXT, LOXZ
+```
+
+### Azerbaijan (UB)
+**0 airports**
+
+*(No ICAOs)*
+
+### Belgium (EB)
+**22 airports**
+
+```
+EBAW, EBBE, EBBL, EBBR, EBCI, EBCT, EBCV, EBFN, EBFS, EBGB, EBKH, EBKT, EBLG, EBMA, EBMO, EBOS, EBSP, EBST, EBSU, ELEA, ELLC, ELLX
+```
+
+### Bosnia/Herzeg. (LQ)
+**0 airports**
+
+*(No ICAOs)*
+
+### Bulgaria (LB)
+**8 airports**
+
+```
+LBBG, LBLS, LBPN, LBPV, LBRS, LBSF, LBSP, LBWN
+```
+
+### Croatia (LD)
+**0 airports**
+
+*(No ICAOs)*
+
+### Cyprus (LC)
+**0 airports**
+
+*(No ICAOs)*
+
+### Czech Republic (LK)
+**4 airports**
+
+```
+LKPD, LKPR, LKTB, LKVO
+```
+
+### Denmark (EK)
+**3 airports**
+
+```
+EKRB, EKRH, EKYT
+```
+
+### Estonia (EE)
+**1 airport**
+
+```
+EETU
+```
+
+### Faroe Islands (XX)
+**0 airports**
+
+*(No ICAOs)*
+
+### Finland (EF)
+**45 airports**
+
+```
+EFET, EFFH, EFHA, EFHH, EFHK, EFHO, EFHS, EFHY, EFIM, EFIV, EFJE, EFJO, EFJV, EFJY, EFKA, EFKE, EFKI, EFKK, EFKS, EFKT, EFKU, EFLA, EFLP, EFLR, EFMA, EFMH, EFMI, EFMS, EFNU, EFOU, EFPJ, EFPL, EFPO, EFPR, EFPT, EFRO, EFSA, EFSI, EFSO, EFTP, EFTU, EFTV, EFUT, EFVA, EFVR
+```
+
+### France (LF)
+**274 airports**
+
+```
+DINA, HABB, HABI, HACH, HACS, HALB, HALE, HALP, HALS, HAMB, HAMI, HAMS, HAMY, HANE, HANG, HANO, HANT, HAPT, HARG, HARS, HAUB, HAUC, HAUL, HAUX, HAVO, HBAG, HBAY, HBEA, HBEB, HBEL, HBER, HBES, HBEZ, HBHL, HBJA, HBLA, HBLO, HBO2, HBOR, HBOU, HBRG, HBRI, HBRN, HBSM, HCAE, HCAL, HCAM, HCAN, HCAS, HCHA, HCHL, HCHS, HCLE, HCLV, HCMX, HCMY, HCOR, HCRL, HCSS, HCTA, HCTX, HDAX, HDIG, HDIJ, HDOI, HDOL, HDPE, HDUN, HEPI, HEST, HEVR, HFEC, HFLE, HFON, HFRE, HGAP, HGEF, HGIE, HGRA, HGRE, HGRT, HISS, HLAC, HLAI, HLAN, HLAO, HLAP, HLBL, HLEP, HLIL, HLLS, HLMA, HLNN, HLOC, HLOR, HLOT, HLRC, HLYL, HLYO, HLYS, HMAC, HMAN, HMAR, HMAU, HMDM, HMEL, HMER, HMEZ, HMHN, HMIN, HMLN, HMON, HNAN, HNAR, HNCT, HNDS, HNFC, HNIM, HNIO, HNQM, HOLO, HOME, HORA, HORL, HPAR, HPER, HPLR, HPOI, HPON, HPOR, HPOS, HPRE, HPSE, HPUY, HQUI, HRAN, HREM, HREP, HRMS, HROA, HROC, HROU, HRYN, HSAL, HSAU, HSCH, HSDI, HSEL, HSEN, HSES, HSET, HSJM, HSPS, HSTB, HSTC, HSTM, HSTN, HSTQ, HSTS, HTHO, HTIM, HTON, HTOT, HTPP, HTRP, HTSM, HVAL, HVAN, HVDI, HVEN, HVER, HVES, HVIL, HVOI, HVON, HVSA, HVTH, LFBD, LFBO, LFBP, LFBZ, LFKB, LFLJ, LFLL, LFMD, LFML, LFMN, LFMT, LFPB, LFPG, LFPI, LFPN, LFPO, LFPV, LFPZ, LFQL, LFQM, LFQN, LFQO, LFQP, LFQQ, LFQS, LFQT, LFQU, LFQV, LFQW, LFQX, LFQY, LFQZ, LFRB, LFRC, LFRD, LFRE, LFRF, LFRG, LFRH, LFRI, LFRJ, LFRK, LFRL, LFRM, LFRN, LFRO, LFRP, LFRQ, LFRS, LFRT, LFRU, LFRV, LFRW, LFRZ, LFSA, LFSB, LFSD, LFSE, LFSG, LFSH, LFSJ, LFSK, LFSL, LFSM, LFSN, LFSP, LFSR, LFSS, LFST, LFSU, LFSV, LFSW, LFTB, LFTF, LFTH, LFTL, LFTM, LFTN, LFTP, LFTQ, LFTW, LFTZ, LFWB, LFWD, LFWF, LFWH, LFWM, LFWN, LFWO, LFXA, LFXB, LFXU, LFYG, LFYR, LFYS, LFYV, LNMC
+```
+
+### Georgia (UG)
+**0 airports**
+
+*(No ICAOs)*
+
+### Germany (ED)
+**64 airports**
+
+```
+EDAB, EDAC, EDAH, EDAY, EDAZ, EDBC, EDBH, EDBM, EDBN, EDDB, EDDC, EDDE, EDDF, EDDG, EDDH, EDDK, EDDL, EDDM, EDDN, EDDP, EDDR, EDDS, EDDV, EDDW, EDFH, EDFM, EDFQ, EDGS, EDHI, EDHK, EDHL, EDJA, EDLN, EDLP, EDLV, EDLW, EDMA, EDME, EDMO, EDMS, EDMX, EDNY, EDPR, EDQA, EDQC, EDQD, EDQG, EDQM, EDRY, EDRZ, EDSB, EDTD, EDTL, EDTM, EDTY, EDVE, EDVK, EDWE, EDWI, EDXW, ETHN, ETMN, ETNL, ETSI
+```
+
+### Greece (LG)
+**3 airports**
+
+```
+LGAV, LGRP, LGTS
+```
+
+### Greenland (BG)
+**0 airports**
+
+*(No ICAOs)*
+
+### Hungary (LH)
+**8 airports**
+
+```
+LHBC, LHBP, LHDC, LHNY, LHPP, LHPR, LHSM, LHUD
+```
+
+### Iceland (BI)
+**0 airports**
+
+*(No ICAOs)*
+
+### Ireland (EI)
+**22 airports**
+
+```
+EIAB, EIBN, EIBR, EICA, EICK, EICL, EICN, EIDL, EIDW, EIIM, EIIR, EIKK, EIKN, EIKY, EIMH, EIMN, EINC, EINN, EIRT, EISG, EIWF, EIWT
+```
+
+### Italy (LI)
+**102 airports**
+
+```
+LIBD, LIBF, LIBG, LIBI, LIBP, LIBR, LICA, LICB, LICC, LICD, LICG, LICJ, LICP, LICR, LICT, LIDA, LIDB, LIDE, LIDF, LIDG, LIDH, LIDL, LIDP, LIDR, LIDT, LIDU, LIDV, LIEA, LIEE, LIEO, LIER, LIET, LIKA, LIKB, LIKC, LILA, LILB, LILC, LILE, LILG, LILH, LILI, LILM, LILN, LILQ, LILR, LILV, LILY, LIMA, LIMB, LIMC, LIME, LIMF, LIMG, LIMJ, LIML, LIMP, LIMR, LIMW, LIMZ, LINA, LINI, LINL, LIPB, LIPD, LIPE, LIPF, LIPG, LIPH, LIPK, LIPM, LIPN, LIPO, LIPQ, LIPR, LIPU, LIPV, LIPX, LIPY, LIPZ, LIQB, LIQL, LIQN, LIQS, LIQW, LIRA, LIRF, LIRG, LIRI, LIRJ, LIRL, LIRN, LIRP, LIRQ, LIRS, LIRU, LIRV, LIRZ, LIYB, LIYC, LIYP, LIYS
+```
+
+### Jordan (OJ)
+**0 airports**
+
+*(No ICAOs)*
+
+### Kazakhstan (UA)
+**0 airports**
+
+*(No ICAOs)*
+
+### KFOR SECTOR (BK)
+**0 airports**
+
+*(No ICAOs)*
+
+### Kyrgyzstan (UC)
+**0 airports**
+
+*(No ICAOs)*
+
+### Latvia (EV)
+**6 airports**
+
+```
+EVHN, EVLU, EVRA, EVRS, EVSM, EVVA
+```
+
+### Lithuania (EY)
+**2 airports**
+
+```
+EYSA, EYVI
+```
+
+### Malta (LM)
+**2 airports**
+
+```
+LMMG, LMML
+```
+
+### Moldova (LU)
+**0 airports**
+
+*(No ICAOs)*
+
+### Netherlands (EH)
+**18 airports**
+
+```
+EHAM, EHBK, EHEH, EHGG, EHHA, EHHE, EHHO, EHHV, EHKD, EHLE, EHMZ, EHRD, EHSE, EHST, EHTE, EHTL, EHTW, EHTX
+```
+
+### Norway (EN)
+**0 airports**
+
+*(No ICAOs)*
+
+### Philippines (RP)
+**0 airports**
+
+*(No ICAOs)*
+
+### Poland (EP)
+**73 airports**
+
+```
+EPBA, EPBC, EPBH, EPBK, EPBO, EPCD, EPEL, EPGE, EPGI, EPGL, EPGY, EPIN, EPJG, EPJS, EPKA, EPKC, EPKE, EPKG, EPKH, EPKI, EPKM, EPKO, EPKP, EPKR, EPKW, EPKX, EPLI, EPLR, EPLS, EPLU, EPML, EPMR, EPMX, EPMY, EPNC, EPNL, EPNT, EPOD, EPOM, EPOP, EPPB, EPPG, EPPI, EPPK, EPPL, EPPT, EPPZ, EPRD, EPRG, EPRJ, EPRP, EPRU, EPSA, EPSD, EPSI, EPSK, EPSL, EPSS, EPST, EPSU, EPSW, EPTO, EPWA, EPWK, EPWR, EPWS, EPWT, EPZA, EPZE, EPZG, EPZP, EPZR, EPZW
+```
+
+### Portugal (LP)
+**5 airports**
+
+```
+LPPD, LPPR, LPPS, LPPT, LPSO
+```
+
+### Republic of North Macedonia (LW)
+**0 airports**
+
+*(No ICAOs)*
+
+### Romania (LR)
+**15 airports**
+
+```
+LRBG, LRCX, LRDD, LRHO, LRMA, LRMC, LRPW, LRSB, LRSM, LRSP, LRSV, LRTC, LRTM, LRTR, LRTZ
+```
+
+### Serbia and Montenegro (LY)
+**0 airports**
+
+*(No ICAOs)*
+
+### Slovakia (LZ)
+**3 airports**
+
+```
+LZIB, LZPP, LZZI
+```
+
+### Slovenia (LJ)
+**15 airports**
+
+```
+LJAJ, LJBL, LJBO, LJCE, LJCL, LJDI, LJLJ, LJMS, LJNM, LJPO, LJPT, LJPZ, LJSG, LJSK, LJSO
+```
+
+### Spain (LE)
+**72 airports**
+
+```
+GCFV, GCGM, GCHI, GCLA, GCLP, GCRR, GCTS, GCXM, GCXO, GECE, GEHM, GEML, GSAI, GSVO, LEAB, LEAG, LEAL, LEAM, LEAO, LEAS, LEBA, LEBB, LEBG, LEBL, LEBT, LEBZ, LECH, LECO, LECU, LECV, LEDA, LEEC, LEGA, LEGE, LEGR, LEGT, LEHC, LEIB, LEJR, LELC, LELL, LELN, LELO, LEMD, LEMG, LEMH, LEMI, LEMO, LEPA, LEPO, LEPP, LERI, LERJ, LERL, LERS, LERT, LESA, LESB, LESO, LEST, LESU, LETA, LETL, LETO, LEVC, LEVD, LEVT, LEVX, LEXJ, LEZG, LEZL, LXGB
+```
+
+### Sweden (ES)
+**2 airports**
+
+```
+ESUP, ESUT
+```
+
+### Switzerland (LS)
+**0 airports**
+
+*(No ICAOs)*
+
+### Turkey (LT)
+**0 airports**
+
+*(No ICAOs)*
+
+### Ukraine (UK)
+**0 airports**
+
+*(No ICAOs)*
+
+### United Kingdom (EG)
+**0 airports**
+
+*(No ICAOs)*
+
+---
+
+## Non-EAD Countries
+
+Data from aip-data.json and usa-aip-icaos-by-state.json. Static AIP data.
+
+### Bahrain
+**3 airports**
+
+```
+OBBI, OBBS, OBKH
+```
+
+### Belarus
+**7 airports**
+
+```
+UMBB, UMGG, UMII, UMIO, UMMG, UMMS, UMOO
+```
+
+### Benin
+**2 airports**
+
+```
+DBBB, DBBP
+```
+
+### Bhutan
+**5 airports**
+
+```
+VQBT, VQGP, VQPR, VQTY, WBSB
+```
+
+### Burkina Faso
+**2 airports**
+
+```
+DFFD, DFOO
+```
+
+### Cameroun
+**5 airports**
+
+```
+FKKD, FKKL, FKKR, FKKU, FKYS
+```
+
+### Centrafrique
+**1 airport**
+
+```
+FEFF
+```
+
+### Comores
+**1 airport**
+
+```
+FMCH
+```
+
+### Congo
+**3 airports**
+
+```
+FCBB, FCOD, FCPP
+```
+
+### Costa Rica
+**4 airports**
+
+```
+MRLB, MRLM, MROC, MRPV
+```
+
+### Côte d'Ivoire
+**6 airports**
+
+```
+DIAP, DIBK, DIKO, DIMN, DIOD, DIYO
+```
+
+### Cuba
+**6 airports**
+
+```
+MUBA, MUBR, MUBY, MUCC, MUCF, MUCL
+```
+
+### Gabon
+**3 airports**
+
+```
+FOOG, FOOL, FOON
+```
+
+### Guinée Bissau
+**1 airport**
+
+```
+GGOV
+```
+
+### Guinée Equatoriale
+**3 airports**
+
+```
+FGBT, FGMY, FGSL
+```
+
+### Hong Kong
+**2 airports**
+
+```
+VHHH, VMMC
+```
+
+### Iran
+**18 airports**
+
+```
+OIAA, OIAG, OIAH, OIAI, OIAJ, OIAM, OIBA, OIBB, OIBH, OIBJ, OIBK, OIBL, OIBP, OIBQ, OIBS, OIBV, OIBX, OICC
+```
+
+### Israel
+**3 airports**
+
+```
+LLBG, LLER, LLHA
+```
+
+### Japan
+**65 airports**
+
+```
+RJAA, RJAF, RJAH, RJAM, RJAN, RJAZ, RJBB, RJBE, RJBK, RJCC, RJCJ, RJCK, RJCO, RJCT, RJDK, RJDM, RJEC, RJFC, RJFF, RJFO, RJFU, RJFY, RJFZ, RJGG, RJKA, RJKN, RJNA, RJNF, RJNG, RJNH, RJNK, RJNS, RJNT, RJOA, RJOF, RJOH, RJOI, RJOK, RJOO, RJOR, RJOS, RJOZ, RJSA, RJSC, RJSF, RJSI, RJSM, RJSR, RJSS, RJST, RJTA, RJTF, RJTH, RJTL, RJTT, RJTU, RJTY, ROAH, RODN, ROIG, ROKR, RORE, RORH, RORS, SAGA
+```
+
+### Kosovo
+**1 airport**
+
+```
+BKPR
+```
+
+### Libya
+**8 airports**
+
+```
+HLGD, HLKF, HLLB, HLLM, HLLQ, HLLS, HLLT, HLMS
+```
+
+### Madagascar
+**13 airports**
+
+```
+FMME, FMMI, FMMS, FMMT, FMMV, FMNA, FMNM, FMNN, FMNS, FMSD, FMSF, FMSM, FMST
+```
+
+### Maldives
+**20 airports**
+
+```
+VRAH, VRBK, VRCF, VRDA, VREI, VRGD, VRKM, VRMD, VRMG, VRMH, VRMK, VRMM, VRMO, VRMR, VRMT, VRMU, VRMV, VRNT, VRQF, VRQM
+```
+
+### Mali
+**6 airports**
+
+```
+GABS, GAGO, GAKD, GAMB, GASO, GATB
+```
+
+### Mauritanie
+**5 airports**
+
+```
+GQNI, GQNO, GQPA, GQPP, GQPZ
+```
+
+### Mongolia
+**23 airports**
+
+```
+IFR / VFR, ZMAH, ZMAT, ZMBH, ZMBN, ZMBS, ZMBU, ZMCD, ZMCK, ZMDN, ZMDZ, ZMHG, ZMHH, ZMKB, ZMKD, ZMMG, ZMMN, ZMSF, ZMTL, ZMTT, ZMUG, ZMUH, ZMUL
+```
+
+### Myanmar
+**33 airports**
+
+```
+VYAN, VYAS, VYBG, VYBM, VYBP, VYDW, VYHH, VYHL, VYKG, VYKI, VYKL, VYKP, VYKT, VYKU, VYLK, VYLS, VYMD, VYME, VYMK, VYMM, VYMN, VYMS, VYMW, VYMY, VYNT, VYPA, VYPN, VYPT, VYPU, VYSW, VYTD, VYTL, VYYY
+```
+
+### Nepal
+**14 airports**
+
+```
+VNBP, VNBW, VNCG, VNDH, VNJP, VNKT, VNNG, VNPK, VNPR, VNRB, VNSI, VNSK, VNTR, VNVT
+```
+
+### Niger
+**6 airports**
+
+```
+DRRM, DRRN, DRRT, DRZA, DRZF, DRZR
+```
+
+### Oman
+**12 airports**
+
+```
+OOBR, OODQ, OOFD, OOIZ, OOJA, OOKB, OOMK, OOMS, OOMX, OOSA, OOSH, OOSQ
+```
+
+### Pakistan
+**26 airports**
+
+```
+OPBW, OPCH, OPDB, OPDG, OPDI, OPFA, OPGT, OPGW, OPIS, OPKC, OPKD, OPLA, OPMJ, OPMT, OPNH, OPPG, OPPI, OPPS, OPQT, OPRK, OPSD, OPSK, OPSS, OPST, OPTU, OPZB
+```
+
+### Qatar
+**2 airports**
+
+```
+OTBD, OTHH
+```
+
+### Republic of Cabo Verde
+**7 airports**
+
+```
+GVAC, GVBA, GVMA, GVNP, GVSF, GVSN, GVSV
+```
+
+### Rwanda
+**6 airports**
+
+```
+HRYG, HRYI, HRYN, HRYR, HRYU, HRZA
+```
+
+### Saudi Arabia
+**58 airports**
+
+```
+OEAB, OEAD, OEAH, OEAO, OEBA, OEBH, OEBN, OEBQ, OEBT, OEDF, OEDM, OEDR, OEGN, OEGS, OEGT, OEHL, OEHR, OEHW, OEJB, OEJF, OEJL, OEJN, OEKA, OEKF, OEKK, OEKM, OEKN, OEMA, OENG, OENN, OEOM, OEPA, OEPC, OEPF, OEPI, OEPJ, OEPS, OERB, OERF, OERK, OERM, OERR, OERS, OERT, OESB, OESH, OESK, OEST, OETB, OETF, OETH, OETN, OETR, OEUD, OEUM, OEWD, OEWJ, OEYN
+```
+
+### Sénégal
+**4 airports**
+
+```
+GOBD, GOGS, GOOY, GOSS
+```
+
+### Singapore
+**9 airports**
+
+```
+WIDD, WIDN, WIDT, WMKJ, WSAG, WSAP, WSAT, WSSL, WSSS
+```
+
+### Somalia
+**15 airports**
+
+```
+HCAD, HCDB, HCDL, HCDM, HCGD, HCGR, HCMB, HCMF, HCMH, HCMI, HCMK, HCMM, HCMN, HCMR, HCMV
+```
+
+### South Korea
+**18 airports**
+
+```
+RKJB, RKJJ, RKJK, RKJY, RKNW, RKNY, RKPC, RKPD, RKPK, RKPS, RKPU, RKSI, RKSM, RKSS, RKTH, RKTL, RKTN, RKTU
+```
+
+### Sri Lanka
+**14 airports**
+
+```
+VCBI, VCCA, VCCB, VCCC, VCCG, VCCH, VCCJ, VCCK, VCCN, VCCS, VCCT, VCCV, VCCW, VCRI
+```
+
+### Taiwan
+**19 airports**
+
+```
+RCBS, RCCM, RCDC, RCFG, RCFN, RCGI, RCKH, RCKU, RCKW, RCLY, RCMQ, RCMT, RCNN, RCQC, RCSP, RCSS, RCTP, RCWA, RCYU
+```
+
+### Tajikistan
+**4 airports**
+
+```
+UTDD, UTDK, UTDL, UTDT
+```
+
+### Tchad
+**4 airports**
+
+```
+FTTA, FTTC, FTTD, FTTJ
+```
+
+### Thailand
+**48 airports**
+
+```
+VTBD, VTBK, VTBL, VTBO, VTBP, VTBS, VTBU, VTBW, VTCC, VTCH, VTCI, VTCL, VTCN, VTCP, VTCT, VTPB, VTPH, VTPI, VTPM, VTPN, VTPO, VTPP, VTPT, VTSB, VTSC, VTSE, VTSF, VTSG, VTSH, VTSK, VTSM, VTSN, VTSP, VTSR, VTSS, VTST, VTSY, VTUD, VTUI, VTUK, VTUL, VTUN, VTUO, VTUQ, VTUU, VTUV, VTUW, VTUZ
+```
+
+### Togo
+**2 airports**
+
+```
+DXNG, DXXX
+```
+
+### Turkmenistan
+**7 airports**
+
+```
+UTAA, UTAE, UTAK, UTAM, UTAN, UTAT, UTAV
+```
+
+### United Arab Emirates
+**18 airports**
+
+```
+OMAA, OMAD, OMAG, OMAJ, OMAL, OMAQ, OMAR, OMAS, OMAZ, OMBY, OMDB, OMDL, OMDW, OMEF, OMFJ, OMRJ, OMRK, OMSJ
+```
+
+### United States of America
+**79 airports**
+
+```
+KATL, KBDL, KBGR, KBNA, KBOS, KBWI, KCLE, KCLT, KCMH, KCVG, KDEN, KDFW, KDTW, KELP, KEWR, KFAT, KFLL, KGEG, KIAD, KIAG, KIAH, KICT, KIND, KJFK, KLAS, KLAX, KLRD, KMCI, KMCO, KMEM, KMIA, KMKE, KMSP, KMSY, KOAK, KONT, KORD, KPAE, KPBI, KPDX, KPHL, KPHX, KPIT, KPMD, KPUB, KRDU, KRNO, KRSW, KSAN, KSAT, KSCK, KSEA, KSFO, KSJC, KSLC, KSMF, KSTL, KSYR, KTPA, KTUS, NSTU, PACD, PAED, PAEI, PAFA, PAJN, PAKN, PANC, PGSN, PGUA, PGUM, PHNL, PHOG, PHTO, PTRO, TIST, TISX, TJMZ, TJSJ
+```
+
+---
+
+## Summary
+
+| Source | Countries | Airports |
+|--------|-----------|----------|
+| EAD | 47 | 830 |
+| Non-EAD | 48 | 621 |
+| **Total** | **95** | **1451** |

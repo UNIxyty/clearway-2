@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +21,6 @@ import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
 import { FirstLoginModelPicker } from "@/components/FirstLoginModelPicker";
 import { useBackgroundSearch } from "@/lib/search-context";
-import { BackgroundSearchBanner } from "@/components/BackgroundSearchBanner";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 
 export type NotamItem = {
@@ -216,7 +216,8 @@ function AIPResultCard({
 type RegionEntry = { region: string; countries: string[] };
 
 export default function AIPPortalPage() {
-  const { bg, startBackground, updateStage, finishBackground, clearBackground } = useBackgroundSearch();
+  const { bg, startBackground, updateStage, finishBackground } = useBackgroundSearch();
+  const searchParams = useSearchParams();
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [showFirstLoginPicker, setShowFirstLoginPicker] = useState(false);
   const [checkingPrefs, setCheckingPrefs] = useState(true);
@@ -271,6 +272,7 @@ export default function AIPPortalPage() {
 
   const resultsLengthRef = useRef(0);
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
+  const handledIcaoParamRef = useRef<string | null>(null);
 
   useEffect(() => {
     setPdfDownloadError(null);
@@ -758,8 +760,8 @@ export default function AIPPortalPage() {
     setBrowseLoading(false);
   }, []);
 
-  const search = useCallback(async () => {
-    const q = query.trim();
+  const search = useCallback(async (queryOverride?: string) => {
+    const q = (queryOverride ?? query).trim();
     if (!q) return;
 
     setLoading(true);
@@ -857,13 +859,23 @@ export default function AIPPortalPage() {
   }, [query, notifPrefs, startBackground, updateStage]);
 
   useEffect(() => {
+    const icaoParam = searchParams.get("icao")?.trim().toUpperCase() ?? "";
+    if (!icaoParam) {
+      handledIcaoParamRef.current = null;
+      return;
+    }
+    if (handledIcaoParamRef.current === icaoParam) return;
+    handledIcaoParamRef.current = icaoParam;
+    setQuery(icaoParam);
+    void search(icaoParam);
+  }, [searchParams, search]);
+
+  useEffect(() => {
     if (!bg || bg.done) return;
     const airportFinished = bg.stages.airport === "done" || bg.stages.airport === "error";
     if (!airportFinished) return;
     if (loading || notamsLoadingIcao || aipEadLoadingIcao || genLoadingPrefix) return;
     finishBackground();
-    const t = setTimeout(() => clearBackground(), 3000);
-    return () => clearTimeout(t);
   }, [
     bg,
     loading,
@@ -871,7 +883,6 @@ export default function AIPPortalPage() {
     aipEadLoadingIcao,
     genLoadingPrefix,
     finishBackground,
-    clearBackground,
   ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -900,8 +911,7 @@ export default function AIPPortalPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
-      <BackgroundSearchBanner onNavigate={(icao) => { setQuery(icao); clearBackground(); }} />
-      <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${bg ? "pt-14" : ""} ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
+      <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
         <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

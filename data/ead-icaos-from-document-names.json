@@ -144,6 +144,13 @@
       "EKYT"
     ],
     "Estonia (EE)": [
+      "EEEI",
+      "EEKA",
+      "EEKE",
+      "EEKU",
+      "EEPU",
+      "EERU",
+      "EETN",
       "EETU"
     ],
     "Faroe Islands (XX)": [
@@ -1348,5 +1355,5 @@
       "EGTU"
     ]
   },
-  "extractedAt": "2026-03-16T10:56:01.407Z"
+  "extractedAt": "2026-03-18T22:46:06.720Z"
 }

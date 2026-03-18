@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ModelPicker } from "@/components/ModelPicker";
 import { ArrowLeftIcon } from "lucide-react";
-import {
-  DEFAULT_NOTIFICATION_PREFS,
-  getNotificationPermission,
-  isNotificationSupported,
-  requestNotificationPermission,
-  type NotificationPrefs,
-} from "@/lib/notifications";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [aipModel, setAipModel] = useState<string>("gpt-4.1-mini");
   const [genModel, setGenModel] = useState<string>("gpt-4.1-mini");
@@ -25,8 +16,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
 
   useEffect(() => {
     fetch("/api/user/preferences")
@@ -35,24 +24,12 @@ export default function SettingsPage() {
         if (data.preferences) {
           setAipModel(data.preferences.aip_model || "gpt-4.1-mini");
           setGenModel(data.preferences.gen_model || "gpt-4.1-mini");
-          setNotificationPrefs((prev) => ({
-            ...prev,
-            notify_enabled: data.preferences.notify_enabled ?? prev.notify_enabled,
-            notify_search_start: data.preferences.notify_search_start ?? prev.notify_search_start,
-            notify_search_end: data.preferences.notify_search_end ?? prev.notify_search_end,
-            notify_notam: data.preferences.notify_notam ?? prev.notify_notam,
-            notify_aip: data.preferences.notify_aip ?? prev.notify_aip,
-            notify_gen: data.preferences.notify_gen ?? prev.notify_gen,
-          }));
         }
       })
       .catch((err) => {
         setError(err.message || "Failed to load preferences");
       })
       .finally(() => {
-        if (isNotificationSupported()) {
-          setNotificationPermission(getNotificationPermission());
-        }
         setLoading(false);
       });
   }, []);
@@ -69,12 +46,6 @@ export default function SettingsPage() {
         body: JSON.stringify({
           aip_model: aipModel,
           gen_model: genModel,
-          notify_enabled: notificationPrefs.notify_enabled,
-          notify_search_start: notificationPrefs.notify_search_start,
-          notify_search_end: notificationPrefs.notify_search_end,
-          notify_notam: notificationPrefs.notify_notam,
-          notify_aip: notificationPrefs.notify_aip,
-          notify_gen: notificationPrefs.notify_gen,
         }),
       });
 
@@ -100,11 +71,6 @@ export default function SettingsPage() {
         <div className="text-sm text-muted-foreground">Loading settings…</div>
       </div>
     );
-  }
-
-  async function handleNotificationPermission() {
-    const perm = await requestNotificationPermission();
-    setNotificationPermission(perm);
   }
 
   return (
@@ -174,104 +140,15 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
-
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle className="text-base">Browser Notifications</CardTitle>
-            <CardDescription>
-              Configure which events should show native browser notifications.
-            </CardDescription>
+            <CardDescription>Manage notification permissions and event toggles on a separate page.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Permission</p>
-                <p className="text-xs text-muted-foreground">
-                  Status: {isNotificationSupported() ? notificationPermission : "unsupported"}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleNotificationPermission}
-                disabled={!isNotificationSupported() || notificationPermission === "granted"}
-              >
-                {notificationPermission === "granted" ? "Granted" : "Enable Notifications"}
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_enabled}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_enabled: e.target.checked }))
-                  }
-                />
-                Enable notifications
-              </label>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_search_start}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_search_start: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                Search started
-              </label>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_search_end}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_search_end: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                Search completed
-              </label>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_notam}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_notam: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                NOTAM retrieved
-              </label>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_aip}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_aip: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                AIP retrieved
-              </label>
-
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={notificationPrefs.notify_gen}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_gen: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                GEN retrieved
-              </label>
-            </div>
+          <CardContent>
+            <Button type="button" variant="outline" onClick={() => router.push("/settings/notifications")}>
+              Open Notification Settings
+            </Button>
           </CardContent>
         </Card>
 

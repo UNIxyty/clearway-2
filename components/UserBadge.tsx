@@ -11,13 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, SettingsIcon, BarChartIcon, LogOutIcon, BellIcon } from "lucide-react";
+import { UserIcon, SettingsIcon, BarChartIcon, LogOutIcon, BellIcon, ShieldCheckIcon } from "lucide-react";
 
 export default function UserBadge() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [email, setEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -32,6 +33,11 @@ export default function UserBadge() {
         }
       })
       .catch(() => {});
+
+    fetch("/api/admin/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
+      .catch(() => setIsAdmin(false));
   }, [supabase]);
 
   async function signOut() {
@@ -83,6 +89,12 @@ export default function UserBadge() {
           <BarChartIcon className="mr-2 size-4" />
           Stats
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onClick={() => router.push("/admin/maintenance")}>
+            <ShieldCheckIcon className="mr-2 size-4" />
+            Admin
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>
           <LogOutIcon className="mr-2 size-4" />

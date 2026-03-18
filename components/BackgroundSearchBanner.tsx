@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useBackgroundSearch, type SyncStage, type StageStatus } from "@/lib/search-context";
-import { PlaneIcon, XIcon, CheckCircle2Icon, Loader2Icon, AlertCircleIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import {
+  PlaneIcon,
+  XIcon,
+  CheckCircle2Icon,
+  Loader2Icon,
+  AlertCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ListIcon,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
+} from "lucide-react";
 
 const STAGE_LABELS: Record<SyncStage, string> = {
   airport: "Airport",
@@ -11,6 +22,8 @@ const STAGE_LABELS: Record<SyncStage, string> = {
   gen: "GEN",
   "gen-non-ead": "GEN",
 };
+const STAGE_ORDER: SyncStage[] = ["airport", "notam", "aip", "gen", "gen-non-ead"];
+const COLLAPSED_KEY = "backgroundSearchBannerCollapsed";
 
 function StageIndicator({ stage, status }: { stage: SyncStage; status: StageStatus }) {
   if (status === "pending") return null;
@@ -30,6 +43,20 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
   const { bgList, clearBackground } = useBackgroundSearch();
   const [index, setIndex] = useState(0);
   const [showList, setShowList] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(COLLAPSED_KEY);
+      if (saved === "1") setCollapsed(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {}
+  }, [collapsed]);
 
   useEffect(() => {
     if (bgList.length === 0) return;
@@ -44,6 +71,51 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
   );
   const canPrev = bgList.length > 1;
   const canNext = bgList.length > 1;
+  const visibleStages = STAGE_ORDER.filter((stage) => current.stages[stage] !== "pending");
+  const runningCount = bgList.reduce((acc, item) => {
+    const hasRunningStage = Object.values(item.stages).some((status) => status === "running");
+    return hasRunningStage ? acc + 1 : acc;
+  }, 0);
+
+  if (collapsed) {
+    return (
+      <div className="fixed top-4 right-2 z-[1200]">
+        <button
+          type="button"
+          className="group w-12 rounded-l-xl rounded-r-md border border-border/80 bg-card/95 px-2 py-2.5 text-card-foreground shadow-lg backdrop-blur-sm hover:bg-card transition-colors"
+          onClick={() => setCollapsed(false)}
+          aria-label="Expand background search banner"
+          title="Expand background search banner"
+        >
+          <div className="flex items-center justify-center">
+            <PanelRightOpenIcon className="size-4 text-primary group-hover:scale-105 transition-transform" />
+          </div>
+          <div className="mt-1 text-[10px] font-semibold text-center">{current.icao}</div>
+          <div className="mt-1 flex flex-col items-center gap-1">
+            {visibleStages.slice(0, 4).map((stage) => {
+              const status = current.stages[stage];
+              return (
+                <span
+                  key={stage}
+                  className={`inline-flex h-1.5 w-6 rounded-full ${
+                    status === "running"
+                      ? "bg-primary animate-pulse"
+                      : status === "done"
+                        ? "bg-green-500"
+                        : status === "error"
+                          ? "bg-red-500"
+                          : "bg-muted"
+                  }`}
+                  title={`${STAGE_LABELS[stage]}: ${status}`}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-1 text-[10px] text-muted-foreground text-center">{runningCount} active</div>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -112,6 +184,18 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
           aria-label="Show all searches"
         >
           <ListIcon className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCollapsed(true);
+            setShowList(false);
+          }}
+          aria-label="Collapse banner"
+        >
+          <PanelRightCloseIcon className="size-4" />
         </button>
         <button
           type="button"

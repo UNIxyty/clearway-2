@@ -469,11 +469,12 @@ function AIPPortalPageInner() {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !isEadIcao(icao)) return;
     if (aipEadInFlightRef.current.has(icao)) return;
+    const fromBanner = searchParams.get("fromBanner") === "1";
     const hasCache = icao in aipEadCache;
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (hasCache && !syncRequested) return;
 
-    const doSync = syncRequested || !hasCache;
+    const doSync = fromBanner ? syncRequested : (syncRequested || !hasCache);
     aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
@@ -619,7 +620,7 @@ function AIPPortalPageInner() {
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
-  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, notifPrefs, updateStage]);
+  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, notifPrefs, updateStage, searchParams]);
 
   // Fetch GEN (scraped GEN 1.2) when viewing any airport. EAD airports use /api/aip/gen, non-EAD use /api/aip/gen-non-ead.
   useEffect(() => {

@@ -38,7 +38,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("user_preferences")
       .select(
-        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, created_at, updated_at"
+        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at"
       )
       .eq("user_id", user.id)
       .maybeSingle();

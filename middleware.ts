@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
+  const isPublicAsset = /\.[^/]+$/.test(pathname);
 
   // Bypass auth checks on isolated test environments.
   if (disableAuthForTesting) {
@@ -11,7 +12,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Static and asset routes
-  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || isPublicAsset) {
     return NextResponse.next();
   }
 

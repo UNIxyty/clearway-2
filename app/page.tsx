@@ -19,6 +19,9 @@ import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
 import { FirstLoginModelPicker } from "@/components/FirstLoginModelPicker";
+import { useBackgroundSearch } from "@/lib/search-context";
+import { BackgroundSearchBanner } from "@/components/BackgroundSearchBanner";
+import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 
 export type NotamItem = {
   location: string;
@@ -213,6 +216,8 @@ function AIPResultCard({
 type RegionEntry = { region: string; countries: string[] };
 
 export default function AIPPortalPage() {
+  const { bg, startBackground, updateStage, finishBackground, clearBackground } = useBackgroundSearch();
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [showFirstLoginPicker, setShowFirstLoginPicker] = useState(false);
   const [checkingPrefs, setCheckingPrefs] = useState(true);
   const [query, setQuery] = useState("");
@@ -309,6 +314,17 @@ export default function AIPPortalPage() {
       .then((data) => {
         if (!data.preferences) {
           setShowFirstLoginPicker(true);
+        } else {
+          const p = data.preferences;
+          setNotifPrefs((prev) => ({
+            ...prev,
+            notify_enabled: p.notify_enabled ?? prev.notify_enabled,
+            notify_search_start: p.notify_search_start ?? prev.notify_search_start,
+            notify_search_end: p.notify_search_end ?? prev.notify_search_end,
+            notify_notam: p.notify_notam ?? prev.notify_notam,
+            notify_aip: p.notify_aip ?? prev.notify_aip,
+            notify_gen: p.notify_gen ?? prev.notify_gen,
+          }));
         }
       })
       .catch(() => {})
@@ -362,6 +378,7 @@ export default function AIPPortalPage() {
 
   const startGenSync = useCallback((icao: string) => {
     const prefix = icao.slice(0, 2).toUpperCase();
+    updateStage("gen", "running", "Syncing GEN…");
     setGenSyncingPrefix(prefix);
     setGenSyncSteps([]);
     setGenLoadingPrefix(prefix);
@@ -389,6 +406,7 @@ export default function AIPPortalPage() {
                 if (typeof data.step === "string") {
                   const step = data.step;
                   setGenSyncSteps((prev) => [...prev, step]);
+                  updateStage("gen", "running", step);
                 }
                 else if (data.done || data.error) {
                   const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
@@ -400,6 +418,12 @@ export default function AIPPortalPage() {
                     ...c,
                     [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: genData.updatedAt ?? null },
                   }));
+                  if (data.error) {
+                    updateStage("gen", "error", data.error);
+                  } else {
+                    updateStage("gen", "done", "GEN retrieved");
+                    sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
+                  }
                   return;
                 }
               } catch (_) {}
@@ -409,13 +433,16 @@ export default function AIPPortalPage() {
           reader.releaseLock();
         }
       })
-      .catch(() => setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } })))
+      .catch(() => {
+        updateStage("gen", "error", "GEN sync failed");
+        setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
+      })
       .finally(() => {
         setGenSyncingPrefix(null);
         setGenLoadingPrefix(null);
         setGenSyncSteps([]);
       });
-  }, []);
+  }, [notifPrefs, updateStage]);
 
   // Fetch AIP (EAD) when viewing an airport in an EAD country. When sync requested, use stream=1 and show server steps; after AIP done, start GEN sync.
   useEffect(() => {
@@ -432,6 +459,7 @@ export default function AIPPortalPage() {
     if (doSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncSteps([]);
+      updateStage("aip", "running", "Syncing AIP…");
     }
 
     const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${doSync ? "&sync=1&stream=1" : ""}&_t=${Date.now()}`;
@@ -456,6 +484,7 @@ export default function AIPPortalPage() {
                   if (data.step) {
                     const step = data.step;
                     setAipEadSyncSteps((prev) => [...prev, step]);
+                    updateStage("aip", "running", step);
                   } else if (data.done && Array.isArray(data.airports)) {
                     const list = data.airports as Array<{
                       "Airport Code"?: string;
@@ -489,6 +518,8 @@ export default function AIPPortalPage() {
                     setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
                     setAipEadSyncSteps([]);
+                    updateStage("aip", "done", "AIP retrieved");
+                    sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
                     return;
                   } else if (data.error) {
                     setAipEadCache((c) => ({
@@ -496,6 +527,7 @@ export default function AIPPortalPage() {
                       [icao]: { airport: null, error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
                     }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+                    updateStage("aip", "error", data.error);
                     return;
                   }
                 } catch (_) {}
@@ -511,6 +543,7 @@ export default function AIPPortalPage() {
           const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? "Sync failed");
           setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg, updatedAt: null } }));
           setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+          updateStage("aip", "error", msg);
           return;
         }
         const list = (data.airports ?? []) as Array<{
@@ -550,10 +583,15 @@ export default function AIPPortalPage() {
           : null;
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        if (doSync) {
+          updateStage("aip", "done", "AIP retrieved");
+          sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
+        }
       })
       .catch((err) => {
         setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        updateStage("aip", "error", "AIP sync failed");
       })
       .finally(() => {
         aipEadInFlightRef.current.delete(icao);
@@ -561,16 +599,21 @@ export default function AIPPortalPage() {
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
-  }, [viewingAirport?.icao, aipEadSyncRequestedIcao]);
+  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, notifPrefs, updateStage]);
 
-  // Fetch GEN (scraped GEN 1.2) when viewing an EAD airport. Cached by country prefix.
+  // Fetch GEN (scraped GEN 1.2) when viewing any airport. EAD airports use /api/aip/gen, non-EAD use /api/aip/gen-non-ead.
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !isEadIcao(icao)) return;
+    if (!icao) return;
     const prefix = icao.slice(0, 2).toUpperCase();
     if (prefix in genCache || genLoadingPrefix === prefix) return;
     setGenLoadingPrefix(prefix);
-    fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
+    if (isEadIcao(icao)) updateStage("gen", "running", "Loading GEN…");
+    else updateStage("gen-non-ead", "running", "Rewriting non-EAD GEN…");
+    const genUrl = isEadIcao(icao)
+      ? `/api/aip/gen?icao=${encodeURIComponent(icao)}`
+      : `/api/aip/gen-non-ead?prefix=${encodeURIComponent(prefix)}`;
+    fetch(genUrl, { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { general?: GenPart; nonScheduled?: GenPart; privateFlights?: GenPart; part4?: GenPart; updatedAt?: string | null }) => {
         const g = data.general && typeof data.general === "object" ? data.general : emptyGenPart();
@@ -580,12 +623,19 @@ export default function AIPPortalPage() {
           ...c,
           [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: data.updatedAt ?? null },
         }));
+        if (isEadIcao(icao)) updateStage("gen", "done", "GEN retrieved");
+        else {
+          updateStage("gen-non-ead", "done", "GEN retrieved");
+          sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
+        }
       })
       .catch(() => {
         setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
+        if (isEadIcao(icao)) updateStage("gen", "error", "GEN load failed");
+        else updateStage("gen-non-ead", "error", "Non-EAD GEN load failed");
       })
       .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));
-  }, [viewingAirport?.icao, genCache, genLoadingPrefix]);
+  }, [viewingAirport?.icao, genCache, genLoadingPrefix, notifPrefs, updateStage]);
 
   // Fetch NOTAMs when an airport is selected (search or browse). Load/sync even without coords so map + NOTAMs show after user initiates.
   useEffect(() => {
@@ -601,6 +651,7 @@ export default function AIPPortalPage() {
     if (isSync) {
       setNotamsSyncingIcao(icao);
       setNotamsSyncSteps([]);
+      updateStage("notam", "running", "Syncing NOTAMs…");
     }
 
     if (isSync) {
@@ -632,17 +683,21 @@ export default function AIPPortalPage() {
                   const data = JSON.parse(dataLine.slice(6));
                   if (data.step) {
                     setNotamsSyncSteps((prev) => [...prev, data.step]);
+                    updateStage("notam", "running", data.step);
                   } else if (data.done) {
                     setNotamsCache((c) => ({
                       ...c,
                       [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null },
                     }));
+                    updateStage("notam", "done", "NOTAMs retrieved");
+                    sendNotification("notam", "NOTAMs retrieved", `${icao}`, notifPrefs);
                     return;
                   } else if (data.error) {
                     setNotamsCache((c) => ({
                       ...c,
                       [icao]: { notams: [], error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
                     }));
+                    updateStage("notam", "error", data.error);
                     return;
                   }
                 } catch (_) {}
@@ -657,6 +712,7 @@ export default function AIPPortalPage() {
             ...c,
             [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null },
           }));
+          updateStage("notam", "error", "NOTAM sync failed");
         })
         .finally(() => {
           setNotamsLoadingIcao(null);
@@ -675,18 +731,21 @@ export default function AIPPortalPage() {
         if (data.error) {
           const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error ?? "Failed");
           setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
+          updateStage("notam", "error", msg);
         } else {
           setNotamsCache((c) => ({ ...c, [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null } }));
+          updateStage("notam", "done", "NOTAMs loaded");
         }
       })
       .catch((err) => {
         setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
+        updateStage("notam", "error", "NOTAM load failed");
       })
       .finally(() => {
         setNotamsLoadingIcao(null);
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
-  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache]);
+  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, notifPrefs, updateStage]);
 
   const runBrowseLoading = useCallback(async (then: () => void) => {
     setBrowseLoading(true);
@@ -705,6 +764,9 @@ export default function AIPPortalPage() {
 
     setLoading(true);
     setError(null);
+    startBackground(q.toUpperCase());
+    updateStage("airport", "running", "Searching…");
+    sendNotification("search_start", "Search started", `Looking up ${q.toUpperCase()}…`, notifPrefs);
 
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
@@ -713,11 +775,13 @@ export default function AIPPortalPage() {
         data = await res.json();
       } catch {
         setError(res.ok ? "Invalid response from server." : "Search failed. Please try again.");
+        updateStage("airport", "error", "Search failed");
         return;
       }
 
       if (!res.ok) {
         setError(data.error || "Search failed");
+        updateStage("airport", "error", data.error || "Search failed");
         return;
       }
 
@@ -752,6 +816,8 @@ export default function AIPPortalPage() {
       if (newResults.length > 0) {
         setSelectedIcao(newResults[0].icao);
       }
+      updateStage("airport", "done", "Airport loaded");
+      sendNotification("search_end", "Search completed", `${q.toUpperCase()} ready`, notifPrefs);
 
       // Fire-and-forget search analytics (per-user, Supabase-backed)
       if (typeof console !== "undefined" && console.warn) {
@@ -783,11 +849,30 @@ export default function AIPPortalPage() {
         });
     } catch {
       setError("Connection error. Please try again.");
+      updateStage("airport", "error", "Connection error");
     } finally {
       setLoading(false);
       setHasSearched(true);
     }
-  }, [query]);
+  }, [query, notifPrefs, startBackground, updateStage]);
+
+  useEffect(() => {
+    if (!bg || bg.done) return;
+    const airportFinished = bg.stages.airport === "done" || bg.stages.airport === "error";
+    if (!airportFinished) return;
+    if (loading || notamsLoadingIcao || aipEadLoadingIcao || genLoadingPrefix) return;
+    finishBackground();
+    const t = setTimeout(() => clearBackground(), 3000);
+    return () => clearTimeout(t);
+  }, [
+    bg,
+    loading,
+    notamsLoadingIcao,
+    aipEadLoadingIcao,
+    genLoadingPrefix,
+    finishBackground,
+    clearBackground,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") search();
@@ -815,7 +900,8 @@ export default function AIPPortalPage() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
-      <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
+      <BackgroundSearchBanner onNavigate={(icao) => { setQuery(icao); clearBackground(); }} />
+      <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${bg ? "pt-14" : ""} ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
         <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

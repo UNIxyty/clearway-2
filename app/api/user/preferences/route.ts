@@ -37,7 +37,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("user_preferences")
-      .select("display_name, aip_model, gen_model, created_at, updated_at")
+      .select(
+        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, created_at, updated_at"
+      )
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -86,6 +88,12 @@ export async function POST(request: Request) {
       display_name?: string;
       aip_model?: string;
       gen_model?: string;
+      notify_enabled?: boolean;
+      notify_search_start?: boolean;
+      notify_search_end?: boolean;
+      notify_notam?: boolean;
+      notify_aip?: boolean;
+      notify_gen?: boolean;
     };
 
     // Build update object with only provided fields
@@ -94,6 +102,12 @@ export async function POST(request: Request) {
       display_name?: string | null;
       aip_model?: string;
       gen_model?: string;
+      notify_enabled?: boolean;
+      notify_search_start?: boolean;
+      notify_search_end?: boolean;
+      notify_notam?: boolean;
+      notify_aip?: boolean;
+      notify_gen?: boolean;
     } = {
       user_id: user.id,
     };
@@ -107,11 +121,19 @@ export async function POST(request: Request) {
     if (body.gen_model?.trim()) {
       updates.gen_model = body.gen_model.trim();
     }
+    if (typeof body.notify_enabled === "boolean") updates.notify_enabled = body.notify_enabled;
+    if (typeof body.notify_search_start === "boolean") updates.notify_search_start = body.notify_search_start;
+    if (typeof body.notify_search_end === "boolean") updates.notify_search_end = body.notify_search_end;
+    if (typeof body.notify_notam === "boolean") updates.notify_notam = body.notify_notam;
+    if (typeof body.notify_aip === "boolean") updates.notify_aip = body.notify_aip;
+    if (typeof body.notify_gen === "boolean") updates.notify_gen = body.notify_gen;
 
     const { data, error } = await supabase
       .from("user_preferences")
       .upsert(updates, { onConflict: "user_id" })
-      .select("display_name, aip_model, gen_model, updated_at")
+      .select(
+        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at"
+      )
       .single();
 
     if (error) {

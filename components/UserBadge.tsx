@@ -54,9 +54,12 @@ export default function UserBadge() {
           type="button"
           className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/70 px-3 py-2 hover:bg-card/90 transition-colors"
         >
-          <div className="flex items-center justify-center size-7 rounded-full bg-primary/10 border border-primary/20">
-            <UserIcon className="size-4 text-primary" />
-          </div>
+          <img
+            src="/PFP.png"
+            alt="Profile picture"
+            className="size-7 rounded-full object-cover border border-primary/20 bg-primary/10"
+            style={{ filter: "invert(1)" }}
+          />
           <div className="text-left">
             <div className="text-sm font-medium leading-tight">{displayText}</div>
             <div className="text-xs text-muted-foreground">Account</div>

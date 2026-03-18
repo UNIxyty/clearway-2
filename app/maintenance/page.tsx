@@ -34,6 +34,7 @@ export default function MaintenancePage() {
               src="/header_logo_white.svg"
               alt="Clearway"
               className="h-8 sm:h-10 w-auto object-contain opacity-90"
+              style={{ filter: "invert(1)" }}
             />
             <img
               src="/logo.png"

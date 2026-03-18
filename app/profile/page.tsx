@@ -85,7 +85,15 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="/PFP.png"
+              alt="Profile picture"
+              className="size-9 rounded-full object-cover border border-primary/20 bg-primary/10"
+              style={{ filter: "invert(1)" }}
+            />
+            <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Manage your account settings and preferences
           </p>

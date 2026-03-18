@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { UserIcon, SettingsIcon, BarChartIcon, ArrowLeftIcon, LogOutIcon } from "lucide-react";
+import { UserIcon, SettingsIcon, BarChartIcon, ArrowLeftIcon, LogOutIcon, BellIcon } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -163,6 +163,14 @@ export default function ProfilePage() {
             >
               <BarChartIcon className="size-4 mr-2" />
               Search Stats
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => router.push("/settings/notifications")}
+            >
+              <BellIcon className="size-4 mr-2" />
+              Notification Settings
             </Button>
           </CardContent>
         </Card>

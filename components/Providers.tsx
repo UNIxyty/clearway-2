@@ -9,7 +9,9 @@ function ProvidersInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   return (
     <>
-      <BackgroundSearchBanner onNavigate={(icao) => router.push(`/?icao=${encodeURIComponent(icao)}`)} />
+      <BackgroundSearchBanner
+        onNavigate={(icao) => router.push(`/?icao=${encodeURIComponent(icao)}&fromBanner=1`)}
+      />
       {children}
     </>
   );

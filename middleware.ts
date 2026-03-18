@@ -10,14 +10,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public routes
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/auth/callback") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api")
-  ) {
+  // Static and asset routes
+  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     return NextResponse.next();
   }
 
@@ -42,6 +36,41 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
+
+  // Maintenance gate: allow only maintenance/admin/api while enabled.
+  const maintenanceAllowed =
+    pathname.startsWith("/maintenance") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/admin/maintenance");
+
+  if (!maintenanceAllowed) {
+    try {
+      const { data: maintenance } = await supabase
+        .from("maintenance")
+        .select("enabled")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (maintenance?.enabled) {
+        const maintenanceUrl = request.nextUrl.clone();
+        maintenanceUrl.pathname = "/maintenance";
+        return NextResponse.redirect(maintenanceUrl);
+      }
+    } catch {
+      // If maintenance table is missing/unavailable, continue without blocking.
+    }
+  }
+
+  // Public routes when maintenance mode is not active.
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/maintenance") ||
+    pathname.startsWith("/api")
+  ) {
+    return NextResponse.next();
+  }
 
   const {
     data: { user },

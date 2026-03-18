@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 
 export type SyncStage = "airport" | "notam" | "aip" | "gen" | "gen-non-ead";
 
@@ -13,17 +13,22 @@ export type BackgroundSearch = {
   progress: string;
   done: boolean;
   error: string | null;
+  startedAt: number;
+  updatedAt: number;
 };
 
 type SearchContextValue = {
+  bgList: BackgroundSearch[];
   bg: BackgroundSearch | null;
+  activeIcaos: string[];
   startBackground: (icao: string) => void;
-  updateStage: (stage: SyncStage, status: StageStatus, progress?: string) => void;
-  finishBackground: () => void;
-  clearBackground: () => void;
+  updateStage: (icao: string, stage: SyncStage, status: StageStatus, progress?: string) => void;
+  finishBackground: (icao: string, progress?: string) => void;
+  clearBackground: (icao?: string) => void;
 };
 
 const SearchContext = createContext<SearchContextValue | null>(null);
+const STORAGE_KEY = "clearway-bg-search-state-v1";
 
 const INITIAL_STAGES: Record<SyncStage, StageStatus> = {
   airport: "pending",
@@ -34,47 +39,109 @@ const INITIAL_STAGES: Record<SyncStage, StageStatus> = {
 };
 
 export function SearchProvider({ children }: { children: ReactNode }) {
-  const [bg, setBg] = useState<BackgroundSearch | null>(null);
+  const [bgList, setBgList] = useState<BackgroundSearch[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as BackgroundSearch[];
+      if (!Array.isArray(parsed)) return;
+      setBgList(parsed);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bgList));
+    } catch {}
+  }, [bgList]);
+
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue) as BackgroundSearch[];
+        if (!Array.isArray(parsed)) return;
+        setBgList(parsed);
+      } catch {}
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const startBackground = useCallback((icao: string) => {
-    setBg({
-      icao,
-      stages: { ...INITIAL_STAGES },
-      currentStage: "airport",
-      progress: "Loading airport data…",
-      done: false,
-      error: null,
+    const now = Date.now();
+    const normalized = icao.trim().toUpperCase();
+    setBgList((prev) => {
+      const without = prev.filter((item) => item.icao !== normalized);
+      const next: BackgroundSearch = {
+        icao: normalized,
+        stages: { ...INITIAL_STAGES },
+        currentStage: "airport",
+        progress: "Loading airport data…",
+        done: false,
+        error: null,
+        startedAt: now,
+        updatedAt: now,
+      };
+      return [next, ...without];
     });
   }, []);
 
   const updateStage = useCallback(
-    (stage: SyncStage, status: StageStatus, progress?: string) => {
-      setBg((prev) => {
-        if (!prev) return prev;
-        const stages = { ...prev.stages, [stage]: status };
-        const currentStage = status === "running" ? stage : prev.currentStage;
-        return {
-          ...prev,
-          stages,
-          currentStage,
-          progress: progress ?? prev.progress,
-          error: status === "error" ? progress ?? prev.error : prev.error,
-        };
-      });
+    (icao: string, stage: SyncStage, status: StageStatus, progress?: string) => {
+      const normalized = icao.trim().toUpperCase();
+      setBgList((prev) =>
+        prev.map((item) => {
+          if (item.icao !== normalized) return item;
+          const stages = { ...item.stages, [stage]: status };
+          const currentStage = status === "running" ? stage : item.currentStage;
+          return {
+            ...item,
+            stages,
+            currentStage,
+            progress: progress ?? item.progress,
+            error: status === "error" ? progress ?? item.error : item.error,
+            updatedAt: Date.now(),
+          };
+        })
+      );
     },
     []
   );
 
-  const finishBackground = useCallback(() => {
-    setBg((prev) => (prev ? { ...prev, done: true, currentStage: null, progress: "Complete" } : prev));
+  const finishBackground = useCallback((icao: string, progress?: string) => {
+    const normalized = icao.trim().toUpperCase();
+    setBgList((prev) =>
+      prev.map((item) =>
+        item.icao === normalized
+          ? { ...item, done: true, currentStage: null, progress: progress ?? "Complete", updatedAt: Date.now() }
+          : item
+      )
+    );
   }, []);
 
-  const clearBackground = useCallback(() => {
-    setBg(null);
+  const clearBackground = useCallback((icao?: string) => {
+    if (!icao) {
+      setBgList([]);
+      return;
+    }
+    const normalized = icao.trim().toUpperCase();
+    setBgList((prev) => prev.filter((item) => item.icao !== normalized));
   }, []);
+
+  const orderedBgList = useMemo(
+    () => [...bgList].sort((a, b) => b.updatedAt - a.updatedAt),
+    [bgList]
+  );
+  const bg = orderedBgList[0] ?? null;
+  const activeIcaos = orderedBgList.filter((item) => !item.done).map((item) => item.icao);
 
   return (
-    <SearchContext.Provider value={{ bg, startBackground, updateStage, finishBackground, clearBackground }}>
+    <SearchContext.Provider
+      value={{ bgList: orderedBgList, bg, activeIcaos, startBackground, updateStage, finishBackground, clearBackground }}
+    >
       {children}
     </SearchContext.Provider>
   );

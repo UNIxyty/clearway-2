@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, SettingsIcon, BarChartIcon, LogOutIcon } from "lucide-react";
+import { UserIcon, SettingsIcon, BarChartIcon, LogOutIcon, BellIcon } from "lucide-react";
 
 export default function UserBadge() {
   const router = useRouter();
@@ -74,6 +74,10 @@ export default function UserBadge() {
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           <SettingsIcon className="mr-2 size-4" />
           AI Model Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/settings/notifications")}>
+          <BellIcon className="mr-2 size-4" />
+          Notification Settings
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/stats")}>
           <BarChartIcon className="mr-2 size-4" />

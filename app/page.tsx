@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -215,7 +215,7 @@ function AIPResultCard({
 
 type RegionEntry = { region: string; countries: string[] };
 
-export default function AIPPortalPage() {
+function AIPPortalPageInner() {
   const { bg, startBackground, updateStage, finishBackground } = useBackgroundSearch();
   const searchParams = useSearchParams();
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
@@ -1404,7 +1404,9 @@ export default function AIPPortalPage() {
                 />
               </div>
               <Button
-                onClick={search}
+                onClick={() => {
+                  void search();
+                }}
                 disabled={loading}
                 type="button"
                 className="h-10 px-5 shrink-0"
@@ -1825,5 +1827,19 @@ export default function AIPPortalPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AIPPortalPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100">
+          <div className="text-sm text-muted-foreground">Loading…</div>
+        </div>
+      }
+    >
+      <AIPPortalPageInner />
+    </Suspense>
   );
 }

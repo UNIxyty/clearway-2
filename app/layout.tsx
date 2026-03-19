@@ -3,8 +3,9 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "AIP Data Portal",
-  description: "Aeronautical Information Publication data lookup",
+  title: "Aviation AIP, NOTAM, and GEN Data Portal",
+  description:
+    "Operational aviation portal for searching airports, reviewing AIP and GEN sections, and tracking NOTAM information with map-aware context, background sync workflows, and country-based lookup support.",
   icons: {
     icon: "/PFP.png",
     shortcut: "/PFP.png",

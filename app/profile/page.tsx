@@ -90,7 +90,6 @@ export default function ProfilePage() {
               src="/PFP.png"
               alt="Profile picture"
               className="size-9 rounded-full object-cover border border-primary/20 bg-primary/10"
-              style={{ filter: "invert(1)" }}
             />
             <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
           </div>

@@ -58,7 +58,6 @@ export default function UserBadge() {
             src="/PFP.png"
             alt="Profile picture"
             className="size-7 rounded-full object-cover border border-primary/20 bg-primary/10"
-            style={{ filter: "invert(1)" }}
           />
           <div className="text-left">
             <div className="text-sm font-medium leading-tight">{displayText}</div>

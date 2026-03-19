@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Aviation AIP, NOTAM, and GEN Data Portal",
+  title: "Clearway AIP Data Lookup Portal",
   description:
     "Operational aviation portal for searching airports, reviewing AIP and GEN sections, and tracking NOTAM information with map-aware context, background sync workflows, and country-based lookup support.",
   icons: {

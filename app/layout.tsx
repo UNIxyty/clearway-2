@@ -5,6 +5,11 @@ import { Providers } from "@/components/Providers";
 export const metadata: Metadata = {
   title: "AIP Data Portal",
   description: "Aeronautical Information Publication data lookup",
+  icons: {
+    icon: "/PFP.png",
+    shortcut: "/PFP.png",
+    apple: "/PFP.png",
+  },
 };
 
 export default function RootLayout({

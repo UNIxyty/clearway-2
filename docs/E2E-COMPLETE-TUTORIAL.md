@@ -864,7 +864,108 @@ df -h
 
 ---
 
-## 14) Generate Report and Send to Telegram
+## 14) Run AIP UI Debug Test (Fast, EAD Only)
+
+Use this test when you want to quickly check whether the AIP loading UI appears for each EAD airport — without waiting for full syncs to complete. It runs in ~15–30 minutes instead of 4–6 hours.
+
+### What it checks
+
+For each EAD airport:
+
+- **Page load** — does the `AIP (EAD) — XXXX` heading appear after searching?
+- **AIP loading UI** — does `Syncing AIP from server` or `Loading AIP` appear within 10 seconds of clicking sync? (Does NOT wait for sync to finish.)
+- **Screenshot** — taken immediately after the AIP check.
+- Map, NOTAMs, and GEN are skipped (shown as ⏭️ in the report, not counted as failures).
+
+### What it does NOT need
+
+- AIP sync server does not need to be running (the test only checks if the UI reacts, not if the sync completes).
+- NOTAM sync server not needed.
+- AI not needed (`DISABLE_AI_FOR_TESTING=true` is fine).
+
+### 14a. Run the AIP Debug Test
+
+```bash
+cd ~/clearway-2
+set -a && source .env && set +a
+
+node scripts/e2e-aip-test.mjs
+```
+
+The script automatically runs `generate-test-report.mjs` and `send-test-webhook.mjs` at the end, so a single command gives you the full pipeline: test → report → Telegram.
+
+To limit airports during a trial run:
+
+```bash
+MAX_AIRPORTS=20 node scripts/e2e-aip-test.mjs
+```
+
+To test a specific country:
+
+```bash
+COUNTRY_FILTER=albania node scripts/e2e-aip-test.mjs
+```
+
+Or use the npm script:
+
+```bash
+npm run test:e2e:aip
+```
+
+### 14b. Monitor Progress
+
+```
+Fetching EAD airport list from portal...
+Found 1261 EAD airports across 47 countries.
+[1] Testing Albania :: LAKU
+       PASS
+[2] Testing Albania :: LATI
+       PASS
+[3] Testing Austria :: LOAV
+       FAIL — AIP check failed: loading UI did not appear within 10s after clicking sync.
+...
+E2E AIP debug run complete. Raw results: test-results/raw/e2e-results-2026-03-20T12-00-00-000Z.json
+Summary: 1261 airports | 1198 passed | 63 failed
+
+Generating report...
+Report generated: test-results/report-2026-03-20T12-30-00-000Z.md
+
+Sending webhook...
+Webhook sent successfully.
+```
+
+### 14c. Check Telegram
+
+You will receive the same notification format as the full E2E test:
+
+```
+Event: e2e_test_complete
+Summary:
+- Total: 1261
+- Passed: 1198
+- Failed: 63
+Report: https://...presigned-s3-url...
+```
+
+### 14d. Interpreting Results
+
+| Result | Meaning |
+|---|---|
+| PASS | AIP loading UI appeared — the airport's AIP card is working |
+| FAIL (page load) | Airport card did not render — check portal is running |
+| FAIL (AIP loading UI) | Sync button exists but loading state never appeared — AIP sync server may be down, or the airport has no EAD document |
+
+### 14e. Adjust Timeout (if needed)
+
+If many airports FAIL due to slow portal startup, increase the timeout:
+
+```bash
+AIP_LOADING_TIMEOUT_MS=15000 node scripts/e2e-aip-test.mjs
+```
+
+---
+
+## 15) Generate Report and Send to Telegram
 
 After the E2E test completes:
 
@@ -1148,6 +1249,14 @@ DISABLE_AI_FOR_TESTING=true node scripts/aip-sync-server.mjs
 cd ~/clearway-2
 set -a && source .env && set +a
 
+# ── AIP UI debug test (fast, EAD only, ~15-30 min) ──────────────────────────
+# Automatically generates report and sends webhook at the end.
+node scripts/e2e-aip-test.mjs
+
+# With options
+MAX_AIRPORTS=20 COUNTRY_FILTER=albania node scripts/e2e-aip-test.mjs
+
+# ── Full E2E test (all airports, all checks, 4-6 hours) ─────────────────────
 # Sample test (5 airports)
 DISABLE_AUTH_FOR_TESTING=true MAX_AIRPORTS=5 node scripts/e2e-portal-test.mjs
 
@@ -1157,7 +1266,7 @@ node scripts/generate-test-report.mjs
 # Send webhook
 node scripts/send-test-webhook.mjs
 
-# Full test (all airports, 4-6 hours)
+# Full test (all airports)
 tmux new -s e2e-test
 DISABLE_AUTH_FOR_TESTING=true node scripts/e2e-portal-test.mjs
 # Ctrl+B then D to detach
@@ -1173,13 +1282,16 @@ node scripts/send-test-webhook.mjs
 # Test webhook
 npm run test:e2e:webhook:test
 
-# Run E2E test
+# Run AIP debug test (fast)
+npm run test:e2e:aip
+
+# Run full E2E test
 npm run test:e2e
 
-# Generate report
+# Generate report (if running manually)
 npm run test:e2e:report
 
-# Send webhook
+# Send webhook (if running manually)
 npm run test:e2e:webhook:send
 ```
 
@@ -1372,6 +1484,41 @@ node scripts/generate-test-report.mjs --input=test-results/raw/e2e-results-xxx.j
 3. Saves to `test-results/report-{timestamp}.md`
 
 **Output:** `test-results/report-{timestamp}.md`
+
+---
+
+### `scripts/e2e-aip-test.mjs`
+
+**Purpose:** Fast AIP UI debug test — EAD airports only
+
+**Usage:**
+
+```bash
+# Full run (all EAD airports, ~15-30 min)
+node scripts/e2e-aip-test.mjs
+
+# With options
+MAX_AIRPORTS=20 COUNTRY_FILTER=albania node scripts/e2e-aip-test.mjs
+
+# npm script
+npm run test:e2e:aip
+```
+
+**What it does:**
+
+1. Fetches all countries from `/api/regions`, keeps only those with EAD airports
+2. For each EAD airport:
+   - Searches ICAO on portal
+   - Waits for `AIP (EAD) — XXXX` heading (page load check)
+   - Clicks AIP sync button
+   - Waits up to 10s for `Syncing AIP from server` or `Loading AIP` text (AIP check)
+   - Takes screenshot
+3. Saves raw JSON to `test-results/raw/e2e-results-{timestamp}.json` (same format as full E2E test)
+4. Automatically runs `generate-test-report.mjs` and `send-test-webhook.mjs`
+
+**Output:** `test-results/raw/e2e-results-{timestamp}.json` + report + Telegram notification
+
+**Key difference from `e2e-portal-test.mjs`:** Does NOT wait for AIP sync to complete. Map, NOTAMs, and GEN are skipped (⏭️ in report). Runs ~10x faster.
 
 ---
 
@@ -1621,10 +1768,15 @@ For now, the serial approach is more reliable and easier to debug.
   - Sends final report notification
   - Posts to n8n webhook
   - Includes summary and report URL
-5. `**docs/E2E-TEST-EC2-SETUP.md**`
+5. `**scripts/e2e-aip-test.mjs**`
+  - Fast AIP UI debug test (EAD airports only)
+  - Checks only whether AIP loading UI appears (does not wait for sync)
+  - Same output shape as `e2e-portal-test.mjs` — works with existing report + webhook scripts
+  - Automatically runs report generation and webhook at the end
+6. `**docs/E2E-TEST-EC2-SETUP.md**`
   - Quick reference guide
   - Shorter version of this tutorial
-6. `**test-results/.gitkeep**`
+7. `**test-results/.gitkeep**`
   - Ensures directory exists in git
   - Actual test results are gitignored
 
@@ -1646,7 +1798,8 @@ For now, the serial approach is more reliable and easier to debug.
   - Prevents committing test outputs
 5. `**package.json**`
   - Added npm scripts:
-    - `test:e2e` - Run E2E test
+    - `test:e2e` - Run full E2E test
+    - `test:e2e:aip` - Run fast AIP UI debug test
     - `test:e2e:report` - Generate report
     - `test:e2e:webhook:test` - Test webhook
     - `test:e2e:webhook:send` - Send final webhook
@@ -1775,5 +1928,6 @@ You now have a complete E2E testing system that:
 ✅ Sends notifications to Telegram via n8n  
 ✅ Runs without consuming AI tokens  
 ✅ Can be re-run anytime on EC2  
+✅ Includes a fast AIP-only debug test (~15-30 min) for quick checks  
 
-The entire setup takes about 30-45 minutes. The full test run takes 4-6 hours. Results help you identify and fix issues across your entire portal systematically.
+The entire setup takes about 30-45 minutes. The full test run takes 4-6 hours. The AIP debug test takes 15-30 minutes. Results help you identify and fix issues across your entire portal systematically.

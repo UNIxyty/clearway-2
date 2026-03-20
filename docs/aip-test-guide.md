@@ -2,76 +2,110 @@
 
 ## Purpose
 
-This test checks one thing only for EAD airports:
-
-- Does AIP sync UI show loading state after search + sync click?
-
-It is intentionally fast and skips deep validation.
+Quickly check whether the AIP loading UI appears for every EAD airport — without waiting for full syncs to complete. Runs in ~15–30 minutes instead of 4–6 hours.
 
 ## Script
 
 - `scripts/e2e-aip-test.mjs`
 
-## What it does
+## What it checks per airport
 
-1. Reads countries/airports from portal APIs.
-2. Keeps only EAD ICAOs.
-3. For each airport:
-   - search ICAO
-   - click AIP sync
-   - wait up to 10s for:
-     - `Syncing AIP from server` OR
-     - `Loading AIP`
-4. Marks:
-   - PASS if either text appears
-   - FAIL otherwise
-5. Sends summary to n8n webhook.
+| Check | How |
+|---|---|
+| Page load | `AIP (EAD) — XXXX` heading appears after searching |
+| AIP loading UI | `Syncing AIP from server` or `Loading AIP` text appears within 10s of clicking sync |
+| Screenshot | Taken immediately after AIP check |
+| Map | Skipped (⏭️ in report) |
+| NOTAMs | Skipped (⏭️ in report) |
+| GEN | Skipped (⏭️ in report) |
 
-## Required setup
+The test does **not** wait for AIP sync to finish. It only checks that the UI reacts.
 
-- Valid portal URL in `PORTAL_URL`
-- Existing authenticated Playwright storage state:
-  - `PLAYWRIGHT_STORAGE_STATE_PATH`
-- n8n webhook URL:
-  - `N8N_WEBHOOK_URL` or `WEBHOOK_URL`
+## What it does NOT need
+
+- AIP sync server does not need to be running.
+- NOTAM sync server not needed.
+- AI not needed (`DISABLE_AI_FOR_TESTING=true` is fine).
+
+## What it produces
+
+Same output shape as `e2e-portal-test.mjs`, so `generate-test-report.mjs` and `send-test-webhook.mjs` work unchanged. The script runs both automatically at the end.
+
+Output files:
+- `test-results/raw/e2e-results-{timestamp}.json`
+- `test-results/report-{timestamp}.md`
+- Telegram notification via n8n
 
 ## Run command
 
 ```bash
-PORTAL_URL="https://clearway-2.vercel.app" \
-PLAYWRIGHT_STORAGE_STATE_PATH="test-results/auth-state.json" \
-N8N_WEBHOOK_URL="https://your-n8n-webhook" \
-MAX_AIRPORTS=0 \
+cd ~/clearway-2
+set -a && source .env && set +a
+
 node scripts/e2e-aip-test.mjs
 ```
 
-Notes:
-- `MAX_AIRPORTS=0` means all.
-- Set `HEADLESS=false` if you want to watch browser.
+Or with npm:
 
-## Payload sent to n8n
-
-```json
-{
-  "event": "aip_ui_debug_test",
-  "timestamp": "ISO_DATE",
-  "source": "scripts/e2e-aip-test.mjs",
-  "summary": { "total": 0, "passed": 0, "failed": 0 },
-  "results": [
-    { "icao": "XXXX", "country": "Name", "pass": true, "error": "" }
-  ]
-}
+```bash
+npm run test:e2e:aip
 ```
+
+## Options
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `MAX_AIRPORTS` | `0` (all) | Limit airports for a trial run |
+| `COUNTRY_FILTER` | `""` | Filter by country name (partial match) |
+| `AIP_LOADING_TIMEOUT_MS` | `10000` | How long to wait for loading UI (ms) |
+| `HEADLESS` | `true` | Set to `false` to watch the browser |
+| `PORTAL_URL` | `http://localhost:3000` | Portal URL to test |
+| `DISABLE_AUTH_FOR_TESTING` | — | Set to `true` to skip login |
+
+## Sample output
+
+```
+Fetching EAD airport list from portal...
+Found 1261 EAD airports across 47 countries.
+[1] Testing Albania :: LAKU
+       PASS
+[2] Testing Albania :: LATI
+       PASS
+[3] Testing Austria :: LOAV
+       FAIL — AIP check failed: loading UI did not appear within 10s after clicking sync.
+...
+E2E AIP debug run complete. Raw results: test-results/raw/e2e-results-2026-03-20T12-00-00-000Z.json
+Summary: 1261 airports | 1198 passed | 63 failed
+
+Generating report...
+Report generated: test-results/report-2026-03-20T12-30-00-000Z.md
+
+Sending webhook...
+Webhook sent successfully.
+```
+
+## Interpreting results
+
+| Result | Meaning |
+|---|---|
+| PASS | AIP loading UI appeared — airport's AIP card is working |
+| FAIL (page load) | Airport card did not render — check portal is running |
+| FAIL (AIP loading UI) | Sync button found but loading state never appeared — AIP sync server may be down, or airport has no EAD document |
 
 ## Troubleshooting
 
-- All FAIL quickly:
-  - check portal selector IDs and loading text did not change
-  - verify AIP card still renders for EAD airports
-- Random FAIL:
-  - increase timeout from 10s to 15-20s in script
-  - check EC2 AIP sync server load
-- Webhook fails:
-  - verify `N8N_WEBHOOK_URL`
-  - test with `scripts/test-webhook.mjs`
+**All airports FAIL immediately:**
+- Verify portal is running: `curl http://localhost:3000`
+- Check that `AIP (EAD) — XXXX` heading still renders for EAD airports in the portal UI
 
+**Many FAIL with timeout:**
+- Increase timeout: `AIP_LOADING_TIMEOUT_MS=15000 node scripts/e2e-aip-test.mjs`
+- Check AIP sync server is running if you expect it to respond: `tmux attach -t aip-sync`
+
+**Report not generated:**
+- Check `test-results/raw/` for the JSON file
+- Run manually: `node scripts/generate-test-report.mjs`
+
+**Webhook not sent:**
+- Verify `N8N_WEBHOOK_URL` is set: `echo $N8N_WEBHOOK_URL`
+- Test webhook: `node scripts/test-webhook.mjs`

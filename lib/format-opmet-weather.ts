@@ -56,7 +56,7 @@ export function parseOpmetBullets(raw: string): {
 
       if (!rest) continue;
 
-      const tokenMatch = rest.match(/^(\S+)\s*(.*)$/s);
+      const tokenMatch = rest.match(/^(\S+)\s*([\s\S]*)$/);
       const id = tokenMatch ? tokenMatch[1] : rest;
       const body = tokenMatch ? tokenMatch[2].trim() : "";
       bullets.push({

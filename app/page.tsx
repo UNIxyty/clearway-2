@@ -1314,8 +1314,8 @@ function AIPPortalPageInner() {
                                 className="text-xs border-b border-border/50 pb-2 last:border-0"
                               >
                                 <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
-                                  <span className="font-mono">{b.kind}</span>
-                                  <span className="text-muted-foreground">{b.id}</span>
+                                  <span className="font-mono">{b.id}</span>
+                                  <span className="text-muted-foreground">{b.kind}</span>
                                 </div>
                                 <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">
                                   {b.body}

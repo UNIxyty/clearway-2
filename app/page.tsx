@@ -23,6 +23,7 @@ import UserBadge from "@/components/UserBadge";
 import { FirstLoginModelPicker } from "@/components/FirstLoginModelPicker";
 import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
+import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 
 export type NotamItem = {
   location: string;
@@ -332,6 +333,13 @@ function AIPPortalPageInner() {
   const cachedWeather = viewingAirport ? weatherCache[viewingAirport.icao] : null;
   const weatherLoading = viewingAirport ? weatherLoadingIcao === viewingAirport.icao : false;
   const weatherSyncing = viewingAirport ? weatherSyncingIcao === viewingAirport.icao : false;
+
+  const weatherDisplay = useMemo(() => {
+    const raw = cachedWeather?.weather ?? "";
+    const { airportLine, bullets } = parseOpmetBullets(raw);
+    const strippedPlain = stripWxSearchPreamble(raw);
+    return { airportLine, bullets, strippedPlain };
+  }, [cachedWeather?.weather]);
 
   // When results change: clear selection if empty; when tabs are added (search/menu), switch to the new tab
   useEffect(() => {
@@ -1291,9 +1299,39 @@ function AIPPortalPageInner() {
                     <p className="text-xs text-destructive break-words">{cachedWeather.error}</p>
                   )}
                   {!weatherLoading && !cachedWeather?.error && (
-                    <pre className="whitespace-pre-wrap break-words text-xs text-foreground/90 font-sans leading-5">
-                      {cachedWeather?.weather?.trim() || "No weather text returned yet."}
-                    </pre>
+                    <>
+                      {weatherDisplay.bullets.length > 0 ? (
+                        <div className="space-y-3">
+                          {weatherDisplay.airportLine && (
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                              {weatherDisplay.airportLine}
+                            </p>
+                          )}
+                          <ul className="space-y-3">
+                            {weatherDisplay.bullets.map((b, i) => (
+                              <li
+                                key={`${b.kind}-${b.id}-${i}`}
+                                className="text-xs border-b border-border/50 pb-2 last:border-0"
+                              >
+                                <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
+                                  <span className="font-mono">{b.kind}</span>
+                                  <span className="text-muted-foreground">{b.id}</span>
+                                </div>
+                                <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">
+                                  {b.body}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : weatherDisplay.strippedPlain.trim() ? (
+                        <pre className="whitespace-pre-wrap break-words text-xs text-foreground/90 font-sans leading-5">
+                          {weatherDisplay.strippedPlain}
+                        </pre>
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-2">No weather text returned yet.</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

@@ -37,6 +37,19 @@ function requireAuth(req) {
   return (header && header === SYNC_SECRET) || (querySecret && querySecret === SYNC_SECRET);
 }
 
+/** Map thrown errors to client-facing payload; detect OpenRouter insufficient credits (402). */
+function syncFailurePayload(err) {
+  const msg = err?.message ?? String(err);
+  const base = { error: "Sync failed", detail: msg };
+  if (/OpenRouter API 402\b/.test(msg) || /"code"\s*:\s*402/.test(msg) || /Insufficient credits/i.test(msg)) {
+    let shortDetail = "Insufficient credits — add credits at https://openrouter.ai/settings/credits";
+    const um = msg.match(/"message"\s*:\s*"([^"]+)"/);
+    if (um) shortDetail = um[1];
+    return { error: "Insufficient API credits", detail: shortDetail, code: 402 };
+  }
+  return base;
+}
+
 function run(cmd, args, env = process.env) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
@@ -372,12 +385,17 @@ const server = createServer(async (req, res) => {
       }
     } catch (genErr) {
       console.error("GEN sync failed for", prefix, genErr.message);
+      const fail = syncFailurePayload(genErr);
+      const payload =
+        fail.code === 402
+          ? { error: "GEN sync failed", detail: fail.detail, code: 402 }
+          : { error: "GEN sync failed", detail: genErr.message };
       if (stream) {
-        send({ error: "GEN sync failed", detail: genErr.message });
+        send(payload);
         res.end();
       } else {
-        res.writeHead(502);
-        res.end(JSON.stringify({ error: "GEN sync failed", detail: genErr.message }));
+        res.writeHead(fail.code === 402 ? 402 : 502);
+        res.end(JSON.stringify(payload));
       }
     }
     return;
@@ -452,12 +470,13 @@ const server = createServer(async (req, res) => {
     }
   } catch (err) {
     console.error("AIP sync failed for", icao, err);
+    const fail = syncFailurePayload(err);
     if (stream) {
-      send({ error: "Sync failed", detail: err.message });
+      send(fail);
       res.end();
     } else {
-      res.writeHead(502);
-      res.end(JSON.stringify({ error: "Sync failed", detail: err.message }));
+      res.writeHead(fail.code === 402 ? 402 : 502);
+      res.end(JSON.stringify(fail));
     }
   }
 });

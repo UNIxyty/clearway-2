@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +50,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, logged: false }, { status: 200 });
     }
 
-    const { error } = await supabase.from("search_events").insert({
+    const admin = createSupabaseServiceRoleClient();
+    if (corporateSession) {
+      if (!admin) {
+        return NextResponse.json(
+          {
+            error: "Server misconfigured",
+            detail: "SUPABASE_SERVICE_ROLE_KEY is required to log searches for corporate accounts.",
+          },
+          { status: 503 },
+        );
+      }
+      const { error } = await admin.from("search_events").insert({
+        user_id: identityId,
+        query,
+        result_count: typeof body.resultCount === "number" ? body.resultCount : null,
+        source: typeof body.source === "string" ? body.source : "portal",
+      });
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, logged: true }, { status: 200 });
+    }
+
+    const db = admin ?? supabase;
+    const { error } = await db.from("search_events").insert({
       user_id: identityId,
       query,
       result_count: typeof body.resultCount === "number" ? body.resultCount : null,
@@ -63,4 +88,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
   }
 }
-

@@ -69,14 +69,30 @@ export async function GET(request: NextRequest) {
           },
         });
       }
-      const data = (await res.json().catch(() => ({}))) as {
+      const text = await res.text().catch(() => "");
+      let data = {} as {
         weather?: string;
         updatedAt?: string;
         error?: string;
         detail?: string;
       };
+      try {
+        data = text ? (JSON.parse(text) as typeof data) : {};
+      } catch {
+        data = {
+          error: "Weather sync failed",
+          detail: text?.slice(0, 500) || `Upstream returned ${res.status} with non-JSON body.`,
+        };
+      }
       if (!res.ok) {
-        return NextResponse.json({ error: data.error ?? "Weather sync failed", detail: data.detail }, { status: 502 });
+        const detail =
+          data.detail ||
+          (text && !data.error ? text.slice(0, 500) : undefined) ||
+          `Weather sync host returned HTTP ${res.status}. Check NOTAM_SYNC_URL, X-Sync-Secret, and that GET /sync/weather is available on the sync server.`;
+        return NextResponse.json(
+          { error: data.error ?? "Weather sync failed", detail },
+          { status: 502 }
+        );
       }
       return NextResponse.json({ icao, weather: data.weather ?? "", updatedAt: data.updatedAt ?? null });
     } catch (e) {

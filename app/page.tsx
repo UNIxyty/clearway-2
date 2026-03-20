@@ -83,6 +83,15 @@ function isEadPlaceholder(airport: AIPAirport | null): boolean {
   return airport?.name === "EAD UNDEFINED";
 }
 
+/** User-visible AIP sync error; highlight OpenRouter insufficient credits (402). */
+function formatAipSyncError(data: { error?: string; detail?: string; code?: number }): string {
+  if (data.code === 402) {
+    return `Error 402 — Insufficient API credits. ${data.detail ?? "Add credits at https://openrouter.ai/settings/credits"}`;
+  }
+  const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
+  return base;
+}
+
 const USA_STATE_ABBR: Record<string, string> = {
   "Alaska": "AK", "American Samoa": "AS", "Arizona": "AZ", "California": "CA", "Colorado": "CO",
   "Connecticut": "CT", "District of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Guam": "GU",
@@ -267,6 +276,7 @@ function AIPPortalPageInner() {
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
+  const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
   const [aipViewMode, setAipViewMode] = useState<"ai" | "pdf">("ai");
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -525,7 +535,15 @@ function AIPPortalPageInner() {
                 const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
                 if (!dataLine) continue;
                 try {
-                  const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; detail?: string; airports?: unknown[]; pdfReady?: boolean };
+                  const data = JSON.parse(dataLine.slice(6)) as {
+                    step?: string;
+                    done?: boolean;
+                    error?: string;
+                    detail?: string;
+                    code?: number;
+                    airports?: unknown[];
+                    pdfReady?: boolean;
+                  };
                   if (data.pdfReady) {
                     setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
                   }
@@ -571,12 +589,13 @@ function AIPPortalPageInner() {
                     sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
                     return;
                   } else if (data.error) {
+                    const errMsg = formatAipSyncError(data);
                     setAipEadCache((c) => ({
                       ...c,
-                      [icao]: { airport: null, error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                      [icao]: { airport: null, error: errMsg, updatedAt: null },
                     }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
-                    updateStage(icao, "aip", "error", data.error);
+                    updateStage(icao, "aip", "error", errMsg);
                     return;
                   }
                 } catch (_) {}
@@ -587,9 +606,14 @@ function AIPPortalPageInner() {
           }
           return;
         }
-        const data = await res.json().catch(() => ({})) as { error?: string; detail?: string; airports?: unknown[] };
+        const data = await res.json().catch(() => ({})) as {
+          error?: string;
+          detail?: string;
+          code?: number;
+          airports?: unknown[];
+        };
         if (!res.ok) {
-          const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? "Sync failed");
+          const msg = formatAipSyncError(data);
           setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: msg, updatedAt: null } }));
           setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
           updateStage(icao, "aip", "error", msg);
@@ -650,6 +674,23 @@ function AIPPortalPageInner() {
         setAipEadSyncSteps([]);
       });
   }, [viewingAirport?.icao, aipEadSyncRequestedIcao, notifPrefs, updateStage, searchParams]);
+
+  // Probe S3 for EAD PDF (enables download/viewer as soon as the file exists, without waiting for AI extract).
+  useEffect(() => {
+    const icao = viewingAirport?.icao ?? null;
+    if (!icao || !isEadIcao(icao)) return;
+    let cancelled = false;
+    fetch(`/api/aip/ead/pdf?icao=${encodeURIComponent(icao)}`, { method: "HEAD" })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.ok) setAipPdfExistsOnServer((c) => ({ ...c, [icao]: true }));
+        else if (r.status === 404) setAipPdfExistsOnServer((c) => ({ ...c, [icao]: false }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [viewingAirport?.icao]);
 
   // Fetch GEN (scraped GEN 1.2) when viewing any airport. EAD airports use /api/aip/gen, non-EAD use /api/aip/gen-non-ead.
   useEffect(() => {
@@ -1738,14 +1779,29 @@ function AIPPortalPageInner() {
                       variant="ghost"
                       size="sm"
                       className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={pdfDownloading || !(aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt)}
-                      title={aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt ? "Download current AIP PDF (AD 2)" : "Sync this airport first to download the PDF"}
+                      disabled={
+                        pdfDownloading ||
+                        !(
+                          aipPdfReady[viewingAirport.icao] ||
+                          aipEadCache[viewingAirport.icao]?.updatedAt ||
+                          aipPdfExistsOnServer[viewingAirport.icao]
+                        )
+                      }
+                      title={
+                        aipPdfReady[viewingAirport.icao] ||
+                        aipEadCache[viewingAirport.icao]?.updatedAt ||
+                        aipPdfExistsOnServer[viewingAirport.icao]
+                          ? "Download current AIP PDF (AD 2)"
+                          : "Sync this airport first to download the PDF"
+                      }
                       onClick={async () => {
                         if (!viewingAirport?.icao) return;
                         setPdfDownloadError(null);
                         setPdfDownloading(true);
                         try {
-                          const res = await fetch(`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`);
+                          const res = await fetch(
+                            `/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`
+                          );
                           if (!res.ok) {
                             const data = await res.json().catch(() => ({}));
                             const msg = data.detail || data.error || "Failed to load PDF";
@@ -1808,14 +1864,18 @@ function AIPPortalPageInner() {
                   )}
                   {aipViewMode === "pdf" && (
                     <div className="mb-3 rounded-lg border border-border/60 bg-muted/10 p-2">
-                      {aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt ? (
+                      {aipPdfReady[viewingAirport.icao] ||
+                      aipEadCache[viewingAirport.icao]?.updatedAt ||
+                      aipPdfExistsOnServer[viewingAirport.icao] ? (
                         <iframe
-                          src={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`}
+                          src={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                           className="w-full h-[520px] rounded-md border border-border/60 bg-background"
                           title={`AIP PDF ${viewingAirport.icao}`}
                         />
                       ) : (
-                        <p className="text-sm text-muted-foreground p-3">PDF loading… Start sync to fetch it from server.</p>
+                        <p className="text-sm text-muted-foreground p-3">
+                          PDF loading… Start sync to fetch it from server, or wait while we check if a PDF is already stored.
+                        </p>
                       )}
                     </div>
                   )}

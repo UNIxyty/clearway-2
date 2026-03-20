@@ -251,6 +251,12 @@ INSERT INTO corporate_accounts (username, password_hash)
 VALUES ('ops', 'sha256-hash-of-ops-password');
 ```
 
+### 3e. Device profile preferences (corporate Settings / AIP model)
+
+Corporate users are **not** in `auth.users`, so their models and notification prefs live in a separate table.
+
+After `docs/corporate-auth-schema.sql`, run **`docs/supabase-device-profile-preferences.sql`** in the SQL Editor once. This creates `device_profile_preferences` (FK to `device_profiles`) with the same columns as `user_preferences` for models and notifications. The Next.js API uses **`SUPABASE_SERVICE_ROLE_KEY`** to read and write this table.
+
 ---
 
 ## 4) Environment Variables
@@ -272,7 +278,7 @@ VALUES ('ops', 'sha256-hash-of-ops-password');
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | — | Recommended for corporate session table lookups (bypasses RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | **Required for corporate login** (read `corporate_accounts` / sessions under RLS), **corporate preferences** (`device_profile_preferences`), **search logging** (`search_events`), and optional service-role reads of `user_preferences` for AIP model selection |
 | `WEATHER_S3_PREFIX` | `weather` | S3 key prefix for weather cache files |
 
 ### For AIP Debug Test
@@ -510,10 +516,22 @@ echo -n "admin" | shasum -a 256
 curl "http://localhost:3001/sync/weather?icao=EVRA&secret=YOUR_SECRET"
 ```
 
+### Browser console: `502` on `/api/weather`
+
+- Vercel returns **502** when the app cannot reach **`NOTAM_SYNC_URL/sync/weather`**, the secret is wrong (upstream **401**), the request times out (120s), or the upstream body is not valid JSON.
+- In DevTools → **Network**, open the failed `weather` request and read the JSON **`error`** and **`detail`** (the portal shows them in the UI).
+- Confirm **`NOTAM_SYNC_URL`** is reachable from the public internet (correct scheme, host, port) and matches the NOTAM sync process that exposes **`GET /sync/weather`**.
+- Confirm **`NOTAM_SYNC_SECRET`** in Vercel matches **`SYNC_SECRET`** on EC2.
+
 ### PDF Viewer shows blank or "PDF loading…"
 
-- The PDF is not yet on S3. Sync the AIP first and wait for the `PDF uploaded to S3…` step.
-- If sync completed but PDF viewer is still blank: check that `/api/aip/ead/pdf?icao=XXXX` returns a PDF (open it directly in the browser).
+- The PDF is not yet on S3. Sync the AIP first and wait for the `PDF uploaded to S3…` step (or wait for the portal to detect the file via `HEAD` on `/api/aip/ead/pdf`).
+- The viewer uses **`/api/aip/ead/pdf?icao=XXXX&inline=1`** so the browser displays the PDF instead of forcing a download.
+- If sync completed but PDF viewer is still blank: open `/api/aip/ead/pdf?icao=XXXX&inline=1` directly; check S3 key `aip/ead-pdf/{ICAO}.pdf` and IAM `s3:GetObject`.
+
+### AIP sync shows "Error 402 — Insufficient API credits"
+
+- OpenRouter returned **402** (out of credits). Add credits at [openrouter.ai/settings/credits](https://openrouter.ai/settings/credits) or switch model/provider on the EC2 AIP sync host (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`).
 
 ### GEN page shows "No GEN content yet" after sync
 
@@ -528,8 +546,12 @@ curl "http://localhost:3001/sync/weather?icao=EVRA&secret=YOUR_SECRET"
 
 ### Stats not saving for corporate users
 
-- Verify `SUPABASE_SERVICE_ROLE_KEY` is set — it is needed to look up the session and write to `search_events`.
+- Verify `SUPABASE_SERVICE_ROLE_KEY` is set — it is needed to look up the session **and** insert into `search_events` (RLS blocks anon for corporate `user_id` values).
 - Verify the `device_profiles` and `user_sessions` tables exist (run `docs/corporate-auth-schema.sql`).
+
+### Corporate Settings / preferences fail or FK errors on `user_preferences`
+
+- Run **`docs/supabase-device-profile-preferences.sql`**. Corporate accounts must use **`device_profile_preferences`**, not `user_preferences` (which references `auth.users`).
 
 ---
 
@@ -538,6 +560,7 @@ curl "http://localhost:3001/sync/weather?icao=EVRA&secret=YOUR_SECRET"
 Before going live, verify:
 
 - [ ] `docs/corporate-auth-schema.sql` run in Supabase SQL Editor
+- [ ] `docs/supabase-device-profile-preferences.sql` run in Supabase SQL Editor (corporate prefs)
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` added to Vercel env vars
 - [ ] `WEATHER_S3_PREFIX` added to Vercel env vars (optional, defaults to `weather`)
 - [ ] NOTAM sync server restarted on EC2 (picks up `/sync/weather`)

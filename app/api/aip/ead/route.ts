@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -90,33 +92,48 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Read user's AIP model preference (no default — user must choose in Settings)
+  // Read user's AIP model preference (corporate → device_profile_preferences; else user_preferences)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   let userAipModel: string | null = null;
-  
+
   if (url && anonKey) {
     try {
       const cookieStore = cookies();
-      const supabase = createServerClient(url, anonKey, {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll() {},
-        },
-      });
+      const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
+      const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: prefs } = await supabase
-          .from("user_preferences")
-          .select("aip_model")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        if (prefs?.aip_model) {
-          userAipModel = prefs.aip_model;
+      if (corporateSession?.device_profile_id) {
+        const admin = createSupabaseServiceRoleClient();
+        if (admin) {
+          const { data: prefs } = await admin
+            .from("device_profile_preferences")
+            .select("aip_model")
+            .eq("device_profile_id", corporateSession.device_profile_id)
+            .maybeSingle();
+          if (prefs?.aip_model) userAipModel = prefs.aip_model;
+        }
+      } else {
+        const supabase = createServerClient(url, anonKey, {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
+            setAll() {},
+          },
+        });
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const admin = createSupabaseServiceRoleClient();
+          const db = admin ?? supabase;
+          const { data: prefs } = await db
+            .from("user_preferences")
+            .select("aip_model")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (prefs?.aip_model) userAipModel = prefs.aip_model;
         }
       }
     } catch (e) {
@@ -145,11 +162,22 @@ export async function GET(request: NextRequest) {
         },
       });
     }
-    const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; airports?: unknown[]; done?: boolean };
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      detail?: string;
+      code?: number;
+      airports?: unknown[];
+      done?: boolean;
+    };
     if (!res.ok) {
+      const code = typeof data.code === "number" ? data.code : undefined;
+      let status = 502;
+      if (res.status === 401) status = 401;
+      else if (res.status === 402 || code === 402) status = 402;
+      else if (res.status >= 400 && res.status < 600) status = res.status;
       return NextResponse.json(
-        { error: data.error ?? "Sync failed", detail: data.detail },
-        { status: res.status === 401 ? 401 : 502 }
+        { error: data.error ?? "Sync failed", detail: data.detail, ...(code !== undefined ? { code } : {}) },
+        { status }
       );
     }
     const airports = Array.isArray(data.airports) ? data.airports : [];

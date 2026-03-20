@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+
+const PREF_SELECT =
+  "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at";
+const PREF_POST_SELECT =
+  "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at";
 
 export async function GET() {
   try {
@@ -31,26 +37,50 @@ export async function GET() {
       : await supabase.auth.getUser();
 
     const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
-    if (disableAuthForTesting && (userErr || !user)) {
-      // In test mode, allow portal UI to render without a session.
+    if (disableAuthForTesting && (userErr || !user) && !corporateSession) {
       return NextResponse.json({ preferences: {} });
     }
 
-    const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
-    if (userErr || !identityId) {
+    const isCorporate = Boolean(corporateSession?.device_profile_id);
+    const userId = user?.id ?? null;
+    const deviceProfileId = corporateSession?.device_profile_id ?? null;
+
+    if ((!isCorporate && (userErr || !userId)) || (isCorporate && !deviceProfileId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    const admin = createSupabaseServiceRoleClient();
+    if (isCorporate) {
+      if (!admin) {
+        return NextResponse.json(
+          {
+            error: "Server misconfigured",
+            detail: "SUPABASE_SERVICE_ROLE_KEY is required for corporate account preferences.",
+          },
+          { status: 503 }
+        );
+      }
+      const { data, error } = await admin
+        .from("device_profile_preferences")
+        .select(PREF_SELECT)
+        .eq("device_profile_id", deviceProfileId!)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ preferences: data });
+    }
+
+    // Supabase auth user
+    const db = admin ?? supabase;
+    const { data, error } = await db
       .from("user_preferences")
-      .select(
-        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at"
-      )
-      .eq("user_id", identityId)
+      .select(PREF_SELECT)
+      .eq("user_id", userId!)
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
-      // PGRST116 = no rows returned (expected for first-time users)
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -89,8 +119,12 @@ export async function POST(request: Request) {
     } = corporateSession
       ? { data: { user: null }, error: null }
       : await supabase.auth.getUser();
-    const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
-    if (userErr || !identityId) {
+
+    const isCorporate = Boolean(corporateSession?.device_profile_id);
+    const userId = user?.id ?? null;
+    const deviceProfileId = corporateSession?.device_profile_id ?? null;
+
+    if ((!isCorporate && (userErr || !userId)) || (isCorporate && !deviceProfileId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -106,22 +140,51 @@ export async function POST(request: Request) {
       notify_gen?: boolean;
     };
 
-    // Build update object with only provided fields
-    const updates: {
-      user_id: string;
-      display_name?: string | null;
-      aip_model?: string;
-      gen_model?: string;
-      notify_enabled?: boolean;
-      notify_search_start?: boolean;
-      notify_search_end?: boolean;
-      notify_notam?: boolean;
-      notify_aip?: boolean;
-      notify_gen?: boolean;
-    } = {
-      user_id: identityId,
-    };
+    const admin = createSupabaseServiceRoleClient();
+    if (isCorporate) {
+      if (!admin) {
+        return NextResponse.json(
+          {
+            error: "Server misconfigured",
+            detail: "SUPABASE_SERVICE_ROLE_KEY is required for corporate account preferences.",
+          },
+          { status: 503 }
+        );
+      }
+      const updates: Record<string, unknown> = {
+        device_profile_id: deviceProfileId,
+      };
+      if (body.display_name !== undefined) {
+        updates.display_name = body.display_name.trim() || null;
+      }
+      if (body.aip_model?.trim()) {
+        updates.aip_model = body.aip_model.trim();
+      }
+      if (body.gen_model?.trim()) {
+        updates.gen_model = body.gen_model.trim();
+      }
+      if (typeof body.notify_enabled === "boolean") updates.notify_enabled = body.notify_enabled;
+      if (typeof body.notify_search_start === "boolean") updates.notify_search_start = body.notify_search_start;
+      if (typeof body.notify_search_end === "boolean") updates.notify_search_end = body.notify_search_end;
+      if (typeof body.notify_notam === "boolean") updates.notify_notam = body.notify_notam;
+      if (typeof body.notify_aip === "boolean") updates.notify_aip = body.notify_aip;
+      if (typeof body.notify_gen === "boolean") updates.notify_gen = body.notify_gen;
 
+      const { data, error } = await admin
+        .from("device_profile_preferences")
+        .upsert(updates, { onConflict: "device_profile_id" })
+        .select(PREF_POST_SELECT)
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, preferences: data });
+    }
+
+    const updates: Record<string, unknown> = {
+      user_id: userId,
+    };
     if (body.display_name !== undefined) {
       updates.display_name = body.display_name.trim() || null;
     }
@@ -138,12 +201,11 @@ export async function POST(request: Request) {
     if (typeof body.notify_aip === "boolean") updates.notify_aip = body.notify_aip;
     if (typeof body.notify_gen === "boolean") updates.notify_gen = body.notify_gen;
 
-    const { data, error } = await supabase
+    const db = admin ?? supabase;
+    const { data, error } = await db
       .from("user_preferences")
       .upsert(updates, { onConflict: "user_id" })
-      .select(
-        "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at"
-      )
+      .select(PREF_POST_SELECT)
       .single();
 
     if (error) {

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Run on NOTAM EC2 (SSH in first). Loads .env from project root and starts the NOTAM sync server.
+# Run on NOTAM EC2 (SSH in first). Loads .env from project root and starts the sync server.
+# Split-mode note:
+# - For NOTAM-only, set SYNC_SERVER_MODE=notam and NOTAM_SYNC_PORT before running.
+# - If SYNC_SERVER_MODE is unset, notam-sync-server default is mode=all (NOTAM + weather).
 # Usage (all on EC2):
 #   cd ~/clearway-2 && git pull
 #   tmux new -s notam

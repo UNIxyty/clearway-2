@@ -41,7 +41,10 @@ Create the policy **first**, then create the role and attach that policy (no “
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject"],
-      "Resource": "arn:aws:s3:::myapp-notams-prod/notams/*"
+      "Resource": [
+        "arn:aws:s3:::myapp-notams-prod/notams/*",
+        "arn:aws:s3:::myapp-notams-prod/weather/*"
+      ]
     }
   ]
 }
@@ -200,7 +203,7 @@ Then the object key will be `my-notams/DBBB.json`. The portal’s `AWS_NOTAMS_PR
 
 ## Step 5b: Run the sync server on EC2 (live sync when user requests an ICAO)
 
-So that **each time a user enters an ICAO in the portal**, the app triggers the scraper on EC2 and returns fresh data from the FAA:
+So that **each time a user enters an ICAO in the portal**, the app can trigger live sync on EC2 for NOTAM (`/sync`) and weather (`/sync/weather`) and return fresh data:
 
 1. On the EC2 instance, set env and start the sync server (same bucket and CrewBriefing credentials as in Step 5):
 
@@ -217,34 +220,68 @@ export CREWBRIEFING_PASSWORD=your-crewbriefing-password
 node scripts/notam-sync-server.mjs
 ```
 
-The server listens on port **3001** (or set `NOTAM_SYNC_PORT`). By default it runs the **CrewBriefing** scraper (`scripts/crewbriefing-notams.mjs`). Set `NOTAM_SCRAPER=faa` to use the FAA scraper instead. It accepts `GET /sync?icao=XXXX`; when called, it runs the NOTAM scraper for that ICAO and returns the result (or 502 on failure).
+The server listens on port **3001** by default (or set `NOTAM_SYNC_PORT`). It accepts:
+- `GET /sync?icao=XXXX` for NOTAM sync
+- `GET /sync/weather?icao=XXXX` for weather sync
 
-2. **Keep it running:** use `tmux` (same pattern as AIP sync server).
+`SYNC_SERVER_MODE` controls enabled routes:
+- `all` (default): NOTAM + weather in one process
+- `notam`: only `/sync`
+- `weather`: only `/sync/weather`
 
-**Start a new tmux session:**
+2. **Keep it running with `tmux`** (recommended).
+
+**Option A - one process for both NOTAM + weather (`SYNC_SERVER_MODE=all`, default):**
 ```bash
-tmux new -s notam
-```
-Your prompt looks the same, but you're now inside tmux.
-
-**Go to the project and set env (if needed):**
-```bash
+tmux new -s sync-all
 cd ~/clearway-2
-export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 CHROME_CHANNEL=chrome
+export SYNC_SECRET=your-secret
+export SYNC_SERVER_MODE=all
 export CREWBRIEFING_USER=xxx CREWBRIEFING_PASSWORD=xxx
-```
-
-**Start the server (foreground inside tmux):**
-```bash
 node scripts/notam-sync-server.mjs
 ```
-Then **detach:** Ctrl+B then D. Reattach: `tmux attach -t notam`.
+Detach with **Ctrl+B, D**. Reattach: `tmux attach -t sync-all`.
 
-**Alternatively:** put vars in `.env` and run `./scripts/run-notam-sync-server.sh` (it loads `.env` and runs the server).
+**Option B - split into two tmux sessions (two CrewBriefing users on one IP):**
 
-3. **Expose the server to the internet** so Vercel can call it: open port 3001 in the EC2 security group (Source: 0.0.0.0/0 or your Vercel IPs if you prefer). The sync URL will be `http://EC2-PUBLIC-IP:3001` (or use a domain + reverse proxy if you have one).
+**tmux 1: NOTAM-only (port 3001)**
+```bash
+tmux new -s notam
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 CHROME_CHANNEL=chrome
+export SYNC_SECRET=notam-secret
+export NOTAM_SYNC_PORT=3001
+export SYNC_SERVER_MODE=notam
+export CREWBRIEFING_USER=notam_user CREWBRIEFING_PASSWORD=notam_pass
+node scripts/notam-sync-server.mjs
+```
 
-4. In **Vercel** (Step 6), add **NOTAM_SYNC_URL** and **NOTAM_SYNC_SECRET** so the portal triggers this server when the user requests NOTAMs.
+**tmux 2: weather-only (port 3003)**
+```bash
+tmux new -s weather
+cd ~/clearway-2
+export AWS_S3_BUCKET=myapp-notams-prod AWS_REGION=eu-north-1 CHROME_CHANNEL=chrome
+export SYNC_SECRET=weather-secret
+export NOTAM_SYNC_PORT=3003
+export SYNC_SERVER_MODE=weather
+export CREWBRIEFING_WEATHER_USER=weather_user CREWBRIEFING_WEATHER_PASSWORD=weather_pass
+node scripts/notam-sync-server.mjs
+```
+
+Then **detach:** Ctrl+B then D. Reattach with `tmux attach -t notam` or `tmux attach -t weather`.
+
+**Alternatively:** put vars in `.env` and run:
+- `./scripts/run-notam-sync-server.sh` for default/all mode or explicit NOTAM mode
+- `./scripts/run-weather-sync-server.sh` for weather-only mode on `${WEATHER_SYNC_PORT:-3003}`
+
+3. **Expose the server port(s)** so Vercel can call them: open TCP **3001** (and **3003** if split mode) in the EC2 security group.
+   - Single-process URL: `http://EC2-PUBLIC-IP:3001`
+   - Split-mode URLs: `NOTAM_SYNC_URL=http://EC2-PUBLIC-IP:3001` and `WEATHER_SYNC_URL=http://EC2-PUBLIC-IP:3003`
+
+4. In **Vercel** (Step 6), add:
+   - `NOTAM_SYNC_URL` + `NOTAM_SYNC_SECRET`
+   - `WEATHER_SYNC_URL` + `WEATHER_SYNC_SECRET` (for split mode; if omitted, weather falls back to NOTAM sync host/secret)
 
 ---
 
@@ -276,7 +313,7 @@ So that `/api/notams?icao=DBBB` can trigger a live scrape and read from S3:
 
 Do this in the AWS Console so Vercel can read NOTAMs from your S3 bucket.
 
-**If you already have a user:** IAM → **Users** → click the user name → **Security credentials** tab → **Access keys** → **Create access key** → choose “Application running outside AWS” or “CLI” → **Next** → **Create access key**, then copy the Access key ID and Secret access key into Vercel as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Make sure that user has a policy allowing `s3:GetObject` on `arn:aws:s3:::YOUR-BUCKET/notams/*` (attach the policy from step 3 below if not).
+**If you already have a user:** IAM → **Users** → click the user name → **Security credentials** tab → **Access keys** → **Create access key** → choose “Application running outside AWS” or “CLI” → **Next** → **Create access key**, then copy the Access key ID and Secret access key into Vercel as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Make sure that user has a policy allowing `s3:GetObject` on both `arn:aws:s3:::YOUR-BUCKET/notams/*` and `arn:aws:s3:::YOUR-BUCKET/weather/*` (attach the policy from step 3 below if not).
 
 **To create a new user and key:**
 
@@ -292,7 +329,10 @@ Do this in the AWS Console so Vercel can read NOTAMs from your S3 bucket.
        {
          "Effect": "Allow",
          "Action": "s3:GetObject",
-         "Resource": "arn:aws:s3:::myapp-notams-prod/notams/*"
+         "Resource": [
+           "arn:aws:s3:::myapp-notams-prod/notams/*",
+           "arn:aws:s3:::myapp-notams-prod/weather/*"
+         ]
        }
      ]
    }
@@ -387,6 +427,17 @@ If the EC2 instance shows **2/3 checks passed** or **Instance status check faile
 
 ---
 
+### "Could not load credentials from any providers"
+
+This means the AWS SDK cannot find valid credentials in the current runtime.
+
+1. **On EC2 (recommended):** attach the instance profile role from Step 2 and restart your shell/server process so it picks up role credentials.
+2. **On Vercel:** set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (IAM user from Step 6a), then redeploy.
+3. **Region check:** ensure `AWS_REGION` matches your bucket region.
+4. **Bucket var check:** this error is different from `AWS_S3_BUCKET not set`.
+   - If you see `AWS_S3_BUCKET not set`, set `AWS_S3_BUCKET` in the same EC2 shell/tmux where scraper/sync runs.
+   - In Vercel, set `AWS_NOTAMS_BUCKET` for portal reads from S3.
+
 ### S3 bucket is empty
 
 The scraper only uploads when (1) it runs to the end without crashing, and (2) `AWS_S3_BUCKET` is set in the same shell where you run it. Check the following:
@@ -417,7 +468,7 @@ When you press **Sync**, the portal calls your EC2 sync server to run a fresh sc
    export AWS_S3_BUCKET=your-bucket AWS_REGION=us-east-1 CHROME_CHANNEL=chrome SYNC_SECRET=your-secret
    node scripts/notam-sync-server.mjs
    ```
-   You should see: `NOTAM sync server listening on port 3001 | scraper: scripts/crewbriefing-notams.mjs`. Set `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD` in the same shell so the scraper can log in.
+  You should see a startup line like: `Sync server listening on port 3001 | mode: all ...`. Set `CREWBRIEFING_USER` and `CREWBRIEFING_PASSWORD` in the same shell so the scraper can log in.
 
 2. **Port 3001 is open** – In EC2 → Security groups → your instance’s group → Inbound rules: allow **TCP 3001** from **0.0.0.0/0** (or your Vercel region IPs if you prefer).
 
@@ -464,7 +515,8 @@ After changing anything, redeploy the Vercel app so env vars are applied. When s
 |----------|----------|---------|---------|
 | `AWS_S3_BUCKET` | Yes (for upload) | `myapp-notams-prod` | Bucket where NOTAM JSON is stored. |
 | `AWS_REGION` | No | `us-east-1` | Default `us-east-1`. |
-| `AWS_S3_PREFIX` | No | `notams` | Key prefix; default `notams` → `notams/ICAO.json`. |
+| `AWS_S3_PREFIX` | No | `notams` | NOTAM key prefix; default `notams` → `notams/ICAO.json`. |
+| `WEATHER_S3_PREFIX` | No | `weather` | Weather key prefix; default `weather` → `weather/ICAO.json`. |
 | `USE_HEADED` | Recommended | `1` | Run Chrome with virtual display (use with Xvfb). |
 | `CHROME_CHANNEL` | No | `chrome` | Use system Chrome instead of Playwright Chromium. |
 | `CREWBRIEFING_USER` | Yes (CrewBriefing) | (username) | CrewBriefing login (default scraper). |
@@ -475,19 +527,24 @@ After changing anything, redeploy the Vercel app so env vars are applied. When s
 
 | Variable | Required | Example | Purpose |
 |----------|----------|---------|---------|
-| `SYNC_SECRET` | Recommended | (long random string) | Secret for `/sync`; Vercel sends it in `X-Sync-Secret`. |
+| `SYNC_SECRET` | Recommended | (long random string) | Secret for sync endpoints; sent in `X-Sync-Secret`. |
 | `NOTAM_SYNC_PORT` | No | `3001` | Port the sync server listens on (default 3001). |
-| `CREWBRIEFING_USER` / `CREWBRIEFING_PASSWORD` | Yes (if using CrewBriefing) | (same as scraper) | Passed through to the scraper when sync runs. |
+| `SYNC_SERVER_MODE` | No | `all` | `all` (default), `notam`, or `weather` to control enabled routes. |
+| `AWS_S3_BUCKET` | Yes | `myapp-notams-prod` | Bucket used for sync server S3 read/write. |
+| `CREWBRIEFING_USER` / `CREWBRIEFING_PASSWORD` | Yes (CrewBriefing) | (username/password) | NOTAM login (and weather fallback if weather-specific vars are unset). |
+| `CREWBRIEFING_WEATHER_USER` / `CREWBRIEFING_WEATHER_PASSWORD` | No | (weather account) | Weather-specific login for `/sync/weather`; falls back to `CREWBRIEFING_*` if omitted. |
 
 **On Vercel / Next.js (portal):**
 
 | Variable | Required | Example | Purpose |
 |----------|----------|---------|---------|
-| `AWS_NOTAMS_BUCKET` | Yes (to use S3) | `myapp-notams-prod` | Same bucket as scraper. |
+| `AWS_NOTAMS_BUCKET` | Yes (to use S3) | `myapp-notams-prod` | Same bucket as scraper/sync server. |
 | `AWS_REGION` | No | `us-east-1` | Must match bucket region. |
-| `NOTAM_SYNC_URL` | For live sync | `http://EC2-IP:3001` | Base URL of EC2 sync server (no trailing slash). |
-| `NOTAM_SYNC_SECRET` | If SYNC_SECRET set on EC2 | (same as SYNC_SECRET) | Sent as `X-Sync-Secret` when calling sync. |
+| `NOTAM_SYNC_URL` | For NOTAM live sync | `http://EC2-IP:3001` | Base URL for NOTAM sync (`/sync`). |
+| `NOTAM_SYNC_SECRET` | If `SYNC_SECRET` set on NOTAM host | (same as SYNC_SECRET) | Sent as `X-Sync-Secret` for NOTAM sync calls. |
+| `WEATHER_SYNC_URL` | Optional (recommended for split mode) | `http://EC2-IP:3003` | Base URL for weather sync (`/sync/weather`). If unset, weather uses `NOTAM_SYNC_URL`. |
+| `WEATHER_SYNC_SECRET` | Optional | (weather secret) | Secret for weather sync host. If unset, weather uses `NOTAM_SYNC_SECRET`. |
 | `AWS_NOTAMS_PREFIX` | No | `notams` | Must match `AWS_S3_PREFIX` if you changed it. |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | If not using IAM role | (from IAM user) | Needed for Vercel to read from S3 (fallback). |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | If not using IAM role | (from IAM user) | Needed for Vercel to read from S3 (`notams/*` and `weather/*`). |
 
 When `NOTAM_SYNC_URL` is set, each request for NOTAMs (e.g. user enters DBBB) triggers the scraper on EC2 and returns fresh data. If sync fails, the API falls back to reading from S3.

@@ -375,7 +375,7 @@ Open **both ports** in the EC2 security group.
 
 **Port already in use:** the server listens on **`NOTAM_SYNC_PORT`** (default **3001**). If something else owns 3001, either stop that process (`sudo ss -tlnp | grep 3001`) or choose a free port, e.g. `export NOTAM_SYNC_PORT=3004`, and set **`NOTAM_SYNC_URL`** / **`WEATHER_SYNC_URL`** to match (`http://EC2-IP:3004`).
 
-See also **`docs/LOCAL-NOTAM-WEATHER.md`** for env details.
+See also **`docs/LOCAL-NOTAM-WEATHER.md`** for local split-run details, and **`scripts/NOTAM-AWS-SETUP.md`** for full EC2 IAM + security-group + Vercel setup.
 
 Verify it started:
 

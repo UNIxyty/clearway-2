@@ -44,6 +44,30 @@ const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").
 
 // How long to wait for the AIP loading UI to appear after clicking sync (ms).
 const AIP_LOADING_TIMEOUT_MS = Number(process.env.AIP_LOADING_TIMEOUT_MS || 10000);
+/** First EAD visit auto-starts sync — Sync stays disabled until that finishes or errors. */
+const AIP_SYNC_READY_TIMEOUT_MS = Number(process.env.AIP_SYNC_READY_TIMEOUT_MS || 120000);
+
+/**
+ * EAD portal auto-fetches AIP with sync=1 when there is no cache, so the Sync button
+ * is disabled until that run ends. Wait until loading UI is visible (auto path) or
+ * the button becomes enabled (idle / cache hit).
+ * @returns {"auto"|"click"}
+ */
+async function waitForAipSyncClickableOrLoading(page, timeoutMs = AIP_SYNC_READY_TIMEOUT_MS) {
+  const syncButton = page.locator('button[title*="Sync: fetch from EC2"]').first();
+  const loading = page.getByText(/Syncing AIP from server|Loading AIP/i).first();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await loading.isVisible().catch(() => false)) return "auto";
+    if ((await syncButton.isVisible().catch(() => false)) && (await syncButton.isEnabled().catch(() => false))) {
+      return "click";
+    }
+    await page.waitForTimeout(300);
+  }
+  throw new Error(
+    `AIP: sync button stayed disabled and no loading UI within ${timeoutMs}ms (auto-sync stuck or UI changed).`,
+  );
+}
 
 const MAGIC_LINK_FILE = join(OUTPUT_DIR, "magic-link.txt");
 
@@ -245,18 +269,33 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
       if (!syncButtonVisible) {
         result.errors.push("AIP check failed: sync button not found.");
       } else {
-        await syncButton.click();
-        const loadingSeen = await Promise.race([
-          page.getByText("Syncing AIP from server", { exact: false }).first()
-            .waitFor({ state: "visible", timeout: AIP_LOADING_TIMEOUT_MS })
-            .then(() => true).catch(() => false),
-          page.getByText("Loading AIP", { exact: false }).first()
-            .waitFor({ state: "visible", timeout: AIP_LOADING_TIMEOUT_MS })
-            .then(() => true).catch(() => false),
-        ]);
+        const mode = await waitForAipSyncClickableOrLoading(page, AIP_SYNC_READY_TIMEOUT_MS);
+        if (mode === "click") {
+          await syncButton.click();
+        }
+        // Auto path: loading already visible. Click path: wait for loading after click.
+        const loadingSeen =
+          mode === "auto"
+            ? true
+            : await Promise.race([
+                page
+                  .getByText("Syncing AIP from server", { exact: false })
+                  .first()
+                  .waitFor({ state: "visible", timeout: AIP_LOADING_TIMEOUT_MS })
+                  .then(() => true)
+                  .catch(() => false),
+                page
+                  .getByText("Loading AIP", { exact: false })
+                  .first()
+                  .waitFor({ state: "visible", timeout: AIP_LOADING_TIMEOUT_MS })
+                  .then(() => true)
+                  .catch(() => false),
+              ]);
         result.checks.aip.pass = Boolean(loadingSeen);
         if (!loadingSeen) {
-          result.errors.push(`AIP check failed: loading UI did not appear within ${AIP_LOADING_TIMEOUT_MS / 1000}s after clicking sync.`);
+          result.errors.push(
+            `AIP check failed: loading UI did not appear within ${AIP_LOADING_TIMEOUT_MS / 1000}s after sync became clickable.`,
+          );
         }
       }
     } catch (error) {

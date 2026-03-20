@@ -57,7 +57,8 @@ npm run test:e2e:aip
 |---|---|---|
 | `MAX_AIRPORTS` | `0` (all) | Limit airports for a trial run |
 | `COUNTRY_FILTER` | `""` | Filter by country name (partial match) |
-| `AIP_LOADING_TIMEOUT_MS` | `10000` | How long to wait for loading UI (ms) |
+| `AIP_LOADING_TIMEOUT_MS` | `10000` | How long to wait for loading UI after a manual sync click (ms) |
+| `AIP_SYNC_READY_TIMEOUT_MS` | `120000` | Max wait for auto AIP sync to start or the Sync button to enable (first visit has no cache, so Sync stays disabled until auto-sync begins or finishes) |
 | `HEADLESS` | `true` | Set to `false` to watch the browser |
 | `PORTAL_URL` | `http://localhost:3000` | Portal URL to test |
 | `DISABLE_AUTH_FOR_TESTING` | — | Set to `true` to skip login |
@@ -90,7 +91,7 @@ Webhook sent successfully.
 |---|---|
 | PASS | AIP loading UI appeared — airport's AIP card is working |
 | FAIL (page load) | Airport card did not render — check portal is running |
-| FAIL (AIP loading UI) | Sync button found but loading state never appeared — AIP sync server may be down, or airport has no EAD document |
+| FAIL (AIP loading UI) | Sync stayed disabled with no loading UI for `AIP_SYNC_READY_TIMEOUT_MS` (stuck auto-sync), or after a click loading never appeared — check AIP EC2 sync server |
 
 ## Troubleshooting
 
@@ -98,8 +99,10 @@ Webhook sent successfully.
 - Verify portal is running: `curl http://localhost:3000`
 - Check that `AIP (EAD) — XXXX` heading still renders for EAD airports in the portal UI
 
-**Many FAIL with timeout:**
-- Increase timeout: `AIP_LOADING_TIMEOUT_MS=15000 node scripts/e2e-aip-test.mjs`
+**Many FAIL with “sync button … disabled” or timeout:**
+- The portal **auto-starts** AIP sync on first open of an airport (no cache); the Sync button is disabled until that run starts or ends. The script waits up to `AIP_SYNC_READY_TIMEOUT_MS` (default 2 min).
+- Increase if EC2 sync is slow: `AIP_SYNC_READY_TIMEOUT_MS=180000 node scripts/e2e-aip-test.mjs`
+- After sync is clickable, loading detection still uses: `AIP_LOADING_TIMEOUT_MS=15000 node scripts/e2e-aip-test.mjs`
 - Check AIP sync server is running if you expect it to respond: `tmux attach -t aip-sync`
 
 **Report not generated:**

@@ -188,6 +188,28 @@ async function waitForQuiet(page, busyTexts, timeout = 60000) {
   return false;
 }
 
+const AIP_SYNC_READY_TIMEOUT_MS = Number(process.env.AIP_SYNC_READY_TIMEOUT_MS || 120000);
+
+/**
+ * EAD auto-starts AIP sync on first select (no cache) — Sync is disabled until idle.
+ * @returns {"auto"|"click"}
+ */
+async function waitForAipSyncClickableOrLoading(page, timeoutMs = AIP_SYNC_READY_TIMEOUT_MS) {
+  const syncButton = page.locator('button[title*="Sync: fetch from EC2"]').first();
+  const loading = page.getByText(/Syncing AIP from server|Loading AIP/i).first();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await loading.isVisible().catch(() => false)) return "auto";
+    if ((await syncButton.isVisible().catch(() => false)) && (await syncButton.isEnabled().catch(() => false))) {
+      return "click";
+    }
+    await page.waitForTimeout(300);
+  }
+  throw new Error(
+    `AIP: sync button stayed disabled and no loading UI within ${timeoutMs}ms (auto-sync stuck or UI changed).`,
+  );
+}
+
 async function runOneAirport(page, airport, country, screenshotRoot) {
   const icao = String(airport?.icao || "").toUpperCase();
   const result = {
@@ -245,11 +267,11 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
   }
 
   try {
-    const notamSyncButton = page.locator('button[title*="Sync now: scrape FAA"]').first();
+    const notamSyncButton = page.locator('button[title*="Refresh NOTAMs"], button[title*="Sync now: scrape FAA"]').first();
     if (await notamSyncButton.count()) {
       await notamSyncButton.click();
       // CrewBriefing/FAA sync can take up to ~2 minutes on slower instances.
-      await waitForQuiet(page, ["Syncing live from FAA", "Loading NOTAMs"], 120000);
+      await waitForQuiet(page, ["Syncing live from FAA", "Loading NOTAMs", "Loading steps"], 120000);
       const unavailable = await page.getByText("NOTAMs unavailable", { exact: false }).first().isVisible().catch(() => false);
       if (unavailable) {
         const detail = await page.locator("p.text-xs.text-muted-foreground.break-words").first().textContent().catch(() => "");
@@ -270,7 +292,10 @@ async function runOneAirport(page, airport, country, screenshotRoot) {
   if (result.isEad) {
     try {
       const aipSyncButton = page.locator('button[title*="Sync: fetch from EC2"]').first();
-      await aipSyncButton.click();
+      const mode = await waitForAipSyncClickableOrLoading(page, AIP_SYNC_READY_TIMEOUT_MS);
+      if (mode === "click") {
+        await aipSyncButton.click();
+      }
       await waitForQuiet(page, ["Syncing AIP from server", "Loading AIP"], 70000);
       const aipError = await page.locator("text=/No AI model selected|Sync failed|AIP sync request failed/").first().isVisible().catch(() => false);
       const downloadReady = await page.locator('button[title*="Download current AIP PDF"]').first().isEnabled().catch(() => false);

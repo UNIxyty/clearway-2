@@ -373,6 +373,8 @@ node scripts/notam-sync-server.mjs
 
 Open **both ports** in the EC2 security group.
 
+**Port already in use:** the server listens on **`NOTAM_SYNC_PORT`** (default **3001**). If something else owns 3001, either stop that process (`sudo ss -tlnp | grep 3001`) or choose a free port, e.g. `export NOTAM_SYNC_PORT=3004`, and set **`NOTAM_SYNC_URL`** / **`WEATHER_SYNC_URL`** to match (`http://EC2-IP:3004`).
+
 See also **`docs/LOCAL-NOTAM-WEATHER.md`** for env details.
 
 Verify it started:
@@ -381,11 +383,7 @@ Verify it started:
 tmux attach -t notam-sync
 ```
 
-Expected output:
-
-```
-NOTAM sync server listening on port 3001 | scraper: scripts/crewbriefing-notams.mjs
-```
+Expected output includes your port and mode, e.g. `Sync server listening on port 3001 | mode: notam | NOTAM: true | weather: false`.
 
 ### 5c. Restart the AIP Sync Server on EC2
 

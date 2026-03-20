@@ -2,18 +2,20 @@
 
 `scripts/notam-sync-server.mjs` serves:
 
-- **`GET /sync`** — NOTAM scrape  
-- **`GET /sync/weather`** — weather scrape  
+- `**GET /sync**` — NOTAM scrape  
+- `**GET /sync/weather**` — weather scrape
 
-Use **`SYNC_SERVER_MODE`** to run **only** NOTAM or **only** weather on different ports (two processes / two tmux — two CrewBriefing users on one IP).
+Use `**SYNC_SERVER_MODE**` to run **only** NOTAM or **only** weather on different ports (two processes / two tmux — two CrewBriefing users on one IP).
 
-| `SYNC_SERVER_MODE` | Routes |
-|--------------------|--------|
-| `all` (default) | `/sync` + `/sync/weather` |
-| `notam` | `/sync` only |
-| `weather` | `/sync/weather` only |
 
-Weather login: set **`CREWBRIEFING_WEATHER_USER`** / **`CREWBRIEFING_WEATHER_PASSWORD`** on the weather process if different from NOTAM; otherwise it falls back to **`CREWBRIEFING_USER`** / **`CREWBRIEFING_PASSWORD`**.
+| `SYNC_SERVER_MODE` | Routes                    |
+| ------------------ | ------------------------- |
+| `all` (default)    | `/sync` + `/sync/weather` |
+| `notam`            | `/sync` only              |
+| `weather`          | `/sync/weather` only      |
+
+
+Weather login: set `**CREWBRIEFING_WEATHER_USER`** / `**CREWBRIEFING_WEATHER_PASSWORD**` on the weather process if different from NOTAM; otherwise it falls back to `**CREWBRIEFING_USER**` / `**CREWBRIEFING_PASSWORD**`.
 
 ---
 
@@ -51,8 +53,8 @@ WEATHER_SYNC_URL=http://127.0.0.1:3003
 WEATHER_SYNC_SECRET=shared-or-weather-secret
 ```
 
-If **`WEATHER_SYNC_URL`** is unset, weather uses **`NOTAM_SYNC_URL`**.  
-If **`WEATHER_SYNC_SECRET`** is unset, weather uses **`NOTAM_SYNC_SECRET`**.
+If `**WEATHER_SYNC_URL**` is unset, weather uses `**NOTAM_SYNC_URL**`.  
+If `**WEATHER_SYNC_SECRET**` is unset, weather uses `**NOTAM_SYNC_SECRET**`.
 
 ---
 
@@ -107,6 +109,29 @@ curl -sS "http://localhost:3000/api/weather?icao=EDDM&sync=1"
 
 ---
 
+## Port 3001 (or any port) already in use
+
+The listen port is **`NOTAM_SYNC_PORT`** (default **3001**). Pick any free port:
+
+```bash
+export NOTAM_SYNC_PORT=3004
+node scripts/notam-sync-server.mjs
+```
+
+Then set **`NOTAM_SYNC_URL`** (or **`WEATHER_SYNC_URL`**) in Vercel to `http://YOUR_HOST:3004` (no trailing `/sync`).
+
+**See what is holding the port (Linux):**
+
+```bash
+sudo ss -tlnp | grep 3001
+# or
+sudo lsof -i :3001
+```
+
+If it is an **old** `notam-sync-server` you no longer need, stop it (Ctrl+C in that tmux window, or `kill <PID>`). If you need **both** the old service and a new one, use a **different** `NOTAM_SYNC_PORT` for the new process and update Vercel.
+
+---
+
 ## Platform note: Linux vs macOS
 
-The sync server uses **`xvfb-run`** (same as EC2). Use **Linux**, **WSL2**, or keep sync on **EC2** and point **`NOTAM_SYNC_URL`** / **`WEATHER_SYNC_URL`** at public IPs + open security group ports **3001** and **3003**.
+The sync server uses `**xvfb-run**` (same as EC2). Use **Linux**, **WSL2**, or keep sync on **EC2** and point `**NOTAM_SYNC_URL`** / `**WEATHER_SYNC_URL**` at public IPs + open security group ports **3001** and **3003**.

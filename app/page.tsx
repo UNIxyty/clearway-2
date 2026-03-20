@@ -744,7 +744,7 @@ function AIPPortalPageInner() {
     if (isSync) {
       setNotamsSyncingIcao(icao);
       setNotamsSyncSteps([]);
-      updateStage(icao, "notam", "running", "Syncing NOTAMs…");
+      updateStage(icao, "notam", "running", "Loading NOTAMs…");
     }
 
     if (isSync) {
@@ -853,7 +853,7 @@ function AIPPortalPageInner() {
     if (isSync) {
       setWeatherSyncingIcao(icao);
       setWeatherSyncSteps([]);
-      updateStage(icao, "weather", "running", "Syncing weather…");
+      updateStage(icao, "weather", "running", "Loading weather…");
     }
 
     if (isSync) {
@@ -1158,7 +1158,7 @@ function AIPPortalPageInner() {
                     className="h-7 px-2 text-muted-foreground hover:text-foreground"
                     onClick={() => requestSyncNotams(viewingAirport.icao)}
                     disabled={notamsLoading}
-                    title="Sync now: scrape FAA and refresh data"
+                    title="Refresh NOTAMs"
                   >
                     <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
                   </Button>
@@ -1169,8 +1169,8 @@ function AIPPortalPageInner() {
                       {notamsSyncing ? (
                         <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
                           <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-primary" />
-                            <span className="text-sm font-medium">Syncing live from FAA…</span>
+                            <Spinner className="size-4 shrink-0 text-muted-foreground" />
+                            <span className="text-sm font-medium">Loading steps…</span>
                           </div>
                           {notamsSyncSteps.length > 0 && (
                             <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
@@ -1180,13 +1180,13 @@ function AIPPortalPageInner() {
                             </ul>
                           )}
                           {notamsSyncSteps.length === 0 && (
-                            <span className="text-xs text-muted-foreground">Starting scraper · can take 1–2 min</span>
+                            <span className="text-xs text-muted-foreground">Starting loading steps · can take 1–2 min</span>
                           )}
                         </div>
                       ) : (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <Spinner className="size-4 shrink-0 text-muted-foreground" />
                             <span>Loading NOTAMs…</span>
                           </div>
                           <div className="space-y-2 section-loading-skeleton">
@@ -1251,7 +1251,7 @@ function AIPPortalPageInner() {
                     className="h-7 px-2 text-muted-foreground hover:text-foreground"
                     onClick={() => requestSyncWeather(viewingAirport.icao)}
                     disabled={weatherLoading}
-                    title="Sync weather from CrewBriefing OPMET"
+                    title="Refresh weather"
                   >
                     <RefreshCwIcon className={`size-3.5 ${weatherLoading ? "animate-spin" : ""}`} />
                   </Button>
@@ -1260,9 +1260,9 @@ function AIPPortalPageInner() {
                   {weatherLoading && (
                     <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
                       <div className="flex items-center gap-2">
-                        <Spinner className="size-4 shrink-0 text-primary" />
+                        <Spinner className="size-4 shrink-0 text-muted-foreground" />
                         <span className="text-sm font-medium">
-                          {weatherSyncing ? "Syncing live from CrewBriefing..." : "Loading weather..."}
+                          {weatherSyncing ? "Loading steps…" : "Loading weather..."}
                         </span>
                       </div>
                       {weatherSyncing && weatherSyncSteps.length > 0 && (
@@ -1271,6 +1271,14 @@ function AIPPortalPageInner() {
                             <li key={i}>{step}</li>
                           ))}
                         </ul>
+                      )}
+                      {weatherSyncing && weatherSyncSteps.length === 0 && (
+                        <div className="space-y-2 section-loading-skeleton">
+                          <div className="h-3 w-full rounded bg-muted" />
+                          <div className="h-3 w-4/5 rounded bg-muted" />
+                          <div className="h-3 w-3/4 rounded bg-muted" />
+                          <div className="h-12 w-full rounded bg-muted mt-2" />
+                        </div>
                       )}
                     </div>
                   )}

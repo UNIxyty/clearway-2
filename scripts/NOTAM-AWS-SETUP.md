@@ -490,6 +490,8 @@ When you press **Sync**, the portal calls your EC2 sync server to run a fresh sc
 
 5. **NOTAM_SYNC_URL** – Must be exactly your EC2 public URL, e.g. `http://13.48.1.100:3001` (no trailing slash, no typo). If you restarted EC2 and the public IP changed, update this and redeploy.
 
+   If the portal shows `502` for `/api/notams` or `/api/weather`, that usually means Vercel cannot reach your EC2 URL/port from env (not a browser CORS issue). Re-check URL + port + security-group ingress.
+
 6. **NOTAM_SYNC_SECRET** – If you set `SYNC_SECRET` on EC2, set the **exact same** value as `NOTAM_SYNC_SECRET` in Vercel (no extra spaces).
 
 After changing anything, redeploy the Vercel app so env vars are applied. When sync is configured correctly, pressing Sync runs the scraper on EC2 and returns fresh data; if something is wrong, the portal now shows a clear error instead of returning cached data.

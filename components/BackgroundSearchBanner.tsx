@@ -100,7 +100,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
                   key={stage}
                   className={`inline-flex h-1.5 w-6 rounded-full ${
                     status === "running"
-                      ? "bg-primary animate-pulse"
+                      ? "bg-muted-foreground/40 animate-pulse"
                       : status === "done"
                         ? "bg-green-500"
                         : status === "error"
@@ -147,7 +147,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
           tabIndex={0}
         >
           <div className="flex items-center gap-2">
-            <PlaneIcon className="size-4 shrink-0 text-primary" />
+            <PlaneIcon className="size-4 shrink-0 text-muted-foreground" />
             <span className="font-semibold text-xs sm:text-sm">{current.icao}</span>
             <span className="text-[10px] text-muted-foreground">-</span>
             <span className="text-[11px] text-muted-foreground truncate">{current.progress}</span>

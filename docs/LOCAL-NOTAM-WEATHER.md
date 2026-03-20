@@ -134,4 +134,8 @@ If it is an **old** `notam-sync-server` you no longer need, stop it (Ctrl+C in t
 
 ## Platform note: Linux vs macOS
 
-The sync server uses `**xvfb-run**` (same as EC2). Use **Linux**, **WSL2**, or keep sync on **EC2** and point `**NOTAM_SYNC_URL`** / `**WEATHER_SYNC_URL**` at public IPs + open security group ports **3001** and **3003**.
+- **Linux (EC2):** `notam-sync-server.mjs` runs scrapers under **`xvfb-run`** (virtual display).
+- **macOS:** **`xvfb-run` is not used** (it is not installed by default). The server runs **`node`** directly with **headless** Playwright (`USE_HEADED` defaults to `0`). You need **Playwright browsers** installed (`npx playwright install chromium` from the repo).
+- To force the same behaviour on Linux (no xvfb): `export SYNC_USE_XVFB=0`.
+
+For production, **EC2 + Linux** is still the intended setup.

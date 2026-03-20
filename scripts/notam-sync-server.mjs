@@ -11,6 +11,9 @@
  *   SYNC_SERVER_MODE=weather → only GET /sync/weather
  *   SYNC_SERVER_MODE=all     → both (default)
  * Weather scraper uses CREWBRIEFING_WEATHER_* if set, else CREWBRIEFING_*.
+ *
+ * macOS / local: no xvfb-run — runs `node` directly with USE_HEADED=0 (headless) unless USE_HEADED=1.
+ * Linux EC2: uses xvfb-run unless SYNC_USE_XVFB=0.
  */
 
 import { createServer } from "http";
@@ -52,18 +55,39 @@ function requireAuth(req) {
   return (header && header === SYNC_SECRET) || (querySecret && querySecret === SYNC_SECRET);
 }
 
-async function runScraper(icao) {
-  const env = {
-    ...process.env,
-    USE_HEADED: "1",
-    CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
-  };
-  return new Promise((resolve, reject) => {
-    const child = spawn(
+/** Linux EC2 uses xvfb-run; macOS and SYNC_USE_XVFB=0 use plain node (headless Playwright). */
+function useXvfb() {
+  if (process.env.SYNC_USE_XVFB === "0" || process.env.SYNC_USE_XVFB === "false") return false;
+  if (process.platform === "darwin") return false;
+  return true;
+}
+
+function buildScraperEnv(forWeather) {
+  const src = forWeather ? envForWeatherScraper(process.env) : process.env;
+  const base = { ...src, CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome" };
+  const defaultHeaded = useXvfb() ? "1" : "0";
+  return { ...base, USE_HEADED: process.env.USE_HEADED ?? defaultHeaded };
+}
+
+function spawnScraperChild(scriptRel, icao, env) {
+  if (useXvfb()) {
+    return spawn(
       "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", SCRAPER_SCRIPT, "--json", icao],
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", scriptRel, "--json", icao],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
+  }
+  return spawn("node", [scriptRel, "--json", icao], {
+    cwd: PROJECT_ROOT,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+async function runScraper(icao) {
+  const env = buildScraperEnv(false);
+  return new Promise((resolve, reject) => {
+    const child = spawnScraperChild(SCRAPER_SCRIPT, icao, env);
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
@@ -97,17 +121,9 @@ async function readFromS3(icao) {
 }
 
 async function runWeatherScraper(icao) {
-  const env = envForWeatherScraper({
-    ...process.env,
-    USE_HEADED: "1",
-    CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
-  });
+  const env = buildScraperEnv(true);
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", WEATHER_SCRIPT, "--json", icao],
-      { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
-    );
+    const child = spawnScraperChild(WEATHER_SCRIPT, icao, env);
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
@@ -191,18 +207,12 @@ const server = createServer(async (req, res) => {
     send({ step: isWeather ? "Starting weather scraper…" : "Starting scraper…" });
 
     const progressFile = join(PROJECT_ROOT, "scripts", `${isWeather ? ".weather-progress" : ".notam-progress"}-${icao}-${Date.now()}`);
-    const baseStreamEnv = {
-      ...process.env,
-      USE_HEADED: "1",
-      CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
+    const env = {
+      ...buildScraperEnv(isWeather),
       ...(isWeather ? { WEATHER_PROGRESS_FILE: progressFile } : { NOTAM_PROGRESS_FILE: progressFile }),
     };
-    const env = isWeather ? envForWeatherScraper(baseStreamEnv) : baseStreamEnv;
-    const child = spawn(
-      "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", isWeather ? WEATHER_SCRIPT : SCRAPER_SCRIPT, "--json", icao],
-      { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
-    );
+    const scriptRel = isWeather ? WEATHER_SCRIPT : SCRAPER_SCRIPT;
+    const child = spawnScraperChild(scriptRel, icao, env);
     let lastProgressSize = 0;
     const pollProgress = () => {
       try {

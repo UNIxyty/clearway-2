@@ -3,6 +3,8 @@
  * Login -> Extra WX -> OPMET tab -> search ICAO -> extract weather text.
  *
  * Env: CREWBRIEFING_USER, CREWBRIEFING_PASSWORD
+ *      Or dedicated weather account: CREWBRIEFING_WEATHER_USER, CREWBRIEFING_WEATHER_PASSWORD
+ *      (second CrewBriefing user on same IP for parallel NOTAM vs weather sync servers)
  *      AWS_S3_BUCKET, AWS_REGION, WEATHER_S3_PREFIX (optional, default "weather")
  *      WEATHER_PROGRESS_FILE (optional progress file for SSE streaming)
  *
@@ -35,10 +37,14 @@ async function main() {
     process.exit(1);
   }
 
-  const user = process.env.CREWBRIEFING_USER || "";
-  const password = process.env.CREWBRIEFING_PASSWORD || "";
+  const user =
+    process.env.CREWBRIEFING_WEATHER_USER || process.env.CREWBRIEFING_USER || "";
+  const password =
+    process.env.CREWBRIEFING_WEATHER_PASSWORD || process.env.CREWBRIEFING_PASSWORD || "";
   if (!user || !password) {
-    console.error("CREWBRIEFING_USER and CREWBRIEFING_PASSWORD must be set.");
+    console.error(
+      "Set CREWBRIEFING_WEATHER_USER/PASSWORD (weather-only server) or CREWBRIEFING_USER/PASSWORD."
+    );
     process.exit(1);
   }
 

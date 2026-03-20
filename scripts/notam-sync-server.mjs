@@ -5,6 +5,12 @@
  *
  * Usage: AWS_S3_BUCKET=your-bucket SYNC_SECRET=your-secret node scripts/notam-sync-server.mjs
  * Port: 3001 (or NOTAM_SYNC_PORT)
+ *
+ * Split NOTAM vs weather (two CrewBriefing users on one IP — two tmux sessions):
+ *   SYNC_SERVER_MODE=notam   → only GET /sync  (NOTAM)
+ *   SYNC_SERVER_MODE=weather → only GET /sync/weather
+ *   SYNC_SERVER_MODE=all     → both (default)
+ * Weather scraper uses CREWBRIEFING_WEATHER_* if set, else CREWBRIEFING_*.
  */
 
 import { createServer } from "http";
@@ -26,6 +32,17 @@ const SCRAPER_SCRIPT =
     ? "scripts/notam-scraper.mjs"
     : "scripts/crewbriefing-notams.mjs";
 const WEATHER_SCRIPT = "scripts/crewbriefing-weather.mjs";
+
+const SYNC_SERVER_MODE = (process.env.SYNC_SERVER_MODE || "all").toLowerCase();
+const ALLOW_NOTAM = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "notam";
+const ALLOW_WEATHER = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "weather";
+
+/** Map weather-specific CrewBriefing env into CREWBRIEFING_USER/PASSWORD for the child process. */
+function envForWeatherScraper(base = process.env) {
+  const user = base.CREWBRIEFING_WEATHER_USER || base.CREWBRIEFING_USER || "";
+  const password = base.CREWBRIEFING_WEATHER_PASSWORD || base.CREWBRIEFING_PASSWORD || "";
+  return { ...base, CREWBRIEFING_USER: user, CREWBRIEFING_PASSWORD: password };
+}
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -80,11 +97,11 @@ async function readFromS3(icao) {
 }
 
 async function runWeatherScraper(icao) {
-  const env = {
+  const env = envForWeatherScraper({
     ...process.env,
     USE_HEADED: "1",
     CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
-  };
+  });
   return new Promise((resolve, reject) => {
     const child = spawn(
       "xvfb-run",
@@ -127,13 +144,26 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
-  const isWeather = url.pathname === "/sync/weather" || url.pathname === "/sync/weather/";
+  const isWeatherPath = url.pathname === "/sync/weather" || url.pathname === "/sync/weather/";
+  const isNotamPath = url.pathname === "/sync" || url.pathname === "/sync/";
 
-  if (!isWeather && url.pathname !== "/sync" && url.pathname !== "/sync/") {
+  if (!isWeatherPath && !isNotamPath) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
     return;
   }
+  if (isWeatherPath && !ALLOW_WEATHER) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found", detail: "Weather disabled (SYNC_SERVER_MODE=notam)" }));
+    return;
+  }
+  if (isNotamPath && !ALLOW_NOTAM) {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found", detail: "NOTAM sync disabled (SYNC_SERVER_MODE=weather)" }));
+    return;
+  }
+
+  const isWeather = isWeatherPath;
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     res.writeHead(400, { "Content-Type": "application/json" });
@@ -161,12 +191,13 @@ const server = createServer(async (req, res) => {
     send({ step: isWeather ? "Starting weather scraper…" : "Starting scraper…" });
 
     const progressFile = join(PROJECT_ROOT, "scripts", `${isWeather ? ".weather-progress" : ".notam-progress"}-${icao}-${Date.now()}`);
-    const env = {
+    const baseStreamEnv = {
       ...process.env,
       USE_HEADED: "1",
       CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
       ...(isWeather ? { WEATHER_PROGRESS_FILE: progressFile } : { NOTAM_PROGRESS_FILE: progressFile }),
     };
+    const env = isWeather ? envForWeatherScraper(baseStreamEnv) : baseStreamEnv;
     const child = spawn(
       "xvfb-run",
       ["-a", "-s", "-screen 0 1920x1080x24", "node", isWeather ? WEATHER_SCRIPT : SCRAPER_SCRIPT, "--json", icao],
@@ -278,5 +309,16 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("NOTAM sync server listening on port", PORT, "| scraper:", SCRAPER_SCRIPT);
+  console.log(
+    "Sync server listening on port",
+    PORT,
+    "| mode:",
+    SYNC_SERVER_MODE,
+    "| NOTAM:",
+    ALLOW_NOTAM,
+    "| weather:",
+    ALLOW_WEATHER,
+    "| notam script:",
+    SCRAPER_SCRIPT
+  );
 });

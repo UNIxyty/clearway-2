@@ -280,6 +280,8 @@ After `docs/corporate-auth-schema.sql`, run **`docs/supabase-device-profile-pref
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | — | **Required for corporate login** (read `corporate_accounts` / sessions under RLS), **corporate preferences** (`device_profile_preferences`), **search logging** (`search_events`), and optional service-role reads of `user_preferences` for AIP model selection |
 | `WEATHER_S3_PREFIX` | `weather` | S3 key prefix for weather cache files |
+| `WEATHER_SYNC_URL` | — | Optional. If set, weather sync calls this host (e.g. second tmux on port **3003**). If unset, weather uses `NOTAM_SYNC_URL`. |
+| `WEATHER_SYNC_SECRET` | — | Optional. Header `X-Sync-Secret` for the weather sync host; defaults to `NOTAM_SYNC_SECRET`. |
 
 ### For AIP Debug Test
 
@@ -321,7 +323,7 @@ Route (app)   ...
 
 ### 5b. Restart the NOTAM Sync Server on EC2
 
-The NOTAM sync server now handles `/sync/weather` in addition to `/sync`. Restart it to pick up the changes.
+`notam-sync-server.mjs` can serve **both** NOTAM and weather on one port (**`SYNC_SERVER_MODE=all`**, default), or you can split **two tmux sessions** on different ports so CrewBriefing can use **two accounts on one IP** (see **5b-split** below).
 
 SSH to your EC2 instance:
 
@@ -329,7 +331,7 @@ SSH to your EC2 instance:
 ssh -i ~/.ssh/your-key.pem ubuntu@YOUR-EC2-IP
 ```
 
-Restart the server:
+**Single process** (NOTAM + weather on port 3001):
 
 ```bash
 tmux attach -t notam-sync
@@ -340,6 +342,38 @@ set -a && source .env && set +a
 node scripts/notam-sync-server.mjs
 # Ctrl+B then D to detach
 ```
+
+### 5b-split. Two tmux sessions: NOTAM (3001) + weather (3003)
+
+**tmux 1 — NOTAM only**
+
+```bash
+export SYNC_SERVER_MODE=notam
+export NOTAM_SYNC_PORT=3001
+# SYNC_SECRET, AWS_*, CREWBRIEFING_USER/PASSWORD for NOTAM account
+node scripts/notam-sync-server.mjs
+```
+
+**tmux 2 — weather only**
+
+```bash
+export SYNC_SERVER_MODE=weather
+export NOTAM_SYNC_PORT=3003
+# SYNC_SECRET (can match tmux 1 or differ — match Vercel WEATHER_SYNC_SECRET)
+# CREWBRIEFING_WEATHER_USER / CREWBRIEFING_WEATHER_PASSWORD for second CrewBriefing user
+export AWS_S3_BUCKET=...   # same bucket as NOTAM
+node scripts/notam-sync-server.mjs
+```
+
+**Vercel**
+
+- `NOTAM_SYNC_URL=http://EC2-IP:3001`
+- `WEATHER_SYNC_URL=http://EC2-IP:3003`
+- `NOTAM_SYNC_SECRET` / `WEATHER_SYNC_SECRET` aligned with each process’s `SYNC_SECRET`
+
+Open **both ports** in the EC2 security group.
+
+See also **`docs/LOCAL-NOTAM-WEATHER.md`** for env details.
 
 Verify it started:
 
@@ -518,10 +552,10 @@ curl "http://localhost:3001/sync/weather?icao=EVRA&secret=YOUR_SECRET"
 
 ### Browser console: `502` on `/api/weather`
 
-- Vercel returns **502** when the app cannot reach **`NOTAM_SYNC_URL/sync/weather`**, the secret is wrong (upstream **401**), the request times out (120s), or the upstream body is not valid JSON.
+- Vercel returns **502** when the app cannot reach the weather sync URL (**`WEATHER_SYNC_URL`** if set, else **`NOTAM_SYNC_URL`** + `/sync/weather`), the secret is wrong (upstream **401**), the request times out (120s), or the upstream body is not valid JSON.
 - In DevTools → **Network**, open the failed `weather` request and read the JSON **`error`** and **`detail`** (the portal shows them in the UI).
-- Confirm **`NOTAM_SYNC_URL`** is reachable from the public internet (correct scheme, host, port) and matches the NOTAM sync process that exposes **`GET /sync/weather`**.
-- Confirm **`NOTAM_SYNC_SECRET`** in Vercel matches **`SYNC_SECRET`** on EC2.
+- If you use **two processes**, confirm **`WEATHER_SYNC_URL`** hits the **weather-only** listener (e.g. port **3003**) with **`GET /sync/weather`**; **`NOTAM_SYNC_URL`** is for **`/sync`** only.
+- Confirm **`WEATHER_SYNC_SECRET`** (or **`NOTAM_SYNC_SECRET`**) matches **`SYNC_SECRET`** on the weather sync process.
 
 ### PDF Viewer shows blank or "PDF loading…"
 

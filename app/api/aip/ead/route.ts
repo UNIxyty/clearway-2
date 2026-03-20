@@ -124,14 +124,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!userAipModel && !DISABLE_AI_FOR_TESTING) {
-    return NextResponse.json(
-      { error: "No AI model selected", detail: "Go to Settings and choose an AIP model before syncing." },
-      { status: 400 }
-    );
-  }
-
-  const modelParam = userAipModel || "testing-disabled-ai";
+  const modelParam = userAipModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
   const extractParam = DISABLE_AI_FOR_TESTING ? "&extract=regex" : "";
   const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(modelParam)}${extractParam}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };

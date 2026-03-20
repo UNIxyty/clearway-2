@@ -11,6 +11,7 @@
     "gen": "node scripts/ead-download-gen-pdf.mjs",
     "enr": "node scripts/ead-download-enr-pdf.mjs",
     "test:e2e": "node scripts/e2e-portal-test.mjs",
+    "test:e2e:aip": "node scripts/e2e-aip-test.mjs",
     "test:e2e:report": "node scripts/generate-test-report.mjs",
     "test:e2e:webhook:test": "node scripts/test-webhook.mjs",
     "test:e2e:webhook:send": "node scripts/send-test-webhook.mjs"

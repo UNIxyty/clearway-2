@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { DevicePickerCard } from "./DevicePickerCard";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   oauth_failed:
@@ -31,6 +32,14 @@ export default function LoginCard() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [email, setEmail] = useState("");
+  const [corpUsername, setCorpUsername] = useState("");
+  const [corpPassword, setCorpPassword] = useState("");
+  const [deviceSetup, setDeviceSetup] = useState<{
+    accountId: string;
+    profiles: { id: string; display_name: string | null }[];
+    ipAddress: string;
+    uaHash: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -75,6 +84,38 @@ export default function LoginCard() {
     }
   }
 
+  async function signInCorporate() {
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: corpUsername.trim(),
+          password: corpPassword,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Corporate login failed.");
+      if (data?.needsProfile) {
+        setDeviceSetup({
+          accountId: data.accountId,
+          profiles: Array.isArray(data.profiles) ? data.profiles : [],
+          ipAddress: data.fingerprint?.ipAddress || "unknown",
+          uaHash: data.fingerprint?.uaHash || "unknown",
+        });
+        return;
+      }
+      window.location.href = next;
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message || "Corporate login failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function signInGoogle() {
     setError(null);
     setInfo(null);
@@ -104,7 +145,7 @@ export default function LoginCard() {
       <CardHeader>
         <CardTitle>Welcome back</CardTitle>
         <CardDescription>
-          Sign in to view AIP, GEN, and NOTAM data.
+          Sign in to view AIP, GEN, NOTAM, and weather data.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,6 +161,53 @@ export default function LoginCard() {
         )}
 
         <div className="space-y-3">
+          {!deviceSetup && (
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm font-medium">Corporate login</p>
+              <div className="space-y-2">
+                <Label htmlFor="corp-username">Username</Label>
+                <Input
+                  id="corp-username"
+                  type="text"
+                  value={corpUsername}
+                  onChange={(e) => setCorpUsername(e.target.value)}
+                  autoComplete="username"
+                  placeholder="admin"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="corp-password">Password</Label>
+                <Input
+                  id="corp-password"
+                  type="password"
+                  value={corpPassword}
+                  onChange={(e) => setCorpPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                />
+              </div>
+              <Button
+                type="button"
+                className="w-full"
+                onClick={signInCorporate}
+                disabled={loading || !corpUsername.trim() || !corpPassword}
+              >
+                {loading ? "Signing in..." : "Sign in with corporate account"}
+              </Button>
+            </div>
+          )}
+          {deviceSetup && (
+            <DevicePickerCard
+              accountId={deviceSetup.accountId}
+              profiles={deviceSetup.profiles}
+              ipAddress={deviceSetup.ipAddress}
+              uaHash={deviceSetup.uaHash}
+              onComplete={() => {
+                window.location.href = next;
+              }}
+              onBack={() => setDeviceSetup(null)}
+            />
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -135,7 +223,7 @@ export default function LoginCard() {
             type="button"
             className="w-full"
             onClick={sendMagicLink}
-            disabled={loading || !email.trim()}
+            disabled={loading || !!deviceSetup || !email.trim()}
           >
             {loading ? "Sending…" : "Send sign-in link"}
           </Button>
@@ -154,7 +242,7 @@ export default function LoginCard() {
             variant="outline"
             className="w-full gap-2"
             onClick={signInGoogle}
-            disabled={loading}
+            disabled={loading || !!deviceSetup}
           >
             <svg viewBox="0 0 24 24" className="size-4 shrink-0" aria-hidden>
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />

@@ -24,7 +24,7 @@ export default function LoginPage() {
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Use email (confirmation code) or Google to access the portal.
+            Use corporate username/password (primary), or email/Google as alternative methods.
           </p>
         </div>
         <LoginCard />

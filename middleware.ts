@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getCorporateSessionFromRequest } from "@/lib/corporate-auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -71,6 +72,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api")
   ) {
     return NextResponse.next();
+  }
+
+  const corporateSession = await getCorporateSessionFromRequest(request);
+  if (corporateSession) {
+    return response;
   }
 
   const {

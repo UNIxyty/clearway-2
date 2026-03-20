@@ -285,6 +285,7 @@ async function uploadGenToS3(prefix, payload) {
 const AIP_STEPS = [
   "Deleting old from S3…",
   "Downloading AIP PDF…",
+  "PDF uploaded to S3…",
   DISABLE_AI_FOR_TESTING ? "Extracting with regex (AI disabled for testing)…" : "Extracting with AI…",
   "Uploading to S3…",
 ];
@@ -292,6 +293,7 @@ const AIP_STEPS = [
 // GEN-only sync steps (sent when /sync/gen stream=1)
 const GEN_STEPS = [
   "Downloading GEN PDF…",
+  "GEN PDF uploaded to S3…",
   "Extracting text…",
   DISABLE_AI_FOR_TESTING ? "Rewriting skipped (AI disabled for testing)…" : "Rewriting with AI…",
   "Uploading GEN to S3…",
@@ -334,19 +336,25 @@ const server = createServer(async (req, res) => {
     }
     try {
       await runGenDownload(prefix);
-      if (process.env.AWS_S3_BUCKET) await uploadGenPdfToS3(prefix);
-      if (stream) send({ step: GEN_STEPS[1] });
+      if (process.env.AWS_S3_BUCKET) {
+        await uploadGenPdfToS3(prefix);
+        if (stream) {
+          send({ step: GEN_STEPS[1] });
+          send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });
+        }
+      }
+      if (stream) send({ step: GEN_STEPS[2] });
       const raw = readGenText(prefix);
       if (raw) {
         const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
-        if (stream) send({ step: GEN_STEPS[2] });
+        if (stream) send({ step: GEN_STEPS[3] });
         const hasKey = !DISABLE_AI_FOR_TESTING
           && (modelOverride?.includes("/") ? !!process.env.OPENROUTER_API_KEY : !!process.env.OPENAI_API_KEY);
         const generalRewritten = generalRaw && hasKey ? await rewriteGenWithAI(generalRaw, null, modelOverride) : generalRaw;
         const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteGenWithAI(nonSchedRaw, null, modelOverride) : nonSchedRaw;
         const privateRewritten = privateRaw && hasKey ? await rewriteGenWithAI(privateRaw, null, modelOverride) : privateRaw;
         if (process.env.AWS_S3_BUCKET) {
-          if (stream) send({ step: GEN_STEPS[3] });
+          if (stream) send({ step: GEN_STEPS[4] });
           await uploadGenToS3(prefix, {
             general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
             nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
@@ -415,14 +423,18 @@ const server = createServer(async (req, res) => {
     if (process.env.AWS_S3_BUCKET) await deleteOldFromS3(icao);
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
-    send({ step: AIP_STEPS[2] });
+    if (process.env.AWS_S3_BUCKET) {
+      await uploadPdfToS3(icao);
+      send({ step: AIP_STEPS[2] });
+      send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
+    }
+    send({ step: AIP_STEPS[3] });
     await runExtract(useAi, modelOverride);
     const data = readExtracted();
-    send({ step: AIP_STEPS[3] });
+    send({ step: AIP_STEPS[4] });
     if (process.env.AWS_S3_BUCKET) {
       await uploadToS3();
       await uploadPerIcaoToS3(icao, data);
-      await uploadPdfToS3(icao);
     }
     const payload = {
       done: true,

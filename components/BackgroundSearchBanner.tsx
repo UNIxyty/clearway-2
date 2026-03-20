@@ -18,11 +18,12 @@ import {
 const STAGE_LABELS: Record<SyncStage, string> = {
   airport: "Airport",
   notam: "NOTAMs",
+  weather: "Weather",
   aip: "AIP",
   gen: "GEN",
   "gen-non-ead": "GEN",
 };
-const STAGE_ORDER: SyncStage[] = ["airport", "notam", "aip", "gen", "gen-non-ead"];
+const STAGE_ORDER: SyncStage[] = ["airport", "notam", "weather", "aip", "gen", "gen-non-ead"];
 const COLLAPSED_KEY = "backgroundSearchBannerCollapsed";
 
 function StageIndicator({ stage, status }: { stage: SyncStage; status: StageStatus }) {

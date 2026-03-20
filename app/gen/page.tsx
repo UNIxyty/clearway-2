@@ -1,0 +1,267 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Download, RefreshCwIcon } from "lucide-react";
+
+type AIPAirport = {
+  icao: string;
+  name: string;
+};
+
+type GenPart = { raw: string; rewritten: string };
+
+const EAD_ICAO_PREFIXES = new Set([
+  "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
+  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC",
+]);
+
+function isEadIcao(icao: string): boolean {
+  return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
+}
+
+function emptyGenPart(): GenPart {
+  return { raw: "", rewritten: "" };
+}
+
+export default function GenPage() {
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [airport, setAirport] = useState<AIPAirport | null>(null);
+  const [genData, setGenData] = useState<{ general: GenPart; nonScheduled: GenPart; privateFlights: GenPart; updatedAt: string | null } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncSteps, setSyncSteps] = useState<string[]>([]);
+  const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
+  const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfReadyByPrefix, setPdfReadyByPrefix] = useState<Record<string, boolean>>({});
+
+  const prefix = useMemo(() => airport?.icao?.slice(0, 2).toUpperCase() ?? "", [airport?.icao]);
+
+  async function searchAirport() {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setAirport(null);
+    setGenData(null);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const data = (await res.json().catch(() => ({}))) as { results?: AIPAirport[]; error?: string };
+      if (!res.ok) throw new Error(data.error || "Search failed");
+      const first = (data.results ?? [])[0] ?? null;
+      if (!first) throw new Error("No airport found for this search");
+      setAirport(first);
+      await loadGen(first.icao);
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message || "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadGen(icao: string) {
+    const p = icao.slice(0, 2).toUpperCase();
+    const url = isEadIcao(icao)
+      ? `/api/aip/gen?icao=${encodeURIComponent(icao)}`
+      : `/api/aip/gen-non-ead?prefix=${encodeURIComponent(p)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const data = (await res.json().catch(() => ({}))) as {
+      general?: GenPart;
+      nonScheduled?: GenPart;
+      privateFlights?: GenPart;
+      part4?: GenPart;
+      updatedAt?: string | null;
+    };
+    setGenData({
+      general: data.general && typeof data.general === "object" ? data.general : emptyGenPart(),
+      nonScheduled: data.nonScheduled && typeof data.nonScheduled === "object" ? data.nonScheduled : emptyGenPart(),
+      privateFlights:
+        (data.privateFlights && typeof data.privateFlights === "object"
+          ? data.privateFlights
+          : data.part4 && typeof data.part4 === "object"
+            ? data.part4
+            : null) ?? emptyGenPart(),
+      updatedAt: data.updatedAt ?? null,
+    });
+    if (data.updatedAt) {
+      setPdfReadyByPrefix((prev) => ({ ...prev, [p]: true }));
+    }
+  }
+
+  async function syncGen() {
+    if (!airport) return;
+    setSyncing(true);
+    setSyncSteps([]);
+    setError(null);
+    try {
+      const res = await fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(airport.icao)}&stream=1`, { cache: "no-store" });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "GEN sync failed");
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const events = buf.split(/\n\n/);
+          buf = events.pop() ?? "";
+          for (const event of events) {
+            const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+            const payload = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; pdfReady?: boolean };
+            if (payload.pdfReady) {
+              setPdfReadyByPrefix((prev) => ({ ...prev, [prefix]: true }));
+            }
+            if (payload.step) setSyncSteps((prev) => [...prev, payload.step!]);
+            if (payload.error) throw new Error(payload.error);
+            if (payload.done) {
+              await loadGen(airport.icao);
+              return;
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      await loadGen(airport.icao);
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message || "GEN sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  async function downloadGenPdf() {
+    if (!prefix) return;
+    setPdfDownloading(true);
+    setPdfError(null);
+    try {
+      const res = await fetch(`/api/aip/gen/pdf?prefix=${encodeURIComponent(prefix)}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.detail || "Failed to load GEN PDF");
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${prefix}_GEN_1.2.pdf`;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+      setPdfReadyByPrefix((prev) => ({ ...prev, [prefix]: true }));
+    } catch (e: unknown) {
+      setPdfError((e as { message?: string })?.message || "Failed to load GEN PDF");
+    } finally {
+      setPdfDownloading(false);
+    }
+  }
+
+  const part = genData ? genData[genPartMode] : null;
+  const text = part ? (genViewMode === "rewritten" ? (part.rewritten || part.raw) : part.raw) : "";
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-4xl space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Clearway</p>
+            <h1 className="text-lg font-semibold">GEN page</h1>
+          </div>
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground underline">
+            Back to AIP page
+          </Link>
+        </div>
+
+        <Card className="shadow-md border-border/80">
+          <CardHeader>
+            <CardTitle>Search GEN by airport or country</CardTitle>
+            <CardDescription>This page triggers GEN sync only.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ICAO, airport name, or country" />
+              <Button onClick={searchAirport} disabled={loading || !query.trim()}>{loading ? <Spinner className="size-4" /> : "Find"}</Button>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {airport && (
+              <p className="text-sm text-muted-foreground">
+                Selected: <span className="font-mono text-foreground">{airport.icao}</span> — {airport.name}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {airport && (
+          <Card className="shadow-md border-border/80">
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+              <div>
+                <CardTitle>GEN ({prefix})</CardTitle>
+                <CardDescription>
+                  {isEadIcao(airport.icao) ? "Source: Eurocontrol (EAD)." : "Source: Hard Coded (PDF Based). Data may be old and inaccurate."}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="ghost" size="sm" onClick={downloadGenPdf} disabled={pdfDownloading || !pdfReadyByPrefix[prefix]}>
+                  <Download className={`size-4 ${pdfDownloading ? "animate-pulse" : ""}`} />
+                  <span className="text-xs">Download PDF</span>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={syncGen} disabled={syncing}>
+                  <RefreshCwIcon className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+                  <span className="text-xs">Sync</span>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pdfError && <p className="text-sm text-destructive">{pdfError}</p>}
+              {syncing && (
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Spinner className="size-4 text-primary" />
+                    <span>Syncing GEN from server...</span>
+                  </div>
+                  {syncSteps.length > 0 && (
+                    <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+                      {syncSteps.map((step, i) => (
+                        <li key={i}>{step}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
+                  <button type="button" onClick={() => setGenPartMode("general")} className={`px-3 py-1.5 text-sm rounded-md ${genPartMode === "general" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>GENERAL</button>
+                  <button type="button" onClick={() => setGenPartMode("nonScheduled")} className={`px-3 py-1.5 text-sm rounded-md ${genPartMode === "nonScheduled" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Non scheduled</button>
+                  <button type="button" onClick={() => setGenPartMode("privateFlights")} className={`px-3 py-1.5 text-sm rounded-md ${genPartMode === "privateFlights" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Private flights</button>
+                </div>
+                <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
+                  <button type="button" onClick={() => setGenViewMode("raw")} className={`px-3 py-1.5 text-sm rounded-md ${genViewMode === "raw" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Raw</button>
+                  <button type="button" onClick={() => setGenViewMode("rewritten")} className={`px-3 py-1.5 text-sm rounded-md ${genViewMode === "rewritten" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>AI rewritten</button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
+                <p className="whitespace-pre-wrap break-words text-[14px] leading-6">
+                  {text || "No GEN content yet. Click Sync to fetch GEN for this prefix."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+

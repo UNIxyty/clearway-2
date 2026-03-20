@@ -25,6 +25,7 @@ const SCRAPER_SCRIPT =
   NOTAM_SCRAPER === "faa"
     ? "scripts/notam-scraper.mjs"
     : "scripts/crewbriefing-notams.mjs";
+const WEATHER_SCRIPT = "scripts/crewbriefing-weather.mjs";
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -78,12 +79,57 @@ async function readFromS3(icao) {
   return JSON.parse(body);
 }
 
+async function runWeatherScraper(icao) {
+  const env = {
+    ...process.env,
+    USE_HEADED: "1",
+    CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
+  };
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "xvfb-run",
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", WEATHER_SCRIPT, "--json", icao],
+      { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("Weather scraper timed out"));
+    }, RUN_TIMEOUT_MS);
+    child.stderr?.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) reject(new Error(`Weather scraper exited ${code}: ${stderr.slice(-500)}`));
+      else resolve();
+    });
+  });
+}
+
+async function readWeatherFromS3(icao) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  const prefix = process.env.WEATHER_S3_PREFIX || "weather";
+  const region = process.env.AWS_REGION || "us-east-1";
+  if (!bucket) throw new Error("AWS_S3_BUCKET not set");
+  const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  const res = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: `${prefix}/${icao}.json` })
+  );
+  const body = await res.Body.transformToString();
+  return JSON.parse(body);
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
+  const isWeather = url.pathname === "/sync/weather" || url.pathname === "/sync/weather/";
 
-  if (url.pathname !== "/sync" && url.pathname !== "/sync/") {
+  if (!isWeather && url.pathname !== "/sync" && url.pathname !== "/sync/") {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
     return;
@@ -112,18 +158,18 @@ const server = createServer(async (req, res) => {
     const send = (obj) => res.write("data: " + JSON.stringify(obj) + "\n\n");
 
     // Send first step immediately
-    send({ step: "Starting scraper…" });
+    send({ step: isWeather ? "Starting weather scraper…" : "Starting scraper…" });
 
-    const progressFile = join(PROJECT_ROOT, "scripts", `.notam-progress-${icao}-${Date.now()}`);
+    const progressFile = join(PROJECT_ROOT, "scripts", `${isWeather ? ".weather-progress" : ".notam-progress"}-${icao}-${Date.now()}`);
     const env = {
       ...process.env,
       USE_HEADED: "1",
       CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome",
-      NOTAM_PROGRESS_FILE: progressFile,
+      ...(isWeather ? { WEATHER_PROGRESS_FILE: progressFile } : { NOTAM_PROGRESS_FILE: progressFile }),
     };
     const child = spawn(
       "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", SCRAPER_SCRIPT, "--json", icao],
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", isWeather ? WEATHER_SCRIPT : SCRAPER_SCRIPT, "--json", icao],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
     let lastProgressSize = 0;
@@ -173,18 +219,27 @@ const server = createServer(async (req, res) => {
       pollProgress(); // one last read
       flushStderr();
       if (code !== 0) {
-        send({ error: "Scraper failed", detail: "Exit code " + code });
+        send({ error: isWeather ? "Weather scraper failed" : "Scraper failed", detail: "Exit code " + code });
         res.end();
         return;
       }
-      readFromS3(icao)
+      (isWeather ? readWeatherFromS3(icao) : readFromS3(icao))
         .then((data) => {
-          send({
-            done: true,
-            icao: data.icao ?? icao,
-            notams: data.notams ?? [],
-            updatedAt: data.updatedAt ?? null,
-          });
+          if (isWeather) {
+            send({
+              done: true,
+              icao: data.icao ?? icao,
+              weather: data.weather ?? "",
+              updatedAt: data.updatedAt ?? null,
+            });
+          } else {
+            send({
+              done: true,
+              icao: data.icao ?? icao,
+              notams: data.notams ?? [],
+              updatedAt: data.updatedAt ?? null,
+            });
+          }
           res.end();
         })
         .catch((err) => {
@@ -203,14 +258,22 @@ const server = createServer(async (req, res) => {
 
   res.setHeader("Content-Type", "application/json");
   try {
-    await runScraper(icao);
-    const data = await readFromS3(icao);
+    if (isWeather) {
+      await runWeatherScraper(icao);
+    } else {
+      await runScraper(icao);
+    }
+    const data = isWeather ? await readWeatherFromS3(icao) : await readFromS3(icao);
     res.writeHead(200);
-    res.end(JSON.stringify({ icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null }));
+    if (isWeather) {
+      res.end(JSON.stringify({ icao: data.icao ?? icao, weather: data.weather ?? "", updatedAt: data.updatedAt ?? null }));
+    } else {
+      res.end(JSON.stringify({ icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null }));
+    }
   } catch (err) {
-    console.error("Sync failed for", icao, err);
+    console.error(isWeather ? "Weather sync failed for" : "Sync failed for", icao, err);
     res.writeHead(502);
-    res.end(JSON.stringify({ error: "Sync failed", detail: err.message }));
+    res.end(JSON.stringify({ error: isWeather ? "Weather sync failed" : "Sync failed", detail: err.message }));
   }
 });
 

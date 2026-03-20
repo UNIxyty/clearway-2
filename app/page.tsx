@@ -3,6 +3,7 @@
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,12 @@ export type NotamItem = {
   startDateUtc: string;
   endDateUtc: string;
   condition: string;
+};
+
+type WeatherItem = {
+  weather: string;
+  error: string | null;
+  updatedAt?: string | null;
 };
 
 const AirportMap = dynamic(() => import("@/components/AirportMap"), {
@@ -64,6 +71,8 @@ const EAD_ICAO_PREFIXES = new Set([
   "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
   "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC",
 ]);
+
+const MAIN_PAGE_DISABLE_GEN = true;
 
 function isEadIcao(icao: string): boolean {
   return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
@@ -248,10 +257,17 @@ function AIPPortalPageInner() {
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
   const [syncRequestedIcao, setSyncRequestedIcao] = useState<string | null>(null);
+  const [weatherCache, setWeatherCache] = useState<Record<string, WeatherItem>>({});
+  const [weatherLoadingIcao, setWeatherLoadingIcao] = useState<string | null>(null);
+  const [weatherSyncingIcao, setWeatherSyncingIcao] = useState<string | null>(null);
+  const [weatherSyncSteps, setWeatherSyncSteps] = useState<string[]>([]);
+  const [weatherSyncRequestedIcao, setWeatherSyncRequestedIcao] = useState<string | null>(null);
   const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null; updatedAt?: string | null }>>({});
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
+  const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
+  const [aipViewMode, setAipViewMode] = useState<"ai" | "pdf">("ai");
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
@@ -279,6 +295,7 @@ function AIPPortalPageInner() {
   useEffect(() => {
     setPdfDownloadError(null);
     setGenPdfDownloadError(null);
+    setAipViewMode("ai");
   }, [viewingAirport?.icao]);
 
   useEffect(() => {
@@ -302,6 +319,9 @@ function AIPPortalPageInner() {
   const notams = cachedNotams?.notams ?? null;
   const notamsError = cachedNotams?.error ?? null;
   const notamsUpdatedAt = cachedNotams?.updatedAt ?? null;
+  const cachedWeather = viewingAirport ? weatherCache[viewingAirport.icao] : null;
+  const weatherLoading = viewingAirport ? weatherLoadingIcao === viewingAirport.icao : false;
+  const weatherSyncing = viewingAirport ? weatherSyncingIcao === viewingAirport.icao : false;
 
   // When results change: clear selection if empty; when tabs are added (search/menu), switch to the new tab
   useEffect(() => {
@@ -389,6 +409,10 @@ function AIPPortalPageInner() {
 
   const requestSyncNotams = useCallback((icao: string) => {
     setSyncRequestedIcao(icao);
+  }, []);
+
+  const requestSyncWeather = useCallback((icao: string) => {
+    setWeatherSyncRequestedIcao(icao);
   }, []);
 
   const requestSyncAipEad = useCallback((icao: string) => {
@@ -501,7 +525,10 @@ function AIPPortalPageInner() {
                 const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
                 if (!dataLine) continue;
                 try {
-                  const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; detail?: string; airports?: unknown[] };
+                  const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; detail?: string; airports?: unknown[]; pdfReady?: boolean };
+                  if (data.pdfReady) {
+                    setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+                  }
                   if (data.step) {
                     const step = data.step;
                     setAipEadSyncSteps((prev) => [...prev, step]);
@@ -537,6 +564,7 @@ function AIPPortalPageInner() {
                         }
                       : null;
                     setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
+                    setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
                     setAipEadSyncSteps([]);
                     updateStage(icao, "aip", "done", "AIP retrieved");
@@ -603,6 +631,7 @@ function AIPPortalPageInner() {
             }
           : null;
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
+        setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
         if (doSync) {
           updateStage(icao, "aip", "done", "AIP retrieved");
@@ -624,6 +653,7 @@ function AIPPortalPageInner() {
 
   // Fetch GEN (scraped GEN 1.2) when viewing any airport. EAD airports use /api/aip/gen, non-EAD use /api/aip/gen-non-ead.
   useEffect(() => {
+    if (MAIN_PAGE_DISABLE_GEN) return;
     const icao = viewingAirport?.icao ?? null;
     if (!icao) return;
     const prefix = icao.slice(0, 2).toUpperCase();
@@ -768,6 +798,110 @@ function AIPPortalPageInner() {
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
   }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, notifPrefs, updateStage, searchParams]);
+
+  useEffect(() => {
+    const icao = viewingAirport?.icao ?? null;
+    if (!icao) return;
+    const fromBanner = searchParams.get("fromBanner") === "1";
+    const hasCache = icao in weatherCache;
+    const syncRequested = weatherSyncRequestedIcao === icao;
+    if (hasCache && !syncRequested) return;
+
+    const isSync = fromBanner ? syncRequested : (syncRequested || !hasCache);
+    setWeatherLoadingIcao(icao);
+    if (isSync) {
+      setWeatherSyncingIcao(icao);
+      setWeatherSyncSteps([]);
+      updateStage(icao, "weather", "running", "Syncing weather…");
+    }
+
+    if (isSync) {
+      const url = `/api/weather?icao=${encodeURIComponent(icao)}&sync=1&stream=1&_t=${Date.now()}`;
+      fetch(url, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok || !res.body) {
+            const text = await res.text();
+            const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
+            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? (text || "Sync failed"));
+            setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: msg, updatedAt: null } }));
+            return;
+          }
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              const events = buf.split(/\n\n/);
+              buf = events.pop() ?? "";
+              for (const event of events) {
+                const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+                if (!dataLine) continue;
+                try {
+                  const data = JSON.parse(dataLine.slice(6));
+                  if (data.step) {
+                    setWeatherSyncSteps((prev) => [...prev, data.step]);
+                    updateStage(icao, "weather", "running", data.step);
+                  } else if (data.done) {
+                    setWeatherCache((c) => ({
+                      ...c,
+                      [icao]: { weather: data.weather ?? "", error: null, updatedAt: data.updatedAt ?? null },
+                    }));
+                    updateStage(icao, "weather", "done", "Weather retrieved");
+                    return;
+                  } else if (data.error) {
+                    setWeatherCache((c) => ({
+                      ...c,
+                      [icao]: { weather: "", error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                    }));
+                    updateStage(icao, "weather", "error", data.error);
+                    return;
+                  }
+                } catch (_) {}
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        })
+        .catch((err) => {
+          setWeatherCache((c) => ({
+            ...c,
+            [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null },
+          }));
+          updateStage(icao, "weather", "error", "Weather sync failed");
+        })
+        .finally(() => {
+          setWeatherLoadingIcao(null);
+          setWeatherSyncingIcao(null);
+          setWeatherSyncSteps([]);
+          setWeatherSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        });
+      return;
+    }
+
+    fetch(`/api/weather?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: data.error, updatedAt: null } }));
+          updateStage(icao, "weather", "error", data.error);
+        } else {
+          setWeatherCache((c) => ({ ...c, [icao]: { weather: data.weather ?? "", error: null, updatedAt: data.updatedAt ?? null } }));
+          updateStage(icao, "weather", "done", "Weather loaded");
+        }
+      })
+      .catch((err) => {
+        setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
+        updateStage(icao, "weather", "error", "Weather load failed");
+      })
+      .finally(() => {
+        setWeatherLoadingIcao(null);
+        setWeatherSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+      });
+  }, [viewingAirport?.icao, weatherSyncRequestedIcao, weatherCache, updateStage, searchParams]);
 
   const runBrowseLoading = useCallback(async (then: () => void) => {
     setBrowseLoading(true);
@@ -933,9 +1067,17 @@ function AIPPortalPageInner() {
       <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
         <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-start gap-3">
+              <Link
+                href="/gen"
+                className="inline-flex h-8 items-center rounded-md border border-border/70 bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              >
+                GEN page
+              </Link>
+              <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Clearway</p>
               <p className="text-sm text-muted-foreground">AIP Data Portal</p>
+              </div>
             </div>
             <UserBadge />
           </div>
@@ -1055,6 +1197,54 @@ function AIPPortalPageInner() {
                         </li>
                       )}
                     </ul>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
+                <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
+                  <span>Weather — {viewingAirport.icao}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => requestSyncWeather(viewingAirport.icao)}
+                    disabled={weatherLoading}
+                    title="Sync weather from CrewBriefing OPMET"
+                  >
+                    <RefreshCwIcon className={`size-3.5 ${weatherLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
+                  {weatherLoading && (
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Spinner className="size-4 shrink-0 text-primary" />
+                        <span className="text-sm font-medium">
+                          {weatherSyncing ? "Syncing live from CrewBriefing..." : "Loading weather..."}
+                        </span>
+                      </div>
+                      {weatherSyncing && weatherSyncSteps.length > 0 && (
+                        <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
+                          {weatherSyncSteps.map((step, i) => (
+                            <li key={i}>{step}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  {!weatherLoading && cachedWeather?.updatedAt && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Last updated: {new Date(cachedWeather.updatedAt).toLocaleString()}
+                    </p>
+                  )}
+                  {!weatherLoading && cachedWeather?.error && (
+                    <p className="text-xs text-destructive break-words">{cachedWeather.error}</p>
+                  )}
+                  {!weatherLoading && !cachedWeather?.error && (
+                    <pre className="whitespace-pre-wrap break-words text-xs text-foreground/90 font-sans leading-5">
+                      {cachedWeather?.weather?.trim() || "No weather text returned yet."}
+                    </pre>
                   )}
                 </div>
               </div>
@@ -1548,8 +1738,8 @@ function AIPPortalPageInner() {
                       variant="ghost"
                       size="sm"
                       className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={pdfDownloading || !aipEadCache[viewingAirport.icao]?.updatedAt}
-                      title={aipEadCache[viewingAirport.icao]?.updatedAt ? "Download current AIP PDF (AD 2)" : "Sync this airport first to download the PDF"}
+                      disabled={pdfDownloading || !(aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt)}
+                      title={aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt ? "Download current AIP PDF (AD 2)" : "Sync this airport first to download the PDF"}
                       onClick={async () => {
                         if (!viewingAirport?.icao) return;
                         setPdfDownloadError(null);
@@ -1594,8 +1784,40 @@ function AIPPortalPageInner() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
+                  <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                    Source: <strong>Eurocontrol (EAD)</strong>. Data is extracted from official EAD documents.
+                  </div>
+                  <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setAipViewMode("ai")}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aipViewMode === "ai" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      AI Extracted
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAipViewMode("pdf")}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aipViewMode === "pdf" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      PDF Viewer
+                    </button>
+                  </div>
                   {pdfDownloadError && (
                     <p className="text-sm text-destructive mb-2">{pdfDownloadError}</p>
+                  )}
+                  {aipViewMode === "pdf" && (
+                    <div className="mb-3 rounded-lg border border-border/60 bg-muted/10 p-2">
+                      {aipPdfReady[viewingAirport.icao] || aipEadCache[viewingAirport.icao]?.updatedAt ? (
+                        <iframe
+                          src={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}`}
+                          className="w-full h-[520px] rounded-md border border-border/60 bg-background"
+                          title={`AIP PDF ${viewingAirport.icao}`}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground p-3">PDF loading… Start sync to fetch it from server.</p>
+                      )}
+                    </div>
                   )}
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-4 py-4 animate-fade-in">
@@ -1637,182 +1859,15 @@ function AIPPortalPageInner() {
                   {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
                     <p className="text-sm text-destructive py-2">{aipEadCache[viewingAirport.icao].error}</p>
                   )}
-                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
+                  {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
                     <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
                   )}
-                  {aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
+                  {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
                     <AIPResultCard airport={viewingAirport} />
                   )}
                   {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
                     <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
                   )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* GEN (General) section for EAD: scraped GEN 1.2 with Raw / AI rewritten toggle; separate sync with steps overlay on hover */}
-            {viewingAirport && isEadIcao(viewingAirport.icao) && (
-              <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
-                <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base sm:text-lg font-semibold">
-                      GEN (General — {viewingAirport.icao.slice(0, 2)})
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground text-sm">
-                      Country-level GEN 1.2 from EAD. Sync AIP above first, then sync GEN here.
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={genPdfDownloading || !(genPdfExistsOnServer[viewingAirport.icao.slice(0, 2).toUpperCase()] || genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.updatedAt)}
-                      title={genPdfExistsOnServer[viewingAirport.icao.slice(0, 2).toUpperCase()] || genCache[viewingAirport.icao.slice(0, 2).toUpperCase()]?.updatedAt ? "Download GEN 1.2 PDF" : "Sync GEN first to download the PDF"}
-                      onClick={async () => {
-                        const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
-                        setGenPdfDownloadError(null);
-                        setGenPdfDownloading(true);
-                        try {
-                          const res = await fetch(`/api/aip/gen/pdf?prefix=${encodeURIComponent(prefix)}`);
-                          if (!res.ok) {
-                            const data = await res.json().catch(() => ({}));
-                            setGenPdfDownloadError(data.detail || data.error || "Failed to load GEN PDF");
-                            return;
-                          }
-                          const blob = await res.blob();
-                          const blobUrl = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = blobUrl;
-                          a.download = `${prefix}_GEN_1.2.pdf`;
-                          a.click();
-                          URL.revokeObjectURL(blobUrl);
-                          setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
-                        } catch (err) {
-                          setGenPdfDownloadError(err instanceof Error ? err.message : "Failed to load GEN PDF");
-                        } finally {
-                          setGenPdfDownloading(false);
-                        }
-                      }}
-                    >
-                      <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
-                      <span className="text-xs hidden sm:inline">Download PDF</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 gap-1.5 px-2"
-                      onClick={() => startGenSync(viewingAirport.icao)}
-                      disabled={genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() || genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase()}
-                      title="Sync GEN 1.2 from server"
-                    >
-                      <RefreshCwIcon className={`size-4 shrink-0 ${genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? "animate-spin" : ""}`} />
-                      <span className="text-xs hidden sm:inline">Sync</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4">
-                  {genPdfDownloadError && (
-                    <p className="text-sm text-destructive mb-2">{genPdfDownloadError}</p>
-                  )}
-                  {genLoadingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
-                    <div className="flex flex-col gap-3 py-4 animate-fade-in">
-                      {genSyncingPrefix === viewingAirport.icao.slice(0, 2).toUpperCase() ? (
-                        <div className="space-y-2 rounded-xl border-2 border-border/60 bg-muted/20 p-4">
-                          <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-primary" />
-                            <span className="text-sm font-medium">Syncing GEN from server…</span>
-                          </div>
-                          {genSyncSteps.length > 0 ? (
-                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
-                              {genSyncSteps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Starting… can take 1–2 min.</span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Spinner className="size-4 shrink-0 text-primary" />
-                          <span>Loading GEN…</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (() => {
-                    const prefix = viewingAirport.icao.slice(0, 2).toUpperCase();
-                    const gen = genCache[prefix];
-                    const part = gen ? gen[genPartMode] : null;
-                    const hasContent = gen && (gen.general?.raw || gen.general?.rewritten || gen.nonScheduled?.raw || gen.nonScheduled?.rewritten || gen.privateFlights?.raw || gen.privateFlights?.rewritten);
-                    if (!hasContent) {
-                      return (
-                        <p className="text-sm text-muted-foreground py-2">
-                          No GEN data yet. Sync AIP above to scrape GEN 1.2 for this country.
-                        </p>
-                      );
-                    }
-                    const text = part ? (genViewMode === "rewritten" ? (part.rewritten || part.raw) : part.raw) : "";
-                    return (
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Part</span>
-                          <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
-                            <button
-                              type="button"
-                              onClick={() => setGenPartMode("general")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "general" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              GENERAL
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGenPartMode("nonScheduled")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "nonScheduled" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              Non scheduled
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGenPartMode("privateFlights")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genPartMode === "privateFlights" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              Private flights
-                            </button>
-                          </div>
-                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">View</span>
-                          <div className="flex rounded-lg border border-border/60 p-0.5 bg-muted/30">
-                            <button
-                              type="button"
-                              onClick={() => setGenViewMode("raw")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genViewMode === "raw" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              Raw
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setGenViewMode("rewritten")}
-                              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${genViewMode === "rewritten" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              AI rewritten
-                            </button>
-                          </div>
-                          {gen.updatedAt && (
-                            <span className="text-xs text-muted-foreground">
-                              Updated {new Date(gen.updatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-                            </span>
-                          )}
-                        </div>
-                        <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
-                          <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7 whitespace-pre-wrap break-words">
-                            {text || (genPartMode === "general" ? "No GENERAL content." : genPartMode === "nonScheduled" ? "No Non scheduled content in this GEN." : "No Private flights content in this GEN.")}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </CardContent>
               </Card>
             )}
@@ -1829,6 +1884,9 @@ function AIPPortalPageInner() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
+                  <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Source: <strong>Hard Coded (PDF Based)</strong>. This information may be old and inaccurate.
+                  </div>
                   <AIPResultCard airport={viewingAirport} />
                 </CardContent>
               </Card>

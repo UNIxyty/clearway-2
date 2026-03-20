@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 
-export type SyncStage = "airport" | "notam" | "aip" | "gen" | "gen-non-ead";
+export type SyncStage = "airport" | "notam" | "weather" | "aip" | "gen" | "gen-non-ead";
 
 export type StageStatus = "pending" | "running" | "done" | "error";
 
@@ -33,6 +33,7 @@ const STORAGE_KEY = "clearway-bg-search-state-v1";
 const INITIAL_STAGES: Record<SyncStage, StageStatus> = {
   airport: "pending",
   notam: "pending",
+  weather: "pending",
   aip: "pending",
   gen: "pending",
   "gen-non-ead": "pending",

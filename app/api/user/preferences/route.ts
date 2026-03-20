@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
 
 export async function GET() {
   try {
@@ -20,10 +21,14 @@ export async function GET() {
       },
     });
 
+    const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
+    const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
     const {
       data: { user },
       error: userErr,
-    } = await supabase.auth.getUser();
+    } = corporateSession
+      ? { data: { user: null }, error: null }
+      : await supabase.auth.getUser();
 
     const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
     if (disableAuthForTesting && (userErr || !user)) {
@@ -31,7 +36,8 @@ export async function GET() {
       return NextResponse.json({ preferences: {} });
     }
 
-    if (userErr || !user) {
+    const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
+    if (userErr || !identityId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -40,7 +46,7 @@ export async function GET() {
       .select(
         "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", identityId)
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
@@ -75,12 +81,16 @@ export async function POST(request: Request) {
       },
     });
 
+    const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
+    const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
     const {
       data: { user },
       error: userErr,
-    } = await supabase.auth.getUser();
-
-    if (userErr || !user) {
+    } = corporateSession
+      ? { data: { user: null }, error: null }
+      : await supabase.auth.getUser();
+    const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
+    if (userErr || !identityId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -109,7 +119,7 @@ export async function POST(request: Request) {
       notify_aip?: boolean;
       notify_gen?: boolean;
     } = {
-      user_id: user.id,
+      user_id: identityId,
     };
 
     if (body.display_name !== undefined) {

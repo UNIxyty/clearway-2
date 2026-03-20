@@ -57,14 +57,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!userGenModel && !DISABLE_AI_FOR_TESTING) {
-    return NextResponse.json(
-      { error: "No AI model selected", detail: "Go to Settings and choose a GEN model before syncing." },
-      { status: 400 }
-    );
-  }
-
-  const modelParam = userGenModel || "testing-disabled-ai";
+  const modelParam = userGenModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
   const syncUrl = `${AIP_SYNC_URL}/sync/gen?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(modelParam)}`;
   const headers: HeadersInit = {};
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;

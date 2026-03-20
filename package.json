@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "notam": "node scripts/notam-scraper.mjs",
+    "sync:notam": "node scripts/notam-sync-server.mjs",
     "gen": "node scripts/ead-download-gen-pdf.mjs",
     "enr": "node scripts/ead-download-enr-pdf.mjs",
     "test:e2e": "node scripts/e2e-portal-test.mjs",

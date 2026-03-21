@@ -116,6 +116,30 @@ async function dismissIdleDialog(page) {
   } catch (_) {}
 }
 
+async function uploadResultToS3(localPath) {
+  const bucket = process.env.AWS_S3_BUCKET;
+  if (!bucket) {
+    log("AWS_S3_BUCKET not set; skipping S3 upload.");
+    return;
+  }
+  const region = process.env.AWS_REGION || "us-east-1";
+  const key =
+    process.env.EAD_EXTRACT_HEADINGS_S3_KEY ||
+    join(process.env.EAD_EXTRACT_HEADINGS_S3_PREFIX || "ead-extract", "ead_extract_headings.json").replace(/\\/g, "/");
+  const body = readFileSync(localPath);
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({ region });
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: "application/json",
+    }),
+  );
+  log(`Uploaded to s3://${bucket}/${key}`);
+}
+
 async function main() {
   const user = process.env.EAD_USER;
   let password = process.env.EAD_PASSWORD;
@@ -352,6 +376,7 @@ async function main() {
     mkdirSync(pathDirname(outputPath), { recursive: true });
     writeFileSync(outputPath, JSON.stringify(results, null, 2), "utf8");
     log("Wrote " + outputPath);
+    await uploadResultToS3(outputPath);
   } catch (err) {
     log("Fatal: " + err.message);
     if (process.env.DEBUG) console.error(err);

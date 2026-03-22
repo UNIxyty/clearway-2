@@ -1,0 +1,397 @@
+[
+  {
+    "icao": "PANC",
+    "name": "Ted Stevens Anchorage International",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PAED",
+    "name": "Elmendorf AFB",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PACD",
+    "name": "Cold Bay",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PAEI",
+    "name": "Eielson AFB",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PAFA",
+    "name": "Fairbanks International",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PAJN",
+    "name": "Juneau International",
+    "state": "Alaska"
+  },
+  {
+    "icao": "PAKN",
+    "name": "King Salmon",
+    "state": "Alaska"
+  },
+  {
+    "icao": "NSTU",
+    "name": "Pago Pago International",
+    "state": "American Samoa"
+  },
+  {
+    "icao": "KPHX",
+    "name": "Phoenix Sky Harbor International",
+    "state": "Arizona"
+  },
+  {
+    "icao": "KTUS",
+    "name": "Tucson International",
+    "state": "Arizona"
+  },
+  {
+    "icao": "KFAT",
+    "name": "Fresno Yosemite International",
+    "state": "California"
+  },
+  {
+    "icao": "KLAX",
+    "name": "Los Angeles International",
+    "state": "California"
+  },
+  {
+    "icao": "KOAK",
+    "name": "Metropolitan Oakland International",
+    "state": "California"
+  },
+  {
+    "icao": "KONT",
+    "name": "Ontario International",
+    "state": "California"
+  },
+  {
+    "icao": "KPMD",
+    "name": "Palmdale Regional/USAF Plant 42",
+    "state": "California"
+  },
+  {
+    "icao": "KSMF",
+    "name": "Sacramento International",
+    "state": "California"
+  },
+  {
+    "icao": "KSAN",
+    "name": "San Diego International",
+    "state": "California"
+  },
+  {
+    "icao": "KSFO",
+    "name": "San Francisco International",
+    "state": "California"
+  },
+  {
+    "icao": "KSJC",
+    "name": "Norman Y. Mineta San Jose International",
+    "state": "California"
+  },
+  {
+    "icao": "KSCK",
+    "name": "Stockton Metropolitan",
+    "state": "California"
+  },
+  {
+    "icao": "KDEN",
+    "name": "Denver International",
+    "state": "Colorado"
+  },
+  {
+    "icao": "KPUB",
+    "name": "Pueblo Memorial",
+    "state": "Colorado"
+  },
+  {
+    "icao": "KBDL",
+    "name": "Bradley International",
+    "state": "Connecticut"
+  },
+  {
+    "icao": "KIAD",
+    "name": "Washington Dulles International",
+    "state": "District of Columbia"
+  },
+  {
+    "icao": "KFLL",
+    "name": "Fort Lauderdale-Hollywood International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KRSW",
+    "name": "Southwest Florida International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KMIA",
+    "name": "Miami International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KMCO",
+    "name": "Orlando International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KTPA",
+    "name": "Tampa International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KPBI",
+    "name": "Palm Beach International",
+    "state": "Florida"
+  },
+  {
+    "icao": "KATL",
+    "name": "Hartsfield-Jackson Atlanta International",
+    "state": "Georgia"
+  },
+  {
+    "icao": "PGUM",
+    "name": "Guam International",
+    "state": "Guam"
+  },
+  {
+    "icao": "PGUA",
+    "name": "Andersen AFB",
+    "state": "Guam"
+  },
+  {
+    "icao": "PHTO",
+    "name": "Hilo International",
+    "state": "Hawaii"
+  },
+  {
+    "icao": "PHNL",
+    "name": "Honolulu International",
+    "state": "Hawaii"
+  },
+  {
+    "icao": "PHOG",
+    "name": "Kahului",
+    "state": "Hawaii"
+  },
+  {
+    "icao": "KORD",
+    "name": "Chicago-O'Hare International",
+    "state": "Illinois"
+  },
+  {
+    "icao": "KIND",
+    "name": "Indianapolis International",
+    "state": "Indiana"
+  },
+  {
+    "icao": "KICT",
+    "name": "Wichita Mid-Continent",
+    "state": "Kansas"
+  },
+  {
+    "icao": "KCVG",
+    "name": "Cincinnati/Northern Kentucky International",
+    "state": "Kentucky"
+  },
+  {
+    "icao": "KMSY",
+    "name": "Louis Armstrong New Orleans International",
+    "state": "Louisiana"
+  },
+  {
+    "icao": "KBGR",
+    "name": "Bangor International",
+    "state": "Maine"
+  },
+  {
+    "icao": "KBWI",
+    "name": "Baltimore-Washington International Thurgood Marshall",
+    "state": "Maryland"
+  },
+  {
+    "icao": "KBOS",
+    "name": "General Edward Lawrence Logan International",
+    "state": "Massachusetts"
+  },
+  {
+    "icao": "KDTW",
+    "name": "Detroit Metropolitan Wayne County",
+    "state": "Michigan"
+  },
+  {
+    "icao": "KMSP",
+    "name": "Minneapolis-St. Paul International (Wold-Chamberlain)",
+    "state": "Minnesota"
+  },
+  {
+    "icao": "KMCI",
+    "name": "Kansas City International",
+    "state": "Missouri"
+  },
+  {
+    "icao": "KSTL",
+    "name": "Lambert-St. Louis International",
+    "state": "Missouri"
+  },
+  {
+    "icao": "KLAS",
+    "name": "McCarran International",
+    "state": "Nevada"
+  },
+  {
+    "icao": "KRNO",
+    "name": "Reno/Tahoe International",
+    "state": "Nevada"
+  },
+  {
+    "icao": "KEWR",
+    "name": "Newark Liberty International",
+    "state": "New Jersey"
+  },
+  {
+    "icao": "KJFK",
+    "name": "John F. Kennedy International",
+    "state": "New York"
+  },
+  {
+    "icao": "KIAG",
+    "name": "Niagara Falls International",
+    "state": "New York"
+  },
+  {
+    "icao": "KSYR",
+    "name": "Syracuse Hancock International",
+    "state": "New York"
+  },
+  {
+    "icao": "KCLT",
+    "name": "Charlotte/Douglas International",
+    "state": "North Carolina"
+  },
+  {
+    "icao": "KRDU",
+    "name": "Raleigh-Durham International",
+    "state": "North Carolina"
+  },
+  {
+    "icao": "PGSN",
+    "name": "Francisco C. Ada/Saipan International",
+    "state": "Northern Mariana Islands"
+  },
+  {
+    "icao": "KCLE",
+    "name": "Cleveland-Hopkins International",
+    "state": "Ohio"
+  },
+  {
+    "icao": "KCMH",
+    "name": "Port Columbus International",
+    "state": "Ohio"
+  },
+  {
+    "icao": "KPDX",
+    "name": "Portland International",
+    "state": "Oregon"
+  },
+  {
+    "icao": "PTRO",
+    "name": "Babelthuap/Koror",
+    "state": "Palau Island"
+  },
+  {
+    "icao": "KPHL",
+    "name": "Philadelphia International",
+    "state": "Pennsylvania"
+  },
+  {
+    "icao": "KPIT",
+    "name": "Pittsburgh International",
+    "state": "Pennsylvania"
+  },
+  {
+    "icao": "TJMZ",
+    "name": "Eugenio Maria De Hostos",
+    "state": "Puerto Rico"
+  },
+  {
+    "icao": "TJSJ",
+    "name": "Luis Munoz Marin International",
+    "state": "Puerto Rico"
+  },
+  {
+    "icao": "KMEM",
+    "name": "Memphis International",
+    "state": "Tennessee"
+  },
+  {
+    "icao": "KBNA",
+    "name": "Nashville International",
+    "state": "Tennessee"
+  },
+  {
+    "icao": "KDFW",
+    "name": "Dallas-Fort Worth International",
+    "state": "Texas"
+  },
+  {
+    "icao": "KELP",
+    "name": "El Paso International",
+    "state": "Texas"
+  },
+  {
+    "icao": "KIAH",
+    "name": "George Bush Intercontinental/Houston International",
+    "state": "Texas"
+  },
+  {
+    "icao": "KLRD",
+    "name": "Laredo International",
+    "state": "Texas"
+  },
+  {
+    "icao": "KSAT",
+    "name": "San Antonio International",
+    "state": "Texas"
+  },
+  {
+    "icao": "KSLC",
+    "name": "Salt Lake City International",
+    "state": "Utah"
+  },
+  {
+    "icao": "TIST",
+    "name": "Cyril E King",
+    "state": "Virgin Islands"
+  },
+  {
+    "icao": "TISX",
+    "name": "Henry E Rohlsen",
+    "state": "Virgin Islands"
+  },
+  {
+    "icao": "KPAE",
+    "name": "Snohomish County (Paine Field)",
+    "state": "Washington"
+  },
+  {
+    "icao": "KSEA",
+    "name": "Seattle-Tacoma International",
+    "state": "Washington"
+  },
+  {
+    "icao": "KGEG",
+    "name": "Spokane International",
+    "state": "Washington"
+  },
+  {
+    "icao": "KMKE",
+    "name": "General Mitchell International",
+    "state": "Wisconsin"
+  }
+]

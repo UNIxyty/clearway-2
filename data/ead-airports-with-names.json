@@ -1,0 +1,4152 @@
+{
+  "LAKU": {
+    "icao": "LAKU",
+    "name": "",
+    "country": "Albania (LA)"
+  },
+  "LATI": {
+    "icao": "LATI",
+    "name": "",
+    "country": "Albania (LA)"
+  },
+  "LOAA": {
+    "icao": "LOAA",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAB": {
+    "icao": "LOAB",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAD": {
+    "icao": "LOAD",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAN": {
+    "icao": "LOAN",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAR": {
+    "icao": "LOAR",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAT": {
+    "icao": "LOAT",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOAV": {
+    "icao": "LOAV",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOBU": {
+    "icao": "LOBU",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LODK": {
+    "icao": "LODK",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LODO": {
+    "icao": "LODO",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOGG": {
+    "icao": "LOGG",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOGH": {
+    "icao": "LOGH",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOGO": {
+    "icao": "LOGO",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOGP": {
+    "icao": "LOGP",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOGZ": {
+    "icao": "LOGZ",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOIH": {
+    "icao": "LOIH",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOIJ": {
+    "icao": "LOIJ",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOJD": {
+    "icao": "LOJD",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKG": {
+    "icao": "LOKG",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKH": {
+    "icao": "LOKH",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKL": {
+    "icao": "LOKL",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKM": {
+    "icao": "LOKM",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKN": {
+    "icao": "LOKN",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKR": {
+    "icao": "LOKR",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOKW": {
+    "icao": "LOKW",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLC": {
+    "icao": "LOLC",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLE": {
+    "icao": "LOLE",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLF": {
+    "icao": "LOLF",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLG": {
+    "icao": "LOLG",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLH": {
+    "icao": "LOLH",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLI": {
+    "icao": "LOLI",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLK": {
+    "icao": "LOLK",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLM": {
+    "icao": "LOLM",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLO": {
+    "icao": "LOLO",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLR": {
+    "icao": "LOLR",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLS": {
+    "icao": "LOLS",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLT": {
+    "icao": "LOLT",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLU": {
+    "icao": "LOLU",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLV": {
+    "icao": "LOLV",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOLW": {
+    "icao": "LOLW",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPB": {
+    "icao": "LOPB",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPF": {
+    "icao": "LOPF",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPG": {
+    "icao": "LOPG",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPI": {
+    "icao": "LOPI",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPK": {
+    "icao": "LOPK",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPR": {
+    "icao": "LOPR",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOPT": {
+    "icao": "LOPT",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOSM": {
+    "icao": "LOSM",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWG": {
+    "icao": "LOWG",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWI": {
+    "icao": "LOWI",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWK": {
+    "icao": "LOWK",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWL": {
+    "icao": "LOWL",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWS": {
+    "icao": "LOWS",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWW": {
+    "icao": "LOWW",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOWZ": {
+    "icao": "LOWZ",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOXA": {
+    "icao": "LOXA",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOXN": {
+    "icao": "LOXN",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOXT": {
+    "icao": "LOXT",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "LOXZ": {
+    "icao": "LOXZ",
+    "name": "",
+    "country": "Austria (LO)"
+  },
+  "EBAW": {
+    "icao": "EBAW",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBBE": {
+    "icao": "EBBE",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBBL": {
+    "icao": "EBBL",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBBR": {
+    "icao": "EBBR",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBCI": {
+    "icao": "EBCI",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBCT": {
+    "icao": "EBCT",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBCV": {
+    "icao": "EBCV",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBFN": {
+    "icao": "EBFN",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBFS": {
+    "icao": "EBFS",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBGB": {
+    "icao": "EBGB",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBKH": {
+    "icao": "EBKH",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBKT": {
+    "icao": "EBKT",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBLG": {
+    "icao": "EBLG",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBMA": {
+    "icao": "EBMA",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBMO": {
+    "icao": "EBMO",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBOS": {
+    "icao": "EBOS",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBSP": {
+    "icao": "EBSP",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBST": {
+    "icao": "EBST",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "EBSU": {
+    "icao": "EBSU",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "ELEA": {
+    "icao": "ELEA",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "ELLC": {
+    "icao": "ELLC",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "ELLX": {
+    "icao": "ELLX",
+    "name": "",
+    "country": "Belgium (EB)"
+  },
+  "LBBG": {
+    "icao": "LBBG",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBLS": {
+    "icao": "LBLS",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBPN": {
+    "icao": "LBPN",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBPV": {
+    "icao": "LBPV",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBRS": {
+    "icao": "LBRS",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBSF": {
+    "icao": "LBSF",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBSP": {
+    "icao": "LBSP",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LBWN": {
+    "icao": "LBWN",
+    "name": "",
+    "country": "Bulgaria (LB)"
+  },
+  "LKPD": {
+    "icao": "LKPD",
+    "name": "",
+    "country": "Czech Republic (LK)"
+  },
+  "LKPR": {
+    "icao": "LKPR",
+    "name": "",
+    "country": "Czech Republic (LK)"
+  },
+  "LKTB": {
+    "icao": "LKTB",
+    "name": "",
+    "country": "Czech Republic (LK)"
+  },
+  "LKVO": {
+    "icao": "LKVO",
+    "name": "",
+    "country": "Czech Republic (LK)"
+  },
+  "EKRB": {
+    "icao": "EKRB",
+    "name": "",
+    "country": "Denmark (EK)"
+  },
+  "EKRH": {
+    "icao": "EKRH",
+    "name": "",
+    "country": "Denmark (EK)"
+  },
+  "EKYT": {
+    "icao": "EKYT",
+    "name": "",
+    "country": "Denmark (EK)"
+  },
+  "EETU": {
+    "icao": "EETU",
+    "name": "",
+    "country": "Estonia (EE)"
+  },
+  "EFET": {
+    "icao": "EFET",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFFH": {
+    "icao": "EFFH",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHA": {
+    "icao": "EFHA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHH": {
+    "icao": "EFHH",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHK": {
+    "icao": "EFHK",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHO": {
+    "icao": "EFHO",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHS": {
+    "icao": "EFHS",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFHY": {
+    "icao": "EFHY",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFIM": {
+    "icao": "EFIM",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFIV": {
+    "icao": "EFIV",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFJE": {
+    "icao": "EFJE",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFJO": {
+    "icao": "EFJO",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFJV": {
+    "icao": "EFJV",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFJY": {
+    "icao": "EFJY",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKA": {
+    "icao": "EFKA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKE": {
+    "icao": "EFKE",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKI": {
+    "icao": "EFKI",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKK": {
+    "icao": "EFKK",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKS": {
+    "icao": "EFKS",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKT": {
+    "icao": "EFKT",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFKU": {
+    "icao": "EFKU",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFLA": {
+    "icao": "EFLA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFLP": {
+    "icao": "EFLP",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFLR": {
+    "icao": "EFLR",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFMA": {
+    "icao": "EFMA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFMH": {
+    "icao": "EFMH",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFMI": {
+    "icao": "EFMI",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFMS": {
+    "icao": "EFMS",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFNU": {
+    "icao": "EFNU",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFOU": {
+    "icao": "EFOU",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFPJ": {
+    "icao": "EFPJ",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFPL": {
+    "icao": "EFPL",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFPO": {
+    "icao": "EFPO",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFPR": {
+    "icao": "EFPR",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFPT": {
+    "icao": "EFPT",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFRO": {
+    "icao": "EFRO",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFSA": {
+    "icao": "EFSA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFSI": {
+    "icao": "EFSI",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFSO": {
+    "icao": "EFSO",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFTP": {
+    "icao": "EFTP",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFTU": {
+    "icao": "EFTU",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFTV": {
+    "icao": "EFTV",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFUT": {
+    "icao": "EFUT",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFVA": {
+    "icao": "EFVA",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "EFVR": {
+    "icao": "EFVR",
+    "name": "",
+    "country": "Finland (EF)"
+  },
+  "DINA": {
+    "icao": "DINA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HABB": {
+    "icao": "HABB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HABI": {
+    "icao": "HABI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HACH": {
+    "icao": "HACH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HACS": {
+    "icao": "HACS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HALB": {
+    "icao": "HALB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HALE": {
+    "icao": "HALE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HALP": {
+    "icao": "HALP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HALS": {
+    "icao": "HALS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAMB": {
+    "icao": "HAMB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAMI": {
+    "icao": "HAMI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAMS": {
+    "icao": "HAMS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAMY": {
+    "icao": "HAMY",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HANE": {
+    "icao": "HANE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HANG": {
+    "icao": "HANG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HANO": {
+    "icao": "HANO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HANT": {
+    "icao": "HANT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAPT": {
+    "icao": "HAPT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HARG": {
+    "icao": "HARG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HARS": {
+    "icao": "HARS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAUB": {
+    "icao": "HAUB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAUC": {
+    "icao": "HAUC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAUL": {
+    "icao": "HAUL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAUX": {
+    "icao": "HAUX",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HAVO": {
+    "icao": "HAVO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBAG": {
+    "icao": "HBAG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBAY": {
+    "icao": "HBAY",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBEA": {
+    "icao": "HBEA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBEB": {
+    "icao": "HBEB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBEL": {
+    "icao": "HBEL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBER": {
+    "icao": "HBER",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBES": {
+    "icao": "HBES",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBEZ": {
+    "icao": "HBEZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBHL": {
+    "icao": "HBHL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBJA": {
+    "icao": "HBJA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBLA": {
+    "icao": "HBLA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBLO": {
+    "icao": "HBLO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBO2": {
+    "icao": "HBO2",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBOR": {
+    "icao": "HBOR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBOU": {
+    "icao": "HBOU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBRG": {
+    "icao": "HBRG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBRI": {
+    "icao": "HBRI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBRN": {
+    "icao": "HBRN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HBSM": {
+    "icao": "HBSM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCAE": {
+    "icao": "HCAE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCAL": {
+    "icao": "HCAL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCAM": {
+    "icao": "HCAM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCAN": {
+    "icao": "HCAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCAS": {
+    "icao": "HCAS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCHA": {
+    "icao": "HCHA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCHL": {
+    "icao": "HCHL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCHS": {
+    "icao": "HCHS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCLE": {
+    "icao": "HCLE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCLV": {
+    "icao": "HCLV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCMX": {
+    "icao": "HCMX",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCMY": {
+    "icao": "HCMY",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCOR": {
+    "icao": "HCOR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCRL": {
+    "icao": "HCRL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCSS": {
+    "icao": "HCSS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCTA": {
+    "icao": "HCTA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HCTX": {
+    "icao": "HCTX",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDAX": {
+    "icao": "HDAX",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDIG": {
+    "icao": "HDIG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDIJ": {
+    "icao": "HDIJ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDOI": {
+    "icao": "HDOI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDOL": {
+    "icao": "HDOL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDPE": {
+    "icao": "HDPE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HDUN": {
+    "icao": "HDUN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HEPI": {
+    "icao": "HEPI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HEST": {
+    "icao": "HEST",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HEVR": {
+    "icao": "HEVR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HFEC": {
+    "icao": "HFEC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HFLE": {
+    "icao": "HFLE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HFON": {
+    "icao": "HFON",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HFRE": {
+    "icao": "HFRE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGAP": {
+    "icao": "HGAP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGEF": {
+    "icao": "HGEF",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGIE": {
+    "icao": "HGIE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGRA": {
+    "icao": "HGRA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGRE": {
+    "icao": "HGRE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HGRT": {
+    "icao": "HGRT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HISS": {
+    "icao": "HISS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLAC": {
+    "icao": "HLAC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLAI": {
+    "icao": "HLAI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLAN": {
+    "icao": "HLAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLAO": {
+    "icao": "HLAO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLAP": {
+    "icao": "HLAP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLBL": {
+    "icao": "HLBL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLEP": {
+    "icao": "HLEP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLIL": {
+    "icao": "HLIL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLLS": {
+    "icao": "HLLS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLMA": {
+    "icao": "HLMA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLNN": {
+    "icao": "HLNN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLOC": {
+    "icao": "HLOC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLOR": {
+    "icao": "HLOR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLOT": {
+    "icao": "HLOT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLRC": {
+    "icao": "HLRC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLYL": {
+    "icao": "HLYL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLYO": {
+    "icao": "HLYO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HLYS": {
+    "icao": "HLYS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMAC": {
+    "icao": "HMAC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMAN": {
+    "icao": "HMAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMAR": {
+    "icao": "HMAR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMAU": {
+    "icao": "HMAU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMDM": {
+    "icao": "HMDM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMEL": {
+    "icao": "HMEL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMER": {
+    "icao": "HMER",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMEZ": {
+    "icao": "HMEZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMHN": {
+    "icao": "HMHN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMIN": {
+    "icao": "HMIN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMLN": {
+    "icao": "HMLN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HMON": {
+    "icao": "HMON",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNAN": {
+    "icao": "HNAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNAR": {
+    "icao": "HNAR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNCT": {
+    "icao": "HNCT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNDS": {
+    "icao": "HNDS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNFC": {
+    "icao": "HNFC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNIM": {
+    "icao": "HNIM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNIO": {
+    "icao": "HNIO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HNQM": {
+    "icao": "HNQM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HOLO": {
+    "icao": "HOLO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HOME": {
+    "icao": "HOME",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HORA": {
+    "icao": "HORA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HORL": {
+    "icao": "HORL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPAR": {
+    "icao": "HPAR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPER": {
+    "icao": "HPER",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPLR": {
+    "icao": "HPLR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPOI": {
+    "icao": "HPOI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPON": {
+    "icao": "HPON",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPOR": {
+    "icao": "HPOR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPOS": {
+    "icao": "HPOS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPRE": {
+    "icao": "HPRE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPSE": {
+    "icao": "HPSE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HPUY": {
+    "icao": "HPUY",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HQUI": {
+    "icao": "HQUI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HRAN": {
+    "icao": "HRAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HREM": {
+    "icao": "HREM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HREP": {
+    "icao": "HREP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HRMS": {
+    "icao": "HRMS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HROA": {
+    "icao": "HROA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HROC": {
+    "icao": "HROC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HROU": {
+    "icao": "HROU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HRYN": {
+    "icao": "HRYN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSAL": {
+    "icao": "HSAL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSAU": {
+    "icao": "HSAU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSCH": {
+    "icao": "HSCH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSDI": {
+    "icao": "HSDI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSEL": {
+    "icao": "HSEL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSEN": {
+    "icao": "HSEN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSES": {
+    "icao": "HSES",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSET": {
+    "icao": "HSET",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSJM": {
+    "icao": "HSJM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSPS": {
+    "icao": "HSPS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTB": {
+    "icao": "HSTB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTC": {
+    "icao": "HSTC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTM": {
+    "icao": "HSTM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTN": {
+    "icao": "HSTN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTQ": {
+    "icao": "HSTQ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HSTS": {
+    "icao": "HSTS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTHO": {
+    "icao": "HTHO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTIM": {
+    "icao": "HTIM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTON": {
+    "icao": "HTON",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTOT": {
+    "icao": "HTOT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTPP": {
+    "icao": "HTPP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTRP": {
+    "icao": "HTRP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HTSM": {
+    "icao": "HTSM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVAL": {
+    "icao": "HVAL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVAN": {
+    "icao": "HVAN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVDI": {
+    "icao": "HVDI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVEN": {
+    "icao": "HVEN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVER": {
+    "icao": "HVER",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVES": {
+    "icao": "HVES",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVIL": {
+    "icao": "HVIL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVOI": {
+    "icao": "HVOI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVON": {
+    "icao": "HVON",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVSA": {
+    "icao": "HVSA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "HVTH": {
+    "icao": "HVTH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFBD": {
+    "icao": "LFBD",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFBO": {
+    "icao": "LFBO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFBP": {
+    "icao": "LFBP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFBZ": {
+    "icao": "LFBZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFKB": {
+    "icao": "LFKB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFLJ": {
+    "icao": "LFLJ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFLL": {
+    "icao": "LFLL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFMD": {
+    "icao": "LFMD",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFML": {
+    "icao": "LFML",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFMN": {
+    "icao": "LFMN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFMT": {
+    "icao": "LFMT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPB": {
+    "icao": "LFPB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPG": {
+    "icao": "LFPG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPI": {
+    "icao": "LFPI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPN": {
+    "icao": "LFPN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPO": {
+    "icao": "LFPO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPV": {
+    "icao": "LFPV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFPZ": {
+    "icao": "LFPZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQL": {
+    "icao": "LFQL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQM": {
+    "icao": "LFQM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQN": {
+    "icao": "LFQN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQO": {
+    "icao": "LFQO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQP": {
+    "icao": "LFQP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQQ": {
+    "icao": "LFQQ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQS": {
+    "icao": "LFQS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQT": {
+    "icao": "LFQT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQU": {
+    "icao": "LFQU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQV": {
+    "icao": "LFQV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQW": {
+    "icao": "LFQW",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQX": {
+    "icao": "LFQX",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQY": {
+    "icao": "LFQY",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFQZ": {
+    "icao": "LFQZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRB": {
+    "icao": "LFRB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRC": {
+    "icao": "LFRC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRD": {
+    "icao": "LFRD",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRE": {
+    "icao": "LFRE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRF": {
+    "icao": "LFRF",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRG": {
+    "icao": "LFRG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRH": {
+    "icao": "LFRH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRI": {
+    "icao": "LFRI",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRJ": {
+    "icao": "LFRJ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRK": {
+    "icao": "LFRK",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRL": {
+    "icao": "LFRL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRM": {
+    "icao": "LFRM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRN": {
+    "icao": "LFRN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRO": {
+    "icao": "LFRO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRP": {
+    "icao": "LFRP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRQ": {
+    "icao": "LFRQ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRS": {
+    "icao": "LFRS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRT": {
+    "icao": "LFRT",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRU": {
+    "icao": "LFRU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRV": {
+    "icao": "LFRV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRW": {
+    "icao": "LFRW",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFRZ": {
+    "icao": "LFRZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSA": {
+    "icao": "LFSA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSB": {
+    "icao": "LFSB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSD": {
+    "icao": "LFSD",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSE": {
+    "icao": "LFSE",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSG": {
+    "icao": "LFSG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSH": {
+    "icao": "LFSH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSJ": {
+    "icao": "LFSJ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSK": {
+    "icao": "LFSK",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSL": {
+    "icao": "LFSL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSM": {
+    "icao": "LFSM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSN": {
+    "icao": "LFSN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSP": {
+    "icao": "LFSP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSR": {
+    "icao": "LFSR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSS": {
+    "icao": "LFSS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFST": {
+    "icao": "LFST",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSU": {
+    "icao": "LFSU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSV": {
+    "icao": "LFSV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFSW": {
+    "icao": "LFSW",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTB": {
+    "icao": "LFTB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTF": {
+    "icao": "LFTF",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTH": {
+    "icao": "LFTH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTL": {
+    "icao": "LFTL",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTM": {
+    "icao": "LFTM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTN": {
+    "icao": "LFTN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTP": {
+    "icao": "LFTP",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTQ": {
+    "icao": "LFTQ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTW": {
+    "icao": "LFTW",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFTZ": {
+    "icao": "LFTZ",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWB": {
+    "icao": "LFWB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWD": {
+    "icao": "LFWD",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWF": {
+    "icao": "LFWF",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWH": {
+    "icao": "LFWH",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWM": {
+    "icao": "LFWM",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWN": {
+    "icao": "LFWN",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFWO": {
+    "icao": "LFWO",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFXA": {
+    "icao": "LFXA",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFXB": {
+    "icao": "LFXB",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFXU": {
+    "icao": "LFXU",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFYG": {
+    "icao": "LFYG",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFYR": {
+    "icao": "LFYR",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFYS": {
+    "icao": "LFYS",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LFYV": {
+    "icao": "LFYV",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "LNMC": {
+    "icao": "LNMC",
+    "name": "",
+    "country": "France (LF)"
+  },
+  "EDAB": {
+    "icao": "EDAB",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDAC": {
+    "icao": "EDAC",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDAH": {
+    "icao": "EDAH",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDAY": {
+    "icao": "EDAY",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDAZ": {
+    "icao": "EDAZ",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDBC": {
+    "icao": "EDBC",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDBH": {
+    "icao": "EDBH",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDBM": {
+    "icao": "EDBM",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDBN": {
+    "icao": "EDBN",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDB": {
+    "icao": "EDDB",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDC": {
+    "icao": "EDDC",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDE": {
+    "icao": "EDDE",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDF": {
+    "icao": "EDDF",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDG": {
+    "icao": "EDDG",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDH": {
+    "icao": "EDDH",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDK": {
+    "icao": "EDDK",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDL": {
+    "icao": "EDDL",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDM": {
+    "icao": "EDDM",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDN": {
+    "icao": "EDDN",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDP": {
+    "icao": "EDDP",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDR": {
+    "icao": "EDDR",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDS": {
+    "icao": "EDDS",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDV": {
+    "icao": "EDDV",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDDW": {
+    "icao": "EDDW",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDFH": {
+    "icao": "EDFH",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDFM": {
+    "icao": "EDFM",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDFQ": {
+    "icao": "EDFQ",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDGS": {
+    "icao": "EDGS",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDHI": {
+    "icao": "EDHI",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDHK": {
+    "icao": "EDHK",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDHL": {
+    "icao": "EDHL",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDJA": {
+    "icao": "EDJA",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDLN": {
+    "icao": "EDLN",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDLP": {
+    "icao": "EDLP",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDLV": {
+    "icao": "EDLV",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDLW": {
+    "icao": "EDLW",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDMA": {
+    "icao": "EDMA",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDME": {
+    "icao": "EDME",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDMO": {
+    "icao": "EDMO",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDMS": {
+    "icao": "EDMS",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDMX": {
+    "icao": "EDMX",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDNY": {
+    "icao": "EDNY",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDPR": {
+    "icao": "EDPR",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDQA": {
+    "icao": "EDQA",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDQC": {
+    "icao": "EDQC",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDQD": {
+    "icao": "EDQD",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDQG": {
+    "icao": "EDQG",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDQM": {
+    "icao": "EDQM",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDRY": {
+    "icao": "EDRY",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDRZ": {
+    "icao": "EDRZ",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDSB": {
+    "icao": "EDSB",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDTD": {
+    "icao": "EDTD",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDTL": {
+    "icao": "EDTL",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDTM": {
+    "icao": "EDTM",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDTY": {
+    "icao": "EDTY",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDVE": {
+    "icao": "EDVE",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDVK": {
+    "icao": "EDVK",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDWE": {
+    "icao": "EDWE",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDWI": {
+    "icao": "EDWI",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "EDXW": {
+    "icao": "EDXW",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "ETHN": {
+    "icao": "ETHN",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "ETMN": {
+    "icao": "ETMN",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "ETNL": {
+    "icao": "ETNL",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "ETSI": {
+    "icao": "ETSI",
+    "name": "",
+    "country": "Germany (ED)"
+  },
+  "LGAV": {
+    "icao": "LGAV",
+    "name": "",
+    "country": "Greece (LG)"
+  },
+  "LGRP": {
+    "icao": "LGRP",
+    "name": "",
+    "country": "Greece (LG)"
+  },
+  "LGTS": {
+    "icao": "LGTS",
+    "name": "",
+    "country": "Greece (LG)"
+  },
+  "LHBC": {
+    "icao": "LHBC",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHBP": {
+    "icao": "LHBP",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHDC": {
+    "icao": "LHDC",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHNY": {
+    "icao": "LHNY",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHPP": {
+    "icao": "LHPP",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHPR": {
+    "icao": "LHPR",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHSM": {
+    "icao": "LHSM",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "LHUD": {
+    "icao": "LHUD",
+    "name": "",
+    "country": "Hungary (LH)"
+  },
+  "EIAB": {
+    "icao": "EIAB",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIBN": {
+    "icao": "EIBN",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIBR": {
+    "icao": "EIBR",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EICA": {
+    "icao": "EICA",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EICK": {
+    "icao": "EICK",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EICL": {
+    "icao": "EICL",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EICN": {
+    "icao": "EICN",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIDL": {
+    "icao": "EIDL",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIDW": {
+    "icao": "EIDW",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIIM": {
+    "icao": "EIIM",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIIR": {
+    "icao": "EIIR",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIKK": {
+    "icao": "EIKK",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIKN": {
+    "icao": "EIKN",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIKY": {
+    "icao": "EIKY",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIMH": {
+    "icao": "EIMH",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIMN": {
+    "icao": "EIMN",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EINC": {
+    "icao": "EINC",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EINN": {
+    "icao": "EINN",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIRT": {
+    "icao": "EIRT",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EISG": {
+    "icao": "EISG",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIWF": {
+    "icao": "EIWF",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "EIWT": {
+    "icao": "EIWT",
+    "name": "",
+    "country": "Ireland (EI)"
+  },
+  "LIBD": {
+    "icao": "LIBD",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIBF": {
+    "icao": "LIBF",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIBG": {
+    "icao": "LIBG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIBI": {
+    "icao": "LIBI",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIBP": {
+    "icao": "LIBP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIBR": {
+    "icao": "LIBR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICA": {
+    "icao": "LICA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICB": {
+    "icao": "LICB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICC": {
+    "icao": "LICC",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICD": {
+    "icao": "LICD",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICG": {
+    "icao": "LICG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICJ": {
+    "icao": "LICJ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICP": {
+    "icao": "LICP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICR": {
+    "icao": "LICR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LICT": {
+    "icao": "LICT",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDA": {
+    "icao": "LIDA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDB": {
+    "icao": "LIDB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDE": {
+    "icao": "LIDE",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDF": {
+    "icao": "LIDF",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDG": {
+    "icao": "LIDG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDH": {
+    "icao": "LIDH",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDL": {
+    "icao": "LIDL",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDP": {
+    "icao": "LIDP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDR": {
+    "icao": "LIDR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDT": {
+    "icao": "LIDT",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDU": {
+    "icao": "LIDU",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIDV": {
+    "icao": "LIDV",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIEA": {
+    "icao": "LIEA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIEE": {
+    "icao": "LIEE",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIEO": {
+    "icao": "LIEO",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIER": {
+    "icao": "LIER",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIET": {
+    "icao": "LIET",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIKA": {
+    "icao": "LIKA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIKB": {
+    "icao": "LIKB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIKC": {
+    "icao": "LIKC",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILA": {
+    "icao": "LILA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILB": {
+    "icao": "LILB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILC": {
+    "icao": "LILC",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILE": {
+    "icao": "LILE",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILG": {
+    "icao": "LILG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILH": {
+    "icao": "LILH",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILI": {
+    "icao": "LILI",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILM": {
+    "icao": "LILM",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILN": {
+    "icao": "LILN",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILQ": {
+    "icao": "LILQ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILR": {
+    "icao": "LILR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILV": {
+    "icao": "LILV",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LILY": {
+    "icao": "LILY",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMA": {
+    "icao": "LIMA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMB": {
+    "icao": "LIMB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMC": {
+    "icao": "LIMC",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIME": {
+    "icao": "LIME",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMF": {
+    "icao": "LIMF",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMG": {
+    "icao": "LIMG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMJ": {
+    "icao": "LIMJ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIML": {
+    "icao": "LIML",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMP": {
+    "icao": "LIMP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMR": {
+    "icao": "LIMR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMW": {
+    "icao": "LIMW",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIMZ": {
+    "icao": "LIMZ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LINA": {
+    "icao": "LINA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LINI": {
+    "icao": "LINI",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LINL": {
+    "icao": "LINL",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPB": {
+    "icao": "LIPB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPD": {
+    "icao": "LIPD",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPE": {
+    "icao": "LIPE",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPF": {
+    "icao": "LIPF",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPG": {
+    "icao": "LIPG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPH": {
+    "icao": "LIPH",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPK": {
+    "icao": "LIPK",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPM": {
+    "icao": "LIPM",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPN": {
+    "icao": "LIPN",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPO": {
+    "icao": "LIPO",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPQ": {
+    "icao": "LIPQ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPR": {
+    "icao": "LIPR",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPU": {
+    "icao": "LIPU",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPV": {
+    "icao": "LIPV",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPX": {
+    "icao": "LIPX",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPY": {
+    "icao": "LIPY",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIPZ": {
+    "icao": "LIPZ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIQB": {
+    "icao": "LIQB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIQL": {
+    "icao": "LIQL",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIQN": {
+    "icao": "LIQN",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIQS": {
+    "icao": "LIQS",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIQW": {
+    "icao": "LIQW",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRA": {
+    "icao": "LIRA",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRF": {
+    "icao": "LIRF",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRG": {
+    "icao": "LIRG",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRI": {
+    "icao": "LIRI",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRJ": {
+    "icao": "LIRJ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRL": {
+    "icao": "LIRL",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRN": {
+    "icao": "LIRN",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRP": {
+    "icao": "LIRP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRQ": {
+    "icao": "LIRQ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRS": {
+    "icao": "LIRS",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRU": {
+    "icao": "LIRU",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRV": {
+    "icao": "LIRV",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIRZ": {
+    "icao": "LIRZ",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIYB": {
+    "icao": "LIYB",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIYC": {
+    "icao": "LIYC",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIYP": {
+    "icao": "LIYP",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "LIYS": {
+    "icao": "LIYS",
+    "name": "",
+    "country": "Italy (LI)"
+  },
+  "EVHN": {
+    "icao": "EVHN",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EVLU": {
+    "icao": "EVLU",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EVRA": {
+    "icao": "EVRA",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EVRS": {
+    "icao": "EVRS",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EVSM": {
+    "icao": "EVSM",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EVVA": {
+    "icao": "EVVA",
+    "name": "",
+    "country": "Latvia (EV)"
+  },
+  "EYSA": {
+    "icao": "EYSA",
+    "name": "",
+    "country": "Lithuania (EY)"
+  },
+  "EYVI": {
+    "icao": "EYVI",
+    "name": "",
+    "country": "Lithuania (EY)"
+  },
+  "LMMG": {
+    "icao": "LMMG",
+    "name": "",
+    "country": "Malta (LM)"
+  },
+  "LMML": {
+    "icao": "LMML",
+    "name": "",
+    "country": "Malta (LM)"
+  },
+  "EHAM": {
+    "icao": "EHAM",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHBK": {
+    "icao": "EHBK",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHEH": {
+    "icao": "EHEH",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHGG": {
+    "icao": "EHGG",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHHA": {
+    "icao": "EHHA",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHHE": {
+    "icao": "EHHE",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHHO": {
+    "icao": "EHHO",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHHV": {
+    "icao": "EHHV",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHKD": {
+    "icao": "EHKD",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHLE": {
+    "icao": "EHLE",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHMZ": {
+    "icao": "EHMZ",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHRD": {
+    "icao": "EHRD",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHSE": {
+    "icao": "EHSE",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHST": {
+    "icao": "EHST",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHTE": {
+    "icao": "EHTE",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHTL": {
+    "icao": "EHTL",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHTW": {
+    "icao": "EHTW",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EHTX": {
+    "icao": "EHTX",
+    "name": "",
+    "country": "Netherlands (EH)"
+  },
+  "EPBA": {
+    "icao": "EPBA",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPBC": {
+    "icao": "EPBC",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPBH": {
+    "icao": "EPBH",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPBK": {
+    "icao": "EPBK",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPBO": {
+    "icao": "EPBO",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPCD": {
+    "icao": "EPCD",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPEL": {
+    "icao": "EPEL",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPGE": {
+    "icao": "EPGE",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPGI": {
+    "icao": "EPGI",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPGL": {
+    "icao": "EPGL",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPGY": {
+    "icao": "EPGY",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPIN": {
+    "icao": "EPIN",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPJG": {
+    "icao": "EPJG",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPJS": {
+    "icao": "EPJS",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKA": {
+    "icao": "EPKA",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKC": {
+    "icao": "EPKC",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKE": {
+    "icao": "EPKE",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKG": {
+    "icao": "EPKG",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKH": {
+    "icao": "EPKH",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKI": {
+    "icao": "EPKI",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKM": {
+    "icao": "EPKM",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKO": {
+    "icao": "EPKO",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKP": {
+    "icao": "EPKP",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKR": {
+    "icao": "EPKR",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKW": {
+    "icao": "EPKW",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPKX": {
+    "icao": "EPKX",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPLI": {
+    "icao": "EPLI",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPLR": {
+    "icao": "EPLR",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPLS": {
+    "icao": "EPLS",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPLU": {
+    "icao": "EPLU",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPML": {
+    "icao": "EPML",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPMR": {
+    "icao": "EPMR",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPMX": {
+    "icao": "EPMX",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPMY": {
+    "icao": "EPMY",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPNC": {
+    "icao": "EPNC",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPNL": {
+    "icao": "EPNL",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPNT": {
+    "icao": "EPNT",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPOD": {
+    "icao": "EPOD",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPOM": {
+    "icao": "EPOM",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPOP": {
+    "icao": "EPOP",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPB": {
+    "icao": "EPPB",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPG": {
+    "icao": "EPPG",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPI": {
+    "icao": "EPPI",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPK": {
+    "icao": "EPPK",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPL": {
+    "icao": "EPPL",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPT": {
+    "icao": "EPPT",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPPZ": {
+    "icao": "EPPZ",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPRD": {
+    "icao": "EPRD",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPRG": {
+    "icao": "EPRG",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPRJ": {
+    "icao": "EPRJ",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPRP": {
+    "icao": "EPRP",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPRU": {
+    "icao": "EPRU",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSA": {
+    "icao": "EPSA",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSD": {
+    "icao": "EPSD",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSI": {
+    "icao": "EPSI",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSK": {
+    "icao": "EPSK",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSL": {
+    "icao": "EPSL",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSS": {
+    "icao": "EPSS",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPST": {
+    "icao": "EPST",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSU": {
+    "icao": "EPSU",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPSW": {
+    "icao": "EPSW",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPTO": {
+    "icao": "EPTO",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPWA": {
+    "icao": "EPWA",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPWK": {
+    "icao": "EPWK",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPWR": {
+    "icao": "EPWR",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPWS": {
+    "icao": "EPWS",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPWT": {
+    "icao": "EPWT",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZA": {
+    "icao": "EPZA",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZE": {
+    "icao": "EPZE",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZG": {
+    "icao": "EPZG",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZP": {
+    "icao": "EPZP",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZR": {
+    "icao": "EPZR",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "EPZW": {
+    "icao": "EPZW",
+    "name": "",
+    "country": "Poland (EP)"
+  },
+  "LPPD": {
+    "icao": "LPPD",
+    "name": "",
+    "country": "Portugal (LP)"
+  },
+  "LPPR": {
+    "icao": "LPPR",
+    "name": "",
+    "country": "Portugal (LP)"
+  },
+  "LPPS": {
+    "icao": "LPPS",
+    "name": "",
+    "country": "Portugal (LP)"
+  },
+  "LPPT": {
+    "icao": "LPPT",
+    "name": "",
+    "country": "Portugal (LP)"
+  },
+  "LPSO": {
+    "icao": "LPSO",
+    "name": "",
+    "country": "Portugal (LP)"
+  },
+  "LRBG": {
+    "icao": "LRBG",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRCX": {
+    "icao": "LRCX",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRDD": {
+    "icao": "LRDD",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRHO": {
+    "icao": "LRHO",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRMA": {
+    "icao": "LRMA",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRMC": {
+    "icao": "LRMC",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRPW": {
+    "icao": "LRPW",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRSB": {
+    "icao": "LRSB",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRSM": {
+    "icao": "LRSM",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRSP": {
+    "icao": "LRSP",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRSV": {
+    "icao": "LRSV",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRTC": {
+    "icao": "LRTC",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRTM": {
+    "icao": "LRTM",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRTR": {
+    "icao": "LRTR",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LRTZ": {
+    "icao": "LRTZ",
+    "name": "",
+    "country": "Romania (LR)"
+  },
+  "LZIB": {
+    "icao": "LZIB",
+    "name": "",
+    "country": "Slovakia (LZ)"
+  },
+  "LZPP": {
+    "icao": "LZPP",
+    "name": "",
+    "country": "Slovakia (LZ)"
+  },
+  "LZZI": {
+    "icao": "LZZI",
+    "name": "",
+    "country": "Slovakia (LZ)"
+  },
+  "LJAJ": {
+    "icao": "LJAJ",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJBL": {
+    "icao": "LJBL",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJBO": {
+    "icao": "LJBO",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJCE": {
+    "icao": "LJCE",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJCL": {
+    "icao": "LJCL",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJDI": {
+    "icao": "LJDI",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJLJ": {
+    "icao": "LJLJ",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJMS": {
+    "icao": "LJMS",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJNM": {
+    "icao": "LJNM",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJPO": {
+    "icao": "LJPO",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJPT": {
+    "icao": "LJPT",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJPZ": {
+    "icao": "LJPZ",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJSG": {
+    "icao": "LJSG",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJSK": {
+    "icao": "LJSK",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "LJSO": {
+    "icao": "LJSO",
+    "name": "",
+    "country": "Slovenia (LJ)"
+  },
+  "GCFV": {
+    "icao": "GCFV",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCGM": {
+    "icao": "GCGM",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCHI": {
+    "icao": "GCHI",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCLA": {
+    "icao": "GCLA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCLP": {
+    "icao": "GCLP",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCRR": {
+    "icao": "GCRR",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCTS": {
+    "icao": "GCTS",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCXM": {
+    "icao": "GCXM",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GCXO": {
+    "icao": "GCXO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GECE": {
+    "icao": "GECE",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GEHM": {
+    "icao": "GEHM",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GEML": {
+    "icao": "GEML",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GSAI": {
+    "icao": "GSAI",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "GSVO": {
+    "icao": "GSVO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAB": {
+    "icao": "LEAB",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAG": {
+    "icao": "LEAG",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAL": {
+    "icao": "LEAL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAM": {
+    "icao": "LEAM",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAO": {
+    "icao": "LEAO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEAS": {
+    "icao": "LEAS",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBA": {
+    "icao": "LEBA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBB": {
+    "icao": "LEBB",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBG": {
+    "icao": "LEBG",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBL": {
+    "icao": "LEBL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBT": {
+    "icao": "LEBT",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEBZ": {
+    "icao": "LEBZ",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LECH": {
+    "icao": "LECH",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LECO": {
+    "icao": "LECO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LECU": {
+    "icao": "LECU",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LECV": {
+    "icao": "LECV",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEDA": {
+    "icao": "LEDA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEEC": {
+    "icao": "LEEC",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEGA": {
+    "icao": "LEGA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEGE": {
+    "icao": "LEGE",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEGR": {
+    "icao": "LEGR",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEGT": {
+    "icao": "LEGT",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEHC": {
+    "icao": "LEHC",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEIB": {
+    "icao": "LEIB",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEJR": {
+    "icao": "LEJR",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LELC": {
+    "icao": "LELC",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LELL": {
+    "icao": "LELL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LELN": {
+    "icao": "LELN",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LELO": {
+    "icao": "LELO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEMD": {
+    "icao": "LEMD",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEMG": {
+    "icao": "LEMG",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEMH": {
+    "icao": "LEMH",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEMI": {
+    "icao": "LEMI",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEMO": {
+    "icao": "LEMO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEPA": {
+    "icao": "LEPA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEPO": {
+    "icao": "LEPO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEPP": {
+    "icao": "LEPP",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LERI": {
+    "icao": "LERI",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LERJ": {
+    "icao": "LERJ",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LERL": {
+    "icao": "LERL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LERS": {
+    "icao": "LERS",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LERT": {
+    "icao": "LERT",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LESA": {
+    "icao": "LESA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LESB": {
+    "icao": "LESB",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LESO": {
+    "icao": "LESO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEST": {
+    "icao": "LEST",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LESU": {
+    "icao": "LESU",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LETA": {
+    "icao": "LETA",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LETL": {
+    "icao": "LETL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LETO": {
+    "icao": "LETO",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEVC": {
+    "icao": "LEVC",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEVD": {
+    "icao": "LEVD",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEVT": {
+    "icao": "LEVT",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEVX": {
+    "icao": "LEVX",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEXJ": {
+    "icao": "LEXJ",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEZG": {
+    "icao": "LEZG",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LEZL": {
+    "icao": "LEZL",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "LXGB": {
+    "icao": "LXGB",
+    "name": "",
+    "country": "Spain (LE)"
+  },
+  "ESUP": {
+    "icao": "ESUP",
+    "name": "",
+    "country": "Sweden (ES)"
+  },
+  "ESUT": {
+    "icao": "ESUT",
+    "name": "",
+    "country": "Sweden (ES)"
+  }
+}

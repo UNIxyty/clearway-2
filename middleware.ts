@@ -69,6 +69,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/maintenance") ||
+    pathname.startsWith("/rus-aip-test") ||
     pathname.startsWith("/api")
   ) {
     return NextResponse.next();

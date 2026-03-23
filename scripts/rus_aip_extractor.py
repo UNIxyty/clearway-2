@@ -259,6 +259,12 @@ def parse_airport_icao(title: str) -> str | None:
     return m.group(1).upper() if m else None
 
 
+def airport_name_from_title(title: str) -> str:
+    t = title.strip()
+    t = re.sub(r"^[A-Z]{4}\.\s*", "", t, flags=re.I)
+    return t.strip()
+
+
 def is_aip_main_link(title: str) -> bool:
     return "ДАННЫЕ" in title and "ТЕКСТЫ" in title
 
@@ -361,13 +367,7 @@ def download_file(url: str, dest: Path, timeout: int = 120) -> dict[str, Any]:
 
 def write_csv_airports(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = [
-        "icao",
-        "airport_node_title",
-        "aip_main_title",
-        "aip_main_href_menu_relative",
-        "aip_main_url",
-    ]
+    fields = ["icao", "airport_name"]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
@@ -449,20 +449,31 @@ def main() -> int:
     gen1 = extract_gen1_links(root)
 
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
+    airport_db_rows = sorted(
+        [
+            {
+                "icao": (a.get("icao") or "").strip().upper(),
+                "airport_name": airport_name_from_title(a.get("airport_node_title") or ""),
+            }
+            for a in airports
+            if (a.get("icao") or "").strip()
+        ],
+        key=lambda x: x["icao"],
+    )
+
     with open(args.out_json, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "source_menu_url": args.menu_url,
-                "base_pdf_url_note": BASE_PDF_URL,
-                "international_airport_count": len(airports),
-                "airports": airports,
+                "international_airport_count": len(airport_db_rows),
+                "airports": airport_db_rows,
             },
             f,
             indent=2,
             ensure_ascii=False,
         )
 
-    write_csv_airports(args.out_csv, airports)
+    write_csv_airports(args.out_csv, airport_db_rows)
 
     manifest_items: list[dict[str, Any]] = []
     for g in gen1:

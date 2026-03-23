@@ -1,17 +1,17 @@
 {
   "menu_url": "https://www.caica.ru/common/AirInter/validaip/html/menurus.htm",
-  "duration_seconds": 44.59,
+  "duration_seconds": 2.034,
   "token_count": 3750,
   "international_airport_count": 76,
   "gen1_link_count": 7,
-  "download_enabled": true,
-  "download_ok": 83,
-  "download_failed_or_skipped": 0,
+  "download_enabled": false,
+  "download_ok": null,
+  "download_failed_or_skipped": null,
   "outputs": {
     "airports_json": "data/rus-aip-international-airports.json",
     "airports_csv": "data/rus-aip-international-airports.csv",
     "manifest": "data/rus-aip-download-manifest.json",
     "report": "test-results/rus-aip-extract-report.json",
-    "download_root": "downloads/rus-aip/extract-20260323-112517"
+    "download_root": "downloads/rus-aip"
   }
 }

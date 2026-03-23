@@ -20,6 +20,7 @@ from pathlib import Path
 
 from rus_aip_extractor import (
     DEFAULT_MENU_URL,
+    DEFAULT_OUT_JSON,
     PROJECT_ROOT,
     build_tree,
     download_file,
@@ -52,6 +53,12 @@ def main() -> int:
         default=DEFAULT_TARGET_ROOT,
         help="Base folder where timestamped run folder is created",
     )
+    parser.add_argument(
+        "--airport-db",
+        type=Path,
+        default=DEFAULT_OUT_JSON,
+        help="JSON database with airports (icao + airport_name)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Print progress")
     args = parser.parse_args()
 
@@ -59,6 +66,25 @@ def main() -> int:
     if not re.match(r"^[A-Z]{4}$", icao):
         print("Invalid ICAO format. Use 4 letters, e.g. UNAA", file=sys.stderr)
         return 2
+
+    if not args.airport_db.exists():
+        print(
+            f"Airport DB not found: {args.airport_db}. Run rus_aip_extractor.py first.",
+            file=sys.stderr,
+        )
+        return 2
+
+    with open(args.airport_db, encoding="utf-8") as f:
+        db = json.load(f)
+    db_airports = db.get("airports", [])
+    db_by_icao = {
+        (x.get("icao") or "").strip().upper(): (x.get("airport_name") or "").strip()
+        for x in db_airports
+        if (x.get("icao") or "").strip()
+    }
+    if icao not in db_by_icao:
+        print(f"ICAO {icao} not found in DB {args.airport_db}", file=sys.stderr)
+        return 3
 
     if args.verbose:
         print(f"Fetching {args.menu_url}", file=sys.stderr)
@@ -70,7 +96,10 @@ def main() -> int:
 
     airport = next((a for a in airports if (a.get("icao") or "").upper() == icao), None)
     if airport is None:
-        print(f"ICAO {icao} was not found in international airports list.", file=sys.stderr)
+        print(
+            f"ICAO {icao} exists in DB but was not found in live menu.",
+            file=sys.stderr,
+        )
         return 3
 
     gen12 = find_gen12(gen1)
@@ -101,6 +130,7 @@ def main() -> int:
         "timestamp_utc": stamp,
         "run_dir": str(run_dir),
         "airport": {
+            "airport_name": db_by_icao.get(icao),
             "title": airport.get("airport_node_title"),
             "aip_main_title": airport.get("aip_main_title"),
             "aip_main_url": airport.get("aip_main_url"),

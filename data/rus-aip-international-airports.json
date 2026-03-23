@@ -1,539 +1,310 @@
 {
   "source_menu_url": "https://www.caica.ru/common/AirInter/validaip/html/menurus.htm",
-  "base_pdf_url_note": "https://www.caica.ru/common/AirInter/validaip/aip/",
   "international_airport_count": 76,
   "airports": [
     {
-      "icao": "UNAA",
-      "airport_node_title": "UNAA. АБАКАН",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unaa/1-ad2-rus-unaa-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unaa/1-ad2-rus-unaa-txt.pdf"
-    },
-    {
-      "icao": "UHMA",
-      "airport_node_title": "UHMA. АНАДЫРЬ (УГОЛЬНЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhma/1-ad2-rus-uhma-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhma/1-ad2-rus-uhma-txt.pdf"
-    },
-    {
-      "icao": "URKA",
-      "airport_node_title": "URKA. АНАПА (ВИТЯЗЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urka/1-ad2-rus-urka-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urka/1-ad2-rus-urka-txt.pdf"
-    },
-    {
-      "icao": "ULAA",
-      "airport_node_title": "ULAA. АРХАНГЕЛЬСК (ТАЛАГИ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ulaa/1-ad2-rus-ulaa-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulaa/1-ad2-rus-ulaa-txt.pdf"
-    },
-    {
-      "icao": "URWA",
-      "airport_node_title": "URWA. АСТРАХАНЬ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urwa/1-ad2-rus-urwa-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urwa/1-ad2-rus-urwa-txt.pdf"
-    },
-    {
-      "icao": "UNBB",
-      "airport_node_title": "UNBB. БАРНАУЛ (МИХАЙЛОВКА)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unbb/1-ad2-rus-unbb-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unbb/1-ad2-rus-unbb-txt.pdf"
-    },
-    {
-      "icao": "UUOB",
-      "airport_node_title": "UUOB. БЕЛГОРОД",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuob/1-ad2-rus-uuob-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuob/1-ad2-rus-uuob-txt.pdf"
+      "icao": "UEEE",
+      "airport_name": "ЯКУТСК"
     },
     {
       "icao": "UHBB",
-      "airport_node_title": "UHBB. БЛАГОВЕЩЕНСК (ИГНАТЬЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhbb/1-ad2-rus-uhbb-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhbb/1-ad2-rus-uhbb-txt.pdf"
-    },
-    {
-      "icao": "UIBB",
-      "airport_node_title": "UIBB. БРАТСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uibb/1-ad2-rus-uibb-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uibb/1-ad2-rus-uibb-txt.pdf"
-    },
-    {
-      "icao": "UUBP",
-      "airport_node_title": "UUBP. БРЯНСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uubp/1-ad2-rus-uubp-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubp/1-ad2-rus-uubp-txt.pdf"
-    },
-    {
-      "icao": "UWKS",
-      "airport_node_title": "UWKS. ЧЕБОКСАРЫ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwks/1-ad2-rus-uwks-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwks/1-ad2-rus-uwks-txt.pdf"
-    },
-    {
-      "icao": "USCC",
-      "airport_node_title": "USCC. ЧЕЛЯБИНСК (БАЛАНДИНО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uscc/1-ad2-rus-uscc-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uscc/1-ad2-rus-uscc-txt.pdf"
-    },
-    {
-      "icao": "ULWC",
-      "airport_node_title": "ULWC. ЧЕРЕПОВЕЦ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ulwc/1-ad2-rus-ulwc-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulwc/1-ad2-rus-ulwc-txt.pdf"
-    },
-    {
-      "icao": "UIAA",
-      "airport_node_title": "UIAA. ЧИТА (КАДАЛА)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uiaa/1-ad2-rus-uiaa-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiaa/1-ad2-rus-uiaa-txt.pdf"
-    },
-    {
-      "icao": "URWI",
-      "airport_node_title": "URWI. ЭЛИСТА",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urwi/1-ad2-rus-urwi-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urwi/1-ad2-rus-urwi-txt.pdf"
-    },
-    {
-      "icao": "URMG",
-      "airport_node_title": "URMG. ГРОЗНЫЙ (СЕВЕРНЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urmg/1-ad2-rus-urmg-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmg/1-ad2-rus-urmg-txt.pdf"
-    },
-    {
-      "icao": "UIII",
-      "airport_node_title": "UIII. ИРКУТСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uiii/1-ad2-rus-uiii-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiii/1-ad2-rus-uiii-txt.pdf"
-    },
-    {
-      "icao": "UMKK",
-      "airport_node_title": "UMKK. КАЛИНИНГРАД (ХРАБРОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/umkk/1-ad2-rus-umkk-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/umkk/1-ad2-rus-umkk-txt.pdf"
-    },
-    {
-      "icao": "UUBC",
-      "airport_node_title": "UUBC. КАЛУГА (ГРАБЦЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uubc/1-ad2-rus-uubc-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubc/1-ad2-rus-uubc-txt.pdf"
-    },
-    {
-      "icao": "UWKD",
-      "airport_node_title": "UWKD. КАЗАНЬ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwkd/1-ad2-rus-uwkd-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwkd/1-ad2-rus-uwkd-txt.pdf"
-    },
-    {
-      "icao": "UNEE",
-      "airport_node_title": "UNEE. КЕМЕРОВО",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unee/1-ad2-rus-unee-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unee/1-ad2-rus-unee-txt.pdf"
+      "airport_name": "БЛАГОВЕЩЕНСК (ИГНАТЬЕВО)"
     },
     {
       "icao": "UHHH",
-      "airport_node_title": "UHHH. ХАБАРОВСК (НОВЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhhh/1-ad2-rus-uhhh-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhhh/1-ad2-rus-uhhh-txt.pdf"
+      "airport_name": "ХАБАРОВСК (НОВЫЙ)"
     },
     {
-      "icao": "USHH",
-      "airport_node_title": "USHH. ХАНТЫ-МАНСИЙСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ushh/1-ad2-rus-ushh-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ushh/1-ad2-rus-ushh-txt.pdf"
-    },
-    {
-      "icao": "URKK",
-      "airport_node_title": "URKK. КРАСНОДАР (ПАШКОВСКИЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urkk/1-ad2-rus-urkk-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urkk/1-ad2-rus-urkk-txt.pdf"
-    },
-    {
-      "icao": "UNKL",
-      "airport_node_title": "UNKL. КРАСНОЯРСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unkl/1-ad2-rus-unkl-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unkl/1-ad2-rus-unkl-txt.pdf"
-    },
-    {
-      "icao": "UUOK",
-      "airport_node_title": "UUOK. КУРСК (ВОСТОЧНЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuok/1-ad2-rus-uuok-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuok/1-ad2-rus-uuok-txt.pdf"
-    },
-    {
-      "icao": "UUOL",
-      "airport_node_title": "UUOL. ЛИПЕЦК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuol/1-ad2-rus-uuol-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuol/1-ad2-rus-uuol-txt.pdf"
-    },
-    {
-      "icao": "UHMM",
-      "airport_node_title": "UHMM. МАГАДАН (СОКОЛ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhmm/1-ad2-rus-uhmm-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhmm/1-ad2-rus-uhmm-txt.pdf"
-    },
-    {
-      "icao": "USCM",
-      "airport_node_title": "USCM. МАГНИТОГОРСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uscm/1-ad2-rus-uscm-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uscm/1-ad2-rus-uscm-txt.pdf"
-    },
-    {
-      "icao": "URML",
-      "airport_node_title": "URML. МАХАЧКАЛА (УЙТАШ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urml/1-ad2-rus-urml-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urml/1-ad2-rus-urml-txt.pdf"
-    },
-    {
-      "icao": "URMM",
-      "airport_node_title": "URMM. МИНЕРАЛЬНЫЕ ВОДЫ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urmm/1-ad2-rus-urmm-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmm/1-ad2-rus-urmm-txt.pdf"
-    },
-    {
-      "icao": "UUDD",
-      "airport_node_title": "UUDD. МОСКВА (ДОМОДЕДОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uudd/1-ad2-rus-uudd-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uudd/1-ad2-rus-uudd-txt.pdf"
-    },
-    {
-      "icao": "UUEE",
-      "airport_node_title": "UUEE. МОСКВА (ШЕРЕМЕТЬЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuee/1-ad2-rus-uuee-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuee/1-ad2-rus-uuee-txt.pdf"
-    },
-    {
-      "icao": "UUWW",
-      "airport_node_title": "UUWW. МОСКВА (ВНУКОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuww/1-ad2-rus-uuww-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuww/1-ad2-rus-uuww-txt.pdf"
-    },
-    {
-      "icao": "ULMM",
-      "airport_node_title": "ULMM. МУРМАНСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ulmm/1-ad2-rus-ulmm-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulmm/1-ad2-rus-ulmm-txt.pdf"
-    },
-    {
-      "icao": "URMN",
-      "airport_node_title": "URMN. НАЛЬЧИК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urmn/1-ad2-rus-urmn-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmn/1-ad2-rus-urmn-txt.pdf"
-    },
-    {
-      "icao": "UWKE",
-      "airport_node_title": "UWKE. НИЖНЕКАМСК (БЕГИШЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwke/1-ad2-rus-uwke-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwke/1-ad2-rus-uwke-txt.pdf"
-    },
-    {
-      "icao": "USNN",
-      "airport_node_title": "USNN. НИЖНЕВАРТОВСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/usnn/1-ad2-rus-usnn-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usnn/1-ad2-rus-usnn-txt.pdf"
-    },
-    {
-      "icao": "UWGG",
-      "airport_node_title": "UWGG. НИЖНИЙ НОВГОРОД (СТРИГИНО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwgg/1-ad2-rus-uwgg-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwgg/1-ad2-rus-uwgg-txt.pdf"
-    },
-    {
-      "icao": "UNWW",
-      "airport_node_title": "UNWW. НОВОКУЗНЕЦК (СПИЧЕНКОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unww/1-ad2-rus-unww-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unww/1-ad2-rus-unww-txt.pdf"
-    },
-    {
-      "icao": "UNNT",
-      "airport_node_title": "UNNT. НОВОСИБИРСК (ТОЛМАЧЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unnt/1-ad2-rus-unnt-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unnt/1-ad2-rus-unnt-txt.pdf"
-    },
-    {
-      "icao": "UNOO",
-      "airport_node_title": "UNOO. ОМСК (ЦЕНТРАЛЬНЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/unoo/1-ad2-rus-unoo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unoo/1-ad2-rus-unoo-txt.pdf"
-    },
-    {
-      "icao": "UWOO",
-      "airport_node_title": "UWOO. ОРЕНБУРГ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwoo/1-ad2-rus-uwoo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwoo/1-ad2-rus-uwoo-txt.pdf"
-    },
-    {
-      "icao": "UWOR",
-      "airport_node_title": "UWOR. ОРСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwor/1-ad2-rus-uwor-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwor/1-ad2-rus-uwor-txt.pdf"
-    },
-    {
-      "icao": "UUMO",
-      "airport_node_title": "UUMO. ОСТАФЬЕВО",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uumo/1-ad2-rus-uumo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uumo/1-ad2-rus-uumo-txt.pdf"
-    },
-    {
-      "icao": "USPP",
-      "airport_node_title": "USPP. ПЕРМЬ (БОЛЬШОЕ САВИНО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uspp/1-ad2-rus-uspp-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uspp/1-ad2-rus-uspp-txt.pdf"
-    },
-    {
-      "icao": "UHPP",
-      "airport_node_title": "UHPP. ПЕТРОПАВЛОВСК-КАМЧАТСКИЙ (ЕЛИЗОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhpp/1-ad2-rus-uhpp-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhpp/1-ad2-rus-uhpp-txt.pdf"
-    },
-    {
-      "icao": "ULPB",
-      "airport_node_title": "ULPB. ПЕТРОЗАВОДСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ulpb/1-ad2-rus-ulpb-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulpb/1-ad2-rus-ulpb-txt.pdf"
+      "icao": "UHMA",
+      "airport_name": "АНАДЫРЬ (УГОЛЬНЫЙ)"
     },
     {
       "icao": "UHMD",
-      "airport_node_title": "UHMD. ПРОВИДЕНИЯ БУХТА",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhmd/1-ad2-rus-uhmd-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhmd/1-ad2-rus-uhmd-txt.pdf"
+      "airport_name": "ПРОВИДЕНИЯ БУХТА"
     },
     {
-      "icao": "ULOO",
-      "airport_node_title": "ULOO. ПСКОВ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uloo/1-ad2-rus-uloo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uloo/1-ad2-rus-uloo-txt.pdf"
+      "icao": "UHMM",
+      "airport_name": "МАГАДАН (СОКОЛ)"
     },
     {
-      "icao": "UUBW",
-      "airport_node_title": "UUBW. РАМЕНСКОЕ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uubw/1-ad2-rus-uubw-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubw/1-ad2-rus-uubw-txt.pdf"
-    },
-    {
-      "icao": "URRP",
-      "airport_node_title": "URRP. РОСТОВ - НА - ДОНУ (ПЛАТОВ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urrp/1-ad2-rus-urrp-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urrp/1-ad2-rus-urrp-txt.pdf"
-    },
-    {
-      "icao": "USDA",
-      "airport_node_title": "USDA. САБЕТТА",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/usda/1-ad2-rus-usda-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usda/1-ad2-rus-usda-txt.pdf"
-    },
-    {
-      "icao": "UWWW",
-      "airport_node_title": "UWWW. САМАРА (КУРУМОЧ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwww/1-ad2-rus-uwww-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwww/1-ad2-rus-uwww-txt.pdf"
-    },
-    {
-      "icao": "ULLI",
-      "airport_node_title": "ULLI. САНКТ-ПЕТЕРБУРГ (ПУЛКОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ulli/1-ad2-rus-ulli-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulli/1-ad2-rus-ulli-txt.pdf"
-    },
-    {
-      "icao": "UWPS",
-      "airport_node_title": "UWPS. САРАНСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwps/1-ad2-rus-uwps-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwps/1-ad2-rus-uwps-txt.pdf"
-    },
-    {
-      "icao": "UWSG",
-      "airport_node_title": "UWSG. САРАТОВ (ГАГАРИН)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwsg/1-ad2-rus-uwsg-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwsg/1-ad2-rus-uwsg-txt.pdf"
-    },
-    {
-      "icao": "URFF",
-      "airport_node_title": "URFF.  СИМФЕРОПОЛЬ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urff/1-ad2-rus-urff-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urff/1-ad2-rus-urff-txt.pdf"
-    },
-    {
-      "icao": "URSS",
-      "airport_node_title": "URSS. СОЧИ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urss/1-ad2-rus-urss-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urss/1-ad2-rus-urss-txt.pdf"
-    },
-    {
-      "icao": "URMT",
-      "airport_node_title": "URMT. СТАВРОПОЛЬ (ШПАКОВСКОЕ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urmt/1-ad2-rus-urmt-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmt/1-ad2-rus-urmt-txt.pdf"
-    },
-    {
-      "icao": "USRR",
-      "airport_node_title": "USRR. СУРГУТ",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/usrr/1-ad2-rus-usrr-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usrr/1-ad2-rus-usrr-txt.pdf"
-    },
-    {
-      "icao": "UUYY",
-      "airport_node_title": "UUYY. СЫКТЫВКАР",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuyy/1-ad2-rus-uuyy-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuyy/1-ad2-rus-uuyy-txt.pdf"
-    },
-    {
-      "icao": "UNTT",
-      "airport_node_title": "UNTT. ТОМСК (БОГАШЕВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/untt/1-ad2-rus-untt-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/untt/1-ad2-rus-untt-txt.pdf"
-    },
-    {
-      "icao": "USTR",
-      "airport_node_title": "USTR. ТЮМЕНЬ (РОЩИНО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ustr/1-ad2-rus-ustr-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ustr/1-ad2-rus-ustr-txt.pdf"
-    },
-    {
-      "icao": "UWUU",
-      "airport_node_title": "UWUU. УФА",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwuu/1-ad2-rus-uwuu-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwuu/1-ad2-rus-uwuu-txt.pdf"
-    },
-    {
-      "icao": "UIUU",
-      "airport_node_title": "UIUU. УЛАН-УДЭ (МУХИНО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uiuu/1-ad2-rus-uiuu-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiuu/1-ad2-rus-uiuu-txt.pdf"
-    },
-    {
-      "icao": "UWLL",
-      "airport_node_title": "UWLL. УЛЬЯНОВСК (БАРАТАЕВКА)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwll/1-ad2-rus-uwll-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwll/1-ad2-rus-uwll-txt.pdf"
-    },
-    {
-      "icao": "UWLW",
-      "airport_node_title": "UWLW. УЛЬЯНОВСК (ВОСТОЧНЫЙ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uwlw/1-ad2-rus-uwlw-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwlw/1-ad2-rus-uwlw-txt.pdf"
-    },
-    {
-      "icao": "URMO",
-      "airport_node_title": "URMO. ВЛАДИКАВКАЗ (БЕСЛАН)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urmo/1-ad2-rus-urmo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmo/1-ad2-rus-urmo-txt.pdf"
-    },
-    {
-      "icao": "UHWW",
-      "airport_node_title": "UHWW. ВЛАДИВОСТОК (КНЕВИЧИ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhww/1-ad2-rus-uhww-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhww/1-ad2-rus-uhww-txt.pdf"
-    },
-    {
-      "icao": "URWW",
-      "airport_node_title": "URWW. ВОЛГОГРАД (ГУМРАК)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/urww/1-ad2-rus-urww-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urww/1-ad2-rus-urww-txt.pdf"
-    },
-    {
-      "icao": "UUOO",
-      "airport_node_title": "UUOO. ВОРОНЕЖ (ЧЕРТОВИЦКОЕ)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uuoo/1-ad2-rus-uuoo-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuoo/1-ad2-rus-uuoo-txt.pdf"
-    },
-    {
-      "icao": "UEEE",
-      "airport_node_title": "UEEE. ЯКУТСК",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/ueee/1-ad2-rus-ueee-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ueee/1-ad2-rus-ueee-txt.pdf"
-    },
-    {
-      "icao": "UUDL",
-      "airport_node_title": "UUDL. ЯРОСЛАВЛЬ (ТУНОШНА)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uudl/1-ad2-rus-uudl-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uudl/1-ad2-rus-uudl-txt.pdf"
-    },
-    {
-      "icao": "USSS",
-      "airport_node_title": "USSS. ЕКАТЕРИНБУРГ (КОЛЬЦОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/usss/1-ad2-rus-usss-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usss/1-ad2-rus-usss-txt.pdf"
+      "icao": "UHPP",
+      "airport_name": "ПЕТРОПАВЛОВСК-КАМЧАТСКИЙ (ЕЛИЗОВО)"
     },
     {
       "icao": "UHSS",
-      "airport_node_title": "UHSS. ЮЖНО-САХАЛИНСК (ХОМУТОВО)",
-      "aip_main_title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
-      "aip_main_href_menu_relative": "../aip/ad/ad2/uhss/1-ad2-rus-uhss-txt.pdf",
-      "aip_main_url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhss/1-ad2-rus-uhss-txt.pdf"
+      "airport_name": "ЮЖНО-САХАЛИНСК (ХОМУТОВО)"
+    },
+    {
+      "icao": "UHWW",
+      "airport_name": "ВЛАДИВОСТОК (КНЕВИЧИ)"
+    },
+    {
+      "icao": "UIAA",
+      "airport_name": "ЧИТА (КАДАЛА)"
+    },
+    {
+      "icao": "UIBB",
+      "airport_name": "БРАТСК"
+    },
+    {
+      "icao": "UIII",
+      "airport_name": "ИРКУТСК"
+    },
+    {
+      "icao": "UIUU",
+      "airport_name": "УЛАН-УДЭ (МУХИНО)"
+    },
+    {
+      "icao": "ULAA",
+      "airport_name": "АРХАНГЕЛЬСК (ТАЛАГИ)"
+    },
+    {
+      "icao": "ULLI",
+      "airport_name": "САНКТ-ПЕТЕРБУРГ (ПУЛКОВО)"
+    },
+    {
+      "icao": "ULMM",
+      "airport_name": "МУРМАНСК"
+    },
+    {
+      "icao": "ULOO",
+      "airport_name": "ПСКОВ"
+    },
+    {
+      "icao": "ULPB",
+      "airport_name": "ПЕТРОЗАВОДСК"
+    },
+    {
+      "icao": "ULWC",
+      "airport_name": "ЧЕРЕПОВЕЦ"
+    },
+    {
+      "icao": "UMKK",
+      "airport_name": "КАЛИНИНГРАД (ХРАБРОВО)"
+    },
+    {
+      "icao": "UNAA",
+      "airport_name": "АБАКАН"
+    },
+    {
+      "icao": "UNBB",
+      "airport_name": "БАРНАУЛ (МИХАЙЛОВКА)"
+    },
+    {
+      "icao": "UNEE",
+      "airport_name": "КЕМЕРОВО"
+    },
+    {
+      "icao": "UNKL",
+      "airport_name": "КРАСНОЯРСК"
+    },
+    {
+      "icao": "UNNT",
+      "airport_name": "НОВОСИБИРСК (ТОЛМАЧЕВО)"
+    },
+    {
+      "icao": "UNOO",
+      "airport_name": "ОМСК (ЦЕНТРАЛЬНЫЙ)"
+    },
+    {
+      "icao": "UNTT",
+      "airport_name": "ТОМСК (БОГАШЕВО)"
+    },
+    {
+      "icao": "UNWW",
+      "airport_name": "НОВОКУЗНЕЦК (СПИЧЕНКОВО)"
+    },
+    {
+      "icao": "URFF",
+      "airport_name": "СИМФЕРОПОЛЬ"
+    },
+    {
+      "icao": "URKA",
+      "airport_name": "АНАПА (ВИТЯЗЕВО)"
+    },
+    {
+      "icao": "URKK",
+      "airport_name": "КРАСНОДАР (ПАШКОВСКИЙ)"
+    },
+    {
+      "icao": "URMG",
+      "airport_name": "ГРОЗНЫЙ (СЕВЕРНЫЙ)"
+    },
+    {
+      "icao": "URML",
+      "airport_name": "МАХАЧКАЛА (УЙТАШ)"
+    },
+    {
+      "icao": "URMM",
+      "airport_name": "МИНЕРАЛЬНЫЕ ВОДЫ"
+    },
+    {
+      "icao": "URMN",
+      "airport_name": "НАЛЬЧИК"
+    },
+    {
+      "icao": "URMO",
+      "airport_name": "ВЛАДИКАВКАЗ (БЕСЛАН)"
+    },
+    {
+      "icao": "URMT",
+      "airport_name": "СТАВРОПОЛЬ (ШПАКОВСКОЕ)"
+    },
+    {
+      "icao": "URRP",
+      "airport_name": "РОСТОВ - НА - ДОНУ (ПЛАТОВ)"
+    },
+    {
+      "icao": "URSS",
+      "airport_name": "СОЧИ"
+    },
+    {
+      "icao": "URWA",
+      "airport_name": "АСТРАХАНЬ"
+    },
+    {
+      "icao": "URWI",
+      "airport_name": "ЭЛИСТА"
+    },
+    {
+      "icao": "URWW",
+      "airport_name": "ВОЛГОГРАД (ГУМРАК)"
+    },
+    {
+      "icao": "USCC",
+      "airport_name": "ЧЕЛЯБИНСК (БАЛАНДИНО)"
+    },
+    {
+      "icao": "USCM",
+      "airport_name": "МАГНИТОГОРСК"
+    },
+    {
+      "icao": "USDA",
+      "airport_name": "САБЕТТА"
+    },
+    {
+      "icao": "USHH",
+      "airport_name": "ХАНТЫ-МАНСИЙСК"
+    },
+    {
+      "icao": "USNN",
+      "airport_name": "НИЖНЕВАРТОВСК"
+    },
+    {
+      "icao": "USPP",
+      "airport_name": "ПЕРМЬ (БОЛЬШОЕ САВИНО)"
+    },
+    {
+      "icao": "USRR",
+      "airport_name": "СУРГУТ"
+    },
+    {
+      "icao": "USSS",
+      "airport_name": "ЕКАТЕРИНБУРГ (КОЛЬЦОВО)"
+    },
+    {
+      "icao": "USTR",
+      "airport_name": "ТЮМЕНЬ (РОЩИНО)"
+    },
+    {
+      "icao": "UUBC",
+      "airport_name": "КАЛУГА (ГРАБЦЕВО)"
+    },
+    {
+      "icao": "UUBP",
+      "airport_name": "БРЯНСК"
+    },
+    {
+      "icao": "UUBW",
+      "airport_name": "РАМЕНСКОЕ"
+    },
+    {
+      "icao": "UUDD",
+      "airport_name": "МОСКВА (ДОМОДЕДОВО)"
+    },
+    {
+      "icao": "UUDL",
+      "airport_name": "ЯРОСЛАВЛЬ (ТУНОШНА)"
+    },
+    {
+      "icao": "UUEE",
+      "airport_name": "МОСКВА (ШЕРЕМЕТЬЕВО)"
+    },
+    {
+      "icao": "UUMO",
+      "airport_name": "ОСТАФЬЕВО"
+    },
+    {
+      "icao": "UUOB",
+      "airport_name": "БЕЛГОРОД"
+    },
+    {
+      "icao": "UUOK",
+      "airport_name": "КУРСК (ВОСТОЧНЫЙ)"
+    },
+    {
+      "icao": "UUOL",
+      "airport_name": "ЛИПЕЦК"
+    },
+    {
+      "icao": "UUOO",
+      "airport_name": "ВОРОНЕЖ (ЧЕРТОВИЦКОЕ)"
+    },
+    {
+      "icao": "UUWW",
+      "airport_name": "МОСКВА (ВНУКОВО)"
+    },
+    {
+      "icao": "UUYY",
+      "airport_name": "СЫКТЫВКАР"
+    },
+    {
+      "icao": "UWGG",
+      "airport_name": "НИЖНИЙ НОВГОРОД (СТРИГИНО)"
+    },
+    {
+      "icao": "UWKD",
+      "airport_name": "КАЗАНЬ"
+    },
+    {
+      "icao": "UWKE",
+      "airport_name": "НИЖНЕКАМСК (БЕГИШЕВО)"
+    },
+    {
+      "icao": "UWKS",
+      "airport_name": "ЧЕБОКСАРЫ"
+    },
+    {
+      "icao": "UWLL",
+      "airport_name": "УЛЬЯНОВСК (БАРАТАЕВКА)"
+    },
+    {
+      "icao": "UWLW",
+      "airport_name": "УЛЬЯНОВСК (ВОСТОЧНЫЙ)"
+    },
+    {
+      "icao": "UWOO",
+      "airport_name": "ОРЕНБУРГ"
+    },
+    {
+      "icao": "UWOR",
+      "airport_name": "ОРСК"
+    },
+    {
+      "icao": "UWPS",
+      "airport_name": "САРАНСК"
+    },
+    {
+      "icao": "UWSG",
+      "airport_name": "САРАТОВ (ГАГАРИН)"
+    },
+    {
+      "icao": "UWUU",
+      "airport_name": "УФА"
+    },
+    {
+      "icao": "UWWW",
+      "airport_name": "САМАРА (КУРУМОЧ)"
     }
   ]
 }

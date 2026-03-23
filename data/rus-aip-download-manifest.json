@@ -1,6 +1,6 @@
 {
   "menu_url": "https://www.caica.ru/common/AirInter/validaip/html/menurus.htm",
-  "generated_at": "2026-03-23T11:20:13Z",
+  "generated_at": "2026-03-23T11:26:02Z",
   "gen1_count": 7,
   "international_airports": 76,
   "items": [
@@ -8,7 +8,7 @@
       "category": "gen1",
       "title": "GEN 1.1 Назначенные полномочные органы",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.1.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.1_Назначенные_полномочные_органы.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.1_Назначенные_полномочные_органы.pdf",
       "status": "ok",
       "bytes": 206157,
       "error": null
@@ -17,7 +17,7 @@
       "category": "gen1",
       "title": "GEN 1.2 Прилет, транзит и вылет воздушных судов",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.2.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.2_Прилет_транзит_и_вылет_воздушных_судов.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.2_Прилет_транзит_и_вылет_воздушных_судов.pdf",
       "status": "ok",
       "bytes": 1564715,
       "error": null
@@ -26,7 +26,7 @@
       "category": "gen1",
       "title": "GEN 1.3 Прибытие, транзит и убытие пассажиров и экипажа",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.3.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.3_Прибытие_транзит_и_убытие_пассажиров_и_экипажа.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.3_Прибытие_транзит_и_убытие_пассажиров_и_экипажа.pdf",
       "status": "ok",
       "bytes": 284799,
       "error": null
@@ -35,7 +35,7 @@
       "category": "gen1",
       "title": "GEN 1.4 Ввоз, транзит и вывоз груза",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.4.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.4_Ввоз_транзит_и_вывоз_груза.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.4_Ввоз_транзит_и_вывоз_груза.pdf",
       "status": "ok",
       "bytes": 421217,
       "error": null
@@ -44,7 +44,7 @@
       "category": "gen1",
       "title": "GEN 1.5 Оборудование, приборы и полетная документация воздушного судна",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.5.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.5_Оборудование_приборы_и_полетная_документация_воздушного_судна.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.5_Оборудование_приборы_и_полетная_документация_воздушного_судна.pdf",
       "status": "ok",
       "bytes": 245772,
       "error": null
@@ -53,7 +53,7 @@
       "category": "gen1",
       "title": "GEN 1.6 Краткое изложение национальных правил и международных соглашений/конвенций",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.6.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.6_Краткое_изложение_национальных_правил_и_международных_соглашений_конвенций.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.6_Краткое_изложение_национальных_правил_и_международных_соглашений_конвенций.pdf",
       "status": "ok",
       "bytes": 441488,
       "error": null
@@ -62,7 +62,7 @@
       "category": "gen1",
       "title": "GEN 1.7 Различия со Стандартами, Рекомендуемой практикой и Правилами ИКАО",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/gen/gen1/gen1.7.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/gen1/GEN_1.7_Различия_со_Стандартами_Рекомендуемой_практикой_и_Правилами_ИКАО.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/gen1/GEN_1.7_Различия_со_Стандартами_Рекомендуемой_практикой_и_Правилами_ИКАО.pdf",
       "status": "ok",
       "bytes": 1385032,
       "error": null
@@ -72,7 +72,7 @@
       "icao": "UNAA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unaa/1-ad2-rus-unaa-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNAA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNAA/aip-main.pdf",
       "status": "ok",
       "bytes": 2176231,
       "error": null
@@ -82,7 +82,7 @@
       "icao": "UHMA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhma/1-ad2-rus-uhma-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHMA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHMA/aip-main.pdf",
       "status": "ok",
       "bytes": 1508900,
       "error": null
@@ -92,7 +92,7 @@
       "icao": "URKA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urka/1-ad2-rus-urka-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URKA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URKA/aip-main.pdf",
       "status": "ok",
       "bytes": 1018994,
       "error": null
@@ -102,7 +102,7 @@
       "icao": "ULAA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulaa/1-ad2-rus-ulaa-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULAA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULAA/aip-main.pdf",
       "status": "ok",
       "bytes": 2363698,
       "error": null
@@ -112,7 +112,7 @@
       "icao": "URWA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urwa/1-ad2-rus-urwa-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URWA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URWA/aip-main.pdf",
       "status": "ok",
       "bytes": 1510810,
       "error": null
@@ -122,7 +122,7 @@
       "icao": "UNBB",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unbb/1-ad2-rus-unbb-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNBB/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNBB/aip-main.pdf",
       "status": "ok",
       "bytes": 1227534,
       "error": null
@@ -132,7 +132,7 @@
       "icao": "UUOB",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuob/1-ad2-rus-uuob-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUOB/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUOB/aip-main.pdf",
       "status": "ok",
       "bytes": 1876704,
       "error": null
@@ -142,7 +142,7 @@
       "icao": "UHBB",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhbb/1-ad2-rus-uhbb-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHBB/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHBB/aip-main.pdf",
       "status": "ok",
       "bytes": 1550180,
       "error": null
@@ -152,7 +152,7 @@
       "icao": "UIBB",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uibb/1-ad2-rus-uibb-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UIBB/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UIBB/aip-main.pdf",
       "status": "ok",
       "bytes": 606823,
       "error": null
@@ -162,7 +162,7 @@
       "icao": "UUBP",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubp/1-ad2-rus-uubp-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUBP/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUBP/aip-main.pdf",
       "status": "ok",
       "bytes": 1171225,
       "error": null
@@ -172,7 +172,7 @@
       "icao": "UWKS",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwks/1-ad2-rus-uwks-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWKS/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWKS/aip-main.pdf",
       "status": "ok",
       "bytes": 2488269,
       "error": null
@@ -182,7 +182,7 @@
       "icao": "USCC",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uscc/1-ad2-rus-uscc-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USCC/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USCC/aip-main.pdf",
       "status": "ok",
       "bytes": 1494959,
       "error": null
@@ -192,7 +192,7 @@
       "icao": "ULWC",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulwc/1-ad2-rus-ulwc-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULWC/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULWC/aip-main.pdf",
       "status": "ok",
       "bytes": 913134,
       "error": null
@@ -202,7 +202,7 @@
       "icao": "UIAA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiaa/1-ad2-rus-uiaa-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UIAA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UIAA/aip-main.pdf",
       "status": "ok",
       "bytes": 1212523,
       "error": null
@@ -212,7 +212,7 @@
       "icao": "URWI",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urwi/1-ad2-rus-urwi-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URWI/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URWI/aip-main.pdf",
       "status": "ok",
       "bytes": 1555002,
       "error": null
@@ -222,7 +222,7 @@
       "icao": "URMG",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmg/1-ad2-rus-urmg-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URMG/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URMG/aip-main.pdf",
       "status": "ok",
       "bytes": 895167,
       "error": null
@@ -232,7 +232,7 @@
       "icao": "UIII",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiii/1-ad2-rus-uiii-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UIII/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UIII/aip-main.pdf",
       "status": "ok",
       "bytes": 741891,
       "error": null
@@ -242,7 +242,7 @@
       "icao": "UMKK",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/umkk/1-ad2-rus-umkk-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UMKK/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UMKK/aip-main.pdf",
       "status": "ok",
       "bytes": 1569763,
       "error": null
@@ -252,7 +252,7 @@
       "icao": "UUBC",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubc/1-ad2-rus-uubc-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUBC/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUBC/aip-main.pdf",
       "status": "ok",
       "bytes": 1946752,
       "error": null
@@ -262,7 +262,7 @@
       "icao": "UWKD",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwkd/1-ad2-rus-uwkd-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWKD/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWKD/aip-main.pdf",
       "status": "ok",
       "bytes": 1432325,
       "error": null
@@ -272,7 +272,7 @@
       "icao": "UNEE",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unee/1-ad2-rus-unee-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNEE/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNEE/aip-main.pdf",
       "status": "ok",
       "bytes": 1821050,
       "error": null
@@ -282,7 +282,7 @@
       "icao": "UHHH",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhhh/1-ad2-rus-uhhh-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHHH/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHHH/aip-main.pdf",
       "status": "ok",
       "bytes": 1235997,
       "error": null
@@ -292,7 +292,7 @@
       "icao": "USHH",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ushh/1-ad2-rus-ushh-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USHH/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USHH/aip-main.pdf",
       "status": "ok",
       "bytes": 1965245,
       "error": null
@@ -302,7 +302,7 @@
       "icao": "URKK",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urkk/1-ad2-rus-urkk-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URKK/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URKK/aip-main.pdf",
       "status": "ok",
       "bytes": 1874385,
       "error": null
@@ -312,7 +312,7 @@
       "icao": "UNKL",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unkl/1-ad2-rus-unkl-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNKL/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNKL/aip-main.pdf",
       "status": "ok",
       "bytes": 1122163,
       "error": null
@@ -322,7 +322,7 @@
       "icao": "UUOK",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuok/1-ad2-rus-uuok-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUOK/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUOK/aip-main.pdf",
       "status": "ok",
       "bytes": 1393814,
       "error": null
@@ -332,7 +332,7 @@
       "icao": "UUOL",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuol/1-ad2-rus-uuol-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUOL/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUOL/aip-main.pdf",
       "status": "ok",
       "bytes": 1528562,
       "error": null
@@ -342,7 +342,7 @@
       "icao": "UHMM",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhmm/1-ad2-rus-uhmm-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHMM/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHMM/aip-main.pdf",
       "status": "ok",
       "bytes": 1711698,
       "error": null
@@ -352,7 +352,7 @@
       "icao": "USCM",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uscm/1-ad2-rus-uscm-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USCM/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USCM/aip-main.pdf",
       "status": "ok",
       "bytes": 1557666,
       "error": null
@@ -362,7 +362,7 @@
       "icao": "URML",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urml/1-ad2-rus-urml-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URML/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URML/aip-main.pdf",
       "status": "ok",
       "bytes": 1896630,
       "error": null
@@ -372,7 +372,7 @@
       "icao": "URMM",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmm/1-ad2-rus-urmm-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URMM/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URMM/aip-main.pdf",
       "status": "ok",
       "bytes": 828661,
       "error": null
@@ -382,7 +382,7 @@
       "icao": "UUDD",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uudd/1-ad2-rus-uudd-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUDD/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUDD/aip-main.pdf",
       "status": "ok",
       "bytes": 1430451,
       "error": null
@@ -392,7 +392,7 @@
       "icao": "UUEE",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuee/1-ad2-rus-uuee-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUEE/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUEE/aip-main.pdf",
       "status": "ok",
       "bytes": 3021946,
       "error": null
@@ -402,7 +402,7 @@
       "icao": "UUWW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuww/1-ad2-rus-uuww-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUWW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUWW/aip-main.pdf",
       "status": "ok",
       "bytes": 5389851,
       "error": null
@@ -412,7 +412,7 @@
       "icao": "ULMM",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulmm/1-ad2-rus-ulmm-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULMM/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULMM/aip-main.pdf",
       "status": "ok",
       "bytes": 629187,
       "error": null
@@ -422,7 +422,7 @@
       "icao": "URMN",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmn/1-ad2-rus-urmn-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URMN/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URMN/aip-main.pdf",
       "status": "ok",
       "bytes": 1046822,
       "error": null
@@ -432,7 +432,7 @@
       "icao": "UWKE",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwke/1-ad2-rus-uwke-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWKE/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWKE/aip-main.pdf",
       "status": "ok",
       "bytes": 1895735,
       "error": null
@@ -442,7 +442,7 @@
       "icao": "USNN",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usnn/1-ad2-rus-usnn-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USNN/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USNN/aip-main.pdf",
       "status": "ok",
       "bytes": 3073655,
       "error": null
@@ -452,7 +452,7 @@
       "icao": "UWGG",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwgg/1-ad2-rus-uwgg-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWGG/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWGG/aip-main.pdf",
       "status": "ok",
       "bytes": 925647,
       "error": null
@@ -462,7 +462,7 @@
       "icao": "UNWW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unww/1-ad2-rus-unww-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNWW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNWW/aip-main.pdf",
       "status": "ok",
       "bytes": 2080112,
       "error": null
@@ -472,7 +472,7 @@
       "icao": "UNNT",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unnt/1-ad2-rus-unnt-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNNT/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNNT/aip-main.pdf",
       "status": "ok",
       "bytes": 1984167,
       "error": null
@@ -482,7 +482,7 @@
       "icao": "UNOO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/unoo/1-ad2-rus-unoo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNOO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNOO/aip-main.pdf",
       "status": "ok",
       "bytes": 960956,
       "error": null
@@ -492,7 +492,7 @@
       "icao": "UWOO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwoo/1-ad2-rus-uwoo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWOO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWOO/aip-main.pdf",
       "status": "ok",
       "bytes": 1639520,
       "error": null
@@ -502,7 +502,7 @@
       "icao": "UWOR",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwor/1-ad2-rus-uwor-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWOR/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWOR/aip-main.pdf",
       "status": "ok",
       "bytes": 738431,
       "error": null
@@ -512,7 +512,7 @@
       "icao": "UUMO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uumo/1-ad2-rus-uumo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUMO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUMO/aip-main.pdf",
       "status": "ok",
       "bytes": 1624201,
       "error": null
@@ -522,7 +522,7 @@
       "icao": "USPP",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uspp/1-ad2-rus-uspp-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USPP/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USPP/aip-main.pdf",
       "status": "ok",
       "bytes": 1667345,
       "error": null
@@ -532,7 +532,7 @@
       "icao": "UHPP",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhpp/1-ad2-rus-uhpp-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHPP/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHPP/aip-main.pdf",
       "status": "ok",
       "bytes": 1254672,
       "error": null
@@ -542,7 +542,7 @@
       "icao": "ULPB",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulpb/1-ad2-rus-ulpb-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULPB/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULPB/aip-main.pdf",
       "status": "ok",
       "bytes": 1924717,
       "error": null
@@ -552,7 +552,7 @@
       "icao": "UHMD",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhmd/1-ad2-rus-uhmd-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHMD/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHMD/aip-main.pdf",
       "status": "ok",
       "bytes": 816501,
       "error": null
@@ -562,7 +562,7 @@
       "icao": "ULOO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uloo/1-ad2-rus-uloo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULOO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULOO/aip-main.pdf",
       "status": "ok",
       "bytes": 980683,
       "error": null
@@ -572,7 +572,7 @@
       "icao": "UUBW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uubw/1-ad2-rus-uubw-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUBW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUBW/aip-main.pdf",
       "status": "ok",
       "bytes": 1342897,
       "error": null
@@ -582,7 +582,7 @@
       "icao": "URRP",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urrp/1-ad2-rus-urrp-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URRP/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URRP/aip-main.pdf",
       "status": "ok",
       "bytes": 1401562,
       "error": null
@@ -592,7 +592,7 @@
       "icao": "USDA",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usda/1-ad2-rus-usda-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USDA/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USDA/aip-main.pdf",
       "status": "ok",
       "bytes": 696943,
       "error": null
@@ -602,7 +602,7 @@
       "icao": "UWWW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwww/1-ad2-rus-uwww-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWWW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWWW/aip-main.pdf",
       "status": "ok",
       "bytes": 1385628,
       "error": null
@@ -612,7 +612,7 @@
       "icao": "ULLI",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ulli/1-ad2-rus-ulli-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/ULLI/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/ULLI/aip-main.pdf",
       "status": "ok",
       "bytes": 2059921,
       "error": null
@@ -622,7 +622,7 @@
       "icao": "UWPS",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwps/1-ad2-rus-uwps-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWPS/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWPS/aip-main.pdf",
       "status": "ok",
       "bytes": 1626868,
       "error": null
@@ -632,7 +632,7 @@
       "icao": "UWSG",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwsg/1-ad2-rus-uwsg-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWSG/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWSG/aip-main.pdf",
       "status": "ok",
       "bytes": 2156998,
       "error": null
@@ -642,7 +642,7 @@
       "icao": "URFF",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urff/1-ad2-rus-urff-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URFF/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URFF/aip-main.pdf",
       "status": "ok",
       "bytes": 799796,
       "error": null
@@ -652,7 +652,7 @@
       "icao": "URSS",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urss/1-ad2-rus-urss-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URSS/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URSS/aip-main.pdf",
       "status": "ok",
       "bytes": 1576440,
       "error": null
@@ -662,7 +662,7 @@
       "icao": "URMT",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmt/1-ad2-rus-urmt-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URMT/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URMT/aip-main.pdf",
       "status": "ok",
       "bytes": 1797334,
       "error": null
@@ -672,7 +672,7 @@
       "icao": "USRR",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usrr/1-ad2-rus-usrr-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USRR/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USRR/aip-main.pdf",
       "status": "ok",
       "bytes": 2058260,
       "error": null
@@ -682,7 +682,7 @@
       "icao": "UUYY",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuyy/1-ad2-rus-uuyy-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUYY/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUYY/aip-main.pdf",
       "status": "ok",
       "bytes": 1003921,
       "error": null
@@ -692,7 +692,7 @@
       "icao": "UNTT",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/untt/1-ad2-rus-untt-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UNTT/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UNTT/aip-main.pdf",
       "status": "ok",
       "bytes": 682059,
       "error": null
@@ -702,7 +702,7 @@
       "icao": "USTR",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ustr/1-ad2-rus-ustr-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USTR/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USTR/aip-main.pdf",
       "status": "ok",
       "bytes": 1240589,
       "error": null
@@ -712,7 +712,7 @@
       "icao": "UWUU",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwuu/1-ad2-rus-uwuu-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWUU/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWUU/aip-main.pdf",
       "status": "ok",
       "bytes": 930885,
       "error": null
@@ -722,7 +722,7 @@
       "icao": "UIUU",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uiuu/1-ad2-rus-uiuu-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UIUU/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UIUU/aip-main.pdf",
       "status": "ok",
       "bytes": 597495,
       "error": null
@@ -732,7 +732,7 @@
       "icao": "UWLL",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwll/1-ad2-rus-uwll-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWLL/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWLL/aip-main.pdf",
       "status": "ok",
       "bytes": 1799793,
       "error": null
@@ -742,7 +742,7 @@
       "icao": "UWLW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uwlw/1-ad2-rus-uwlw-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UWLW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UWLW/aip-main.pdf",
       "status": "ok",
       "bytes": 829373,
       "error": null
@@ -752,7 +752,7 @@
       "icao": "URMO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urmo/1-ad2-rus-urmo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URMO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URMO/aip-main.pdf",
       "status": "ok",
       "bytes": 746804,
       "error": null
@@ -762,7 +762,7 @@
       "icao": "UHWW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhww/1-ad2-rus-uhww-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHWW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHWW/aip-main.pdf",
       "status": "ok",
       "bytes": 1387116,
       "error": null
@@ -772,7 +772,7 @@
       "icao": "URWW",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/urww/1-ad2-rus-urww-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/URWW/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/URWW/aip-main.pdf",
       "status": "ok",
       "bytes": 529561,
       "error": null
@@ -782,7 +782,7 @@
       "icao": "UUOO",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uuoo/1-ad2-rus-uuoo-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUOO/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUOO/aip-main.pdf",
       "status": "ok",
       "bytes": 931344,
       "error": null
@@ -792,7 +792,7 @@
       "icao": "UEEE",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/ueee/1-ad2-rus-ueee-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UEEE/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UEEE/aip-main.pdf",
       "status": "ok",
       "bytes": 1670244,
       "error": null
@@ -802,7 +802,7 @@
       "icao": "UUDL",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uudl/1-ad2-rus-uudl-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UUDL/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UUDL/aip-main.pdf",
       "status": "ok",
       "bytes": 688302,
       "error": null
@@ -812,7 +812,7 @@
       "icao": "USSS",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/usss/1-ad2-rus-usss-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/USSS/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/USSS/aip-main.pdf",
       "status": "ok",
       "bytes": 2611622,
       "error": null
@@ -822,7 +822,7 @@
       "icao": "UHSS",
       "title": "ДАННЫЕ, ТЕКСТЫ, ТАБЛИЦЫ",
       "url": "https://www.caica.ru/common/AirInter/validaip/aip/ad/ad2/uhss/1-ad2-rus-uhss-txt.pdf",
-      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/international-airports/UHSS/aip-main.pdf",
+      "local_path": "/Users/whae/Clearway2/clearway-2/downloads/rus-aip/extract-20260323-112517/international-airports/UHSS/aip-main.pdf",
       "status": "ok",
       "bytes": 1964958,
       "error": null

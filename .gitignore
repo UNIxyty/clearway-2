@@ -31,6 +31,7 @@ data/ead-enr/*.txt
 
 # misc
 .DS_Store
+__pycache__/
 *.pem
 .env
 .env*.local

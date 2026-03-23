@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -418,12 +418,20 @@ def main() -> int:
         help="Download GEN 1.x and airport AIP main PDFs",
     )
     parser.add_argument(
+        "--timestamped-downloads",
+        action="store_true",
+        help="When used with --download, save PDFs in a timestamped subfolder",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
         help="Print progress",
     )
     args = parser.parse_args()
+    if args.download and args.timestamped_downloads:
+        run_stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+        args.download_root = args.download_root / f"extract-{run_stamp}"
 
     t0 = time.time()
     if args.verbose:
@@ -557,6 +565,7 @@ def main() -> int:
             "airports_csv": _rel(args.out_csv),
             "manifest": _rel(args.manifest),
             "report": _rel(args.report),
+            "download_root": _rel(args.download_root),
         },
     }
 

@@ -217,10 +217,12 @@ async function openAdvancedSearchAndRun(page) {
   throw new Error(`Advanced Search not ready after retries: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
 }
 
-async function scrapeCountry(page, countryLabel) {
+async function scrapeCountry(page, countryLabel, progress = () => {}) {
+  progress("Ensuring AIP overview is ready");
   await ensureAipOverviewReady(page);
   await dismissIdleDialog(page);
 
+  progress("Selecting authority");
   const authoritySelect = page
     .locator(jsfId("mainForm:selectAuthorityCode_input"))
     .or(page.locator('select[id$="selectAuthorityCode_input"]'))
@@ -231,11 +233,13 @@ async function scrapeCountry(page, countryLabel) {
   if (!didSelect) throw new Error(`Could not select authority "${countryLabel}"`);
   await page.waitForTimeout(1200);
 
+  progress("Selecting language and AD part");
   await setSelectToLabel(page, "mainForm:selectLanguage_input", "English");
   await page.waitForTimeout(600);
   await setSelectToLabel(page, "mainForm:selectAipPart_input", "AD");
   await page.waitForTimeout(900);
 
+  progress("Opening Advanced Search and submitting");
   await openAdvancedSearchAndRun(page);
 
   const names = [];
@@ -249,6 +253,7 @@ async function scrapeCountry(page, countryLabel) {
     const rowCount = await rows.count();
     pagesVisited += 1;
     rowsCollected += rowCount;
+    const docsBefore = names.length;
 
     for (let i = 0; i < rowCount; i++) {
       const cells = rows.nth(i).locator("td");
@@ -260,20 +265,29 @@ async function scrapeCountry(page, countryLabel) {
       const name = (linkText && linkText.trim()) || ((await docNameCell.textContent().catch(() => "")) || "").trim();
       if (name) names.push(name);
     }
+    const docsThisPage = names.length - docsBefore;
+    progress(
+      `Page ${pagesVisited} scraped: rows=${rowCount}, docsThisPage=${docsThisPage}, docsTotal=${names.length}, rowsTotal=${rowsCollected}`,
+    );
 
     const nextBtn = page.locator("a.ui-paginator-next").first();
     const nextVisible = await nextBtn.isVisible().catch(() => false);
     const nextDisabled = await nextBtn
       .evaluate((el) => el.getAttribute("aria-disabled") === "true" || el.classList.contains("ui-state-disabled"))
       .catch(() => true);
-    if (!nextVisible || nextDisabled) break;
+    if (!nextVisible || nextDisabled) {
+      progress("Reached last paginator page");
+      break;
+    }
 
     await dismissIdleDialog(page);
+    progress(`Moving to next page (${pagesVisited + 1})`);
     await nextBtn.click();
     await page.waitForTimeout(1300);
   }
 
   const documentNames = uniqueStrings(names);
+  progress(`Country scrape finished: uniqueDocs=${documentNames.length}, pages=${pagesVisited}, rows=${rowsCollected}`);
   return { documentNames, pagesVisited, rowsCollected };
 }
 
@@ -436,7 +450,9 @@ async function main() {
         countryRun.attempts = attempt;
         try {
           log(`  Attempt ${attempt}/${maxRetries}`);
-          const attemptResult = await scrapeCountry(page, countryLabel);
+          const attemptResult = await scrapeCountry(page, countryLabel, (message) => {
+            log(`    [${countryLabel} a${attempt}] ${message}`);
+          });
           const lowReasons = assessLowExtraction({
             pagesVisited: attemptResult.pagesVisited,
             rowsCollected: attemptResult.rowsCollected,

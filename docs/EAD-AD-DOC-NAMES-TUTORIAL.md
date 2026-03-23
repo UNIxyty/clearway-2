@@ -105,6 +105,19 @@ export EAD_AD_NAMES_S3_PREFIX=ead-extract
 export EAD_AD_NAMES_S3_KEY=ead-extract/ad_document_names.json
 ```
 
+By default, after upload it also downloads the same S3 object back locally as:
+- `data/ad_document_names.from-s3.json`
+
+Optional controls:
+
+```bash
+# disable download-back
+export EAD_AD_NAMES_DOWNLOAD_LOCAL=0
+
+# custom local download path
+export EAD_AD_NAMES_DOWNLOAD_PATH=data/ad_document_names.downloaded.json
+```
+
 ## 9) Report + webhook flow
 
 At end of extractor run:

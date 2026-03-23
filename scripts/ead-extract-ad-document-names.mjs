@@ -328,7 +328,7 @@ async function uploadResultToS3(localPath) {
     join(process.env.EAD_AD_NAMES_S3_PREFIX || "ead-extract", basename(localPath)).replace(/\\/g, "/");
 
   const body = readFileSync(localPath);
-  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const { S3Client, PutObjectCommand, GetObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
   await client.send(
     new PutObjectCommand({
@@ -339,6 +339,24 @@ async function uploadResultToS3(localPath) {
     }),
   );
   log(`Uploaded extractor output to s3://${bucket}/${key}`);
+
+  const shouldDownloadLocal = !/^(0|false|no)$/i.test(process.env.EAD_AD_NAMES_DOWNLOAD_LOCAL || "1");
+  if (shouldDownloadLocal) {
+    const defaultDownloadPath = localPath.endsWith(".json")
+      ? localPath.replace(/\.json$/i, ".from-s3.json")
+      : `${localPath}.from-s3.json`;
+    const downloadPath = join(process.cwd(), process.env.EAD_AD_NAMES_DOWNLOAD_PATH || defaultDownloadPath);
+    const getRes = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const bytes = await getRes.Body?.transformToByteArray();
+    if (bytes) {
+      mkdirSync(dirname(downloadPath), { recursive: true });
+      writeFileSync(downloadPath, Buffer.from(bytes));
+      log(`Downloaded uploaded JSON back to local: ${downloadPath}`);
+    } else {
+      log("Download-back warning: empty S3 object body.");
+    }
+  }
+
   return { bucket, key };
 }
 

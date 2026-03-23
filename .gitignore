@@ -48,3 +48,7 @@ next-env.d.ts
 # e2e test outputs
 test-results/*
 !test-results/.gitkeep
+!test-results/rus-aip-extract-report.json
+
+# Russian AIP downloaded PDFs (rus_aip_extractor.py)
+downloads/rus-aip/

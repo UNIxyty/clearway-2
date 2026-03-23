@@ -129,6 +129,31 @@ function stampForFile() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
+function looksLikeLoginUrl(url) {
+  return /\/login\/ead-basic\/?/i.test(String(url || ""));
+}
+
+async function maybeReLogin(page, user, password, progress = () => {}) {
+  const onLoginUrl = looksLikeLoginUrl(page.url());
+  const hasUserField = await page.getByLabel(/user name/i).isVisible().catch(() => false);
+  if (!onLoginUrl && !hasUserField) return false;
+
+  progress("Detected login page, re-authenticating");
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+  await page.getByLabel(/user name/i).fill(user, { timeout: 15000 });
+  await page.getByLabel(/password/i).fill(password, { timeout: 15000 });
+  await page.locator('input[type="submit"][value="Login"]').click({ timeout: 15000 });
+  await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 30000 });
+  const termsBtn = page.locator("#acceptTCButton");
+  await termsBtn.waitFor({ state: "visible", timeout: 6000 }).catch(() => {});
+  if (await termsBtn.isVisible().catch(() => false)) {
+    progress("Accepting terms after re-login");
+    await termsBtn.click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+  }
+  return true;
+}
+
 async function dismissIdleDialog(page) {
   try {
     const mask = page.locator("#idleDialog_modal").or(page.locator(".ui-widget-overlay.ui-dialog-mask"));
@@ -139,17 +164,26 @@ async function dismissIdleDialog(page) {
   } catch (_) {}
 }
 
-async function ensureAipOverviewReady(page) {
+async function ensureAipOverviewReady(page, auth = null, progress = () => {}) {
   let lastErr = null;
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
+      progress(`AIP ready check ${attempt}/4`);
       await dismissIdleDialog(page);
-      if (!page.url().includes("aip_overview.faces")) {
-        try {
-          await page.goto(AIP_OVERVIEW_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-        } catch (_) {}
+      if (auth?.user && auth?.password) {
+        await maybeReLogin(page, auth.user, auth.password, progress);
       }
       if (!page.url().includes("aip_overview.faces")) {
+        progress("Opening AIP overview URL directly");
+        try {
+          await page.goto(`${AIP_OVERVIEW_URL}?ts=${Date.now()}`, { waitUntil: "domcontentloaded", timeout: 30000 });
+        } catch (_) {}
+      }
+      if (auth?.user && auth?.password) {
+        await maybeReLogin(page, auth.user, auth.password, progress);
+      }
+      if (!page.url().includes("aip_overview.faces")) {
+        progress("AIP URL not active, clicking AIP Library link");
         const aipLink = page
           .getByRole("link", { name: /aip\s*library/i })
           .or(page.locator("a").filter({ hasText: /aip\s*library/i }))
@@ -163,9 +197,11 @@ async function ensureAipOverviewReady(page) {
         .or(page.locator('select[id$="selectAuthorityCode_input"]'))
         .first();
       await authoritySelect.waitFor({ state: "visible", timeout: 15000 });
+      progress("AIP overview ready");
       return;
     } catch (error) {
       lastErr = error;
+      progress(`AIP ready check failed on attempt ${attempt}/4: ${error instanceof Error ? error.message : String(error)}`);
       await sleep(1000 * attempt);
     }
   }
@@ -217,9 +253,55 @@ async function openAdvancedSearchAndRun(page) {
   throw new Error(`Advanced Search not ready after retries: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
 }
 
-async function scrapeCountry(page, countryLabel, progress = () => {}) {
+async function clickNextPageWithRetry(page, progress = () => {}) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await dismissIdleDialog(page);
+      const nextBtn = page.locator("a.ui-paginator-next").first();
+      const nextVisible = await nextBtn.isVisible().catch(() => false);
+      const nextDisabled = await nextBtn
+        .evaluate((el) => el.getAttribute("aria-disabled") === "true" || el.classList.contains("ui-state-disabled"))
+        .catch(() => true);
+      if (!nextVisible || nextDisabled) return false;
+
+      progress(`Clicking paginator next (attempt ${attempt}/3)`);
+      await nextBtn.click({ timeout: 12000 });
+      await page.waitForTimeout(1300);
+      return true;
+    } catch (error) {
+      lastErr = error;
+      progress(`Next-page click failed (${attempt}/3): ${error instanceof Error ? error.message : String(error)}`);
+      // JS click fallback on last retry
+      if (attempt === 3) {
+        const clicked = await page
+          .evaluate(() => {
+            const el = document.querySelector("a.ui-paginator-next");
+            if (!el) return false;
+            const disabled =
+              el.getAttribute("aria-disabled") === "true" ||
+              el.classList.contains("ui-state-disabled");
+            if (disabled) return false;
+            el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+            return true;
+          })
+          .catch(() => false);
+        if (clicked) {
+          progress("Used JS fallback click for paginator next");
+          await page.waitForTimeout(1300);
+          return true;
+        }
+      }
+      await sleep(700 * attempt);
+    }
+  }
+  progress(`Paginator next could not be clicked after retries: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
+  return null;
+}
+
+async function scrapeCountry(page, countryLabel, auth, progress = () => {}) {
   progress("Ensuring AIP overview is ready");
-  await ensureAipOverviewReady(page);
+  await ensureAipOverviewReady(page, auth, progress);
   await dismissIdleDialog(page);
 
   progress("Selecting authority");
@@ -270,20 +352,17 @@ async function scrapeCountry(page, countryLabel, progress = () => {}) {
       `Page ${pagesVisited} scraped: rows=${rowCount}, docsThisPage=${docsThisPage}, docsTotal=${names.length}, rowsTotal=${rowsCollected}`,
     );
 
-    const nextBtn = page.locator("a.ui-paginator-next").first();
-    const nextVisible = await nextBtn.isVisible().catch(() => false);
-    const nextDisabled = await nextBtn
-      .evaluate((el) => el.getAttribute("aria-disabled") === "true" || el.classList.contains("ui-state-disabled"))
-      .catch(() => true);
-    if (!nextVisible || nextDisabled) {
+    const nextState = await clickNextPageWithRetry(page, progress);
+    if (nextState === false) {
       progress("Reached last paginator page");
       break;
     }
-
-    await dismissIdleDialog(page);
+    if (nextState === null) {
+      // Do not fail whole country if pagination stalls after collecting data.
+      progress("Paginator stalled; stopping country pagination gracefully");
+      break;
+    }
     progress(`Moving to next page (${pagesVisited + 1})`);
-    await nextBtn.click();
-    await page.waitForTimeout(1300);
   }
 
   const documentNames = uniqueStrings(names);
@@ -436,7 +515,7 @@ async function main() {
       await page.waitForTimeout(500);
     }
 
-    await ensureAipOverviewReady(page);
+    await ensureAipOverviewReady(page, { user, password }, (message) => log(`  ${message}`));
     const bodyText = await page.locator("body").textContent().catch(() => "");
     if (/Access denied|IB-101/i.test(bodyText)) {
       throw new Error("EAD returned Access denied (often datacenter IP restrictions).");
@@ -468,7 +547,7 @@ async function main() {
         countryRun.attempts = attempt;
         try {
           log(`  Attempt ${attempt}/${maxRetries}`);
-          const attemptResult = await scrapeCountry(page, countryLabel, (message) => {
+          const attemptResult = await scrapeCountry(page, countryLabel, { user, password }, (message) => {
             log(`    [${countryLabel} a${attempt}] ${message}`);
           });
           const lowReasons = assessLowExtraction({
@@ -492,7 +571,9 @@ async function main() {
             countryRun.errors.push(reason);
             log(`  ${reason}`);
             if (attempt < maxRetries) {
-              await ensureAipOverviewReady(page);
+              await ensureAipOverviewReady(page, { user, password }, (message) => {
+                log(`    [${countryLabel} a${attempt}] ${message}`);
+              });
               await sleep(1200 * attempt);
               continue;
             }
@@ -505,7 +586,9 @@ async function main() {
           countryRun.errors.push(`Attempt ${attempt}: ${message}`);
           log(`  Attempt ${attempt} failed: ${message}`);
           if (attempt < maxRetries) {
-            await ensureAipOverviewReady(page).catch(() => {});
+            await ensureAipOverviewReady(page, { user, password }, (message) => {
+              log(`    [${countryLabel} a${attempt}] ${message}`);
+            }).catch(() => {});
             await sleep(1500 * attempt);
             continue;
           }

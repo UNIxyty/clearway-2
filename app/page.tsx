@@ -147,6 +147,15 @@ function AIPResultCard({
 }) {
   const [showGen, setShowGen] = useState(false);
 
+  const SECTION_TITLE_BY_KEY: Record<string, string> = {
+    "": "General Information",
+    "AD 2.2": "Aerodrome Data",
+    "AD 2.3": "Operational Hours",
+    "AD 2.6": "Rescue and Fire Fighting",
+    "AD 2.12": "Runway Physical Characteristics",
+  };
+  const SECTION_RENDER_ORDER = ["", "AD 2.2", "AD 2.3", "AD 2.6", "AD 2.12"];
+
   const rows = AIP_FIELD_LABELS
     .map(({ key, section, label }) => {
       const value = airport[key];
@@ -154,6 +163,17 @@ function AIPResultCard({
       return { key, section, label, value: value.trim() };
     })
     .filter((r): r is { key: keyof AIPAirport; section: string; label: string; value: string } => r !== null);
+
+  const rowsBySection = rows.reduce<Record<string, typeof rows>>((acc, row) => {
+    if (!acc[row.section]) acc[row.section] = [];
+    acc[row.section].push(row);
+    return acc;
+  }, {});
+
+  const orderedSectionKeys = [
+    ...SECTION_RENDER_ORDER.filter((section) => rowsBySection[section]?.length),
+    ...Object.keys(rowsBySection).filter((section) => !SECTION_RENDER_ORDER.includes(section)),
+  ];
 
   const flagUrl = getCountryFlagUrl(airport.country);
 
@@ -176,41 +196,52 @@ function AIPResultCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="text-xs sm:text-sm pt-0 px-4 sm:px-6">
-        <dl className="space-y-0">
-          {rows.map(({ key, section, label, value }) => (
-            <div
-              key={`${section}-${label}`}
-              className="flex flex-col sm:flex-row gap-0.5 sm:gap-3 py-2 sm:py-2.5 border-b border-border/50 last:border-0"
-            >
-              <dt className="shrink-0 sm:w-44 font-semibold text-[11px] sm:text-[13px] uppercase tracking-wide">
-                {section ? (
-                  <>
-                    <span className="font-mono text-primary">{section}</span>
-                    <span className="text-muted-foreground font-medium normal-case"> — {label}</span>
-                  </>
-                ) : (
-                  <span className="text-foreground">{label}</span>
-                )}
-              </dt>
-              <dd className={`text-foreground/90 min-w-0 leading-snug text-xs sm:text-sm flex items-center gap-2 ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
-                {key === "country" && flagUrl ? (
-                  <>
-                    <img
-                      src={flagUrl}
-                      alt=""
-                      width={28}
-                      height={21}
-                      className="rounded-sm shrink-0 object-cover align-middle"
-                    />
-                    <span>{value}</span>
-                  </>
-                ) : (
-                  formatTimesInAipText(value)
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="space-y-3 sm:space-y-4">
+          {orderedSectionKeys.map((section) => {
+            const sectionRows = rowsBySection[section];
+            const sectionTitle = SECTION_TITLE_BY_KEY[section] || section || "Section";
+            return (
+              <section key={section || "general"} className="rounded-md border border-border/60 bg-muted/20 overflow-hidden">
+                <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/70 flex items-center gap-2">
+                  {section ? (
+                    <span className="font-mono text-[11px] sm:text-xs font-semibold tracking-wide text-primary">{section}</span>
+                  ) : null}
+                  <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {sectionTitle}
+                  </span>
+                </div>
+                <dl className="divide-y divide-border/50">
+                  {sectionRows.map(({ key, section: rowSection, label, value }) => (
+                    <div
+                      key={`${rowSection}-${label}`}
+                      className="px-3 sm:px-4 py-2.5 sm:py-3 grid grid-cols-1 sm:grid-cols-[minmax(160px,190px)_1fr] gap-1.5 sm:gap-4"
+                    >
+                      <dt className="font-medium text-[11px] sm:text-xs uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </dt>
+                      <dd className={`text-foreground/95 min-w-0 text-xs sm:text-sm leading-snug flex items-center gap-2 ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
+                        {key === "country" && flagUrl ? (
+                          <>
+                            <img
+                              src={flagUrl}
+                              alt=""
+                              width={28}
+                              height={21}
+                              className="rounded-sm shrink-0 object-cover align-middle"
+                            />
+                            <span>{value}</span>
+                          </>
+                        ) : (
+                          formatTimesInAipText(value)
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            );
+          })}
+        </div>
         {hasGen && (
           <div className="border-t border-border/60 pt-3 sm:pt-4 mt-3 sm:mt-4">
             <button

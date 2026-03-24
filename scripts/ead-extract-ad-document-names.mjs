@@ -10,6 +10,12 @@
  * 5) Guard against suspiciously low extraction and retry
  * 6) Write output JSON + raw run JSON
  * 7) Generate markdown report + send webhook payload
+ *
+ * Usage:
+ *   node scripts/ead-extract-ad-document-names.mjs
+ *   node scripts/ead-extract-ad-document-names.mjs --only-failed
+ *   node scripts/ead-extract-ad-document-names.mjs --country "Austria (LO)"
+ *   node scripts/ead-extract-ad-document-names.mjs --country LO --only-failed
  */
 
 import { join, dirname, basename } from "path";
@@ -114,6 +120,48 @@ function parseArgValue(flagName, fallback = "") {
 
 function hasArg(flagName) {
   return process.argv.includes(`--${flagName}`);
+}
+
+function normalizeCountryLabel(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function resolveCountrySelection(rawInput, allCountries) {
+  const input = String(rawInput || "").trim();
+  if (!input) return null;
+
+  const exact = allCountries.find((country) => country.toLowerCase() === input.toLowerCase());
+  if (exact) return exact;
+
+  const upper = input.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper) && PREFIX_TO_COUNTRY[upper]) {
+    return PREFIX_TO_COUNTRY[upper];
+  }
+
+  const codeInParensMatch = upper.match(/\(([A-Z]{2})\)/);
+  const codeInParens = codeInParensMatch?.[1];
+  if (codeInParens && PREFIX_TO_COUNTRY[codeInParens]) {
+    return PREFIX_TO_COUNTRY[codeInParens];
+  }
+
+  const normalizedInput = normalizeCountryLabel(input);
+  if (!normalizedInput) return null;
+
+  const normalizedMatches = allCountries.filter((country) =>
+    normalizeCountryLabel(country).includes(normalizedInput),
+  );
+
+  if (normalizedMatches.length === 1) return normalizedMatches[0];
+  if (normalizedMatches.length > 1) {
+    throw new Error(
+      `Country "${input}" is ambiguous. Matches: ${normalizedMatches.join(", ")}`,
+    );
+  }
+
+  return null;
 }
 
 function toNumber(input, fallback) {
@@ -461,6 +509,7 @@ async function main() {
     parseArgValue("output", join("data", "ad_document_names.json")),
   );
   const onlyFailed = hasArg("only-failed");
+  const countryArg = parseArgValue("country", "");
   const stopAfter = parseArgValue("stop-after", "");
   const skipWebhook = hasArg("skip-webhook");
 
@@ -483,6 +532,24 @@ async function main() {
       return !Array.isArray(prev) || prev.length === 0;
     });
     log(`Running only failed countries (${countryLabels.length})`);
+  }
+
+  if (countryArg) {
+    const selectedCountry = resolveCountrySelection(countryArg, [
+      ...new Set(Object.values(PREFIX_TO_COUNTRY)),
+    ]);
+    if (!selectedCountry) {
+      throw new Error(
+        `Country "${countryArg}" is not recognized. Use full label (e.g. "Austria (LO)"), ICAO prefix (e.g. "LO"), or unique country name.`,
+      );
+    }
+    countryLabels = countryLabels.filter((country) => country === selectedCountry);
+    if (countryLabels.length === 0) {
+      throw new Error(
+        `Selected country "${selectedCountry}" is excluded by current filters (for example, with --only-failed it may already be passed).`,
+      );
+    }
+    log(`Running selected country: ${selectedCountry}`);
   }
 
   const startedAt = new Date().toISOString();
@@ -647,6 +714,7 @@ async function main() {
       minPages,
       countDropRatio,
       onlyFailed,
+      country: countryArg || null,
       stopAfter: stopAfter || null,
     },
     summary: {

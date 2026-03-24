@@ -233,7 +233,62 @@ Then in Vercel:
 
 ---
 
-## 10) Quick Validation Checklist
+## 10) Servers / Database / Restart Checklist
+
+Use this to avoid deployment confusion.
+
+### What you must update
+
+- **Vercel app code**: deploy latest commit (this migration is code-driven).
+- **AIP sync EC2 server code** (if you use external sync server):
+  - pull latest repo on EC2,
+  - restart the AIP sync server process.
+
+### What you do NOT need to migrate in DB
+
+- No required Supabase schema migration for this change.
+- `aip_model` / `gen_model` columns can stay in DB (unused by new flow).
+- You only need DB work if you want cleanup (optional column removal).
+
+### Required restarts
+
+- **Vercel**: no manual restart; new deployment is enough.
+- **EC2 AIP sync server**: restart required after pull/build so new extractor flow is active.
+- **NOTAM server**: restart only if you changed that service (not required by this migration).
+
+### Example EC2 restart flow (tmux)
+
+```bash
+cd ~/clearway-2
+git pull origin main
+npm install
+
+# rebuild generated artifacts / Next app as needed
+npm run build
+
+# restart your tmux-run sync process
+tmux ls
+tmux attach -t <your-session>
+# Ctrl+C to stop old process
+node scripts/aip-sync-server.mjs
+# Ctrl+b then d to detach
+```
+
+### Environment variables to verify
+
+- **Vercel**:
+  - `AIP_SYNC_URL`
+  - `NOTAM_SYNC_SECRET`
+  - existing AWS/Supabase vars already used by app
+- **EC2 sync server**:
+  - `SYNC_SECRET`
+  - `EAD_USER` + `EAD_PASSWORD` or `EAD_PASSWORD_ENC`
+  - `AWS_*` vars if S3 upload is enabled
+  - `OPENAI_API_KEY` / `OPENROUTER_API_KEY` if unified extractor or GEN rewriting uses them
+
+---
+
+## 11) Quick Validation Checklist
 
 - [ ] New source JSON exists in `data/`.
 - [ ] `embed-ead-icaos.mjs` generates `lib/ead-country-icaos.generated.json`.

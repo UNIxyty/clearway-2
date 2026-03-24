@@ -25,7 +25,7 @@ const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
-const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip_table_extractor.py");
+const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 
 function requireAuth(req) {
@@ -83,38 +83,7 @@ async function runDownload(icao) {
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
 }
 
-/** Summarize AD 2.12 runways from Claude table JSON (aip_table_extractor.py output). */
-function runwaySummariesFromAd212TableJson(meta) {
-  const block =
-    meta?.AD_2_12_runway_physical_characteristics ||
-    meta?.ad_2_12_runway_physical_characteristics;
-  const runways = block?.runways;
-  if (!Array.isArray(runways) || runways.length === 0) return null;
-  const designators = runways
-    .map((r) => r?.designator)
-    .filter(Boolean)
-    .join(", ");
-  const dims = runways
-    .map((r) => {
-      const d = r?.designator || "?";
-      const dim = r?.dimensions_m;
-      return dim ? `${d}: ${dim}` : null;
-    })
-    .filter(Boolean)
-    .join("; ");
-  return { designators, dims };
-}
-
 function mapMetaToAirportRow(meta, icao) {
-  const rwyTable = runwaySummariesFromAd212TableJson(meta);
-  const runwayNum =
-    meta.ad2_12_runway_number ||
-    meta.ad2_12_runway_designators ||
-    (rwyTable && rwyTable.designators) ||
-    "NIL";
-  const runwayDims =
-    meta.ad2_12_runway_dimensions || (rwyTable && rwyTable.dims) || "NIL";
-
   return {
     "Publication Date": meta.publication_date || "NIL",
     "Airport Code": meta.airport_code || icao,
@@ -133,8 +102,9 @@ function mapMetaToAirportRow(meta, icao) {
     "AD2.3 ATS": meta.ad2_3_ats || "NIL",
     "AD2.3 Remarks": meta.ad2_3_remarks || "NIL",
     "AD2.6 AD category for fire fighting": meta.ad2_6_fire_fighting_category || "NIL",
-    "AD2.12 Runway Number": runwayNum,
-    "AD2.12 Runway Dimensions": runwayDims,
+    "AD2.12 Runway Number":
+      meta.ad2_12_runway_number || meta.ad2_12_runway_designators || "NIL",
+    "AD2.12 Runway Dimensions": meta.ad2_12_runway_dimensions || "NIL",
   };
 }
 
@@ -161,7 +131,7 @@ async function runExtract(icao, progress = null) {
 
   const airportRow = mapMetaToAirportRow(meta, icao);
   const out = {
-    source: "EAD AD 2 PDFs (Claude table extractor)",
+    source: "EAD AD 2 PDFs (unified meta extractor)",
     extracted: new Date().toISOString(),
     airports: [airportRow],
   };
@@ -380,7 +350,7 @@ const AIP_STEPS = [
   "Deleting old from S3…",
   "Downloading AIP PDF…",
   "PDF uploaded to S3…",
-  "Extracting tables with Claude (AD 2.12)…",
+  "Extracting with unified AIP parser…",
   "Uploading to S3…",
 ];
 
@@ -571,6 +541,6 @@ server.listen(PORT, "0.0.0.0", () => {
     PORT,
     "| download:",
     DOWNLOAD_SCRIPT,
-    "| extract: aip_table_extractor.py"
+    "| extract: unified parser"
   );
 });

@@ -25,7 +25,7 @@ const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
-const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip_meta_extractor.py");
+const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 
 function requireAuth(req) {
@@ -102,7 +102,8 @@ function mapMetaToAirportRow(meta, icao) {
     "AD2.3 ATS": meta.ad2_3_ats || "NIL",
     "AD2.3 Remarks": meta.ad2_3_remarks || "NIL",
     "AD2.6 AD category for fire fighting": meta.ad2_6_fire_fighting_category || "NIL",
-    "AD2.12 Runway Number": meta.ad2_12_runway_number || "NIL",
+    "AD2.12 Runway Number":
+      meta.ad2_12_runway_number || meta.ad2_12_runway_designators || "NIL",
     "AD2.12 Runway Dimensions": meta.ad2_12_runway_dimensions || "NIL",
   };
 }

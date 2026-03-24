@@ -125,7 +125,7 @@ Keep **PDF download** logic unchanged.
 Replace old extraction branching:
 
 - remove regex-vs-AI script selection,
-- call unified extractor (`aip_meta_extractor.py`),
+- call unified extractor (`aip-meta-extractor.py`),
 - map extractor output to portal JSON fields,
 - keep S3 upload/cache behavior.
 

@@ -164,6 +164,43 @@ function AIPResultCard({
     })
     .filter((r): r is { key: keyof AIPAirport; section: string; label: string; value: string } => r !== null);
 
+  const parseRunwayRows = (runwayNumberRaw: string, runwayDimensionsRaw: string) => {
+    const runwayNumbers = runwayNumberRaw
+      .split(/[,;\n]+/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    const dimEntries = runwayDimensionsRaw
+      .split(/;\s*|\n+/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+
+    const dimsByRunway = new Map<string, string>();
+    const unnamedDims: string[] = [];
+
+    for (const entry of dimEntries) {
+      const tagged = entry.match(/^([^:]+):\s*(.+)$/);
+      if (tagged) {
+        const runway = tagged[1].trim();
+        const dims = tagged[2].trim();
+        if (runway && dims) dimsByRunway.set(runway, dims);
+      } else {
+        unnamedDims.push(entry);
+      }
+    }
+
+    const parsed = runwayNumbers.map((runway, idx) => ({
+      runway,
+      dimensions: dimsByRunway.get(runway) || unnamedDims[idx] || "",
+    }));
+
+    for (const [runway, dimensions] of dimsByRunway.entries()) {
+      if (!parsed.some((r) => r.runway === runway)) parsed.push({ runway, dimensions });
+    }
+
+    return parsed.filter((r) => r.runway || r.dimensions);
+  };
+
   const rowsBySection = rows.reduce<Record<string, typeof rows>>((acc, row) => {
     if (!acc[row.section]) acc[row.section] = [];
     acc[row.section].push(row);
@@ -200,6 +237,20 @@ function AIPResultCard({
           {orderedSectionKeys.map((section) => {
             const sectionRows = rowsBySection[section];
             const sectionTitle = SECTION_TITLE_BY_KEY[section] || section || "Section";
+            const isRunwaySection = section === "AD 2.12";
+            const runwayNumberRow = isRunwaySection
+              ? sectionRows.find((row) => row.key === "runwayNumber")
+              : undefined;
+            const runwayDimensionsRow = isRunwaySection
+              ? sectionRows.find((row) => row.key === "runwayDimensions")
+              : undefined;
+            const runwayRows = (runwayNumberRow?.value || runwayDimensionsRow?.value)
+              ? parseRunwayRows(runwayNumberRow?.value ?? "", runwayDimensionsRow?.value ?? "")
+              : [];
+            const normalRows = isRunwaySection
+              ? sectionRows.filter((row) => row.key !== "runwayNumber" && row.key !== "runwayDimensions")
+              : sectionRows;
+
             return (
               <section key={section || "general"} className="rounded-md border border-border/60 bg-muted/20 overflow-hidden">
                 <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/70 flex items-center gap-2">
@@ -211,7 +262,7 @@ function AIPResultCard({
                   </span>
                 </div>
                 <dl className="divide-y divide-border/50">
-                  {sectionRows.map(({ key, section: rowSection, label, value }) => (
+                  {normalRows.map(({ key, section: rowSection, label, value }) => (
                     <div
                       key={`${rowSection}-${label}`}
                       className="px-3 sm:px-4 py-2.5 sm:py-3 grid grid-cols-1 sm:grid-cols-[minmax(160px,190px)_1fr] gap-1.5 sm:gap-4"
@@ -238,6 +289,31 @@ function AIPResultCard({
                     </div>
                   ))}
                 </dl>
+                {isRunwaySection && runwayRows.length > 0 && (
+                  <div className="px-3 sm:px-4 py-3 sm:py-4 border-t border-border/60">
+                    <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 sm:mb-3">
+                      Runways
+                    </p>
+                    <div className="rounded-md border border-border/60 overflow-hidden bg-card/60">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead className="bg-muted/50 text-[11px] sm:text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-semibold w-28">Runway</th>
+                            <th className="text-left px-3 py-2 font-semibold">Dimensions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {runwayRows.map((r) => (
+                            <tr key={`${r.runway}-${r.dimensions}`}>
+                              <td className="px-3 py-2 font-mono text-primary">{r.runway || "—"}</td>
+                              <td className="px-3 py-2 text-foreground/95">{r.dimensions || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </section>
             );
           })}

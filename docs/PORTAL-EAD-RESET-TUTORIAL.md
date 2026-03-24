@@ -286,8 +286,8 @@ node scripts/aip-sync-server.mjs
   - `AWS_*` vars if S3 upload is enabled
   - `ANTHROPIC_API_KEY` (required for `aip_table_extractor.py` / Claude vision)
   - `OPENAI_API_KEY` / `OPENROUTER_API_KEY` if GEN rewriting uses them
-- **EC2 Python packages** (for AIP table extraction):
-  - `python3 -m pip install anthropic pdf2image pillow pymupdf`
+- **EC2 Python packages** (for `aip_table_extractor.py`):
+  - `python3 -m pip install anthropic pdf2image pillow`
   - Ubuntu/Debian: `sudo apt install -y poppler-utils` (pdf2image needs Poppler’s `pdftoppm`)
 
 ---

@@ -13,35 +13,29 @@ How it works:
   4. Results are merged into your existing Textract output dict.
 
 Install deps:
-    pip install anthropic pdf2image pillow pymupdf
-    # Poppler (required by pdf2image to rasterize PDFs):
-    #   Ubuntu/Debian:  sudo apt install poppler-utils python3-pip
-    #   macOS:          brew install poppler
-    # API: set ANTHROPIC_API_KEY in the environment.
+    pip install anthropic pdf2image pillow
+    # also needs poppler:  apt install poppler-utils  /  brew install poppler
 
 Usage:
-    # CLI (also used by scripts/aip-sync-server.mjs):
-    python3 aip_table_extractor.py path/to/AD2.pdf --out tables.json --quiet
-
     from aip_table_extractor import extract_tables_from_pdf, patch_textract_output
 
+    # --- standalone: get tables only ---
     tables = extract_tables_from_pdf("LZPP_AIP_AD2.pdf")
 
-    textract_result = {...}
+    # --- hybrid: merge into existing Textract output ---
+    textract_result = {...}          # your existing Textract dict
     patched = patch_textract_output(textract_result, "LZPP_AIP_AD2.pdf")
 """
 
-import argparse
 import base64
 import json
 import re
-import time
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import anthropic
-from pdf2image import convert_from_path, pdfinfo_from_path
+from pdf2image import convert_from_path
 from PIL import Image
 
 
@@ -116,43 +110,6 @@ def _extract_json_from_response(text: str) -> Any:
     return json.loads(text)
 
 
-def _pdf_page_count(pdf_path: Path) -> int:
-    """Total pages in PDF (PyMuPDF if available, else pdf2image pdfinfo)."""
-    try:
-        import fitz  # pymupdf
-
-        doc = fitz.open(str(pdf_path))
-        n = len(doc)
-        doc.close()
-        return n
-    except Exception:
-        pass
-    info = pdfinfo_from_path(str(pdf_path))
-    for key in ("Pages", "pages"):
-        if key in info:
-            return int(info[key])
-    return 1
-
-
-def guess_ad212_pages(pdf_path: Path) -> list[int] | None:
-    """1-based page numbers whose text layer mentions AD 2.12 (runway tables)."""
-    try:
-        import fitz  # pymupdf
-    except ImportError:
-        return None
-    pattern = re.compile(
-        r"(?:AD\s*2\.12|[A-Z]{2,4}\s+2\.12|\b2\.12\s+(?:RUNWAY|RWY))",
-        re.IGNORECASE,
-    )
-    doc = fitz.open(str(pdf_path))
-    pages: list[int] = []
-    for idx in range(len(doc)):
-        if pattern.search(doc[idx].get_text("text")):
-            pages.append(idx + 1)
-    doc.close()
-    return pages if pages else None
-
-
 def extract_table_from_page_image(img: Image.Image) -> dict:
     """Send a single PIL image to Claude and return parsed JSON."""
     b64 = _image_to_b64(img)
@@ -214,30 +171,22 @@ def extract_tables_from_pdf(
     Args:
         pdf_path:  Path to the PDF file.
         pages:     1-based list of page numbers to process.
-                   If None, ALL pages are processed (can be slow / costly).
+                   If None, ALL pages are processed.
         dpi:       Rendering resolution (200 is fine for most AIP docs).
 
     Returns:
         Merged dict of all tables found across pages.
     """
     pdf_path = Path(pdf_path)
-    total_pages = _pdf_page_count(pdf_path)
+    images = convert_from_path(str(pdf_path), dpi=dpi)
 
     if pages is None:
-        pages = list(range(1, total_pages + 1))
+        pages = list(range(1, len(images) + 1))
 
     merged: dict = {}
     for page_no in pages:
-        if page_no < 1 or page_no > total_pages:
-            print(f"    ⚠ Skip invalid page {page_no} (PDF has {total_pages} page(s))")
-            continue
-        imgs = convert_from_path(
-            str(pdf_path), dpi=dpi, first_page=page_no, last_page=page_no
-        )
-        if not imgs:
-            continue
-        img = imgs[0]
-        print(f"  → Processing page {page_no}/{total_pages} ...")
+        img = images[page_no - 1]
+        print(f"  → Processing page {page_no}/{len(images)} ...")
         try:
             result = extract_table_from_page_image(img)
             merged.update(result)
@@ -279,64 +228,42 @@ def patch_textract_output(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# CLI (used by scripts/aip-sync-server.mjs on EC2)
+# CLI — only entry + output wiring for callers (e.g. aip-sync-server.mjs)
 # ═══════════════════════════════════════════════════════════════════════════
 
+if __name__ == "__main__":
+    import argparse
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Extract AIP tables (e.g. AD 2.12) via Claude vision."
-    )
+    parser = argparse.ArgumentParser()
     parser.add_argument("pdf", help="Path to AIP PDF")
-    parser.add_argument("--out", required=True, help="Output JSON path")
-    parser.add_argument(
-        "--dpi", type=int, default=200, help="Rasterization DPI (default 200)"
-    )
+    parser.add_argument("--out", required=True, help="Write merged JSON here")
+    parser.add_argument("--dpi", type=int, default=200)
     parser.add_argument(
         "--pages",
         default=None,
-        help="Comma-separated 1-based page numbers. "
-        "If omitted, pages mentioning AD 2.12 are detected via text layer (needs pymupdf); "
-        "if none found, all pages are processed.",
+        help="Comma-separated 1-based page numbers; omit to process every page",
     )
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help="Do not print the final JSON to stdout (progress lines still print)",
+        help="Suppress printing full JSON to stdout",
     )
     args = parser.parse_args()
-    pdf_path = Path(args.pdf)
+    pdf = Path(args.pdf)
+    pages_list = (
+        [int(x.strip()) for x in args.pages.split(",") if x.strip()]
+        if args.pages
+        else None
+    )
 
-    pages: list[int] | None = None
-    if args.pages:
-        pages = [int(x.strip()) for x in args.pages.split(",") if x.strip()]
-    else:
-        guessed = guess_ad212_pages(pdf_path)
-        if guessed:
-            pages = guessed
-            print(f"  → AD 2.12 candidate page(s) from text scan: {pages}")
-        else:
-            print(
-                "  ⚠ No AD 2.12 pages detected and --pages not set; "
-                f"processing all {_pdf_page_count(pdf_path)} page(s)."
-            )
-
-    print(f"\nProcessing: {pdf_path}")
-    started = time.perf_counter()
-    tables = extract_tables_from_pdf(pdf_path, pages=pages, dpi=args.dpi)
-    elapsed = time.perf_counter() - started
-    tables["extraction_time_seconds"] = round(elapsed, 3)
+    print(f"\nProcessing: {pdf}")
+    tables = extract_tables_from_pdf(pdf, pages=pages_list, dpi=args.dpi)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(tables, f, ensure_ascii=False, indent=2)
 
-    print(f"\n  ✓ Saved → {out_path}")
-    print(f"  ⏱ Elapsed: {elapsed:.2f}s")
+    print(f"\n✓ Saved → {out_path}")
     if not args.quiet:
         print(json.dumps(tables, ensure_ascii=False, indent=2))
-
-
-if __name__ == "__main__":
-    main()

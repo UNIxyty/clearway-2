@@ -125,7 +125,7 @@ Keep **PDF download** logic unchanged.
 Replace old extraction branching:
 
 - remove regex-vs-AI script selection,
-- call unified extractor (`aip-meta-extractor.py`),
+- call table extractor (`aip_table_extractor.py`),
 - map extractor output to portal JSON fields,
 - keep S3 upload/cache behavior.
 
@@ -284,7 +284,11 @@ node scripts/aip-sync-server.mjs
   - `SYNC_SECRET`
   - `EAD_USER` + `EAD_PASSWORD` or `EAD_PASSWORD_ENC`
   - `AWS_*` vars if S3 upload is enabled
-  - `OPENAI_API_KEY` / `OPENROUTER_API_KEY` if unified extractor or GEN rewriting uses them
+  - `ANTHROPIC_API_KEY` (required for `aip_table_extractor.py` / Claude vision)
+  - `OPENAI_API_KEY` / `OPENROUTER_API_KEY` if GEN rewriting uses them
+- **EC2 Python packages** (for AIP table extraction):
+  - `python3 -m pip install anthropic pdf2image pillow pymupdf`
+  - Ubuntu/Debian: `sudo apt install -y poppler-utils` (pdf2image needs Poppler’s `pdftoppm`)
 
 ---
 
@@ -295,7 +299,7 @@ node scripts/aip-sync-server.mjs
 - [ ] Menu includes refreshed EAD countries.
 - [ ] Flags render for refreshed countries.
 - [ ] First-login/settings model picker removed.
-- [ ] AIP extraction uses unified path.
+- [ ] AIP extraction uses `aip_table_extractor.py` on the sync server.
 - [ ] PDF download behavior unchanged.
 - [ ] Build passes before deploy.
 

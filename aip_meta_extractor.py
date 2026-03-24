@@ -207,19 +207,23 @@ def _find_ad2_12_pages(doc: fitz.Document) -> list[int]:
     return pages
 
 
-def _extract_runway_fields_from_tables(doc: fitz.Document, dpi: int = 200) -> dict:
+def _extract_runway_fields_from_tables(doc: fitz.Document, dpi: int = 200, verbose: bool = True) -> dict:
     ad2_12_pages = _find_ad2_12_pages(doc)
     if not ad2_12_pages:
         return {}
 
-    print(f"  → Extracting 'ad2_12_tables' from page(s) {ad2_12_pages} ...")
+    if verbose:
+        print(f"  → Extracting 'ad2_12_tables' from page(s) {ad2_12_pages} ...")
     runways: list[dict] = []
     for page_no in ad2_12_pages:
+        if verbose:
+            print(f"    • Page {page_no}: extracting AD 2.12 runway rows ...")
         img = _page_to_image(doc, page_no, dpi=dpi)
         try:
             parsed = _ask_claude_table(img)
         except (json.JSONDecodeError, KeyError) as exc:
-            print(f"    ⚠ Table parse error on page {page_no}: {exc}")
+            if verbose:
+                print(f"    ⚠ Table parse error on page {page_no}: {exc}")
             continue
 
         section = parsed.get("AD_2_12_runway_physical_characteristics", {})
@@ -278,7 +282,7 @@ def _combine_pages(doc: fitz.Document, page_numbers: list[int], dpi: int) -> Ima
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def extract_metadata(pdf_path: str | Path, dpi: int = 200) -> dict:
+def extract_metadata(pdf_path: str | Path, dpi: int = 200, verbose: bool = True) -> dict:
     """
     Extract AIP metadata fields from a PDF.
 
@@ -293,13 +297,15 @@ def extract_metadata(pdf_path: str | Path, dpi: int = 200) -> dict:
         # Clamp pages to actual document length
         valid_pages = [p for p in pages if 1 <= p <= total_pages]
         if not valid_pages:
-            print(f"  ⚠ Skipping '{group}' — pages {pages} out of range (doc has {total_pages})")
+            if verbose:
+                print(f"  ⚠ Skipping '{group}' — pages {pages} out of range (doc has {total_pages})")
             continue
 
         prompt_key = "ad2_6" if group == "ad2_6" else "header_and_ad2_2"
         prompt = PROMPTS[prompt_key]
 
-        print(f"  → Extracting '{group}' from page(s) {valid_pages} ...")
+        if verbose:
+            print(f"  → Extracting '{group}' from page(s) {valid_pages} ...")
         img = _combine_pages(doc, valid_pages, dpi)
 
         try:
@@ -307,10 +313,11 @@ def extract_metadata(pdf_path: str | Path, dpi: int = 200) -> dict:
             # Merge; later groups can overwrite earlier ones for shared keys
             result.update({k: v for k, v in partial.items() if v is not None})
         except (json.JSONDecodeError, KeyError) as exc:
-            print(f"    ⚠ Parse error for '{group}': {exc}")
+            if verbose:
+                print(f"    ⚠ Parse error for '{group}': {exc}")
 
     # AD 2.12 runway extraction (table-aware).
-    runway_fields = _extract_runway_fields_from_tables(doc, dpi=dpi)
+    runway_fields = _extract_runway_fields_from_tables(doc, dpi=dpi, verbose=verbose)
     if runway_fields:
         result.update(runway_fields)
 
@@ -341,11 +348,13 @@ def main():
     parser.add_argument("pdf", help="Path to AIP AD2 PDF file")
     parser.add_argument("--out", default=None, help="Output JSON file path (optional)")
     parser.add_argument("--dpi", type=int, default=200, help="Rendering DPI (default 200)")
+    parser.add_argument("--quiet", action="store_true", help="Suppress final JSON print, keep extraction progress lines")
     args = parser.parse_args()
 
-    print(f"\nProcessing: {args.pdf}")
+    if not args.quiet:
+        print(f"\nProcessing: {args.pdf}")
     started = time.perf_counter()
-    result = extract_metadata(args.pdf, dpi=args.dpi)
+    result = extract_metadata(args.pdf, dpi=args.dpi, verbose=True)
     elapsed = time.perf_counter() - started
     result["extraction_time_seconds"] = round(elapsed, 3)
 
@@ -353,9 +362,10 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✓ Saved → {out_path}")
-    print(f"⏱ Time consumed: {elapsed:.2f}s")
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"  ✓ Saved → {out_path}")
+    print(f"  ⏱ Time consumed: {elapsed:.2f}s")
+    if not args.quiet:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

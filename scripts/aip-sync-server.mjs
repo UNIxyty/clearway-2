@@ -49,10 +49,19 @@ function syncFailurePayload(err) {
   return base;
 }
 
-function run(cmd, args, env = process.env) {
+function run(cmd, args, env = process.env, onStdoutLine = null) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
     let stderr = "";
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      if (typeof onStdoutLine === "function") {
+        const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        for (const line of lines) onStdoutLine(line);
+      }
+    });
     child.stderr?.on("data", (chunk) => { stderr += chunk; });
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
@@ -64,7 +73,7 @@ function run(cmd, args, env = process.env) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${stderr.slice(-500)}`));
+      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-500)}`));
       else resolve();
     });
   });
@@ -98,13 +107,21 @@ function mapMetaToAirportRow(meta, icao) {
   };
 }
 
-async function runExtract(icao) {
+async function runExtract(icao, progress = null) {
   const pdfPath = findDownloadedPdf(icao);
   if (!pdfPath) {
     throw new Error(`Downloaded PDF not found for ${icao}`);
   }
   const tempOut = join(PROJECT_ROOT, "data", "ead-aip", `${icao}-meta.json`);
-  await run("python3", [META_EXTRACT_SCRIPT, pdfPath, "--out", tempOut]);
+  await run(
+    "python3",
+    [META_EXTRACT_SCRIPT, pdfPath, "--out", tempOut, "--quiet"],
+    process.env,
+    (line) => {
+      if (!progress) return;
+      progress(line);
+    }
+  );
   const metaRaw = readFileSync(tempOut, "utf8");
   const meta = JSON.parse(metaRaw);
   try {
@@ -479,7 +496,11 @@ const server = createServer(async (req, res) => {
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
     send({ step: AIP_STEPS[3] });
-    await runExtract(icao);
+    await runExtract(icao, (line) => {
+      const cleaned = line.replace(/^[-•]\s*/, "").trim();
+      if (!cleaned) return;
+      send({ step: cleaned });
+    });
     const data = readExtracted();
     send({ step: AIP_STEPS[4] });
     if (process.env.AWS_S3_BUCKET) {

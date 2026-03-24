@@ -5,7 +5,6 @@ const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 
 export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
-  const extract = request.nextUrl.searchParams.get("extract");
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
@@ -21,7 +20,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${extract === "regex" ? "&extract=regex" : ""}`;
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 

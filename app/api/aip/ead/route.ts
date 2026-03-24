@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -11,7 +7,6 @@ const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PREFIX = "aip/ead";
 const SYNC_TIMEOUT_MS = 600_000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
-const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 function s3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
@@ -92,58 +87,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Read user's AIP model preference (corporate → device_profile_preferences; else user_preferences)
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let userAipModel: string | null = null;
-
-  if (url && anonKey) {
-    try {
-      const cookieStore = cookies();
-      const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
-      const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
-
-      if (corporateSession?.device_profile_id) {
-        const admin = createSupabaseServiceRoleClient();
-        if (admin) {
-          const { data: prefs } = await admin
-            .from("device_profile_preferences")
-            .select("aip_model")
-            .eq("device_profile_id", corporateSession.device_profile_id)
-            .maybeSingle();
-          if (prefs?.aip_model) userAipModel = prefs.aip_model;
-        }
-      } else {
-        const supabase = createServerClient(url, anonKey, {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll();
-            },
-            setAll() {},
-          },
-        });
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const admin = createSupabaseServiceRoleClient();
-          const db = admin ?? supabase;
-          const { data: prefs } = await db
-            .from("user_preferences")
-            .select("aip_model")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          if (prefs?.aip_model) userAipModel = prefs.aip_model;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to read user AIP model pref:", e);
-    }
-  }
-
-  const modelParam = userAipModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const extractParam = DISABLE_AI_FOR_TESTING ? "&extract=regex" : "";
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&model=${encodeURIComponent(modelParam)}${extractParam}`;
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
 

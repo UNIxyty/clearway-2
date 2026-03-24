@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const PDF_PREFIX = "aip/non-ead-gen-pdf";
 const JSON_PREFIX = "aip/non-ead-gen";
-const DISABLE_AI_FOR_TESTING =
-  String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -165,28 +161,6 @@ async function saveJsonToS3(client: S3Client, prefix: string, payload: GenPayloa
   );
 }
 
-async function getUserGenModel(): Promise<string | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(url, anonKey, {
-      cookies: { getAll: () => cookieStore.getAll(), setAll() {} },
-    });
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data: prefs } = await supabase
-      .from("user_preferences")
-      .select("gen_model")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    return prefs?.gen_model || null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(request: NextRequest) {
   const prefix = (
     request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ||
@@ -227,14 +201,7 @@ export async function GET(request: NextRequest) {
   const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } =
     splitGenIntoThreeParts(pdfText);
 
-  let model = await getUserGenModel();
-  if (!model && !DISABLE_AI_FOR_TESTING) {
-    return NextResponse.json(
-      { error: "No AI model selected", detail: "Go to Settings and choose a GEN model before viewing non-EAD GEN." },
-      { status: 400 }
-    );
-  }
-  model = model || "gpt-4o-mini";
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
   try {
     const hasKey = model.includes("/")

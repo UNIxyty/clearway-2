@@ -16,8 +16,10 @@ type AIPAirport = {
 type GenPart = { raw: string; rewritten: string };
 
 const EAD_ICAO_PREFIXES = new Set([
-  "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
-  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC",
+  "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF",
+  "LF", "UG", "ED", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "BK", "UA", "UC", "EV",
+  "EY", "EL", "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ",
+  "LE", "ES", "GC", "LS", "LT", "UK", "EG",
 ]);
 
 function isEadIcao(icao: string): boolean {

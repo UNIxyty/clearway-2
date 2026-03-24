@@ -5,9 +5,9 @@ import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const PREF_SELECT =
-  "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at";
+  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at";
 const PREF_POST_SELECT =
-  "display_name, aip_model, gen_model, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at";
+  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at";
 
 export async function GET() {
   try {
@@ -130,8 +130,6 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => ({}))) as {
       display_name?: string;
-      aip_model?: string;
-      gen_model?: string;
       notify_enabled?: boolean;
       notify_search_start?: boolean;
       notify_search_end?: boolean;
@@ -157,12 +155,6 @@ export async function POST(request: Request) {
       if (body.display_name !== undefined) {
         updates.display_name = body.display_name.trim() || null;
       }
-      if (body.aip_model?.trim()) {
-        updates.aip_model = body.aip_model.trim();
-      }
-      if (body.gen_model?.trim()) {
-        updates.gen_model = body.gen_model.trim();
-      }
       if (typeof body.notify_enabled === "boolean") updates.notify_enabled = body.notify_enabled;
       if (typeof body.notify_search_start === "boolean") updates.notify_search_start = body.notify_search_start;
       if (typeof body.notify_search_end === "boolean") updates.notify_search_end = body.notify_search_end;
@@ -187,12 +179,6 @@ export async function POST(request: Request) {
     };
     if (body.display_name !== undefined) {
       updates.display_name = body.display_name.trim() || null;
-    }
-    if (body.aip_model?.trim()) {
-      updates.aip_model = body.aip_model.trim();
-    }
-    if (body.gen_model?.trim()) {
-      updates.gen_model = body.gen_model.trim();
     }
     if (typeof body.notify_enabled === "boolean") updates.notify_enabled = body.notify_enabled;
     if (typeof body.notify_search_start === "boolean") updates.notify_search_start = body.notify_search_start;

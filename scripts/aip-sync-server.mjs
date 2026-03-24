@@ -12,7 +12,7 @@ import { createServer } from "http";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -25,8 +25,7 @@ const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
-const EXTRACT_SCRIPT_AI = "scripts/ead-extract-aip-from-pdf-ai.mjs";
-const EXTRACT_SCRIPT_REGEX = "scripts/ead-extract-aip-from-pdf.mjs";
+const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip_meta_extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 
 function requireAuth(req) {
@@ -75,16 +74,50 @@ async function runDownload(icao) {
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
 }
 
-async function runExtract(useAi = true, model = null) {
-  const script = useAi ? EXTRACT_SCRIPT_AI : EXTRACT_SCRIPT_REGEX;
-  const env = {};
-  if (model) {
-    env.OPENAI_MODEL = model;
-    if (model.includes("/") && process.env.OPENROUTER_API_KEY) {
-      env.OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    }
+function mapMetaToAirportRow(meta, icao) {
+  return {
+    "Publication Date": meta.publication_date || "NIL",
+    "Airport Code": meta.airport_code || icao,
+    "Airport Name": meta.airport_name || "NIL",
+    "AD2.2 Types of Traffic Permitted": meta.ad2_2_types_of_traffic || "NIL",
+    "AD2.2 Remarks": meta.ad2_2_remarks || "NIL",
+    "AD2.2 AD Operator": meta.ad2_2_operator_name || "NIL",
+    "AD2.2 Address": meta.ad2_2_address || "NIL",
+    "AD2.2 Telephone": meta.ad2_2_telephone || "NIL",
+    "AD2.2 Telefax": meta.ad2_2_telefax || "NIL",
+    "AD2.2 E-mail": meta.ad2_2_email || "NIL",
+    "AD2.2 AFS": meta.ad2_2_afs || "NIL",
+    "AD2.2 Website": meta.ad2_2_website || "NIL",
+    "AD2.3 AD Operator": meta.ad2_3_ad_operator || "NIL",
+    "AD 2.3 Customs and Immigration": meta.ad2_3_customs_immigration || "NIL",
+    "AD2.3 ATS": meta.ad2_3_ats || "NIL",
+    "AD2.3 Remarks": meta.ad2_3_remarks || "NIL",
+    "AD2.6 AD category for fire fighting": meta.ad2_6_fire_fighting_category || "NIL",
+    "AD2.12 Runway Number": meta.ad2_12_runway_number || "NIL",
+    "AD2.12 Runway Dimensions": meta.ad2_12_runway_dimensions || "NIL",
+  };
+}
+
+async function runExtract(icao) {
+  const pdfPath = findDownloadedPdf(icao);
+  if (!pdfPath) {
+    throw new Error(`Downloaded PDF not found for ${icao}`);
   }
-  await run("node", [script], env);
+  const tempOut = join(PROJECT_ROOT, "data", "ead-aip", `${icao}-meta.json`);
+  await run("python3", [META_EXTRACT_SCRIPT, pdfPath, "--out", tempOut]);
+  const metaRaw = readFileSync(tempOut, "utf8");
+  const meta = JSON.parse(metaRaw);
+  try {
+    unlinkSync(tempOut);
+  } catch (_) {}
+
+  const airportRow = mapMetaToAirportRow(meta, icao);
+  const out = {
+    source: "EAD AD 2 PDFs (unified meta extractor)",
+    extracted: new Date().toISOString(),
+    airports: [airportRow],
+  };
+  writeFileSync(EXTRACTED_PATH, JSON.stringify(out, null, 2), "utf8");
 }
 
 function readExtracted() {
@@ -299,7 +332,7 @@ const AIP_STEPS = [
   "Deleting old from S3…",
   "Downloading AIP PDF…",
   "PDF uploaded to S3…",
-  DISABLE_AI_FOR_TESTING ? "Extracting with regex (AI disabled for testing)…" : "Extracting with AI…",
+  "Extracting with unified AIP parser…",
   "Uploading to S3…",
 ];
 
@@ -316,7 +349,6 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
-  const useAi = !DISABLE_AI_FOR_TESTING && url.searchParams.get("extract") !== "regex";
   const modelOverride = url.searchParams.get("model")?.trim() || null;
 
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
@@ -447,7 +479,7 @@ const server = createServer(async (req, res) => {
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
     send({ step: AIP_STEPS[3] });
-    await runExtract(useAi, modelOverride);
+    await runExtract(icao);
     const data = readExtracted();
     send({ step: AIP_STEPS[4] });
     if (process.env.AWS_S3_BUCKET) {
@@ -487,7 +519,6 @@ server.listen(PORT, "0.0.0.0", () => {
     PORT,
     "| download:",
     DOWNLOAD_SCRIPT,
-    "| extract:",
-    DISABLE_AI_FOR_TESTING ? "REGEX (AI disabled for testing)" : "AI"
+    "| extract: unified parser"
   );
 });

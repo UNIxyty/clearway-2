@@ -20,7 +20,6 @@ import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarnin
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
-import { FirstLoginModelPicker } from "@/components/FirstLoginModelPicker";
 import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
@@ -56,21 +55,33 @@ type AIPAirport = {
   gen1_2_point_4: string;
   icao: string;
   name: string;
+  publicationDate: string;
   trafficPermitted: string;
   trafficRemarks: string;
+  ad22Operator: string;
+  ad22Address: string;
+  ad22Telephone: string;
+  ad22Telefax: string;
+  ad22Email: string;
+  ad22Afs: string;
+  ad22Website: string;
   operator: string;
   customsImmigration: string;
   ats: string;
   atsRemarks: string;
   fireFighting: string;
+  runwayNumber: string;
+  runwayDimensions: string;
   lat?: number;
   lon?: number;
 };
 
 // ICAO prefixes for EAD (EU) countries – when user views an airport with this prefix, we show AIP (EAD) and can sync from EC2
 const EAD_ICAO_PREFIXES = new Set([
-  "LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI",
-  "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC",
+  "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF",
+  "LF", "UG", "ED", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "BK", "UA", "UC", "EV",
+  "EY", "EL", "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ",
+  "LE", "ES", "GC", "LS", "LT", "UK", "EG",
 ]);
 
 const MAIN_PAGE_DISABLE_GEN = true;
@@ -106,13 +117,23 @@ const USA_STATE_ABBR: Record<string, string> = {
 
 const AIP_FIELD_LABELS: { key: keyof AIPAirport; section: string; label: string }[] = [
   { key: "country", section: "", label: "State" },
+  { key: "publicationDate", section: "", label: "Publication Date" },
   { key: "trafficPermitted", section: "AD 2.2", label: "Types of traffic permitted" },
   { key: "trafficRemarks", section: "AD 2.2", label: "Remarks" },
+  { key: "ad22Operator", section: "AD 2.2", label: "AD Operator" },
+  { key: "ad22Address", section: "AD 2.2", label: "Address" },
+  { key: "ad22Telephone", section: "AD 2.2", label: "Telephone" },
+  { key: "ad22Telefax", section: "AD 2.2", label: "Telefax" },
+  { key: "ad22Email", section: "AD 2.2", label: "E-mail" },
+  { key: "ad22Afs", section: "AD 2.2", label: "AFS" },
+  { key: "ad22Website", section: "AD 2.2", label: "Website" },
   { key: "operator", section: "AD 2.3", label: "AD Operator" },
   { key: "customsImmigration", section: "AD 2.3", label: "Customs and immigration" },
   { key: "ats", section: "AD 2.3", label: "ATS" },
   { key: "atsRemarks", section: "AD 2.3", label: "Remarks" },
   { key: "fireFighting", section: "AD 2.6", label: "AD category for fire fighting" },
+  { key: "runwayNumber", section: "AD 2.12", label: "Runway Number" },
+  { key: "runwayDimensions", section: "AD 2.12", label: "Runway Dimensions" },
 ];
 
 function AIPResultCard({
@@ -239,8 +260,6 @@ function AIPPortalPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
-  const [showFirstLoginPicker, setShowFirstLoginPicker] = useState(false);
-  const [checkingPrefs, setCheckingPrefs] = useState(true);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
@@ -369,9 +388,7 @@ function AIPPortalPageInner() {
     fetch("/api/user/preferences")
       .then((res) => res.json())
       .then((data) => {
-        if (!data.preferences) {
-          setShowFirstLoginPicker(true);
-        } else {
+        if (data.preferences) {
           const p = data.preferences;
           setNotifPrefs((prev) => ({
             ...prev,
@@ -384,10 +401,7 @@ function AIPPortalPageInner() {
           }));
         }
       })
-      .catch(() => {})
-      .finally(() => {
-        setCheckingPrefs(false);
-      });
+      .catch(() => {});
   }, []);
 
   const countriesInRegion = useMemo(() => {
@@ -561,15 +575,25 @@ function AIPPortalPageInner() {
                     updateStage(icao, "aip", "running", step);
                   } else if (data.done && Array.isArray(data.airports)) {
                     const list = data.airports as Array<{
+                      "Publication Date"?: string;
                       "Airport Code"?: string;
                       "Airport Name"?: string;
                       "AD2.2 Types of Traffic Permitted"?: string;
                       "AD2.2 Remarks"?: string;
+                      "AD2.2 AD Operator"?: string;
+                      "AD2.2 Address"?: string;
+                      "AD2.2 Telephone"?: string;
+                      "AD2.2 Telefax"?: string;
+                      "AD2.2 E-mail"?: string;
+                      "AD2.2 AFS"?: string;
+                      "AD2.2 Website"?: string;
                       "AD2.3 AD Operator"?: string;
                       "AD 2.3 Customs and Immigration"?: string;
                       "AD2.3 ATS"?: string;
                       "AD2.3 Remarks"?: string;
                       "AD2.6 AD category for fire fighting"?: string;
+                      "AD2.12 Runway Number"?: string;
+                      "AD2.12 Runway Dimensions"?: string;
                     }>;
                     const updatedAt = new Date().toISOString();
                     const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
@@ -580,13 +604,23 @@ function AIPPortalPageInner() {
                           gen1_2_point_4: "",
                           icao: match["Airport Code"] ?? "",
                           name: match["Airport Name"] ?? "",
+                          publicationDate: match["Publication Date"] ?? "",
                           trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
                           trafficRemarks: match["AD2.2 Remarks"] ?? "",
+                          ad22Operator: match["AD2.2 AD Operator"] ?? "",
+                          ad22Address: match["AD2.2 Address"] ?? "",
+                          ad22Telephone: match["AD2.2 Telephone"] ?? "",
+                          ad22Telefax: match["AD2.2 Telefax"] ?? "",
+                          ad22Email: match["AD2.2 E-mail"] ?? "",
+                          ad22Afs: match["AD2.2 AFS"] ?? "",
+                          ad22Website: match["AD2.2 Website"] ?? "",
                           operator: match["AD2.3 AD Operator"] ?? "",
                           customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
                           ats: match["AD2.3 ATS"] ?? "",
                           atsRemarks: match["AD2.3 Remarks"] ?? "",
                           fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
+                          runwayNumber: match["AD2.12 Runway Number"] ?? "",
+                          runwayDimensions: match["AD2.12 Runway Dimensions"] ?? "",
                         }
                       : null;
                     setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
@@ -628,15 +662,25 @@ function AIPPortalPageInner() {
           return;
         }
         const list = (data.airports ?? []) as Array<{
+          "Publication Date"?: string;
           "Airport Code"?: string;
           "Airport Name"?: string;
           "AD2.2 Types of Traffic Permitted"?: string;
           "AD2.2 Remarks"?: string;
+          "AD2.2 AD Operator"?: string;
+          "AD2.2 Address"?: string;
+          "AD2.2 Telephone"?: string;
+          "AD2.2 Telefax"?: string;
+          "AD2.2 E-mail"?: string;
+          "AD2.2 AFS"?: string;
+          "AD2.2 Website"?: string;
           "AD2.3 AD Operator"?: string;
           "AD 2.3 Customs and Immigration"?: string;
           "AD2.3 ATS"?: string;
           "AD2.3 Remarks"?: string;
           "AD2.6 AD category for fire fighting"?: string;
+          "AD2.12 Runway Number"?: string;
+          "AD2.12 Runway Dimensions"?: string;
         }>;
         if (!doSync && list.length === 0) {
           setAipEadSyncRequestedIcao(icao);
@@ -653,13 +697,23 @@ function AIPPortalPageInner() {
               gen1_2_point_4: "",
               icao: match["Airport Code"] ?? "",
               name: match["Airport Name"] ?? "",
+              publicationDate: match["Publication Date"] ?? "",
               trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
               trafficRemarks: match["AD2.2 Remarks"] ?? "",
+              ad22Operator: match["AD2.2 AD Operator"] ?? "",
+              ad22Address: match["AD2.2 Address"] ?? "",
+              ad22Telephone: match["AD2.2 Telephone"] ?? "",
+              ad22Telefax: match["AD2.2 Telefax"] ?? "",
+              ad22Email: match["AD2.2 E-mail"] ?? "",
+              ad22Afs: match["AD2.2 AFS"] ?? "",
+              ad22Website: match["AD2.2 Website"] ?? "",
               operator: match["AD2.3 AD Operator"] ?? "",
               customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
               ats: match["AD2.3 ATS"] ?? "",
               atsRemarks: match["AD2.3 Remarks"] ?? "",
               fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
+              runwayNumber: match["AD2.12 Runway Number"] ?? "",
+              runwayDimensions: match["AD2.12 Runway Dimensions"] ?? "",
             }
           : null;
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
@@ -1007,13 +1061,23 @@ function AIPPortalPageInner() {
             gen1_2_point_4: "",
             icao: qUpper,
             name: "EAD UNDEFINED",
+            publicationDate: "",
             trafficPermitted: "",
             trafficRemarks: "",
+            ad22Operator: "",
+            ad22Address: "",
+            ad22Telephone: "",
+            ad22Telefax: "",
+            ad22Email: "",
+            ad22Afs: "",
+            ad22Website: "",
             operator: "",
             customsImmigration: "",
             ats: "",
             atsRemarks: "",
             fireFighting: "",
+            runwayNumber: "",
+            runwayDimensions: "",
           } as AIPAirport,
         ];
       }
@@ -1092,24 +1156,6 @@ function AIPPortalPageInner() {
   };
 
   const showMap = !!(results?.length && viewingAirport);
-
-  if (checkingPrefs) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100">
-        <div className="text-sm text-muted-foreground">Loading…</div>
-      </div>
-    );
-  }
-
-  if (showFirstLoginPicker) {
-    return (
-      <FirstLoginModelPicker
-        onComplete={() => {
-          setShowFirstLoginPicker(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">

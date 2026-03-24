@@ -3,7 +3,6 @@ import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
-import eadAirportNames from "@/data/ead-airport-names.json";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +31,25 @@ type AIPCountry = {
   GEN_1_2?: string;
   GEN_1_2_POINT_4?: string;
   airports: Array<{
+    "Publication Date"?: string;
     "Airport Code": string;
     "Airport Name": string;
     "AD2.2 Types of Traffic Permitted": string;
     "AD2.2 Remarks": string;
+    "AD2.2 AD Operator"?: string;
+    "AD2.2 Address"?: string;
+    "AD2.2 Telephone"?: string;
+    "AD2.2 Telefax"?: string;
+    "AD2.2 E-mail"?: string;
+    "AD2.2 AFS"?: string;
+    "AD2.2 Website"?: string;
     "AD2.3 AD Operator": string;
     "AD 2.3 Customs and Immigration": string;
     "AD2.3 ATS": string;
     "AD2.3 Remarks": string;
     "AD2.6 AD category for fire fighting": string;
+    "AD2.12 Runway Number"?: string;
+    "AD2.12 Runway Dimensions"?: string;
   }>;
 };
 
@@ -50,30 +59,49 @@ export type AIPAirport = {
   gen1_2_point_4: string;
   icao: string;
   name: string;
+  publicationDate: string;
   trafficPermitted: string;
   trafficRemarks: string;
+  ad22Operator: string;
+  ad22Address: string;
+  ad22Telephone: string;
+  ad22Telefax: string;
+  ad22Email: string;
+  ad22Afs: string;
+  ad22Website: string;
   operator: string;
   customsImmigration: string;
   ats: string;
   atsRemarks: string;
   fireFighting: string;
+  runwayNumber: string;
+  runwayDimensions: string;
   lat?: number;
   lon?: number;
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
-const eadNamesMap = eadAirportNames as Record<string, string>;
 
 type USAirportRow = {
+  "Publication Date"?: string;
   "Airport Code": string;
   "Airport Name": string;
   "AD2.2 Types of Traffic Permitted": string;
   "AD2.2 Remarks": string;
+  "AD2.2 AD Operator"?: string;
+  "AD2.2 Address"?: string;
+  "AD2.2 Telephone"?: string;
+  "AD2.2 Telefax"?: string;
+  "AD2.2 E-mail"?: string;
+  "AD2.2 AFS"?: string;
+  "AD2.2 Website"?: string;
   "AD2.3 AD Operator": string;
   "AD 2.3 Customs and Immigration": string;
   "AD2.3 ATS": string;
   "AD2.3 Remarks": string;
   "AD2.6 AD category for fire fighting": string;
+  "AD2.12 Runway Number"?: string;
+  "AD2.12 Runway Dimensions"?: string;
 };
 
 type USAData = {
@@ -98,13 +126,23 @@ function flattenUSAByState(state: string): AIPAirport[] {
       gen1_2_point_4,
       icao,
       name: a["Airport Name"] ?? "",
+      publicationDate: a["Publication Date"] ?? "",
       trafficPermitted: a["AD2.2 Types of Traffic Permitted"] ?? "",
       trafficRemarks: a["AD2.2 Remarks"] ?? "",
+      ad22Operator: a["AD2.2 AD Operator"] ?? "",
+      ad22Address: a["AD2.2 Address"] ?? "",
+      ad22Telephone: a["AD2.2 Telephone"] ?? "",
+      ad22Telefax: a["AD2.2 Telefax"] ?? "",
+      ad22Email: a["AD2.2 E-mail"] ?? "",
+      ad22Afs: a["AD2.2 AFS"] ?? "",
+      ad22Website: a["AD2.2 Website"] ?? "",
       operator: a["AD2.3 AD Operator"] ?? "",
       customsImmigration: a["AD 2.3 Customs and Immigration"] ?? "",
       ats: a["AD2.3 ATS"] ?? "",
       atsRemarks: a["AD2.3 Remarks"] ?? "",
       fireFighting: a["AD2.6 AD category for fire fighting"] ?? "",
+      runwayNumber: a["AD2.12 Runway Number"] ?? "",
+      runwayDimensions: a["AD2.12 Runway Dimensions"] ?? "",
       lat: coord?.lat,
       lon: coord?.lon,
     };
@@ -128,13 +166,23 @@ function flattenAIP(countryFilter?: string): AIPAirport[] {
         gen1_2_point_4,
         icao,
         name: a["Airport Name"] ?? "",
+        publicationDate: a["Publication Date"] ?? "",
         trafficPermitted: a["AD2.2 Types of Traffic Permitted"] ?? "",
         trafficRemarks: a["AD2.2 Remarks"] ?? "",
+        ad22Operator: a["AD2.2 AD Operator"] ?? "",
+        ad22Address: a["AD2.2 Address"] ?? "",
+        ad22Telephone: a["AD2.2 Telephone"] ?? "",
+        ad22Telefax: a["AD2.2 Telefax"] ?? "",
+        ad22Email: a["AD2.2 E-mail"] ?? "",
+        ad22Afs: a["AD2.2 AFS"] ?? "",
+        ad22Website: a["AD2.2 Website"] ?? "",
         operator: a["AD2.3 AD Operator"] ?? "",
         customsImmigration: a["AD 2.3 Customs and Immigration"] ?? "",
         ats: a["AD2.3 ATS"] ?? "",
         atsRemarks: a["AD2.3 Remarks"] ?? "",
         fireFighting: a["AD2.6 AD category for fire fighting"] ?? "",
+        runwayNumber: a["AD2.12 Runway Number"] ?? "",
+        runwayDimensions: a["AD2.12 Runway Dimensions"] ?? "",
         lat: coord?.lat,
         lon: coord?.lon,
       });
@@ -165,13 +213,23 @@ function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{
       gen1_2_point_4: "",
       icao,
       name,
+      publicationDate: "",
       trafficPermitted: "",
       trafficRemarks: "",
+      ad22Operator: "",
+      ad22Address: "",
+      ad22Telephone: "",
+      ad22Telefax: "",
+      ad22Email: "",
+      ad22Afs: "",
+      ad22Website: "",
       operator: "",
       customsImmigration: "",
       ats: "",
       atsRemarks: "",
       fireFighting: "",
+      runwayNumber: "",
+      runwayDimensions: "",
       lat: coord?.lat,
       lon: coord?.lon,
     };

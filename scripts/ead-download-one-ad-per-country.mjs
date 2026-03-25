@@ -9,6 +9,10 @@
  *   node scripts/ead-download-one-ad-per-country.mjs --dump-authorities data/ead-aip-authority-prefixes-portal.json
  *   node scripts/ead-download-one-ad-per-country.mjs --only-pending
  *   (only failed or never-seen countries; keeps prior manifest rows for the rest)
+ *   node scripts/ead-download-one-ad-per-country.mjs --refresh-icao-db
+ *   (rebuild country->airport ICAO mapping from EAD search results)
+ *   node scripts/ead-download-one-ad-per-country.mjs --build-icao-db-only
+ *   (discover and save one airport ICAO per country, without downloading PDFs)
  *
  * Requires:
  *   EAD_USER and EAD_PASSWORD (or EAD_PASSWORD_ENC) in environment or .env
@@ -28,6 +32,7 @@ import {
   extractIcaoFromAd2Filename,
   icaoPrefixFromAuthorityLabel,
   countryNeedsEadRetry,
+  matchesAd2Icao,
 } from './ead-download-one-ad-per-country-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -78,17 +83,97 @@ function priorResultByLabel(manifest) {
   return m;
 }
 
+function loadCountryIcaoDb(path) {
+  try {
+    if (!existsSync(path)) return null;
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function countryIcaoMapFromDb(db) {
+  const out = new Map();
+  for (const row of db?.countries || []) {
+    if (row?.countryLabel) out.set(row.countryLabel, { ...row });
+  }
+  return out;
+}
+
 /**
  * Score rows so we download a real aerodrome PDF, not AD 2 section 0 / ENRT stubs.
  * Higher = better. -1 = skip.
  */
-function ad2RowMatchScore(combinedName, headingCol3, headingCol4) {
+function ad2RowMatchScore(combinedName, headingCol3, headingCol4, expectedIcao = '') {
+  if (expectedIcao && !matchesAd2Icao(combinedName, expectedIcao)) return -1;
   if (isAd2SectionZeroBundle(combinedName)) return -1;
   if (isPreferredAd2AerodromeFile(combinedName)) return 4;
   if (isAd2AirportDocumentName(combinedName)) return 2;
   if (isAd2DocumentName(combinedName)) return 1;
   if (isAd2Heading(headingCol3) || isAd2Heading(headingCol4)) return 0;
   return -1;
+}
+
+async function findBestAd2Link(page, expectedIcao = '') {
+  const table = page.locator('#mainForm\\:searchResults_data');
+  await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
+  const MAX_PAGES = 10;
+  let best = null;
+
+  for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
+    const rows = page.locator('#mainForm\\:searchResults_data tr');
+    const rowCount = await rows.count();
+
+    if (!rowCount && pageNum === 0) {
+      return { status: 'no_results', found: null };
+    }
+
+    let bestScore = -1;
+    let bestLink = null;
+    let bestCombinedName = '';
+
+    for (let i = 0; i < rowCount; i++) {
+      const row = rows.nth(i);
+      const cells = row.locator('td');
+      const cellCount = await cells.count();
+      if (cellCount < 2) continue;
+
+      const headingCol3 = cellCount > 3 ? (((await cells.nth(3).textContent().catch(() => '')) || '').trim()) : '';
+      const headingCol4 = cellCount > 4 ? (((await cells.nth(4).textContent().catch(() => '')) || '').trim()) : '';
+      const link = row.locator('a.wrap-data').first();
+      if ((await link.count()) === 0) continue;
+
+      const linkText = ((await link.textContent().catch(() => '')) || '').trim();
+      const linkHref = ((await link.getAttribute('href').catch(() => '')) || '').trim();
+      const combinedName = `${linkText} ${linkHref}`;
+
+      const score = ad2RowMatchScore(combinedName, headingCol3, headingCol4, expectedIcao);
+      if (score > bestScore) {
+        bestScore = score;
+        bestLink = link;
+        bestCombinedName = combinedName;
+      }
+    }
+
+    if (bestScore >= 0 && bestLink) {
+      best = {
+        link: bestLink,
+        combinedName: bestCombinedName,
+        resolvedIcao: extractIcaoFromAd2Filename(bestCombinedName),
+      };
+      break;
+    }
+
+    const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
+    if ((await nextBtn.count()) === 0) break;
+    await nextBtn.click();
+    await page.waitForTimeout(800);
+    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+  }
+
+  if (!best) return { status: expectedIcao ? 'no_icao_match' : 'no_ad2_results', found: null };
+  return { status: 'ok', found: best };
 }
 
 async function ensureAipOverviewPage(page, logFn) {
@@ -161,16 +246,25 @@ async function main() {
   const headful = hasFlagInArgv(process.argv, '--headful');
   const resume = !hasFlagInArgv(process.argv, '--no-resume');
   const onlyPending = hasFlagInArgv(process.argv, '--only-pending');
+  const refreshIcaoDb = hasFlagInArgv(process.argv, '--refresh-icao-db');
+  const buildIcaoDbOnly = hasFlagInArgv(process.argv, '--build-icao-db-only');
   const dumpAuthoritiesPath = argValueFromArgv(
     process.argv,
     '--dump-authorities',
     ''
+  );
+  const countryIcaoDbPath = argValueFromArgv(
+    process.argv,
+    '--icao-db',
+    join(outDir, 'country-airport-icaos.json')
   );
 
   mkdirSync(outDir, { recursive: true });
 
   const manifestOnDisk = loadManifest(manifestPath);
   const priorByLabel = priorResultByLabel(manifestOnDisk);
+  const icaoDbOnDisk = refreshIcaoDb ? null : loadCountryIcaoDb(countryIcaoDbPath);
+  const countryIcaoByLabel = countryIcaoMapFromDb(icaoDbOnDisk);
   const downloadedByLabel = new Set(
     resume && Array.isArray(manifestOnDisk?.results)
       ? manifestOnDisk.results.filter((r) => r.status === 'downloaded').map((r) => r.countryLabel)
@@ -180,7 +274,9 @@ async function main() {
   const runManifest = {
     generatedAt: new Date().toISOString(),
     outputDir: outDir,
-    options: { maxCountries, headful, resume, onlyPending },
+    options: {
+      maxCountries, headful, resume, onlyPending, refreshIcaoDb, buildIcaoDbOnly, countryIcaoDbPath,
+    },
     results: [],
   };
 
@@ -268,8 +364,39 @@ async function main() {
         `--only-pending: will process ${need} countr${need === 1 ? 'y' : 'ies'} (failed, no AD2, or not yet in manifest).`
       );
     }
+    if (buildIcaoDbOnly) {
+      log('--build-icao-db-only: discover/store airport ICAO by country, skip PDF downloads.');
+    }
 
-    async function openAdvancedSearchAndRun() {
+    const selectedCountryLabelSet = new Set(selectedCountries.map((c) => c.label));
+    const persistCountryIcaoDb = () => {
+      const countries = [];
+      for (const country of selectedCountries) {
+        const known = countryIcaoByLabel.get(country.label);
+        countries.push({
+          countryLabel: country.label,
+          countryValue: country.value,
+          icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+          airportIcao: known?.airportIcao || null,
+          sourceFilename: known?.sourceFilename || null,
+          updatedAt: known?.updatedAt || null,
+        });
+      }
+      // Keep already-known rows for countries outside current selection as-is.
+      for (const [label, known] of countryIcaoByLabel.entries()) {
+        if (selectedCountryLabelSet.has(label)) continue;
+        countries.push({ ...known });
+      }
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        source: 'EAD AIP Library AD 2 search',
+        count: countries.length,
+        countries,
+      };
+      writeFileSync(countryIcaoDbPath, JSON.stringify(payload, null, 2), 'utf8');
+    };
+
+    async function openAdvancedSearchAndRun(documentHeadingQuery = 'AD 2') {
       const ADV_ATTEMPTS = 6;
       for (let attempt = 0; attempt < ADV_ATTEMPTS; attempt++) {
         try {
@@ -284,7 +411,7 @@ async function main() {
             .first();
           await input.waitFor({ state: 'visible', timeout: 15000 });
           await input.click({ timeout: 5000 }).catch(() => {});
-          await input.fill('AD 2', { timeout: 5000 });
+          await input.fill(documentHeadingQuery, { timeout: 5000 });
 
           await page.getByRole('button', { name: 'Search' }).click();
           await page.waitForTimeout(1800);
@@ -300,14 +427,30 @@ async function main() {
 
     for (const country of selectedCountries) {
       const prior = priorByLabel.get(country.label);
-      const needsWork = onlyPending
-        ? countryNeedsEadRetry(prior)
-        : !downloadedByLabel.has(country.label);
+      const hasMappedIcao = Boolean(countryIcaoByLabel.get(country.label)?.airportIcao);
+      const needsWork = buildIcaoDbOnly
+        ? (refreshIcaoDb ? true : !hasMappedIcao)
+        : (onlyPending
+          ? countryNeedsEadRetry(prior)
+          : !downloadedByLabel.has(country.label));
 
       if (!needsWork) {
         if (onlyPending && prior) {
           runManifest.results.push({...prior});
           log(`Skipping (already downloaded): ${country.label}`);
+        } else if (buildIcaoDbOnly) {
+          runManifest.results.push({
+            countryLabel: country.label,
+            countryValue: country.value,
+            icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+            targetIcao: countryIcaoByLabel.get(country.label)?.airportIcao || null,
+            resolvedIcao: countryIcaoByLabel.get(country.label)?.airportIcao || null,
+            status: 'icao_cached',
+            savedPath: null,
+            sourceFilename: countryIcaoByLabel.get(country.label)?.sourceFilename || null,
+            error: null,
+          });
+          log(`Skipping (ICAO already mapped): ${country.label}`);
         } else {
           log(`Skipping already downloaded country: ${country.label}`);
           runManifest.results.push({
@@ -324,6 +467,7 @@ async function main() {
         countryLabel: country.label,
         countryValue: country.value,
         icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+        targetIcao: null,
         resolvedIcao: null,
         status: 'failed',
         savedPath: null,
@@ -339,62 +483,50 @@ async function main() {
 
         await setLanguageAndAipPart(page);
 
-        await openAdvancedSearchAndRun();
+        let targetIcao =
+          countryIcaoByLabel.get(country.label)?.airportIcao ||
+          prior?.resolvedIcao ||
+          null;
 
-        const table = page.locator('#mainForm\\:searchResults_data');
-        await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-
-        const MAX_PAGES = 10;
-        let linkToDownload = null;
-
-        for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
-          const rows = page.locator('#mainForm\\:searchResults_data tr');
-          const rowCount = await rows.count();
-
-          if (!rowCount && pageNum === 0) {
-            rowResult.status = 'no_results';
-            break;
+        // Discover one airport ICAO per authority from live AD2 search when no cached mapping exists yet.
+        if (!targetIcao) {
+          await openAdvancedSearchAndRun('AD 2');
+          const discovered = await findBestAd2Link(page);
+          if (discovered.status !== 'ok' || !discovered.found?.resolvedIcao) {
+            rowResult.status = discovered.status;
+            runManifest.results.push(rowResult);
+            writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
+            continue;
           }
-
-          let bestScore = -1;
-          let bestLink = null;
-
-          for (let i = 0; i < rowCount; i++) {
-            const row = rows.nth(i);
-            const cells = row.locator('td');
-            const cellCount = await cells.count();
-            if (cellCount < 2) continue;
-
-            const headingCol3 = cellCount > 3 ? (((await cells.nth(3).textContent().catch(() => '')) || '').trim()) : '';
-            const headingCol4 = cellCount > 4 ? (((await cells.nth(4).textContent().catch(() => '')) || '').trim()) : '';
-            const link = row.locator('a.wrap-data').first();
-            if ((await link.count()) === 0) continue;
-
-            const linkText = ((await link.textContent().catch(() => '')) || '').trim();
-            const linkHref = ((await link.getAttribute('href').catch(() => '')) || '').trim();
-            const combinedName = `${linkText} ${linkHref}`;
-
-            const score = ad2RowMatchScore(combinedName, headingCol3, headingCol4);
-            if (score > bestScore) {
-              bestScore = score;
-              bestLink = link;
-            }
-          }
-
-          if (bestScore >= 0 && bestLink) {
-            linkToDownload = bestLink;
-            break;
-          }
-
-          const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
-          if ((await nextBtn.count()) === 0) break;
-          await nextBtn.click();
-          await page.waitForTimeout(800);
-          await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+          targetIcao = discovered.found.resolvedIcao;
+          countryIcaoByLabel.set(country.label, {
+            countryLabel: country.label,
+            countryValue: country.value,
+            icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+            airportIcao: targetIcao,
+            sourceFilename: discovered.found.combinedName || null,
+            updatedAt: new Date().toISOString(),
+          });
+          persistCountryIcaoDb();
+          log(`Selected airport ICAO ${targetIcao} for ${country.label}`);
         }
 
+        rowResult.targetIcao = targetIcao;
+        if (buildIcaoDbOnly) {
+          rowResult.status = 'icao_selected';
+          rowResult.resolvedIcao = targetIcao;
+          rowResult.sourceFilename = countryIcaoByLabel.get(country.label)?.sourceFilename || null;
+          runManifest.results.push(rowResult);
+          writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
+          continue;
+        }
+
+        await openAdvancedSearchAndRun(targetIcao);
+        const exact = await findBestAd2Link(page, targetIcao);
+        const linkToDownload = exact.found?.link || null;
+
         if (!linkToDownload) {
-          if (rowResult.status !== 'no_results') rowResult.status = 'no_ad2_results';
+          rowResult.status = exact.status;
           runManifest.results.push(rowResult);
           writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
           continue;
@@ -415,6 +547,17 @@ async function main() {
         rowResult.savedPath = savePath;
         rowResult.sourceFilename = sourceFilename;
         rowResult.resolvedIcao = extractIcaoFromAd2Filename(sourceFilename);
+        if (rowResult.resolvedIcao) {
+          countryIcaoByLabel.set(country.label, {
+            countryLabel: country.label,
+            countryValue: country.value,
+            icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+            airportIcao: rowResult.resolvedIcao,
+            sourceFilename,
+            updatedAt: new Date().toISOString(),
+          });
+          persistCountryIcaoDb();
+        }
         runManifest.results.push(rowResult);
         writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
         log(`Saved: ${savePath}`);
@@ -426,15 +569,17 @@ async function main() {
       }
     }
 
+    persistCountryIcaoDb();
     writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
 
     const downloadedCount = runManifest.results.filter((r) => r.status === 'downloaded').length;
     const failedCount = runManifest.results.filter((r) => r.status === 'failed').length;
     const noResultsCount = runManifest.results.filter((r) => r.status === 'no_results').length;
     const skippedCount = runManifest.results.filter((r) => r.status === 'skipped_already_downloaded').length;
+    const mappedCount = runManifest.results.filter((r) => r.status === 'icao_selected' || r.status === 'icao_cached').length;
 
     log(
-      `Done. downloaded=${downloadedCount}, failed=${failedCount}, no_results=${noResultsCount}, skipped=${skippedCount}.`
+      `Done. downloaded=${downloadedCount}, failed=${failedCount}, no_results=${noResultsCount}, skipped=${skippedCount}, icao_mapped=${mappedCount}.`
     );
     log(`Manifest: ${manifestPath}`);
   } catch (err) {

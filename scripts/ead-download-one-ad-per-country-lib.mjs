@@ -68,3 +68,10 @@ export function countryNeedsEadRetry(priorResult) {
   if (priorResult.status === 'skipped_already_downloaded') return false;
   return true;
 }
+
+/** True if name/href contains an AD2 token for the exact ICAO. */
+export function matchesAd2Icao(name, icao) {
+  const code = String(icao || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(code)) return false;
+  return new RegExp(`_AD_2_${code}_`, 'i').test(String(name || ''));
+}

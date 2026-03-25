@@ -22,6 +22,7 @@
     "ead:one-ad-per-country": "node scripts/ead-download-one-ad-per-country.mjs",
     "ead:dump-authorities": "node scripts/ead-download-one-ad-per-country.mjs --dump-authorities data/ead-aip-authority-prefixes-portal.json",
     "ead:one-ad-per-country:pending": "node scripts/ead-download-one-ad-per-country.mjs --only-pending",
+    "ead:build-country-icao-db": "node scripts/ead-download-one-ad-per-country.mjs --build-icao-db-only --refresh-icao-db",
     "test:ead:ad-report": "node scripts/generate-ead-ad-report.mjs"
   },
   "dependencies": {

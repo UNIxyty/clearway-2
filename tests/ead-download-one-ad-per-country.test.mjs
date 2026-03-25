@@ -10,6 +10,7 @@ import {
   extractIcaoFromAd2Filename,
   icaoPrefixFromAuthorityLabel,
   countryNeedsEadRetry,
+  matchesAd2Icao,
 } from '../scripts/ead-download-one-ad-per-country-lib.mjs';
 
 test('argValueFromArgv supports --flag value', () => {
@@ -64,4 +65,10 @@ test('countryNeedsEadRetry', () => {
   assert.equal(countryNeedsEadRetry({ status: 'skipped_already_downloaded' }), false);
   assert.equal(countryNeedsEadRetry({ status: 'failed' }), true);
   assert.equal(countryNeedsEadRetry({ status: 'no_results' }), true);
+});
+
+test('matchesAd2Icao matches only exact ICAO token', () => {
+  assert.equal(matchesAd2Icao('LF_AD_2_LFPG_A_en.pdf', 'LFPG'), true);
+  assert.equal(matchesAd2Icao('LF_AD_2_LFPO_en.pdf', 'LFPG'), false);
+  assert.equal(matchesAd2Icao('LF_AD_2_LFPG_A_en.pdf', 'LFP'), false);
 });

@@ -7,6 +7,8 @@
  *   node scripts/ead-download-one-ad-per-country.mjs --max-countries 5 --headful
  *   node scripts/ead-download-one-ad-per-country.mjs --output-dir data/ead-aip-sample
  *   node scripts/ead-download-one-ad-per-country.mjs --dump-authorities data/ead-aip-authority-prefixes-portal.json
+ *   node scripts/ead-download-one-ad-per-country.mjs --only-pending
+ *   (only failed or never-seen countries; keeps prior manifest rows for the rest)
  *
  * Requires:
  *   EAD_USER and EAD_PASSWORD (or EAD_PASSWORD_ENC) in environment or .env
@@ -25,6 +27,7 @@ import {
   isPreferredAd2AerodromeFile,
   extractIcaoFromAd2Filename,
   icaoPrefixFromAuthorityLabel,
+  countryNeedsEadRetry,
 } from './ead-download-one-ad-per-country-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +67,15 @@ function loadManifest(path) {
   } catch (_) {
     return null;
   }
+}
+
+/** Last manifest row per country label (order preserved by later wins). */
+function priorResultByLabel(manifest) {
+  const m = new Map();
+  for (const r of manifest?.results || []) {
+    m.set(r.countryLabel, {...r});
+  }
+  return m;
 }
 
 /**
@@ -148,6 +160,7 @@ async function main() {
   const maxCountries = maxCountriesRaw ? Number(maxCountriesRaw) : 0;
   const headful = hasFlagInArgv(process.argv, '--headful');
   const resume = !hasFlagInArgv(process.argv, '--no-resume');
+  const onlyPending = hasFlagInArgv(process.argv, '--only-pending');
   const dumpAuthoritiesPath = argValueFromArgv(
     process.argv,
     '--dump-authorities',
@@ -156,17 +169,18 @@ async function main() {
 
   mkdirSync(outDir, { recursive: true });
 
-  const existingManifest = resume ? loadManifest(manifestPath) : null;
+  const manifestOnDisk = loadManifest(manifestPath);
+  const priorByLabel = priorResultByLabel(manifestOnDisk);
   const downloadedByLabel = new Set(
-    Array.isArray(existingManifest?.results)
-      ? existingManifest.results.filter((r) => r.status === 'downloaded').map((r) => r.countryLabel)
+    resume && Array.isArray(manifestOnDisk?.results)
+      ? manifestOnDisk.results.filter((r) => r.status === 'downloaded').map((r) => r.countryLabel)
       : []
   );
 
   const runManifest = {
     generatedAt: new Date().toISOString(),
     outputDir: outDir,
-    options: { maxCountries, headful, resume },
+    options: { maxCountries, headful, resume, onlyPending },
     results: [],
   };
 
@@ -246,6 +260,14 @@ async function main() {
     let selectedCountries = countryOptions;
     if (maxCountries > 0) selectedCountries = selectedCountries.slice(0, maxCountries);
     log(`Countries available: ${countryOptions.length}. Running: ${selectedCountries.length}.`);
+    if (onlyPending) {
+      const need = selectedCountries.filter((c) =>
+        countryNeedsEadRetry(priorByLabel.get(c.label))
+      ).length;
+      log(
+        `--only-pending: will process ${need} countr${need === 1 ? 'y' : 'ies'} (failed, no AD2, or not yet in manifest).`
+      );
+    }
 
     async function openAdvancedSearchAndRun() {
       const ADV_ATTEMPTS = 6;
@@ -277,13 +299,23 @@ async function main() {
     }
 
     for (const country of selectedCountries) {
-      if (downloadedByLabel.has(country.label)) {
-        log(`Skipping already downloaded country: ${country.label}`);
-        runManifest.results.push({
-          countryLabel: country.label,
-          countryValue: country.value,
-          status: 'skipped_already_downloaded',
-        });
+      const prior = priorByLabel.get(country.label);
+      const needsWork = onlyPending
+        ? countryNeedsEadRetry(prior)
+        : !downloadedByLabel.has(country.label);
+
+      if (!needsWork) {
+        if (onlyPending && prior) {
+          runManifest.results.push({...prior});
+          log(`Skipping (already downloaded): ${country.label}`);
+        } else {
+          log(`Skipping already downloaded country: ${country.label}`);
+          runManifest.results.push({
+            countryLabel: country.label,
+            countryValue: country.value,
+            status: 'skipped_already_downloaded',
+          });
+        }
         continue;
       }
 
@@ -393,6 +425,8 @@ async function main() {
         log(`Error for ${country.label}: ${rowResult.error}`);
       }
     }
+
+    writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
 
     const downloadedCount = runManifest.results.filter((r) => r.status === 'downloaded').length;
     const failedCount = runManifest.results.filter((r) => r.status === 'failed').length;

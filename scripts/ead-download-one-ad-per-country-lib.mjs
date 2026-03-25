@@ -60,3 +60,11 @@ export function icaoPrefixFromAuthorityLabel(label) {
   const m = String(label || '').match(/\(([A-Z0-9]{2})\)\s*$/);
   return m ? m[1].toUpperCase() : null;
 }
+
+/** True if this country should be run with --only-pending (never started, or last run did not succeed). */
+export function countryNeedsEadRetry(priorResult) {
+  if (!priorResult) return true;
+  if (priorResult.status === 'downloaded') return false;
+  if (priorResult.status === 'skipped_already_downloaded') return false;
+  return true;
+}

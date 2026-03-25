@@ -9,6 +9,7 @@ import {
   isPreferredAd2AerodromeFile,
   extractIcaoFromAd2Filename,
   icaoPrefixFromAuthorityLabel,
+  countryNeedsEadRetry,
 } from '../scripts/ead-download-one-ad-per-country-lib.mjs';
 
 test('argValueFromArgv supports --flag value', () => {
@@ -54,4 +55,13 @@ test('extractIcaoFromAd2Filename and icaoPrefixFromAuthorityLabel', () => {
   assert.equal(extractIcaoFromAd2Filename('LG_AD_2_LGAV_en.pdf'), 'LGAV');
   assert.equal(icaoPrefixFromAuthorityLabel('Greece (LG)'), 'LG');
   assert.equal(icaoPrefixFromAuthorityLabel('KFOR SECTOR (BK)'), 'BK');
+});
+
+test('countryNeedsEadRetry', () => {
+  assert.equal(countryNeedsEadRetry(null), true);
+  assert.equal(countryNeedsEadRetry(undefined), true);
+  assert.equal(countryNeedsEadRetry({ status: 'downloaded' }), false);
+  assert.equal(countryNeedsEadRetry({ status: 'skipped_already_downloaded' }), false);
+  assert.equal(countryNeedsEadRetry({ status: 'failed' }), true);
+  assert.equal(countryNeedsEadRetry({ status: 'no_results' }), true);
 });

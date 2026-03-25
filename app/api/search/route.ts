@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
+import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -75,6 +76,15 @@ export type AIPAirport = {
   runwayDimensions: string;
   lat?: number;
   lon?: number;
+};
+
+type RUSAirportRow = {
+  icao: string;
+  airport_name: string;
+};
+
+type RUSData = {
+  airports?: RUSAirportRow[];
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
@@ -160,15 +170,54 @@ function flattenEadFromGenerated(): AIPAirport[] {
   return list;
 }
 
+function flattenRussia(): AIPAirport[] {
+  const data = rusAirportsDb as RUSData;
+  const airports = Array.isArray(data.airports) ? data.airports : [];
+  return airports
+    .filter((a) => a?.icao)
+    .map((a) => {
+      const icao = String(a.icao).toUpperCase();
+      const coord = coordsMap[icao];
+      return {
+        country: "Russia",
+        gen1_2: "",
+        gen1_2_point_4: "",
+        icao,
+        name: a.airport_name ?? "",
+        publicationDate: "",
+        trafficPermitted: "",
+        trafficRemarks: "",
+        ad22Operator: "",
+        ad22Address: "",
+        ad22Telephone: "",
+        ad22Telefax: "",
+        ad22Email: "",
+        ad22Afs: "",
+        ad22Website: "",
+        operator: "",
+        customsImmigration: "",
+        ats: "",
+        atsRemarks: "",
+        fireFighting: "",
+        runwayNumber: "",
+        runwayDimensions: "",
+        lat: coord?.lat,
+        lon: coord?.lon,
+      };
+    });
+}
+
 let cachedList: AIPAirport[] | null = null;
 
 function getList(): AIPAirport[] {
   if (!cachedList) {
     const aip = flattenAIP();
     const eadGeneratedList = flattenEadFromGenerated();
+    const russiaList = flattenRussia();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;

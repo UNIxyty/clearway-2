@@ -18,12 +18,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
 const EAD_AIP_DIR = join(PROJECT_ROOT, "data", "ead-aip");
 const EAD_GEN_DIR = join(PROJECT_ROOT, "data", "ead-gen");
+const RUS_AIP_RUNS_DIR = join(PROJECT_ROOT, "downloads", "rus-aip", "by-icao");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
-const DISABLE_AI_FOR_TESTING = String(process.env.DISABLE_AI_FOR_TESTING || "").toLowerCase() === "true";
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
+const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
@@ -80,6 +81,10 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 }
 
 async function runDownload(icao) {
+  if (/^U[A-Z0-9]{3}$/.test(icao)) {
+    await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    return;
+  }
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
 }
 
@@ -176,6 +181,35 @@ async function deleteOldFromS3(icao) {
 }
 
 function findDownloadedPdf(icao) {
+  if (/^U[A-Z0-9]{3}$/.test(icao)) {
+    if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
+    const icaoUpper = icao.toUpperCase();
+    const runDirs = readdirSync(RUS_AIP_RUNS_DIR)
+      .filter((name) => name.toUpperCase().endsWith(`_${icaoUpper}`))
+      .map((name) => join(RUS_AIP_RUNS_DIR, name))
+      .filter((dirPath) => {
+        try {
+          return statSync(dirPath).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+
+    runDirs.sort((a, b) => {
+      try {
+        return statSync(b).mtimeMs - statSync(a).mtimeMs;
+      } catch {
+        return 0;
+      }
+    });
+
+    for (const dir of runDirs) {
+      const pdf = join(dir, "airport", "aip-main.pdf");
+      if (existsSync(pdf)) return pdf;
+    }
+    return null;
+  }
+
   if (!existsSync(EAD_AIP_DIR)) return null;
   const icaoUpper = icao.toUpperCase();
   const files = readdirSync(EAD_AIP_DIR).filter((f) => f.endsWith(".pdf") && f.toUpperCase().includes(icaoUpper));
@@ -254,97 +288,6 @@ async function uploadGenPdfToS3(prefix) {
   );
 }
 
-function readGenText(prefix) {
-  const txtPath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.txt`);
-  if (!existsSync(txtPath)) return null;
-  return readFileSync(txtPath, "utf8").trim() || null;
-}
-
-/** Match "Non scheduled" / "Non-scheduled" / "3.\tNON-SCHEDULED COMMERCIAL FLIGHTS" type headings. Allow optional dot after number. */
-const NON_SCHEDULED_RE = /Part\s+[0-9]+\s*(?:Non[- ]scheduled|non[- ]scheduled)|^(?:Non[- ]scheduled\s+flights?|Non[- ]scheduled\s+commercial)\b|^\s*[0-9]+\s*\.?\s*Non[- ]scheduled/im;
-/** Match "Private flights" / "4. PRIVATE FLIGHTS" type headings. */
-const PRIVATE_FLIGHTS_RE = /Part\s+4\b|4\.\s*Private|^(?:Private\s+flights?|Private\s+aviation)\b|^\s*[0-9]+\s*\.?\s*Private\s+flights/im;
-
-/** Split full GEN 1.2 into GENERAL, Non scheduled flights, and Private flights. Non scheduled and Private are distinct; if only one is present the other is left blank. */
-function splitGenIntoThreeParts(fullText) {
-  if (!fullText || typeof fullText !== "string") return { general: "", nonScheduled: "", privateFlights: "" };
-  const trimmed = fullText.trim();
-  const lines = trimmed.split(/\r?\n/);
-  let idxNonSched = -1;
-  let idxPrivate = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (idxNonSched < 0 && NON_SCHEDULED_RE.test(line)) idxNonSched = i;
-    if (idxPrivate < 0 && PRIVATE_FLIGHTS_RE.test(line)) idxPrivate = i;
-  }
-  const indices = [idxNonSched, idxPrivate].filter((i) => i >= 0).sort((a, b) => a - b);
-  const firstIdx = indices[0];
-  const secondIdx = indices[1];
-  if (firstIdx === undefined) {
-    return { general: trimmed, nonScheduled: "", privateFlights: "" };
-  }
-  const general = lines.slice(0, firstIdx).join("\n").trim();
-  const firstBlock = secondIdx !== undefined ? lines.slice(firstIdx, secondIdx).join("\n").trim() : lines.slice(firstIdx).join("\n").trim();
-  const secondBlock = secondIdx !== undefined ? lines.slice(secondIdx).join("\n").trim() : "";
-  const nonScheduled = idxNonSched === firstIdx ? firstBlock : idxNonSched === secondIdx ? secondBlock : "";
-  const privateFlights = idxPrivate === firstIdx ? firstBlock : idxPrivate === secondIdx ? secondBlock : "";
-  return { general, nonScheduled, privateFlights };
-}
-
-/** Rewrite a single GEN section with AI. Routes to OpenRouter for anthropic/ and google/ models. */
-async function rewriteGenWithAI(rawText, _unused, modelOverride = null) {
-  if (!rawText || !rawText.trim()) return "";
-  const model = modelOverride || process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const isOpenRouter = model.includes("/");
-  const apiUrl = isOpenRouter
-    ? "https://openrouter.ai/api/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error(isOpenRouter ? "OPENROUTER_API_KEY not set on server" : "OPENAI_API_KEY not set on server");
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output only the rewritten text, no preamble or commentary.",
-        },
-        { role: "user", content: rawText.slice(0, 120000) },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`${isOpenRouter ? "OpenRouter" : "OpenAI"} API ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return (data.choices?.[0]?.message?.content ?? "").trim();
-}
-
-async function uploadGenToS3(prefix, payload) {
-  const bucket = process.env.AWS_S3_BUCKET;
-  const region = process.env.AWS_REGION || "us-east-1";
-  if (!bucket) return;
-  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region });
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: `aip/gen/${prefix}.json`,
-      Body: JSON.stringify(payload),
-      ContentType: "application/json",
-    })
-  );
-}
-
 // AIP-only sync steps (sent when stream=1)
 const AIP_STEPS = [
   "Deleting old from S3…",
@@ -354,21 +297,18 @@ const AIP_STEPS = [
   "Uploading to S3…",
 ];
 
-// GEN-only sync steps (sent when /sync/gen stream=1)
+// GEN-only sync steps (sent when /sync/gen stream=1) – PDF only, no AI rewrite.
 const GEN_STEPS = [
   "Downloading GEN PDF…",
   "GEN PDF uploaded to S3…",
-  "Extracting text…",
-  DISABLE_AI_FOR_TESTING ? "Rewriting skipped (AI disabled for testing)…" : "Rewriting with AI…",
-  "Uploading GEN to S3…",
+  "GEN PDF ready.",
 ];
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
-  const modelOverride = url.searchParams.get("model")?.trim() || null;
-
+  const shouldExtract = !(url.searchParams.get("extract") === "0" || url.searchParams.get("extract") === "false");
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
@@ -407,25 +347,6 @@ const server = createServer(async (req, res) => {
         }
       }
       if (stream) send({ step: GEN_STEPS[2] });
-      const raw = readGenText(prefix);
-      if (raw) {
-        const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } = splitGenIntoThreeParts(raw);
-        if (stream) send({ step: GEN_STEPS[3] });
-        const hasKey = !DISABLE_AI_FOR_TESTING
-          && (modelOverride?.includes("/") ? !!process.env.OPENROUTER_API_KEY : !!process.env.OPENAI_API_KEY);
-        const generalRewritten = generalRaw && hasKey ? await rewriteGenWithAI(generalRaw, null, modelOverride) : generalRaw;
-        const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteGenWithAI(nonSchedRaw, null, modelOverride) : nonSchedRaw;
-        const privateRewritten = privateRaw && hasKey ? await rewriteGenWithAI(privateRaw, null, modelOverride) : privateRaw;
-        if (process.env.AWS_S3_BUCKET) {
-          if (stream) send({ step: GEN_STEPS[4] });
-          await uploadGenToS3(prefix, {
-            general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
-            nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
-            privateFlights: { raw: privateRaw, rewritten: privateRewritten || privateRaw },
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      }
       if (stream) {
         send({ done: true, prefix });
         res.end();
@@ -488,7 +409,7 @@ const server = createServer(async (req, res) => {
 
   try {
     send({ step: AIP_STEPS[0] });
-    if (process.env.AWS_S3_BUCKET) await deleteOldFromS3(icao);
+    if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao);
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
     if (process.env.AWS_S3_BUCKET) {
@@ -496,17 +417,22 @@ const server = createServer(async (req, res) => {
       send({ step: AIP_STEPS[2] });
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
-    send({ step: AIP_STEPS[3] });
-    await runExtract(icao, (line) => {
-      const cleaned = line.replace(/^[-•]\s*/, "").trim();
-      if (!cleaned) return;
-      send({ step: cleaned });
-    });
-    const data = readExtracted();
-    send({ step: AIP_STEPS[4] });
-    if (process.env.AWS_S3_BUCKET) {
-      await uploadToS3();
-      await uploadPerIcaoToS3(icao, data);
+    let data = null;
+    if (shouldExtract) {
+      send({ step: AIP_STEPS[3] });
+      await runExtract(icao, (line) => {
+        const cleaned = line.replace(/^[-•]\s*/, "").trim();
+        if (!cleaned) return;
+        send({ step: cleaned });
+      });
+      data = readExtracted();
+      send({ step: AIP_STEPS[4] });
+      if (process.env.AWS_S3_BUCKET) {
+        await uploadToS3();
+        await uploadPerIcaoToS3(icao, data);
+      }
+    } else {
+      send({ step: "Extraction skipped (PDF only)." });
     }
     const payload = {
       done: true,

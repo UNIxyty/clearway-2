@@ -1,18 +1,36 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import {
+  getCorporateTokenFromCookieStore,
+  getCorporateSessionByToken,
+} from "@/lib/corporate-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function StatsPage() {
   const supabase = createSupabaseServerClient();
+  const cookieStore = cookies();
+  const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
+  const corporateSession = corporateToken
+    ? await getCorporateSessionByToken(corporateToken)
+    : null;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/stats");
+  } = corporateSession
+    ? { data: { user: null } }
+    : await supabase.auth.getUser();
 
-  const { data: events, error } = await supabase
+  const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
+  if (!identityId) redirect("/login?next=/stats");
+
+  const admin = corporateSession ? createSupabaseServiceRoleClient() : null;
+  const db = admin ?? supabase;
+
+  const { data: events, error } = await db
     .from("search_events")
     .select("query, result_count, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", identityId)
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -38,7 +56,7 @@ export default async function StatsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Search statistics</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Hidden page (direct link only). User ID: <span className="font-mono">{user.id}</span>
+            Hidden page (direct link only). Identity: <span className="font-mono">{identityId}</span>
           </p>
         </div>
 

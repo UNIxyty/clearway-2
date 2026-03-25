@@ -90,6 +90,14 @@ function isEadIcao(icao: string): boolean {
   return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
 }
 
+function isRussiaIcao(icao: string): boolean {
+  return /^[U][A-Z0-9]{3}$/.test(icao.toUpperCase());
+}
+
+function supportsSyncedAipIcao(icao: string): boolean {
+  return isEadIcao(icao) || isRussiaIcao(icao);
+}
+
 /** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
 function isEadPlaceholder(airport: AIPAirport | null): boolean {
   return airport?.name === "EAD UNDEFINED";
@@ -416,6 +424,7 @@ function AIPPortalPageInner() {
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
   const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
   const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
+  const [showGenSyncOverlay, setShowGenSyncOverlay] = useState(false);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const selectedAirport = useMemo(() => {
@@ -433,6 +442,7 @@ function AIPPortalPageInner() {
     setPdfDownloadError(null);
     setGenPdfDownloadError(null);
     setAipViewMode("ai");
+    setShowGenSyncOverlay(false);
   }, [viewingAirport?.icao]);
 
   useEffect(() => {
@@ -555,20 +565,26 @@ function AIPPortalPageInner() {
   }, []);
 
   const requestSyncAipEad = useCallback((icao: string) => {
+    const cachedAirport = aipEadCache[icao]?.airport;
+    if (cachedAirport) {
+      setAipViewMode("ai");
+      setAipEadSyncRequestedIcao(null);
+      return;
+    }
     setAipEadSyncRequestedIcao(icao);
-  }, []);
+  }, [aipEadCache]);
 
-  const startGenSync = useCallback((icao: string) => {
+  const downloadGenPdfWithSync = useCallback(async (icao: string) => {
     const prefix = icao.slice(0, 2).toUpperCase();
-    updateStage(icao, "gen", "running", "Syncing GEN…");
+    setGenPdfDownloadError(null);
+    setGenPdfDownloading(true);
     setGenSyncingPrefix(prefix);
-    setGenSyncSteps([]);
-    setGenLoadingPrefix(prefix);
-    fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" })
-      .then(async (res) => {
+    setGenSyncSteps(["Checking GEN PDF cache…"]);
+    try {
+      if (!genPdfExistsOnServer[prefix]) {
+        const res = await fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" });
         if (!res.ok || !res.body) {
-          setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
-          return;
+          throw new Error("GEN sync failed");
         }
         const reader = res.body.getReader();
         const dec = new TextDecoder();
@@ -584,69 +600,93 @@ function AIPPortalPageInner() {
               const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
               if (!dataLine) continue;
               try {
-                const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string };
+                const data = JSON.parse(dataLine.slice(6)) as { step?: string; done?: boolean; error?: string; pdfReady?: boolean };
                 if (typeof data.step === "string") {
-                  const step = data.step;
-                  setGenSyncSteps((prev) => [...prev, step]);
-                  updateStage(icao, "gen", "running", step);
+                  setGenSyncSteps((prev) => [...prev, data.step!]);
                 }
-                else if (data.done || data.error) {
-                  const genRes = await fetch(`/api/aip/gen?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
-                  const genData = (await genRes.json().catch(() => ({}))) as { general?: GenPart; nonScheduled?: GenPart; privateFlights?: GenPart; part4?: GenPart; updatedAt?: string | null };
-                  const g = genData.general && typeof genData.general === "object" ? genData.general : emptyGenPart();
-                  const ns = genData.nonScheduled && typeof genData.nonScheduled === "object" ? genData.nonScheduled : emptyGenPart();
-                  const pf = (genData.privateFlights && typeof genData.privateFlights === "object" ? genData.privateFlights : genData.part4 && typeof genData.part4 === "object" ? genData.part4 : null) ?? emptyGenPart();
-                  setGenCache((c) => ({
-                    ...c,
-                    [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: genData.updatedAt ?? null },
-                  }));
-                  if (data.error) {
-                    updateStage(icao, "gen", "error", data.error);
-                  } else {
-                    updateStage(icao, "gen", "done", "GEN retrieved");
-                    setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
-                    sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
-                  }
-                  return;
+                if (data.pdfReady) {
+                  setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
                 }
-              } catch (_) {}
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+                if (data.done) {
+                  setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
+                }
+              } catch (e) {
+                if (e instanceof Error) throw e;
+              }
             }
           }
         } finally {
           reader.releaseLock();
         }
-      })
-      .catch(() => {
-        updateStage(icao, "gen", "error", "GEN sync failed");
-        setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
-      })
-      .finally(() => {
-        setGenSyncingPrefix(null);
-        setGenLoadingPrefix(null);
-        setGenSyncSteps([]);
-      });
-  }, [notifPrefs, updateStage]);
+      }
 
-  // Fetch AIP (EAD) when viewing an airport in an EAD country. When sync requested, use stream=1 and show server steps; after AIP done, start GEN sync.
+      setGenSyncSteps((prev) => [...prev, "Preparing GEN PDF download…"]);
+      const pdfRes = await fetch(`/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
+      if (!pdfRes.ok) {
+        const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
+        throw new Error(data.detail || data.error || "Failed to load GEN PDF");
+      }
+      const blob = await pdfRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${prefix}_GEN_1.2.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setGenSyncSteps((prev) => [...prev, "Download ready."]);
+    } catch (err) {
+      setGenPdfDownloadError(err instanceof Error ? err.message : "GEN PDF download failed");
+    } finally {
+      setGenPdfDownloading(false);
+      setGenSyncingPrefix(null);
+    }
+  }, [genPdfExistsOnServer]);
+
+  // Fetch synced AIP (EAD + Russia). Default flow is PDF-first (extract=0).
+  // AI extraction runs only when explicitly requested (extract=1).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !isEadIcao(icao)) return;
+    if (!icao || !supportsSyncedAipIcao(icao)) return;
     if (aipEadInFlightRef.current.has(icao)) return;
     const fromBanner = searchParams.get("fromBanner") === "1";
-    const hasCache = icao in aipEadCache;
+    const cacheEntry = aipEadCache[icao];
+    const hasCacheEntry = icao in aipEadCache;
+    const hasExtractCache = Boolean(cacheEntry?.airport);
     const syncRequested = aipEadSyncRequestedIcao === icao;
-    if (hasCache && !syncRequested) return;
+    if (syncRequested && hasExtractCache) {
+      setAipViewMode("ai");
+      setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+      return;
+    }
 
-    const doSync = fromBanner ? syncRequested : (syncRequested || !hasCache);
+    const shouldExtractSync = syncRequested && !hasExtractCache;
+    const shouldPdfSync =
+      !syncRequested &&
+      !aipPdfReady[icao] &&
+      aipPdfExistsOnServer[icao] === false;
+
+    if (hasCacheEntry && !syncRequested && !shouldPdfSync) return;
+    const doSync = fromBanner ? shouldExtractSync : (shouldExtractSync || shouldPdfSync);
     aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncSteps([]);
-      updateStage(icao, "aip", "running", "Syncing AIP…");
+      updateStage(
+        icao,
+        "aip",
+        "running",
+        shouldExtractSync ? "Extracting AIP data…" : "Fetching AIP PDF…"
+      );
     }
 
-    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${doSync ? "&sync=1&stream=1" : ""}&_t=${Date.now()}`;
+    const syncParams = doSync
+      ? `&sync=1&stream=1&extract=${shouldExtractSync ? "1" : "0"}`
+      : "";
+    const url = `/api/aip/ead?icao=${encodeURIComponent(icao)}${syncParams}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
         if (doSync && res.ok && res.body) {
@@ -789,12 +829,6 @@ function AIPPortalPageInner() {
           "AD2.12 Runway Number"?: string;
           "AD2.12 Runway Dimensions"?: string;
         }>;
-        if (!doSync && list.length === 0) {
-          setAipEadSyncRequestedIcao(icao);
-          setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
-          setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
-          return;
-        }
         const updatedAt = new Date().toISOString();
         const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
         const airport: AIPAirport | null = match
@@ -826,9 +860,11 @@ function AIPPortalPageInner() {
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
-        if (doSync) {
+        if (shouldExtractSync) {
           updateStage(icao, "aip", "done", "AIP retrieved");
           sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
+        } else if (doSync) {
+          updateStage(icao, "aip", "done", "AIP PDF ready");
         }
       })
       .catch((err) => {
@@ -842,12 +878,21 @@ function AIPPortalPageInner() {
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
-  }, [viewingAirport?.icao, aipEadSyncRequestedIcao, notifPrefs, updateStage, searchParams]);
+  }, [
+    viewingAirport?.icao,
+    aipEadSyncRequestedIcao,
+    aipEadCache,
+    aipPdfReady,
+    aipPdfExistsOnServer,
+    notifPrefs,
+    updateStage,
+    searchParams,
+  ]);
 
   // Probe S3 for EAD PDF (enables download/viewer as soon as the file exists, without waiting for AI extract).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !isEadIcao(icao)) return;
+    if (!icao || !supportsSyncedAipIcao(icao)) return;
     let cancelled = false;
     fetch(`/api/aip/ead/pdf?icao=${encodeURIComponent(icao)}`, { method: "HEAD" })
       .then((r) => {
@@ -1958,18 +2003,24 @@ function AIPPortalPageInner() {
           </CardContent>
         </Card>
 
-            {/* Single AIP section: EAD (sync/cache) or stored data */}
-            {viewingAirport && isEadIcao(viewingAirport.icao) && (
-              <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
+            {/* Single synced AIP section: EAD + Russia */}
+            {viewingAirport && supportsSyncedAipIcao(viewingAirport.icao) && (
+              <Card
+                className={`shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200 ${
+                  aipEadSyncingIcao === viewingAirport.icao
+                    ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_rgba(99,102,241,0.18)] animate-pulse"
+                    : ""
+                }`}
+              >
                 <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
                   <div>
                     <CardTitle className="text-base sm:text-lg font-semibold">
-                      AIP (EAD) — {viewingAirport.icao}
+                      AIP ({isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) — {viewingAirport.icao}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground text-sm">
                       {aipEadCache[viewingAirport.icao]?.updatedAt
-                        ? `Cached ${new Date(aipEadCache[viewingAirport.icao].updatedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. Use Sync to refresh.`
-                        : "From EAD (EU). Use Sync to refresh from server."}
+                        ? `Cached ${new Date(aipEadCache[viewingAirport.icao].updatedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. Use Extract Data to refresh.`
+                        : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -2031,16 +2082,64 @@ function AIPPortalPageInner() {
                       className="shrink-0 h-9 gap-1.5 px-2"
                       onClick={() => requestSyncAipEad(viewingAirport.icao)}
                       disabled={aipEadLoadingIcao === viewingAirport.icao || aipEadSyncingIcao === viewingAirport.icao}
-                      title="Sync: fetch from EC2 and refresh"
+                      title={
+                        aipEadCache[viewingAirport.icao]?.airport
+                          ? "Cached extraction exists; click to show it"
+                          : "Run AI extraction now"
+                      }
                     >
                       <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
-                      <span className="text-xs hidden sm:inline">Sync</span>
+                      <span className="text-xs hidden sm:inline">Extract Data</span>
                     </Button>
+                    {isEadIcao(viewingAirport.icao) && (
+                      <div
+                        className="relative"
+                        onMouseEnter={() => setShowGenSyncOverlay(true)}
+                        onMouseLeave={() => setShowGenSyncOverlay(false)}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0 h-9 gap-1.5 px-2"
+                          onClick={() => downloadGenPdfWithSync(viewingAirport.icao)}
+                          disabled={genPdfDownloading}
+                          title="Instantly fetch and download GEN PDF"
+                        >
+                          <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
+                          <span className="text-xs hidden sm:inline">GEN PDF</span>
+                        </Button>
+                        {showGenSyncOverlay && (
+                          <div className="absolute right-0 mt-1 w-72 rounded-md border border-border/70 bg-popover p-3 shadow-lg z-20">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                              GEN loading steps
+                            </p>
+                            <ul className="space-y-1 text-xs text-foreground/90">
+                              {(genSyncSteps.length > 0
+                                ? genSyncSteps
+                                : [
+                                    "Checking GEN PDF cache…",
+                                    "Downloading GEN PDF from source…",
+                                    "Uploading to storage…",
+                                    "Preparing download…",
+                                  ]).map((step, i) => (
+                                <li key={`${step}-${i}`} className="flex items-start gap-1.5">
+                                  <span className="mt-0.5 size-1.5 rounded-full bg-primary/70 shrink-0" />
+                                  <span>{step}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                    Source: <strong>Eurocontrol (EAD)</strong>. Data is extracted from official EAD documents.
+                    Source:{" "}
+                    <strong>{isRussiaIcao(viewingAirport.icao) ? "CAICA Russia AIP" : "Eurocontrol (EAD)"}</strong>.
+                    {" "}PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.
                   </div>
                   <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
                     <button
@@ -2073,7 +2172,7 @@ function AIPPortalPageInner() {
                         />
                       ) : (
                         <p className="text-sm text-muted-foreground p-3">
-                          PDF loading… Start sync to fetch it from server, or wait while we check if a PDF is already stored.
+                          PDF loading… We fetch the PDF automatically when you open this airport.
                         </p>
                       )}
                     </div>
@@ -2084,7 +2183,11 @@ function AIPPortalPageInner() {
                         <div className="space-y-2 rounded-xl border-2 border-border/60 bg-muted/20 p-4">
                           <div className="flex items-center gap-2">
                             <Spinner className="size-4 shrink-0 text-primary" />
-                            <span className="text-sm font-medium">Syncing AIP from server…</span>
+                            <span className="text-sm font-medium">
+                              {aipEadSyncRequestedIcao === viewingAirport.icao
+                                ? "Extracting AIP data…"
+                                : "Fetching AIP PDF…"}
+                            </span>
                           </div>
                           {aipEadSyncSteps.length > 0 && (
                             <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
@@ -2094,14 +2197,18 @@ function AIPPortalPageInner() {
                             </ul>
                           )}
                           {aipEadSyncSteps.length === 0 && (
-                            <span className="text-xs text-muted-foreground">Starting… can take 1–2 min.</span>
+                            <span className="text-xs text-muted-foreground">
+                              {aipEadSyncRequestedIcao === viewingAirport.icao
+                                ? "Starting extraction… can take 1–2 min."
+                                : "Starting PDF fetch…"}
+                            </span>
                           )}
                         </div>
                       ) : (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Spinner className="size-4 shrink-0 text-primary" />
-                            <span>Loading AIP…</span>
+                            <span>Loading AIP cache…</span>
                           </div>
                           <div className="space-y-2 section-loading-skeleton rounded-lg border border-border/60 bg-muted/20 p-4">
                             <div className="h-4 w-24 rounded bg-muted" />
@@ -2131,15 +2238,15 @@ function AIPPortalPageInner() {
               </Card>
             )}
 
-            {/* Single AIP section: stored (non-EAD) data only — Download/Sync are on the AIP (EAD) card for EU airports */}
-            {viewingAirport && !isEadIcao(viewingAirport.icao) && (
+            {/* Single AIP section: stored data for non-synced countries */}
+            {viewingAirport && !supportsSyncedAipIcao(viewingAirport.icao) && (
               <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
                 <CardHeader className="pb-2 px-4 sm:px-6">
                   <CardTitle className="text-base sm:text-lg font-semibold">
                     AIP — {viewingAirport.icao}
                   </CardTitle>
                   <CardDescription className="text-muted-foreground text-sm">
-                    Stored AIP data from portal. For EAD (EU) airports, search an ICAO like EDQA or LBBG to see Download PDF and Sync.
+                    Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use PDF + Extract flow.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">

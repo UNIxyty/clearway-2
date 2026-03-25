@@ -3,6 +3,7 @@ import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
+import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,15 @@ type USAData = {
   by_state?: Record<string, USAirportRow[]>;
 };
 
+type RUSAirportRow = {
+  icao: string;
+  airport_name: string;
+};
+
+type RUSData = {
+  airports?: RUSAirportRow[];
+};
+
 function flattenUSAByState(state: string): AIPAirport[] {
   const data = usaByState as USAData;
   const gen1_2 = data.GEN_1_2 ?? "";
@@ -191,6 +201,44 @@ function flattenAIP(countryFilter?: string): AIPAirport[] {
   return list;
 }
 
+function flattenRussia(): AIPAirport[] {
+  const data = rusAirportsDb as RUSData;
+  const airports = Array.isArray(data.airports) ? data.airports : [];
+  return airports
+    .filter((a) => a?.icao)
+    .map((a) => {
+      const icao = String(a.icao).toUpperCase();
+      const coord = coordsMap[icao];
+      return {
+        country: "Russia",
+        gen1_2: "",
+        gen1_2_point_4: "",
+        icao,
+        name: a.airport_name ?? "",
+        publicationDate: "",
+        trafficPermitted: "",
+        trafficRemarks: "",
+        ad22Operator: "",
+        ad22Address: "",
+        ad22Telephone: "",
+        ad22Telefax: "",
+        ad22Email: "",
+        ad22Afs: "",
+        ad22Website: "",
+        operator: "",
+        customsImmigration: "",
+        ats: "",
+        atsRemarks: "",
+        fireFighting: "",
+        runwayNumber: "",
+        runwayDimensions: "",
+        lat: coord?.lat,
+        lon: coord?.lon,
+      };
+    })
+    .sort((a, b) => (a.name || a.icao).localeCompare(b.name || b.icao));
+}
+
 let cachedList: AIPAirport[] | null = null;
 
 function getAll(): AIPAirport[] {
@@ -260,6 +308,11 @@ export async function GET(request: NextRequest) {
       { results: list },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
+  }
+
+  if (country === "Russia") {
+    const list = flattenRussia();
+    return NextResponse.json({ results: list });
   }
 
   const list = country ? flattenAIP(country) : getAll();

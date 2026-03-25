@@ -46,6 +46,13 @@ export async function GET() {
     regionByName.set(r.region, [...r.countries]);
   }
 
+  // Ensure Russia is visible in portal menu even though it is not part of EAD generated countries.
+  const europeCountries = regionByName.get("Europe") ?? [];
+  if (!europeCountries.includes("Russia")) {
+    europeCountries.push("Russia");
+    regionByName.set("Europe", europeCountries);
+  }
+
   for (const eadLabel of eadCountryKeys) {
     const region = resolveRegionForEadLabel(eadLabel, regions);
     const list = regionByName.get(region);

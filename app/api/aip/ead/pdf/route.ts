@@ -3,6 +3,9 @@ import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PDF_PREFIX = "aip/ead-pdf";
+const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
+const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
+const SYNC_TIMEOUT_MS = 300_000;
 
 function badIcaoResponse() {
   return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
@@ -32,6 +35,24 @@ function useInlineDisposition(request: NextRequest): boolean {
   const p = request.nextUrl.searchParams;
   if (p.get("download") === "1" || p.get("attachment") === "1") return false;
   return p.get("inline") === "1" || p.get("inline") === "true";
+}
+
+async function triggerPdfOnlySync(icao: string): Promise<void> {
+  if (!AIP_SYNC_URL) return;
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}&extract=0`;
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  try {
+    const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+      throw new Error(data.detail || data.error || `Sync failed (${res.status})`);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function HEAD(request: NextRequest) {
@@ -78,7 +99,17 @@ export async function GET(request: NextRequest) {
   try {
     const client = new S3Client({ region });
     const key = `${AIP_EAD_PDF_PREFIX}/${icao}.pdf`;
-    const res = await client.send(new GetObjectCommand({ Bucket: BUCKET!, Key: key }));
+    let res;
+    try {
+      res = await client.send(new GetObjectCommand({ Bucket: BUCKET!, Key: key }));
+    } catch (e: unknown) {
+      const err = e as { name?: string; Code?: string };
+      const missing = err?.name === "NoSuchKey" || err?.Code === "NoSuchKey";
+      if (!missing) throw e;
+      // Auto-heal: missing PDF triggers PDF-only sync, then retry S3 once.
+      await triggerPdfOnlySync(icao);
+      res = await client.send(new GetObjectCommand({ Bucket: BUCKET!, Key: key }));
+    }
     const body = res.Body;
     if (!body) return new NextResponse(null, { status: 404 });
 
@@ -100,7 +131,11 @@ export async function GET(request: NextRequest) {
     const err = e as { name?: string; Code?: string; message?: string };
     if (err?.name === "NoSuchKey" || err?.Code === "NoSuchKey") {
       return NextResponse.json(
-        { error: "PDF not found", detail: "Sync this airport first to download the AIP PDF." },
+        {
+          error: "PDF not found",
+          detail:
+            "PDF is unavailable after auto-sync attempt. Check AIP_SYNC_URL/SYNC_SECRET and scraper server logs.",
+        },
         { status: 404 }
       );
     }

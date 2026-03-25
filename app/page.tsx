@@ -2094,7 +2094,7 @@ function AIPPortalPageInner() {
                       <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
                       <span className="text-xs hidden sm:inline">Extract Data</span>
                     </Button>
-                    {isEadIcao(viewingAirport.icao) && (
+                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao)) && (
                       <div
                         className="relative"
                         onMouseEnter={() => setShowGenSyncOverlay(true)}

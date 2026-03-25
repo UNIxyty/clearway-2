@@ -13,6 +13,8 @@
  *   (rebuild country->airport ICAO mapping from EAD search results)
  *   node scripts/ead-download-one-ad-per-country.mjs --build-icao-db-only
  *   (discover and save one airport ICAO per country, without downloading PDFs)
+ *   node scripts/ead-download-one-ad-per-country.mjs --country-icao-source /path/to/icao_codes_by_country_v3_cleaned.json
+ *   (use one ICAO per country from provided country->ICAO JSON)
  *
  * Requires:
  *   EAD_USER and EAD_PASSWORD (or EAD_PASSWORD_ENC) in environment or .env
@@ -98,6 +100,38 @@ function countryIcaoMapFromDb(db) {
     if (row?.countryLabel) out.set(row.countryLabel, { ...row });
   }
   return out;
+}
+
+function firstValidIcaoFromCountryList(list) {
+  for (const row of list || []) {
+    const code = String(row?.icao || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{4}$/.test(code)) return code;
+  }
+  return null;
+}
+
+function loadCountryIcaoSource(path) {
+  try {
+    if (!path || !existsSync(path)) return null;
+    const data = JSON.parse(readFileSync(path, 'utf8'));
+    const byCountry = data?.countries || {};
+    const map = new Map();
+    for (const [countryLabel, list] of Object.entries(byCountry)) {
+      const code = firstValidIcaoFromCountryList(list);
+      if (!code) continue;
+      map.set(countryLabel, {
+        countryLabel,
+        icaoPrefix: icaoPrefixFromAuthorityLabel(countryLabel),
+        airportIcao: code,
+        sourceFilename: null,
+        sourceType: 'external_country_icao_source',
+        updatedAt: data?.scrapedAt || new Date().toISOString(),
+      });
+    }
+    return { scrapedAt: data?.scrapedAt || null, map };
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
@@ -248,6 +282,13 @@ async function main() {
   const onlyPending = hasFlagInArgv(process.argv, '--only-pending');
   const refreshIcaoDb = hasFlagInArgv(process.argv, '--refresh-icao-db');
   const buildIcaoDbOnly = hasFlagInArgv(process.argv, '--build-icao-db-only');
+  const defaultCountryIcaoSourcePath = '/Users/whae/Downloads/icao_codes_by_country_v3_cleaned.json';
+  const countryIcaoSourcePathArg = argValueFromArgv(
+    process.argv,
+    '--country-icao-source',
+    ''
+  );
+  const countryIcaoSourcePath = countryIcaoSourcePathArg || (existsSync(defaultCountryIcaoSourcePath) ? defaultCountryIcaoSourcePath : '');
   const dumpAuthoritiesPath = argValueFromArgv(
     process.argv,
     '--dump-authorities',
@@ -265,6 +306,17 @@ async function main() {
   const priorByLabel = priorResultByLabel(manifestOnDisk);
   const icaoDbOnDisk = refreshIcaoDb ? null : loadCountryIcaoDb(countryIcaoDbPath);
   const countryIcaoByLabel = countryIcaoMapFromDb(icaoDbOnDisk);
+  const countryIcaoSource = loadCountryIcaoSource(countryIcaoSourcePath);
+  let sourcedCount = 0;
+  for (const [label, row] of countryIcaoSource?.map || new Map()) {
+    // Source file has priority unless user explicitly rebuilds from live EAD.
+    if (refreshIcaoDb) continue;
+    countryIcaoByLabel.set(label, {
+      ...countryIcaoByLabel.get(label),
+      ...row,
+    });
+    sourcedCount++;
+  }
   const downloadedByLabel = new Set(
     resume && Array.isArray(manifestOnDisk?.results)
       ? manifestOnDisk.results.filter((r) => r.status === 'downloaded').map((r) => r.countryLabel)
@@ -275,7 +327,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     outputDir: outDir,
     options: {
-      maxCountries, headful, resume, onlyPending, refreshIcaoDb, buildIcaoDbOnly, countryIcaoDbPath,
+      maxCountries, headful, resume, onlyPending, refreshIcaoDb, buildIcaoDbOnly, countryIcaoDbPath, countryIcaoSourcePath,
     },
     results: [],
   };
@@ -356,6 +408,11 @@ async function main() {
     let selectedCountries = countryOptions;
     if (maxCountries > 0) selectedCountries = selectedCountries.slice(0, maxCountries);
     log(`Countries available: ${countryOptions.length}. Running: ${selectedCountries.length}.`);
+    if (countryIcaoSourcePath) {
+      log(`Country ICAO source: ${countryIcaoSourcePath} (loaded=${sourcedCount})`);
+    } else {
+      log('Country ICAO source: none (will discover from EAD when missing).');
+    }
     if (onlyPending) {
       const need = selectedCountries.filter((c) =>
         countryNeedsEadRetry(priorByLabel.get(c.label))
@@ -379,6 +436,7 @@ async function main() {
           icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
           airportIcao: known?.airportIcao || null,
           sourceFilename: known?.sourceFilename || null,
+          sourceType: known?.sourceType || null,
           updatedAt: known?.updatedAt || null,
         });
       }
@@ -467,6 +525,7 @@ async function main() {
         countryLabel: country.label,
         countryValue: country.value,
         icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
+        icaoSource: countryIcaoByLabel.get(country.label)?.sourceType || null,
         targetIcao: null,
         resolvedIcao: null,
         status: 'failed',
@@ -488,6 +547,14 @@ async function main() {
           prior?.resolvedIcao ||
           null;
 
+        if (!targetIcao && countryIcaoSourcePath) {
+          rowResult.status = 'no_source_icao';
+          rowResult.error = `No ICAO mapping for ${country.label} in ${countryIcaoSourcePath}`;
+          runManifest.results.push(rowResult);
+          writeFileSync(manifestPath, JSON.stringify(runManifest, null, 2), 'utf8');
+          continue;
+        }
+
         // Discover one airport ICAO per authority from live AD2 search when no cached mapping exists yet.
         if (!targetIcao) {
           await openAdvancedSearchAndRun('AD 2');
@@ -505,6 +572,7 @@ async function main() {
             icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
             airportIcao: targetIcao,
             sourceFilename: discovered.found.combinedName || null,
+            sourceType: 'ead_discovery',
             updatedAt: new Date().toISOString(),
           });
           persistCountryIcaoDb();
@@ -554,6 +622,7 @@ async function main() {
             icaoPrefix: icaoPrefixFromAuthorityLabel(country.label),
             airportIcao: rowResult.resolvedIcao,
             sourceFilename,
+            sourceType: 'downloaded_filename',
             updatedAt: new Date().toISOString(),
           });
           persistCountryIcaoDb();
@@ -575,11 +644,12 @@ async function main() {
     const downloadedCount = runManifest.results.filter((r) => r.status === 'downloaded').length;
     const failedCount = runManifest.results.filter((r) => r.status === 'failed').length;
     const noResultsCount = runManifest.results.filter((r) => r.status === 'no_results').length;
+    const noSourceIcaoCount = runManifest.results.filter((r) => r.status === 'no_source_icao').length;
     const skippedCount = runManifest.results.filter((r) => r.status === 'skipped_already_downloaded').length;
     const mappedCount = runManifest.results.filter((r) => r.status === 'icao_selected' || r.status === 'icao_cached').length;
 
     log(
-      `Done. downloaded=${downloadedCount}, failed=${failedCount}, no_results=${noResultsCount}, skipped=${skippedCount}, icao_mapped=${mappedCount}.`
+      `Done. downloaded=${downloadedCount}, failed=${failedCount}, no_results=${noResultsCount}, no_source_icao=${noSourceIcaoCount}, skipped=${skippedCount}, icao_mapped=${mappedCount}.`
     );
     log(`Manifest: ${manifestPath}`);
   } catch (err) {

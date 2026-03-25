@@ -3,6 +3,7 @@ import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
+import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -183,7 +184,7 @@ function flattenRussia(): AIPAirport[] {
         gen1_2: "",
         gen1_2_point_4: "",
         icao,
-        name: a.airport_name ?? "",
+        name: formatRussiaAirportName(a.airport_name ?? ""),
         publicationDate: "",
         trafficPermitted: "",
         trafficRemarks: "",

@@ -4,6 +4,7 @@ import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
+import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 
 export const dynamic = "force-dynamic";
 
@@ -214,7 +215,7 @@ function flattenRussia(): AIPAirport[] {
         gen1_2: "",
         gen1_2_point_4: "",
         icao,
-        name: a.airport_name ?? "",
+        name: formatRussiaAirportName(a.airport_name ?? ""),
         publicationDate: "",
         trafficPermitted: "",
         trafficRemarks: "",

@@ -13,8 +13,17 @@ create table if not exists corporate_accounts (
   id uuid primary key default gen_random_uuid(),
   username text not null unique,
   password_hash text not null,
+  temp_password_hash text,
+  requires_credential_setup boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- For existing installations: add columns required by one-time temporary credentials flow.
+alter table public.corporate_accounts
+  add column if not exists temp_password_hash text;
+
+alter table public.corporate_accounts
+  add column if not exists requires_credential_setup boolean not null default false;
 
 alter table public.corporate_accounts enable row level security;
 
@@ -68,9 +77,15 @@ using (false)
 with check (false);
 
 -- ─── Seed default admin account ───────────────────────────────────────────────
--- Username: admin  |  Password: admin  (SHA-256 hash)
--- Change the hash after setup: UPDATE corporate_accounts SET password_hash = '...' WHERE username = 'admin';
+-- Username: admin  |  Temporary Password: admin  (SHA-256 hash)
+-- On first successful login with the temporary password, the portal now forces
+-- permanent credential creation and clears temp_password_hash.
 
-insert into corporate_accounts (username, password_hash)
-values ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918')
+insert into corporate_accounts (username, password_hash, temp_password_hash, requires_credential_setup)
+values (
+  'admin',
+  '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+  '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+  true
+)
 on conflict (username) do nothing;

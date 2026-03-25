@@ -34,6 +34,13 @@ export default function LoginCard() {
   const [email, setEmail] = useState("");
   const [corpUsername, setCorpUsername] = useState("");
   const [corpPassword, setCorpPassword] = useState("");
+  const [credentialSetup, setCredentialSetup] = useState<{
+    accountId: string;
+    suggestedUsername: string;
+  } | null>(null);
+  const [newCorpUsername, setNewCorpUsername] = useState("");
+  const [newCorpPassword, setNewCorpPassword] = useState("");
+  const [confirmNewCorpPassword, setConfirmNewCorpPassword] = useState("");
   const [deviceSetup, setDeviceSetup] = useState<{
     accountId: string;
     profiles: { id: string; display_name: string | null }[];
@@ -99,6 +106,17 @@ export default function LoginCard() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Corporate login failed.");
+      if (data?.needsCredentialSetup) {
+        const suggestedUsername = String(data.accountUsername || corpUsername.trim() || "");
+        setCredentialSetup({
+          accountId: String(data.accountId || ""),
+          suggestedUsername,
+        });
+        setNewCorpUsername(suggestedUsername);
+        setNewCorpPassword("");
+        setConfirmNewCorpPassword("");
+        return;
+      }
       if (data?.needsProfile) {
         setDeviceSetup({
           accountId: data.accountId,
@@ -111,6 +129,36 @@ export default function LoginCard() {
       window.location.href = next;
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Corporate login failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function completeCredentialSetup() {
+    if (!credentialSetup) return;
+    setError(null);
+    setInfo(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/setup-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId: credentialSetup.accountId,
+          username: newCorpUsername.trim(),
+          password: newCorpPassword,
+          confirmPassword: confirmNewCorpPassword,
+          temporaryPassword: corpPassword,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to set new credentials.");
+      setCredentialSetup(null);
+      setCorpUsername(newCorpUsername.trim());
+      setCorpPassword(newCorpPassword);
+      setInfo("Credentials created. Sign in again with your new corporate credentials.");
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message || "Failed to set new credentials.");
     } finally {
       setLoading(false);
     }
@@ -161,7 +209,7 @@ export default function LoginCard() {
         )}
 
         <div className="space-y-3">
-          {!deviceSetup && (
+          {!deviceSetup && !credentialSetup && (
             <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
               <p className="text-sm font-medium">Corporate login</p>
               <div className="space-y-2">
@@ -196,6 +244,70 @@ export default function LoginCard() {
               </Button>
             </div>
           )}
+          {credentialSetup && (
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm font-medium">Create permanent corporate credentials</p>
+              <p className="text-xs text-muted-foreground">
+                Temporary credentials were accepted. Set your permanent username and password.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="new-corp-username">New username</Label>
+                <Input
+                  id="new-corp-username"
+                  type="text"
+                  value={newCorpUsername}
+                  onChange={(e) => setNewCorpUsername(e.target.value)}
+                  autoComplete="username"
+                  placeholder={credentialSetup.suggestedUsername || "ops-admin"}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-corp-password">New password</Label>
+                <Input
+                  id="new-corp-password"
+                  type="password"
+                  value={newCorpPassword}
+                  onChange={(e) => setNewCorpPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Minimum 8 characters"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-new-corp-password">Confirm new password</Label>
+                <Input
+                  id="confirm-new-corp-password"
+                  type="password"
+                  value={confirmNewCorpPassword}
+                  onChange={(e) => setConfirmNewCorpPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Repeat password"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={completeCredentialSetup}
+                  disabled={
+                    loading ||
+                    !newCorpUsername.trim() ||
+                    !newCorpPassword ||
+                    !confirmNewCorpPassword
+                  }
+                >
+                  {loading ? "Saving..." : "Create credentials"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCredentialSetup(null)}
+                  disabled={loading}
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          )}
           {deviceSetup && (
             <DevicePickerCard
               accountId={deviceSetup.accountId}
@@ -223,7 +335,7 @@ export default function LoginCard() {
             type="button"
             className="w-full"
             onClick={sendMagicLink}
-            disabled={loading || !!deviceSetup || !email.trim()}
+            disabled={loading || !!deviceSetup || !!credentialSetup || !email.trim()}
           >
             {loading ? "Sending…" : "Send sign-in link"}
           </Button>
@@ -242,7 +354,7 @@ export default function LoginCard() {
             variant="outline"
             className="w-full gap-2"
             onClick={signInGoogle}
-            disabled={loading || !!deviceSetup}
+            disabled={loading || !!deviceSetup || !!credentialSetup}
           >
             <svg viewBox="0 0 24 24" className="size-4 shrink-0" aria-hidden>
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />

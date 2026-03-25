@@ -39,16 +39,67 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Username and password are required" }, { status: 400 });
   }
 
-  const { data: account, error: accountErr } = await supabase
+  type CorporateAccount = {
+    id: string;
+    username: string;
+    password_hash: string;
+    temp_password_hash: string | null;
+    requires_credential_setup: boolean;
+  };
+
+  let account: CorporateAccount | null = null;
+  let accountErr: { message?: string } | null = null;
+
+  const accountWithSetup = await supabase
     .from("corporate_accounts")
-    .select("id, username, password_hash")
+    .select("id, username, password_hash, temp_password_hash, requires_credential_setup")
     .ilike("username", username)
     .maybeSingle();
+
+  if (accountWithSetup.error) {
+    // Backward compatibility if migration has not been applied yet.
+    const legacyAccount = await supabase
+      .from("corporate_accounts")
+      .select("id, username, password_hash")
+      .ilike("username", username)
+      .maybeSingle();
+
+    accountErr = legacyAccount.error;
+    if (legacyAccount.data) {
+      account = {
+        ...legacyAccount.data,
+        temp_password_hash: null,
+        requires_credential_setup: false,
+      };
+    }
+  } else {
+    accountErr = null;
+    account = accountWithSetup.data;
+  }
 
   if (accountErr || !account) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
-  if (sha256(password) !== account.password_hash) {
+
+  const incomingHash = sha256(password);
+  const needsSetup =
+    account.requires_credential_setup &&
+    account.temp_password_hash &&
+    incomingHash === account.temp_password_hash;
+
+  if (needsSetup) {
+    return NextResponse.json({
+      needsCredentialSetup: true,
+      accountId: account.id,
+      accountUsername: account.username,
+    });
+  }
+
+  if (account.requires_credential_setup) {
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  }
+
+  if (incomingHash !== account.password_hash) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 

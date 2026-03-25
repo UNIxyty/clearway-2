@@ -441,7 +441,7 @@ function AIPPortalPageInner() {
   useEffect(() => {
     setPdfDownloadError(null);
     setGenPdfDownloadError(null);
-    setAipViewMode("ai");
+    setAipViewMode("pdf");
     setShowGenSyncOverlay(false);
   }, [viewingAirport?.icao]);
 
@@ -565,9 +565,9 @@ function AIPPortalPageInner() {
   }, []);
 
   const requestSyncAipEad = useCallback((icao: string) => {
+    setAipViewMode("ai");
     const cachedAirport = aipEadCache[icao]?.airport;
     if (cachedAirport) {
-      setAipViewMode("ai");
       setAipEadSyncRequestedIcao(null);
       return;
     }
@@ -675,6 +675,7 @@ function AIPPortalPageInner() {
     if (doSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncSteps([]);
+      if (!shouldExtractSync) setAipViewMode("pdf");
       updateStage(
         icao,
         "aip",
@@ -2165,11 +2166,33 @@ function AIPPortalPageInner() {
                       {aipPdfReady[viewingAirport.icao] ||
                       aipEadCache[viewingAirport.icao]?.updatedAt ||
                       aipPdfExistsOnServer[viewingAirport.icao] ? (
-                        <iframe
-                          src={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                        <object
+                          data={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                          type="application/pdf"
                           className="w-full h-[520px] rounded-md border border-border/60 bg-background"
-                          title={`AIP PDF ${viewingAirport.icao}`}
-                        />
+                          aria-label={`AIP PDF ${viewingAirport.icao}`}
+                        >
+                          <div className="p-3 text-sm text-muted-foreground">
+                            Native PDF preview is not available in this browser.
+                            {" "}
+                            <a
+                              href={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2"
+                            >
+                              Open PDF in new tab
+                            </a>
+                            {" "}or{" "}
+                            <a
+                              href={`/api/aip/ead/pdf?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
+                              className="underline underline-offset-2"
+                            >
+                              download it
+                            </a>
+                            .
+                          </div>
+                        </object>
                       ) : (
                         <p className="text-sm text-muted-foreground p-3">
                           PDF loading… We fetch the PDF automatically when you open this airport.

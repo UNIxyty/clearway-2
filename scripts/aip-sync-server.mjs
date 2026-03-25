@@ -269,12 +269,55 @@ async function runGenDownload(prefix) {
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", GEN_SCRIPT, prefix]);
 }
 
-async function uploadGenPdfToS3(prefix) {
+function isRussiaIcao(icao) {
+  return /^U[A-Z0-9]{3}$/.test(icao);
+}
+
+async function runGenDownloadForIcao(icao, prefix) {
+  if (isRussiaIcao(icao)) {
+    await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    return;
+  }
+  await runGenDownload(prefix);
+}
+
+function findDownloadedGenPdf(icao, prefix) {
+  if (isRussiaIcao(icao)) {
+    if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
+    const icaoUpper = icao.toUpperCase();
+    const runDirs = readdirSync(RUS_AIP_RUNS_DIR)
+      .filter((name) => name.toUpperCase().endsWith(`_${icaoUpper}`))
+      .map((name) => join(RUS_AIP_RUNS_DIR, name))
+      .filter((dirPath) => {
+        try {
+          return statSync(dirPath).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+    runDirs.sort((a, b) => {
+      try {
+        return statSync(b).mtimeMs - statSync(a).mtimeMs;
+      } catch {
+        return 0;
+      }
+    });
+    for (const dir of runDirs) {
+      const genPdf = join(dir, "gen", "gen-1.2.pdf");
+      if (existsSync(genPdf)) return genPdf;
+    }
+    return null;
+  }
+  const eadGenPdf = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.pdf`);
+  return existsSync(eadGenPdf) ? eadGenPdf : null;
+}
+
+async function uploadGenPdfToS3(icao, prefix) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
-  const pdfPath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.pdf`);
-  if (!existsSync(pdfPath)) return;
+  const pdfPath = findDownloadedGenPdf(icao, prefix);
+  if (!pdfPath) return;
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
   const body = readFileSync(pdfPath);
@@ -338,9 +381,9 @@ const server = createServer(async (req, res) => {
       res.setHeader("Content-Type", "application/json");
     }
     try {
-      await runGenDownload(prefix);
+      await runGenDownloadForIcao(icao, prefix);
       if (process.env.AWS_S3_BUCKET) {
-        await uploadGenPdfToS3(prefix);
+        await uploadGenPdfToS3(icao, prefix);
         if (stream) {
           send({ step: GEN_STEPS[1] });
           send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });

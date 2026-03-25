@@ -651,7 +651,6 @@ function AIPPortalPageInner() {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !supportsSyncedAipIcao(icao)) return;
     if (aipEadInFlightRef.current.has(icao)) return;
-    const fromBanner = searchParams.get("fromBanner") === "1";
     const cacheEntry = aipEadCache[icao];
     const hasCacheEntry = icao in aipEadCache;
     const hasExtractCache = Boolean(cacheEntry?.airport);
@@ -666,10 +665,10 @@ function AIPPortalPageInner() {
     const shouldPdfSync =
       !syncRequested &&
       !aipPdfReady[icao] &&
-      aipPdfExistsOnServer[icao] === false;
+      aipPdfExistsOnServer[icao] !== true;
 
     if (hasCacheEntry && !syncRequested && !shouldPdfSync) return;
-    const doSync = fromBanner ? shouldExtractSync : (shouldExtractSync || shouldPdfSync);
+    const doSync = shouldExtractSync || shouldPdfSync;
     aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
@@ -907,7 +906,9 @@ function AIPPortalPageInner() {
     };
   }, [viewingAirport?.icao]);
 
-  // Fetch GEN (scraped GEN 1.2) when viewing any airport. EAD airports use /api/aip/gen, non-EAD use /api/aip/gen-non-ead.
+  // Fetch GEN (scraped GEN 1.2) when viewing any airport.
+  // EAD + Russia use /api/aip/gen (sync-server-backed PDF cache),
+  // other countries use /api/aip/gen-non-ead.
   useEffect(() => {
     if (MAIN_PAGE_DISABLE_GEN) return;
     const icao = viewingAirport?.icao ?? null;
@@ -915,9 +916,10 @@ function AIPPortalPageInner() {
     const prefix = icao.slice(0, 2).toUpperCase();
     if (prefix in genCache || genLoadingPrefix === prefix) return;
     setGenLoadingPrefix(prefix);
-    if (isEadIcao(icao)) updateStage(icao, "gen", "running", "Loading GEN…");
+    const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao);
+    if (useSyncedGen) updateStage(icao, "gen", "running", "Loading GEN…");
     else updateStage(icao, "gen-non-ead", "running", "Rewriting non-EAD GEN…");
-    const genUrl = isEadIcao(icao)
+    const genUrl = useSyncedGen
       ? `/api/aip/gen?icao=${encodeURIComponent(icao)}`
       : `/api/aip/gen-non-ead?prefix=${encodeURIComponent(prefix)}`;
     fetch(genUrl, { cache: "no-store" })
@@ -930,7 +932,7 @@ function AIPPortalPageInner() {
           ...c,
           [prefix]: { general: g, nonScheduled: ns, privateFlights: pf, updatedAt: data.updatedAt ?? null },
         }));
-        if (isEadIcao(icao)) updateStage(icao, "gen", "done", "GEN retrieved");
+        if (useSyncedGen) updateStage(icao, "gen", "done", "GEN retrieved");
         else {
           updateStage(icao, "gen-non-ead", "done", "GEN retrieved");
           sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
@@ -938,7 +940,7 @@ function AIPPortalPageInner() {
       })
       .catch(() => {
         setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
-        if (isEadIcao(icao)) updateStage(icao, "gen", "error", "GEN load failed");
+        if (useSyncedGen) updateStage(icao, "gen", "error", "GEN load failed");
         else updateStage(icao, "gen-non-ead", "error", "Non-EAD GEN load failed");
       })
       .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));

@@ -55,6 +55,8 @@ function runPython(
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stderr = "";
+    // Drain stdout so Python's verbose `print()` cannot fill the pipe buffer and hang the child.
+    child.stdout?.on("data", () => {});
     child.stderr?.on("data", (d) => {
       stderr += d.toString();
     });

@@ -35,6 +35,7 @@ aips/all-pdfs/
 # misc
 .DS_Store
 __pycache__/
+.venv/
 *.pem
 .env
 .env*.local

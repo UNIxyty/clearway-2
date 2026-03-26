@@ -90,9 +90,13 @@ export default function AipMetaComparePage() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">AIP meta extract compare</h1>
           <p className="text-sm text-muted-foreground">
-            Local test: Sonnet extractor (server script) vs Haiku extractor. Requires{" "}
+            Local test: Sonnet extractor (server script) vs Haiku extractor. Set{" "}
             <code className="rounded bg-muted px-1">ANTHROPIC_API_KEY</code> in{" "}
-            <code className="rounded bg-muted px-1">.env.local</code>.
+            <code className="rounded bg-muted px-1">.env.local</code>. One-time deps:{" "}
+            <code className="rounded bg-muted px-1">
+              python3 -m venv .venv && .venv/bin/pip install -r requirements-aip-extract.txt
+            </code>{" "}
+            (macOS blocks system <code className="rounded bg-muted px-1">pip</code>).
           </p>
         </div>
       </div>

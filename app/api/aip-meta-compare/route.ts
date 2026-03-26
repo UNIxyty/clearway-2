@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -9,6 +10,18 @@ const TIMEOUT_MS = 300_000;
 
 const SCRIPT_SONNET = join(process.cwd(), "aip-meta-extractor.py");
 const SCRIPT_HAIKU = join(process.cwd(), "aip-meta-extractor-haiku.py");
+
+/** Prefer repo `.venv` so macOS/Homebrew Python (PEP 668) can run extractors without system pip. */
+function pythonBinary(): string {
+  const override = process.env.AIP_EXTRACT_PYTHON?.trim();
+  if (override) return override;
+  const cwd = process.cwd();
+  const unix = join(cwd, ".venv", "bin", "python3");
+  if (existsSync(unix)) return unix;
+  const win = join(cwd, ".venv", "Scripts", "python.exe");
+  if (existsSync(win)) return win;
+  return process.platform === "win32" ? "python" : "python3";
+}
 
 function isMetaCompareAllowed(request: NextRequest): boolean {
   if (process.env.ALLOW_AIP_META_COMPARE === "true") return true;
@@ -36,7 +49,7 @@ function runPython(
   outPath: string
 ): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("python3", [script, pdfPath, "--out", outPath, "--quiet"], {
+    const child = spawn(pythonBinary(), [script, pdfPath, "--out", outPath, "--quiet"], {
       cwd: process.cwd(),
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],

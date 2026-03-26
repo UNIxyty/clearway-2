@@ -1,21 +1,23 @@
 """
-aip-meta-extractor.py
+aip_meta_extractor.py
 ─────────────────────
-Extracts specific metadata fields from AIP AD2 documents.
-Works with any ICAO-compliant AIP regardless of country format
-(LZPP Slovak style, ESSA Swedish style, etc.)
+Extracts metadata fields from AIP AD2 documents.
 
-Fields extracted:
-  - Publication Date / Amendment ID
-  - Airport Code / Name
-  - AD2.2: Traffic types, remarks, operator, address, phone, fax, email, AFS, website
-  - AD2.3: AD Operator hours, Customs & Immigration, ATS, remarks
-  - AD2.6: Fire fighting category
-  - AD2.12: Full runway physical characteristics
+Supports any ICAO-compliant AIP format:
+  • Slovak  (LZPP) — "LZPP AD 2.X" headers
+  • Swedish (ESSA) — "ESSA 2.X" headers
+  • Danish  (EKRK) — "AD 2 EKRK X-X" / EAD format
+  • Any other national AIP following ICAO Annex 15
+
+Detection strategy (3 phases, in order):
+  Phase 1 — Free:  regex scan of the PDF text layer
+  Phase 2 — Cheap: send page 1 image to Claude → identify format + section pages
+  Phase 3 — Brute: scan pages 1-N with Claude when phases 1+2 both fail
 
 Usage:
-    python3 aip-meta-extractor.py ESSA_AIP_AD2.pdf
-    python3 aip-meta-extractor.py LZPP_AIP_AD2.pdf --out result.json
+    python3 aip_meta_extractor.py EKRK.pdf
+    python3 aip_meta_extractor.py ESSA_AIP_AD2.pdf --out result.json
+    python3 aip_meta_extractor.py LZPP_AIP_AD2.pdf --dpi 150 --quiet
 
 Install deps:
     pip install anthropic pymupdf pillow
@@ -28,6 +30,7 @@ import re
 import time
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 
 import anthropic
 import fitz  # pymupdf
@@ -36,103 +39,118 @@ from PIL import Image
 
 _client = anthropic.Anthropic()
 MODEL = "claude-sonnet-4-20250514"
+MAX_BRUTE_FORCE_PAGES = 6   # pages to scan when all detection fails
 
 
-# ── Prompts ─────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Prompts
+# ═══════════════════════════════════════════════════════════════════════════════
 
-SYSTEM_PROMPT = """You are a precise aviation document parser specialising in AIP 
+SYSTEM_PROMPT = """You are a precise aviation document parser specialising in AIP
 (Aeronautical Information Publication) AD2 sections.
-
 Rules:
-- Return ONLY a valid JSON object — no markdown fences, no commentary.
-- If a field is explicitly "NIL" in the document return the string "NIL".
-- If a field is not present on this page return null.
-- Preserve values exactly as printed, including formatting and line breaks 
-  (use \\n for multi-line values).
-- For hours of operation preserve the full string including parenthetical UTC offsets.
+- Return ONLY valid JSON — no markdown fences, no commentary.
+- If a field is explicitly "NIL" in the document, return the string "NIL".
+- If a field is not present on this page, return null.
+- Preserve values exactly as printed; use \\n for multi-line cell values.
+- For operational hours keep the full string including UTC offsets in parentheses.
 """
 
-PROMPT_HEADER_AD22_AD23 = """Extract the following fields from this AIP AD2 page and return 
-them as a JSON object with exactly these keys:
+DISCOVERY_PROMPT = """This is page 1 (possibly also page 2) of an aeronautical AIP AD2 document.
 
+Identify the airport and tell me on which page number each section begins.
+If a section starts on this very image say 1.  If you cannot find it say null.
+
+Return ONLY this JSON object:
 {
-  "publication_date":          "...",   // date printed at bottom/top of any page, e.g. "22 JAN 2026"
-  "amendment_id":              "...",   // e.g. "AIRAC AIP AMDT 1/2026"
-  "airport_code":              "...",   // ICAO 4-letter code, e.g. "ESSA"
-  "airport_name":              "...",   // e.g. "STOCKHOLM/ARLANDA"
-  "ad2_2_types_of_traffic":    "...",   // item 7 in AD2.2
-  "ad2_2_remarks":             "...",   // item 8 in AD2.2
-  "ad2_2_operator_name":       "...",   // company/org name from item 6
-  "ad2_2_address":             "...",   // street + city from item 6
-  "ad2_2_telephone":           "...",   // TEL value from item 6
-  "ad2_2_telefax":             "...",   // FAX value from item 6 (null if absent)
-  "ad2_2_email":               "...",   // e-mail value(s) from item 6, joined with ", " if multiple
-  "ad2_2_afs":                 "...",   // AFTN/SITA/AFS lines from item 6, joined with ", "
-  "ad2_2_website":             "...",   // website value from item 6
-  "ad2_3_ad_operator":         "...",   // item 1 in AD2.3 — full hours string
-  "ad2_3_customs_immigration": "...",   // item 2 in AD2.3 — full text
-  "ad2_3_ats":                 "...",   // item 7 in AD2.3 — full hours string
-  "ad2_3_remarks":             "..."    // last remarks item in AD2.3
+  "airport_code":   "...",
+  "airport_name":   "...",
+  "format_hint":    "...",
+  "page_ad2_2":     1,
+  "page_ad2_3":     1,
+  "page_ad2_6":     null,
+  "page_ad2_12":    null
+}"""
+
+PROMPT_METADATA = """Extract the following fields from this AIP AD2 content.
+The document may use any national formatting convention — look for the fields
+regardless of the exact layout or heading style.
+
+Return a JSON object with exactly these keys (null for any missing field):
+{
+  "publication_date":          "...",
+  "amendment_id":              "...",
+  "airport_code":              "...",
+  "airport_name":              "...",
+  "ad2_2_types_of_traffic":    "...",
+  "ad2_2_remarks":             "...",
+  "ad2_2_operator_name":       "...",
+  "ad2_2_address":             "...",
+  "ad2_2_telephone":           "...",
+  "ad2_2_telefax":             "...",
+  "ad2_2_email":               "...",
+  "ad2_2_afs":                 "...",
+  "ad2_2_website":             "...",
+  "ad2_3_ad_operator":         "...",
+  "ad2_3_customs_immigration": "...",
+  "ad2_3_ats":                 "...",
+  "ad2_3_remarks":             "..."
 }
 
 Return ONLY the JSON object."""
 
-PROMPT_AD26 = """Extract the following fields from this AIP AD2 page and return 
-them as a JSON object with exactly these keys:
+PROMPT_AD26 = """Extract the aerodrome fire fighting category from section AD 2.6 on this page.
 
+Return ONLY:
 {
-  "ad2_6_fire_fighting_category": "..."   // item 1 in AD2.6, e.g. "CAT 10, 2 fire fighting stations"
-}
+  "ad2_6_fire_fighting_category": "..."
+}"""
 
-Return ONLY the JSON object."""
-
-TABLE_SYSTEM_PROMPT = """You are a precise aviation document parser specialising in AIP runway tables.
-
+SYSTEM_TABLE = """You are a precise aviation document parser specialising in AIP runway tables.
 Rules:
-- Return ONLY a valid JSON object — no markdown fences, no commentary.
-- Preserve ALL values exactly as printed, including units (ft, m, degrees).
-- Multi-line cell values must be returned as a JSON array of strings.
-- Use null when a value is not visible or not applicable.
+- Return ONLY valid JSON — no markdown fences, no commentary.
+- Preserve all values exactly as printed (units, slashes, degrees symbols).
+- Multi-line stacked cell values → JSON array of strings.
+- Missing / N/A values → null.
 """
 
-PROMPT_AD212 = """Extract ALL runway data from the AD 2.12 table(s) visible on this page.
+PROMPT_AD212 = """Extract ALL runway rows from the AD 2.12 table(s) on this page.
 
-Return JSON in this exact shape — include every runway row you can see:
-
+Return this exact shape (include every runway row visible):
 {
   "AD_2_12_runway_physical_characteristics": {
     "runways": [
       {
-        "designator":            "01L",
-        "true_bearing_deg":      "010.37",
-        "dimensions_m":          "3301 x 45",
-        "strength_pcn":          "PCN 112/F/A/X/T",
-        "surface_material":      "ASPH",
-        "thr_coordinates":       "593814.11N 0175447.60E",
-        "rwy_end_coordinates":   null,
-        "geoid_undulation_ft":   "75.8",
-        "thr_elevation_ft":      "98.6",
-        "tdz_elevation_ft":      "100.3",
-        "rwy_slope":             "See ESSA AOC RWY 01L/19R",
-        "swy_dimensions_m":      null,
-        "resa_dimensions_m":     "90 x 90",
-        "cwy_dimensions_m":      null,
-        "strip_dimensions_m":    "3421 x 280",
-        "ofz":                   "YES",
-        "arresting_system":      null,
-        "remarks":               "CLSD due maintenance WED 1000-1200 (0900-1100)"
+        "designator":          "01L",
+        "true_bearing_deg":    "010.37",
+        "dimensions_m":        "3301 x 45",
+        "strength_pcn":        "PCN 112/F/A/X/T",
+        "surface_material":    "ASPH",
+        "thr_coordinates":     "593814.11N 0175447.60E",
+        "rwy_end_coordinates": null,
+        "geoid_undulation":    "75.8 ft",
+        "thr_elevation":       "98.6 ft",
+        "tdz_elevation":       "100.3 ft",
+        "rwy_slope":           "See AOC RWY 01L/19R",
+        "swy_dimensions_m":    null,
+        "resa_dimensions_m":   "90 x 90",
+        "cwy_dimensions_m":    null,
+        "strip_dimensions_m":  "3421 x 280",
+        "ofz":                 "YES",
+        "arresting_system":    null,
+        "remarks":             "CLSD WED 1000-1200"
       }
     ]
   }
 }
 
-If AD 2.12 data is not present on this page return:
-{"AD_2_12_runway_physical_characteristics": {"runways": []}}
-
+If no AD 2.12 data is visible: {"AD_2_12_runway_physical_characteristics":{"runways":[]}}
 Return ONLY the JSON object."""
 
 
-# ── Core image helpers ────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Image helpers
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def _page_to_image(doc: fitz.Document, page_no: int, dpi: int = 200) -> Image.Image:
     page = doc[page_no - 1]
@@ -142,19 +160,18 @@ def _page_to_image(doc: fitz.Document, page_no: int, dpi: int = 200) -> Image.Im
 
 
 def _combine_pages(doc: fitz.Document, page_numbers: list[int], dpi: int) -> Image.Image:
-    """Stitch multiple pages vertically into one image."""
     imgs = [_page_to_image(doc, p, dpi) for p in page_numbers]
     total_h = sum(i.height for i in imgs)
     max_w = max(i.width for i in imgs)
-    combined = Image.new("RGB", (max_w, total_h), (255, 255, 255))
+    canvas = Image.new("RGB", (max_w, total_h), (255, 255, 255))
     y = 0
     for img in imgs:
-        combined.paste(img, (0, y))
+        canvas.paste(img, (0, y))
         y += img.height
-    return combined
+    return canvas
 
 
-def _image_to_b64(img: Image.Image) -> str:
+def _b64(img: Image.Image) -> str:
     buf = BytesIO()
     img.save(buf, format="PNG")
     return base64.standard_b64encode(buf.getvalue()).decode()
@@ -165,147 +182,258 @@ def _strip_fences(text: str) -> str:
     return re.sub(r"\s*```$", "", text.strip(), flags=re.MULTILINE)
 
 
-def _ask_claude(
+def _ask(
     img: Image.Image,
     prompt: str,
     system: str = SYSTEM_PROMPT,
     max_tokens: int = 2048,
 ) -> dict:
-    response = _client.messages.create(
-        model=MODEL,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": _image_to_b64(img),
-                    },
-                },
-                {"type": "text", "text": prompt},
-            ],
-        }],
+    resp = _client.messages.create(
+        model=MODEL, max_tokens=max_tokens, system=system,
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": _b64(img)}},
+            {"type": "text", "text": prompt},
+        ]}],
     )
-    return json.loads(_strip_fences(response.content[0].text))
+    return json.loads(_strip_fences(resp.content[0].text))
 
 
-# ── Dynamic page finders ──────────────────────────────────────────────────────
-# FIX: Broad pattern matching both "AD 2.X" (Slovakia) and "ESSA 2.X" (Sweden)
-#      and any other country-prefixed format like "EGLL 2.X".
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase 1 — Text-layer scan
+# Covers all known naming conventions across national AIP publishers.
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def _find_section_pages(doc: fitz.Document, section_number: str) -> list[int]:
-    """
-    Find all pages containing a given AD2 section number.
-
-    Matches all known country formats, e.g.:
-      "AD 2.12"      — Slovakia, most ICAO states
-      "ESSA 2.12"    — Sweden
-      "LZPP AD 2.12" — Slovakia verbose
-    """
-    escaped = re.escape(section_number)
-    pattern = re.compile(
+def _build_pattern(section: str) -> re.Pattern:
+    e = re.escape(section)
+    sub = re.escape(section.split(".")[-1])   # "12" from "2.12"
+    return re.compile(
         r"(?:"
-        r"AD\s*" + escaped +          # "AD 2.12"
-        r"|[A-Z]{2,4}\s+" + escaped + # "ESSA 2.12"
-        r"|\b" + escaped + r"\s+[A-Z]"# "2.12 RUNWAY"
+        r"AD\s*" + e +                           # "AD 2.12"
+        r"|[A-Z]{2,4}\s+AD\s*" + e +             # "LZPP AD 2.12"
+        r"|[A-Z]{2,4}\s+" + e + r"(?:\s|$)" +    # "ESSA 2.12 "
+        r"|AD\s+2\s+[A-Z]{2,4}.*?1\s*[-–]\s*" + sub +  # "AD 2 EKRK 1-12"
+        r"|\b" + e + r"\s+[A-Z]"                 # "2.12 RUNWAY"
         r")",
         re.IGNORECASE,
     )
-    pages = []
+
+
+_PAT = {s: _build_pattern(s) for s in ("2.2", "2.3", "2.6", "2.12")}
+
+
+def _text_scan(doc: fitz.Document) -> dict[str, list[int]]:
+    found: dict[str, list[int]] = {s: [] for s in _PAT}
     for idx, page in enumerate(doc):
-        if pattern.search(page.get_text("text")):
-            pages.append(idx + 1)  # 1-based
-    return pages
+        text = page.get_text("text")
+        for section, pat in _PAT.items():
+            if pat.search(text):
+                found[section].append(idx + 1)
+    return found
 
 
-def _find_header_pages(doc: fitz.Document) -> list[int]:
-    """Pages containing AD 2.2 and AD 2.3 (typically page 1)."""
-    p22 = _find_section_pages(doc, "2.2")
-    p23 = _find_section_pages(doc, "2.3")
-    combined = sorted(set(p22) | set(p23))
-    return combined[:2] if combined else [1]
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase 2 — Claude discovery
+# ═══════════════════════════════════════════════════════════════════════════════
 
-
-def _find_ad26_pages(doc: fitz.Document) -> list[int]:
-    """Pages containing AD 2.6 fire fighting info."""
-    return _find_section_pages(doc, "2.6")
-
-
-def _find_ad212_pages(doc: fitz.Document) -> list[int]:
-    """All pages that contain AD 2.12 runway table data."""
-    return _find_section_pages(doc, "2.12")
-
-
-# ── Runway extraction ─────────────────────────────────────────────────────────
-
-def _extract_runway_fields(
-    doc: fitz.Document,
-    dpi: int = 200,
-    verbose: bool = True,
-) -> dict:
-    ad212_pages = _find_ad212_pages(doc)
-    if not ad212_pages:
+def _claude_discovery(doc: fitz.Document, dpi: int, verbose: bool) -> dict:
+    pages = [1] + ([2] if len(doc) >= 2 else [])
+    if verbose:
+        print(f"  → Phase 2: Claude discovery on page(s) {pages} ...")
+    img = _combine_pages(doc, pages, dpi)
+    try:
+        r = _ask(img, DISCOVERY_PROMPT, max_tokens=512)
         if verbose:
-            print("  ⚠ Could not find AD 2.12 section in text layer")
+            print(f"    format={r.get('format_hint')}  "
+                  f"AD2.2→p{r.get('page_ad2_2')}  "
+                  f"AD2.6→p{r.get('page_ad2_6')}  "
+                  f"AD2.12→p{r.get('page_ad2_12')}")
+        return r
+    except (json.JSONDecodeError, KeyError, Exception) as exc:
+        if verbose:
+            print(f"    ⚠ Discovery failed: {exc}")
         return {}
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PageMap — unified resolver
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class PageMap:
+    _DISC_KEYS = {"2.2": "page_ad2_2", "2.3": "page_ad2_3",
+                  "2.6": "page_ad2_6", "2.12": "page_ad2_12"}
+
+    def __init__(self, doc: fitz.Document, dpi: int, verbose: bool):
+        self._n = len(doc)
+        self._text = _text_scan(doc)
+
+        if verbose:
+            for k, v in self._text.items():
+                status = f"pages {v}" if v else "(not found)"
+                print(f"    Section {k} → {status}")
+
+        # Only run Phase 2 when Phase 1 found nothing at all
+        nothing_found = not any(self._text.values())
+        self._disc = _claude_discovery(doc, dpi, verbose) if nothing_found else {}
+
+    def _clamp(self, pages: list[int]) -> list[int]:
+        return [p for p in pages if 1 <= p <= self._n]
+
+    def get(self, section: str, fallback: list[int]) -> list[int]:
+        if self._text.get(section):
+            return self._clamp(self._text[section])
+        key = self._DISC_KEYS.get(section)
+        if key and isinstance(self._disc.get(key), int):
+            return self._clamp([self._disc[key]])
+        return self._clamp(fallback)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Extractors
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _extract_metadata(doc, pm: PageMap, dpi: int, verbose: bool) -> dict:
+    p22 = pm.get("2.2", [1])
+    p23 = pm.get("2.3", [1])
+    pages = sorted(set(p22) | set(p23))[:3]
     if verbose:
-        print(f"  → Extracting AD 2.12 runway data from page(s) {ad212_pages} ...")
+        print(f"  → Metadata (AD2.2+AD2.3) from page(s) {pages} ...")
+    try:
+        return _ask(_combine_pages(doc, pages, dpi), PROMPT_METADATA)
+    except Exception as exc:
+        if verbose:
+            print(f"    ⚠ {exc}")
+        return {}
+
+
+def _extract_ad26(doc, pm: PageMap, dpi: int, verbose: bool) -> dict:
+    pages = pm.get("2.6", [])
+    if not pages:
+        # Phase 3 brute-force: try early pages (AD2.6 is never past page 6)
+        pages = list(range(2, min(MAX_BRUTE_FORCE_PAGES + 1, len(doc) + 1)))
+        if verbose:
+            print(f"  → AD2.6: brute-force pages {pages} ...")
+    else:
+        pages = pages[:2]
+        if verbose:
+            print(f"  → AD2.6 from page(s) {pages} ...")
+    try:
+        return _ask(_combine_pages(doc, pages[:3], dpi), PROMPT_AD26)
+    except Exception as exc:
+        if verbose:
+            print(f"    ⚠ {exc}")
+        return {}
+
+
+def _extract_runways(doc, pm: PageMap, dpi: int, verbose: bool) -> dict:
+    pages = pm.get("2.12", [])
+    if not pages:
+        # Phase 3: runway tables never appear on pages 1-3
+        pages = list(range(4, min(12, len(doc) + 1)))
+        if verbose:
+            print(f"  → AD2.12: brute-force pages {pages} ...")
+    else:
+        if verbose:
+            print(f"  → AD2.12 from page(s) {pages} ...")
 
     all_runways: list[dict] = []
-
-    # Process each page individually — the table often spans multiple pages
-    for page_no in ad212_pages:
-        img = _page_to_image(doc, page_no, dpi=dpi)
+    for pno in pages:
         try:
-            parsed = _ask_claude(img, PROMPT_AD212, system=TABLE_SYSTEM_PROMPT, max_tokens=4096)
-            page_runways = (
-                parsed
-                .get("AD_2_12_runway_physical_characteristics", {})
-                .get("runways", [])
-            )
-            if page_runways:
+            parsed = _ask(_page_to_image(doc, pno, dpi), PROMPT_AD212,
+                          system=SYSTEM_TABLE, max_tokens=4096)
+            rwy_list = (parsed
+                        .get("AD_2_12_runway_physical_characteristics", {})
+                        .get("runways", []))
+            if rwy_list:
                 if verbose:
-                    print(f"    • Page {page_no}: found {len(page_runways)} runway row(s)")
-                all_runways.extend(r for r in page_runways if isinstance(r, dict))
-        except (json.JSONDecodeError, KeyError) as exc:
+                    print(f"    • Page {pno}: {len(rwy_list)} row(s)")
+                all_runways.extend(r for r in rwy_list if isinstance(r, dict))
+        except Exception as exc:
             if verbose:
-                print(f"    ⚠ Parse error on page {page_no}: {exc}")
+                print(f"    ⚠ Page {pno}: {exc}")
 
     if not all_runways:
         return {}
 
-    # Deduplicate by designator, keeping first full occurrence
-    seen: set[str] = set()
-    deduped: list[dict] = []
+    # Deduplicate + merge across pages
+    seen: dict[str, dict] = {}
     for rwy in all_runways:
         key = str(rwy.get("designator", "")).strip().upper()
-        if key and key not in seen:
-            seen.add(key)
-            deduped.append(rwy)
-        elif key in seen:
-            # Merge non-null fields from later pages into earlier entry
-            existing = next(r for r in deduped if str(r.get("designator", "")).upper() == key)
-            for field, value in rwy.items():
-                if value is not None and existing.get(field) is None:
-                    existing[field] = value
+        if not key:
+            continue
+        if key not in seen:
+            seen[key] = dict(rwy)
+        else:
+            for f, v in rwy.items():
+                if v is not None and seen[key].get(f) is None:
+                    seen[key][f] = v
 
+    deduped = list(seen.values())
     return {
         "ad2_12_runways": deduped,
         "ad2_12_runway_designators": ", ".join(r.get("designator", "") for r in deduped),
         "ad2_12_runway_dimensions": "; ".join(
-            f"{r.get('designator', '')}: {r.get('dimensions_m', '')}"
-            for r in deduped
-            if r.get("dimensions_m")
+            f"{r.get('designator','')}: {r.get('dimensions_m','')}"
+            for r in deduped if r.get("dimensions_m")
         ),
     }
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# PDF path resolution (server-safe loading)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _resolve_pdf_path(pdf_path: str | Path) -> Path:
+    """
+    Resolve input PDF path robustly for server execution.
+    Supports:
+      - absolute paths
+      - relative paths from cwd
+      - basename lookup in known server download folders
+    """
+    raw = Path(pdf_path).expanduser()
+    if raw.exists():
+        return raw.resolve()
+
+    candidate = Path.cwd() / raw
+    if candidate.exists():
+        return candidate.resolve()
+
+    basename = raw.name
+    search_roots = [
+        Path.cwd() / "data" / "ead-aip",
+        Path.cwd() / "aips",
+        Path.cwd() / "downloads" / "rus-aip" / "by-icao",
+    ]
+    for root in search_roots:
+        if not root.exists():
+            continue
+        if root.is_dir():
+            match = next(root.rglob(basename), None)
+            if match and match.exists():
+                return match.resolve()
+
+    raise FileNotFoundError(f"PDF not found: {pdf_path}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Date fallback
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _scrape_date(pdf_path: Path) -> Optional[str]:
+    resolved = _resolve_pdf_path(pdf_path)
+    doc = fitz.open(str(resolved))
+    pat = re.compile(
+        r"\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{2,4}\b",
+        re.IGNORECASE,
+    )
+    found = [m for page in doc for m in pat.findall(page.get_text())]
+    doc.close()
+    return found[-1].upper() if found else None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Public API
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def extract_metadata(
     pdf_path: str | Path,
@@ -313,87 +441,60 @@ def extract_metadata(
     verbose: bool = True,
 ) -> dict:
     """
-    Extract AIP metadata from any ICAO-compliant AD2 PDF.
-    Page numbers are detected automatically from the PDF text layer —
-    no hardcoded page numbers, works with any country's AIP format.
+    Extract AIP AD2 metadata from any ICAO-compliant national AIP PDF.
+
+    Automatically handles Slovak, Swedish, Danish EAD, and other formats.
+    Falls back progressively from text-scan → Claude discovery → brute-force.
     """
-    pdf_path = Path(pdf_path)
+    pdf_path = _resolve_pdf_path(pdf_path)
     doc = fitz.open(str(pdf_path))
+
+    if verbose:
+        print(f"\n  File: {pdf_path.name}  ({len(doc)} pages)")
+        print("  Phase 1: text-layer scan ...")
+
+    pm = PageMap(doc, dpi=dpi, verbose=verbose)
     result: dict = {}
 
-    # ── AD 2.2 + AD 2.3 ─────────────────────────────────────────────────────
-    header_pages = _find_header_pages(doc)
-    if verbose:
-        print(f"  → Extracting header / AD2.2 / AD2.3 from page(s) {header_pages} ...")
-    img = _combine_pages(doc, header_pages, dpi)
-    try:
-        partial = _ask_claude(img, PROMPT_HEADER_AD22_AD23)
-        result.update({k: v for k, v in partial.items() if v is not None})
-    except (json.JSONDecodeError, KeyError) as exc:
-        if verbose:
-            print(f"    ⚠ Parse error: {exc}")
+    meta = _extract_metadata(doc, pm, dpi, verbose)
+    result.update({k: v for k, v in meta.items() if v is not None})
 
-    # ── AD 2.6 ───────────────────────────────────────────────────────────────
-    ad26_pages = _find_ad26_pages(doc)
-    if ad26_pages:
-        if verbose:
-            print(f"  → Extracting AD2.6 from page(s) {ad26_pages[:2]} ...")
-        img = _combine_pages(doc, ad26_pages[:2], dpi)
-        try:
-            partial = _ask_claude(img, PROMPT_AD26)
-            result.update({k: v for k, v in partial.items() if v is not None})
-        except (json.JSONDecodeError, KeyError) as exc:
-            if verbose:
-                print(f"    ⚠ Parse error: {exc}")
-    else:
-        if verbose:
-            print("  ⚠ Could not find AD 2.6 section")
+    ad26 = _extract_ad26(doc, pm, dpi, verbose)
+    result.update({k: v for k, v in ad26.items() if v is not None})
 
-    # ── AD 2.12 runways ──────────────────────────────────────────────────────
-    result.update(_extract_runway_fields(doc, dpi=dpi, verbose=verbose))
+    result.update(_extract_runways(doc, pm, dpi, verbose))
 
     doc.close()
 
-    # Fallback date scrape from text layer
     if not result.get("publication_date"):
-        result["publication_date"] = _scrape_date_from_text(pdf_path)
+        result["publication_date"] = _scrape_date(pdf_path)
 
     return result
 
 
-def _scrape_date_from_text(pdf_path: Path) -> str | None:
-    doc = fitz.open(str(pdf_path))
-    pattern = re.compile(
-        r"\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{2,4}\b"
-    )
-    found = []
-    for page in doc:
-        found.extend(pattern.findall(page.get_text()))
-    doc.close()
-    return found[-1] if found else None
-
-
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLI
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract AIP AD2 metadata fields.")
-    parser.add_argument("pdf", help="Path to AIP AD2 PDF file")
-    parser.add_argument("--out", default=None, help="Output JSON file path (optional)")
-    parser.add_argument("--dpi", type=int, default=200, help="Rendering DPI (default 200)")
-    parser.add_argument("--quiet", action="store_true", help="Suppress final JSON print")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser(
+        description="Extract AIP AD2 metadata — works with any national AIP format."
+    )
+    ap.add_argument("pdf", help="AIP AD2 PDF file")
+    ap.add_argument("--out",   default=None, help="Output JSON path")
+    ap.add_argument("--dpi",   type=int, default=200, help="Render DPI (default 200)")
+    ap.add_argument("--quiet", action="store_true", help="Suppress final JSON echo")
+    args = ap.parse_args()
 
-    print(f"\nProcessing: {args.pdf}")
     started = time.perf_counter()
-    result = extract_metadata(args.pdf, dpi=args.dpi, verbose=True)
+    result  = extract_metadata(args.pdf, dpi=args.dpi, verbose=True)
     elapsed = time.perf_counter() - started
     result["extraction_time_seconds"] = round(elapsed, 3)
 
-    out_path = args.out or (Path(args.pdf).stem + "_meta.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    out = args.out or (Path(args.pdf).stem + "_meta.json")
+    Path(out).write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"\n  ✓ Saved → {out_path}")
+    print(f"\n  ✓ Saved  → {out}")
     print(f"  ⏱ Elapsed: {elapsed:.2f}s")
     if not args.quiet:
         print(json.dumps(result, ensure_ascii=False, indent=2))

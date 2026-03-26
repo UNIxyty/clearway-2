@@ -29,6 +29,9 @@ data/ead-gen/*.txt
 data/ead-enr/*.pdf
 data/ead-enr/*.txt
 
+# AIP country tree: flat mirror of PDFs (node scripts/flatten-aips-pdfs.mjs)
+aips/all-pdfs/
+
 # misc
 .DS_Store
 __pycache__/

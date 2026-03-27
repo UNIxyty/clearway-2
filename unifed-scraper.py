@@ -13,7 +13,9 @@ import re
 import sys
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 from urllib.parse import quote, unquote, urljoin, urlparse
+from urllib3.util.retry import Retry
 
 # ─────────────────────────────────────────────
 # COUNTRY REGISTRY
@@ -108,6 +110,14 @@ COUNTRIES = {
     "Belarus": {
         "type": "A",
         "history_url": "https://www.belaeronavigatsia.by/eaip/history-en-GB.html",
+        # Primary host is sometimes down or blocked; try plain HTTP / bare domain.
+        "history_urls": [
+            "https://www.belaeronavigatsia.by/eaip/history-en-GB.html",
+            "http://www.belaeronavigatsia.by/eaip/history-en-GB.html",
+            "https://belaeronavigatsia.by/eaip/history-en-GB.html",
+        ],
+        # AD2 airport links often live on the Eurocontrol *-menu-en-GB.html page, not the root index.
+        "ad2_menu_prefix": "UM",
     },
     # ── TYPE B: PANSA/Poland-style ──
     "Poland": {
@@ -144,6 +154,17 @@ SESSION.headers.update({
                   "AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/120.0.0.0 Safari/537.36"
 })
+_retry = Retry(
+    total=4,
+    connect=3,
+    read=3,
+    backoff_factor=0.6,
+    status_forcelist=(429, 502, 503, 504),
+    allowed_methods=frozenset({"GET", "HEAD"}),
+)
+_adapter = HTTPAdapter(max_retries=_retry)
+SESSION.mount("https://", _adapter)
+SESSION.mount("http://", _adapter)
 
 
 def get_soup(url, timeout=20):
@@ -173,24 +194,93 @@ def safe_filename(name):
 # TYPE A: Eurocontrol/Georgia-style
 # ─────────────────────────────────────────────
 
-def type_a_get_effective_folder(history_url):
-    """Parse history page → return (folder_name, base_url_for_eaip)"""
+def _history_urls_for_config(config):
+    urls = config.get("history_urls")
+    if urls:
+        return list(urls)
+    return [config["history_url"]]
+
+
+def type_a_get_effective_folder(history_urls):
+    """Parse history page(s) → return (folder_name, base_url_for_eaip)."""
+    if isinstance(history_urls, str):
+        history_urls = [history_urls]
+    last_err = None
+    for history_url in history_urls:
+        try:
+            return _type_a_resolve_one_history_url(history_url)
+        except (requests.RequestException, RuntimeError) as e:
+            last_err = e
+            print(f"  ⚠ History URL failed: {history_url}\n    {e}")
+    hint = (
+        " Check DNS/VPN if you see 'Failed to resolve host'."
+        " Belarus publishes via belaeronavigatsia.by (Eurocontrol-style tree)."
+    )
+    raise RuntimeError(
+        f"Could not load any history URL (tried {len(history_urls)}). Last error: {last_err}.{hint}"
+    ) from None
+
+
+def _type_a_resolve_one_history_url(history_url):
     print(f"  Fetching history page: {history_url}")
     soup = get_soup(history_url)
     base = history_url.rsplit("/", 1)[0] + "/"
 
-    # Look for CURRENT ISSUE table row with a link
-    # Pattern: <a href="2026-02-19-000000/html/index-en-GB.html">15 MAY 2025</a>
+    # CURRENT ISSUE row links, e.g. 2026-02-19-000000/html/… or 2026-02-19/html/…
+    patterns = (
+        r"(\d{4}-\d{2}-\d{2}-\d+)/html/",
+        r"(\d{4}-\d{2}-\d{2})/html/",
+    )
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        m = re.search(r"(\d{4}-\d{2}-\d{2}-\d+)/html/", href)
-        if m:
-            folder = m.group(1)
-            eaip_base = urljoin(base, folder + "/html/")
-            print(f"  → Effective folder: {folder}")
-            return folder, eaip_base
+        for pat in patterns:
+            m = re.search(pat, href)
+            if m:
+                folder = m.group(1)
+                eaip_base = urljoin(base, folder + "/html/")
+                print(f"  → Effective folder: {folder}")
+                return folder, eaip_base
 
     raise RuntimeError(f"Could not find effective issue folder in {history_url}")
+
+
+def _index_language_tag(index_leaf):
+    m = re.match(r"index-([a-z]{2}-[A-Z]{2})\.html$", index_leaf or "", re.I)
+    return m.group(1) if m else "en-GB"
+
+
+def type_a_eaip_folder_root(eaip_base):
+    """eaip_base is …/<issue>/html/ → return …/<issue> (parent of html)."""
+    u = eaip_base.rstrip("/")
+    if u.lower().endswith("/html"):
+        return u[: -len("/html")]
+    return u.rsplit("/", 1)[0]
+
+
+def type_a_get_ad2_from_menu(eaip_base, menu_prefix, index_leaf="index-en-GB.html"):
+    """Eurocontrol: eAIP/<PREFIX>-menu-en-GB.html lists AD-2-* HTML entry pages."""
+    lang = _index_language_tag(index_leaf)
+    menu_url = urljoin(eaip_base, f"eAIP/{menu_prefix}-menu-{lang}.html")
+    try:
+        soup = get_soup(menu_url)
+    except requests.RequestException as e:
+        print(f"  (optional menu) skip {menu_url}: {e}")
+        return {}
+    airports = {}
+    pat = re.compile(
+        rf"{re.escape(menu_prefix)}-AD-2-([A-Z]{{4}})-{re.escape(lang)}\.html",
+        re.I,
+    )
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        m = pat.search(href)
+        if not m:
+            continue
+        icao = m.group(1).upper()
+        airports[icao] = urljoin(menu_url, href)
+    if airports:
+        print(f"  → AD2 from menu ({menu_prefix}-menu): {len(airports)} airports")
+    return airports
 
 
 def type_a_get_gen_pdfs(eaip_base, index_leaf="index-en-GB.html"):
@@ -211,7 +301,11 @@ def type_a_get_gen_pdfs(eaip_base, index_leaf="index-en-GB.html"):
     return pdfs
 
 
-def type_a_get_ad2_airports(eaip_base, index_leaf="index-en-GB.html"):
+def type_a_get_ad2_airports(
+    eaip_base,
+    index_leaf="index-en-GB.html",
+    menu_prefix=None,
+):
     """Return dict {ICAO: html_page_url} for all AD2 airports."""
     index_url = urljoin(eaip_base, index_leaf)
     soup = get_soup(index_url)
@@ -226,7 +320,26 @@ def type_a_get_ad2_airports(eaip_base, index_leaf="index-en-GB.html"):
             icao = m.group(1).upper()
             full_url = urljoin(eaip_base, href)
             airports[icao] = full_url
+    if menu_prefix:
+        for icao, url in type_a_get_ad2_from_menu(
+            eaip_base, menu_prefix, index_leaf
+        ).items():
+            airports.setdefault(icao, url)
     return airports
+
+
+def _type_a_pdf_head_ok(url):
+    try:
+        r = SESSION.head(url, timeout=15, allow_redirects=True)
+        if r.status_code == 200:
+            return True
+        # Some servers forbid HEAD; try light GET
+        g = SESSION.get(url, timeout=15, stream=True, allow_redirects=True)
+        ok = g.status_code == 200
+        g.close()
+        return ok
+    except requests.RequestException:
+        return False
 
 
 def type_a_get_ad2_pdf(airport_page_url, eaip_base):
@@ -236,22 +349,32 @@ def type_a_get_ad2_pdf(airport_page_url, eaip_base):
         href = a["href"]
         if href.lower().endswith(".pdf"):
             return urljoin(airport_page_url, href)
-    # Try looking for pdf subfolder pattern
-    # e.g. base/pdf/UG-AD-2-UGAM-en-GB.pdf
     parsed = urlparse(airport_page_url)
     path_parts = parsed.path.split("/")
-    # Replace 'html' with 'pdf' in path
     pdf_path = "/".join(
         "pdf" if p == "html" else p for p in path_parts
     )
     pdf_path = re.sub(r"\.html$", ".pdf", pdf_path)
-    candidate = f"{parsed.scheme}://{parsed.netloc}{pdf_path}"
-    try:
-        r = SESSION.head(candidate, timeout=10)
-        if r.status_code == 200:
+    candidates = [f"{parsed.scheme}://{parsed.netloc}{pdf_path}"]
+    # Many Eurocontrol trees drop the language tag on the PDF (…-en-GB.html → … .pdf)
+    alt = re.sub(r"-en-[A-Z]{2}\.pdf$", ".pdf", candidates[0], flags=re.I)
+    if alt != candidates[0]:
+        candidates.append(alt)
+
+    root = type_a_eaip_folder_root(eaip_base)
+    bn = os.path.basename(parsed.path)
+    short_pdf = re.sub(r"-en-[A-Z]{2}\.html$", ".pdf", bn, flags=re.I)
+    if not short_pdf.lower().endswith(".pdf"):
+        short_pdf = re.sub(r"\.html$", ".pdf", bn, flags=re.I)
+    candidates.append(f"{root.rstrip('/')}/pdf/{short_pdf}")
+
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if _type_a_pdf_head_ok(candidate):
             return candidate
-    except Exception:
-        pass
     return None
 
 
@@ -450,7 +573,9 @@ def run_type_d(country_name, config, mode, icao=None, output_dir="downloads"):
                 print(f"  ✗ Failed {url}: {e}")
 
     if mode in ("ad2", "all"):
-        airports = type_a_get_ad2_airports(eaip_base, index_leaf)
+        airports = type_a_get_ad2_airports(
+            eaip_base, index_leaf, menu_prefix=config.get("ad2_menu_prefix")
+        )
         if not airports:
             airports = scrape_airports_from_index(eaip_base, index_leaf)
         if mode == "all":
@@ -478,9 +603,8 @@ def run_type_d(country_name, config, mode, icao=None, output_dir="downloads"):
 
 
 def run_type_a(country_name, config, mode, icao=None, output_dir="downloads"):
-    history_url = config["history_url"]
     index_leaf = config.get("index_page", "index-en-GB.html")
-    folder, eaip_base = type_a_get_effective_folder(history_url)
+    folder, eaip_base = type_a_get_effective_folder(_history_urls_for_config(config))
     base_dir = os.path.join(output_dir, safe_filename(country_name), folder)
 
     if mode in ("gen", "all"):
@@ -500,7 +624,9 @@ def run_type_a(country_name, config, mode, icao=None, output_dir="downloads"):
                 print(f"  ✗ Failed {url}: {e}")
 
     if mode in ("ad2", "all"):
-        airports = type_a_get_ad2_airports(eaip_base, index_leaf)
+        airports = type_a_get_ad2_airports(
+            eaip_base, index_leaf, menu_prefix=config.get("ad2_menu_prefix")
+        )
         if not airports:
             print("  ⚠ Could not auto-detect airports. Trying broader index scrape...")
             airports = scrape_airports_from_index(eaip_base, index_leaf)
@@ -564,7 +690,15 @@ def main():
         print("\nRegistered countries:", ", ".join(sorted(COUNTRIES)))
         sys.exit(0)
 
-    run_country(args.country, mode=args.mode, icao=args.icao, output_dir=args.output)
+    try:
+        run_country(args.country, mode=args.mode, icao=args.icao, output_dir=args.output)
+    except NotImplementedError as e:
+        print(e, file=sys.stderr)
+        sys.exit(2)
+    except RuntimeError as e:
+        sys.stdout.flush()
+        print(e, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

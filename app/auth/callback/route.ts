@@ -5,8 +5,10 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const tokenHash = requestUrl.searchParams.get("token_hash");
-  const tokenType = requestUrl.searchParams.get("type");
+  const tokenHash =
+    requestUrl.searchParams.get("token_hash") ?? requestUrl.searchParams.get("token");
+  const rawTokenType = requestUrl.searchParams.get("type");
+  const tokenType = rawTokenType ? rawTokenType.toLowerCase() : null;
   const error = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const nextRaw = requestUrl.searchParams.get("next") || "/";
@@ -60,14 +62,15 @@ export async function GET(request: Request) {
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) authError = exchangeError.message;
-  } else if (tokenHash && tokenType) {
+  } else if (tokenHash) {
+    const otpType =
+      (tokenType as "signup" | "invite" | "recovery" | "email_change" | "email" | null) ??
+      "invite";
     const { error: verifyError } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type: tokenType as "signup" | "invite" | "recovery" | "email_change" | "email",
+      type: otpType,
     });
     if (verifyError) authError = verifyError.message;
-  } else {
-    authError = "Missing token type for email authentication.";
   }
 
   if (authError) {

@@ -7,7 +7,10 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code");
   const error = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
-  const next = requestUrl.searchParams.get("next") || "/";
+  const nextRaw = requestUrl.searchParams.get("next") || "/";
+  const next = nextRaw.startsWith("/") ? nextRaw : "/";
+  const continueRaw = requestUrl.searchParams.get("continue");
+  const continuePath = continueRaw && continueRaw.startsWith("/") ? continueRaw : null;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,6 +35,9 @@ export async function GET(request: Request) {
   }
 
   const redirectTo = new URL(next, requestUrl.origin);
+  if (continuePath) {
+    redirectTo.searchParams.set("continue", continuePath);
+  }
   const response = NextResponse.redirect(redirectTo);
   const cookieStore = cookies();
 

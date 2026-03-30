@@ -3,7 +3,34 @@
 ## Auth (login)
 
 - Set **Project URL** and **anon key** in env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Set **service role key** in env for server auth routes: `SUPABASE_SERVICE_ROLE_KEY`.
+- Optional but recommended for absolute links in emails: `NEXT_PUBLIC_SITE_URL` (for example `https://portal.clearway.aero`).
 - For Google sign-in, follow [GOOGLE-AUTH-SETUP.md](./GOOGLE-AUTH-SETUP.md).
+
+### Email/password flow (no magic link login)
+
+This project now uses:
+
+- Email invite/confirmation link -> user lands on `/auth/confirm` -> user sets password.
+- Email/password sign-in.
+- Forgot password email -> user lands on `/auth/reset` -> user sets a new password.
+
+Setup steps:
+
+1. Open Supabase Dashboard -> **SQL Editor**.
+2. Run `docs/supabase-email-confirmations.sql`.
+3. Open **Authentication -> URL Configuration**:
+   - Add your app URL(s) to **Redirect URLs**.
+   - Ensure `/auth/callback` is reachable from those URLs.
+4. Open **Authentication -> Email Templates**:
+   - Update **Invite user** template (used for first email confirmation).
+   - Update **Reset password** template (used for forgot password).
+   - Keep Magic Link template unused for login.
+5. Verify env vars in deployment and local:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SITE_URL` (recommended)
 
 ## Tables for /stats and search logging
 

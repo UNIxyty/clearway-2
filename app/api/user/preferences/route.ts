@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { getCorporateTokenFromCookieStore, getCorporateSessionByToken } from "@/lib/corporate-auth";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const PREF_SELECT =
@@ -27,52 +26,22 @@ export async function GET() {
       },
     });
 
-    const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
-    const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
     const {
       data: { user },
       error: userErr,
-    } = corporateSession
-      ? { data: { user: null }, error: null }
-      : await supabase.auth.getUser();
+    } = await supabase.auth.getUser();
 
     const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
-    if (disableAuthForTesting && (userErr || !user) && !corporateSession) {
+    if (disableAuthForTesting && (userErr || !user)) {
       return NextResponse.json({ preferences: {} });
     }
 
-    const isCorporate = Boolean(corporateSession?.device_profile_id);
     const userId = user?.id ?? null;
-    const deviceProfileId = corporateSession?.device_profile_id ?? null;
-
-    if ((!isCorporate && (userErr || !userId)) || (isCorporate && !deviceProfileId)) {
+    if (userErr || !userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const admin = createSupabaseServiceRoleClient();
-    if (isCorporate) {
-      if (!admin) {
-        return NextResponse.json(
-          {
-            error: "Server misconfigured",
-            detail: "SUPABASE_SERVICE_ROLE_KEY is required for corporate account preferences.",
-          },
-          { status: 503 }
-        );
-      }
-      const { data, error } = await admin
-        .from("device_profile_preferences")
-        .select(PREF_SELECT)
-        .eq("device_profile_id", deviceProfileId!)
-        .maybeSingle();
-
-      if (error && error.code !== "PGRST116") {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      return NextResponse.json({ preferences: data });
-    }
-
-    // Supabase auth user
     const db = admin ?? supabase;
     const { data, error } = await db
       .from("user_preferences")
@@ -111,20 +80,12 @@ export async function POST(request: Request) {
       },
     });
 
-    const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
-    const corporateSession = corporateToken ? await getCorporateSessionByToken(corporateToken) : null;
     const {
       data: { user },
       error: userErr,
-    } = corporateSession
-      ? { data: { user: null }, error: null }
-      : await supabase.auth.getUser();
-
-    const isCorporate = Boolean(corporateSession?.device_profile_id);
+    } = await supabase.auth.getUser();
     const userId = user?.id ?? null;
-    const deviceProfileId = corporateSession?.device_profile_id ?? null;
-
-    if ((!isCorporate && (userErr || !userId)) || (isCorporate && !deviceProfileId)) {
+    if (userErr || !userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -139,41 +100,6 @@ export async function POST(request: Request) {
     };
 
     const admin = createSupabaseServiceRoleClient();
-    if (isCorporate) {
-      if (!admin) {
-        return NextResponse.json(
-          {
-            error: "Server misconfigured",
-            detail: "SUPABASE_SERVICE_ROLE_KEY is required for corporate account preferences.",
-          },
-          { status: 503 }
-        );
-      }
-      const updates: Record<string, unknown> = {
-        device_profile_id: deviceProfileId,
-      };
-      if (body.display_name !== undefined) {
-        updates.display_name = body.display_name.trim() || null;
-      }
-      if (typeof body.notify_enabled === "boolean") updates.notify_enabled = body.notify_enabled;
-      if (typeof body.notify_search_start === "boolean") updates.notify_search_start = body.notify_search_start;
-      if (typeof body.notify_search_end === "boolean") updates.notify_search_end = body.notify_search_end;
-      if (typeof body.notify_notam === "boolean") updates.notify_notam = body.notify_notam;
-      if (typeof body.notify_aip === "boolean") updates.notify_aip = body.notify_aip;
-      if (typeof body.notify_gen === "boolean") updates.notify_gen = body.notify_gen;
-
-      const { data, error } = await admin
-        .from("device_profile_preferences")
-        .upsert(updates, { onConflict: "device_profile_id" })
-        .select(PREF_POST_SELECT)
-        .single();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-      return NextResponse.json({ ok: true, preferences: data });
-    }
-
     const updates: Record<string, unknown> = {
       user_id: userId,
     };

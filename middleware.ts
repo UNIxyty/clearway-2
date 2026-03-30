@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { getCorporateSessionFromRequest } from "@/lib/corporate-auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -80,18 +79,13 @@ export async function middleware(request: NextRequest) {
   // Public routes when maintenance mode is not active.
   if (
     pathname.startsWith("/login") ||
-    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/") ||
     pathname.startsWith("/maintenance") ||
     pathname.startsWith("/rus-aip-test") ||
     pathname.startsWith("/aip-meta-compare") ||
     pathname.startsWith("/api")
   ) {
     return NextResponse.next();
-  }
-
-  const corporateSession = await getCorporateSessionFromRequest(request);
-  if (corporateSession) {
-    return response;
   }
 
   const {

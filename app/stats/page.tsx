@@ -1,30 +1,18 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import {
-  getCorporateTokenFromCookieStore,
-  getCorporateSessionByToken,
-} from "@/lib/corporate-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function StatsPage() {
   const supabase = createSupabaseServerClient();
-  const cookieStore = cookies();
-  const corporateToken = getCorporateTokenFromCookieStore(cookieStore);
-  const corporateSession = corporateToken
-    ? await getCorporateSessionByToken(corporateToken)
-    : null;
   const {
     data: { user },
-  } = corporateSession
-    ? { data: { user: null } }
-    : await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
 
-  const identityId = corporateSession?.device_profile_id ?? user?.id ?? null;
+  const identityId = user?.id ?? null;
   if (!identityId) redirect("/login?next=/stats");
 
-  const admin = corporateSession ? createSupabaseServiceRoleClient() : null;
+  const admin = createSupabaseServiceRoleClient();
   const db = admin ?? supabase;
 
   const { data: events, error } = await db

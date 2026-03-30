@@ -38,6 +38,7 @@ Rules:
 - AD2.3 ATS: e.g. "NIL", "H24", "AFIS".
 - AD2.3 Remarks: or "NIL".
 - AD2.6 AD category for fire fighting: e.g. "CAT 9" or short phrase; or "NIL".
+- Write all output values in English only. If source text is in another language, translate extracted values to concise English.
 
 Output only valid JSON, no markdown or extra text.
 ```

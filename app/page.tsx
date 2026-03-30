@@ -90,8 +90,21 @@ function isEadIcao(icao: string): boolean {
   return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
 }
 
+const RUSSIA_ICAO_PREFIXES = new Set([
+  "UE",
+  "UH",
+  "UI",
+  "UL",
+  "UN",
+  "UR",
+  "US",
+  "UU",
+  "UW",
+]);
+
 function isRussiaIcao(icao: string): boolean {
-  return /^[U][A-Z0-9]{3}$/.test(icao.toUpperCase());
+  if (!/^[A-Z0-9]{4}$/.test(icao.toUpperCase())) return false;
+  return RUSSIA_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
 }
 
 function supportsSyncedAipIcao(icao: string): boolean {

@@ -28,6 +28,7 @@ const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_i
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
+const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -81,7 +82,7 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 }
 
 async function runDownload(icao) {
-  if (/^U[A-Z0-9]{3}$/.test(icao)) {
+  if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
   }
@@ -181,7 +182,7 @@ async function deleteOldFromS3(icao) {
 }
 
 function findDownloadedPdf(icao) {
-  if (/^U[A-Z0-9]{3}$/.test(icao)) {
+  if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
     const icaoUpper = icao.toUpperCase();
     const runDirs = readdirSync(RUS_AIP_RUNS_DIR)
@@ -270,7 +271,8 @@ async function runGenDownload(prefix) {
 }
 
 function isRussiaIcao(icao) {
-  return /^U[A-Z0-9]{3}$/.test(icao);
+  const upper = String(icao || "").trim().toUpperCase();
+  return /^[A-Z0-9]{4}$/.test(upper) && RUSSIA_ICAO_PREFIXES.has(upper.slice(0, 2));
 }
 
 async function runGenDownloadForIcao(icao, prefix) {

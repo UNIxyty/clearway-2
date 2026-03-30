@@ -85,6 +85,24 @@ This creates `public.email_confirmations` used for signup confirmation token tra
 5. Magic link login template is now legacy:
    - `docs/supabase-email-magic-link-template.html`
 
+### Email logos from S3
+
+Supabase email HTML can load logos from S3 only if the image URL is a direct, public `https://` URL.
+
+- Good:
+  - Public S3 object URL (or CloudFront URL) with anonymous `GET` allowed.
+  - Supabase Storage public object URL.
+- Not good:
+  - Private S3 URL that needs signed auth headers.
+  - Short-lived pre-signed URL (can expire and break old emails).
+
+Current template logo URLs are:
+
+- `https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg`
+- `https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png`
+
+If you move logos to AWS S3, replace those `src` values with your public object or CloudFront URLs.
+
 ## 6) How signup now works
 
 1. User enters email in login card and clicks **New account? Confirm email**.

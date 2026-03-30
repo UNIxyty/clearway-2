@@ -103,7 +103,10 @@ Shared CLI pieces: `inac-venezuela-eaip-http.mjs`, `inac-venezuela-eaip-prompts.
 node scripts/inac-venezuela-eaip-interactive.mjs
 ```
 
-Asks whether you want **GEN** or **AD 2.1**. For **AD 2.1**, it loads the menu and shows a **numbered list of ICAOs** (same entries as Part 3 → AD_2); you pick a number or type the ICAO, then it downloads the PDF (HTML step + PDF, like the site toolbar).
+Asks whether you want **GEN** or **AD 2.1**.
+
+- **GEN:** choose **GEN_0 … GEN_4** (same blocks as the site menu), then one section, all sections in that block, or use **`l`** for a flat list of every GEN PDF key; **`a`** still downloads all GEN PDFs.
+- **AD 2.1:** loads the menu and shows a **numbered list of ICAOs** (Part 3 → AD_2); pick a number or type the ICAO, then it downloads the PDF (HTML + toolbar-equivalent PDF).
 
 ## Automation scripts (non-interactive)
 

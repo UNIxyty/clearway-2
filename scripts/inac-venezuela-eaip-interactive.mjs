@@ -41,7 +41,7 @@ function parseInteractiveArgv(argv) {
     console.log(`Usage: node scripts/inac-venezuela-eaip-interactive.mjs [options]
 
 Interactive prompts:
-  1 — GEN: pick one section or download all Part 1 PDFs
+  1 — GEN: choose GEN_0 … GEN_4 (like the site), then section(s); or download all / flat list
   2 — AD 2.1: numbered ICAO list from menu, then PDF download
 
 Options:
@@ -72,9 +72,13 @@ async function main() {
     console.error("INAC Venezuela eAIP — downloader\n");
     console.error(`Package: ${packageRoot}\n`);
     const top = (
-      await rl.question("What to download?\n  [1] GEN (Part 1 — general sections)\n  [2] AD 2.1 (Part 3 — pick aerodrome / ICAO)\n  [0] Quit\n\nChoice [1/2/0]: ")
-    )
-      .trim();
+      await rl.question(
+        "What to download?\n" +
+          "  [1] GEN (Part 1 — choose GEN_0 / GEN_1 / … then PDF section(s))\n" +
+          "  [2] AD 2.1 (Part 3 — pick ICAO from list, then PDF)\n" +
+          "  [0] Quit\n\nChoice [1/2/0]: ",
+      )
+    ).trim();
 
     if (top === "0" || top.toLowerCase() === "q") {
       console.error("Bye.");

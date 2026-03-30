@@ -17,7 +17,9 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = join(__dirname, "..", "test-results", "aim-links-probe-report.json");
 
-const UA = "ClearwayAIMProbe/1.0 (+https://github.com/UNIxyty/clearway-2)";
+/** Browser-like UA — some AIS sites block or throttle non-browser clients (KOCA, PAA, CAAN, Oman). */
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 ClearwayAIMProbe/1.0";
 
 /** @type {Map<string, any>} */
 const urlCache = new Map();

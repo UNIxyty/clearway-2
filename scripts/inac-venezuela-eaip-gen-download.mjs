@@ -9,7 +9,8 @@
  *   node scripts/inac-venezuela-eaip-interactive.mjs   # prompts: GEN vs AD 2.1
  *   node scripts/inac-venezuela-eaip-gen-download.mjs [--dry-run] [--only STEM] [--insecure] [--strict-tls]
  *
- * Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT
+ * Env: INAC_EAIP_PACKAGE_ROOT (optional override), INAC_TLS_INSECURE, INAC_TLS_STRICT
+ * Default package URL is resolved from INAC history-body (Currently Effective Issue).
  *
  * Output: downloads/inac-venezuela-eaip/GEN/<stem>.pdf
  */
@@ -18,7 +19,7 @@ import { mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
-  DEFAULT_INAC_PACKAGE_ROOT,
+  FALLBACK_INAC_PACKAGE_ROOT,
   indexUrl,
   menuUrl,
   sectionHtmlUrl,
@@ -27,6 +28,7 @@ import {
   safePdfFilename,
   parseGenHtmlHrefs,
   parseTlsAndRoot,
+  getInacPackageRoot,
   createInacFetch,
   makeTlsOpts,
 } from "./inac-venezuela-eaip-http.mjs";
@@ -53,7 +55,7 @@ function parseArgs(argv) {
 Options:
   --dry-run       List steps and URLs without downloading
   --only STEM     Single section stem, e.g. "GEN 1.2"
-  --root URL      Package root (default: ${DEFAULT_INAC_PACKAGE_ROOT})
+  --root URL      Force package root (default: resolve from INAC history; fallback ${FALLBACK_INAC_PACKAGE_ROOT})
   --insecure      Skip TLS verification from the start (or INAC_TLS_INSECURE=1)
   --strict-tls    Fail on TLS errors; no auto-retry (INAC_TLS_STRICT=1)
   --help
@@ -62,7 +64,7 @@ Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT`);
       process.exit(0);
     }
   }
-  return { dryRun, onlyStem, packageRoot, insecureTls, strictTls };
+  return { dryRun, onlyStem, cliRoot: packageRoot, insecureTls, strictTls };
 }
 
 function log(step, msg) {
@@ -70,12 +72,13 @@ function log(step, msg) {
 }
 
 async function main() {
-  const { dryRun, onlyStem, packageRoot, insecureTls, strictTls } = parseArgs(process.argv);
+  const { dryRun, onlyStem, cliRoot, insecureTls, strictTls } = parseArgs(process.argv);
   if (insecureTls) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     log("0/5", "TLS verification disabled (--insecure or INAC_TLS_INSECURE=1)");
   }
   const tlsOpts = makeTlsOpts(insecureTls, strictTls);
+  const packageRoot = await getInacPackageRoot(http, tlsOpts, cliRoot);
 
   log("1/5", `GET index frameset: ${indexUrl(packageRoot)}`);
   await http.fetchText(indexUrl(packageRoot), "index", tlsOpts);

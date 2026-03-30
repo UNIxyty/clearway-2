@@ -7,8 +7,18 @@ import { dirname } from "path";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 
-export const DEFAULT_INAC_PACKAGE_ROOT =
-  "https://www.inac.gob.ve/eaip/2020-07-16";
+/** Used only if history resolution fails (and no --root / env). */
+export const FALLBACK_INAC_PACKAGE_ROOT = "https://www.inac.gob.ve/eaip/2020-07-16";
+
+export const INAC_EAIP_PUBLIC_BASE = "https://www.inac.gob.ve/eaip";
+
+/** Table of releases; frame `history-body-en-GB.html` has effective-date links. */
+export const INAC_HISTORY_PAGE_URL = `${INAC_EAIP_PUBLIC_BASE}/history-en-GB.html`;
+
+export const INAC_HISTORY_BODY_URL = `${INAC_EAIP_PUBLIC_BASE}/history-body-en-GB.html`;
+
+/** @deprecated scripts resolve automatically; kept for help text */
+export const DEFAULT_INAC_PACKAGE_ROOT = FALLBACK_INAC_PACKAGE_ROOT;
 
 export function indexUrl(packageRoot) {
   return `${packageRoot}/html/index-en-GB.html`;
@@ -78,13 +88,12 @@ export function ad21HtmlFileForIcao(icao) {
 
 /**
  * @param {string[]} argv
- * @param {{ defaultRoot?: string }} [opts]
  */
-export function parseTlsAndRoot(argv, opts = {}) {
-  const def = opts.defaultRoot ?? DEFAULT_INAC_PACKAGE_ROOT;
+export function parseTlsAndRoot(argv) {
   let insecureTls = process.env.INAC_TLS_INSECURE === "1";
   let strictTls = process.env.INAC_TLS_STRICT === "1";
-  let packageRoot = process.env.INAC_EAIP_PACKAGE_ROOT || def;
+  /** Explicit override; when null, caller should resolve from INAC history. */
+  let packageRoot = process.env.INAC_EAIP_PACKAGE_ROOT?.replace(/\/$/, "") || null;
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--insecure") insecureTls = true;
@@ -94,6 +103,52 @@ export function parseTlsAndRoot(argv, opts = {}) {
     }
   }
   return { packageRoot, insecureTls, strictTls };
+}
+
+/**
+ * Parse history-body-en-GB.html for the “Currently Effective Issue” folder.
+ * @param {(url: string, name: string, tls: { strictTls: boolean }) => Promise<string>} fetchText
+ * @param {{ strictTls: boolean }} tlsOpts
+ */
+export async function resolveInacEaipPackageRootFromHistory(fetchText, tlsOpts) {
+  const html = await fetchText(INAC_HISTORY_BODY_URL, "history-body", tlsOpts);
+  const start = html.indexOf("Currently Effective Issue");
+  if (start === -1) {
+    throw new Error('Could not find "Currently Effective Issue" on INAC history-body page');
+  }
+  const end = html.indexOf("Next Issues", start);
+  const slice = end === -1 ? html.slice(start) : html.slice(start, end);
+  const m = slice.match(/href=['"](\d{4}-\d{2}-\d{2})\/html\/index-en-GB\.html/);
+  if (!m) {
+    throw new Error(
+      "Could not find YYYY-MM-DD/html/index-en-GB.html under Currently Effective Issue",
+    );
+  }
+  return `${INAC_EAIP_PUBLIC_BASE}/${m[1]}`;
+}
+
+/**
+ * @param {{ fetchText: Function }} http from createInacFetch
+ * @param {{ strictTls: boolean }} tlsOpts
+ * @param {string | null} cliRoot from parseTlsAndRoot (env or --root)
+ */
+export async function getInacPackageRoot(http, tlsOpts, cliRoot) {
+  if (cliRoot) {
+    console.error(`[INAC] Package root (env or --root): ${cliRoot}`);
+    return cliRoot.replace(/\/$/, "");
+  }
+  console.error(`[INAC] Resolving currently effective package from ${INAC_HISTORY_BODY_URL}`);
+  try {
+    const root = await resolveInacEaipPackageRootFromHistory(http.fetchText, tlsOpts);
+    console.error(`[INAC] Effective package: ${root}`);
+    return root;
+  } catch (e) {
+    console.error(`[INAC] Resolution failed: ${/** @type {Error} */ (e)?.message ?? e}`);
+    console.error(
+      `[INAC] Using fallback ${FALLBACK_INAC_PACKAGE_ROOT} (set INAC_EAIP_PACKAGE_ROOT or --root to override).`,
+    );
+    return FALLBACK_INAC_PACKAGE_ROOT;
+  }
 }
 
 /** @param {unknown} err */

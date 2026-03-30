@@ -1,15 +1,22 @@
 /**
  * INAC Venezuela eAIP — Part 1 (GEN) table of contents for portal deep links.
  * HTML filenames use a space after the prefix (e.g. `SV-GEN 1.2-en-GB.html`).
- * PDFs live under `/pdf/eAIP/` with stem `GEN 1.2` (same as the official “PDF” toolbar
- * button: `commands.js` replaces `/html` → `/pdf` and maps the current HTML name).
- * Update these constants when INAC publishes a new effective-date tree.
+ * PDFs live under `/pdf/eAIP/` with stem `GEN 1.2` (toolbar PDF rule).
+ *
+ * The active package base URL (`…/eaip/YYYY-MM-DD`) is resolved at runtime from
+ * `history-body-en-GB.html` (“Currently Effective Issue”); pass `packageRoot` into URL helpers.
  */
 
-export const INAC_EAIP_PACKAGE_ROOT =
-  "https://www.inac.gob.ve/eaip/2020-07-16";
+import {
+  INAC_EAIP_PUBLIC_BASE,
+  INAC_HISTORY_PAGE_URL,
+  INAC_PACKAGE_ROOT_FALLBACK,
+} from "./inac-venezuela-eaip-resolve";
 
-export const INAC_EAIP_HTML_BASE = `${INAC_EAIP_PACKAGE_ROOT}/html/eAIP`;
+export { INAC_EAIP_PUBLIC_BASE, INAC_HISTORY_PAGE_URL, INAC_PACKAGE_ROOT_FALLBACK };
+
+/** @deprecated use INAC_PACKAGE_ROOT_FALLBACK — name kept for older imports */
+export const INAC_EAIP_PACKAGE_ROOT_FALLBACK = INAC_PACKAGE_ROOT_FALLBACK;
 
 export type InacGenSection = {
   /** Stable id matching official menu, e.g. GEN_1, GEN 1.2 */
@@ -114,20 +121,22 @@ export const INAC_GEN_GROUPS: InacGenGroup[] = [
   },
 ];
 
-export function inacEaipGenHtmlUrl(file: string): string {
-  return `${INAC_EAIP_HTML_BASE}/${encodeURIComponent(file)}`;
+export function inacEaipGenHtmlUrl(file: string, packageRoot: string): string {
+  const base = packageRoot.replace(/\/$/, "");
+  return `${base}/html/eAIP/${encodeURIComponent(file)}`;
 }
 
 /**
  * Direct PDF URL for a GEN HTML file name (e.g. `GEN 1.2.pdf` under `pdf/eAIP/`).
  */
-export function inacEaipGenPdfUrl(htmlFile: string): string {
+export function inacEaipGenPdfUrl(htmlFile: string, packageRoot: string): string {
   const m = htmlFile.match(/^([A-Z]{2})-(.+)-en-GB\.html$/i);
   if (!m) {
     throw new Error(`Unexpected INAC GEN HTML filename: ${htmlFile}`);
   }
   const pdfStem = m[2];
-  return `${INAC_EAIP_PACKAGE_ROOT}/pdf/eAIP/${encodeURIComponent(pdfStem)}.pdf`;
+  const base = packageRoot.replace(/\/$/, "");
+  return `${base}/pdf/eAIP/${encodeURIComponent(pdfStem)}.pdf`;
 }
 
 /** Part 3 AD 2.1 aerodrome HTML filename for Venezuela eAIP (ICAO e.g. SVMC). */
@@ -140,6 +149,6 @@ export function inacAd21HtmlFile(icao: string): string {
 }
 
 /** Official INAC PDF URL for AD 2.1 (same as toolbar PDF after opening that aerodrome HTML). */
-export function inacAd21PdfUrl(icao: string): string {
-  return inacEaipGenPdfUrl(inacAd21HtmlFile(icao));
+export function inacAd21PdfUrl(icao: string, packageRoot: string): string {
+  return inacEaipGenPdfUrl(inacAd21HtmlFile(icao), packageRoot);
 }

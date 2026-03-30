@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Download, RefreshCwIcon } from "lucide-react";
-import { INAC_GEN_GROUPS, INAC_EAIP_PACKAGE_ROOT, inacEaipGenPdfUrl, inacAd21PdfUrl } from "@/lib/inac-eaip-gen-toc";
+import {
+  INAC_GEN_GROUPS,
+  INAC_HISTORY_PAGE_URL,
+  INAC_PACKAGE_ROOT_FALLBACK,
+  inacEaipGenPdfUrl,
+  inacAd21PdfUrl,
+} from "@/lib/inac-eaip-gen-toc";
 
 type AIPAirport = {
   icao: string;
@@ -44,8 +50,51 @@ export default function GenPage() {
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfReadyByPrefix, setPdfReadyByPrefix] = useState<Record<string, boolean>>({});
+  const [inacPackageRoot, setInacPackageRoot] = useState<string | null>(null);
+  const [inacRootLoading, setInacRootLoading] = useState(false);
+  const [inacRootError, setInacRootError] = useState<string | null>(null);
 
   const prefix = useMemo(() => airport?.icao?.slice(0, 2).toUpperCase() ?? "", [airport?.icao]);
+
+  useEffect(() => {
+    if (prefix !== "SV") {
+      setInacPackageRoot(null);
+      setInacRootLoading(false);
+      setInacRootError(null);
+      return;
+    }
+    let cancelled = false;
+    setInacRootLoading(true);
+    setInacPackageRoot(null);
+    setInacRootError(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/inac-eaip-package-root");
+        const data: { packageRoot?: string; error?: string } = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error ?? `${res.status} ${res.statusText}`);
+        }
+        if (typeof data.packageRoot !== "string" || !data.packageRoot) {
+          throw new Error("Missing packageRoot in API response");
+        }
+        if (!cancelled) {
+          setInacPackageRoot(data.packageRoot);
+          setInacRootError(null);
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (!cancelled) {
+          setInacPackageRoot(INAC_PACKAGE_ROOT_FALLBACK);
+          setInacRootError(message);
+        }
+      } finally {
+        if (!cancelled) setInacRootLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefix]);
 
   async function searchAirport() {
     const q = query.trim();
@@ -212,37 +261,60 @@ export default function GenPage() {
               <CardDescription>
                 Same sections as the eAIP menu (GEN_0 … GEN_4). Each link is the PDF the site serves when you open the HTML
                 section and use the <strong>PDF</strong> control in the top toolbar (<code className="text-[11px]">commands-en-GB.html</code>
-                / <code className="text-[11px]">changeHrefToPdf</code>). Package root:{" "}
-                <span className="font-mono text-xs break-all">{INAC_EAIP_PACKAGE_ROOT}</span>
+                / <code className="text-[11px]">changeHrefToPdf</code>). Active package is taken from the{" "}
+                <a href={INAC_HISTORY_PAGE_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                  INAC amendment history
+                </a>{" "}
+                (currently effective issue). Package root:{" "}
+                {inacRootLoading ? (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <Spinner className="size-3" />
+                    Resolving…
+                  </span>
+                ) : (
+                  <span className="font-mono text-xs break-all">{inacPackageRoot ?? "—"}</span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-1">
+              {inacRootError && (
+                <p className="text-xs text-amber-600 dark:text-amber-500 mb-2">
+                  Could not resolve the live package from INAC ({inacRootError}). Links use the fallback date until the next
+                  successful fetch.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mb-3">
                 Links go to <code className="text-[11px]">/pdf/eAIP/&lt;section&gt;.pdf</code> (not the framed HTML page).
               </p>
-              <div className="space-y-2 max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2">
-                {INAC_GEN_GROUPS.map((group) => (
-                  <details key={group.id} className="group rounded-md border border-border/50 bg-background/80 px-2 py-1">
-                    <summary className="cursor-pointer text-sm font-medium list-none flex items-center gap-2 py-1 [&::-webkit-details-marker]:hidden">
-                      <span className="text-muted-foreground group-open:rotate-90 transition-transform text-[10px]">▶</span>
-                      {group.label}
-                    </summary>
-                    <ul className="mt-1 ml-4 space-y-0.5 pb-2 border-l border-border/40 pl-3">
-                      {group.sections.map((s) => (
-                        <li key={s.id}>
-                          <a
-                            href={inacEaipGenPdfUrl(s.file)}
-                            className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-words"
-                          >
-                            <Download className="size-3 shrink-0 opacity-70" />
-                            {s.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ))}
-              </div>
+              {inacRootLoading || !inacPackageRoot ? (
+                <div className="flex justify-center py-8 text-muted-foreground">
+                  <Spinner className="size-8" />
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2">
+                  {INAC_GEN_GROUPS.map((group) => (
+                    <details key={group.id} className="group rounded-md border border-border/50 bg-background/80 px-2 py-1">
+                      <summary className="cursor-pointer text-sm font-medium list-none flex items-center gap-2 py-1 [&::-webkit-details-marker]:hidden">
+                        <span className="text-muted-foreground group-open:rotate-90 transition-transform text-[10px]">▶</span>
+                        {group.label}
+                      </summary>
+                      <ul className="mt-1 ml-4 space-y-0.5 pb-2 border-l border-border/40 pl-3">
+                        {group.sections.map((s) => (
+                          <li key={s.id}>
+                            <a
+                              href={inacEaipGenPdfUrl(s.file, inacPackageRoot)}
+                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-words"
+                            >
+                              <Download className="size-3 shrink-0 opacity-70" />
+                              {s.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -257,13 +329,20 @@ export default function GenPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <a
-                href={inacAd21PdfUrl(airport.icao)}
-                className="text-sm text-primary hover:underline inline-flex items-center gap-2 font-medium"
-              >
-                <Download className="size-4 shrink-0 opacity-80" />
-                Download AD 2.1 PDF for {airport.icao.toUpperCase()}
-              </a>
+              {inacRootLoading || !inacPackageRoot ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Spinner className="size-4" />
+                  Resolving package…
+                </div>
+              ) : (
+                <a
+                  href={inacAd21PdfUrl(airport.icao, inacPackageRoot)}
+                  className="text-sm text-primary hover:underline inline-flex items-center gap-2 font-medium"
+                >
+                  <Download className="size-4 shrink-0 opacity-80" />
+                  Download AD 2.1 PDF for {airport.icao.toUpperCase()}
+                </a>
+              )}
             </CardContent>
           </Card>
         )}

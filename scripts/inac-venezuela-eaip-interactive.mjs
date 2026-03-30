@@ -15,7 +15,7 @@ import { mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import {
-  DEFAULT_INAC_PACKAGE_ROOT,
+  FALLBACK_INAC_PACKAGE_ROOT,
   indexUrl,
   menuUrl,
   sectionHtmlUrl,
@@ -26,6 +26,7 @@ import {
   parseAd21HtmlHrefs,
   ad21HtmlFileForIcao,
   parseTlsAndRoot,
+  getInacPackageRoot,
   createInacFetch,
   makeTlsOpts,
 } from "./inac-venezuela-eaip-http.mjs";
@@ -45,7 +46,7 @@ Interactive prompts:
   2 — AD 2.1: numbered ICAO list from menu, then PDF download
 
 Options:
-  --root URL    Package root (default: ${DEFAULT_INAC_PACKAGE_ROOT})
+  --root URL    Force package root (default: resolve from INAC history; fallback ${FALLBACK_INAC_PACKAGE_ROOT})
   --insecure    INAC_TLS_INSECURE
   --strict-tls  INAC_TLS_STRICT
 
@@ -58,19 +59,20 @@ For non-interactive use:
 }
 
 async function main() {
-  const { packageRoot, insecureTls, strictTls } = parseInteractiveArgv(process.argv);
+  const { packageRoot: cliRoot, insecureTls, strictTls } = parseInteractiveArgv(process.argv);
   if (insecureTls) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     console.error("[INAC] TLS verification disabled (--insecure / INAC_TLS_INSECURE=1)\n");
   }
   const tlsOpts = makeTlsOpts(insecureTls, strictTls);
   const http = createInacFetch("UI");
+  const packageRoot = await getInacPackageRoot(http, tlsOpts, cliRoot);
 
   const rl = readline.createInterface({ input, output: stderr, terminal: true });
 
   try {
     console.error("INAC Venezuela eAIP — downloader\n");
-    console.error(`Package: ${packageRoot}\n`);
+    console.error(`Package (effective): ${packageRoot}\n`);
     const top = (
       await rl.question(
         "What to download?\n" +

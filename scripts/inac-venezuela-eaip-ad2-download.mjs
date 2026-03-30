@@ -11,7 +11,7 @@
  *   node scripts/inac-venezuela-eaip-ad2-download.mjs          (TTY: prompts with ICAO list)
  *   node scripts/inac-venezuela-eaip-interactive.mjs           (GEN or AD menu)
  *
- * Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT
+ * Env: INAC_EAIP_PACKAGE_ROOT (optional), INAC_TLS_INSECURE, INAC_TLS_STRICT — package resolved from INAC history by default
  *
  * Output: downloads/inac-venezuela-eaip/AD2/AD2.1_ICAO.pdf
  */
@@ -22,7 +22,7 @@ import { fileURLToPath } from "url";
 import readline from "node:readline/promises";
 import { stdin as input, stderr } from "node:process";
 import {
-  DEFAULT_INAC_PACKAGE_ROOT,
+  FALLBACK_INAC_PACKAGE_ROOT,
   indexUrl,
   menuUrl,
   sectionHtmlUrl,
@@ -32,6 +32,7 @@ import {
   parseAd21HtmlHrefs,
   ad21HtmlFileForIcao,
   parseTlsAndRoot,
+  getInacPackageRoot,
   createInacFetch,
   makeTlsOpts,
 } from "./inac-venezuela-eaip-http.mjs";
@@ -60,7 +61,7 @@ function parseArgs(argv) {
 
 Options:
   --dry-run       Log URLs only; do not download PDF
-  --root URL      Package root (default: ${DEFAULT_INAC_PACKAGE_ROOT})
+  --root URL      Force package root (default: resolve from INAC history; fallback ${FALLBACK_INAC_PACKAGE_ROOT})
   --insecure      Skip TLS from the start (INAC_TLS_INSECURE=1)
   --strict-tls    No auto TLS retry (INAC_TLS_STRICT=1)
   --help
@@ -71,7 +72,7 @@ Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT`);
       process.exit(0);
     }
   }
-  return { dryRun, icao, packageRoot, insecureTls, strictTls };
+  return { dryRun, icao, cliRoot: packageRoot, insecureTls, strictTls };
 }
 
 function log(step, msg) {
@@ -79,13 +80,14 @@ function log(step, msg) {
 }
 
 async function main() {
-  const { dryRun, icao: icaoArg, packageRoot, insecureTls, strictTls } = parseArgs(process.argv);
+  const { dryRun, icao: icaoArg, cliRoot, insecureTls, strictTls } = parseArgs(process.argv);
 
   if (insecureTls) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     log("0/5", "TLS verification disabled (--insecure or INAC_TLS_INSECURE=1)");
   }
   const tlsOpts = makeTlsOpts(insecureTls, strictTls);
+  const packageRoot = await getInacPackageRoot(http, tlsOpts, cliRoot);
 
   log("1/5", `GET index frameset: ${indexUrl(packageRoot)}`);
   await http.fetchText(indexUrl(packageRoot), "index", tlsOpts);

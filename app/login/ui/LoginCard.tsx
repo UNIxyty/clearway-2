@@ -72,9 +72,23 @@ export default function LoginCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), next }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: boolean;
+        message?: string;
+      };
       if (!res.ok) throw new Error(data.error || "Failed to send confirmation email.");
-      setInfo("Confirmation email sent. Open your inbox and follow the link to create your password.");
+      if (data.sent === false) {
+        setInfo(
+          data.message ||
+            "Confirmation email could not be sent right now. Please retry in a minute or use Forgot password for an existing account.",
+        );
+      } else {
+        setInfo(
+          data.message ||
+            "Confirmation email sent. Open your inbox and follow the link to create your password.",
+        );
+      }
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to send confirmation email.");
     } finally {
@@ -92,9 +106,23 @@ export default function LoginCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: boolean;
+        message?: string;
+      };
       if (!res.ok) throw new Error(data.error || "Failed to send reset email.");
-      setInfo("Password reset email sent. Use the link in your inbox to set a new password.");
+      if (data.sent === false) {
+        setInfo(
+          data.message ||
+            "Reset email could not be sent right now. Please retry in a minute and verify your Supabase email provider configuration.",
+        );
+      } else {
+        setInfo(
+          data.message ||
+            "Password reset email sent. Use the link in your inbox to set a new password.",
+        );
+      }
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to send reset email.");
     } finally {

@@ -67,3 +67,6 @@ downloads/mnav-north-macedonia-eaip/
 
 # Batch AIM downloads (scripts/aim-download-from-json.mjs --download-pdfs)
 downloads/aim-from-json/
+
+# GEN 1.2 / AD2 batch manifests (scripts/aim-batch-gen12-ad2-from-probe.mjs)
+downloads/aim-batch-gen12-ad2/

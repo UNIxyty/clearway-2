@@ -1,0 +1,5 @@
+{
+  "__note": "Country names must match aim-links-probe-report.json. Only INAC + M-NAV batch use this file today; extend when you add providers.",
+  "Venezuela": "SVMC",
+  "North Macedonia": "LWSK"
+}

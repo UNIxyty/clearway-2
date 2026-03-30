@@ -1,0 +1,2089 @@
+{
+  "generatedAt": "2026-03-30T09:37:42.166Z",
+  "inputPath": "/Users/whae/Downloads/file.json",
+  "summary": {
+    "total": 91,
+    "pdfOrLikely": 7,
+    "html": 71,
+    "fetchErrors": 6,
+    "noUrl": 3,
+    "httpErrors": 7,
+    "uniqueUrlsCached": 71
+  },
+  "failedLoads": [
+    "Djibouti: https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d — HTTP 402",
+    "Kenya: no/placeholder URL",
+    "Bahrain: https://aim.mtt.gov.bh/eaip — HTTP 504",
+    "China: https://www.eaipchina.cn/#/ — fetch failed",
+    "Iran: https://ais.airport.ir/ — fetch failed",
+    "Nepal: https://e-aip.caanepal.gov.np/welcome/listall/1 — fetch failed",
+    "Oman: https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html — HTTP 404",
+    "Pakistan: https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication — fetch failed",
+    "South Korea: https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html — fetch failed",
+    "Luxembourg: https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html — HTTP 403",
+    "Vatican City: no/placeholder URL",
+    "Venezuela: https://www.inac.gob.ve/eaip/history-en-GB.html — fetch failed",
+    "Papua New Guinea: no/placeholder URL"
+  ],
+  "pdfLinks": [
+    "Angola: https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
+    "Seychelles: https://www.scaa.sc/files/AIP%20Seychelles.pdf",
+    "Sudan: https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
+    "Andorra: https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
+    "Antigua and Barbuda: https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+    "Haiti: https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf",
+    "Saint Vincent and the Grenadines: https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf"
+  ],
+  "htmlLinks": [
+    "Benin: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Burkina Faso: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Cabo Verde: https://eaip.asa.cv/",
+    "Cameroon: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Central African Republic: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Chad: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Comoros: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Congo: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Egypt: http://www.nansceg.net/ais.html",
+    "Equatorial Guinea: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Ethiopia: https://ru.scribd.com/document/446457627/AIP-Ethiopia",
+    "Gabon: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Guinea: https://www.robertsfir.org/aip.html",
+    "Guinea-Bissau: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Ivory Coast (Côte d’Ivoire): https://aim.asecna.aero/html/index-fr-FR.html",
+    "Libya: https://caa.gov.ly/ais/aip/",
+    "Madagascar: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Mali: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Mauritania: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Namibia: https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication",
+    "Niger: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Rwanda: https://aim.asecna.aero/eAIP_Rwanda/default.html",
+    "Sierra Leone: https://www.robertsfir.org/aip.html",
+    "Somalia: https://aip.scaa.gov.so/index-en-GB.html",
+    "South Africa: https://www.caa.co.za/industry-information/aip-sup/",
+    "South Sudan: https://sscaa.gov.ss/publications/aip/",
+    "Togo: https://aim.asecna.aero/html/index-fr-FR.html",
+    "Afghanistan: https://www.afgais.com/",
+    "Bangladesh: http://www.caab.gov.bd/aip/#",
+    "Bhutan: https://www.doat.gov.bt/aip/",
+    "Brunei: https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
+    "Cambodia: https://aim.cats.com.kh/eaip.html",
+    "East Timor (Timor-Leste): https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
+    "India: https://aim-india.aai.aero/aip-supplements?page=1",
+    "Indonesia: https://pia.airnavindonesia.co.id/",
+    "Israel: https://e-aip.azurefd.net/",
+    "Japan: https://nagodede.github.io/aip/japan/",
+    "Kuwait: https://dgca.gov.kw/AIP",
+    "Malaysia: https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+    "Maldives: https://www.macl.aero/corporate/services/operational/ans/aip",
+    "Mongolia: https://ais.mn/files/aip/eAIP/",
+    "Myanmar (Burma): https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+    "Qatar: https://www.caa.gov.qa/en/aeronautical-information-management",
+    "Saudi Arabia: https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+    "Singapore: https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments",
+    "Sri Lanka: https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+    "Taiwan: https://ais.caa.gov.tw/eaip/",
+    "Tajikistan: http://www.caica.ru/aiptjk/?lang=en",
+    "Thailand: https://aip.caat.or.th/",
+    "Turkmenistan: http://www.caica.ru/aiptkm/?lang=en",
+    "United Arab Emirates: https://www.gcaa.gov.ae/en/ais/Pages/default.aspx",
+    "Uzbekistan: https://uzaeronavigation.com/ais/#",
+    "Vietnam: https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en",
+    "Hong Kong: https://www.ais.gov.hk/",
+    "Macau: https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP",
+    "Belarus: https://www.ban.by/AIP/Belarus251002/html/index.html",
+    "Bosnia and Herzegovina: https://eaip.bhansa.gov.ba/",
+    "Kosovo: https://www.ashna-ks.org/eAIP/default.html",
+    "North Macedonia: https://ais.m-nav.info/eAIP/current/en/index.htm",
+    "Canada: https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
+    "Costa Rica: https://www.cocesna.org/aipca/AIPMR/inicio.html",
+    "Cuba: https://aismet.avianet.cu/html/aip.html",
+    "Dominica: https://www.idac.gob.do/en/air-navigation-directorate/aip/",
+    "El Salvador: https://www.cocesna.org/aipca/AIPMS/history.html",
+    "Guatemala: https://www.dgac.gob.gt/home/aip_e/",
+    "Honduras: https://www.ahac.gob.hn/eAIP1/inicio.html",
+    "Trinidad and Tobago: https://caa.gov.tt/notices-to-operators-notification/aip-sups/",
+    "Chile: https://aipchile.dgac.gob.cl/aip/vol1",
+    "Ecuador: https://www.ais.aviacioncivil.gob.ec/ifis3/",
+    "Australia: https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1",
+    "Panama: https://www.aeronautica.gob.pa/ais-aip/"
+  ],
+  "rows": [
+    {
+      "country": "Angola",
+      "url": "https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
+        "ok": true,
+        "finalUrl": "https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Benin",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ]
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Burkina Faso",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Cabo Verde",
+      "url": "https://eaip.asa.cv/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://eaip.asa.cv/",
+        "ok": true,
+        "finalUrl": "https://eaip.asa.cv/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 3751,
+        "eaipSignals": [
+          "index-localized"
+        ],
+        "notes": [
+          "signals:index-localized"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Cameroon",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Central African Republic",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Chad",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Comoros",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Congo",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Djibouti",
+      "url": "https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d",
+        "ok": false,
+        "finalUrl": "https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d",
+        "status": 402,
+        "error": null,
+        "contentType": "application/json; charset=UTF-8",
+        "classification": "maybe-pdf-url-not-pdf-body",
+        "isLikelyPdf": false,
+        "bytesSampled": 406,
+        "eaipSignals": [],
+        "notes": [
+          "url-suggests-pdf-but-body-not-pdf-magic"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Egypt",
+      "url": "http://www.nansceg.net/ais.html",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "http://www.nansceg.net/ais.html",
+        "ok": true,
+        "finalUrl": "http://www.nansceg.net/ais.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 10496,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Equatorial Guinea",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Ethiopia",
+      "url": "https://ru.scribd.com/document/446457627/AIP-Ethiopia",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://ru.scribd.com/document/446457627/AIP-Ethiopia",
+        "ok": true,
+        "finalUrl": "https://ru.scribd.com/document/446457627/AIP-Ethiopia",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 1478591,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Gabon",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Guinea",
+      "url": "https://www.robertsfir.org/aip.html",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://www.robertsfir.org/aip.html",
+        "ok": true,
+        "finalUrl": "https://www.robertsfir.org/aip.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 140937,
+        "eaipSignals": [
+          "history-page",
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:history-page,mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Guinea-Bissau",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Ivory Coast (Côte d’Ivoire)",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Kenya",
+      "url": "",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "classification": "no-url",
+        "notes": [
+          "missing-or-placeholder"
+        ],
+        "ok": false
+      },
+      "suggestedIntegration": "no-url"
+    },
+    {
+      "country": "Libya",
+      "url": "https://caa.gov.ly/ais/aip/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://caa.gov.ly/ais/aip/",
+        "ok": true,
+        "finalUrl": "https://caa.gov.ly/ais/aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 29061,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Madagascar",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Mali",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Mauritania",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Namibia",
+      "url": "https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication",
+        "ok": true,
+        "finalUrl": "https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 107036,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Niger",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Rwanda",
+      "url": "https://aim.asecna.aero/eAIP_Rwanda/default.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/eAIP_Rwanda/default.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/eAIP_Rwanda/default.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 3658,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Seychelles",
+      "url": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
+        "ok": true,
+        "finalUrl": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Sierra Leone",
+      "url": "https://www.robertsfir.org/aip.html",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://www.robertsfir.org/aip.html",
+        "ok": true,
+        "finalUrl": "https://www.robertsfir.org/aip.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 140937,
+        "eaipSignals": [
+          "history-page",
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:history-page,mentions-GEN,mentions-AD2"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Somalia",
+      "url": "https://aip.scaa.gov.so/index-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aip.scaa.gov.so/index-en-GB.html",
+        "ok": true,
+        "finalUrl": "https://aip.scaa.gov.so/index-en-GB.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 841,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ]
+      },
+      "suggestedIntegration": "eurocontrol-like-index-frameset"
+    },
+    {
+      "country": "South Africa",
+      "url": "https://www.caa.co.za/industry-information/aip-sup/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.caa.co.za/industry-information/aip-sup/",
+        "ok": true,
+        "finalUrl": "https://www.caa.co.za/industry-information/aip-sup/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 306639,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "South Sudan",
+      "url": "https://sscaa.gov.ss/publications/aip/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://sscaa.gov.ss/publications/aip/",
+        "ok": true,
+        "finalUrl": "https://sscaa.gov.ss/publications/aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 80024,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Sudan",
+      "url": "https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
+        "ok": true,
+        "finalUrl": "https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Togo",
+      "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "ok": true,
+        "finalUrl": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 845,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ],
+        "fromCache": true
+      },
+      "suggestedIntegration": "asecna-multi-country-not-implemented"
+    },
+    {
+      "country": "Afghanistan",
+      "url": "https://www.afgais.com/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.afgais.com/",
+        "ok": true,
+        "finalUrl": "https://www.afgais.com/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 459302,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Bahrain",
+      "url": "https://aim.mtt.gov.bh/eaip",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.mtt.gov.bh/eaip",
+        "ok": false,
+        "finalUrl": "https://aim.mtt.gov.bh/eaip",
+        "status": 504,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html-error-status",
+        "isLikelyPdf": false,
+        "bytesSampled": 132,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Bangladesh",
+      "url": "http://www.caab.gov.bd/aip/#",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "http://www.caab.gov.bd/aip/#",
+        "ok": true,
+        "finalUrl": "http://www.caab.gov.bd/aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 6889,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Bhutan",
+      "url": "https://www.doat.gov.bt/aip/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.doat.gov.bt/aip/",
+        "ok": true,
+        "finalUrl": "https://www.doat.gov.bt/aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 67598,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Brunei",
+      "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
+        "ok": true,
+        "finalUrl": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 127420,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Cambodia",
+      "url": "https://aim.cats.com.kh/eaip.html",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://aim.cats.com.kh/eaip.html",
+        "ok": true,
+        "finalUrl": "https://aim.cats.com.kh/eaip.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 18737,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "China",
+      "url": "https://www.eaipchina.cn/#/",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://www.eaipchina.cn/#/",
+        "ok": false,
+        "finalUrl": "https://www.eaipchina.cn/#/",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "East Timor (Timor-Leste)",
+      "url": "https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
+        "ok": true,
+        "finalUrl": "https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 1117511,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "India",
+      "url": "https://aim-india.aai.aero/aip-supplements?page=1",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim-india.aai.aero/aip-supplements?page=1",
+        "ok": true,
+        "finalUrl": "https://aim-india.aai.aero/aip-supplements?page=1",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 34359,
+        "eaipSignals": [
+          "index-localized",
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:index-localized,mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Indonesia",
+      "url": "https://pia.airnavindonesia.co.id/",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://pia.airnavindonesia.co.id/",
+        "ok": true,
+        "finalUrl": "https://pia.airnavindonesia.co.id/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 19411,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Iran",
+      "url": "https://ais.airport.ir/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://ais.airport.ir/",
+        "ok": false,
+        "finalUrl": "https://ais.airport.ir/",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Israel",
+      "url": "https://e-aip.azurefd.net/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://e-aip.azurefd.net/",
+        "ok": true,
+        "finalUrl": "https://e-aip.azurefd.net/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 18540,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Japan",
+      "url": "https://nagodede.github.io/aip/japan/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://nagodede.github.io/aip/japan/",
+        "ok": true,
+        "finalUrl": "https://nagodede.github.io/aip/japan/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 34468,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Kuwait",
+      "url": "https://dgca.gov.kw/AIP",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://dgca.gov.kw/AIP",
+        "ok": true,
+        "finalUrl": "https://dgca.gov.kw/AIP",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 361180,
+        "eaipSignals": [
+          "eaip-menu-hint",
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:eaip-menu-hint,mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Malaysia",
+      "url": "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+        "ok": true,
+        "finalUrl": "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 6439,
+        "eaipSignals": [
+          "index-localized"
+        ],
+        "notes": [
+          "signals:index-localized"
+        ]
+      },
+      "suggestedIntegration": "eurocontrol-like-history-page"
+    },
+    {
+      "country": "Maldives",
+      "url": "https://www.macl.aero/corporate/services/operational/ans/aip",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.macl.aero/corporate/services/operational/ans/aip",
+        "ok": true,
+        "finalUrl": "https://www.macl.aero/corporate/services/operational/ans/aip",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 88612,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Mongolia",
+      "url": "https://ais.mn/files/aip/eAIP/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://ais.mn/files/aip/eAIP/",
+        "ok": true,
+        "finalUrl": "https://ais.mn/files/aip/eAIP/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 15047,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Myanmar (Burma)",
+      "url": "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+        "ok": true,
+        "finalUrl": "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 923,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ]
+      },
+      "suggestedIntegration": "eurocontrol-like-index-frameset"
+    },
+    {
+      "country": "Nepal",
+      "url": "https://e-aip.caanepal.gov.np/welcome/listall/1",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://e-aip.caanepal.gov.np/welcome/listall/1",
+        "ok": false,
+        "finalUrl": "https://e-aip.caanepal.gov.np/welcome/listall/1",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Oman",
+      "url": "https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html",
+        "ok": false,
+        "finalUrl": "https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html",
+        "status": 404,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html-error-status",
+        "isLikelyPdf": false,
+        "bytesSampled": 808,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "eurocontrol-like-history-page"
+    },
+    {
+      "country": "Pakistan",
+      "url": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+        "ok": false,
+        "finalUrl": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Qatar",
+      "url": "https://www.caa.gov.qa/en/aeronautical-information-management",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.caa.gov.qa/en/aeronautical-information-management",
+        "ok": true,
+        "finalUrl": "https://www.caa.gov.qa/en/aeronautical-information-management",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 135898,
+        "eaipSignals": [
+          "index-localized",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:index-localized,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Saudi Arabia",
+      "url": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+        "ok": true,
+        "finalUrl": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 8188,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Singapore",
+      "url": "https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments",
+        "ok": true,
+        "finalUrl": "https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 49219,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "South Korea",
+      "url": "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+        "ok": false,
+        "finalUrl": "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "eurocontrol-like-history-page"
+    },
+    {
+      "country": "Sri Lanka",
+      "url": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+        "ok": true,
+        "finalUrl": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 825,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ]
+      },
+      "suggestedIntegration": "eurocontrol-like-index-frameset"
+    },
+    {
+      "country": "Taiwan",
+      "url": "https://ais.caa.gov.tw/eaip/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://ais.caa.gov.tw/eaip/",
+        "ok": true,
+        "finalUrl": "https://ais.caa.gov.tw/eaip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 6273,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Tajikistan",
+      "url": "http://www.caica.ru/aiptjk/?lang=en",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "http://www.caica.ru/aiptjk/?lang=en",
+        "ok": true,
+        "finalUrl": "http://www.caica.ru/aiptjk/?lang=en",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=windows-1251",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 11041,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Thailand",
+      "url": "https://aip.caat.or.th/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aip.caat.or.th/",
+        "ok": true,
+        "finalUrl": "https://aip.caat.or.th/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 25222,
+        "eaipSignals": [
+          "index-localized"
+        ],
+        "notes": [
+          "signals:index-localized"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Turkmenistan",
+      "url": "http://www.caica.ru/aiptkm/?lang=en",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "http://www.caica.ru/aiptkm/?lang=en",
+        "ok": true,
+        "finalUrl": "http://www.caica.ru/aiptkm/?lang=en",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=windows-1251",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 11315,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "United Arab Emirates",
+      "url": "https://www.gcaa.gov.ae/en/ais/Pages/default.aspx",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.gcaa.gov.ae/en/ais/Pages/default.aspx",
+        "ok": true,
+        "finalUrl": "https://www.gcaa.gov.ae/en/ais/Pages/default.aspx",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 1126005,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Uzbekistan",
+      "url": "https://uzaeronavigation.com/ais/#",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://uzaeronavigation.com/ais/#",
+        "ok": true,
+        "finalUrl": "https://uzaeronavigation.com/ais/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 274098,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Vietnam",
+      "url": "https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en",
+      "sourcePageType": "Login Required",
+      "probe": {
+        "url": "https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en",
+        "ok": true,
+        "finalUrl": "https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 15875,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Hong Kong",
+      "url": "https://www.ais.gov.hk/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ais.gov.hk/",
+        "ok": true,
+        "finalUrl": "https://www.ais.gov.hk/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 63682,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Macau",
+      "url": "https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP",
+        "ok": true,
+        "finalUrl": "https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 96029,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Andorra",
+      "url": "https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
+        "ok": true,
+        "finalUrl": "https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Belarus",
+      "url": "https://www.ban.by/AIP/Belarus251002/html/index.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ban.by/AIP/Belarus251002/html/index.html",
+        "ok": true,
+        "finalUrl": "https://www.ban.by/AIP/Belarus251002/html/index.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 1275,
+        "eaipSignals": [
+          "frameset",
+          "eaip-menu-hint"
+        ],
+        "notes": [
+          "signals:frameset,eaip-menu-hint"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Bosnia and Herzegovina",
+      "url": "https://eaip.bhansa.gov.ba/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://eaip.bhansa.gov.ba/",
+        "ok": true,
+        "finalUrl": "https://eaip.bhansa.gov.ba/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 2247,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Kosovo",
+      "url": "https://www.ashna-ks.org/eAIP/default.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ashna-ks.org/eAIP/default.html",
+        "ok": true,
+        "finalUrl": "https://www.ashna-ks.org/eAIP/default.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 8674,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Luxembourg",
+      "url": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+        "ok": false,
+        "finalUrl": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+        "status": 403,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html-error-status",
+        "isLikelyPdf": false,
+        "bytesSampled": 15260,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "eurocontrol-like-index-frameset"
+    },
+    {
+      "country": "North Macedonia",
+      "url": "https://ais.m-nav.info/eAIP/current/en/index.htm",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://ais.m-nav.info/eAIP/current/en/index.htm",
+        "ok": true,
+        "finalUrl": "https://ais.m-nav.info/eAIP/current/en/index.htm",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 1030,
+        "eaipSignals": [
+          "frameset"
+        ],
+        "notes": [
+          "signals:frameset"
+        ]
+      },
+      "suggestedIntegration": "mnav-north-macedonia-eaip-cli"
+    },
+    {
+      "country": "Vatican City",
+      "url": "AIP",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "classification": "no-url",
+        "notes": [
+          "missing-or-placeholder"
+        ],
+        "ok": false
+      },
+      "suggestedIntegration": "no-url"
+    },
+    {
+      "country": "Antigua and Barbuda",
+      "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "ok": true,
+        "finalUrl": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Canada",
+      "url": "https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
+        "ok": true,
+        "finalUrl": "https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 122344,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Costa Rica",
+      "url": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+        "ok": true,
+        "finalUrl": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 4669,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Cuba",
+      "url": "https://aismet.avianet.cu/html/aip.html",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://aismet.avianet.cu/html/aip.html",
+        "ok": true,
+        "finalUrl": "https://aismet.avianet.cu/html/aip.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 203915,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Dominica",
+      "url": "https://www.idac.gob.do/en/air-navigation-directorate/aip/",
+      "sourcePageType": "...",
+      "probe": {
+        "url": "https://www.idac.gob.do/en/air-navigation-directorate/aip/",
+        "ok": true,
+        "finalUrl": "https://www.idac.gob.do/en/air-navigation-directorate/aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 151974,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "El Salvador",
+      "url": "https://www.cocesna.org/aipca/AIPMS/history.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.cocesna.org/aipca/AIPMS/history.html",
+        "ok": true,
+        "finalUrl": "https://www.cocesna.org/aipca/AIPMS/history.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 5035,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Guatemala",
+      "url": "https://www.dgac.gob.gt/home/aip_e/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.dgac.gob.gt/home/aip_e/",
+        "ok": true,
+        "finalUrl": "https://www.dgac.gob.gt/home/aip_e/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 4014,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Haiti",
+      "url": "https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf",
+        "ok": true,
+        "finalUrl": "https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Honduras",
+      "url": "https://www.ahac.gob.hn/eAIP1/inicio.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ahac.gob.hn/eAIP1/inicio.html",
+        "ok": true,
+        "finalUrl": "https://www.ahac.gob.hn/eAIP1/inicio.html",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 9500,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Saint Vincent and the Grenadines",
+      "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "ok": true,
+        "finalUrl": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "status": 200,
+        "error": null,
+        "contentType": "application/pdf",
+        "classification": "pdf",
+        "isLikelyPdf": true,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": [],
+        "fromCache": true
+      },
+      "suggestedIntegration": "pdf-direct-download"
+    },
+    {
+      "country": "Trinidad and Tobago",
+      "url": "https://caa.gov.tt/notices-to-operators-notification/aip-sups/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://caa.gov.tt/notices-to-operators-notification/aip-sups/",
+        "ok": true,
+        "finalUrl": "https://caa.gov.tt/notices-to-operators-notification/aip-sups/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 87975,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Chile",
+      "url": "https://aipchile.dgac.gob.cl/aip/vol1",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://aipchile.dgac.gob.cl/aip/vol1",
+        "ok": true,
+        "finalUrl": "https://aipchile.dgac.gob.cl/aip/vol1",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 24406,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Ecuador",
+      "url": "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+        "ok": true,
+        "finalUrl": "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html; charset=utf-8",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 82117,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Venezuela",
+      "url": "https://www.inac.gob.ve/eaip/history-en-GB.html",
+      "sourcePageType": "Web Table Based",
+      "probe": {
+        "url": "https://www.inac.gob.ve/eaip/history-en-GB.html",
+        "ok": false,
+        "finalUrl": "https://www.inac.gob.ve/eaip/history-en-GB.html",
+        "status": null,
+        "error": "fetch failed",
+        "contentType": null,
+        "classification": "fetch-error",
+        "isLikelyPdf": false,
+        "bytesSampled": 0,
+        "eaipSignals": [],
+        "notes": []
+      },
+      "suggestedIntegration": "inac-venezuela-eaip-cli"
+    },
+    {
+      "country": "Australia",
+      "url": "https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1",
+        "ok": true,
+        "finalUrl": "https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 21814,
+        "eaipSignals": [
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    },
+    {
+      "country": "Papua New Guinea",
+      "url": "",
+      "sourcePageType": "...",
+      "probe": {
+        "classification": "no-url",
+        "notes": [
+          "missing-or-placeholder"
+        ],
+        "ok": false
+      },
+      "suggestedIntegration": "no-url"
+    },
+    {
+      "country": "Panama",
+      "url": "https://www.aeronautica.gob.pa/ais-aip/",
+      "sourcePageType": "PDF Based",
+      "probe": {
+        "url": "https://www.aeronautica.gob.pa/ais-aip/",
+        "ok": true,
+        "finalUrl": "https://www.aeronautica.gob.pa/ais-aip/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
+        "isLikelyPdf": false,
+        "bytesSampled": 61353,
+        "eaipSignals": [
+          "mentions-GEN",
+          "mentions-AD2"
+        ],
+        "notes": [
+          "signals:mentions-GEN,mentions-AD2"
+        ]
+      },
+      "suggestedIntegration": "needs-manual-or-scraper"
+    }
+  ]
+}

@@ -54,6 +54,7 @@ next-env.d.ts
 test-results/*
 !test-results/.gitkeep
 !test-results/rus-aip-extract-report.json
+!test-results/aim-links-probe-report.json
 
 # Russian AIP downloaded PDFs (rus_aip_extractor.py)
 downloads/rus-aip/
@@ -63,3 +64,6 @@ downloads/inac-venezuela-eaip/
 
 # M-NAV North Macedonia eAIP (scripts/mnav-north-macedonia-eaip-*-download.mjs)
 downloads/mnav-north-macedonia-eaip/
+
+# Batch AIM downloads (scripts/aim-download-from-json.mjs --download-pdfs)
+downloads/aim-from-json/

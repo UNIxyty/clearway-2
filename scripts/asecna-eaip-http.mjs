@@ -3,6 +3,11 @@
  *
  * PDF mapping matches site {@link https://aim.asecna.aero/html/commands.js}:
  * replace `/html/\D{4}/` with `/pdf/`, and `.html` → `.pdf` (fragment discarded).
+ *
+ * Real HTML/PDF basenames follow {@link https://aim.asecna.aero/html/custom-formatter.js}
+ * (applied in the browser): {@code FR-<node id>-<locale>.html}, e.g.
+ * {@code FR-_01GEN-1.2-01-fr-FR.html}, {@code FR-_01AD-2.DBBB-fr-FR.html}. Raw TOC
+ * hrefs like {@code FR-01-GEN-1.html} are not published as-is.
  */
 
 import { mkdirSync, createWriteStream } from "fs";
@@ -153,64 +158,34 @@ export function parseMenuBasename(menuBasename) {
 }
 
 /**
- * Basenames to try for GEN-1 HTML/PDF. The TOC often links leaves as FR-NN-GEN-1.html but the
- * server may only publish FR-NN-GEN-1-{locale}.html (Eurocontrol bilingual naming).
- * @param {string} code
+ * GEN/ENR leaf basename after {@code formatLinks()} rewrites H4 {@code href} to
+ * {@code FR + '-' + a.id + '-' + locale + '.html'}.
+ * @param {string} anchorId Menu / DOM id, e.g. {@code _01GEN-1.2-01}
  * @param {string} [menuBasename]
- * @returns {string[]} prefer localized first when derivable from menu file
  */
-export function gen1HtmlBasenamesToTry(code, menuBasename = "FR-menu-fr-FR.html") {
+export function asecnaFormattedLeafBasename(anchorId, menuBasename = "FR-menu-fr-FR.html") {
   const meta = parseMenuBasename(menuBasename);
   const prefix = meta?.prefix ?? "FR";
-  const short = `${prefix}-${code}-GEN-1.html`;
-  if (meta?.locale) {
-    const loc = `${prefix}-${code}-GEN-1-${meta.locale}.html`;
-    return [loc, short];
-  }
-  return [short];
+  const locale = meta?.locale ?? "fr-FR";
+  return `${prefix}-${anchorId}-${locale}.html`;
 }
 
 /**
- * @param {string} code
+ * AD 2 aerodrome basename: {@code FR-_NNAD-2.ICAO-locale.html} (H4 id is {@code _01AD-2.DBBB}).
+ * @param {string} countryCode Two digits
+ * @param {string} icao Four letters
  * @param {string} [menuBasename]
  */
-export function ad2HtmlBasenamesToTry(code, menuBasename = "FR-menu-fr-FR.html") {
+export function asecnaAd2AirportBasename(countryCode, icao, menuBasename = "FR-menu-fr-FR.html") {
   const meta = parseMenuBasename(menuBasename);
   const prefix = meta?.prefix ?? "FR";
-  const short = `${prefix}-${code}-AD-2.html`;
-  if (meta?.locale) {
-    const loc = `${prefix}-${code}-AD-2-${meta.locale}.html`;
-    return [loc, short];
-  }
-  return [short];
+  const locale = meta?.locale ?? "fr-FR";
+  const cc = String(countryCode).padStart(2, "0");
+  const blockId = `_${cc}AD-2.${icao.toUpperCase()}`;
+  return `${prefix}-${blockId}-${locale}.html`;
 }
 
-/**
- * GET the first basename that returns OK; throws with all failures if none work.
- * @param {{ fetchOk: (u: string, n: string, t: unknown) => Promise<unknown> }} http
- */
-export async function resolveWorkingHtmlBasename(
-  http,
-  basenames,
-  menuDirUrl,
-  logLabel,
-  tlsOpts,
-) {
-  /** @type {string[]} */
-  const errors = [];
-  for (const base of basenames) {
-    const htmlUrl = resolveAsecnaHtmlUrl(base, menuDirUrl);
-    try {
-      await http.fetchOk(htmlUrl, logLabel, tlsOpts);
-      return { htmlUrl, basename: base };
-    } catch (e) {
-      errors.push(`${htmlUrl} — ${/** @type {Error} */ (e).message}`);
-    }
-  }
-  throw new Error(`${logLabel}: no reachable HTML. Tried:\n${errors.join("\n")}`);
-}
-
-/** @param {string} htmlFile e.g. FR-01-GEN-1.html */
+/** @param {string} htmlFile e.g. FR-_01GEN-1.2-01-fr-FR.html */
 export function stemFromAsecnaHtmlFile(htmlFile) {
   return htmlFile.replace(/\.html$/i, "");
 }

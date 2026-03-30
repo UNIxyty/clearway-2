@@ -1,8 +1,9 @@
 /**
  * Interactive ASECNA eAIP PDF downloader (GEN 1 / AD 2), similar to INAC Venezuela CLI.
  *
- * GEN: Regulations → country → subsection (e.g. GEN 1.2); PDF is the whole FR-NN-GEN-1.pdf for that country.
- * AD 2: Aerodromes → country → ICAO (menu check); PDF is FR-NN-AD-2.pdf for that country.
+ * GEN: Regulations → country → subsection; PDF matches the browser TOC (custom-formatter.js), e.g.
+ *   FR-_01GEN-1.2-01-fr-FR.pdf per section.
+ * AD 2: Aerodromes → country → ICAO; PDF is FR-_01AD-2.ICAO-fr-FR.pdf for that aerodrome.
  *
  * Usage:
  *   node scripts/asecna-eaip-interactive.mjs
@@ -21,14 +22,14 @@ import {
   DEFAULT_ASECNA_INDEX,
   asecnaMenuUrl,
   htmlUrlToPdfUrl,
+  resolveAsecnaHtmlUrl,
   safeAsecnaPdfFilename,
   parseGen1Countries,
   parseGen1SectionsForCountry,
   parseAd2Countries,
   parseAd2IcaosForCountry,
-  gen1HtmlBasenamesToTry,
-  ad2HtmlBasenamesToTry,
-  resolveWorkingHtmlBasename as resolveWorkingHtmlUrl,
+  asecnaFormattedLeafBasename,
+  asecnaAd2AirportBasename,
   stemFromAsecnaHtmlFile,
   parseAsecnaCli,
   createAsecnaFetch,
@@ -98,7 +99,9 @@ async function promptPickCountry(rl, countries, label) {
  * @param {{ anchor: string, href: string, label: string }[]} sections
  */
 async function promptPickGenSection(rl, sections) {
-  console.error("\n--- GEN 1 — subsection (PDF is the whole GEN 1 document for this country) ---\n");
+  console.error(
+    "\n--- GEN 1 — subsection (PDF is that section’s file, as after custom-formatter on the site) ---\n",
+  );
   for (let i = 0; i < sections.length; i++) {
     const s = sections[i];
     console.error(`  ${String(i + 1).padStart(3)}. ${s.label}  (${s.anchor})`);
@@ -132,8 +135,7 @@ async function promptPickGenSection(rl, sections) {
  * @param {string[]} icaos
  */
 async function promptPickIcao(rl, icaos) {
-  console.error("\n--- AD 2 — aerodrome (PDF is the combined AD 2 document for this country) ---\n");
-  console.error("Pick an ICAO from the menu to confirm; the file is still FR-NN-AD-2.pdf for the whole AD 2.\n");
+  console.error("\n--- AD 2 — aerodrome (one PDF per airport, FR-_NNAD-2.ICAO-….pdf) ---\n");
   const cols = 5;
   const pad = 6;
   for (let i = 0; i < icaos.length; i += cols) {
@@ -198,8 +200,8 @@ async function main() {
     const top = (
       await rl.question(
         "What to download?\n" +
-          "  [1] GEN 1 — Regulations → country → subsection (PDF = whole national GEN 1)\n" +
-          "  [2] AD 2 — Aerodromes → country → ICAO (PDF = whole national AD 2)\n" +
+          "  [1] GEN 1 — Regulations → country → subsection (PDF = that section)\n" +
+          "  [2] AD 2 — Aerodromes → country → ICAO (PDF = that aerodrome)\n" +
           "  [0] Quit\n\nChoice [1/2/0]: ",
       )
     ).trim();
@@ -225,21 +227,16 @@ async function main() {
         return;
       }
       const section = await promptPickGenSection(rl, sections);
-      const tryNames = gen1HtmlBasenamesToTry(country.code, menuBasename);
-      const { htmlUrl: htmlU, basename: htmlFile } = await resolveWorkingHtmlUrl(
-        http,
-        tryNames,
-        menuDirUrl,
-        `HTML GEN ${country.code}`,
-        tlsOpts,
-      );
+      const htmlFile = asecnaFormattedLeafBasename(section.anchor, menuBasename);
+      const htmlU = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
       const pdfU = htmlUrlToPdfUrl(htmlU);
       const stem = stemFromAsecnaHtmlFile(htmlFile);
-      const outFile = join(OUT_GEN, safeAsecnaPdfFilename(`${stem}_${section.anchor}`));
+      const outFile = join(OUT_GEN, safeAsecnaPdfFilename(stem));
 
       console.error(`→ HTML: ${htmlU}`);
       console.error(`→ PDF:  ${pdfU}`);
       mkdirSync(OUT_GEN, { recursive: true });
+      await http.fetchOk(htmlU, `HTML GEN ${country.code}`, tlsOpts);
       await http.downloadPdfToFile(pdfU, outFile, `PDF GEN ${country.code}`, tlsOpts);
       console.error(`\nSaved: ${outFile}`);
       return;
@@ -257,15 +254,9 @@ async function main() {
         console.error(`No AD 2 aerodromes listed for ${country.name} in menu.`);
         return;
       }
-      await promptPickIcao(rl, icaos);
-      const tryNames = ad2HtmlBasenamesToTry(country.code, menuBasename);
-      const { htmlUrl: htmlU, basename: htmlFile } = await resolveWorkingHtmlUrl(
-        http,
-        tryNames,
-        menuDirUrl,
-        `HTML AD2 ${country.code}`,
-        tlsOpts,
-      );
+      const icao = await promptPickIcao(rl, icaos);
+      const htmlFile = asecnaAd2AirportBasename(country.code, icao, menuBasename);
+      const htmlU = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
       const pdfU = htmlUrlToPdfUrl(htmlU);
       const stem = stemFromAsecnaHtmlFile(htmlFile);
       const outFile = join(OUT_AD2, safeAsecnaPdfFilename(stem));
@@ -273,7 +264,8 @@ async function main() {
       console.error(`→ HTML: ${htmlU}`);
       console.error(`→ PDF:  ${pdfU}`);
       mkdirSync(OUT_AD2, { recursive: true });
-      await http.downloadPdfToFile(pdfU, outFile, `PDF AD2 ${country.code}`, tlsOpts);
+      await http.fetchOk(htmlU, `HTML AD2 ${icao}`, tlsOpts);
+      await http.downloadPdfToFile(pdfU, outFile, `PDF AD2 ${icao}`, tlsOpts);
       console.error(`\nSaved: ${outFile}`);
       return;
     }

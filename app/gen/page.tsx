@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Download, RefreshCwIcon } from "lucide-react";
-import { INAC_GEN_GROUPS, INAC_EAIP_PACKAGE_ROOT, inacEaipGenPdfUrl } from "@/lib/inac-eaip-gen-toc";
+import { INAC_GEN_GROUPS, INAC_EAIP_PACKAGE_ROOT, inacEaipGenPdfUrl, inacAd21PdfUrl } from "@/lib/inac-eaip-gen-toc";
 
 type AIPAirport = {
   icao: string;
@@ -243,6 +243,27 @@ export default function GenPage() {
                   </details>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {airport && prefix === "SV" && (
+          <Card className="shadow-md border-border/80">
+            <CardHeader>
+              <CardTitle>Part 3 — AD 2.1 (official INAC PDF)</CardTitle>
+              <CardDescription>
+                Mirrors the menu path <strong>AD_2</strong> → this ICAO → toolbar <strong>PDF</strong>. File:{" "}
+                <code className="text-[11px]">/pdf/eAIP/AD2.1{airport.icao.toUpperCase()}.pdf</code>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <a
+                href={inacAd21PdfUrl(airport.icao)}
+                className="text-sm text-primary hover:underline inline-flex items-center gap-2 font-medium"
+              >
+                <Download className="size-4 shrink-0 opacity-80" />
+                Download AD 2.1 PDF for {airport.icao.toUpperCase()}
+              </a>
             </CardContent>
           </Card>
         )}

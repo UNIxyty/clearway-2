@@ -129,3 +129,17 @@ export function inacEaipGenPdfUrl(htmlFile: string): string {
   const pdfStem = m[2];
   return `${INAC_EAIP_PACKAGE_ROOT}/pdf/eAIP/${encodeURIComponent(pdfStem)}.pdf`;
 }
+
+/** Part 3 AD 2.1 aerodrome HTML filename for Venezuela eAIP (ICAO e.g. SVMC). */
+export function inacAd21HtmlFile(icao: string): string {
+  const x = icao.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(x)) {
+    throw new Error(`ICAO must be 4 letters: ${icao}`);
+  }
+  return `SV-AD2.1${x}-en-GB.html`;
+}
+
+/** Official INAC PDF URL for AD 2.1 (same as toolbar PDF after opening that aerodrome HTML). */
+export function inacAd21PdfUrl(icao: string): string {
+  return inacEaipGenPdfUrl(inacAd21HtmlFile(icao));
+}

@@ -1,6 +1,6 @@
-# INAC Venezuela eAIP — GEN navigation (for scripts and scrapers)
+# INAC Venezuela eAIP — GEN & AD 2.1 navigation (for scripts and scrapers)
 
-This document records how the official **English** eAIP index is structured and how to reach **GEN_1 → GEN 1.2** programmatically. Use it when building downloaders or mirrors for Clearway.
+This document records how the official **English** eAIP index is structured: **GEN** sections and **Part 3 → AD_2** (AD 2.1 per ICAO), including the toolbar **PDF** mapping. Use it for Clearway downloaders and the portal links.
 
 ## Entry URLs
 
@@ -58,6 +58,30 @@ https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/GEN%201.2.pdf
 
 `{STEM}` includes spaces (e.g. `GEN 1.2`, `GEN 0.1`). Use `encodeURIComponent` on the stem.
 
+## Part 3 — AD_2 (AD 2.1 per aerodrome) → PDF
+
+In **`Menu-en-GB.html`**, under **PART 3 - AERODROMES (AD)**, expand **`AD_2`** (`id="AD_2"`). Each aerodrome is a link:
+
+- Example ICAO **SVMC**: `href="SV-AD2.1SVMC-en-GB.html"` (`id="AD2.1SVMC"`, `title="SVMC"`).
+- After opening that HTML in **`eAISContent`**, the toolbar **PDF** control serves:
+
+```text
+https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/AD2.1SVMC.pdf
+```
+
+Pattern: HTML `SV-AD2.1{ICAO}-en-GB.html` → PDF stem `AD2.1{ICAO}` (no space). Same `SV-{STEM}-en-GB.html` → `/pdf/eAIP/{STEM}.pdf` rule as GEN.
+
+**Script:** `scripts/inac-venezuela-eaip-ad2-download.mjs` loads the menu, checks the ICAO appears under AD_2, GETs HTML, then GETs PDF:
+
+```bash
+node scripts/inac-venezuela-eaip-ad2-download.mjs --icao SVMC
+node scripts/inac-venezuela-eaip-ad2-download.mjs --icao SVBC --dry-run
+```
+
+Output directory: `downloads/inac-venezuela-eaip/AD2/` (under the same gitignored tree as GEN).
+
+**Portal:** `inacAd21PdfUrl()` / `inacAd21HtmlFile()` in `lib/inac-eaip-gen-toc.ts`; `/gen` shows an AD 2.1 PDF link for SV airports.
+
 ## Scraping strategy
 
 1. **Preferred:** `GET` `Menu-en-GB.html`, parse `<a href='SV-GEN …-en-GB.html'>` inside `div#GENdetails` (and nested `div#GEN_*details`).
@@ -80,6 +104,8 @@ PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
 
 ## Portal mapping
 
-- Canonical GEN TOC data for the app lives in `lib/inac-eaip-gen-toc.ts` (`INAC_EAIP_PACKAGE_ROOT`, `INAC_EAIP_HTML_BASE`, `INAC_GEN_GROUPS`, `inacEaipGenPdfUrl()`, `inacEaipGenHtmlUrl()`).
-- The `/gen` page lists **PDF** URLs for SV (Venezuela), matching the official toolbar behavior.
+- Venezuela eAIP helpers live in `lib/inac-eaip-gen-toc.ts`: `INAC_EAIP_PACKAGE_ROOT`, `INAC_GEN_GROUPS`, `inacEaipGenPdfUrl()`, `inacEaipGenHtmlUrl()`, `inacAd21HtmlFile()`, `inacAd21PdfUrl()`.
+- The `/gen` page lists **GEN** PDFs and **AD 2.1** PDF for the selected SV airport.
 - Update the package root when INAC changes the effective-date directory.
+
+Shared HTTP/TLS for CLI tools: `scripts/inac-venezuela-eaip-http.mjs`.

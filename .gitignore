@@ -60,3 +60,6 @@ downloads/rus-aip/
 
 # INAC Venezuela eAIP GEN PDFs (scripts/inac-venezuela-eaip-gen-download.mjs)
 downloads/inac-venezuela-eaip/
+
+# M-NAV North Macedonia eAIP (scripts/mnav-north-macedonia-eaip-*-download.mjs)
+downloads/mnav-north-macedonia-eaip/

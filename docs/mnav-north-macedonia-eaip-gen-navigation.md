@@ -26,3 +26,28 @@ Charts live under `current/aipcharts/{ICAO}/` and are separate menu entries.
 - **TOC + URLs:** `lib/mnav-north-macedonia-eaip-toc.ts` — `MNAV_GEN_GROUPS`, `mnavPdfUrlFromMenuRelative()`, `mnavAd2TextPagesPdfUrl()`.
 
 When M-NAV adds an aerodrome, update `MNAV_AD2_AERODROMES` and `tree_items.js` parsing notes if filenames change.
+
+## CLI download scripts
+
+From the repo root (Node 18+). Package root defaults to **resolving [Start.htm](https://ais.m-nav.info/eAIP/Start.htm)** (current version → `…/current/en`). Override with `--root` or `MNAV_EAIP_PACKAGE_ROOT` if needed.
+
+```bash
+# Interactive menu (GEN vs AD 2)
+node scripts/mnav-north-macedonia-eaip-interactive.mjs
+
+# All GEN PDFs (from tree_items.js)
+node scripts/mnav-north-macedonia-eaip-gen-download.mjs
+node scripts/mnav-north-macedonia-eaip-gen-download.mjs --dry-run
+node scripts/mnav-north-macedonia-eaip-gen-download.mjs --only "GEN 1.2"
+
+# AD 2 Textpages for one ICAO
+node scripts/mnav-north-macedonia-eaip-ad2-download.mjs --icao LWSK
+node scripts/mnav-north-macedonia-eaip-ad2-download.mjs   # prompt with ICAO list (TTY)
+
+# TLS issues (same idea as INAC)
+MNAV_TLS_INSECURE=1 node scripts/mnav-north-macedonia-eaip-gen-download.mjs --dry-run
+```
+
+Output directories (gitignored): `downloads/mnav-north-macedonia-eaip/GEN/` and `…/AD2/`.
+
+Shared: `scripts/mnav-north-macedonia-eaip-http.mjs`, `scripts/mnav-north-macedonia-eaip-prompts.mjs`.

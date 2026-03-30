@@ -9,9 +9,12 @@ export async function GET(request: Request) {
     requestUrl.searchParams.get("token_hash") ?? requestUrl.searchParams.get("token");
   const rawTokenType = requestUrl.searchParams.get("type");
   const tokenType = rawTokenType ? rawTokenType.toLowerCase() : null;
+  const signupToken = requestUrl.searchParams.get("signup_token");
   const error = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
-  const nextRaw = requestUrl.searchParams.get("next") || "/";
+  const nextRaw =
+    requestUrl.searchParams.get("next") ||
+    (signupToken ? `/auth/confirm?token=${encodeURIComponent(signupToken)}` : "/");
   const next = nextRaw.startsWith("/") ? nextRaw : "/";
   const continueRaw = requestUrl.searchParams.get("continue");
   const continuePath = continueRaw && continueRaw.startsWith("/") ? continueRaw : null;

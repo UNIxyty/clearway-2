@@ -31,10 +31,9 @@ export async function POST(request: Request) {
   const tokenHash = sha256Hex(token);
   const expiresAt = new Date(Date.now() + SIGNUP_TOKEN_TTL_MS).toISOString();
   const appUrl = buildAppUrl(process.env.NEXT_PUBLIC_SITE_URL, requestUrl.origin);
-  const next = typeof body.next === "string" && body.next.startsWith("/") ? body.next : "/";
-  const confirmPath = `/auth/confirm?token=${encodeURIComponent(token)}`;
-  const callbackUrl = `${appUrl}/auth/callback?next=${encodeURIComponent(confirmPath)}&continue=${encodeURIComponent(
-    next,
+  const continuePath = typeof body.next === "string" && body.next.startsWith("/") ? body.next : "/";
+  const callbackUrl = `${appUrl}/auth/callback?signup_token=${encodeURIComponent(token)}&continue=${encodeURIComponent(
+    continuePath,
   )}`;
 
   // Keep any previous signup tokens invalid once a new email is requested.

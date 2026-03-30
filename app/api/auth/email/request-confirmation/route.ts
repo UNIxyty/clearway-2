@@ -11,7 +11,6 @@ import {
 const SIGNUP_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 export async function POST(request: Request) {
-  const includeDebug = String(process.env.AUTH_EMAIL_DEBUG || "").toLowerCase() === "true";
   const service = createSupabaseServiceRoleClient();
   if (!service) {
     return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
@@ -70,29 +69,13 @@ export async function POST(request: Request) {
       status: inviteError.status,
       code: inviteError.code,
     });
-    const response: {
-      ok: true;
-      sent: false;
-      message: string;
-      debug?: {
-        code: string | null;
-        status: number | null;
-        message: string;
-      };
-    } = {
+    // Return generic response to avoid account enumeration and keep UX stable.
+    return NextResponse.json({
       ok: true,
       sent: false,
       message:
         "We could not send a confirmation email right now. Please retry in a minute.",
-    };
-    if (includeDebug) {
-      response.debug = {
-        code: inviteError.code ?? null,
-        status: inviteError.status ?? null,
-        message: inviteError.message,
-      };
-    }
-    return NextResponse.json(response);
+    });
   }
 
   return NextResponse.json({

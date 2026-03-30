@@ -7,7 +7,6 @@ import {
 } from "@/lib/auth-email-flow-utils.mjs";
 
 export async function POST(request: Request) {
-  const includeDebug = String(process.env.AUTH_EMAIL_DEBUG || "").toLowerCase() === "true";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
@@ -30,36 +29,12 @@ export async function POST(request: Request) {
   const redirectTo = `${appUrl}/auth/reset`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) {
-    console.error("[auth/password/forgot] resetPasswordForEmail failed", {
-      email,
-      message: error.message,
-      name: error.name,
-      status: error.status,
-      code: error.code,
-    });
-    const response: {
-      ok: true;
-      sent: false;
-      message: string;
-      debug?: {
-        code: string | null;
-        status: number | null;
-        message: string;
-      };
-    } = {
+    // Keep response generic to avoid email enumeration.
+    return NextResponse.json({
       ok: true,
       sent: false,
-      message: "We could not send a reset link right now. Please retry in a minute.",
-    };
-    if (includeDebug) {
-      response.debug = {
-        code: error.code ?? null,
-        status: error.status ?? null,
-        message: error.message,
-      };
-    }
-    // Keep response generic to avoid email enumeration.
-    return NextResponse.json(response);
+      message: "If this email exists, a reset link has been sent.",
+    });
   }
 
   return NextResponse.json({

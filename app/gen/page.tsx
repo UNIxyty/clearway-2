@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Download, ExternalLink, RefreshCwIcon } from "lucide-react";
-import { INAC_GEN_GROUPS, INAC_EAIP_HTML_BASE, inacEaipGenHtmlUrl } from "@/lib/inac-eaip-gen-toc";
+import { Download, RefreshCwIcon } from "lucide-react";
+import { INAC_GEN_GROUPS, INAC_EAIP_PACKAGE_ROOT, inacEaipGenPdfUrl } from "@/lib/inac-eaip-gen-toc";
 
 type AIPAirport = {
   icao: string;
@@ -208,15 +208,17 @@ export default function GenPage() {
         {airport && prefix === "SV" && (
           <Card className="shadow-md border-border/80">
             <CardHeader>
-              <CardTitle>Part 1 — GEN (official INAC HTML)</CardTitle>
+              <CardTitle>Part 1 — GEN (official INAC PDF)</CardTitle>
               <CardDescription>
-                Same structure as the eAIP menu (GEN_0 … GEN_4). Opens INAC in a new tab. Base:{" "}
-                <span className="font-mono text-xs break-all">{INAC_EAIP_HTML_BASE}</span>
+                Same sections as the eAIP menu (GEN_0 … GEN_4). Each link is the PDF the site serves when you open the HTML
+                section and use the <strong>PDF</strong> control in the top toolbar (<code className="text-[11px]">commands-en-GB.html</code>
+                / <code className="text-[11px]">changeHrefToPdf</code>). Package root:{" "}
+                <span className="font-mono text-xs break-all">{INAC_EAIP_PACKAGE_ROOT}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-1">
               <p className="text-xs text-muted-foreground mb-3">
-                The live index uses frames; these links jump straight to each <code className="text-[11px]">eAIP/</code> HTML file.
+                Links go to <code className="text-[11px]">/pdf/eAIP/&lt;section&gt;.pdf</code> (not the framed HTML page).
               </p>
               <div className="space-y-2 max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2">
                 {INAC_GEN_GROUPS.map((group) => (
@@ -229,12 +231,10 @@ export default function GenPage() {
                       {group.sections.map((s) => (
                         <li key={s.id}>
                           <a
-                            href={inacEaipGenHtmlUrl(s.file)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={inacEaipGenPdfUrl(s.file)}
                             className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-words"
                           >
-                            <ExternalLink className="size-3 shrink-0 opacity-70" />
+                            <Download className="size-3 shrink-0 opacity-70" />
                             {s.label}
                           </a>
                         </li>

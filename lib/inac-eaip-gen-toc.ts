@@ -1,11 +1,15 @@
 /**
  * INAC Venezuela eAIP — Part 1 (GEN) table of contents for portal deep links.
  * HTML filenames use a space after the prefix (e.g. `SV-GEN 1.2-en-GB.html`).
- * Update `INAC_EAIP_HTML_BASE` when INAC publishes a new effective-date tree.
+ * PDFs live under `/pdf/eAIP/` with stem `GEN 1.2` (same as the official “PDF” toolbar
+ * button: `commands.js` replaces `/html` → `/pdf` and maps the current HTML name).
+ * Update these constants when INAC publishes a new effective-date tree.
  */
 
-export const INAC_EAIP_HTML_BASE =
-  "https://www.inac.gob.ve/eaip/2020-07-16/html/eAIP";
+export const INAC_EAIP_PACKAGE_ROOT =
+  "https://www.inac.gob.ve/eaip/2020-07-16";
+
+export const INAC_EAIP_HTML_BASE = `${INAC_EAIP_PACKAGE_ROOT}/html/eAIP`;
 
 export type InacGenSection = {
   /** Stable id matching official menu, e.g. GEN_1, GEN 1.2 */
@@ -112,4 +116,16 @@ export const INAC_GEN_GROUPS: InacGenGroup[] = [
 
 export function inacEaipGenHtmlUrl(file: string): string {
   return `${INAC_EAIP_HTML_BASE}/${encodeURIComponent(file)}`;
+}
+
+/**
+ * Direct PDF URL for a GEN HTML file name (e.g. `GEN 1.2.pdf` under `pdf/eAIP/`).
+ */
+export function inacEaipGenPdfUrl(htmlFile: string): string {
+  const m = htmlFile.match(/^([A-Z]{2})-(.+)-en-GB\.html$/i);
+  if (!m) {
+    throw new Error(`Unexpected INAC GEN HTML filename: ${htmlFile}`);
+  }
+  const pdfStem = m[2];
+  return `${INAC_EAIP_PACKAGE_ROOT}/pdf/eAIP/${encodeURIComponent(pdfStem)}.pdf`;
 }

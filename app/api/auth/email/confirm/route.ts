@@ -41,28 +41,33 @@ async function loadConfirmation(token: string) {
   return { error: null, row: data };
 }
 
+async function findUserIdByEmail(email: string) {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return { error: "Missing SUPABASE_SERVICE_ROLE_KEY", userId: null as string | null };
+
+  const targetEmail = normalizeEmail(email);
+  const perPage = 200;
+  // Safety bound to avoid unbounded scans in very large user sets.
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage });
+    if (error) return { error: error.message, userId: null as string | null };
+
+    const users = data?.users ?? [];
+    const match = users.find((u) => normalizeEmail(u.email) === targetEmail);
+    if (match?.id) return { error: null, userId: match.id };
+    if (users.length < perPage) break;
+  }
+  return { error: "User account not found for this confirmation token.", userId: null as string | null };
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const token = requestUrl.searchParams.get("token") ?? "";
   if (!token) return NextResponse.json({ error: "Token is required." }, { status: 400 });
 
-  const supabase = createSupabaseFromCookies();
-  if (!supabase) return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id || !user.email) {
-    return NextResponse.json({ error: "Please open this page from your email link." }, { status: 401 });
-  }
-
   const confirmation = await loadConfirmation(token);
   if (confirmation.error || !confirmation.row) {
     return NextResponse.json({ error: confirmation.error ?? "Invalid token." }, { status: 400 });
-  }
-
-  if (normalizeEmail(user.email) !== normalizeEmail(confirmation.row.email)) {
-    return NextResponse.json({ error: "Token email does not match the current account." }, { status: 403 });
   }
 
   return NextResponse.json({ ok: true, email: confirmation.row.email });
@@ -80,27 +85,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
   }
 
-  const supabase = createSupabaseFromCookies();
-  if (!supabase) return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user?.id || !user.email) {
-    return NextResponse.json({ error: "Please open this page from your email link." }, { status: 401 });
-  }
-
   const confirmation = await loadConfirmation(token);
   if (confirmation.error || !confirmation.row) {
     return NextResponse.json({ error: confirmation.error ?? "Invalid token." }, { status: 400 });
-  }
-  if (normalizeEmail(user.email) !== normalizeEmail(confirmation.row.email)) {
-    return NextResponse.json({ error: "Token email does not match the current account." }, { status: 403 });
   }
 
   const service = createSupabaseServiceRoleClient();
   if (!service) return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
 
-  const { error: updateError } = await service.auth.admin.updateUserById(user.id, {
+  let targetUserId: string | null = null;
+  const supabase = createSupabaseFromCookies();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user?.id && normalizeEmail(user.email) === normalizeEmail(confirmation.row.email)) {
+      targetUserId = user.id;
+    }
+  }
+  if (!targetUserId) {
+    const lookup = await findUserIdByEmail(confirmation.row.email);
+    if (lookup.error || !lookup.userId) {
+      return NextResponse.json({ error: lookup.error ?? "Unable to locate invited user." }, { status: 404 });
+    }
+    targetUserId = lookup.userId;
+  }
+
+  const { error: updateError } = await service.auth.admin.updateUserById(targetUserId, {
     password,
     email_confirm: true,
   });

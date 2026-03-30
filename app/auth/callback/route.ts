@@ -35,6 +35,16 @@ export async function GET(request: Request) {
   }
 
   if (!code && !tokenHash) {
+    if (signupToken) {
+      const confirmUrl = new URL(
+        `/auth/confirm?token=${encodeURIComponent(signupToken)}`,
+        requestUrl.origin,
+      );
+      if (continuePath) {
+        confirmUrl.searchParams.set("continue", continuePath);
+      }
+      return NextResponse.redirect(confirmUrl);
+    }
     const loginUrl = new URL("/login", requestUrl.origin);
     loginUrl.searchParams.set("error", "oauth_no_code");
     loginUrl.searchParams.set("next", next);

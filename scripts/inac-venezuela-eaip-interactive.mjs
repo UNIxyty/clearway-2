@@ -10,7 +10,7 @@
  */
 
 import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
+import { stdin as input, stderr } from "node:process";
 import { mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -66,7 +66,7 @@ async function main() {
   const tlsOpts = makeTlsOpts(insecureTls, strictTls);
   const http = createInacFetch("UI");
 
-  const rl = readline.createInterface({ input, output });
+  const rl = readline.createInterface({ input, output: stderr, terminal: true });
 
   try {
     console.error("INAC Venezuela eAIP — downloader\n");

@@ -11,7 +11,24 @@ import { ad21IcaoFromHtmlFile, htmlFileToPdfStem } from "./inac-venezuela-eaip-h
  */
 export async function promptPickAd21Icao(rl, hrefs) {
   const rows = hrefs.map((h) => ad21IcaoFromHtmlFile(h)).filter(Boolean);
-  console.error("\nAD 2.1 — aerodromes (INAC menu Part 3 → AD_2):\n");
+  console.error("\n--- AD 2.1 (Part 3 → AD_2) — your input ---\n");
+  console.error("Option A: type a 4-letter ICAO now (example: SVMC) and press Enter.");
+  console.error("Option B: press Enter (empty) to show the numbered list, then type a number or ICAO.\n");
+
+  const first = (await rl.question("ICAO (or Enter to show list): ")).trim().toUpperCase();
+  if (first.length > 0) {
+    if (/^[A-Z]{4}$/.test(first)) {
+      if (rows.includes(first)) {
+        console.error(`Using ICAO ${first}.\n`);
+        return first;
+      }
+      console.error(`\n"${first}" is not in this package AD 2.1 menu (${rows.length} aerodromes). Showing the list.\n`);
+    } else {
+      console.error("\nExpected four letters (or empty for the list). Showing the list.\n");
+    }
+  }
+
+  console.error("AD 2.1 — aerodromes in this eAIP:\n");
   const cols = 4;
   const pad = 8;
   for (let i = 0; i < rows.length; i += cols) {
@@ -19,19 +36,29 @@ export async function promptPickAd21Icao(rl, hrefs) {
     console.error(chunk.map((icao, j) => `${String(i + j + 1).padStart(3)}. ${icao.padEnd(pad)}`).join("  "));
   }
   console.error("");
-  const hint = `Pick [1–${rows.length}] or type ICAO (e.g. SVMC): `;
+  const hint = `Enter list number (1–${rows.length}) or ICAO (e.g. SVMC), then Enter: `;
   for (;;) {
     const raw = (await rl.question(hint)).trim();
-    if (!raw) continue;
-    const n = parseInt(raw, 10);
-    if (String(n) === raw && n >= 1 && n <= rows.length) return rows[n - 1];
-    const up = raw.toUpperCase();
-    if (/^[A-Z]{4}$/.test(up)) {
-      if (rows.includes(up)) return up;
-      console.error(`ICAO ${up} not in this menu. Try a number from the list.`);
+    if (!raw) {
+      console.error("(empty input — type a number or 4-letter ICAO.)");
       continue;
     }
-    console.error("Enter a list number or a 4-letter ICAO.");
+    const n = parseInt(raw, 10);
+    if (String(n) === raw && n >= 1 && n <= rows.length) {
+      const picked = rows[n - 1];
+      console.error(`Using ${picked}.\n`);
+      return picked;
+    }
+    const up = raw.toUpperCase();
+    if (/^[A-Z]{4}$/.test(up)) {
+      if (rows.includes(up)) {
+        console.error(`Using ${up}.\n`);
+        return up;
+      }
+      console.error(`ICAO ${up} is not in the list above. Try again.`);
+      continue;
+    }
+    console.error("Enter only the list number, or exactly four letters (ICAO).");
   }
 }
 

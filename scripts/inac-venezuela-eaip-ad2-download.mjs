@@ -20,7 +20,7 @@ import { mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
+import { stdin as input, stderr } from "node:process";
 import {
   DEFAULT_INAC_PACKAGE_ROOT,
   indexUrl,
@@ -97,8 +97,9 @@ async function main() {
 
   let icao = icaoArg?.trim().toUpperCase() ?? "";
   if (!icao || !/^[A-Z]{4}$/.test(icao)) {
-    if (!icaoArg && input.isTTY && output.isTTY) {
-      const rl = readline.createInterface({ input, output });
+    if (!icaoArg && input.isTTY) {
+      // stderr: prompts stay with console.error logs (index, menu, grid)
+      const rl = readline.createInterface({ input, output: stderr, terminal: true });
       try {
         icao = await promptPickAd21Icao(rl, knownHrefs);
       } finally {

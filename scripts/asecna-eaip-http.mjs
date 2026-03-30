@@ -49,11 +49,19 @@ export function safeAsecnaPdfFilename(stem) {
 /**
  * Country rows under GEN 1 Regulations.
  * @param {string} menuHtml
+ * @param {string} [menuBasename] drives href locale/prefix (default FR-menu-fr-FR.html)
  * @returns {{ code: string, name: string }[]}
  */
-export function parseGen1Countries(menuHtml) {
-  const re =
-    /<a[^>]*\bhref="FR-(\d{2})-GEN-1-fr-FR\.html#\1-GEN-1"[^>]*\bid="\1-GEN-1"[^>]*>[\s\S]*?<span class="foreign"[^>]*>([^<]+)<\/span>\s*<\/a>/gi;
+export function parseGen1Countries(menuHtml, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const locale = meta?.locale ?? "fr-FR";
+  const prefix = meta?.prefix ?? "FR";
+  const escL = locale.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escP = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(
+    `<a[^>]*\\bhref="${escP}-(\\d{2})-GEN-1-${escL}\\.html#\\1-GEN-1"[^>]*\\bid="\\1-GEN-1"[^>]*>[\\s\\S]*?<span class="foreign"[^>]*>([^<]+)<\\/span>\\s*<\\/a>`,
+    "gi",
+  );
   /** @type {{ code: string, name: string }[]} */
   const out = [];
   let m;
@@ -67,12 +75,16 @@ export function parseGen1Countries(menuHtml) {
  * Leaf sections for GEN 1 / one country (NN).
  * @param {string} menuHtml
  * @param {string} code Two digits, e.g. 01
+ * @param {string} [menuBasename]
  * @returns {{ anchor: string, href: string, label: string }[]}
  */
-export function parseGen1SectionsForCountry(menuHtml, code) {
+export function parseGen1SectionsForCountry(menuHtml, code, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const prefix = meta?.prefix ?? "FR";
   const esc = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escP = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(
-    `<a[^>]*\\bhref="(FR-${esc}-GEN-1\\.html#([^"]+))"[^>]*\\btitle="([^"]*)"`,
+    `<a[^>]*\\bhref="(${escP}-${esc}-GEN-1\\.html#([^"]+))"[^>]*\\btitle="([^"]*)"`,
     "gi",
   );
   /** @type {Map<string, { anchor: string, href: string, label: string }>} */
@@ -91,10 +103,18 @@ export function parseGen1SectionsForCountry(menuHtml, code) {
 /**
  * Countries under AD 2 Aerodromes.
  * @param {string} menuHtml
+ * @param {string} [menuBasename]
  */
-export function parseAd2Countries(menuHtml) {
-  const re =
-    /<a[^>]*\bhref="FR-(\d{2})-AD-2-fr-FR\.html#\1-AD-2"[^>]*\bid="\1-AD-2"[^>]*>[\s\S]*?<span class="foreign"[^>]*>([^<]+)<\/span>\s*<\/a>/gi;
+export function parseAd2Countries(menuHtml, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const locale = meta?.locale ?? "fr-FR";
+  const prefix = meta?.prefix ?? "FR";
+  const escL = locale.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escP = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(
+    `<a[^>]*\\bhref="${escP}-(\\d{2})-AD-2-${escL}\\.html#\\1-AD-2"[^>]*\\bid="\\1-AD-2"[^>]*>[\\s\\S]*?<span class="foreign"[^>]*>([^<]+)<\\/span>\\s*<\\/a>`,
+    "gi",
+  );
   /** @type {{ code: string, name: string }[]} */
   const out = [];
   let m;
@@ -110,9 +130,12 @@ export function parseAd2Countries(menuHtml) {
  * @param {string} code
  * @returns {string[]} Uppercase ICAO
  */
-export function parseAd2IcaosForCountry(menuHtml, code) {
+export function parseAd2IcaosForCountry(menuHtml, code, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const prefix = meta?.prefix ?? "FR";
   const esc = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`href="FR-${esc}-AD-2\\.html#_${esc}AD-2\\.([A-Z]{4})"`, "gi");
+  const escP = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`href="${escP}-${esc}-AD-2\\.html#_${esc}AD-2\\.([A-Z]{4})"`, "gi");
   const set = new Set();
   let m;
   while ((m = re.exec(menuHtml))) set.add(m[1].toUpperCase());
@@ -120,19 +143,71 @@ export function parseAd2IcaosForCountry(menuHtml, code) {
 }
 
 /**
- * HTML basename for full AD2 PDF for country (one combined document per state).
- * @param {string} code
+ * @param {string} menuBasename e.g. FR-menu-fr-FR.html
+ * @returns {{ prefix: string, locale: string } | null}
  */
-export function ad2HtmlBasenameForCountry(code) {
-  return `FR-${code}-AD-2.html`;
+export function parseMenuBasename(menuBasename) {
+  const m = String(menuBasename).match(/^([A-Za-z]{2})-menu-(.+)\.html$/i);
+  if (!m) return null;
+  return { prefix: m[1].toUpperCase(), locale: m[2] };
 }
 
 /**
- * HTML basename for full GEN-1 PDF for country.
+ * Basenames to try for GEN-1 HTML/PDF. The TOC often links leaves as FR-NN-GEN-1.html but the
+ * server may only publish FR-NN-GEN-1-{locale}.html (Eurocontrol bilingual naming).
  * @param {string} code
+ * @param {string} [menuBasename]
+ * @returns {string[]} prefer localized first when derivable from menu file
  */
-export function gen1HtmlBasenameForCountry(code) {
-  return `FR-${code}-GEN-1.html`;
+export function gen1HtmlBasenamesToTry(code, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const prefix = meta?.prefix ?? "FR";
+  const short = `${prefix}-${code}-GEN-1.html`;
+  if (meta?.locale) {
+    const loc = `${prefix}-${code}-GEN-1-${meta.locale}.html`;
+    return [loc, short];
+  }
+  return [short];
+}
+
+/**
+ * @param {string} code
+ * @param {string} [menuBasename]
+ */
+export function ad2HtmlBasenamesToTry(code, menuBasename = "FR-menu-fr-FR.html") {
+  const meta = parseMenuBasename(menuBasename);
+  const prefix = meta?.prefix ?? "FR";
+  const short = `${prefix}-${code}-AD-2.html`;
+  if (meta?.locale) {
+    const loc = `${prefix}-${code}-AD-2-${meta.locale}.html`;
+    return [loc, short];
+  }
+  return [short];
+}
+
+/**
+ * GET the first basename that returns OK; throws with all failures if none work.
+ * @param {{ fetchOk: (u: string, n: string, t: unknown) => Promise<unknown> }} http
+ */
+export async function resolveWorkingHtmlBasename(
+  http,
+  basenames,
+  menuDirUrl,
+  logLabel,
+  tlsOpts,
+) {
+  /** @type {string[]} */
+  const errors = [];
+  for (const base of basenames) {
+    const htmlUrl = resolveAsecnaHtmlUrl(base, menuDirUrl);
+    try {
+      await http.fetchOk(htmlUrl, logLabel, tlsOpts);
+      return { htmlUrl, basename: base };
+    } catch (e) {
+      errors.push(`${htmlUrl} — ${/** @type {Error} */ (e).message}`);
+    }
+  }
+  throw new Error(`${logLabel}: no reachable HTML. Tried:\n${errors.join("\n")}`);
 }
 
 /** @param {string} htmlFile e.g. FR-01-GEN-1.html */

@@ -21,14 +21,14 @@ import {
   DEFAULT_ASECNA_INDEX,
   asecnaMenuUrl,
   htmlUrlToPdfUrl,
-  resolveAsecnaHtmlUrl,
   safeAsecnaPdfFilename,
   parseGen1Countries,
   parseGen1SectionsForCountry,
   parseAd2Countries,
   parseAd2IcaosForCountry,
-  gen1HtmlBasenameForCountry,
-  ad2HtmlBasenameForCountry,
+  gen1HtmlBasenamesToTry,
+  ad2HtmlBasenamesToTry,
+  resolveWorkingHtmlBasename as resolveWorkingHtmlUrl,
   stemFromAsecnaHtmlFile,
   parseAsecnaCli,
   createAsecnaFetch,
@@ -213,20 +213,26 @@ async function main() {
     const menuHtml = await http.fetchText(menuUrl, "menu", tlsOpts);
 
     if (top === "1") {
-      const countries = parseGen1Countries(menuHtml);
+      const countries = parseGen1Countries(menuHtml, menuBasename);
       if (countries.length === 0) {
         console.error("No GEN 1 countries found in menu (unexpected HTML).");
         return;
       }
       const country = await promptPickCountry(rl, countries, "GEN 1 Regulations");
-      const sections = parseGen1SectionsForCountry(menuHtml, country.code);
+      const sections = parseGen1SectionsForCountry(menuHtml, country.code, menuBasename);
       if (sections.length === 0) {
         console.error(`No GEN 1 sections for ${country.name} in menu.`);
         return;
       }
       const section = await promptPickGenSection(rl, sections);
-      const htmlFile = gen1HtmlBasenameForCountry(country.code);
-      const htmlU = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
+      const tryNames = gen1HtmlBasenamesToTry(country.code, menuBasename);
+      const { htmlUrl: htmlU, basename: htmlFile } = await resolveWorkingHtmlUrl(
+        http,
+        tryNames,
+        menuDirUrl,
+        `HTML GEN ${country.code}`,
+        tlsOpts,
+      );
       const pdfU = htmlUrlToPdfUrl(htmlU);
       const stem = stemFromAsecnaHtmlFile(htmlFile);
       const outFile = join(OUT_GEN, safeAsecnaPdfFilename(`${stem}_${section.anchor}`));
@@ -234,27 +240,32 @@ async function main() {
       console.error(`→ HTML: ${htmlU}`);
       console.error(`→ PDF:  ${pdfU}`);
       mkdirSync(OUT_GEN, { recursive: true });
-      await http.fetchOk(htmlU, `HTML GEN ${country.code}`, tlsOpts);
       await http.downloadPdfToFile(pdfU, outFile, `PDF GEN ${country.code}`, tlsOpts);
       console.error(`\nSaved: ${outFile}`);
       return;
     }
 
     if (top === "2") {
-      const countries = parseAd2Countries(menuHtml);
+      const countries = parseAd2Countries(menuHtml, menuBasename);
       if (countries.length === 0) {
         console.error("No AD 2 countries found in menu.");
         return;
       }
       const country = await promptPickCountry(rl, countries, "AD 2 Aerodromes");
-      const icaos = parseAd2IcaosForCountry(menuHtml, country.code);
+      const icaos = parseAd2IcaosForCountry(menuHtml, country.code, menuBasename);
       if (icaos.length === 0) {
         console.error(`No AD 2 aerodromes listed for ${country.name} in menu.`);
         return;
       }
       await promptPickIcao(rl, icaos);
-      const htmlFile = ad2HtmlBasenameForCountry(country.code);
-      const htmlU = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
+      const tryNames = ad2HtmlBasenamesToTry(country.code, menuBasename);
+      const { htmlUrl: htmlU, basename: htmlFile } = await resolveWorkingHtmlUrl(
+        http,
+        tryNames,
+        menuDirUrl,
+        `HTML AD2 ${country.code}`,
+        tlsOpts,
+      );
       const pdfU = htmlUrlToPdfUrl(htmlU);
       const stem = stemFromAsecnaHtmlFile(htmlFile);
       const outFile = join(OUT_AD2, safeAsecnaPdfFilename(stem));
@@ -262,7 +273,6 @@ async function main() {
       console.error(`→ HTML: ${htmlU}`);
       console.error(`→ PDF:  ${pdfU}`);
       mkdirSync(OUT_AD2, { recursive: true });
-      await http.fetchOk(htmlU, `HTML AD2 ${country.code}`, tlsOpts);
       await http.downloadPdfToFile(pdfU, outFile, `PDF AD2 ${country.code}`, tlsOpts);
       console.error(`\nSaved: ${outFile}`);
       return;

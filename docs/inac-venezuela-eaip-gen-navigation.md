@@ -6,10 +6,21 @@ This document records how the official **English** eAIP index is structured: **G
 
 | Step | URL |
 |------|-----|
-| Root frameset | `https://www.inac.gob.ve/eaip/2020-07-16/html/index-en-GB.html` |
-| Table of contents (full menu document) | `https://www.inac.gob.ve/eaip/2020-07-16/html/eAIP/Menu-en-GB.html` |
+| Amendment history (frameset; user picks effective issue) | `https://www.inac.gob.ve/eaip/history-en-GB.html` |
+| History body (machine-readable list; lists effective hrefs) | `https://www.inac.gob.ve/eaip/history-body-en-GB.html` |
+| Root frameset (example; use resolved `{YYYY-MM-DD}`) | `https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/html/index-en-GB.html` |
+| Table of contents (full menu document) | `https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/html/eAIP/Menu-en-GB.html` |
 
-Replace the path segment `2020-07-16` when INAC publishes a new AIP effective date.
+### Resolving the active package (workflow)
+
+1. **Human:** open `history-en-GB.html`, use the control under **Effective Date** for the **currently effective** release; the site navigates to that package’s `index-en-GB.html`.
+2. **Automation:** `GET` **`history-body-en-GB.html`**, take the HTML slice from **`Currently Effective Issue`** up to (but not including) **`Next Issues`**, and match the first  
+   `href="…/YYYY-MM-DD/html/index-en-GB.html"` → package root is `https://www.inac.gob.ve/eaip/YYYY-MM-DD` (no trailing slash required for joining paths).
+3. **In Clearway:**
+   - **`lib/inac-venezuela-eaip-resolve.ts`** — `parseEffectivePackagePathSegment()`, `resolveInacEaipPackageRoot()` (server-side `fetch`).
+   - **`GET /api/inac-eaip-package-root`** — JSON `{ packageRoot, historyPageUrl, indexUrl }` (cached ~300s).
+   - **CLI** (`inac-venezuela-eaip-http.mjs`): resolves from history unless **`--root`** or env override; on failure uses **`INAC_PACKAGE_ROOT_FALLBACK`** (last-known date in code).
+4. All examples below use `{YYYY-MM-DD}`; substitute the resolved segment.
 
 ## Frame layout
 
@@ -37,7 +48,7 @@ Automation tools must target **frames** (Playwright: `frameLocator`, Puppeteer: 
 The content frame resolves the menu `href` relative to `eAIP/`:
 
 ```text
-https://www.inac.gob.ve/eaip/2020-07-16/html/eAIP/SV-GEN%201.2-en-GB.html
+https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/html/eAIP/SV-GEN%201.2-en-GB.html
 ```
 
 Pattern: `SV-GEN {subsection}-en-GB.html` (note the **space** in many filenames; encode as `%20` in URLs.)
@@ -47,13 +58,13 @@ Pattern: `SV-GEN {subsection}-en-GB.html` (note the **space** in many filenames;
 For GEN files named `SV-{STEM}-en-GB.html`, the PDF is:
 
 ```text
-https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/{STEM}.pdf
+https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/pdf/eAIP/{STEM}.pdf
 ```
 
 Example — GEN 1.2:
 
 ```text
-https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/GEN%201.2.pdf
+https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/pdf/eAIP/GEN%201.2.pdf
 ```
 
 `{STEM}` includes spaces (e.g. `GEN 1.2`, `GEN 0.1`). Use `encodeURIComponent` on the stem.
@@ -66,7 +77,7 @@ In **`Menu-en-GB.html`**, under **PART 3 - AERODROMES (AD)**, expand **`AD_2`** 
 - After opening that HTML in **`eAISContent`**, the toolbar **PDF** control serves:
 
 ```text
-https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/AD2.1SVMC.pdf
+https://www.inac.gob.ve/eaip/{YYYY-MM-DD}/pdf/eAIP/AD2.1SVMC.pdf
 ```
 
 Pattern: HTML `SV-AD2.1{ICAO}-en-GB.html` → PDF stem `AD2.1{ICAO}` (no space). Same `SV-{STEM}-en-GB.html` → `/pdf/eAIP/{STEM}.pdf` rule as GEN.
@@ -86,7 +97,7 @@ Run **without `--icao`** in a normal terminal to get the **ICAO list prompt** (s
 node scripts/inac-venezuela-eaip-ad2-download.mjs
 ```
 
-**Portal:** `inacAd21PdfUrl()` / `inacAd21HtmlFile()` in `lib/inac-eaip-gen-toc.ts`; `/gen` shows an AD 2.1 PDF link for SV airports.
+**Portal:** `inacAd21PdfUrl(icao, packageRoot)` / `inacAd21HtmlFile()` in `lib/inac-eaip-gen-toc.ts`; `/gen` fetches `/api/inac-eaip-package-root` for SV airports and passes `packageRoot` into URL helpers.
 
 Shared CLI pieces: `inac-venezuela-eaip-http.mjs`, `inac-venezuela-eaip-prompts.mjs`.
 
@@ -123,8 +134,8 @@ PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
 
 ## Portal mapping
 
-- Venezuela eAIP helpers live in `lib/inac-eaip-gen-toc.ts`: `INAC_EAIP_PACKAGE_ROOT`, `INAC_GEN_GROUPS`, `inacEaipGenPdfUrl()`, `inacEaipGenHtmlUrl()`, `inacAd21HtmlFile()`, `inacAd21PdfUrl()`.
-- The `/gen` page lists **GEN** PDFs and **AD 2.1** PDF for the selected SV airport.
-- Update the package root when INAC changes the effective-date directory.
+- **Resolution:** `lib/inac-venezuela-eaip-resolve.ts` (`INAC_HISTORY_PAGE_URL`, `INAC_HISTORY_BODY_URL`, `INAC_PACKAGE_ROOT_FALLBACK`).
+- **TOC + URLs:** `lib/inac-eaip-gen-toc.ts` — `INAC_GEN_GROUPS`, `inacEaipGenPdfUrl(htmlFile, packageRoot)`, `inacEaipGenHtmlUrl()`, `inacAd21PdfUrl(icao, packageRoot)`.
+- The `/gen` page resolves **packageRoot** via **`GET /api/inac-eaip-package-root`**, then lists **GEN** PDFs and **AD 2.1** PDF for the selected SV airport. On API/history failure it falls back to `INAC_PACKAGE_ROOT_FALLBACK` and shows a warning.
 
 Shared modules: `scripts/inac-venezuela-eaip-http.mjs`, `scripts/inac-venezuela-eaip-prompts.mjs`, `scripts/inac-venezuela-eaip-interactive.mjs`.

@@ -8,7 +8,8 @@
  *
  * Usage:
  *   node scripts/inac-venezuela-eaip-ad2-download.mjs --icao SVMC
- *   node scripts/inac-venezuela-eaip-ad2-download.mjs --icao svbc --dry-run
+ *   node scripts/inac-venezuela-eaip-ad2-download.mjs          (TTY: prompts with ICAO list)
+ *   node scripts/inac-venezuela-eaip-interactive.mjs           (GEN or AD menu)
  *
  * Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT
  *
@@ -18,6 +19,8 @@
 import { mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import {
   DEFAULT_INAC_PACKAGE_ROOT,
   indexUrl,
@@ -26,32 +29,19 @@ import {
   sectionPdfUrl,
   htmlFileToPdfStem,
   safePdfFilename,
+  parseAd21HtmlHrefs,
+  ad21HtmlFileForIcao,
   parseTlsAndRoot,
   createInacFetch,
   makeTlsOpts,
 } from "./inac-venezuela-eaip-http.mjs";
+import { promptPickAd21Icao } from "./inac-venezuela-eaip-prompts.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
 const OUT_DIR = join(PROJECT_ROOT, "downloads", "inac-venezuela-eaip", "AD2");
 
 const http = createInacFetch("AD2");
-
-/** @param {string} menuHtml */
-function parseAd21HtmlHrefs(menuHtml) {
-  const re = /href=["'](SV-AD2\.1[A-Z]{4}-en-GB\.html)["']/gi;
-  const set = new Set();
-  let m;
-  while ((m = re.exec(menuHtml))) set.add(m[1]);
-  return [...set].sort();
-}
-
-/** @param {string} icao */
-function ad21HtmlFileForIcao(icao) {
-  const x = icao.trim().toUpperCase();
-  if (!/^[A-Z]{4}$/.test(x)) throw new Error(`ICAO must be 4 letters, got: ${JSON.stringify(icao)}`);
-  return `SV-AD2.1${x}-en-GB.html`;
-}
 
 function parseArgs(argv) {
   let dryRun = false;
@@ -66,8 +56,7 @@ function parseArgs(argv) {
     } else if (a === "--help" || a === "-h") {
       console.log(`Usage: node scripts/inac-venezuela-eaip-ad2-download.mjs --icao XXXX [options]
 
-Required:
-  --icao XXXX     Four-letter ICAO (e.g. SVMC, SVBC)
+  --icao XXXX     Four-letter ICAO (optional in terminal — menu will be shown)
 
 Options:
   --dry-run       Log URLs only; do not download PDF
@@ -91,16 +80,6 @@ function log(step, msg) {
 
 async function main() {
   const { dryRun, icao: icaoArg, packageRoot, insecureTls, strictTls } = parseArgs(process.argv);
-  if (!icaoArg) {
-    console.error("Missing --icao XXXX (four-letter ICAO). Example: --icao SVMC");
-    process.exit(1);
-  }
-
-  const icao = icaoArg.trim().toUpperCase();
-  if (!/^[A-Z]{4}$/.test(icao)) {
-    console.error("ICAO must be 4 letters.");
-    process.exit(1);
-  }
 
   if (insecureTls) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -115,6 +94,22 @@ async function main() {
   const menuHtml = await http.fetchText(menuUrl(packageRoot), "menu", tlsOpts);
 
   const knownHrefs = parseAd21HtmlHrefs(menuHtml);
+
+  let icao = icaoArg?.trim().toUpperCase() ?? "";
+  if (!icao || !/^[A-Z]{4}$/.test(icao)) {
+    if (!icaoArg && input.isTTY && output.isTTY) {
+      const rl = readline.createInterface({ input, output });
+      try {
+        icao = await promptPickAd21Icao(rl, knownHrefs);
+      } finally {
+        rl.close();
+      }
+    } else {
+      console.error("Missing or invalid ICAO. Use: --icao SVMC  (or run in a terminal for prompts)");
+      process.exit(1);
+    }
+  }
+
   const htmlFile = ad21HtmlFileForIcao(icao);
   if (!knownHrefs.includes(htmlFile)) {
     const inMenu = knownHrefs.filter((h) => h.includes(icao)).slice(0, 5);

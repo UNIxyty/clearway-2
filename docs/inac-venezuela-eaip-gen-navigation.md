@@ -80,7 +80,15 @@ node scripts/inac-venezuela-eaip-ad2-download.mjs --icao SVBC --dry-run
 
 Output directory: `downloads/inac-venezuela-eaip/AD2/` (under the same gitignored tree as GEN).
 
+Run **without `--icao`** in a normal terminal to get the **ICAO list prompt** (same list as interactive AD path):
+
+```bash
+node scripts/inac-venezuela-eaip-ad2-download.mjs
+```
+
 **Portal:** `inacAd21PdfUrl()` / `inacAd21HtmlFile()` in `lib/inac-eaip-gen-toc.ts`; `/gen` shows an AD 2.1 PDF link for SV airports.
+
+Shared CLI pieces: `inac-venezuela-eaip-http.mjs`, `inac-venezuela-eaip-prompts.mjs`.
 
 ## Scraping strategy
 
@@ -89,9 +97,17 @@ Output directory: `downloads/inac-venezuela-eaip/AD2/` (under the same gitignore
 3. For **PDF (recommended for GEN downloads):** map each `SV-{STEM}-en-GB.html` to `…/pdf/eAIP/{STEM}.pdf` with `encodeURIComponent({STEM})`.
 4. Section HTML pages are static; follow local assets (`*.css`, images) only if mirroring the HTML UI.
 
-## Automation script (imitates browser flow)
+## Interactive downloader (prompts)
 
-`scripts/inac-venezuela-eaip-gen-download.mjs` runs the same logical steps: GET index → GET `eAIP/Menu-en-GB.html` → parse `SV-GEN … -en-GB.html` links → for each section GET HTML then GET PDF (`/pdf/eAIP/{stem}.pdf`).
+```bash
+node scripts/inac-venezuela-eaip-interactive.mjs
+```
+
+Asks whether you want **GEN** or **AD 2.1**. For **AD 2.1**, it loads the menu and shows a **numbered list of ICAOs** (same entries as Part 3 → AD_2); you pick a number or type the ICAO, then it downloads the PDF (HTML step + PDF, like the site toolbar).
+
+## Automation scripts (non-interactive)
+
+`scripts/inac-venezuela-eaip-gen-download.mjs` runs: GET index → GET `eAIP/Menu-en-GB.html` → parse `SV-GEN … -en-GB.html` → for each section GET HTML then GET PDF.
 
 ```bash
 node scripts/inac-venezuela-eaip-gen-download.mjs --only "GEN 1.2"
@@ -108,4 +124,4 @@ PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
 - The `/gen` page lists **GEN** PDFs and **AD 2.1** PDF for the selected SV airport.
 - Update the package root when INAC changes the effective-date directory.
 
-Shared HTTP/TLS for CLI tools: `scripts/inac-venezuela-eaip-http.mjs`.
+Shared modules: `scripts/inac-venezuela-eaip-http.mjs`, `scripts/inac-venezuela-eaip-prompts.mjs`, `scripts/inac-venezuela-eaip-interactive.mjs`.

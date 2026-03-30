@@ -43,6 +43,39 @@ export function safePdfFilename(stem) {
   return stem.replace(/\s+/g, "_").replace(/[/\\?%*:|"<>]/g, "-") + ".pdf";
 }
 
+/** @param {string} menuHtml */
+export function parseGenHtmlHrefs(menuHtml) {
+  const re = /href=["'](SV-GEN[^"']+-en-GB\.html)["']/gi;
+  const set = new Set();
+  let m;
+  while ((m = re.exec(menuHtml))) set.add(m[1]);
+  return [...set].sort();
+}
+
+/** @param {string} menuHtml */
+export function parseAd21HtmlHrefs(menuHtml) {
+  const re = /href=["'](SV-AD2\.1[A-Z]{4}-en-GB\.html)["']/gi;
+  const set = new Set();
+  let m;
+  while ((m = re.exec(menuHtml))) set.add(m[1]);
+  return [...set].sort();
+}
+
+/** @param {string} htmlFile e.g. SV-AD2.1SVMC-en-GB.html */
+export function ad21IcaoFromHtmlFile(htmlFile) {
+  const m = htmlFile.match(/^SV-AD2\.1([A-Z]{4})-en-GB\.html$/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/** @param {string} icao */
+export function ad21HtmlFileForIcao(icao) {
+  const x = icao.trim().toUpperCase();
+  if (!/^[A-Z]{4}$/.test(x)) {
+    throw new Error(`ICAO must be 4 letters, got: ${JSON.stringify(icao)}`);
+  }
+  return `SV-AD2.1${x}-en-GB.html`;
+}
+
 /**
  * @param {string[]} argv
  * @param {{ defaultRoot?: string }} [opts]

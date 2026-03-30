@@ -6,6 +6,7 @@
  *   4) For each: GET HTML (eAISContent) then GET PDF (toolbar PDF)
  *
  * Usage:
+ *   node scripts/inac-venezuela-eaip-interactive.mjs   # prompts: GEN vs AD 2.1
  *   node scripts/inac-venezuela-eaip-gen-download.mjs [--dry-run] [--only STEM] [--insecure] [--strict-tls]
  *
  * Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT
@@ -24,6 +25,7 @@ import {
   sectionPdfUrl,
   htmlFileToPdfStem,
   safePdfFilename,
+  parseGenHtmlHrefs,
   parseTlsAndRoot,
   createInacFetch,
   makeTlsOpts,
@@ -34,15 +36,6 @@ const PROJECT_ROOT = join(__dirname, "..");
 const OUT_DIR = join(PROJECT_ROOT, "downloads", "inac-venezuela-eaip", "GEN");
 
 const http = createInacFetch("GEN");
-
-/** @param {string} menuHtml */
-function parseGenHtmlHrefs(menuHtml) {
-  const re = /href=["'](SV-GEN[^"']+-en-GB\.html)["']/gi;
-  const set = new Set();
-  let m;
-  while ((m = re.exec(menuHtml))) set.add(m[1]);
-  return [...set].sort();
-}
 
 function parseArgs(argv) {
   let dryRun = false;

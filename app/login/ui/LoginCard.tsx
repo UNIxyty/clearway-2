@@ -211,14 +211,6 @@ export default function LoginCard() {
           <button
             type="button"
             className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            onClick={requestConfirmationEmail}
-            disabled={loading || !email.trim()}
-          >
-            New account? Confirm email
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
             onClick={sendForgotPasswordEmail}
             disabled={loading || !email.trim()}
           >

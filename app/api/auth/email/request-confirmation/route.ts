@@ -62,12 +62,19 @@ export async function POST(request: Request) {
   });
 
   if (inviteError) {
+    console.error("[auth/email/request-confirmation] inviteUserByEmail failed", {
+      email,
+      message: inviteError.message,
+      name: inviteError.name,
+      status: inviteError.status,
+      code: inviteError.code,
+    });
     // Return generic response to avoid account enumeration and keep UX stable.
     return NextResponse.json({
       ok: true,
       sent: false,
       message:
-        "If this email can receive invitations, a confirmation email has been sent.",
+        "We could not send a confirmation email right now. Please retry in a minute.",
     });
   }
 

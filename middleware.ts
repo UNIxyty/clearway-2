@@ -79,6 +79,7 @@ export async function middleware(request: NextRequest) {
   // Public routes when maintenance mode is not active.
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/maintenance") ||
     pathname.startsWith("/rus-aip-test") ||

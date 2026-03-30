@@ -1,4 +1,6 @@
 import LoginCard from "./ui/LoginCard";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 // This page uses useSearchParams() in a client component; force dynamic rendering
 export const dynamic = "force-dynamic";
@@ -28,6 +30,9 @@ export default function LoginPage() {
           </p>
         </div>
         <LoginCard />
+        <Button asChild variant="outline" className="mt-3 w-full">
+          <Link href="/signup">Create account</Link>
+        </Button>
         <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing, you agree to use this data for operational purposes only.
         </p>

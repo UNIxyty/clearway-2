@@ -7,11 +7,19 @@
  *   5) GET PDF — same URL the toolbar "PDF" button sets ( /html → /pdf, stem.pdf )
  *
  * Usage:
- *   node scripts/inac-venezuela-eaip-gen-download.mjs [--dry-run] [--only STEM] [--insecure]
+ *   node scripts/inac-venezuela-eaip-gen-download.mjs [--dry-run] [--only STEM] [--insecure] [--strict-tls]
  *   node scripts/inac-venezuela-eaip-gen-download.mjs --only "GEN 1.2"
+ *
+ * TLS: www.inac.gob.ve often fails Node's default certificate verification. By default this script
+ * retries with relaxed verification after the first TLS error. To force verification (fail fast):
+ *   --strict-tls   or env INAC_TLS_STRICT=1
+ * To skip verification from the start (no failed attempt):
+ *   --insecure     or env INAC_TLS_INSECURE=1
  *
  * Env:
  *   INAC_EAIP_PACKAGE_ROOT  Base URL without trailing slash (default: current published tree)
+ *   INAC_TLS_INSECURE=1     Same as --insecure
+ *   INAC_TLS_STRICT=1       Do not auto-retry with relaxed TLS
  *
  * Output:
  *   downloads/inac-venezuela-eaip/GEN/<stem safe>.pdf
@@ -76,12 +84,14 @@ function safePdfFilename(stem) {
 function parseArgs(argv) {
   let dryRun = false;
   let onlyStem = null;
-  let insecureTls = false;
+  let insecureTls = process.env.INAC_TLS_INSECURE === "1";
+  let strictTls = process.env.INAC_TLS_STRICT === "1";
   let packageRoot = process.env.INAC_EAIP_PACKAGE_ROOT || DEFAULT_ROOT;
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--dry-run") dryRun = true;
     else if (a === "--insecure") insecureTls = true;
+    else if (a === "--strict-tls") strictTls = true;
     else if (a === "--only" && argv[i + 1]) {
       onlyStem = argv[++i];
     } else if (a === "--root" && argv[i + 1]) {
@@ -93,30 +103,86 @@ Options:
   --dry-run       List steps and URLs without downloading
   --only STEM     Single section stem, e.g. "GEN 1.2" (must match PDF stem)
   --root URL      INAC package root (default: ${DEFAULT_ROOT})
-  --insecure      Skip TLS certificate verification (if Node reports UNABLE_TO_VERIFY_LEAF_SIGNATURE)
+  --insecure      Skip TLS verification from the start (or set INAC_TLS_INSECURE=1)
+  --strict-tls    Fail on TLS errors; do not auto-retry (or INAC_TLS_STRICT=1)
   --help          This help
 
-Env: INAC_EAIP_PACKAGE_ROOT`);
+Env: INAC_EAIP_PACKAGE_ROOT, INAC_TLS_INSECURE, INAC_TLS_STRICT`);
       process.exit(0);
     }
   }
-  return { dryRun, onlyStem, packageRoot, insecureTls };
+  return { dryRun, onlyStem, packageRoot, insecureTls, strictTls };
 }
 
-async function fetchText(url, label) {
-  const res = await fetch(url, { redirect: "follow" });
+/** @param {unknown} err */
+function isTlsVerifyError(err) {
+  const c = /** @type {{ code?: string; message?: string }} */ (err)?.cause;
+  const msg = `${c?.message ?? ""} ${/** @type {Error} */ (err)?.message ?? ""}`;
+  return (
+    c?.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ||
+    c?.code === "CERT_HAS_EXPIRED" ||
+    /unable to verify the first certificate/i.test(msg)
+  );
+}
+
+let tlsRelaxedLogged = false;
+
+function relaxTlsEnvironment() {
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") return;
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  if (!tlsRelaxedLogged) {
+    tlsRelaxedLogged = true;
+    console.error(
+      "[INAC GEN] TLS: certificate verification failed (common for inac.gob.ve). Retrying with relaxed TLS. " +
+        "Use --strict-tls or INAC_TLS_STRICT=1 to disable, or INAC_TLS_INSECURE=1 to skip verification from the start.",
+    );
+  }
+}
+
+/**
+ * @param {string} url
+ * @param {RequestInit} [init]
+ * @param {{ strictTls: boolean }} opts
+ */
+async function fetchInac(url, init = {}, opts) {
+  const { strictTls } = opts;
+  const merged = { redirect: "follow", ...init };
+  try {
+    return await fetch(url, merged);
+  } catch (err) {
+    if (!strictTls && isTlsVerifyError(err)) {
+      relaxTlsEnvironment();
+      return await fetch(url, merged);
+    }
+    if (strictTls && isTlsVerifyError(err)) {
+      console.error(
+        "\nTLS verification failed. Try one of:\n" +
+          "  node scripts/inac-venezuela-eaip-gen-download.mjs --insecure --only \"GEN 1.2\"\n" +
+          "  INAC_TLS_INSECURE=1 node scripts/inac-venezuela-eaip-gen-download.mjs --only \"GEN 1.2\"\n" +
+          "Or unset INAC_TLS_STRICT if set.\n",
+      );
+    }
+    throw err;
+  }
+}
+
+/** @param {{ strictTls: boolean }} tlsOpts */
+async function fetchText(url, label, tlsOpts) {
+  const res = await fetchInac(url, {}, tlsOpts);
   if (!res.ok) throw new Error(`${label}: ${res.status} ${res.statusText} — ${url}`);
   return res.text();
 }
 
-async function fetchOk(url, label) {
-  const res = await fetch(url, { redirect: "follow", method: "GET" });
+/** @param {{ strictTls: boolean }} tlsOpts */
+async function fetchOk(url, label, tlsOpts) {
+  const res = await fetchInac(url, { method: "GET" }, tlsOpts);
   if (!res.ok) throw new Error(`${label}: ${res.status} ${res.statusText} — ${url}`);
   return res;
 }
 
-async function downloadPdfToFile(pdfUrl, filePath, label) {
-  const res = await fetch(pdfUrl, { redirect: "follow" });
+/** @param {{ strictTls: boolean }} tlsOpts */
+async function downloadPdfToFile(pdfUrl, filePath, label, tlsOpts) {
+  const res = await fetchInac(pdfUrl, {}, tlsOpts);
   if (!res.ok) throw new Error(`${label}: ${res.status} ${res.statusText} — ${pdfUrl}`);
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("pdf") && !ct.includes("octet-stream")) {
@@ -132,17 +198,18 @@ function log(step, msg) {
 }
 
 async function main() {
-  const { dryRun, onlyStem, packageRoot, insecureTls } = parseArgs(process.argv);
+  const { dryRun, onlyStem, packageRoot, insecureTls, strictTls } = parseArgs(process.argv);
   if (insecureTls) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-    log("0/5", "TLS verification disabled (--insecure)");
+    log("0/5", "TLS verification disabled (--insecure or INAC_TLS_INSECURE=1)");
   }
+  const tlsOpts = { strictTls: strictTls && !insecureTls };
 
   log("1/5", `GET index frameset (eAIS shell): ${indexUrl(packageRoot)}`);
-  await fetchText(indexUrl(packageRoot), "index");
+  await fetchText(indexUrl(packageRoot), "index", tlsOpts);
 
   log("2/5", `GET AIP menu (frame eAISNavigation): ${menuUrl(packageRoot)}`);
-  const menuHtml = await fetchText(menuUrl(packageRoot), "menu");
+  const menuHtml = await fetchText(menuUrl(packageRoot), "menu", tlsOpts);
   let hrefs = parseGenHtmlHrefs(menuHtml);
 
   if (onlyStem) {
@@ -164,10 +231,10 @@ async function main() {
     const outFile = join(OUT_DIR, safePdfFilename(stem));
 
     log("4/5", `Section "${stem}": GET HTML (content frame): ${htmlU}`);
-    if (!dryRun) await fetchOk(htmlU, `HTML ${stem}`);
+    if (!dryRun) await fetchOk(htmlU, `HTML ${stem}`, tlsOpts);
 
     log("5/5", `Section "${stem}": GET PDF (toolbar PDF): ${pdfU} → ${outFile}`);
-    if (!dryRun) await downloadPdfToFile(pdfU, outFile, `PDF ${stem}`);
+    if (!dryRun) await downloadPdfToFile(pdfU, outFile, `PDF ${stem}`, tlsOpts);
   }
 
   console.error(`Done. ${dryRun ? "[dry-run] skipped HTML/PDF per-section GETs and file writes." : `PDFs → ${OUT_DIR}`}`);

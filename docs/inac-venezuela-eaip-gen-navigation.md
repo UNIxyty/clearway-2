@@ -74,7 +74,9 @@ node scripts/inac-venezuela-eaip-gen-download.mjs --only "GEN 1.2"
 node scripts/inac-venezuela-eaip-gen-download.mjs --dry-run
 ```
 
-Use `--insecure` if Node fails TLS verification against INAC (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`). PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
+**TLS:** Node often cannot verify `www.inac.gob.ve` (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`). The script **retries with relaxed verification** after the first failure by default. To skip verification from the start: `--insecure` or `INAC_TLS_INSECURE=1`. To **fail** instead of retrying: `--strict-tls` or `INAC_TLS_STRICT=1`.
+
+PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
 
 ## Portal mapping
 

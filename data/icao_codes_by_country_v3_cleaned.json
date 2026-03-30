@@ -3657,6 +3657,14 @@
     ],
     "Lithuania (EY)": [
       {
+        "icao": "EYKA",
+        "name": "Kaunas International Airport"
+      },
+      {
+        "icao": "EYPA",
+        "name": "Palanga International Airport"
+      },
+      {
         "icao": "EYSA",
         "name": "Siauliai International Airport"
       },

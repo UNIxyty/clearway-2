@@ -5,6 +5,8 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const tokenType = requestUrl.searchParams.get("type");
   const error = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const nextRaw = requestUrl.searchParams.get("next") || "/";
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (!code) {
+  if (!code && !tokenHash) {
     const loginUrl = new URL("/login", requestUrl.origin);
     loginUrl.searchParams.set("error", "oauth_no_code");
     loginUrl.searchParams.set("next", next);
@@ -54,11 +56,24 @@ export async function GET(request: Request) {
     },
   });
 
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-  if (exchangeError) {
+  let authError: string | null = null;
+  if (code) {
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) authError = exchangeError.message;
+  } else if (tokenHash && tokenType) {
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: tokenType as "signup" | "invite" | "recovery" | "email_change" | "email",
+    });
+    if (verifyError) authError = verifyError.message;
+  } else {
+    authError = "Missing token type for email authentication.";
+  }
+
+  if (authError) {
     const loginUrl = new URL("/login", requestUrl.origin);
     loginUrl.searchParams.set("error", "session_exchange_failed");
-    loginUrl.searchParams.set("message", exchangeError.message);
+    loginUrl.searchParams.set("message", authError);
     loginUrl.searchParams.set("next", next);
     return NextResponse.redirect(loginUrl);
   }

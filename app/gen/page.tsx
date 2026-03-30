@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Download, RefreshCwIcon } from "lucide-react";
+import { Download, ExternalLink, RefreshCwIcon } from "lucide-react";
+import { INAC_GEN_GROUPS, INAC_EAIP_HTML_BASE, inacEaipGenHtmlUrl } from "@/lib/inac-eaip-gen-toc";
 
 type AIPAirport = {
   icao: string;
@@ -203,6 +204,48 @@ export default function GenPage() {
             )}
           </CardContent>
         </Card>
+
+        {airport && prefix === "SV" && (
+          <Card className="shadow-md border-border/80">
+            <CardHeader>
+              <CardTitle>Part 1 — GEN (official INAC HTML)</CardTitle>
+              <CardDescription>
+                Same structure as the eAIP menu (GEN_0 … GEN_4). Opens INAC in a new tab. Base:{" "}
+                <span className="font-mono text-xs break-all">{INAC_EAIP_HTML_BASE}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <p className="text-xs text-muted-foreground mb-3">
+                The live index uses frames; these links jump straight to each <code className="text-[11px]">eAIP/</code> HTML file.
+              </p>
+              <div className="space-y-2 max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2">
+                {INAC_GEN_GROUPS.map((group) => (
+                  <details key={group.id} className="group rounded-md border border-border/50 bg-background/80 px-2 py-1">
+                    <summary className="cursor-pointer text-sm font-medium list-none flex items-center gap-2 py-1 [&::-webkit-details-marker]:hidden">
+                      <span className="text-muted-foreground group-open:rotate-90 transition-transform text-[10px]">▶</span>
+                      {group.label}
+                    </summary>
+                    <ul className="mt-1 ml-4 space-y-0.5 pb-2 border-l border-border/40 pl-3">
+                      {group.sections.map((s) => (
+                        <li key={s.id}>
+                          <a
+                            href={inacEaipGenHtmlUrl(s.file)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-words"
+                          >
+                            <ExternalLink className="size-3 shrink-0 opacity-70" />
+                            {s.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {airport && (
           <Card className="shadow-md border-border/80">

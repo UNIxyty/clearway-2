@@ -60,6 +60,103 @@ function detectEaipSignals(html) {
 }
 
 /**
+ * High-level taxonomy for AIM source links (grouped report).
+ * @param {string} url
+ * @param {any} probe
+ * @param {string} [sourcePageType] from import JSON "Page type"
+ * @returns {{ linkType: string, linkTypeDescription: string }}
+ */
+function classifyAimLinkType(url, probe, sourcePageType = "") {
+  const u = (url || "").toLowerCase();
+  const st = (sourcePageType || "").toLowerCase();
+
+  if (!url || url === "AIP" || url === "...") {
+    return { linkType: "invalid_empty", linkTypeDescription: "Missing or placeholder URL" };
+  }
+  if (probe.classification === "no-url") {
+    return { linkType: "invalid_empty", linkTypeDescription: "No URL" };
+  }
+  if (probe.classification === "fetch-error") {
+    return { linkType: "error_fetch", linkTypeDescription: "Network / TLS / timeout" };
+  }
+  if (probe.isLikelyPdf || probe.classification === "pdf") {
+    return { linkType: "pdf", linkTypeDescription: "Direct PDF (or PDF magic)" };
+  }
+  if (probe.classification === "non-html" || probe.classification === "maybe-pdf-url-not-pdf-body") {
+    return { linkType: "other_binary", linkTypeDescription: "Non-HTML response (not classified as PDF)" };
+  }
+
+  if (u.includes("aim.asecna.aero")) {
+    return { linkType: "asecna", linkTypeDescription: "ASECNA aim.asecna.aero (shared FR portal, many states)" };
+  }
+
+  if (u.includes("ais.m-nav.info") || u.includes("m-nav.info")) {
+    return { linkType: "eaip_mnav_tree", linkTypeDescription: "M-NAV-style: tree_items.js + PDF leaves" };
+  }
+  if (probe.eaipSignals?.includes("tree_items-menu")) {
+    return { linkType: "eaip_mnav_tree", linkTypeDescription: "HTML references tree_items.js (M-NAV-like)" };
+  }
+
+  const eurocontrolUrl =
+    u.includes("inac.gob.ve") ||
+    /history-en-gb\.html|history-en-ms\.html/i.test(url) ||
+    /index-en-gb\.html|index-en-en\.html/i.test(url) ||
+    u.includes("aim.caa.gov.om") ||
+    u.includes("aim.koca.go.kr") ||
+    u.includes("aip.caam.gov.my") ||
+    u.includes("e-aip.azurefd.net") ||
+    u.includes("ashna-ks.org") ||
+    u.includes("eaip.bhansa.gov.ba") ||
+    u.includes("ops.skeyes.be") && u.includes("eaip") ||
+    u.includes("ban.by/aip") ||
+    u.includes("scaa.gov.so") ||
+    u.includes("ais.gov.mm") && u.includes("eaip") ||
+    u.includes("airport.lk/aasl") && u.includes("aip") ||
+    u.includes("ahac.gob.hn") && u.includes("eaip") ||
+    u.includes("dgac.gob.gt") && u.includes("aip") ||
+    u.includes("cocesna.org/aipca") ||
+    u.includes("aismet.avianet.cu") ||
+    u.includes("aipchile.dgac.gob.cl") ||
+    u.includes("aip.caat.or.th") ||
+    u.includes("ais.caa.gov.tw") && u.includes("eaip") ||
+    (u.includes("/eaip/") && (u.includes("html") || u.includes("index")));
+
+  if (eurocontrolUrl) {
+    return {
+      linkType: "eaip_eurocontrol_like",
+      linkTypeDescription:
+        "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)",
+    };
+  }
+
+  if (probe.notes?.some((n) => String(n).includes("likely-spa-shell"))) {
+    return { linkType: "web_spa", linkTypeDescription: "Single-page app shell (React/Vite); needs browser or API" };
+  }
+
+  if (!probe.ok && probe.classification === "html-error-status") {
+    return { linkType: "error_http", linkTypeDescription: `HTTP error with HTML body (${probe.status})` };
+  }
+
+  if (probe.classification === "html" || probe.classification === "html-error-status") {
+    if (st.includes("pdf") && u.includes(".pdf")) {
+      return { linkType: "pdf", linkTypeDescription: "Marked PDF in source; HTML wrapper or redirect page" };
+    }
+    if (st.includes("login")) {
+      return { linkType: "web_login_wall", linkTypeDescription: "Source notes login required" };
+    }
+    if (u.includes("caab.gov.bd") || u.includes("afgais.com") || u.includes("notam") || u.includes("supplement")) {
+      return { linkType: "web_portal_listings", linkTypeDescription: "Portal / listings / supplements page (tables, not full eAIP frame)" };
+    }
+    return {
+      linkType: "web_portal_other",
+      linkTypeDescription: "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern",
+    };
+  }
+
+  return { linkType: "unknown", linkTypeDescription: "Could not classify" };
+}
+
+/**
  * Which existing Clearway integration (if any) fits this URL / probe.
  * @param {string} url
  * @param {any} probe
@@ -150,6 +247,12 @@ async function probeUrl(url) {
     result.classification = res.ok ? "html" : "html-error-status";
     result.eaipSignals = detectEaipSignals(text);
     if (result.eaipSignals.length) result.notes.push(`signals:${result.eaipSignals.join(",")}`);
+    if (
+      /<div\s+id=["']root["']\s*>\s*<\/div>/i.test(text) &&
+      /type=["']module["'][^>]*(src=["'][^"']*\/assets\/)/i.test(text)
+    ) {
+      result.notes.push("likely-spa-shell");
+    }
     urlCache.set(url, result);
     return result;
   } catch (e) {
@@ -196,6 +299,9 @@ async function main() {
     if (!entry.url || entry.url === "AIP" || entry.url === "...") {
       entry.probe = { classification: "no-url", notes: ["missing-or-placeholder"], ok: false };
       entry.suggestedIntegration = "no-url";
+      const t = classifyAimLinkType("", entry.probe, entry.sourcePageType);
+      entry.linkType = t.linkType;
+      entry.linkTypeDescription = t.linkTypeDescription;
       report.push(entry);
       failed.push(`${country}: no/placeholder URL`);
       continue;
@@ -205,6 +311,9 @@ async function main() {
     const probe = await probeUrl(entry.url);
     entry.probe = probe;
     entry.suggestedIntegration = suggestIntegration(entry.url, probe);
+    const typeInfo = classifyAimLinkType(entry.url, probe, entry.sourcePageType);
+    entry.linkType = typeInfo.linkType;
+    entry.linkTypeDescription = typeInfo.linkTypeDescription;
 
     if (probe.classification === "fetch-error" || !probe.ok) {
       failed.push(`${country}: ${entry.url} — ${probe.error ?? `HTTP ${probe.status}`}`);
@@ -226,10 +335,62 @@ async function main() {
     uniqueUrlsCached: urlCache.size,
   };
 
+  /** @type {Record<string, { country: string, url: string, sourcePageType?: string }[]>} */
+  const byLinkType = {};
+  for (const r of report) {
+    const key = r.linkType || "unknown";
+    if (!byLinkType[key]) byLinkType[key] = [];
+    byLinkType[key].push({
+      country: r.country,
+      url: r.url,
+      ...(r.sourcePageType ? { sourcePageType: r.sourcePageType } : {}),
+    });
+  }
+  const linkTypeOrder = [
+    "asecna",
+    "eaip_eurocontrol_like",
+    "eaip_mnav_tree",
+    "pdf",
+    "web_portal_listings",
+    "web_portal_other",
+    "web_spa",
+    "web_login_wall",
+    "error_fetch",
+    "error_http",
+    "invalid_empty",
+    "other_binary",
+    "unknown",
+  ];
+  const byLinkTypeSorted = {};
+  for (const k of linkTypeOrder) {
+    if (byLinkType[k]?.length) byLinkTypeSorted[k] = byLinkType[k];
+  }
+  for (const k of Object.keys(byLinkType).sort()) {
+    if (!byLinkTypeSorted[k]) byLinkTypeSorted[k] = byLinkType[k];
+  }
+
+  const linkTypeLegend = {
+    asecna: "ASECNA multi-country FR portal (aim.asecna.aero)",
+    eaip_eurocontrol_like: "Eurocontrol-style eAIP (history / index-en-GB / frameset — e.g. Venezuela)",
+    eaip_mnav_tree: "M-NAV style menu tree + direct PDFs",
+    pdf: "Direct PDF document",
+    web_portal_listings: "Web listings / supplements / portal tables",
+    web_portal_other: "Other HTML government/CMS pages",
+    web_spa: "JS SPA (empty #root until bundle runs)",
+    web_login_wall: "Login required (per source metadata)",
+    error_fetch: "Fetch failed",
+    error_http: "HTTP error",
+    invalid_empty: "No usable URL",
+    other_binary: "Non-HTML body",
+    unknown: "Unclassified",
+  };
+
   const output = {
     generatedAt: new Date().toISOString(),
     inputPath,
     summary,
+    linkTypeLegend,
+    byLinkType: byLinkTypeSorted,
     failedLoads: failed,
     pdfLinks: pdfDirect,
     htmlLinks: htmlPages,

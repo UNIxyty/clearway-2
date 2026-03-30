@@ -34,31 +34,52 @@ const AIP_OVERVIEW_URL = BASE + '/fwf-eadbasic/restricted/user/aip/aip_overview.
 
 const PREFIX_TO_COUNTRY = {
   LA: 'Albania (LA)',
+  UD: 'Armenia (UD)',
   LO: 'Austria (LO)',
+  UB: 'Azerbaijan (UB)',
   EB: 'Belgium (EB)',
+  LQ: 'Bosnia/Herzeg. (LQ)',
   LB: 'Bulgaria (LB)',
+  LD: 'Croatia (LD)',
+  LC: 'Cyprus (LC)',
   LK: 'Czech Republic (LK)',
   EK: 'Denmark (EK)',
   EE: 'Estonia (EE)',
+  XX: 'Faroe Islands (XX)',
   EF: 'Finland (EF)',
   LF: 'France (LF)',
+  UG: 'Georgia (UG)',
   ED: 'Germany (ED)',
   LG: 'Greece (LG)',
+  BG: 'Greenland (BG)',
+  BI: 'Iceland (BI)',
   LH: 'Hungary (LH)',
   EI: 'Ireland (EI)',
   LI: 'Italy (LI)',
+  OJ: 'Jordan (OJ)',
+  BK: 'KFOR SECTOR (BK)',
+  UA: 'Kazakhstan (UA)',
+  UC: 'Kyrgyzstan (UC)',
   EV: 'Latvia (EV)',
   EY: 'Lithuania (EY)',
-  EL: 'Luxembourg (EL)',
   LM: 'Malta (LM)',
+  LU: 'Moldova (LU)',
   EH: 'Netherlands (EH)',
+  EN: 'Norway (EN)',
+  RP: 'Philippines (RP)',
   EP: 'Poland (EP)',
   LP: 'Portugal (LP)',
+  LW: 'Republic of North Macedonia (LW)',
   LR: 'Romania (LR)',
+  LY: 'Serbia and Montenegro (LY)',
   LZ: 'Slovakia (LZ)',
   LJ: 'Slovenia (LJ)',
   LE: 'Spain (LE)',
   ES: 'Sweden (ES)',
+  LS: 'Switzerland (LS)',
+  LT: 'Turkey (LT)',
+  UK: 'Ukraine (UK)',
+  EG: 'United Kingdom (EG)',
   GC: 'Spain (GC)',
 };
 
@@ -178,7 +199,18 @@ async function main() {
       .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
       .first();
     await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
-    await authoritySelect.selectOption({ label: countryLabel });
+    let resolvedCountryLabel = countryLabel;
+    const optionTexts = (await authoritySelect.locator('option').allTextContents())
+      .map((text) => text.trim())
+      .filter(Boolean);
+    if (!optionTexts.includes(countryLabel)) {
+      const byPrefix = optionTexts.find((text) => new RegExp(`\\(${prefix}\\)\\s*$`, 'i').test(text));
+      if (byPrefix) {
+        resolvedCountryLabel = byPrefix;
+        log(`Country label fallback used: "${countryLabel}" -> "${resolvedCountryLabel}"`);
+      }
+    }
+    await authoritySelect.selectOption({ label: resolvedCountryLabel });
     await page.waitForTimeout(300);
 
     // —— Language: English ——

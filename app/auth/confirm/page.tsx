@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,29 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function ConfirmEmailPage() {
+  return (
+    <Suspense fallback={<ConfirmEmailLoadingState />}>
+      <ConfirmEmailContent />
+    </Suspense>
+  );
+}
+
+function ConfirmEmailLoadingState() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <Card className="shadow-lg border-border/70">
+          <CardHeader>
+            <CardTitle>Confirm your email</CardTitle>
+            <CardDescription>Preparing confirmation details...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);

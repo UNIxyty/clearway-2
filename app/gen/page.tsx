@@ -14,6 +14,14 @@ import {
   inacEaipGenPdfUrl,
   inacAd21PdfUrl,
 } from "@/lib/inac-eaip-gen-toc";
+import {
+  MNAV_AD2_AERODROMES,
+  MNAV_GEN_GROUPS,
+  MNAV_PACKAGE_ROOT_FALLBACK,
+  MNAV_START_URL,
+  mnavAd2TextPagesPdfUrl,
+  mnavPdfUrlFromMenuRelative,
+} from "@/lib/mnav-north-macedonia-eaip-toc";
 
 type AIPAirport = {
   icao: string;
@@ -53,6 +61,9 @@ export default function GenPage() {
   const [inacPackageRoot, setInacPackageRoot] = useState<string | null>(null);
   const [inacRootLoading, setInacRootLoading] = useState(false);
   const [inacRootError, setInacRootError] = useState<string | null>(null);
+  const [mnavPackageRoot, setMnavPackageRoot] = useState<string | null>(null);
+  const [mnavRootLoading, setMnavRootLoading] = useState(false);
+  const [mnavRootError, setMnavRootError] = useState<string | null>(null);
 
   const prefix = useMemo(() => airport?.icao?.slice(0, 2).toUpperCase() ?? "", [airport?.icao]);
 
@@ -89,6 +100,46 @@ export default function GenPage() {
         }
       } finally {
         if (!cancelled) setInacRootLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefix]);
+
+  useEffect(() => {
+    if (prefix !== "LW") {
+      setMnavPackageRoot(null);
+      setMnavRootLoading(false);
+      setMnavRootError(null);
+      return;
+    }
+    let cancelled = false;
+    setMnavRootLoading(true);
+    setMnavPackageRoot(null);
+    setMnavRootError(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/mnav-eaip-package-root");
+        const data: { packageRoot?: string; error?: string } = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error ?? `${res.status} ${res.statusText}`);
+        }
+        if (typeof data.packageRoot !== "string" || !data.packageRoot) {
+          throw new Error("Missing packageRoot in API response");
+        }
+        if (!cancelled) {
+          setMnavPackageRoot(data.packageRoot);
+          setMnavRootError(null);
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (!cancelled) {
+          setMnavPackageRoot(MNAV_PACKAGE_ROOT_FALLBACK);
+          setMnavRootError(message);
+        }
+      } finally {
+        if (!cancelled) setMnavRootLoading(false);
       }
     })();
     return () => {
@@ -341,6 +392,108 @@ export default function GenPage() {
                 >
                   <Download className="size-4 shrink-0 opacity-80" />
                   Download AD 2.1 PDF for {airport.icao.toUpperCase()}
+                </a>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {airport && prefix === "LW" && (
+          <Card className="shadow-md border-border/80">
+            <CardHeader>
+              <CardTitle>Part 1 — GEN (official M-NAV PDF)</CardTitle>
+              <CardDescription>
+                Same tree as <code className="text-[11px]">current/en/menu.htm</code> /{" "}
+                <code className="text-[11px]">tree_items.js</code>: expand <strong>GEN</strong>, then the <strong>+</strong> beside
+                each block (e.g. GEN 1 National regulations…), then the section. Each link is the leaf PDF (no separate toolbar
+                step). Effective AIP from{" "}
+                <a href={MNAV_START_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                  M-NAV Start
+                </a>
+                . Package root:{" "}
+                {mnavRootLoading ? (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <Spinner className="size-3" />
+                    Resolving…
+                  </span>
+                ) : (
+                  <span className="font-mono text-xs break-all">{mnavPackageRoot ?? "—"}</span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {mnavRootError && (
+                <p className="text-xs text-amber-600 dark:text-amber-500 mb-2">
+                  Could not resolve the live package from M-NAV ({mnavRootError}). Links use the fallback path until the next
+                  successful fetch.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mb-3">
+                Files under <code className="text-[11px]">current/pdf/gen/LW_GEN_*_en.pdf</code>.
+              </p>
+              {mnavRootLoading || !mnavPackageRoot ? (
+                <div className="flex justify-center py-8 text-muted-foreground">
+                  <Spinner className="size-8" />
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[min(28rem,55vh)] overflow-y-auto rounded-lg border border-border/60 bg-muted/10 p-2">
+                  {MNAV_GEN_GROUPS.map((group) => (
+                    <details key={group.id} className="group rounded-md border border-border/50 bg-background/80 px-2 py-1">
+                      <summary className="cursor-pointer text-sm font-medium list-none flex items-center gap-2 py-1 [&::-webkit-details-marker]:hidden">
+                        <span className="text-muted-foreground group-open:rotate-90 transition-transform text-[10px]">▶</span>
+                        <span className="flex flex-col items-start gap-0">
+                          <span>{group.menuHeading}</span>
+                          <span className="text-[11px] font-normal text-muted-foreground">{group.label}</span>
+                        </span>
+                      </summary>
+                      <ul className="mt-1 ml-4 space-y-0.5 pb-2 border-l border-border/40 pl-3">
+                        {group.sections.map((s) => (
+                          <li key={s.id}>
+                            <a
+                              href={mnavPdfUrlFromMenuRelative(s.pdfRel, mnavPackageRoot)}
+                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-words"
+                            >
+                              <Download className="size-3 shrink-0 opacity-70" />
+                              {s.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {airport && prefix === "LW" && (
+          <Card className="shadow-md border-border/80">
+            <CardHeader>
+              <CardTitle>Part 3 — AD 2 (M-NAV Textpages)</CardTitle>
+              <CardDescription>
+                Menu: expand <strong>AD 2 Aerodromes</strong> (plus on the left), pick the aerodrome, then <strong>Textpages</strong>.
+                File:{" "}
+                <code className="text-[11px]">
+                  current/pdf/aerodromes/LW_AD_2_{airport.icao.toUpperCase()}_en.pdf
+                </code>
+                . Published aerodromes in AIP:{" "}
+                {MNAV_AD2_AERODROMES.map((a) => a.icao).join(", ")}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {mnavRootLoading || !mnavPackageRoot ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Spinner className="size-4" />
+                  Resolving package…
+                </div>
+              ) : (
+                <a
+                  href={mnavAd2TextPagesPdfUrl(airport.icao, mnavPackageRoot)}
+                  className="text-sm text-primary hover:underline inline-flex items-center gap-2 font-medium"
+                >
+                  <Download className="size-4 shrink-0 opacity-80" />
+                  Download AD 2 Textpages PDF for {airport.icao.toUpperCase()}
                 </a>
               )}
             </CardContent>

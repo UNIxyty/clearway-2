@@ -57,3 +57,6 @@ test-results/*
 
 # Russian AIP downloaded PDFs (rus_aip_extractor.py)
 downloads/rus-aip/
+
+# INAC Venezuela eAIP GEN PDFs (scripts/inac-venezuela-eaip-gen-download.mjs)
+downloads/inac-venezuela-eaip/

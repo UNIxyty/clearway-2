@@ -65,6 +65,17 @@ https://www.inac.gob.ve/eaip/2020-07-16/pdf/eAIP/GEN%201.2.pdf
 3. For **PDF (recommended for GEN downloads):** map each `SV-{STEM}-en-GB.html` to `…/pdf/eAIP/{STEM}.pdf` with `encodeURIComponent({STEM})`.
 4. Section HTML pages are static; follow local assets (`*.css`, images) only if mirroring the HTML UI.
 
+## Automation script (imitates browser flow)
+
+`scripts/inac-venezuela-eaip-gen-download.mjs` runs the same logical steps: GET index → GET `eAIP/Menu-en-GB.html` → parse `SV-GEN … -en-GB.html` links → for each section GET HTML then GET PDF (`/pdf/eAIP/{stem}.pdf`).
+
+```bash
+node scripts/inac-venezuela-eaip-gen-download.mjs --only "GEN 1.2"
+node scripts/inac-venezuela-eaip-gen-download.mjs --dry-run
+```
+
+Use `--insecure` if Node fails TLS verification against INAC (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`). PDFs are written under `downloads/inac-venezuela-eaip/GEN/` (gitignored).
+
 ## Portal mapping
 
 - Canonical GEN TOC data for the app lives in `lib/inac-eaip-gen-toc.ts` (`INAC_EAIP_PACKAGE_ROOT`, `INAC_EAIP_HTML_BASE`, `INAC_GEN_GROUPS`, `inacEaipGenPdfUrl()`, `inacEaipGenHtmlUrl()`).

@@ -1888,21 +1888,19 @@ function AIPPortalPageInner() {
                                 <span className="text-sm text-muted-foreground truncate min-w-0">
                                   {airport.name}
                                 </span>
-                                {isAdmin && (
-                                  <button
-                                    type="button"
-                                    aria-label={`Hide ${airport.icao}`}
-                                    className="ml-auto rounded border border-border/70 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 disabled:opacity-50"
-                                    disabled={isDeleting}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      void deleteAirportFromPortal(airport);
-                                    }}
-                                  >
-                                    <Trash2Icon className="size-4" />
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  aria-label={`Hide ${airport.icao}`}
+                                  className="ml-auto rounded border border-border/70 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 disabled:opacity-50"
+                                  disabled={isDeleting}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void deleteAirportFromPortal(airport);
+                                  }}
+                                >
+                                  <Trash2Icon className="size-4" />
+                                </button>
                               </div>
                             );
                           })

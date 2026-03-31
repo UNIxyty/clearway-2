@@ -33,12 +33,21 @@ async function loadConfirmation(token: string) {
     .from("email_confirmations")
     .select("id, email, purpose, expires_at, used_at")
     .eq("token_hash", tokenHash)
-    .eq("purpose", "signup")
     .maybeSingle();
   if (error || !data) return { error: "Invalid or expired token.", row: null };
+  if (!String(data.purpose || "").startsWith("signup")) {
+    return { error: "Invalid confirmation token purpose.", row: null };
+  }
   if (data.used_at) return { error: "Token has already been used.", row: null };
   if (new Date(data.expires_at).getTime() <= Date.now()) return { error: "Token has expired.", row: null };
   return { error: null, row: data };
+}
+
+function parseUserIdFromPurpose(purpose: string | null | undefined): string | null {
+  const value = String(purpose || "");
+  if (!value.startsWith("signup:")) return null;
+  const maybeUserId = value.slice("signup:".length).trim();
+  return maybeUserId || null;
 }
 
 async function findUserIdByEmail(email: string) {
@@ -114,8 +123,12 @@ export async function POST(request: Request) {
   if (!service) return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
 
   let targetUserId: string | null = null;
+  const userIdFromPurpose = parseUserIdFromPurpose(confirmation.row.purpose);
+  if (userIdFromPurpose) {
+    targetUserId = userIdFromPurpose;
+  }
   const supabase = createSupabaseFromCookies();
-  if (supabase) {
+  if (!targetUserId && supabase) {
     const {
       data: { user },
     } = await supabase.auth.getUser();

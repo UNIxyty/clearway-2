@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   }
 
   // Supabase sends the email using your configured auth email provider/templates.
-  const { error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
+  const { data: inviteData, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
     redirectTo: callbackUrl,
     data: {
       full_name: name,
@@ -84,6 +84,15 @@ export async function POST(request: Request) {
       message:
         "We could not send a confirmation email right now. Please retry in a minute.",
     });
+  }
+
+  const invitedUserId = inviteData?.user?.id ?? null;
+  if (invitedUserId) {
+    await service
+      .from("email_confirmations")
+      .update({ purpose: `signup:${invitedUserId}` })
+      .eq("token_hash", tokenHash)
+      .is("used_at", null);
   }
 
   return NextResponse.json({

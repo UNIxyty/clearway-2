@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { UserIcon, SettingsIcon, BarChartIcon, ArrowLeftIcon, LogOutIcon, BellIcon } from "lucide-react";
+import { BarChartIcon, ArrowLeftIcon, LogOutIcon, BellIcon } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -155,14 +155,6 @@ export default function ProfilePage() {
             <CardTitle className="text-base">Quick Links</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => router.push("/settings")}
-            >
-              <SettingsIcon className="size-4 mr-2" />
-              AI Model Settings
-            </Button>
             <Button
               variant="outline"
               className="w-full justify-start"

@@ -78,7 +78,7 @@ export default function AdminMaintenancePage() {
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/settings")}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/profile")}>
             <ArrowLeftIcon className="size-4 mr-1" />
             Back
           </Button>

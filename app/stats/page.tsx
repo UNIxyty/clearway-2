@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,14 @@ export default async function StatsPage() {
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
       <div className="max-w-5xl mx-auto space-y-6">
+        <div>
+          <Link
+            href="/"
+            className="inline-flex h-8 items-center rounded-md border border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+          >
+            Back
+          </Link>
+        </div>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Search statistics</h1>
           <p className="text-sm text-muted-foreground mt-1">

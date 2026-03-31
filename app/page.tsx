@@ -3,7 +3,6 @@
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -1367,12 +1366,6 @@ function AIPPortalPageInner() {
         <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex items-start gap-3">
-              <Link
-                href="/gen"
-                className="inline-flex h-8 items-center rounded-md border border-border/70 bg-background px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40"
-              >
-                GEN page
-              </Link>
               <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Clearway</p>
               <p className="text-sm text-muted-foreground">AIP Data Portal</p>

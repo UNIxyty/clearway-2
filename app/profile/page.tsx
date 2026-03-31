@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { BarChartIcon, ArrowLeftIcon, LogOutIcon, BellIcon } from "lucide-react";
+import { BarChartIcon, ArrowLeftIcon, LogOutIcon, BellIcon, Mail } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -20,21 +20,34 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [emailChangeSentTo, setEmailChangeSentTo] = useState<string | null>(null);
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailInfo, setEmailInfo] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordResetEmailSentTo, setPasswordResetEmailSentTo] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordInfo, setPasswordInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? "");
-      setUserId(data.user?.id ?? "");
-    });
+    async function loadAccount() {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+      setEmail(user?.email ?? "");
+      setUserId(user?.id ?? "");
+      const pending =
+        (user as unknown as { new_email?: string | null; email_change?: string | null })?.new_email ??
+        (user as unknown as { new_email?: string | null; email_change?: string | null })?.email_change ??
+        null;
+      setPendingEmail(pending || null);
+      if (!pending) {
+        setEmailChangeSentTo(null);
+      }
+    }
+
+    void loadAccount();
 
     fetch("/api/user/preferences")
       .then((res) => res.json())
@@ -44,6 +57,16 @@ export default function ProfilePage() {
         }
       })
       .catch(() => {});
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void loadAccount();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   async function handleSave() {
@@ -95,7 +118,11 @@ export default function ProfilePage() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ email: targetEmail });
       if (updateError) throw updateError;
-      setEmailInfo("Confirmation email sent. Open your new inbox and confirm the change.");
+      setEmailInfo(
+        "Confirmation sent. Open your new email inbox and confirm the change. If secure email change is enabled, you may also need to confirm from your current email inbox.",
+      );
+      setEmailChangeSentTo(targetEmail);
+      setPendingEmail(targetEmail);
       setNewEmail("");
     } catch (e) {
       setEmailError((e as { message?: string })?.message || "Failed to start email change.");
@@ -115,14 +142,6 @@ export default function ProfilePage() {
       setPasswordError("Enter your current password.");
       return;
     }
-    if (newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError("Password confirmation does not match.");
-      return;
-    }
     setPasswordSaving(true);
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -132,14 +151,29 @@ export default function ProfilePage() {
       if (signInError) {
         throw new Error("Current password is incorrect.");
       }
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-      if (updateError) throw updateError;
-      setPasswordInfo("Password updated successfully.");
+
+      const res = await fetch("/api/auth/password/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sent?: boolean;
+        message?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send verification email.");
+      }
+
+      setPasswordResetEmailSentTo(email.trim());
+      setPasswordInfo(
+        data.message ||
+          "Verification email sent. Open your inbox and use the reset link to set a new password.",
+      );
       setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
     } catch (e) {
-      setPasswordError((e as { message?: string })?.message || "Failed to update password.");
+      setPasswordError((e as { message?: string })?.message || "Failed to start password change.");
     } finally {
       setPasswordSaving(false);
     }
@@ -196,6 +230,11 @@ export default function ProfilePage() {
               <Label>Email</Label>
               <Input value={email} readOnly disabled className="bg-muted/50" />
             </div>
+            {pendingEmail && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                Pending email change: {pendingEmail}. Confirm from your inbox(es) to finalize.
+              </div>
+            )}
             <div className="space-y-2">
               <Label>User ID</Label>
               <Input value={userId} readOnly disabled className="bg-muted/50 font-mono text-xs" />
@@ -244,20 +283,42 @@ export default function ProfilePage() {
                 {emailInfo}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="newEmail">New email</Label>
-              <Input
-                id="newEmail"
-                type="email"
-                autoComplete="email"
-                placeholder="name@example.com"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleChangeEmail} disabled={emailSaving || !newEmail.trim()}>
-              {emailSaving ? "Sending confirmation…" : "Change email"}
-            </Button>
+            {emailChangeSentTo || pendingEmail ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-5 text-center">
+                <Mail className="mx-auto mb-2 size-6 text-muted-foreground" />
+                <p className="text-sm text-foreground">Check your email</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We sent confirmation for {emailChangeSentTo || pendingEmail}.
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  onClick={() => {
+                    setEmailChangeSentTo(null);
+                    setEmailInfo(null);
+                  }}
+                >
+                  Change email again
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="newEmail">New email</Label>
+                  <Input
+                    id="newEmail"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleChangeEmail} disabled={emailSaving || !newEmail.trim()}>
+                  {emailSaving ? "Sending confirmation…" : "Change email"}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -265,7 +326,7 @@ export default function ProfilePage() {
           <CardHeader>
             <CardTitle className="text-base">Change Password</CardTitle>
             <CardDescription>
-              Enter your current password, then choose a new one.
+              Verify your current password first. We then send a verification email with a secure reset link.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -279,43 +340,44 @@ export default function ProfilePage() {
                 {passwordInfo}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New password</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Minimum 8 characters"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmNewPassword">Confirm new password</Label>
-              <Input
-                id="confirmNewPassword"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={handleChangePassword}
-              disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-            >
-              {passwordSaving ? "Updating password…" : "Change password"}
-            </Button>
+            {passwordResetEmailSentTo ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-5 text-center">
+                <Mail className="mx-auto mb-2 size-6 text-muted-foreground" />
+                <p className="text-sm text-foreground">Check your email</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We sent a password verification link to {passwordResetEmailSentTo}.
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  onClick={() => {
+                    setPasswordResetEmailSentTo(null);
+                    setPasswordInfo(null);
+                  }}
+                >
+                  Start again
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current password</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={passwordSaving || !currentPassword}
+                >
+                  {passwordSaving ? "Verifying…" : "Verify and send email"}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 

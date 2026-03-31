@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function ConfirmEmailPage() {
   return (
@@ -32,6 +33,7 @@ function ConfirmEmailLoadingState() {
 
 function ConfirmEmailContent() {
   const router = useRouter();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);
   const continuePath = useMemo(() => searchParams.get("continue") || "/", [searchParams]);
@@ -42,6 +44,7 @@ function ConfirmEmailContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +58,11 @@ function ConfirmEmailContent() {
         const res = await fetch(`/api/auth/email/confirm?token=${encodeURIComponent(token)}`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Token validation failed.");
-        if (!cancelled) setInfo(`Email confirmed for ${String(data.email || "your account")}.`);
+        if (!cancelled) {
+          const email = String(data.email || "");
+          setConfirmedEmail(email);
+          setInfo(`Email confirmed for ${email || "your account"}.`);
+        }
       } catch (e: unknown) {
         if (!cancelled) {
           setError((e as { message?: string })?.message || "Token validation failed.");
@@ -91,6 +98,16 @@ function ConfirmEmailContent() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to set password.");
       const nextAfterLogin = continuePath === "/signup" ? "/" : continuePath;
+      if (confirmedEmail) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: confirmedEmail,
+          password,
+        });
+        if (!signInError) {
+          router.push(nextAfterLogin);
+          return;
+        }
+      }
       router.push(`/login?next=${encodeURIComponent(nextAfterLogin)}`);
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to set password.");

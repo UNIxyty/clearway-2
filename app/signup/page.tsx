@@ -6,22 +6,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 
 export default function SignupPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(null);
 
   async function requestConfirmationEmail() {
     setError(null);
     setInfo(null);
+    setConfirmationSentTo(null);
     setLoading(true);
     try {
+      const normalizedEmail = email.trim();
       const res = await fetch("/api/auth/email/request-confirmation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), next: "/signup" }),
+        body: JSON.stringify({ name: name.trim(), email: normalizedEmail, next: "/signup" }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -36,10 +41,8 @@ export default function SignupPage() {
             "We could not send the email right now. Check the address and try again in a minute.",
         );
       } else {
-        setInfo(
-          data.message ||
-            "Confirmation email sent. Open your inbox and follow the link to create your password.",
-        );
+        setConfirmationSentTo(normalizedEmail);
+        setInfo(data.message || "Confirmation email sent.");
       }
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to send confirmation email.");
@@ -90,27 +93,59 @@ export default function SignupPage() {
                 {info}
               </div>
             )}
+            {confirmationSentTo ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-5 text-center">
+                <Mail className="mx-auto mb-2 size-6 text-muted-foreground" />
+                <p className="text-sm text-foreground">Check your email</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We sent a confirmation link to {confirmationSentTo}.
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  onClick={() => {
+                    setConfirmationSentTo(null);
+                    setInfo(null);
+                  }}
+                >
+                  Change details
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Name</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="signup-email">Email</Label>
-              <Input
-                id="signup-email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-
-            <Button
-              type="button"
-              className="w-full"
-              onClick={requestConfirmationEmail}
-              disabled={loading || !email.trim()}
-            >
-              {loading ? "Sending..." : "Send confirmation email"}
-            </Button>
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={requestConfirmationEmail}
+                  disabled={loading || !name.trim() || !email.trim()}
+                >
+                  {loading ? "Sending..." : "Send confirmation email"}
+                </Button>
+              </>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Already have an account?{" "}

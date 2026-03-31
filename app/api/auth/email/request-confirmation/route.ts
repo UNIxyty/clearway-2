@@ -18,11 +18,16 @@ export async function POST(request: Request) {
 
   const requestUrl = new URL(request.url);
   const body = (await request.json().catch(() => ({}))) as {
+    name?: string;
     email?: string;
     next?: string;
   };
 
+  const name = String(body.name ?? "").trim();
   const email = normalizeEmail(body.email);
+  if (!name) {
+    return NextResponse.json({ error: "Name is required." }, { status: 400 });
+  }
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
   }
@@ -58,6 +63,10 @@ export async function POST(request: Request) {
   // Supabase sends the email using your configured auth email provider/templates.
   const { error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
     redirectTo: callbackUrl,
+    data: {
+      full_name: name,
+      name,
+    },
   });
 
   if (inviteError) {

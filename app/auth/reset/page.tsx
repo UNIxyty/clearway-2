@@ -113,9 +113,9 @@ export default function ResetPasswordPage() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
-      setInfo("Password updated. Redirecting to login...");
+      setInfo("Password updated. Redirecting to portal...");
       window.setTimeout(() => {
-        router.push("/login");
+        router.push("/");
       }, 700);
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to reset password.");

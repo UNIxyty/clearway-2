@@ -15,7 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
@@ -409,6 +409,7 @@ function AIPPortalPageInner() {
   const [browseDeletingIcaos, setBrowseDeletingIcaos] = useState<Record<string, boolean>>({});
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
+  const [browseCountrySearch, setBrowseCountrySearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
@@ -547,6 +548,61 @@ function AIPPortalPageInner() {
     const r = regions.find((x) => x.region === selectedRegion);
     return r?.countries ?? [];
   }, [regions, selectedRegion]);
+
+  const allCountriesWithRegion = useMemo(() => {
+    const out: { country: string; region: string }[] = [];
+    for (const r of regions) {
+      for (const c of r.countries ?? []) {
+        out.push({ country: c, region: r.region });
+      }
+    }
+    return out;
+  }, [regions]);
+
+  const countrySearchMatches = useMemo(() => {
+    const q = browseCountrySearch.trim().toLowerCase();
+    if (!q) return [];
+    const scored = allCountriesWithRegion
+      .map(({ country, region }) => {
+        const cl = country.toLowerCase();
+        const rl = region.toLowerCase();
+        const inCountry = cl.includes(q);
+        const inRegion = rl.includes(q);
+        if (!inCountry && !inRegion) return null;
+        let score = 0;
+        if (cl.startsWith(q)) score += 100;
+        else if (inCountry) score += 50;
+        if (rl.startsWith(q)) score += 30;
+        else if (inRegion) score += 10;
+        return { country, region, score };
+      })
+      .filter(Boolean) as { country: string; region: string; score: number }[];
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.country.localeCompare(b.country, undefined, { sensitivity: "base" });
+    });
+    const seen = new Set<string>();
+    const deduped: { country: string; region: string }[] = [];
+    for (const row of scored) {
+      const key = row.country.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({ country: row.country, region: row.region });
+      if (deduped.length >= 50) break;
+    }
+    return deduped;
+  }, [allCountriesWithRegion, browseCountrySearch]);
+
+  const applyBrowseCountrySelection = useCallback((country: string, region: string) => {
+    setSelectedRegion(region);
+    setSelectedCountry("");
+    setSelectedState("");
+    setBrowseSelectedState("");
+    setBrowseSelection([]);
+    setBrowseSelectedCountry(country);
+    setBrowseCountrySearch("");
+    setBrowseStep(3);
+  }, []);
 
   const isUSABrowse = browseSelectedCountry === "United States of America";
   const regionHasUSA = countriesInRegion.includes("United States of America");
@@ -1615,6 +1671,7 @@ function AIPPortalPageInner() {
                       setBrowseStep(1);
                       setBrowseSelection([]);
                       setBrowseSelectedState("");
+                      setBrowseCountrySearch("");
                     }
                   }}
                   aria-expanded={browseMenuOpen}
@@ -1681,26 +1738,102 @@ function AIPPortalPageInner() {
                     </div>
                   ) : browseStep === 1 ? (
                     <div className="animate-step-enter space-y-4">
-                      <p className="text-sm font-semibold text-foreground">Select region</p>
-                      <div className="flex flex-wrap gap-2">
-                        {regions.map((r) => (
-                          <Button
-                            key={r.region}
-                            type="button"
-                            variant={selectedRegion === r.region ? "default" : "outline"}
-                            size="sm"
-                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
-                            onClick={() => {
-                              setSelectedRegion(r.region);
-                              setSelectedCountry("");
-                              setSelectedState("");
-                              setBrowseStep(2);
-                            }}
-                          >
-                            {r.region}
-                            <ChevronRightIcon className="size-4" />
-                          </Button>
-                        ))}
+                      <div className="space-y-2">
+                        <Label htmlFor="browse-country-search" className="text-sm font-semibold text-foreground">
+                          Find country
+                        </Label>
+                        <div className="relative flex items-center gap-2">
+                          <SearchIcon className="absolute left-3 size-4 text-muted-foreground pointer-events-none" aria-hidden />
+                          <Input
+                            id="browse-country-search"
+                            type="search"
+                            autoComplete="off"
+                            placeholder="Type country or region…"
+                            value={browseCountrySearch}
+                            onChange={(e) => setBrowseCountrySearch(e.target.value)}
+                            className={`h-10 pl-9 ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
+                            aria-describedby="browse-country-search-hint"
+                          />
+                          {browseCountrySearch.trim() ? (
+                            <button
+                              type="button"
+                              aria-label="Clear country search"
+                              className="absolute right-2 rounded p-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => setBrowseCountrySearch("")}
+                            >
+                              <XIcon className="size-4" />
+                            </button>
+                          ) : null}
+                        </div>
+                        <p id="browse-country-search-hint" className="text-xs text-muted-foreground">
+                          {browseCountrySearch.trim()
+                            ? "Pick a country below, or browse by region."
+                            : "Or choose a region below to list countries."}
+                        </p>
+                      </div>
+                      {browseCountrySearch.trim() ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Matches
+                          </p>
+                          {countrySearchMatches.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-2">No countries match.</p>
+                          ) : (
+                            <div
+                              role="listbox"
+                              aria-label="Country search results"
+                              className="max-h-[min(220px,40vh)] overflow-y-auto rounded-lg border border-border/60 bg-background/80 p-1.5 space-y-1"
+                            >
+                              {countrySearchMatches.map(({ country, region }) => (
+                                <button
+                                  key={`${region}::${country}`}
+                                  type="button"
+                                  role="option"
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  onClick={() => applyBrowseCountrySelection(country, region)}
+                                >
+                                  {getCountryFlagUrl(country) ? (
+                                    <img
+                                      src={getCountryFlagUrl(country)!}
+                                      alt=""
+                                      width={22}
+                                      height={16}
+                                      className="rounded-sm shrink-0 object-cover"
+                                    />
+                                  ) : (
+                                    <span className="size-[22px] shrink-0" aria-hidden />
+                                  )}
+                                  <span className="min-w-0 flex-1 truncate font-medium">{country}</span>
+                                  <span className="shrink-0 text-xs text-muted-foreground">{region}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                      <div className={browseCountrySearch.trim() ? "pt-2 border-t border-border/60 space-y-3" : "space-y-3"}>
+                        <p className="text-sm font-semibold text-foreground">Select region</p>
+                        <div className="flex flex-wrap gap-2">
+                          {regions.map((r) => (
+                            <Button
+                              key={r.region}
+                              type="button"
+                              variant={selectedRegion === r.region ? "default" : "outline"}
+                              size="sm"
+                              className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
+                              onClick={() => {
+                                setBrowseCountrySearch("");
+                                setSelectedRegion(r.region);
+                                setSelectedCountry("");
+                                setSelectedState("");
+                                setBrowseStep(2);
+                              }}
+                            >
+                              {r.region}
+                              <ChevronRightIcon className="size-4" />
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -1714,7 +1847,10 @@ function AIPPortalPageInner() {
                           variant="ghost"
                           size="sm"
                           className="h-8 text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => setBrowseStep(1)}
+                          onClick={() => {
+                            setBrowseCountrySearch("");
+                            setBrowseStep(1);
+                          }}
                         >
                           ← Back
                         </Button>

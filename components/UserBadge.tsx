@@ -87,12 +87,10 @@ export default function UserBadge() {
           <BarChartIcon className="mr-2 size-4" />
           Stats
         </DropdownMenuItem>
-        {isAdmin && (
-          <DropdownMenuItem onClick={() => router.push("/admin/airports/deleted")}>
-            <ArchiveRestoreIcon className="mr-2 size-4" />
-            Deleted airports
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={() => router.push("/admin/airports/deleted")}>
+          <ArchiveRestoreIcon className="mr-2 size-4" />
+          Deleted airports
+        </DropdownMenuItem>
         {isAdmin && (
           <DropdownMenuItem onClick={() => router.push("/admin/maintenance")}>
             <ShieldCheckIcon className="mr-2 size-4" />

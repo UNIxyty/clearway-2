@@ -60,6 +60,26 @@ async function findUserIdByEmail(email: string) {
   return { error: "User account not found for this confirmation token.", userId: null as string | null };
 }
 
+async function syncDisplayNameFromMetadata(userId: string) {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return;
+
+  const { data: userData } = await service.auth.admin.getUserById(userId);
+  const metadata = (userData?.user?.user_metadata ?? {}) as Record<string, unknown>;
+  const rawName =
+    (typeof metadata.full_name === "string" ? metadata.full_name : null) ??
+    (typeof metadata.name === "string" ? metadata.name : null);
+  const displayName = rawName?.trim();
+  if (!displayName) return;
+
+  const { error } = await service
+    .from("user_preferences")
+    .upsert({ user_id: userId, display_name: displayName }, { onConflict: "user_id" });
+  if (error) {
+    console.warn("[auth/email/confirm] could not sync display_name", { userId, error: error.message });
+  }
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const token = requestUrl.searchParams.get("token") ?? "";
@@ -118,6 +138,8 @@ export async function POST(request: Request) {
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  await syncDisplayNameFromMetadata(targetUserId);
 
   const { error: markUsedError } = await service
     .from("email_confirmations")

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const appUrl = buildAppUrl(process.env.NEXT_PUBLIC_SITE_URL, requestUrl.origin);
-  const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent("/auth/reset")}`;
+  const redirectTo = `${appUrl}/auth/reset`;
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) {
     // Keep response generic to avoid email enumeration.

@@ -45,6 +45,13 @@ export async function GET(request: Request) {
       }
       return NextResponse.redirect(confirmUrl);
     }
+    if (next.startsWith("/auth/reset")) {
+      const resetUrl = new URL(next, requestUrl.origin);
+      if (continuePath) {
+        resetUrl.searchParams.set("continue", continuePath);
+      }
+      return NextResponse.redirect(resetUrl);
+    }
     const loginUrl = new URL("/login", requestUrl.origin);
     loginUrl.searchParams.set("error", "oauth_no_code");
     loginUrl.searchParams.set("next", next);

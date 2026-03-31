@@ -90,7 +90,8 @@ function ConfirmEmailContent() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to set password.");
-      router.push(`/login?next=${encodeURIComponent(continuePath)}`);
+      const nextAfterLogin = continuePath === "/signup" ? "/" : continuePath;
+      router.push(`/login?next=${encodeURIComponent(nextAfterLogin)}`);
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to set password.");
     } finally {
@@ -117,41 +118,48 @@ function ConfirmEmailContent() {
                 {info}
               </div>
             )}
+            {validating ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
+                Validating your confirmation link...
+              </div>
+            ) : error ? null : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Minimum 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Minimum 8 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={validating || loading || !!error}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Repeat password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Repeat password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={validating || loading || !!error}
-              />
-            </div>
-
-            <Button
-              type="button"
-              className="w-full"
-              onClick={setPasswordAndContinue}
-              disabled={validating || loading || !!error || !password || !confirmPassword}
-            >
-              {loading ? "Saving..." : "Create password"}
-            </Button>
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={setPasswordAndContinue}
+                  disabled={loading || !password || !confirmPassword}
+                >
+                  {loading ? "Saving..." : "Create password"}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

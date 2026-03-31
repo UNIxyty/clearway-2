@@ -48,6 +48,13 @@ const BROWSE_LOADING_STEPS = [
   { id: "browse-2", label: "Ready", duration: 250 },
 ];
 
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 type AIPAirport = {
   country: string;
   gen1_2: string;
@@ -603,6 +610,44 @@ function AIPPortalPageInner() {
     setBrowseCountrySearch("");
     setBrowseStep(3);
   }, []);
+
+  useEffect(() => {
+    if (!browseMenuOpen || browseStep !== 1) return;
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (isEditableElement(event.target)) return;
+
+      const hasOneMatch = browseCountrySearch.trim().length > 0 && countrySearchMatches.length === 1;
+      if (event.key === "Enter" && hasOneMatch) {
+        event.preventDefault();
+        const only = countrySearchMatches[0];
+        applyBrowseCountrySelection(only.country, only.region);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setBrowseCountrySearch("");
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        setBrowseCountrySearch((prev) => prev.slice(0, -1));
+      } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        setBrowseCountrySearch((prev) => prev + event.key);
+      } else {
+        return;
+      }
+
+      const input = document.getElementById("browse-country-search");
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [applyBrowseCountrySelection, browseCountrySearch, browseMenuOpen, browseStep, countrySearchMatches]);
 
   const isUSABrowse = browseSelectedCountry === "United States of America";
   const regionHasUSA = countriesInRegion.includes("United States of America");
@@ -1751,6 +1796,13 @@ function AIPPortalPageInner() {
                             placeholder="Type country or region…"
                             value={browseCountrySearch}
                             onChange={(e) => setBrowseCountrySearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && countrySearchMatches.length === 1) {
+                                e.preventDefault();
+                                const only = countrySearchMatches[0];
+                                applyBrowseCountrySelection(only.country, only.region);
+                              }
+                            }}
                             className={`h-10 pl-9 ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
                             aria-describedby="browse-country-search-hint"
                           />

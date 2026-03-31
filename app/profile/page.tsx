@@ -19,6 +19,16 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailInfo, setEmailInfo] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordInfo, setPasswordInfo] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -67,6 +77,72 @@ export default function ProfilePage() {
   async function signOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
+  }
+
+  async function handleChangeEmail() {
+    setEmailError(null);
+    setEmailInfo(null);
+    const targetEmail = newEmail.trim().toLowerCase();
+    if (!targetEmail) {
+      setEmailError("Enter a new email.");
+      return;
+    }
+    if (targetEmail === email.trim().toLowerCase()) {
+      setEmailError("New email must be different from current email.");
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ email: targetEmail });
+      if (updateError) throw updateError;
+      setEmailInfo("Confirmation email sent. Open your new inbox and confirm the change.");
+      setNewEmail("");
+    } catch (e) {
+      setEmailError((e as { message?: string })?.message || "Failed to start email change.");
+    } finally {
+      setEmailSaving(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    setPasswordError(null);
+    setPasswordInfo(null);
+    if (!email.trim()) {
+      setPasswordError("Current email is missing. Refresh and try again.");
+      return;
+    }
+    if (!currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Password confirmation does not match.");
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: currentPassword,
+      });
+      if (signInError) {
+        throw new Error("Current password is incorrect.");
+      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+      setPasswordInfo("Password updated successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      setPasswordError((e as { message?: string })?.message || "Failed to update password.");
+    } finally {
+      setPasswordSaving(false);
+    }
   }
 
   return (
@@ -146,6 +222,99 @@ export default function ProfilePage() {
             </div>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle className="text-base">Change Email</CardTitle>
+            <CardDescription>
+              Update the email used to sign in. A confirmation email is sent to the new address.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {emailError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {emailError}
+              </div>
+            )}
+            {emailInfo && (
+              <div className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                {emailInfo}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="newEmail">New email</Label>
+              <Input
+                id="newEmail"
+                type="email"
+                autoComplete="email"
+                placeholder="name@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleChangeEmail} disabled={emailSaving || !newEmail.trim()}>
+              {emailSaving ? "Sending confirmation…" : "Change email"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle className="text-base">Change Password</CardTitle>
+            <CardDescription>
+              Enter your current password, then choose a new one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {passwordError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {passwordError}
+              </div>
+            )}
+            {passwordInfo && (
+              <div className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                {passwordInfo}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Minimum 8 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmNewPassword">Confirm new password</Label>
+              <Input
+                id="confirmNewPassword"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+            >
+              {passwordSaving ? "Updating password…" : "Change password"}
             </Button>
           </CardContent>
         </Card>

@@ -407,8 +407,10 @@ function AIPPortalPageInner() {
   const [browseSelectedState, setBrowseSelectedState] = useState<string>("");
   const [usaStates, setUsaStates] = useState<string[]>([]);
   const [browseCountryAirports, setBrowseCountryAirports] = useState<AIPAirport[]>([]);
+  const [browseDeletingIcaos, setBrowseDeletingIcaos] = useState<Record<string, boolean>>({});
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
@@ -534,6 +536,13 @@ function AIPPortalPageInner() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/admin/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
   const countriesInRegion = useMemo(() => {
     if (!selectedRegion) return [];
     const r = regions.find((x) => x.region === selectedRegion);
@@ -586,6 +595,33 @@ function AIPPortalPageInner() {
     }
     setAipEadSyncRequestedIcao(icao);
   }, [aipEadCache]);
+
+  const deleteAirportFromPortal = useCallback(async (airport: AIPAirport) => {
+    const icao = airport.icao.toUpperCase();
+    setBrowseDeletingIcaos((prev) => ({ ...prev, [icao]: true }));
+    try {
+      const res = await fetch("/api/airports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ icao }),
+      });
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) throw new Error(data.error || "Failed to hide airport.");
+
+      setBrowseCountryAirports((prev) => prev.filter((a) => a.icao !== icao));
+      setBrowseSelection((prev) => prev.filter((a) => a.icao !== icao));
+      setResults((prev) => (prev ? prev.filter((a) => a.icao !== icao) : prev));
+      setSelectedIcao((prev) => (prev === icao ? null : prev));
+    } catch (e) {
+      setError((e as { message?: string })?.message || "Failed to hide airport.");
+    } finally {
+      setBrowseDeletingIcaos((prev) => {
+        const next = { ...prev };
+        delete next[icao];
+        return next;
+      });
+    }
+  }, []);
 
   const downloadGenPdfWithSync = useCallback(async (icao: string) => {
     const prefix = icao.slice(0, 2).toUpperCase();
@@ -1784,6 +1820,19 @@ function AIPPortalPageInner() {
                           ? `${selectedRegion} → ${browseSelectedCountry} → ${browseSelectedState} · Click to toggle, then Done`
                           : `${selectedRegion} → ${browseSelectedCountry} · Click to toggle, then Done`}
                       </p>
+                      {isAdmin && (
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => router.push("/admin/airports/deleted")}
+                          >
+                            Restore deleted airports
+                          </Button>
+                        </div>
+                      )}
                       <div className="max-h-[240px] overflow-y-auto space-y-1.5 pr-1">
                         {loadingCountry ? (
                           <div className="flex items-center justify-center py-8">
@@ -1792,16 +1841,28 @@ function AIPPortalPageInner() {
                         ) : browseCountryAirports.length > 0 ? (
                           browseCountryAirports.map((airport, i) => {
                             const isSelected = browseSelection.some((a) => a.icao === airport.icao);
+                            const isDeleting = Boolean(browseDeletingIcaos[airport.icao]);
                             return (
-                              <button
+                              <div
                                 key={airport.icao}
-                                type="button"
                                 onClick={() => {
                                   setBrowseSelection((prev) =>
                                     isSelected
                                       ? prev.filter((a) => a.icao !== airport.icao)
                                       : [...prev, airport]
                                   );
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setBrowseSelection((prev) =>
+                                      isSelected
+                                        ? prev.filter((a) => a.icao !== airport.icao)
+                                        : [...prev, airport]
+                                    );
+                                  }
                                 }}
                                 className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
                                   isSelected
@@ -1834,7 +1895,22 @@ function AIPPortalPageInner() {
                                 <span className="text-sm text-muted-foreground truncate min-w-0">
                                   {airport.name}
                                 </span>
-                              </button>
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    aria-label={`Hide ${airport.icao}`}
+                                    className="ml-auto rounded border border-border/70 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 disabled:opacity-50"
+                                    disabled={isDeleting}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      void deleteAirportFromPortal(airport);
+                                    }}
+                                  >
+                                    <Trash2Icon className="size-4" />
+                                  </button>
+                                )}
+                              </div>
                             );
                           })
                         ) : (

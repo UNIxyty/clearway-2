@@ -5,6 +5,7 @@ import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,67 @@ export type AIPAirport = {
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
+
+type DbAirportRow = {
+  country: string | null;
+  state: string | null;
+  icao: string | null;
+  name: string | null;
+  lat: number | null;
+  lon: number | null;
+};
+
+function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
+  return {
+    country: row.country ?? "",
+    gen1_2: "",
+    gen1_2_point_4: "",
+    icao: (row.icao ?? "").toUpperCase(),
+    name: row.name ?? "",
+    publicationDate: "",
+    trafficPermitted: "",
+    trafficRemarks: "",
+    ad22Operator: "",
+    ad22Address: "",
+    ad22Telephone: "",
+    ad22Telefax: "",
+    ad22Email: "",
+    ad22Afs: "",
+    ad22Website: "",
+    operator: "",
+    customsImmigration: "",
+    ats: "",
+    atsRemarks: "",
+    fireFighting: "",
+    runwayNumber: "",
+    runwayDimensions: "",
+    lat: row.lat ?? undefined,
+    lon: row.lon ?? undefined,
+  };
+}
+
+async function fetchVisibleAirportsFromDb(country?: string | null, state?: string | null): Promise<AIPAirport[] | null> {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return null;
+
+  let query = service
+    .from("airports")
+    .select("country,state,icao,name,lat,lon")
+    .eq("visible", true)
+    .order("icao", { ascending: true });
+  if (country) query = query.eq("country", country);
+  if (state) query = query.eq("state", state);
+
+  const { data, error } = await query.limit(10000);
+  if (error) {
+    // Fallback to static dataset when DB table is unavailable or not migrated yet.
+    return null;
+  }
+  const rows = (data ?? []) as DbAirportRow[];
+  return rows
+    .filter((r) => r.icao)
+    .map(mapDbRowToAirport);
+}
 
 type USAirportRow = {
   "Publication Date"?: string;
@@ -296,6 +358,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
   const state = searchParams.get("state")?.trim() || null;
+
+  const dbResults = await fetchVisibleAirportsFromDb(country, state);
+  if (dbResults !== null) {
+    return NextResponse.json(
+      { results: dbResults },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
+  }
 
   if (country === "United States of America" && state) {
     const list = flattenUSAByState(state);

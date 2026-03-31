@@ -28,6 +28,12 @@ export default function ResetPasswordPage() {
         const code = currentUrl.searchParams.get("code");
         const tokenHash = currentUrl.searchParams.get("token_hash") ?? currentUrl.searchParams.get("token");
         const tokenType = (currentUrl.searchParams.get("type") || "").toLowerCase();
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const hashType = (hashParams.get("type") || "").toLowerCase();
+        const hasRecoveryInHash = Boolean(accessToken && refreshToken && hashType === "recovery");
+        const hasRecoveryInQuery = Boolean(code || tokenHash);
 
         if (code) {
           await supabase.auth.exchangeCodeForSession(code);
@@ -35,6 +41,11 @@ export default function ResetPasswordPage() {
           const verifyType =
             (tokenType as "recovery" | "signup" | "invite" | "email_change" | "email" | "") || "recovery";
           await supabase.auth.verifyOtp({ token_hash: tokenHash, type: verifyType });
+        } else if (hasRecoveryInHash) {
+          await supabase.auth.setSession({
+            access_token: accessToken as string,
+            refresh_token: refreshToken as string,
+          });
         }
 
         const {
@@ -45,6 +56,13 @@ export default function ResetPasswordPage() {
           setReadyForPassword(true);
           setInfo("Email verified. You can now set a new password.");
         } else {
+          if (!hasRecoveryInQuery && !hasRecoveryInHash) {
+            router.replace(
+              "/login?error=reset_link_required&message=" +
+                encodeURIComponent("Open the latest password reset email and click the reset link."),
+            );
+            return;
+          }
           setInfo("To continue, open the latest reset email and click the reset link.");
         }
       } catch {

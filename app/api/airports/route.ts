@@ -94,6 +94,20 @@ type DbAirportRow = {
   lon: number | null;
 };
 
+function normalizeCountryLabel(country: string): string {
+  return country.replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
+}
+
+function buildCountryCandidates(country?: string | null): string[] {
+  if (!country) return [];
+  const raw = country.trim();
+  const normalized = normalizeCountryLabel(raw);
+  const set = new Set<string>();
+  if (raw) set.add(raw);
+  if (normalized) set.add(normalized);
+  return Array.from(set);
+}
+
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
   return {
     country: row.country ?? "",
@@ -127,12 +141,14 @@ async function fetchVisibleAirportsFromDb(country?: string | null, state?: strin
   const service = createSupabaseServiceRoleClient();
   if (!service) return null;
 
+  const countryCandidates = buildCountryCandidates(country);
   let query = service
     .from("airports")
     .select("country,state,icao,name,lat,lon")
     .eq("visible", true)
     .order("icao", { ascending: true });
-  if (country) query = query.eq("country", country);
+  if (countryCandidates.length === 1) query = query.eq("country", countryCandidates[0]);
+  if (countryCandidates.length > 1) query = query.in("country", countryCandidates);
   if (state) query = query.eq("state", state);
 
   const { data, error } = await query.limit(10000);

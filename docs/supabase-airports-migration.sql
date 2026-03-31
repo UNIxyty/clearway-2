@@ -10,12 +10,25 @@ do $$
 declare
   backup_name text := 'airports_backup_' || to_char(now(), 'YYYYMMDD');
 begin
-  if to_regclass(backup_name) is null then
-    execute format('create table %I as table airports', backup_name);
+  if to_regclass('public.airports') is not null and to_regclass('public.' || backup_name) is null then
+    execute format('create table public.%I as table public.airports', backup_name);
   end if;
 end $$;
 
--- 2) Ensure airports table has required columns for portal visibility.
+-- 2) Ensure airports table exists and has required columns for portal visibility.
+create table if not exists public.airports (
+  id bigserial primary key,
+  country text,
+  state text,
+  icao text,
+  name text,
+  lat double precision,
+  lon double precision,
+  source text,
+  visible boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
 alter table if exists public.airports
   add column if not exists visible boolean not null default true;
 
@@ -42,14 +55,24 @@ create table if not exists public.deleted_airports (
 );
 
 -- 4) Useful indexes.
-create index if not exists idx_airports_icao on public.airports (icao);
-create index if not exists idx_airports_visible on public.airports (visible);
-create index if not exists idx_airports_country_state_visible on public.airports (country, state, visible);
+do $$
+begin
+  if to_regclass('public.airports') is not null then
+    execute 'create index if not exists idx_airports_icao on public.airports (icao)';
+    execute 'create index if not exists idx_airports_visible on public.airports (visible)';
+    execute 'create index if not exists idx_airports_country_state_visible on public.airports (country, state, visible)';
+  end if;
+end $$;
 create index if not exists idx_deleted_airports_icao_deleted_at on public.deleted_airports (icao, deleted_at desc);
 
 -- 5) Normalize existing rows so portal starts with all rows visible.
-update public.airports
-set visible = true
-where visible is null;
+do $$
+begin
+  if to_regclass('public.airports') is not null then
+    update public.airports
+    set visible = true
+    where visible is null;
+  end if;
+end $$;
 
 commit;

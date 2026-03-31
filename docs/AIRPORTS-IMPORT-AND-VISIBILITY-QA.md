@@ -1,7 +1,9 @@
 # Airports Import and Visibility QA
 
 This runbook verifies:
-- EAD airport import updates names + coordinates in DB.
+- Unified airport import updates DB for all portal airport sources (AIP + USA + Russia + EAD file).
+- EAD file adds missing airports for each EAD country and refreshes EAD names.
+- Coordinates are filled from local map and completed from OurAirports where available.
 - Russian airport names are normalized to international English names.
 - Deleting an airport hides it from portal browse menu only.
 - Restoring airport returns it to browse menu.
@@ -32,9 +34,15 @@ npm run airports:import
 ```
 
 Expected:
-- Airports table updated from `/Users/whae/Downloads/icao_codes_by_country_v3_cleaned.json`.
+- Airports table updated from unified source set:
+  - `data/aip-data.json`
+  - `data/usa-aip-icaos-by-state.json`
+  - `data/rus-aip-international-airports.json`
+  - `/Users/whae/Downloads/icao_codes_by_country_v3_cleaned.json` (EAD additions/refresh)
+- Russian names are updated to international English names from OurAirports.
+- Missing coordinates are minimized using OurAirports fallback and remaining gaps are listed in `data/missing-coords.json`.
 
-## 4) Russia name normalization
+## 4) Optional: Russia name normalization only
 
 Dry-run:
 
@@ -49,7 +57,7 @@ npm run airports:russia:map
 ```
 
 Expected:
-- Russian airport names become international English names from OurAirports mapping.
+- Re-applies only Russia name normalization from OurAirports mapping (normally already included in `airports:import`).
 
 ## 5) Portal soft-delete / restore flow
 

@@ -29,6 +29,8 @@
     "test:ead:ad-report": "node scripts/generate-ead-ad-report.mjs",
     "airports:import": "node scripts/import-ead-airports.mjs",
     "airports:import:dry": "node scripts/import-ead-airports.mjs --dry-run",
+    "airports:import:all": "node scripts/import-ead-airports.mjs",
+    "airports:import:all:dry": "node scripts/import-ead-airports.mjs --dry-run",
     "airports:russia:map": "node scripts/map-russia-international-names.mjs",
     "airports:russia:map:dry": "node scripts/map-russia-international-names.mjs --dry-run"
   },

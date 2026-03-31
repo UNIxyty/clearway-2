@@ -27,6 +27,9 @@ Setup steps:
    - Update **Reset password** template (used for forgot password).
    - Update **Change Email Address** template for email-change confirmations:
      `docs/supabase-email-change-template.html`
+   - Optional post-change notification template for "your email was changed":
+     `docs/supabase-email-change-success-template.html`
+     (send this via your SMTP/provider automation after email change completes).
    - Optional custom template after successful reset: `docs/supabase-email-password-reset-success-template.html`
      (send this via your SMTP/provider automation when password reset completes).
    - Keep Magic Link template unused for login.

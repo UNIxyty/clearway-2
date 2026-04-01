@@ -2368,7 +2368,6 @@ function AIPPortalPageInner() {
                       size="sm"
                       className="shrink-0 h-9 gap-1.5 px-2"
                       onClick={() => requestSyncAipEad(viewingAirport.icao)}
-                      style={isAsecnaIcao(viewingAirport.icao) ? { display: "none" } : undefined}
                       disabled={aipEadLoadingIcao === viewingAirport.icao || aipEadSyncingIcao === viewingAirport.icao}
                       title={
                         aipEadCache[viewingAirport.icao]?.airport
@@ -2379,7 +2378,7 @@ function AIPPortalPageInner() {
                       <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
                       <span className="text-xs hidden sm:inline">Extract Data</span>
                     </Button>
-                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao)) && (
+                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao)) && (
                       <div
                         className="relative"
                         onMouseEnter={() => setShowGenSyncOverlay(true)}
@@ -2421,6 +2420,22 @@ function AIPPortalPageInner() {
                         )}
                       </div>
                     )}
+                    {isAsecnaIcao(viewingAirport.icao) && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
+                        onClick={() => {
+                          const webAip = viewingAirport.webAipUrl || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
+                          if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
+                        }}
+                        title="Open ASECNA Web AIP"
+                      >
+                        <GlobeIcon className="size-4" />
+                        <span className="text-xs hidden sm:inline">Web AIP</span>
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
@@ -2438,23 +2453,6 @@ function AIPPortalPageInner() {
                       ? "PDF is fetched from live ASECNA source and stored to S3."
                       : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
                   </div>
-                  {isAsecnaIcao(viewingAirport.icao) && (
-                    <div className="mb-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5"
-                        onClick={() => {
-                          const webAip = viewingAirport.webAipUrl || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
-                          if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
-                        }}
-                      >
-                        <GlobeIcon className="size-4" />
-                        <span className="text-xs">Web AIP</span>
-                      </Button>
-                    </div>
-                  )}
                   <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
                     <button
                       type="button"

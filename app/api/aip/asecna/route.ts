@@ -21,6 +21,14 @@ function s3() {
   return new S3Client({ region: REGION });
 }
 
+function rwandaHtmlToPdfUrl(htmlUrl: string): string {
+  let out = htmlUrl.replace(/#.*$/, "");
+  out = out.replace("-en-GB", "");
+  out = out.replace(".html", ".pdf");
+  out = out.replace("/eAIP/", "/documents/PDF/");
+  return out;
+}
+
 async function saveJson(icao: string, payload: { updatedAt: string }) {
   if (!BUCKET) return;
   await s3().send(
@@ -50,12 +58,14 @@ async function readJson(icao: string): Promise<{ updatedAt: string | null } | nu
 
 async function downloadAsecnaPdfToS3(icao: string, countryCode: string) {
   if (!BUCKET) throw new Error("S3 bucket not configured");
+  const airport = getAsecnaAirportByIcao(icao);
+  if (!airport) throw new Error("ICAO not found in ASECNA metadata");
   const data = getAsecnaData();
   const menuBasename = data.menuBasename || "FR-menu-fr-FR.html";
   const menuDirUrl = `${new URL(data.menuUrl).origin}/html/eAIP/`;
-  const htmlFile = asecnaAd2AirportBasename(countryCode, icao, menuBasename);
-  const htmlUrl = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
-  const pdfUrl = htmlUrlToPdfUrl(htmlUrl);
+  const htmlUrl = airport.ad2HtmlUrl
+    || resolveAsecnaHtmlUrl(asecnaAd2AirportBasename(countryCode, icao, menuBasename), menuDirUrl);
+  const pdfUrl = /\/eAIP_Rwanda\//i.test(htmlUrl) ? rwandaHtmlToPdfUrl(htmlUrl) : htmlUrlToPdfUrl(htmlUrl);
 
   const cli = parseAsecnaCli(process.argv);
   const strictTls = cli.strictTls && !cli.insecureTls;

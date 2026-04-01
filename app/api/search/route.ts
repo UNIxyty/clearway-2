@@ -224,13 +224,13 @@ function flattenAsecna(): AIPAirport[] {
   for (const icao of getAsecnaAirportsSet()) {
     const row = getAsecnaAirportByIcao(icao);
     if (!row) continue;
-    const coord = coordsMap[icao];
+    const coord = (typeof row.lat === "number" && typeof row.lon === "number") ? { lat: row.lat, lon: row.lon } : coordsMap[icao];
     list.push({
       country: row.countryName,
       gen1_2: "",
       gen1_2_point_4: "",
       icao,
-      name: `${icao} Airport`,
+      name: row.name || `${icao} Airport`,
       publicationDate: "",
       trafficPermitted: "",
       trafficRemarks: "",

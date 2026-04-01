@@ -130,6 +130,29 @@ function rwandaHtmlToPdfUrl(htmlUrl) {
   return out;
 }
 
+async function resolveRwandaAd2HtmlUrl(icao) {
+  const frMenuUrl = 'https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html';
+  const frMenuHtml = await (await fetch(frMenuUrl)).text();
+  const m =
+    frMenuHtml.match(/id\s*=\s*["']AIP_RWANDA["'][\s\S]*?href\s*=\s*["']([^"']+)["']/i) ||
+    frMenuHtml.match(/href\s*=\s*["']([^"']+)["'][\s\S]*?id\s*=\s*["']AIP_RWANDA["']/i);
+  const rawHref = (m?.[1] || '').replace(/\\/g, '/');
+  if (!rawHref) throw new Error('AIP RWANDA button link not found in FR menu.');
+  const tocUrl = new URL(rawHref, 'https://aim.asecna.aero/html/eAIP/').href;
+  const tocHtml = await (await fetch(tocUrl)).text();
+  const fm =
+    tocHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i) ||
+    tocHtml.match(/<frame[^>]*src=["']([^"']*menu\.html[^"']*)["']/i);
+  const menuSrc = fm?.[1];
+  if (!menuSrc) throw new Error('Rwanda menu frame link not found.');
+  const menuUrl = new URL(menuSrc, tocUrl).href;
+  const menuHtml = await (await fetch(menuUrl)).text();
+  const re = new RegExp(`href=['"]([^'"]*AD\\s*2\\s*${icao}[^'"]*\\.html#[^'"]*)['"]`, 'i');
+  const ad2Match = menuHtml.match(re);
+  if (!ad2Match?.[1]) throw new Error(`Rwanda AD2 link for ${icao} not found in menu.`);
+  return new URL(ad2Match[1], menuUrl).href;
+}
+
 function jsfId(id) {
   return `[id="${id}"]`;
 }
@@ -147,11 +170,11 @@ async function main() {
   // ASECNA path (same script, no EAD login required).
   const asecnaMeta = loadAsecnaAirportCountryCodeMap();
   const asecnaAirportMeta = asecnaMeta.map.get(icao);
-  if (asecnaAirportMeta) {
+  if (asecnaAirportMeta || icao.startsWith('HR')) {
     const cli = parseAsecnaCli(process.argv);
     if (cli.insecureTls) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     const strictTls = cli.strictTls && !cli.insecureTls;
-    const countryCode = String(asecnaAirportMeta.countryCode || '');
+    const countryCode = String(asecnaAirportMeta?.countryCode || 'RW');
     const menuBasename = cli.menuBasename || asecnaMeta.menuBasename || 'FR-menu-fr-FR.html';
     const menuDirUrl = asecnaMeta.menuUrl
       ? asecnaMeta.menuUrl.replace(/[^/]+$/, '')
@@ -161,10 +184,11 @@ async function main() {
       : (/^\d{2}$/.test(countryCode)
         ? resolveAsecnaHtmlUrl(asecnaAd2AirportBasename(countryCode, icao, menuBasename), menuDirUrl)
         : null);
-    if (!htmlUrl) {
+    const resolvedHtmlUrl = htmlUrl || (icao.startsWith('HR') ? await resolveRwandaAd2HtmlUrl(icao) : null);
+    if (!resolvedHtmlUrl) {
       throw new Error(`ASECNA metadata for ${icao} is missing AD2 URL/country code. Run services/asecna/asecna-sync.mjs first.`);
     }
-    const pdfUrl = /\/eAIP_Rwanda\//i.test(htmlUrl) ? rwandaHtmlToPdfUrl(htmlUrl) : htmlUrlToPdfUrl(htmlUrl);
+    const pdfUrl = /\/eAIP_Rwanda\//i.test(resolvedHtmlUrl) ? rwandaHtmlToPdfUrl(resolvedHtmlUrl) : htmlUrlToPdfUrl(resolvedHtmlUrl);
     const savePath = join(outDir, `${icao}_ASECNA_AD2.pdf`);
 
     log(`ASECNA ICAO detected (${icao}, country code ${countryCode || 'n/a'})`);

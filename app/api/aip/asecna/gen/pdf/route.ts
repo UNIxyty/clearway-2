@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna-eaip-http.mjs";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 
+function rwandaHtmlToPdfUrl(htmlUrl: string): string {
+  let out = htmlUrl.replace(/#.*$/, "");
+  out = out.replace("-en-GB", "");
+  out = out.replace(".html", ".pdf");
+  out = out.replace("/eAIP/", "/documents/PDF/");
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
@@ -22,10 +30,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const menuDir = data.menuUrl.replace(/[^/]+$/, "");
-  const htmlFile = asecnaFormattedLeafBasename(country.gen12.anchor, data.menuBasename || "FR-menu-fr-FR.html");
-  const htmlUrl = resolveAsecnaHtmlUrl(htmlFile, menuDir);
-  const pdfUrl = htmlUrlToPdfUrl(htmlUrl);
+  const menuDir = country.menuDirUrl || data.menuUrl.replace(/[^/]+$/, "");
+  const htmlUrl = country.gen12?.htmlUrl
+    || resolveAsecnaHtmlUrl(
+      asecnaFormattedLeafBasename(country.gen12.anchor, data.menuBasename || "FR-menu-fr-FR.html"),
+      menuDir,
+    );
+  const pdfUrl = /\/eAIP_Rwanda\//i.test(htmlUrl) ? rwandaHtmlToPdfUrl(htmlUrl) : htmlUrlToPdfUrl(htmlUrl);
 
   const fetcher = createAsecnaFetch("GEN");
   const res = await fetcher.fetchAsecna(pdfUrl, {}, { strictTls: false });

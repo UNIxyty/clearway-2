@@ -7,6 +7,10 @@ export type AsecnaAirport = {
   sourceType: "ASECNA_DYNAMIC";
   dynamicUpdated: true;
   webAipUrl: string;
+  ad2HtmlUrl?: string;
+  name?: string;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 export type AsecnaCountry = {
@@ -17,7 +21,7 @@ export type AsecnaCountry = {
   dynamicUpdated: true;
   webAipUrl: string;
   menuDirUrl: string;
-  gen12: { anchor: string; href: string; label: string } | null;
+  gen12: { anchor: string; href: string; label: string; htmlUrl?: string } | null;
   airports: AsecnaAirport[];
 };
 

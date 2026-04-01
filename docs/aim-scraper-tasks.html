@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AIM / eAIP scraper tasks by country</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a222c;
+      --border: #2d3a47;
+      --text: #e6edf3;
+      --muted: #8b9bab;
+      --accent: #3d9cf9;
+      --awaiting: #6b7c8c;
+      --progress: #d4a534;
+      --created: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .toolbar label { font-size: 0.85rem; color: var(--muted); }
+    .toolbar input[type="search"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+    .toolbar button {
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:hover td { background: rgba(61, 156, 249, 0.06); }
+    .countries { max-width: 28rem; }
+    .countries ul {
+      margin: 0;
+      padding-left: 1.15rem;
+    }
+    .page-type {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    a.link {
+      color: var(--accent);
+      word-break: break-all;
+      text-decoration: none;
+    }
+    a.link:hover { text-decoration: underline; }
+    .links-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-width: 36rem;
+    }
+    .origin-tag {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      margin-top: 0.25rem;
+    }
+    select.status {
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      min-width: 10rem;
+    }
+    select.status[data-value="awaiting"] { border-left: 3px solid var(--awaiting); }
+    select.status[data-value="in_progress"] { border-left: 3px solid var(--progress); }
+    select.status[data-value="created"] { border-left: 3px solid var(--created); }
+    .no-link { color: var(--muted); font-style: italic; }
+    .stats {
+      margin-top: 1.25rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <h1>AIM / eAIP scraper tasks</h1>
+  <p class="sub">Countries sharing the same site origin (e.g. <code>aim.asecna.aero</code>) are grouped into one task. Status is saved in this browser only.</p>
+  <div class="toolbar">
+    <label for="filter">Filter</label>
+    <input type="search" id="filter" placeholder="Country, URL, page type…" autocomplete="off" />
+    <button type="button" id="resetStatus">Reset all statuses</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Countries</th>
+        <th>Link(s)</th>
+        <th>Page type(s)</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <p class="stats" id="stats"></p>
+
+  <script type="application/json" id="raw-data">
+[{"Country":"Angola","Official AIM Page":"https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf","Page type":"PDF Based"},{"Country":"Benin","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Burkina Faso","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Cabo Verde","Official AIM Page":"https://eaip.asa.cv/","Page type":"Web Table Based"},{"Country":"Cameroon","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Central African Republic","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Chad","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Comoros","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Congo","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Djibouti","Official AIM Page":"https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d","Page type":"PDF Based"},{"Country":"Egypt","Official AIM Page":"http://www.nansceg.net/ais.html","Page type":"PDF Based"},{"Country":"Equatorial Guinea","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Ethiopia","Official AIM Page":"https://ru.scribd.com/document/446457627/AIP-Ethiopia","Page type":"PDF Based"},{"Country":"Gabon","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Guinea","Official AIM Page":"https://www.robertsfir.org/aip.html","Page type":"Login Required"},{"Country":"Guinea-Bissau","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Ivory Coast (Côte d'Ivoire)","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Kenya","Official AIM Page":"","Page type":"Login Required"},{"Country":"Libya","Official AIM Page":"https://caa.gov.ly/ais/aip/","Page type":"PDF Based"},{"Country":"Madagascar","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Mali","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Mauritania","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Namibia","Official AIM Page":"https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication","Page type":"Login Required"},{"Country":"Niger","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Rwanda","Official AIM Page":"https://aim.asecna.aero/eAIP_Rwanda/default.html","Page type":"Web Table Based"},{"Country":"Seychelles","Official AIM Page":"https://www.scaa.sc/files/AIP%20Seychelles.pdf","Page type":"PDF Based"},{"Country":"Sierra Leone","Official AIM Page":"https://www.robertsfir.org/aip.html","Page type":"Login Required"},{"Country":"Somalia","Official AIM Page":"https://aip.scaa.gov.so/index-en-GB.html","Page type":"Web Table Based"},{"Country":"South Africa","Official AIM Page":"https://www.caa.co.za/industry-information/aip-sup/","Page type":"PDF Based"},{"Country":"South Sudan","Official AIM Page":"https://sscaa.gov.ss/publications/aip/","Page type":"PDF Based"},{"Country":"Sudan","Official AIM Page":"https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf","Page type":"PDF Based"},{"Country":"Togo","Official AIM Page":"https://aim.asecna.aero/html/index-fr-FR.html","Page type":"Web Table Based"},{"Country":"Afghanistan","Official AIM Page":"https://www.afgais.com/","Page type":"PDF Based"},{"Country":"Bahrain","Official AIM Page":"https://aim.mtt.gov.bh/eaip","Page type":"Web Table Based"},{"Country":"Bangladesh","Official AIM Page":"http://www.caab.gov.bd/aip/#","Page type":"PDF Based"},{"Country":"Bhutan","Official AIM Page":"https://www.doat.gov.bt/aip/","Page type":"PDF Based"},{"Country":"Brunei","Official AIM Page":"https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx","Page type":"PDF Based"},{"Country":"Cambodia","Official AIM Page":"https://aim.cats.com.kh/eaip.html","Page type":"Login Required"},{"Country":"China","Official AIM Page":"https://www.eaipchina.cn/#/","Page type":"Login Required"},{"Country":"East Timor (Timor-Leste)","Official AIM Page":"https://ru.scribd.com/document/277669067/Timor-Leste-Aip","Page type":"PDF Based"},{"Country":"India","Official AIM Page":"https://aim-india.aai.aero/aip-supplements?page=1","Page type":"Web Table Based"},{"Country":"Indonesia","Official AIM Page":"https://pia.airnavindonesia.co.id/","Page type":"Login Required"},{"Country":"Iran","Official AIM Page":"https://ais.airport.ir/","Page type":"PDF Based"},{"Country":"Israel","Official AIM Page":"https://e-aip.azurefd.net/","Page type":"Web Table Based"},{"Country":"Japan","Official AIM Page":"https://nagodede.github.io/aip/japan/","Page type":"PDF Based"},{"Country":"Kuwait","Official AIM Page":"https://dgca.gov.kw/AIP","Page type":"Login Required"},{"Country":"Malaysia","Official AIM Page":"https://aip.caam.gov.my/aip/eAIP/history-en-MS.html","Page type":"Web Table Based"},{"Country":"Maldives","Official AIM Page":"https://www.macl.aero/corporate/services/operational/ans/aip","Page type":"PDF Based"},{"Country":"Mongolia","Official AIM Page":"https://ais.mn/files/aip/eAIP/","Page type":"Web Table Based"},{"Country":"Myanmar (Burma)","Official AIM Page":"https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html","Page type":"Web Table Based"},{"Country":"Nepal","Official AIM Page":"https://e-aip.caanepal.gov.np/welcome/listall/1","Page type":"PDF Based"},{"Country":"Oman","Official AIM Page":"https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html","Page type":"Web Table Based"},{"Country":"Pakistan","Official AIM Page":"https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication","Page type":"Web Table Based"},{"Country":"Qatar","Official AIM Page":"https://www.caa.gov.qa/en/aeronautical-information-management","Page type":"Web Table Based"},{"Country":"Saudi Arabia","Official AIM Page":"https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html","Page type":"Web Table Based"},{"Country":"Singapore","Official AIM Page":"https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments","Page type":"Web Table Based"},{"Country":"South Korea","Official AIM Page":"https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html","Page type":"Web Table Based"},{"Country":"Sri Lanka","Official AIM Page":"https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html","Page type":"Web Table Based"},{"Country":"Taiwan","Official AIM Page":"https://ais.caa.gov.tw/eaip/","Page type":"Web Table Based"},{"Country":"Tajikistan","Official AIM Page":"http://www.caica.ru/aiptjk/?lang=en","Page type":"Web Table Based"},{"Country":"Thailand","Official AIM Page":"https://aip.caat.or.th/","Page type":"Web Table Based"},{"Country":"Turkmenistan","Official AIM Page":"http://www.caica.ru/aiptkm/?lang=en","Page type":"Web Table Based"},{"Country":"United Arab Emirates","Official AIM Page":"https://www.gcaa.gov.ae/en/ais/Pages/default.aspx","Page type":"Web Table Based"},{"Country":"Uzbekistan","Official AIM Page":"https://uzaeronavigation.com/ais/#","Page type":"PDF Based"},{"Country":"Vietnam","Official AIM Page":"https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en","Page type":"Login Required"},{"Country":"Hong Kong","Official AIM Page":"https://www.ais.gov.hk/","Page type":"Web Table Based"},{"Country":"Macau","Official AIM Page":"https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP","Page type":"PDF Based"},{"Country":"Andorra","Official AIM Page":"https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf","Page type":"PDF Based"},{"Country":"Belarus","Official AIM Page":"https://www.ban.by/AIP/Belarus251002/html/index.html","Page type":"Web Table Based"},{"Country":"Bosnia and Herzegovina","Official AIM Page":"https://eaip.bhansa.gov.ba/","Page type":"Web Table Based"},{"Country":"Kosovo","Official AIM Page":"https://www.ashna-ks.org/eAIP/default.html","Page type":"Web Table Based"},{"Country":"Luxembourg","Official AIM Page":"https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html","Page type":"Web Table Based"},{"Country":"North Macedonia","Official AIM Page":"https://ais.m-nav.info/eAIP/current/en/index.htm","Page type":"Web Table Based"},{"Country":"Vatican City","Official AIM Page":"AIP","Page type":"PDF Based"},{"Country":"Antigua and Barbuda","Official AIM Page":"https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf","Page type":"PDF Based"},{"Country":"Canada","Official AIM Page":"https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx","Page type":"PDF Based"},{"Country":"Costa Rica","Official AIM Page":"https://www.cocesna.org/aipca/AIPMR/inicio.html","Page type":"Web Table Based"},{"Country":"Cuba","Official AIM Page":"https://aismet.avianet.cu/html/aip.html","Page type":"PDF Based"},{"Country":"Dominica","Official AIM Page":"https://www.idac.gob.do/en/air-navigation-directorate/aip/","Page type":"..."},{"Country":"El Salvador","Official AIM Page":"https://www.cocesna.org/aipca/AIPMS/history.html","Page type":"Web Table Based"},{"Country":"Guatemala","Official AIM Page":"https://www.dgac.gob.gt/home/aip_e/","Page type":"Web Table Based"},{"Country":"Haiti","Official AIM Page":"https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf","Page type":"PDF Based"},{"Country":"Honduras","Official AIM Page":"https://www.ahac.gob.hn/eAIP1/inicio.html","Page type":"Web Table Based"},{"Country":"Saint Vincent and the Grenadines","Official AIM Page":"https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf","Page type":"PDF Based"},{"Country":"Trinidad and Tobago","Official AIM Page":"https://caa.gov.tt/notices-to-operators-notification/aip-sups/","Page type":"PDF Based"},{"Country":"Chile","Official AIM Page":"https://aipchile.dgac.gob.cl/aip/vol1","Page type":"Web Table Based"},{"Country":"Ecuador","Official AIM Page":"https://www.ais.aviacioncivil.gob.ec/ifis3/","Page type":"Web Table Based"},{"Country":"Venezuela","Official AIM Page":"https://www.inac.gob.ve/eaip/history-en-GB.html","Page type":"Web Table Based"},{"Country":"Australia","Official AIM Page":"https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1","Page type":"PDF Based"},{"Country":"Papua New Guinea","Official AIM Page":"","Page type":"..."},{"Country":"Panama","Official AIM Page":"https://www.aeronautica.gob.pa/ais-aip/","Page type":"PDF Based"}]
+  </script>
+  <script>
+    (function () {
+      const STORAGE_KEY = "aim-scraper-task-status-v1";
+      const raw = document.getElementById("raw-data").textContent;
+      const rows = JSON.parse(raw);
+      const URL_KEY = "Official AIM Page";
+      const TYPE_KEY = "Page type";
+      const COUNTRY_KEY = "Country";
+
+      function normalizeBaseLink(href) {
+        const t = (href || "").trim();
+        if (!t) return null;
+        if (!/^https?:\/\//i.test(t)) return { kind: "opaque", key: t, display: t };
+        try {
+          const u = new URL(t);
+          return { kind: "origin", key: u.origin, display: u.origin };
+        } catch {
+          return { kind: "opaque", key: t, display: t };
+        }
+      }
+
+      function groupIdFromBase(base, country) {
+        if (!base) return "no-url:" + country;
+        return base.kind + ":" + base.key;
+      }
+
+      const groupsMap = new Map();
+      for (const r of rows) {
+        const country = r[COUNTRY_KEY];
+        const href = r[URL_KEY] || "";
+        const base = normalizeBaseLink(href);
+        const gid = groupIdFromBase(base, country);
+        if (!groupsMap.has(gid)) {
+          groupsMap.set(gid, {
+            id: gid,
+            baseDisplay: base ? base.display : "(no link)",
+            entries: [],
+          });
+        }
+        groupsMap.get(gid).entries.push({
+          country,
+          href: href.trim(),
+          pageType: r[TYPE_KEY] || "",
+        });
+      }
+
+      const groups = Array.from(groupsMap.values()).map((g) => {
+        g.entries.sort((a, b) => a.country.localeCompare(b.country));
+        const urls = [...new Set(g.entries.map((e) => e.href).filter(Boolean))];
+        const types = [...new Set(g.entries.map((e) => e.pageType).filter(Boolean))];
+        return { ...g, urls, types };
+      });
+      groups.sort((a, b) => {
+        const an = a.entries[0].country;
+        const bn = b.entries[0].country;
+        return an.localeCompare(bn);
+      });
+
+      function loadStatus() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch {
+          return {};
+        }
+      }
+      function saveStatus(map) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+      }
+      let statusMap = loadStatus();
+
+      const tbody = document.getElementById("tbody");
+      const statsEl = document.getElementById("stats");
+      const filterEl = document.getElementById("filter");
+
+      function syncSelectAppearance(sel) {
+        sel.dataset.value = sel.value;
+      }
+
+      function render() {
+        const q = (filterEl.value || "").trim().toLowerCase();
+        tbody.replaceChildren();
+        let shown = 0;
+        for (const g of groups) {
+          const hay = [
+            g.entries.map((e) => e.country).join(" "),
+            g.urls.join(" "),
+            g.types.join(" "),
+            g.baseDisplay,
+          ]
+            .join(" ")
+            .toLowerCase();
+          if (q && !hay.includes(q)) continue;
+          shown++;
+
+          const tr = document.createElement("tr");
+          const status = statusMap[g.id] || "awaiting";
+
+          const tdCountries = document.createElement("td");
+          tdCountries.className = "countries";
+          const ul = document.createElement("ul");
+          for (const e of g.entries) {
+            const li = document.createElement("li");
+            li.textContent = e.country;
+            ul.appendChild(li);
+          }
+          tdCountries.appendChild(ul);
+          if (g.entries.length > 1) {
+            const tag = document.createElement("div");
+            tag.className = "origin-tag";
+            tag.textContent = "Shared base: " + g.baseDisplay;
+            tdCountries.appendChild(tag);
+          }
+
+          const tdLink = document.createElement("td");
+          const stack = document.createElement("div");
+          stack.className = "links-stack";
+          if (g.urls.length === 0) {
+            const span = document.createElement("span");
+            span.className = "no-link";
+            span.textContent = "No URL in source data";
+            stack.appendChild(span);
+          } else {
+            for (const u of g.urls) {
+              const a = document.createElement("a");
+              a.className = "link";
+              a.href = u;
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+              a.textContent = u;
+              stack.appendChild(a);
+            }
+          }
+          tdLink.appendChild(stack);
+
+          const tdType = document.createElement("td");
+          tdType.className = "page-type";
+          tdType.textContent = g.types.length ? g.types.join("; ") : "—";
+
+          const tdStatus = document.createElement("td");
+          const sel = document.createElement("select");
+          sel.className = "status";
+          sel.dataset.groupId = g.id;
+          [["awaiting", "Awaiting"], ["in_progress", "In progress"], ["created", "Created"]].forEach(
+            ([val, label]) => {
+              const o = document.createElement("option");
+              o.value = val;
+              o.textContent = label;
+              sel.appendChild(o);
+            }
+          );
+          sel.value = status;
+          syncSelectAppearance(sel);
+          sel.addEventListener("change", () => {
+            statusMap[g.id] = sel.value;
+            saveStatus(statusMap);
+            render();
+          });
+          tdStatus.appendChild(sel);
+
+          tr.append(tdCountries, tdLink, tdType, tdStatus);
+          tbody.appendChild(tr);
+        }
+        const s = statusMap;
+        const counts = { awaiting: 0, in_progress: 0, created: 0 };
+        for (const g of groups) {
+          const v = s[g.id] || "awaiting";
+          if (counts[v] !== undefined) counts[v]++;
+        }
+        const filterLine =
+          shown === groups.length
+            ? groups.length + " task group(s) · " + rows.length + " countries in source."
+            : "Showing " + shown + " of " + groups.length + " task group(s).";
+        statsEl.textContent =
+          filterLine +
+          " Status: " +
+          counts.awaiting +
+          " awaiting · " +
+          counts.in_progress +
+          " in progress · " +
+          counts.created +
+          " created.";
+      }
+
+      filterEl.addEventListener("input", render);
+      document.getElementById("resetStatus").addEventListener("click", () => {
+        if (!confirm("Clear all saved statuses for this page?")) return;
+        statusMap = {};
+        saveStatus(statusMap);
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

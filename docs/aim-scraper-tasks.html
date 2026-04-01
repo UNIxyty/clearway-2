@@ -62,6 +62,48 @@
       font-size: 0.85rem;
     }
     .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+    #board {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+    .folder {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .folder__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .folder--awaiting .folder__head {
+      border-left: 4px solid var(--awaiting);
+    }
+    .folder--in_progress .folder__head {
+      border-left: 4px solid var(--progress);
+    }
+    .folder--created .folder__head {
+      border-left: 4px solid var(--created);
+    }
+    .folder__meta {
+      font-weight: 400;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .folder__empty {
+      padding: 1rem 1.25rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -73,12 +115,16 @@
       border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
+    .folder table tr:last-child td {
+      border-bottom: none;
+    }
     th {
       color: var(--muted);
       font-weight: 500;
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      background: rgba(15, 20, 25, 0.45);
     }
     tr:hover td { background: rgba(61, 156, 249, 0.06); }
     .countries { max-width: 28rem; }
@@ -131,23 +177,13 @@
 </head>
 <body>
   <h1>AIM / eAIP scraper tasks</h1>
-  <p class="sub">Countries sharing the same site origin (e.g. <code>aim.asecna.aero</code>) are grouped into one task. Status is saved in this browser only.</p>
+  <p class="sub">Countries sharing the same site origin (e.g. <code>aim.asecna.aero</code>) are grouped into one task. Three folders list tasks in fixed order: Awaiting, then In progress, then Created, so completed work never appears between pending items. Within each folder, tasks are sorted by country name. Status is saved in this browser only.</p>
   <div class="toolbar">
     <label for="filter">Filter</label>
     <input type="search" id="filter" placeholder="Country, URL, page type…" autocomplete="off" />
     <button type="button" id="resetStatus">Reset all statuses</button>
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Countries</th>
-        <th>Link(s)</th>
-        <th>Page type(s)</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <div id="board" aria-label="Tasks by status"></div>
   <p class="stats" id="stats"></p>
 
   <script type="application/json" id="raw-data">
@@ -205,11 +241,11 @@
         const types = [...new Set(g.entries.map((e) => e.pageType).filter(Boolean))];
         return { ...g, urls, types };
       });
-      groups.sort((a, b) => {
-        const an = a.entries[0].country;
-        const bn = b.entries[0].country;
-        return an.localeCompare(bn);
-      });
+      const STATUS_ORDER = [
+        ["awaiting", "Awaiting", "folder--awaiting"],
+        ["in_progress", "In progress", "folder--in_progress"],
+        ["created", "Created", "folder--created"],
+      ];
 
       function loadStatus() {
         try {
@@ -223,7 +259,7 @@
       }
       let statusMap = loadStatus();
 
-      const tbody = document.getElementById("tbody");
+      const board = document.getElementById("board");
       const statsEl = document.getElementById("stats");
       const filterEl = document.getElementById("filter");
 
@@ -231,89 +267,138 @@
         sel.dataset.value = sel.value;
       }
 
+      function groupMatchesFilter(g, q) {
+        if (!q) return true;
+        const hay = [
+          g.entries.map((e) => e.country).join(" "),
+          g.urls.join(" "),
+          g.types.join(" "),
+          g.baseDisplay,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      }
+
+      function firstCountry(g) {
+        return g.entries[0].country;
+      }
+
+      function buildTaskRow(g) {
+        const tr = document.createElement("tr");
+        const status = statusMap[g.id] || "awaiting";
+
+        const tdCountries = document.createElement("td");
+        tdCountries.className = "countries";
+        const ul = document.createElement("ul");
+        for (const e of g.entries) {
+          const li = document.createElement("li");
+          li.textContent = e.country;
+          ul.appendChild(li);
+        }
+        tdCountries.appendChild(ul);
+        if (g.entries.length > 1) {
+          const tag = document.createElement("div");
+          tag.className = "origin-tag";
+          tag.textContent = "Shared base: " + g.baseDisplay;
+          tdCountries.appendChild(tag);
+        }
+
+        const tdLink = document.createElement("td");
+        const stack = document.createElement("div");
+        stack.className = "links-stack";
+        if (g.urls.length === 0) {
+          const span = document.createElement("span");
+          span.className = "no-link";
+          span.textContent = "No URL in source data";
+          stack.appendChild(span);
+        } else {
+          for (const u of g.urls) {
+            const a = document.createElement("a");
+            a.className = "link";
+            a.href = u;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = u;
+            stack.appendChild(a);
+          }
+        }
+        tdLink.appendChild(stack);
+
+        const tdType = document.createElement("td");
+        tdType.className = "page-type";
+        tdType.textContent = g.types.length ? g.types.join("; ") : "—";
+
+        const tdStatus = document.createElement("td");
+        const sel = document.createElement("select");
+        sel.className = "status";
+        sel.dataset.groupId = g.id;
+        [["awaiting", "Awaiting"], ["in_progress", "In progress"], ["created", "Created"]].forEach(
+          ([val, label]) => {
+            const o = document.createElement("option");
+            o.value = val;
+            o.textContent = label;
+            sel.appendChild(o);
+          }
+        );
+        sel.value = status;
+        syncSelectAppearance(sel);
+        sel.addEventListener("change", () => {
+          statusMap[g.id] = sel.value;
+          saveStatus(statusMap);
+          render();
+        });
+        tdStatus.appendChild(sel);
+
+        tr.append(tdCountries, tdLink, tdType, tdStatus);
+        return tr;
+      }
+
       function render() {
         const q = (filterEl.value || "").trim().toLowerCase();
-        tbody.replaceChildren();
+        board.replaceChildren();
         let shown = 0;
-        for (const g of groups) {
-          const hay = [
-            g.entries.map((e) => e.country).join(" "),
-            g.urls.join(" "),
-            g.types.join(" "),
-            g.baseDisplay,
-          ]
-            .join(" ")
-            .toLowerCase();
-          if (q && !hay.includes(q)) continue;
-          shown++;
 
-          const tr = document.createElement("tr");
-          const status = statusMap[g.id] || "awaiting";
+        for (const [statusKey, label, folderClass] of STATUS_ORDER) {
+          const inFolder = groups
+            .filter((g) => groupMatchesFilter(g, q))
+            .filter((g) => (statusMap[g.id] || "awaiting") === statusKey)
+            .sort((a, b) => firstCountry(a).localeCompare(firstCountry(b)));
+          shown += inFolder.length;
 
-          const tdCountries = document.createElement("td");
-          tdCountries.className = "countries";
-          const ul = document.createElement("ul");
-          for (const e of g.entries) {
-            const li = document.createElement("li");
-            li.textContent = e.country;
-            ul.appendChild(li);
-          }
-          tdCountries.appendChild(ul);
-          if (g.entries.length > 1) {
-            const tag = document.createElement("div");
-            tag.className = "origin-tag";
-            tag.textContent = "Shared base: " + g.baseDisplay;
-            tdCountries.appendChild(tag);
-          }
+          const section = document.createElement("section");
+          section.className = "folder " + folderClass;
+          const head = document.createElement("div");
+          head.className = "folder__head";
+          const title = document.createElement("span");
+          title.textContent = label;
+          const meta = document.createElement("span");
+          meta.className = "folder__meta";
+          meta.textContent = inFolder.length + " task group(s)";
+          head.append(title, meta);
+          section.appendChild(head);
 
-          const tdLink = document.createElement("td");
-          const stack = document.createElement("div");
-          stack.className = "links-stack";
-          if (g.urls.length === 0) {
-            const span = document.createElement("span");
-            span.className = "no-link";
-            span.textContent = "No URL in source data";
-            stack.appendChild(span);
+          if (inFolder.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "folder__empty";
+            empty.textContent = q
+              ? "No matches in this folder for your filter."
+              : "No tasks in this folder.";
+            section.appendChild(empty);
           } else {
-            for (const u of g.urls) {
-              const a = document.createElement("a");
-              a.className = "link";
-              a.href = u;
-              a.target = "_blank";
-              a.rel = "noopener noreferrer";
-              a.textContent = u;
-              stack.appendChild(a);
+            const table = document.createElement("table");
+            const thead = document.createElement("thead");
+            thead.innerHTML =
+              "<tr><th>Countries</th><th>Link(s)</th><th>Page type(s)</th><th>Status</th></tr>";
+            const tbody = document.createElement("tbody");
+            for (const g of inFolder) {
+              tbody.appendChild(buildTaskRow(g));
             }
+            table.append(thead, tbody);
+            section.appendChild(table);
           }
-          tdLink.appendChild(stack);
 
-          const tdType = document.createElement("td");
-          tdType.className = "page-type";
-          tdType.textContent = g.types.length ? g.types.join("; ") : "—";
-
-          const tdStatus = document.createElement("td");
-          const sel = document.createElement("select");
-          sel.className = "status";
-          sel.dataset.groupId = g.id;
-          [["awaiting", "Awaiting"], ["in_progress", "In progress"], ["created", "Created"]].forEach(
-            ([val, label]) => {
-              const o = document.createElement("option");
-              o.value = val;
-              o.textContent = label;
-              sel.appendChild(o);
-            }
-          );
-          sel.value = status;
-          syncSelectAppearance(sel);
-          sel.addEventListener("change", () => {
-            statusMap[g.id] = sel.value;
-            saveStatus(statusMap);
-            render();
-          });
-          tdStatus.appendChild(sel);
-
-          tr.append(tdCountries, tdLink, tdType, tdStatus);
-          tbody.appendChild(tr);
+          board.appendChild(section);
         }
         const s = statusMap;
         const counts = { awaiting: 0, in_progress: 0, created: 0 };

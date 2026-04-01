@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserIcon, BarChartIcon, LogOutIcon, BellIcon, ShieldCheckIcon, ArchiveRestoreIcon } from "lucide-react";
+import { UserIcon, BarChartIcon, LogOutIcon, BellIcon, ShieldCheckIcon, ArchiveRestoreIcon, UsersIcon } from "lucide-react";
 
 export default function UserBadge() {
   const router = useRouter();
@@ -91,6 +91,12 @@ export default function UserBadge() {
           <ArchiveRestoreIcon className="mr-2 size-4" />
           Deleted airports
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onClick={() => router.push("/admin/users")}>
+            <UsersIcon className="mr-2 size-4" />
+            Admin users
+          </DropdownMenuItem>
+        )}
         {isAdmin && (
           <DropdownMenuItem onClick={() => router.push("/admin/maintenance")}>
             <ShieldCheckIcon className="mr-2 size-4" />

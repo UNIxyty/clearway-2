@@ -1,33 +1,525 @@
 {
-  "generatedAt": "2026-03-30T09:37:42.166Z",
+  "generatedAt": "2026-03-30T10:12:29.767Z",
   "inputPath": "/Users/whae/Downloads/file.json",
   "summary": {
     "total": 91,
-    "pdfOrLikely": 7,
-    "html": 71,
-    "fetchErrors": 6,
+    "pdfOrLikely": 6,
+    "html": 73,
+    "fetchErrors": 5,
     "noUrl": 3,
     "httpErrors": 7,
     "uniqueUrlsCached": 71
   },
+  "linkTypeLegend": {
+    "asecna": "ASECNA multi-country FR portal (aim.asecna.aero)",
+    "eaip_eurocontrol_like": "Eurocontrol-style eAIP (history / index-en-GB / frameset — e.g. Venezuela)",
+    "eaip_mnav_tree": "M-NAV style menu tree + direct PDFs",
+    "pdf": "Direct PDF document",
+    "web_portal_listings": "Web listings / supplements / portal tables",
+    "web_portal_other": "Other HTML government/CMS pages",
+    "web_spa": "JS SPA (empty #root until bundle runs)",
+    "web_login_wall": "Login required (per source metadata)",
+    "error_fetch": "Fetch failed",
+    "error_http": "HTTP error",
+    "invalid_empty": "No usable URL",
+    "other_binary": "Non-HTML body",
+    "unknown": "Unclassified"
+  },
+  "byLinkType": {
+    "asecna": [
+      {
+        "country": "Benin",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Burkina Faso",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Cameroon",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Central African Republic",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Chad",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Comoros",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Congo",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Equatorial Guinea",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Gabon",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Guinea-Bissau",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Ivory Coast (Côte d’Ivoire)",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Madagascar",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Mali",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Mauritania",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Niger",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Rwanda",
+        "url": "https://aim.asecna.aero/eAIP_Rwanda/default.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Togo",
+        "url": "https://aim.asecna.aero/html/index-fr-FR.html",
+        "sourcePageType": "Web Table Based"
+      }
+    ],
+    "eaip_eurocontrol_like": [
+      {
+        "country": "Somalia",
+        "url": "https://aip.scaa.gov.so/index-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Israel",
+        "url": "https://e-aip.azurefd.net/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Malaysia",
+        "url": "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Myanmar (Burma)",
+        "url": "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Oman",
+        "url": "https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Sri Lanka",
+        "url": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Taiwan",
+        "url": "https://ais.caa.gov.tw/eaip/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Thailand",
+        "url": "https://aip.caat.or.th/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Belarus",
+        "url": "https://www.ban.by/AIP/Belarus251002/html/index.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Bosnia and Herzegovina",
+        "url": "https://eaip.bhansa.gov.ba/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Kosovo",
+        "url": "https://www.ashna-ks.org/eAIP/default.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Luxembourg",
+        "url": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Costa Rica",
+        "url": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Cuba",
+        "url": "https://aismet.avianet.cu/html/aip.html",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "El Salvador",
+        "url": "https://www.cocesna.org/aipca/AIPMS/history.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Guatemala",
+        "url": "https://www.dgac.gob.gt/home/aip_e/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Honduras",
+        "url": "https://www.ahac.gob.hn/eAIP1/inicio.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Chile",
+        "url": "https://aipchile.dgac.gob.cl/aip/vol1",
+        "sourcePageType": "Web Table Based"
+      }
+    ],
+    "eaip_mnav_tree": [
+      {
+        "country": "North Macedonia",
+        "url": "https://ais.m-nav.info/eAIP/current/en/index.htm",
+        "sourcePageType": "Web Table Based"
+      }
+    ],
+    "pdf": [
+      {
+        "country": "Angola",
+        "url": "https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Sudan",
+        "url": "https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Andorra",
+        "url": "https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Antigua and Barbuda",
+        "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Haiti",
+        "url": "https://ofnac.gouv.ht/wp-content/uploads/2023/04/AIP-AMDT-0119-English-version.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Saint Vincent and the Grenadines",
+        "url": "https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
+        "sourcePageType": "PDF Based"
+      }
+    ],
+    "web_portal_listings": [
+      {
+        "country": "Afghanistan",
+        "url": "https://www.afgais.com/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Bangladesh",
+        "url": "http://www.caab.gov.bd/aip/#",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Brunei",
+        "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "India",
+        "url": "https://aim-india.aai.aero/aip-supplements?page=1",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Canada",
+        "url": "https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
+        "sourcePageType": "PDF Based"
+      }
+    ],
+    "web_portal_other": [
+      {
+        "country": "Cabo Verde",
+        "url": "https://eaip.asa.cv/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Egypt",
+        "url": "http://www.nansceg.net/ais.html",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Ethiopia",
+        "url": "https://ru.scribd.com/document/446457627/AIP-Ethiopia",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Libya",
+        "url": "https://caa.gov.ly/ais/aip/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "South Africa",
+        "url": "https://www.caa.co.za/industry-information/aip-sup/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "South Sudan",
+        "url": "https://sscaa.gov.ss/publications/aip/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Bhutan",
+        "url": "https://www.doat.gov.bt/aip/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "East Timor (Timor-Leste)",
+        "url": "https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Japan",
+        "url": "https://nagodede.github.io/aip/japan/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Maldives",
+        "url": "https://www.macl.aero/corporate/services/operational/ans/aip",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Mongolia",
+        "url": "https://ais.mn/files/aip/eAIP/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Qatar",
+        "url": "https://www.caa.gov.qa/en/aeronautical-information-management",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Saudi Arabia",
+        "url": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Singapore",
+        "url": "https://www.caas.gov.sg/legislation-regulations/guidelines-advisory/air-navigation-services/aeronautical-information-publication-amendments",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Tajikistan",
+        "url": "http://www.caica.ru/aiptjk/?lang=en",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Turkmenistan",
+        "url": "http://www.caica.ru/aiptkm/?lang=en",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "United Arab Emirates",
+        "url": "https://www.gcaa.gov.ae/en/ais/Pages/default.aspx",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Uzbekistan",
+        "url": "https://uzaeronavigation.com/ais/#",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Hong Kong",
+        "url": "https://www.ais.gov.hk/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Macau",
+        "url": "https://www.aacm.gov.mo/en/industry-page/DataCompilation/AIP",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Dominica",
+        "url": "https://www.idac.gob.do/en/air-navigation-directorate/aip/",
+        "sourcePageType": "..."
+      },
+      {
+        "country": "Trinidad and Tobago",
+        "url": "https://caa.gov.tt/notices-to-operators-notification/aip-sups/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Ecuador",
+        "url": "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Australia",
+        "url": "https://www.airservicesaustralia.com/aip/aip.asp?pg=20&vdate=19MAR2026&ver=1",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Panama",
+        "url": "https://www.aeronautica.gob.pa/ais-aip/",
+        "sourcePageType": "PDF Based"
+      }
+    ],
+    "web_login_wall": [
+      {
+        "country": "Guinea",
+        "url": "https://www.robertsfir.org/aip.html",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Namibia",
+        "url": "https://www.ncaa.com.na/index.php/document-downloads/industrial-documents/aim-publications/aeronautical-information-publication",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Sierra Leone",
+        "url": "https://www.robertsfir.org/aip.html",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Cambodia",
+        "url": "https://aim.cats.com.kh/eaip.html",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "China",
+        "url": "https://www.eaipchina.cn/#/",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Indonesia",
+        "url": "https://pia.airnavindonesia.co.id/",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Kuwait",
+        "url": "https://dgca.gov.kw/AIP",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Vietnam",
+        "url": "https://www.vnaic.vn/index.php?option=com_content&view=category&id=56%3Anotam-ais-vietnam&layout=blog&Itemid=92&lang=en",
+        "sourcePageType": "Login Required"
+      }
+    ],
+    "error_fetch": [
+      {
+        "country": "Iran",
+        "url": "https://ais.airport.ir/",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Nepal",
+        "url": "https://e-aip.caanepal.gov.np/welcome/listall/1",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Pakistan",
+        "url": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "South Korea",
+        "url": "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      },
+      {
+        "country": "Venezuela",
+        "url": "https://www.inac.gob.ve/eaip/history-en-GB.html",
+        "sourcePageType": "Web Table Based"
+      }
+    ],
+    "error_http": [
+      {
+        "country": "Seychelles",
+        "url": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Bahrain",
+        "url": "https://aim.mtt.gov.bh/eaip",
+        "sourcePageType": "Web Table Based"
+      }
+    ],
+    "invalid_empty": [
+      {
+        "country": "Kenya",
+        "url": "",
+        "sourcePageType": "Login Required"
+      },
+      {
+        "country": "Vatican City",
+        "url": "AIP",
+        "sourcePageType": "PDF Based"
+      },
+      {
+        "country": "Papua New Guinea",
+        "url": "",
+        "sourcePageType": "..."
+      }
+    ],
+    "other_binary": [
+      {
+        "country": "Djibouti",
+        "url": "https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d",
+        "sourcePageType": "PDF Based"
+      }
+    ]
+  },
   "failedLoads": [
     "Djibouti: https://firebasestorage.googleapis.com/v0/b/aviation-57c71.appspot.com/o/AIP%2FPublications%20d'Information%20A%C3%A9ronautique%2FAIP-DJIBOUTI.pdf?alt=media&token=3183b89c-e2e5-4f08-a1dd-3632182c934d — HTTP 402",
     "Kenya: no/placeholder URL",
+    "Seychelles: https://www.scaa.sc/files/AIP%20Seychelles.pdf — HTTP 403",
     "Bahrain: https://aim.mtt.gov.bh/eaip — HTTP 504",
-    "China: https://www.eaipchina.cn/#/ — fetch failed",
     "Iran: https://ais.airport.ir/ — fetch failed",
     "Nepal: https://e-aip.caanepal.gov.np/welcome/listall/1 — fetch failed",
     "Oman: https://aim.caa.gov.om/AIRAC_eAIPOman-3-25/history-en-GB.html — HTTP 404",
     "Pakistan: https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication — fetch failed",
     "South Korea: https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html — fetch failed",
-    "Luxembourg: https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html — HTTP 403",
     "Vatican City: no/placeholder URL",
     "Venezuela: https://www.inac.gob.ve/eaip/history-en-GB.html — fetch failed",
     "Papua New Guinea: no/placeholder URL"
   ],
   "pdfLinks": [
     "Angola: https://anac.ao/fotos/frontend_2/editor2/aip2013.pdf",
-    "Seychelles: https://www.scaa.sc/files/AIP%20Seychelles.pdf",
     "Sudan: https://scaa.gov.sd/wp-content/uploads/2022/03/AD-2.HSSK_.pdf",
     "Andorra: https://aip.enaire.es/aip/contenido_AIP/AD/AD2/LESU/LE_AD_2_LESU_en.pdf",
     "Antigua and Barbuda: https://caa.gov.tt/wp-content/uploads/2024/09/VALID-AIP-SUPS-1.pdf",
@@ -67,6 +559,7 @@
     "Bhutan: https://www.doat.gov.bt/aip/",
     "Brunei: https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
     "Cambodia: https://aim.cats.com.kh/eaip.html",
+    "China: https://www.eaipchina.cn/#/",
     "East Timor (Timor-Leste): https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
     "India: https://aim-india.aai.aero/aip-supplements?page=1",
     "Indonesia: https://pia.airnavindonesia.co.id/",
@@ -93,6 +586,7 @@
     "Belarus: https://www.ban.by/AIP/Belarus251002/html/index.html",
     "Bosnia and Herzegovina: https://eaip.bhansa.gov.ba/",
     "Kosovo: https://www.ashna-ks.org/eAIP/default.html",
+    "Luxembourg: https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
     "North Macedonia: https://ais.m-nav.info/eAIP/current/en/index.htm",
     "Canada: https://www.navcanada.ca/en/aeronautical-information/aip-canada/aip-canada-supplements-sup.aspx",
     "Costa Rica: https://www.cocesna.org/aipca/AIPMR/inicio.html",
@@ -125,7 +619,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Benin",
@@ -148,7 +644,9 @@
           "signals:frameset"
         ]
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Burkina Faso",
@@ -172,7 +670,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Cabo Verde",
@@ -195,7 +695,9 @@
           "signals:index-localized"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Cameroon",
@@ -219,7 +721,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Central African Republic",
@@ -243,7 +747,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Chad",
@@ -267,7 +773,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Comoros",
@@ -291,7 +799,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Congo",
@@ -315,7 +825,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Djibouti",
@@ -336,7 +848,9 @@
           "url-suggests-pdf-but-body-not-pdf-magic"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "other_binary",
+      "linkTypeDescription": "Non-HTML response (not classified as PDF)"
     },
     {
       "country": "Egypt",
@@ -355,7 +869,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Equatorial Guinea",
@@ -379,7 +895,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Ethiopia",
@@ -394,7 +912,7 @@
         "contentType": "text/html; charset=utf-8",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 1478591,
+        "bytesSampled": 1476587,
         "eaipSignals": [
           "mentions-AD2"
         ],
@@ -402,7 +920,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Gabon",
@@ -426,7 +946,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Guinea",
@@ -451,7 +973,9 @@
           "signals:history-page,mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Guinea-Bissau",
@@ -475,7 +999,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Ivory Coast (Côte d’Ivoire)",
@@ -499,7 +1025,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Kenya",
@@ -512,7 +1040,9 @@
         ],
         "ok": false
       },
-      "suggestedIntegration": "no-url"
+      "suggestedIntegration": "no-url",
+      "linkType": "invalid_empty",
+      "linkTypeDescription": "Missing or placeholder URL"
     },
     {
       "country": "Libya",
@@ -535,7 +1065,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Madagascar",
@@ -559,7 +1091,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Mali",
@@ -583,7 +1117,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Mauritania",
@@ -607,7 +1143,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Namibia",
@@ -630,7 +1168,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Niger",
@@ -654,7 +1194,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Rwanda",
@@ -677,7 +1219,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Seychelles",
@@ -685,18 +1229,20 @@
       "sourcePageType": "PDF Based",
       "probe": {
         "url": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
-        "ok": true,
+        "ok": false,
         "finalUrl": "https://www.scaa.sc/files/AIP%20Seychelles.pdf",
-        "status": 200,
+        "status": 403,
         "error": null,
-        "contentType": "application/pdf",
-        "classification": "pdf",
-        "isLikelyPdf": true,
-        "bytesSampled": 0,
+        "contentType": "text/html",
+        "classification": "html-error-status",
+        "isLikelyPdf": false,
+        "bytesSampled": 75193,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "error_http",
+      "linkTypeDescription": "HTTP error with HTML body (403)"
     },
     {
       "country": "Sierra Leone",
@@ -722,7 +1268,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Somalia",
@@ -745,7 +1293,9 @@
           "signals:frameset"
         ]
       },
-      "suggestedIntegration": "eurocontrol-like-index-frameset"
+      "suggestedIntegration": "eurocontrol-like-index-frameset",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "South Africa",
@@ -768,7 +1318,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "South Sudan",
@@ -792,7 +1344,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Sudan",
@@ -811,7 +1365,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Togo",
@@ -835,7 +1391,9 @@
         ],
         "fromCache": true
       },
-      "suggestedIntegration": "asecna-multi-country-not-implemented"
+      "suggestedIntegration": "asecna-multi-country-not-implemented",
+      "linkType": "asecna",
+      "linkTypeDescription": "ASECNA aim.asecna.aero (shared FR portal, many states)"
     },
     {
       "country": "Afghanistan",
@@ -858,7 +1416,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_listings",
+      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Bahrain",
@@ -873,11 +1433,13 @@
         "contentType": "text/html",
         "classification": "html-error-status",
         "isLikelyPdf": false,
-        "bytesSampled": 132,
+        "bytesSampled": 534,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "error_http",
+      "linkTypeDescription": "HTTP error with HTML body (504)"
     },
     {
       "country": "Bangladesh",
@@ -900,7 +1462,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_listings",
+      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Bhutan",
@@ -924,7 +1488,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Brunei",
@@ -939,7 +1505,7 @@
         "contentType": "text/html; charset=utf-8",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 127420,
+        "bytesSampled": 130195,
         "eaipSignals": [
           "mentions-AD2"
         ],
@@ -947,7 +1513,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_listings",
+      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Cambodia",
@@ -970,7 +1538,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "China",
@@ -978,18 +1548,20 @@
       "sourcePageType": "Login Required",
       "probe": {
         "url": "https://www.eaipchina.cn/#/",
-        "ok": false,
-        "finalUrl": "https://www.eaipchina.cn/#/",
-        "status": null,
-        "error": "fetch failed",
-        "contentType": null,
-        "classification": "fetch-error",
+        "ok": true,
+        "finalUrl": "https://www.eaipchina.cn/",
+        "status": 200,
+        "error": null,
+        "contentType": "text/html",
+        "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 0,
+        "bytesSampled": 912,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "East Timor (Timor-Leste)",
@@ -1004,7 +1576,7 @@
         "contentType": "text/html; charset=utf-8",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 1117511,
+        "bytesSampled": 1130198,
         "eaipSignals": [
           "mentions-AD2"
         ],
@@ -1012,7 +1584,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "India",
@@ -1037,7 +1611,9 @@
           "signals:index-localized,mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_listings",
+      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Indonesia",
@@ -1056,7 +1632,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Iran",
@@ -1075,7 +1653,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "error_fetch",
+      "linkTypeDescription": "Network / TLS / timeout"
     },
     {
       "country": "Israel",
@@ -1099,7 +1679,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Japan",
@@ -1118,7 +1700,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Kuwait",
@@ -1143,7 +1727,9 @@
           "signals:eaip-menu-hint,mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Malaysia",
@@ -1166,7 +1752,9 @@
           "signals:index-localized"
         ]
       },
-      "suggestedIntegration": "eurocontrol-like-history-page"
+      "suggestedIntegration": "eurocontrol-like-history-page",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Maldives",
@@ -1190,7 +1778,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Mongolia",
@@ -1209,7 +1799,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Myanmar (Burma)",
@@ -1224,7 +1816,7 @@
         "contentType": "text/html; charset=UTF-8",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 923,
+        "bytesSampled": 1254,
         "eaipSignals": [
           "frameset"
         ],
@@ -1232,7 +1824,9 @@
           "signals:frameset"
         ]
       },
-      "suggestedIntegration": "eurocontrol-like-index-frameset"
+      "suggestedIntegration": "eurocontrol-like-index-frameset",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Nepal",
@@ -1251,7 +1845,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "error_fetch",
+      "linkTypeDescription": "Network / TLS / timeout"
     },
     {
       "country": "Oman",
@@ -1270,7 +1866,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "eurocontrol-like-history-page"
+      "suggestedIntegration": "eurocontrol-like-history-page",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Pakistan",
@@ -1289,7 +1887,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "error_fetch",
+      "linkTypeDescription": "Network / TLS / timeout"
     },
     {
       "country": "Qatar",
@@ -1313,7 +1913,9 @@
           "signals:index-localized,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Saudi Arabia",
@@ -1336,7 +1938,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Singapore",
@@ -1359,7 +1963,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "South Korea",
@@ -1378,7 +1984,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "eurocontrol-like-history-page"
+      "suggestedIntegration": "eurocontrol-like-history-page",
+      "linkType": "error_fetch",
+      "linkTypeDescription": "Network / TLS / timeout"
     },
     {
       "country": "Sri Lanka",
@@ -1401,7 +2009,9 @@
           "signals:frameset"
         ]
       },
-      "suggestedIntegration": "eurocontrol-like-index-frameset"
+      "suggestedIntegration": "eurocontrol-like-index-frameset",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Taiwan",
@@ -1424,7 +2034,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Tajikistan",
@@ -1439,11 +2051,13 @@
         "contentType": "text/html; charset=windows-1251",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 11041,
+        "bytesSampled": 11060,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Thailand",
@@ -1466,7 +2080,9 @@
           "signals:index-localized"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Turkmenistan",
@@ -1481,11 +2097,13 @@
         "contentType": "text/html; charset=windows-1251",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 11315,
+        "bytesSampled": 11334,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "United Arab Emirates",
@@ -1500,7 +2118,7 @@
         "contentType": "text/html; charset=utf-8",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 1126005,
+        "bytesSampled": 1128488,
         "eaipSignals": [
           "mentions-AD2"
         ],
@@ -1508,7 +2126,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Uzbekistan",
@@ -1532,7 +2152,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Vietnam",
@@ -1555,7 +2177,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_login_wall",
+      "linkTypeDescription": "Source notes login required"
     },
     {
       "country": "Hong Kong",
@@ -1574,7 +2198,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Macau",
@@ -1593,7 +2219,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Andorra",
@@ -1612,7 +2240,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Belarus",
@@ -1636,7 +2266,9 @@
           "signals:frameset,eaip-menu-hint"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Bosnia and Herzegovina",
@@ -1655,7 +2287,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Kosovo",
@@ -1678,7 +2312,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Luxembourg",
@@ -1686,18 +2322,25 @@
       "sourcePageType": "Web Table Based",
       "probe": {
         "url": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
-        "ok": false,
+        "ok": true,
         "finalUrl": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
-        "status": 403,
+        "status": 200,
         "error": null,
-        "contentType": "text/html",
-        "classification": "html-error-status",
+        "contentType": "text/html; charset=UTF-8",
+        "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 15260,
-        "eaipSignals": [],
-        "notes": []
+        "bytesSampled": 1497,
+        "eaipSignals": [
+          "frameset",
+          "eaip-menu-hint"
+        ],
+        "notes": [
+          "signals:frameset,eaip-menu-hint"
+        ]
       },
-      "suggestedIntegration": "eurocontrol-like-index-frameset"
+      "suggestedIntegration": "eurocontrol-like-index-frameset",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "North Macedonia",
@@ -1720,7 +2363,9 @@
           "signals:frameset"
         ]
       },
-      "suggestedIntegration": "mnav-north-macedonia-eaip-cli"
+      "suggestedIntegration": "mnav-north-macedonia-eaip-cli",
+      "linkType": "eaip_mnav_tree",
+      "linkTypeDescription": "M-NAV-style: tree_items.js + PDF leaves"
     },
     {
       "country": "Vatican City",
@@ -1733,7 +2378,9 @@
         ],
         "ok": false
       },
-      "suggestedIntegration": "no-url"
+      "suggestedIntegration": "no-url",
+      "linkType": "invalid_empty",
+      "linkTypeDescription": "Missing or placeholder URL"
     },
     {
       "country": "Antigua and Barbuda",
@@ -1752,7 +2399,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Canada",
@@ -1775,7 +2424,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_listings",
+      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Costa Rica",
@@ -1794,7 +2445,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Cuba",
@@ -1818,7 +2471,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Dominica",
@@ -1837,7 +2492,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "El Salvador",
@@ -1852,11 +2509,13 @@
         "contentType": "text/html",
         "classification": "html",
         "isLikelyPdf": false,
-        "bytesSampled": 5035,
+        "bytesSampled": 5168,
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Guatemala",
@@ -1875,7 +2534,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Haiti",
@@ -1894,7 +2555,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Honduras",
@@ -1913,7 +2576,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Saint Vincent and the Grenadines",
@@ -1933,7 +2598,9 @@
         "notes": [],
         "fromCache": true
       },
-      "suggestedIntegration": "pdf-direct-download"
+      "suggestedIntegration": "pdf-direct-download",
+      "linkType": "pdf",
+      "linkTypeDescription": "Direct PDF (or PDF magic)"
     },
     {
       "country": "Trinidad and Tobago",
@@ -1956,7 +2623,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Chile",
@@ -1980,7 +2649,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "eaip_eurocontrol_like",
+      "linkTypeDescription": "Eurocontrol-style eAIP: history/index-en-GB, frameset, ISAIP (e.g. Venezuela INAC, Malaysia, Korea KOCA, Oman)"
     },
     {
       "country": "Ecuador",
@@ -2004,7 +2675,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Venezuela",
@@ -2023,7 +2696,9 @@
         "eaipSignals": [],
         "notes": []
       },
-      "suggestedIntegration": "inac-venezuela-eaip-cli"
+      "suggestedIntegration": "inac-venezuela-eaip-cli",
+      "linkType": "error_fetch",
+      "linkTypeDescription": "Network / TLS / timeout"
     },
     {
       "country": "Australia",
@@ -2046,7 +2721,9 @@
           "signals:mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     },
     {
       "country": "Papua New Guinea",
@@ -2059,7 +2736,9 @@
         ],
         "ok": false
       },
-      "suggestedIntegration": "no-url"
+      "suggestedIntegration": "no-url",
+      "linkType": "invalid_empty",
+      "linkTypeDescription": "Missing or placeholder URL"
     },
     {
       "country": "Panama",
@@ -2083,7 +2762,9 @@
           "signals:mentions-GEN,mentions-AD2"
         ]
       },
-      "suggestedIntegration": "needs-manual-or-scraper"
+      "suggestedIntegration": "needs-manual-or-scraper",
+      "linkType": "web_portal_other",
+      "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
     }
   ]
 }

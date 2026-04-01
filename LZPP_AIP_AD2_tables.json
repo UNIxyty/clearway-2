@@ -1,0 +1,94 @@
+{
+  "AD_2_12_runway_physical_characteristics": {
+    "runways": [
+      {
+        "designator": "01",
+        "true_bearing_deg": "013.63° GEO",
+        "dimensions_m": "2000 x 30",
+        "strength_pcn_and_surface": "PCN 35/F/B/X/T",
+        "surface_material": "asfaltobetón concrete/asphalt",
+        "thr_coordinates": "483658.98N 0174931.38E",
+        "rwy_end_coordinates": null,
+        "geoid_undulation_thr_m": "43.3",
+        "thr_elevation": "THR 536.0 ft (163.4 m)",
+        "tdz_elevation": "TDZ 537.5 ft (163.8 m)",
+        "rwy_slope_pct": [
+          "+0.07",
+          "+0.00",
+          "+0.50",
+          "+0.19",
+          "+0.05",
+          "-0.12"
+        ],
+        "swy_dimensions_m": [
+          "510 m",
+          "140 m",
+          "180 m",
+          "260 m",
+          "520 m",
+          "390 m"
+        ],
+        "resa_dimensions_m": "90 x 60",
+        "resa_surface": "tráva grass",
+        "cwy_dimensions_m": "200 x 150",
+        "strip_dimensions_m": "2 260 x 150",
+        "strip_surface": "tráva grass",
+        "ofz": "NIL"
+      },
+      {
+        "designator": "19",
+        "true_bearing_deg": "193.63° GEO",
+        "dimensions_m": "2000 x 30",
+        "strength_pcn_and_surface": "PCN 35/F/B/X/T",
+        "surface_material": "asfaltobetón concrete/asphalt",
+        "thr_coordinates": "483801.84N 0174954.38E",
+        "rwy_end_coordinates": null,
+        "geoid_undulation_thr_m": "43",
+        "thr_elevation": "THR 541 ft (165 m)",
+        "tdz_elevation": null,
+        "rwy_slope_pct": [
+          "+0.12",
+          "-0.05",
+          "-0.19",
+          "-0.50",
+          "+0.00",
+          "-0.07"
+        ],
+        "swy_dimensions_m": [
+          "390 m",
+          "520 m",
+          "260 m",
+          "180 m",
+          "140 m",
+          "510 m"
+        ],
+        "resa_dimensions_m": "240 x 60",
+        "resa_surface": "tráva grass",
+        "cwy_dimensions_m": "60 x 150",
+        "strip_dimensions_m": "2 260 x 150",
+        "strip_surface": "tráva grass",
+        "ofz": "NIL"
+      }
+    ]
+  },
+  "AD_2_13_declared_distances": {
+    "runways": [
+      {
+        "designator": "01",
+        "tora_m": "2000",
+        "toda_m": "2200",
+        "asda_m": "2000",
+        "lda_m": "2000",
+        "remarks": "NIL"
+      },
+      {
+        "designator": "19",
+        "tora_m": "2000",
+        "toda_m": "2060",
+        "asda_m": "2000",
+        "lda_m": "2000",
+        "remarks": "NIL"
+      }
+    ]
+  }
+}

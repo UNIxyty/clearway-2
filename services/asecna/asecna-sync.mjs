@@ -4,10 +4,12 @@ import { join } from "path";
 import {
   asecnaMenuUrl,
   createAsecnaFetch,
+  parseMenuBasename,
   parseAsecnaCli,
   parseAd2Countries,
   parseAd2IcaosForCountry,
   parseGen1SectionsForCountry,
+  resolveAsecnaHtmlUrl,
 } from "../../scripts/asecna-eaip-http.mjs";
 
 const ROOT = process.cwd();
@@ -30,29 +32,58 @@ function pickGen12Section(sections) {
 }
 
 export function inferCountryIso2(countryName) {
+  const normalized = String(countryName || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .trim();
   const map = {
     Benin: "BJ",
+    "Benin": "BJ",
+    "Bénin": "BJ",
     "Burkina Faso": "BF",
     Cameroon: "CM",
+    Cameroun: "CM",
     "Central African Republic": "CF",
+    Centrafrique: "CF",
     Chad: "TD",
+    Tchad: "TD",
     Comoros: "KM",
+    Comores: "KM",
     Congo: "CG",
     "Cote d'Ivoire": "CI",
     "Côte d’Ivoire": "CI",
+    "Côte d'Ivoire": "CI",
     Gabon: "GA",
     Guinea: "GN",
+    "Guinée": "GN",
     "Guinea-Bissau": "GW",
+    "Guinée Bissau": "GW",
     Madagascar: "MG",
     Mali: "ML",
     Mauritania: "MR",
+    Mauritanie: "MR",
     Niger: "NE",
     Senegal: "SN",
+    "Sénégal": "SN",
     Togo: "TG",
     Rwanda: "RW",
     "Equatorial Guinea": "GQ",
+    "Guinée Equatoriale": "GQ",
   };
-  return map[countryName] ?? null;
+  return map[countryName] ?? map[normalized] ?? null;
+}
+
+function parseAd2IcaosFromCountryHtml(countryHtml, countryCode) {
+  const esc = String(countryCode).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?:id|href)="_${esc}AD-2\\.([A-Z0-9]{4})"`, "gi");
+  const set = new Set();
+  let m;
+  while ((m = re.exec(countryHtml))) {
+    const icao = String(m[1] || "").toUpperCase();
+    if (/^[A-Z0-9]{4}$/.test(icao)) set.add(icao);
+  }
+  return [...set].sort();
 }
 
 async function run() {
@@ -66,6 +97,9 @@ async function run() {
   const menuUrl = asecnaMenuUrl(cli.menuBasename);
   const menuDirUrl = menuUrl.replace(/[^/]+$/, "");
   const menuHtml = await http.fetchText(menuUrl, "menu", { strictTls });
+  const menuMeta = parseMenuBasename(cli.menuBasename);
+  const prefix = menuMeta?.prefix ?? "FR";
+  const locale = menuMeta?.locale ?? "fr-FR";
 
   const adCountries = parseAd2Countries(menuHtml, cli.menuBasename);
   const genCountries = includeGen ? new Map(parseAd2Countries(menuHtml, cli.menuBasename).map((c) => [c.code, c.name])) : new Map();
@@ -73,7 +107,17 @@ async function run() {
   const generatedAt = new Date().toISOString();
 
   for (const country of adCountries) {
-    const icaos = parseAd2IcaosForCountry(menuHtml, country.code, cli.menuBasename);
+    const fromMenu = parseAd2IcaosForCountry(menuHtml, country.code, cli.menuBasename);
+    let fromCountryPage = [];
+    try {
+      const ad2CountryFile = `${prefix}-${country.code}-AD-2-${locale}.html`;
+      const ad2CountryUrl = resolveAsecnaHtmlUrl(ad2CountryFile, menuDirUrl);
+      const ad2CountryHtml = await http.fetchText(ad2CountryUrl, `AD2 country ${country.code}`, { strictTls });
+      fromCountryPage = parseAd2IcaosFromCountryHtml(ad2CountryHtml, country.code);
+    } catch (_) {
+      // Keep menu-derived list when country page cannot be fetched.
+    }
+    const icaos = [...new Set([...fromMenu, ...fromCountryPage])].sort();
     let gen12 = null;
     if (includeGen) {
       const sections = parseGen1SectionsForCountry(menuHtml, country.code, cli.menuBasename);

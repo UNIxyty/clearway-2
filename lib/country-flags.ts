@@ -178,9 +178,18 @@ function normalize(s: string): string {
 
 export function getCountryFlagUrl(countryName: string): string | null {
   const name = normalize(countryName);
+  const asciiName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'");
   let code: string | undefined = COUNTRY_TO_ISO[name];
   if (!code) {
     const key = Object.keys(COUNTRY_TO_ISO).find((k) => normalize(k) === name);
+    code = key ? COUNTRY_TO_ISO[key] : undefined;
+  }
+  if (!code) {
+    const key = Object.keys(COUNTRY_TO_ISO).find(
+      (k) =>
+        normalize(k).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'") ===
+        asciiName,
+    );
     code = key ? COUNTRY_TO_ISO[key] : undefined;
   }
   if (!code) {

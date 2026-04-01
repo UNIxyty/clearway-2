@@ -1,0 +1,496 @@
+{
+  "generatedAt": "2026-03-25T13:02:57.393Z",
+  "outputDir": "aips/",
+  "options": {
+    "maxCountries": 0,
+    "headful": false,
+    "resume": true,
+    "onlyPending": true,
+    "refreshIcaoDb": false,
+    "buildIcaoDbOnly": false,
+    "countryIcaoDbPath": "aips/country-airport-icaos.json",
+    "countryIcaoSourcePath": "/Users/whae/Downloads/icao_codes_by_country_v3_cleaned.json"
+  },
+  "results": [
+    {
+      "countryLabel": "Albania (LA)",
+      "countryValue": "LA",
+      "status": "downloaded",
+      "savedPath": "aips/Albania (LA)/LA_AD_2_LAKU_en_2024-12-26.pdf",
+      "sourceFilename": "LA_AD_2_LAKU_en_2024-12-26.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Armenia (UD)",
+      "countryValue": "UD",
+      "status": "downloaded",
+      "savedPath": "aips/Armenia (UD)/UD_AD_2_UDSG_en_2025-10-30.pdf",
+      "sourceFilename": "UD_AD_2_UDSG_en_2025-10-30.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Austria (LO)",
+      "countryValue": "LO",
+      "status": "downloaded",
+      "savedPath": "aips/Austria (LO)/LO_AD_2_LOAA_en_2025-12-26.pdf",
+      "sourceFilename": "LO_AD_2_LOAA_en_2025-12-26.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Azerbaijan (UB)",
+      "countryValue": "UB",
+      "status": "downloaded",
+      "savedPath": "aips/Azerbaijan (UB)/UB_AD_2_UBBB_en_2026-01-22.pdf",
+      "sourceFilename": "UB_AD_2_UBBB_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Belgium (EB)",
+      "countryValue": "EB",
+      "status": "downloaded",
+      "savedPath": "aips/Belgium (EB)/EB_AD_2_EBAM_en_2022-02-24.pdf",
+      "sourceFilename": "EB_AD_2_EBAM_en_2022-02-24.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Bosnia/Herzeg. (LQ)",
+      "countryValue": "LQ",
+      "status": "downloaded",
+      "savedPath": "aips/Bosnia_Herzeg. (LQ)/LQ_AD_2_LQBK_en_2026-01-22.pdf",
+      "sourceFilename": "LQ_AD_2_LQBK_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Bulgaria (LB)",
+      "countryValue": "LB",
+      "status": "downloaded",
+      "savedPath": "aips/Bulgaria (LB)/LB_AD_2_LBBG_en_2026-01-22.pdf",
+      "sourceFilename": "LB_AD_2_LBBG_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Croatia (LD)",
+      "countryValue": "LD",
+      "status": "downloaded",
+      "savedPath": "aips/Croatia (LD)/LD_AD_2_LDDU_en_2025-11-27.pdf",
+      "sourceFilename": "LD_AD_2_LDDU_en_2025-11-27.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Cyprus (LC)",
+      "countryValue": "LC",
+      "status": "downloaded",
+      "savedPath": "aips/Cyprus (LC)/LC_AD_2_LCLK_en_2025-11-27.pdf",
+      "sourceFilename": "LC_AD_2_LCLK_en_2025-11-27.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Czech Republic (LK)",
+      "countryValue": "LK",
+      "status": "downloaded",
+      "savedPath": "aips/Czech Republic (LK)/LK_AD_2_LKCS_en_2025-12-25.pdf",
+      "sourceFilename": "LK_AD_2_LKCS_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Denmark (EK)",
+      "countryValue": "EK",
+      "status": "downloaded",
+      "savedPath": "aips/Denmark (EK)/EK_AD_2_EKAH_en_2025-10-02.pdf",
+      "sourceFilename": "EK_AD_2_EKAH_en_2025-10-02.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Estonia (EE)",
+      "countryValue": "EE",
+      "status": "downloaded",
+      "savedPath": "aips/Estonia (EE)/EE_AD_2_EEEI_en_2026-01-22.pdf",
+      "sourceFilename": "EE_AD_2_EEEI_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Faroe Islands (XX)",
+      "countryValue": "XX",
+      "status": "downloaded",
+      "savedPath": "aips/Faroe Islands (XX)/EK_AD_2_EKVG_en_2025-11-27.pdf",
+      "sourceFilename": "EK_AD_2_EKVG_en_2025-11-27.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Finland (EF)",
+      "countryValue": "EF",
+      "status": "downloaded",
+      "savedPath": "aips/Finland (EF)/EF_AD_2_EFAA_1_en_2026-01-22.pdf",
+      "sourceFilename": "EF_AD_2_EFAA_1_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "France (LF)",
+      "countryValue": "LF",
+      "status": "downloaded",
+      "savedPath": "aips/France (LF)/LF_AD_2_0_en_2020-08-13.pdf",
+      "sourceFilename": "LF_AD_2_0_en_2020-08-13.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Georgia (UG)",
+      "countryValue": "UG",
+      "status": "downloaded",
+      "savedPath": "aips/Georgia (UG)/UG_AD_2_UGAM_en_2025-12-25.pdf",
+      "sourceFilename": "UG_AD_2_UGAM_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Germany (ED)",
+      "countryValue": "ED",
+      "status": "downloaded",
+      "savedPath": "aips/Germany (ED)/ED_AD_2_EDAB_en_2025-08-07.pdf",
+      "sourceFilename": "ED_AD_2_EDAB_en_2025-08-07.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Greece (LG)",
+      "countryValue": "LG",
+      "status": "downloaded",
+      "savedPath": "aips/Greece (LG)/LG_AD_2_0_en_2023-12-28.pdf",
+      "sourceFilename": "LG_AD_2_0_en_2023-12-28.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Greenland (BG)",
+      "countryValue": "BG",
+      "status": "downloaded",
+      "savedPath": "aips/Greenland (BG)/BG_AD_2_BGAA_en_2024-10-31.pdf",
+      "sourceFilename": "BG_AD_2_BGAA_en_2024-10-31.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Hungary (LH)",
+      "countryValue": "LH",
+      "status": "downloaded",
+      "savedPath": "aips/Hungary (LH)/LH_AD_2_LHBC_en_2024-07-11.pdf",
+      "sourceFilename": "LH_AD_2_LHBC_en_2024-07-11.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Iceland (BI)",
+      "countryValue": "BI",
+      "status": "downloaded",
+      "savedPath": "aips/Iceland (BI)/BI_AD_2_BIAR_en_2026-01-22.pdf",
+      "sourceFilename": "BI_AD_2_BIAR_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Ireland (EI)",
+      "countryValue": "EI",
+      "icaoPrefix": "EI",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EICA",
+      "resolvedIcao": "EICA",
+      "status": "downloaded",
+      "savedPath": "aips/Ireland (EI)/EI_AD_2_EICA_EN_2022-04-21.pdf",
+      "sourceFilename": "EI_AD_2_EICA_EN_2022-04-21.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Italy (LI)",
+      "countryValue": "LI",
+      "icaoPrefix": "LI",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LIAF",
+      "resolvedIcao": "LIAF",
+      "status": "downloaded",
+      "savedPath": "aips/Italy (LI)/LI_AD_2_LIAF_en_2025-08-07.pdf",
+      "sourceFilename": "LI_AD_2_LIAF_en_2025-08-07.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Jordan (OJ)",
+      "countryValue": "OJ",
+      "icaoPrefix": "OJ",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "OJAI",
+      "resolvedIcao": "OJAI",
+      "status": "downloaded",
+      "savedPath": "aips/Jordan (OJ)/OJ_AD_2_OJAI_en_2025-10-30.pdf",
+      "sourceFilename": "OJ_AD_2_OJAI_en_2025-10-30.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "KFOR SECTOR (BK)",
+      "countryValue": "BK",
+      "icaoPrefix": "BK",
+      "icaoSource": null,
+      "targetIcao": null,
+      "resolvedIcao": null,
+      "status": "no_source_icao",
+      "savedPath": null,
+      "sourceFilename": null,
+      "error": "No ICAO mapping for KFOR SECTOR (BK) in /Users/whae/Downloads/icao_codes_by_country_v3_cleaned.json"
+    },
+    {
+      "countryLabel": "Kazakhstan (UA)",
+      "countryValue": "UA",
+      "icaoPrefix": "UA",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "UAAA",
+      "resolvedIcao": "UAAA",
+      "status": "downloaded",
+      "savedPath": "aips/Kazakhstan (UA)/UA_AD_2_UAAA_en_2025-09-04.pdf",
+      "sourceFilename": "UA_AD_2_UAAA_en_2025-09-04.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Kyrgyzstan (UC)",
+      "countryValue": "UC",
+      "icaoPrefix": "UC",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "UCFM",
+      "resolvedIcao": "UCFM",
+      "status": "downloaded",
+      "savedPath": "aips/Kyrgyzstan (UC)/UC_AD_2_UCFM_en_2025-12-25.pdf",
+      "sourceFilename": "UC_AD_2_UCFM_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Latvia (EV)",
+      "countryValue": "EV",
+      "icaoPrefix": "EV",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EVCA",
+      "resolvedIcao": "EVCA",
+      "status": "downloaded",
+      "savedPath": "aips/Latvia (EV)/EV_AD_2_EVCA_en_2025-09-04.pdf",
+      "sourceFilename": "EV_AD_2_EVCA_en_2025-09-04.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Lithuania (EY)",
+      "countryValue": "EY",
+      "icaoPrefix": "EY",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EYSA",
+      "resolvedIcao": "EYSA",
+      "status": "downloaded",
+      "savedPath": "aips/Lithuania (EY)/EY_AD_2_EYSA_en_2025-12-25.pdf",
+      "sourceFilename": "EY_AD_2_EYSA_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Malta (LM)",
+      "countryValue": "LM",
+      "icaoPrefix": "LM",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LMML",
+      "resolvedIcao": "LMML",
+      "status": "downloaded",
+      "savedPath": "aips/Malta (LM)/LM_AD_2_LMML_en_2025-12-25.pdf",
+      "sourceFilename": "LM_AD_2_LMML_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Moldova (LU)",
+      "countryValue": "LU",
+      "icaoPrefix": "LU",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LUKK",
+      "resolvedIcao": "LUKK",
+      "status": "downloaded",
+      "savedPath": "aips/Moldova (LU)/LU_AD_2_LUKK_en_2025-12-25.pdf",
+      "sourceFilename": "LU_AD_2_LUKK_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Netherlands (EH)",
+      "countryValue": "EH",
+      "icaoPrefix": "EH",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EHAL",
+      "resolvedIcao": "EHAL",
+      "status": "downloaded",
+      "savedPath": "aips/Netherlands (EH)/EH_AD_2_EHAL_en_2025-12-25.pdf",
+      "sourceFilename": "EH_AD_2_EHAL_en_2025-12-25.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Norway (EN)",
+      "countryValue": "EN",
+      "icaoPrefix": "EN",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "ENDU",
+      "resolvedIcao": "ENDU",
+      "status": "downloaded",
+      "savedPath": "aips/Norway (EN)/EN_AD_2_ENDU_en_2026-01-22.pdf",
+      "sourceFilename": "EN_AD_2_ENDU_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Philippines (RP)",
+      "countryValue": "RP",
+      "icaoPrefix": "RP",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "RPVB",
+      "resolvedIcao": "RPVB",
+      "status": "downloaded",
+      "savedPath": "aips/Philippines (RP)/RP_AD_2_RPVB_EN_2017-12-07.pdf",
+      "sourceFilename": "RP_AD_2_RPVB_EN_2017-12-07.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Poland (EP)",
+      "countryValue": "EP",
+      "icaoPrefix": "EP",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EPBA",
+      "resolvedIcao": null,
+      "status": "no_icao_match",
+      "savedPath": null,
+      "sourceFilename": null,
+      "error": null
+    },
+    {
+      "countryLabel": "Portugal (LP)",
+      "countryValue": "LP",
+      "icaoPrefix": "LP",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LPPD",
+      "resolvedIcao": "LPPD",
+      "status": "downloaded",
+      "savedPath": "aips/Portugal (LP)/LP_AD_2_LPPD_en_2026-01-22.pdf",
+      "sourceFilename": "LP_AD_2_LPPD_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Republic of North Macedonia (LW)",
+      "countryValue": "LW",
+      "icaoPrefix": "LW",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LWOH",
+      "resolvedIcao": "LWOH",
+      "status": "downloaded",
+      "savedPath": "aips/Republic of North Macedonia (LW)/LW_AD_2_LWOH_en_2025-06-01.pdf",
+      "sourceFilename": "LW_AD_2_LWOH_en_2025-06-01.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Romania (LR)",
+      "countryValue": "LR",
+      "icaoPrefix": "LR",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LRAR",
+      "resolvedIcao": "LRAR",
+      "status": "downloaded",
+      "savedPath": "aips/Romania (LR)/LR_AD_2_LRAR_en_2025-10-30.pdf",
+      "sourceFilename": "LR_AD_2_LRAR_en_2025-10-30.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Serbia and Montenegro (LY)",
+      "countryValue": "LY",
+      "icaoPrefix": "LY",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LYBE",
+      "resolvedIcao": "LYBE",
+      "status": "downloaded",
+      "savedPath": "aips/Serbia and Montenegro (LY)/LY_AD_2_LYBE_en_2026-01-22.pdf",
+      "sourceFilename": "LY_AD_2_LYBE_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Slovakia (LZ)",
+      "countryValue": "LZ",
+      "icaoPrefix": "LZ",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LZIB",
+      "resolvedIcao": "LZIB",
+      "status": "downloaded",
+      "savedPath": "aips/Slovakia (LZ)/LZ_AD_2_LZIB_en_2026-01-22.pdf",
+      "sourceFilename": "LZ_AD_2_LZIB_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Slovenia (LJ)",
+      "countryValue": "LJ",
+      "icaoPrefix": "LJ",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LJCE",
+      "resolvedIcao": "LJCE",
+      "status": "downloaded",
+      "savedPath": "aips/Slovenia (LJ)/LJ_AD_2_LJCE_en_2025-10-30.pdf",
+      "sourceFilename": "LJ_AD_2_LJCE_en_2025-10-30.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Spain (LE)",
+      "countryValue": "LE",
+      "icaoPrefix": "LE",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "GCFV",
+      "resolvedIcao": "GCFV",
+      "status": "downloaded",
+      "savedPath": "aips/Spain (LE)/LE_AD_2_GCFV_en_2026-01-22.pdf",
+      "sourceFilename": "LE_AD_2_GCFV_en_2026-01-22.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Sweden (ES)",
+      "countryValue": "ES",
+      "icaoPrefix": "ES",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "ESCM",
+      "resolvedIcao": "ESCM",
+      "status": "downloaded",
+      "savedPath": "aips/Sweden (ES)/ES_AD_2_ESCM_4_en_2025-06-12.pdf",
+      "sourceFilename": "ES_AD_2_ESCM_4_en_2025-06-12.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Switzerland (LS)",
+      "countryValue": "LS",
+      "icaoPrefix": "LS",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LSGC",
+      "resolvedIcao": "LSGC",
+      "status": "downloaded",
+      "savedPath": "aips/Switzerland (LS)/LS_AD_2_LSGC_en_2025-10-30.pdf",
+      "sourceFilename": "LS_AD_2_LSGC_en_2025-10-30.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "Turkey (LT)",
+      "countryValue": "LT",
+      "icaoPrefix": "LT",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "LTAF",
+      "resolvedIcao": null,
+      "status": "failed",
+      "savedPath": null,
+      "sourceFilename": null,
+      "error": "Advanced Search input did not become available after retries."
+    },
+    {
+      "countryLabel": "Ukraine (UK)",
+      "countryValue": "UK",
+      "icaoPrefix": "UK",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "UKBB",
+      "resolvedIcao": "UKBB",
+      "status": "downloaded",
+      "savedPath": "aips/Ukraine (UK)/UK_AD_2_UKBB_en_2022-03-24.pdf",
+      "sourceFilename": "UK_AD_2_UKBB_en_2022-03-24.pdf",
+      "error": null
+    },
+    {
+      "countryLabel": "United Kingdom (EG)",
+      "countryValue": "EG",
+      "icaoPrefix": "EG",
+      "icaoSource": "external_country_icao_source",
+      "targetIcao": "EGGD",
+      "resolvedIcao": "EGGD",
+      "status": "downloaded",
+      "savedPath": "aips/United Kingdom (EG)/EG_AD_2_EGGD_en_2026-01-22.pdf",
+      "sourceFilename": "EG_AD_2_EGGD_en_2026-01-22.pdf",
+      "error": null
+    }
+  ]
+}

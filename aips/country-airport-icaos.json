@@ -1,0 +1,430 @@
+{
+  "generatedAt": "2026-03-25T13:25:27.629Z",
+  "source": "EAD AIP Library AD 2 search",
+  "count": 47,
+  "countries": [
+    {
+      "countryLabel": "Albania (LA)",
+      "countryValue": "LA",
+      "icaoPrefix": "LA",
+      "airportIcao": "LAKU",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Armenia (UD)",
+      "countryValue": "UD",
+      "icaoPrefix": "UD",
+      "airportIcao": "UDSG",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Austria (LO)",
+      "countryValue": "LO",
+      "icaoPrefix": "LO",
+      "airportIcao": "LOAA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Azerbaijan (UB)",
+      "countryValue": "UB",
+      "icaoPrefix": "UB",
+      "airportIcao": "UBBB",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Belgium (EB)",
+      "countryValue": "EB",
+      "icaoPrefix": "EB",
+      "airportIcao": "EBAW",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Bosnia/Herzeg. (LQ)",
+      "countryValue": "LQ",
+      "icaoPrefix": "LQ",
+      "airportIcao": "LQBK",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Bulgaria (LB)",
+      "countryValue": "LB",
+      "icaoPrefix": "LB",
+      "airportIcao": "LBBG",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Croatia (LD)",
+      "countryValue": "LD",
+      "icaoPrefix": "LD",
+      "airportIcao": "LDDU",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Cyprus (LC)",
+      "countryValue": "LC",
+      "icaoPrefix": "LC",
+      "airportIcao": "LCLK",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Czech Republic (LK)",
+      "countryValue": "LK",
+      "icaoPrefix": "LK",
+      "airportIcao": "LKCS",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Denmark (EK)",
+      "countryValue": "EK",
+      "icaoPrefix": "EK",
+      "airportIcao": "EKAE",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Estonia (EE)",
+      "countryValue": "EE",
+      "icaoPrefix": "EE",
+      "airportIcao": "EEKA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Faroe Islands (XX)",
+      "countryValue": "XX",
+      "icaoPrefix": "XX",
+      "airportIcao": "EKVG",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Finland (EF)",
+      "countryValue": "EF",
+      "icaoPrefix": "EF",
+      "airportIcao": "EFET",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "France (LF)",
+      "countryValue": "LF",
+      "icaoPrefix": "LF",
+      "airportIcao": "LFAB",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Georgia (UG)",
+      "countryValue": "UG",
+      "icaoPrefix": "UG",
+      "airportIcao": "UGAM",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Germany (ED)",
+      "countryValue": "ED",
+      "icaoPrefix": "ED",
+      "airportIcao": "EDAB",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Greece (LG)",
+      "countryValue": "LG",
+      "icaoPrefix": "LG",
+      "airportIcao": "LGAD",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Greenland (BG)",
+      "countryValue": "BG",
+      "icaoPrefix": "BG",
+      "airportIcao": "BGAA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Hungary (LH)",
+      "countryValue": "LH",
+      "icaoPrefix": "LH",
+      "airportIcao": "LHBP",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Iceland (BI)",
+      "countryValue": "BI",
+      "icaoPrefix": "BI",
+      "airportIcao": "BIAR",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Ireland (EI)",
+      "countryValue": "EI",
+      "icaoPrefix": "EI",
+      "airportIcao": "EICA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Italy (LI)",
+      "countryValue": "LI",
+      "icaoPrefix": "LI",
+      "airportIcao": "LIAF",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Jordan (OJ)",
+      "countryValue": "OJ",
+      "icaoPrefix": "OJ",
+      "airportIcao": "OJAI",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "KFOR SECTOR (BK)",
+      "countryValue": "BK",
+      "icaoPrefix": "BK",
+      "airportIcao": null,
+      "sourceFilename": null,
+      "sourceType": null,
+      "updatedAt": null
+    },
+    {
+      "countryLabel": "Kazakhstan (UA)",
+      "countryValue": "UA",
+      "icaoPrefix": "UA",
+      "airportIcao": "UAAA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Kyrgyzstan (UC)",
+      "countryValue": "UC",
+      "icaoPrefix": "UC",
+      "airportIcao": "UCFM",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Latvia (EV)",
+      "countryValue": "EV",
+      "icaoPrefix": "EV",
+      "airportIcao": "EVCA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Lithuania (EY)",
+      "countryValue": "EY",
+      "icaoPrefix": "EY",
+      "airportIcao": "EYSA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Malta (LM)",
+      "countryValue": "LM",
+      "icaoPrefix": "LM",
+      "airportIcao": "LMML",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Moldova (LU)",
+      "countryValue": "LU",
+      "icaoPrefix": "LU",
+      "airportIcao": "LUKK",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Netherlands (EH)",
+      "countryValue": "EH",
+      "icaoPrefix": "EH",
+      "airportIcao": "EHAL",
+      "sourceFilename": "EH_AD_2_EHAL_en_2025-12-25.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:04:41.691Z"
+    },
+    {
+      "countryLabel": "Norway (EN)",
+      "countryValue": "EN",
+      "icaoPrefix": "EN",
+      "airportIcao": "ENDU",
+      "sourceFilename": "EN_AD_2_ENDU_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:06:04.514Z"
+    },
+    {
+      "countryLabel": "Philippines (RP)",
+      "countryValue": "RP",
+      "icaoPrefix": "RP",
+      "airportIcao": "RPVB",
+      "sourceFilename": "RP_AD_2_RPVB_EN_2017-12-07.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:07:26.460Z"
+    },
+    {
+      "countryLabel": "Poland (EP)",
+      "countryValue": "EP",
+      "icaoPrefix": "EP",
+      "airportIcao": "EPBA",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Portugal (LP)",
+      "countryValue": "LP",
+      "icaoPrefix": "LP",
+      "airportIcao": "LPPD",
+      "sourceFilename": "LP_AD_2_LPPD_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:10:09.901Z"
+    },
+    {
+      "countryLabel": "Republic of North Macedonia (LW)",
+      "countryValue": "LW",
+      "icaoPrefix": "LW",
+      "airportIcao": "LWOH",
+      "sourceFilename": "LW_AD_2_LWOH_en_2025-06-01.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:11:31.727Z"
+    },
+    {
+      "countryLabel": "Romania (LR)",
+      "countryValue": "LR",
+      "icaoPrefix": "LR",
+      "airportIcao": "LRAR",
+      "sourceFilename": "LR_AD_2_LRAR_en_2025-10-30.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:12:53.631Z"
+    },
+    {
+      "countryLabel": "Serbia and Montenegro (LY)",
+      "countryValue": "LY",
+      "icaoPrefix": "LY",
+      "airportIcao": "LYBE",
+      "sourceFilename": "LY_AD_2_LYBE_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:13:29.764Z"
+    },
+    {
+      "countryLabel": "Slovakia (LZ)",
+      "countryValue": "LZ",
+      "icaoPrefix": "LZ",
+      "airportIcao": "LZIB",
+      "sourceFilename": "LZ_AD_2_LZIB_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:14:07.459Z"
+    },
+    {
+      "countryLabel": "Slovenia (LJ)",
+      "countryValue": "LJ",
+      "icaoPrefix": "LJ",
+      "airportIcao": "LJCE",
+      "sourceFilename": "LJ_AD_2_LJCE_en_2025-10-30.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:15:29.261Z"
+    },
+    {
+      "countryLabel": "Spain (LE)",
+      "countryValue": "LE",
+      "icaoPrefix": "LE",
+      "airportIcao": "GCFV",
+      "sourceFilename": "LE_AD_2_GCFV_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:16:05.003Z"
+    },
+    {
+      "countryLabel": "Sweden (ES)",
+      "countryValue": "ES",
+      "icaoPrefix": "ES",
+      "airportIcao": "ESCM",
+      "sourceFilename": "ES_AD_2_ESCM_4_en_2025-06-12.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:16:40.269Z"
+    },
+    {
+      "countryLabel": "Switzerland (LS)",
+      "countryValue": "LS",
+      "icaoPrefix": "LS",
+      "airportIcao": "LSGC",
+      "sourceFilename": "LS_AD_2_LSGC_en_2025-10-30.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:18:02.019Z"
+    },
+    {
+      "countryLabel": "Turkey (LT)",
+      "countryValue": "LT",
+      "icaoPrefix": "LT",
+      "airportIcao": "LTAF",
+      "sourceFilename": null,
+      "sourceType": "external_country_icao_source",
+      "updatedAt": "2026-03-24T11:29:09.531Z"
+    },
+    {
+      "countryLabel": "Ukraine (UK)",
+      "countryValue": "UK",
+      "icaoPrefix": "UK",
+      "airportIcao": "UKBB",
+      "sourceFilename": "UK_AD_2_UKBB_en_2022-03-24.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:24:05.594Z"
+    },
+    {
+      "countryLabel": "United Kingdom (EG)",
+      "countryValue": "EG",
+      "icaoPrefix": "EG",
+      "airportIcao": "EGGD",
+      "sourceFilename": "EG_AD_2_EGGD_en_2026-01-22.pdf",
+      "sourceType": "downloaded_filename",
+      "updatedAt": "2026-03-25T13:25:27.627Z"
+    }
+  ]
+}

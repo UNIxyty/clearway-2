@@ -1,0 +1,2634 @@
+[
+  [
+    {
+      "0": "1",
+      "1": "ARP koordinaadid ja asukoht\nlennuväljal\nARP coordinates and site at AD",
+      "2": "581827N 0264113E\nRaja 08/26 keskel\nOn the centre of RWY 08/26"
+    },
+    {
+      "0": "2",
+      "1": "Suund ja kaugus Tartust\nDirection and distance from Tartu",
+      "2": "5 NM SSW FM Tartu"
+    },
+    {
+      "0": "3",
+      "1": "Kõrgus merepinnast / Keskmine\nkõrgeim temperatuur\nElevation / Reference temperature",
+      "2": "220 ft / 23.1 °C"
+    },
+    {
+      "0": "4",
+      "1": "Geoidi hälve lennuväljal\nGeoid undulation at AD",
+      "2": "63 FT"
+    },
+    {
+      "0": "5",
+      "1": "MAG VAR / Aastane muutus\nMAG VAR / Annual change",
+      "2": "10° E (2020) / +0.2°"
+    },
+    {
+      "0": "6",
+      "1": "Lennuvälja haldaja, aadress, telefon,\ntelefaks, e-mail, AFS, URL\nAD operator, address, telephone,\ntelefax, e-mail, AFS, URL",
+      "2": "Aadress:\nAS Tallinna Lennujaam Tartu lennujaam\nLennu tn 44, Reola küla\nKambja vald\n61707 Tartumaa\nESTONIA\nTel:\n+372 605 8833\nAFS:\nEETUZTZX\nURL:\ntartu.tallinn-airport.ee\nE-post:\ntartu.info@tll.aero"
+    },
+    {
+      "0": "7",
+      "1": "Lubatud liikluse liigid (IFR/VFR)\nTypes of traffic permitted (IFR/VFR)",
+      "2": "IFR/VFR"
+    },
+    {
+      "0": "8",
+      "1": "Märkused\nRemarks",
+      "2": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Lennuvälja haldaja\nAD operator\nLennuvälja tööaeg\nAD Operational hours",
+      "2": "MON-FRI: 0600-1430 (0500-1330)\nVaata NOTAM-it.\nSee NOTAM."
+    },
+    {
+      "0": "2",
+      "1": "Toll\nja migratsioon\nCustoms and immigration",
+      "2": "H24 nõutav 1 HR PN\nH24 1 HR PN required"
+    },
+    {
+      "0": "3",
+      "1": "Tervishoid\nHealth and sanitation",
+      "2": "MON-FRI: 0600-1430 (0500-1330) 2 HR PN lennuvälja haldajale\nMON-FRI: 0600-1430 (0500-1330) 2 HR PN to AD operator"
+    },
+    {
+      "0": "4",
+      "1": "AIS Briifing\nAIS Briefing Office",
+      "2": "Self-Briefing, H24\nTel: +372 671 0241"
+    },
+    {
+      "0": "5",
+      "1": "ATS Büroo (ARO)\nATS Reporting Office (ARO)",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "6",
+      "1": "MET Briifing\nMET Briefing Office",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "7",
+      "1": "ATS\nATS",
+      "2": "Vaata NOTAM-it.\nSee NOTAM.\nATS kontaktid *\nATS contacts *"
+    }
+  ],
+  [
+    {
+      "0": "8",
+      "1": "Tankimine\nFuelling",
+      "2": "JET A1 lennuvälja tööaegadel, vaata\nJET A1 AD operational hours, see\nNOTAM-it.\nNOTAM.\nNõutav 1 HR PN. **\nRequired 1 HR PN. **\nAVGAS 100LL lennuvälja\nAVGAS 100LL operational hours,\ntööaegadel, vaata NOTAM-it.\nsee NOTAM.\nKütusekaarte ei aktsepteerita.\nAviation Fuel Cards are not accepted."
+    },
+    {
+      "0": "9",
+      "1": "Käitlemine\nHandling",
+      "2": "Lennuvälja tööaegadel, vaata NOTAM-it.\nAD operational hours, see NOTAM."
+    },
+    {
+      "0": "10",
+      "1": "Turvateenistus\nSecurity",
+      "2": "H24"
+    },
+    {
+      "0": "11",
+      "1": "Jäätõrje\nDe-icing",
+      "2": "Lennuvälja tööaegadel, vaata NOTAM-it.\nAD operational hours, see NOTAM."
+    },
+    {
+      "0": "12",
+      "1": "Märkused\nRemarks",
+      "2": "* ATS kontaktid:\n* ATS contacts:\nTel: +372 671 0244\nE-mail: eetu@eans.ee\nATS teenust osutatakse Tallinna irdtornikeskusest.\nATS provided from Tallinn Remote Tower Centre\n** Tellimine edastada:\n** Submit the request:\nTel: +372 605 8833\nE-mail: tartu.handling@tll.aero."
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Kaubakäitlusteenistused\nCargo-handling facilities",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "2",
+      "1": "Kütuse / õli\nliigid\nFuel / oil types",
+      "2": "Kütus: JET A1, AVGAS 100LL\nFuel: JET A1, AVGAS 100LL\nÕli: ei ole\nOil: NIL"
+    },
+    {
+      "0": "3",
+      "1": "Tankimisseadmed / jõudlus\nFuelling facilities / capacity",
+      "2": "Jet A1: 1 auto 10 000 L, 500 L/min\nJet A1: 1 truck with 10 000 L, 500\ntiivaaluse otsakuga, 200 L/min\nL/min under wing tip, 200 L/min over\ntiivapealse otsakuga.\nwing tip.\nAVGAS 100LL: statsionaarne tankla\nAVGAS 100LL: stationary filling sta-\n5000 L, 60 L/min.\ntion 5000 L, 60 L/min."
+    },
+    {
+      "0": "4",
+      "1": "Jäätõrjeseadmed\nDe-icing facilities",
+      "2": "Olemas.\nTüüp 1 ja Tüüp 2.\nAvailable.\nType 1 and type 2.\nTel: +372 605 8833"
+    },
+    {
+      "0": "5",
+      "1": "Angaar mittebaseeruvatele\nõhusõidukitele\nHangar space for visiting aircraft",
+      "2": "Angaar 2-le A suurusega õhusõidukile. Tellimus eelneval kokkuleppel Tartu\nkoordinaatoriga.\nHangar for 2 A-size aircraft. Hangar is available under previous arrangement\nwith the Tartu coordinator.\nTel: +372 605 8833"
+    },
+    {
+      "0": "6",
+      "1": "Remondiseadmed mittebaseeruvatele\nõhusõidukitele\nRepair facilities for visiting aircraft",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "7",
+      "1": "Märkused\nRemarks",
+      "2": "Kui on tellitud lennujaama avamine väljaspool ametlikku tööaega, siis on\nmaapealne käitlusteenus kohustuslik. Tingimused tuleb kokku leppida enne\nlennu toimumist:\nGround handling service is mandatory in case the opening of the airport outside\nofficial working hours has been ordered. Terms must be agreed before the\nflight:\nAS Tallinna Lennujaam\nE-mail: tartu.handling@tll.aero"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Hotellid\nHotels",
+      "2": "Majutusvõimalus lennujaamas, 1 kahekohaline tuba. Hotellid linnas.\nAccommodation in the airport, 1 twin room. Hotels in the city."
+    },
+    {
+      "0": "2",
+      "1": "Restoranid\nRestaurants",
+      "2": "Linnas\nIn the city"
+    },
+    {
+      "0": "3",
+      "1": "Transport\nTransportation",
+      "2": "Bussid, taksod\nBuses, taxis"
+    },
+    {
+      "0": "4",
+      "1": "Arstiabi võimalused\nMedical facilities",
+      "2": "Haiglad linnas\nHospitals in the city"
+    },
+    {
+      "0": "5",
+      "1": "Pank ja postkontor\nBank and Post Office",
+      "2": "Linnas\nIn the city"
+    },
+    {
+      "0": "6",
+      "1": "Turismibüroo\nTourist Office",
+      "2": "Linnas\nIn the city\nTel: +372 744 2111"
+    },
+    {
+      "0": "7",
+      "1": "Märkused\nRemarks",
+      "2": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Lennuvälja tuletõrjekategooria\nAD category for fire fighting",
+      "2": "* C\n5. kategooria. Teenus tagatakse lennuvälja tööajal tellimus- ja regulaarlendudele.\nAT 5. The service is provided for charter and scheduled flights within\nAD OPR HR. *"
+    },
+    {
+      "0": "2",
+      "1": "Päästevahendid\nRescue equipment",
+      "2": "1 tuletõrjeauto\n1 fire fighting truck"
+    },
+    {
+      "0": "3",
+      "1": "Vigastatud õhusõiduki eemaldamise\nvõimalus\nCapability for removal of disabled air-\ncraft",
+      "2": "Puksiirauto A kategooria õhusõidukite jaoks. **\nBreakdown truck for category A aircraft. **\n(REF EETU AD 2.20 p.17)"
+    },
+    {
+      "0": "4",
+      "1": "Märkused\nRemarks",
+      "2": "* Teistele lendudele lennuvälja tööaegadel võib pääste- ja tuletõrjeteenuse\nreageerimisaeg olla ettenähtust pikem.\n* Response time of rescue and fire service for other flights within AD OPR HR\nmay be longer than specified.\n** Info vigastatud õhusõiduki eemaldamisel kasutatava tehnika kohta:\n** Information about equipment / vehicles used for removal of disabled aircraft:\nTel: +372 605 8833"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Puhastusseadmete tüübid\nTypes of clearing equipment",
+      "2": "Kasutuses aastaringselt.\nIn use all year round.\n•\n•\n2 sahkharja/puhurit\n2 snow ploughs/sweep-\ners/blowers\n•\n•\n2 sahkharja\n2 snow sweepers\n•\n•\n1 lumepuhur\n1 snow blower\n•\n•\n1 lumesahk\n1 snow plough\n•\n•\n1 kemikaalipuistur\n1 reagent spreader"
+    },
+    {
+      "0": "2",
+      "1": "Puhastuse järjekord\nClearance priorities",
+      "2": "1. RWY 08/26 ja ruleerimistee A.\n1. RWY 08/26 and TWY A.\n2. Perroon B\n2. Apron B\n3. Perroon A\n3. Apron A"
+    },
+    {
+      "0": "3",
+      "1": "Liikumisala pinnatöötluse materjali\nkasutamine\nUse of material for movement area\nsurface treatment",
+      "2": "KFOR/NAFO"
+    },
+    {
+      "0": "4",
+      "1": "Spetsiaalselt ettevalmistatud\ntalverajad\nSpecially prepared winter runways",
+      "2": "Ei kohaldata.\nNot applicable."
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Perrooni kate ja kandevõime\nApron surface and strength",
+      "2": "Perroon\nApron",
+      "3": "",
+      "4": "Kate\nSurface",
+      "5": "",
+      "6": "Kandevõime\nStrength\nPCR",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "A",
+      "3": "",
+      "4": "ASPH / CONC",
+      "5": "",
+      "6": "628/F/C/W/T",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "B",
+      "3": "",
+      "4": "ASPH / CONC",
+      "5": "",
+      "6": "628/F/C/W/T",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "2",
+      "1": "Ruleerimisteede laius, kate ja\nkandevõime\nTaxiway width, surface and strength",
+      "2": "TWY",
+      "3": "Laius\nWidth\nm",
+      "4": "",
+      "5": "Kate\nSurface",
+      "6": "",
+      "7": "Kandevõime\nStrength\nPCR",
+      "8": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "A",
+      "3": "20 M",
+      "4": "",
+      "5": "ASPH /\nCONC",
+      "6": "",
+      "7": "628/F/C/W/T",
+      "8": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "3",
+      "1": "Kõrgusmõõtja kontroll-asukoht (ACL)\nja kõrgus merepinnast\nAltimeter checkpoint location (ACL)\nand elevation",
+      "2": "RWY HLDG PSN 581835.43N 0264143.43E (REF EETU-ADC)\nKõrgus merepinnast: 214 ft\nElevation: 214 ft",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "4",
+      "1": "VOR kontrollpunktid\nVOR checkpoints",
+      "2": "Ei ole\nNIL",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "5",
+      "1": "INS kontrollpunktid\nINS checkpoints",
+      "2": "Ei ole\nNIL",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    },
+    {
+      "0": "6",
+      "1": "Märkused\nRemarks",
+      "2": "Ei ole\nNIL",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": ""
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Õhusõidukite seisupaikade tähised,\nruleerimisteede juhtjooned ja\nõhusõidukite seisupaikade visuaalne\ndokkimise / parkimise\njuhtimissüsteem.\nUse of aircraft stand ID signs, TWY\nguide lines and visual docking / park-\ning guidance system of aircraft stands.",
+      "2": "Seisupaikadel märgistus.\nStands marked.\nJuhtjooned perroonil.\nGuide lines at apron.\nJuhtmärgid ruleerimiseks ruleerimistee ristumiskohas rajaga ja ootekohas.\nTaxiing guidance signs at TWY intersection with RWY and at holding position.\nVisuaalne dokkimise/parkimise süsteem puudub.\nVisual docking/parking system not available."
+    },
+    {
+      "0": "2",
+      "1": "Raja ja ruleerimisteede märgistus ja\ntuled.\nRWY and TWY markings and LGT.",
+      "2": "RWY: Tähis, THR, TDZ, CL, raja lõpp: vastav märgistus ja tuled.\nRWY: Designation, THR, TDZ, CL, RWY end: as appropriate marked and\nlighted.\nTWY A: CL, HLDG PSN märgistatud ruleerimistee ja raja ristumiskohas,\nääretuled\nTWY A: CL, HLDG PSN at TWY / RWY intersection marked, edge lights."
+    },
+    {
+      "0": "3",
+      "1": "Stopp-tuled\nStop bars",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "4",
+      "1": "Märkused\nRemarks",
+      "2": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "Ala nimetus\nName of area",
+      "1": "Viimati uuendatud\nLast updated"
+    },
+    {
+      "0": "EETU Ala 2\nEETU Area 2",
+      "1": "26 DEC 2024"
+    },
+    {
+      "0": "EETU Ala 3\nEETU Area 3",
+      "1": "09 SEP 2021"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Meteoroloogiatalitus\nAssociated MET Office",
+      "2": "Keskkonnaagentuuri Tartu lennumeteoroloogiajaam\nTartu aeronautical meteorological station of Estonian Environment Agency"
+    },
+    {
+      "0": "2",
+      "1": "Tööaeg\nHours of service\nMeteoroloogiatalitus väljaspool\ntööaega\nMET Office outside hours of service",
+      "2": "Keskkonnaagentuur – H24 (konsultatsioon telefoni teel) *\nEstonian Environment Agency – H24 (consultation provided by phone) *"
+    },
+    {
+      "0": "3",
+      "1": "TAF ettevalmistamise eest vastutav\nlennumeteoroloogiajaam\nOffice responsible for TAF preparation\nKehtivusperioodid\nPeriods of validity\nVäljaandmise intervall\nInterval of issuance",
+      "2": "Keskkonnaagentuur\nEstonian Environment Agency\n9 HR\n3 HR (lennuvälja tööajal)\n3 HR (during AD operational hours)"
+    },
+    {
+      "0": "4",
+      "1": "Maandumisprognoosi tüüp\nTrend forecast\nVäljaandmise intervall\nInterval of issuance",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "5",
+      "1": "Võimalik briifing / konsultatsioon\nBriefing / consultation provided",
+      "2": "T *"
+    },
+    {
+      "0": "6",
+      "1": "Lennudokumendid\nFlight documentation\nKasutatav keel(ed)\nLanguage(s) used",
+      "2": "C, PL **\nET, EN"
+    },
+    {
+      "0": "7",
+      "1": "Briifingul või konsultatsioonil\nkasutatavad kaardid ja muu info\nCharts and other information available\nfor briefing or consultation",
+      "2": "S, U, P, W, SWH; SWM, SWL **"
+    },
+    {
+      "0": "8",
+      "1": "Kasutatavad lisaseadmed infoga\nvarustamisel\nSupplementary equipment available\nfor providing information",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "9",
+      "1": "Infoga varustatavad ATS üksused\nATS units provided with information",
+      "2": "Tartu AFIS"
+    }
+  ],
+  [
+    {
+      "0": "Tähised\nDesigna-\ntions\nRWY NR",
+      "1": "TEGELIK\nBRG\nTRUE BRG",
+      "2": "Raja mõõtmed\n(m)\nDimensions of\nRWY (m)",
+      "3": "RWY ja SWY\nkandevõime (PCR) ja\nkate\nStrength (PCR) and\nSurface of RWY and\nSWY",
+      "4": "Läve koordinaadid\nRaja lõpu koordinaadid\nLäve geoidi hälve\nTHR Coordinates\nRWY End Coordinates\nTHR Geoid undulation",
+      "5": "Läve kõrgus ja\ntäppislähenemise\npuuteala kõrgeim\nkõrgus rajal\nTHR Elevation and\nHighest Elevation of\nTDZ of precision\nAPCH RWY"
+    },
+    {
+      "0": "1",
+      "1": "2",
+      "2": "3",
+      "3": "4",
+      "4": "5",
+      "5": "6"
+    },
+    {
+      "0": "08",
+      "1": "088,43°",
+      "2": "1800 x 31",
+      "3": "628/F/C/W/T\nASPH / CONC",
+      "4": "581825.87N\n0264017.26E\n581827.47N\n0264207.76E\nGUND 63 ft",
+      "5": "THR 210 ft\n–"
+    },
+    {
+      "0": "26",
+      "1": "268,44°",
+      "2": "1800 x 31",
+      "3": "628/F/C/W/T\nASPH / CONC",
+      "4": "581827.47N\n0264207.76E\n581825.87N\n0264017.26E\nGUND 63 ft",
+      "5": "THR 193 ft\nTDZ 214 ft"
+    }
+  ],
+  [
+    {
+      "0": "Tähised\nDesigna-\ntions\nRWY NR",
+      "1": "RWY - SWY kalle\nSlope of RWY - SWY",
+      "2": "SWY mõõtmed\n(m)\nSWY dimen-\nsions (m)",
+      "3": "CWY mõõtmed\n(m)\nCWY dimen-\nsions (m)",
+      "4": "Lennuriba\nmõõtmed (m)\nStrip dimensions\n(m)",
+      "5": "RESA mõõtmed (m)\nRESA dimensions\n(m)"
+    },
+    {
+      "0": "",
+      "1": "7",
+      "2": "8",
+      "3": "9",
+      "4": "10",
+      "5": "11"
+    },
+    {
+      "0": "08",
+      "1": "+0.29% / -0.97%\n(950 m / 850 m)",
+      "2": "Ei ole\nNIL",
+      "3": "190 x 150",
+      "4": "1920 x 300",
+      "5": "125 x 62"
+    },
+    {
+      "0": "26",
+      "1": "+0.97% / -0.29%\n(850 m / 950 m)",
+      "2": "Ei ole\nNIL",
+      "3": "250 x 150",
+      "4": "1920 x 300",
+      "5": "200 x 90"
+    }
+  ],
+  [
+    {
+      "0": "Tähised\nDesigna-\ntions\nRWY NR",
+      "1": "ARST süsteemi asukoht ja kirjeldus\nLocation and description of ARST system",
+      "2": "OFZ",
+      "3": "Märkused\nRemarks"
+    },
+    {
+      "0": "",
+      "1": "12",
+      "2": "13",
+      "3": "14"
+    },
+    {
+      "0": "08",
+      "1": "Ei ole\nNIL",
+      "2": "Ei ole\nNIL",
+      "3": "Ei ole\nNIL"
+    },
+    {
+      "0": "26",
+      "1": "Ei ole\nNIL",
+      "2": "Ei ole\nNIL",
+      "3": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "Raja tähis\nRWY Designator",
+      "1": "TORA\n(m)",
+      "2": "TODA\n(m)",
+      "3": "ASDA\n(m)",
+      "4": "LDA\n(m)",
+      "5": "Märkused\nRemarks"
+    },
+    {
+      "0": "1",
+      "1": "2",
+      "2": "3",
+      "3": "4",
+      "4": "5",
+      "5": "6"
+    },
+    {
+      "0": "08",
+      "1": "1800",
+      "2": "1990",
+      "3": "1800",
+      "4": "1800",
+      "5": "Ei ole\nNIL"
+    },
+    {
+      "0": "26",
+      "1": "1800",
+      "2": "2050",
+      "3": "1800",
+      "4": "1800",
+      "5": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "Raja tähis\nRWY Designator",
+      "1": "APCH LGT tüüp,\nAPCH LGT Type,\nLEN, INTST",
+      "2": "THR LGT värv,\nTHR LGT Colour,\nWBAR",
+      "3": "VASIS, PAPI\n(MEHT)",
+      "4": "TDZ LGT LEN"
+    },
+    {
+      "0": "1",
+      "1": "2",
+      "2": "3",
+      "3": "4",
+      "4": "5"
+    },
+    {
+      "0": "08",
+      "1": "SALS\n420 m, LIH",
+      "2": "Rohelised, LIH\nGreen, LIH\n–",
+      "3": "PAPI\nVasak 3°\nLeft 3°\nMEHT 56 ft",
+      "4": "Ei ole\nNIL"
+    },
+    {
+      "0": "26",
+      "1": "PALS-I\n870 m, LIH",
+      "2": "Rohelised, LIH\nGreen, LIH\n–",
+      "3": "PAPI\nVasak 3°\nLeft 3°\nMEHT 56 ft",
+      "4": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "RCLL LEN,\nvahe, värv,\nSpacing, Colour,\nINTST",
+      "1": "REDL LEN,\nvahe, värv,\nSpacing, Colour,\nINTST",
+      "2": "RENL, värv,\nRENL, Colour,\nWBAR",
+      "3": "STWL LEN (m),\nvärv\nColour",
+      "4": "Märkused\nRemarks"
+    },
+    {
+      "0": "6",
+      "1": "7",
+      "2": "8",
+      "3": "9",
+      "4": "10"
+    },
+    {
+      "0": "Ei ole\nNIL",
+      "1": "1800 m, 60 m, W;\nlast 600 m Y; LIH",
+      "2": "Punased, LIH\nRed, LIH\n–",
+      "3": "Ei ole\nNIL",
+      "4": "Ei ole\nNIL"
+    },
+    {
+      "0": "Ei ole\nNIL",
+      "1": "1800 m, 60 m, W;\nlast 600 m Y; LIH",
+      "2": "Punased, LIH\nRed, LIH\n–",
+      "3": "Ei ole\nNIL",
+      "4": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "ABN / IBN asukoht, andmed ja tööaeg\nABN / IBN location, characteristics\nand hours of operation",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "2",
+      "1": "LDI asukoht ja valgustus\nLDI location and LGT\nAnemomeetri asukoht ja valgustus\nAnemometer location and LGT",
+      "2": "Ei ole\nNIL\n308 m FM THR 08 ja 300 m FM THR 26, valgustatud.\n308 m FM THR 08 and 300 m FM THR 26, lighted."
+    },
+    {
+      "0": "3",
+      "1": "Ruleerimisteede ääre- ja\ntelgjoonetuled\nTWY edge and centre line lighting",
+      "2": "Ääred: sinised\nEdge: blue\nCL: Ei ole\nCL: NIL"
+    },
+    {
+      "0": "4",
+      "1": "Varuvooluallikas / ümberlülitusaeg\nSecondary power supply / switch-over\ntime",
+      "2": "Varuvooluallikas kõigile tuledele lennuväljal. Ümberlülitusaeg: 13 SEC.\nSecondary power supply to all\nlighting at AD. Switch-over time: 13 SEC."
+    },
+    {
+      "0": "5",
+      "1": "Märkused\nRemarks",
+      "2": "Ei ole\nNIL"
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "FATO TLOF või THR koordinaadid\nCoordinates TLOF or THR of FATO\nGeoidi hälve\nGeoid undulation",
+      "2": "Ei ole\nNIL\n63 ft"
+    },
+    {
+      "0": "2",
+      "1": "TLOF ja/või FATO kõrgus\nmerepinnast (m/ft)\nTLOF and/or FATO elevation (m/ft)",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "3",
+      "1": "TLOF ja FATO ala mõõtmed, kate,\nkandevõime, märgistus\nTLOF and FATO area dimensions,\nsurface, strength, marking",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "4",
+      "1": "FATO tegelik ja MAG BRG\nTrue and MAG BRG of FATO",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "5",
+      "1": "Kasutatav deklareeritud distants\nDeclared distance available",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "6",
+      "1": "APP ja FATO tuled\nAPP and FATO lighting",
+      "2": "Ei ole\nNIL"
+    },
+    {
+      "0": "7",
+      "1": "Märkused\nRemarks",
+      "2": "Maandumine rajal\nja perroon A seisuplatsil 11, vastavalt AD 2.20 p 11.\nLanding on runway and apron A stand 11, according to AD 2.20 para. 11."
+    }
+  ],
+  [
+    {
+      "0": "1",
+      "1": "Tähis ja rõhtpiirid\nDesignation and lateral\nlimits",
+      "2": "Tartu FIZ/RMZ koosneb kahes osast: Tartu FIZ/RMZ UPPER ja Tartu FIZ/RMZ\nLOWER.\nTartu FIZ/RMZ consists of two parts: Tartu FIZ/RMZ UPPER and Tartu\nFIZ/RMZ LOWER.\nTARTU FIZ/RMZ",
+      "3": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TARTU FIZ/RMZ UPPER\n584154N 0272351E\nseejärel piki Eesti ja Venemaa vahelist\neraldusjoont kuni\nthen along the territory dividing line\nbetween Estonia and Russia to\n580219N 0273634E –\n575444N 0272910E –\n575909N 0260519E –\n581729N 0254655E –\n584204N 0260122E –\n584154N 0272351E",
+      "3": "TARTU FIZ/RMZ LOWER\nRing raadiusega 11 NM, keskpunkt\n581827N 0264113E\nA circle, radius 11 NM centred at\n581827N 0264113E"
+    },
+    {
+      "0": "2",
+      "1": "Püstpiirid\nVertical\nlimits",
+      "2": "TARTU FIZ/RMZ\nTARTU FIZ/RMZ UPPER\n1500 ft MSL kuni FL95\n1500 ft MSL to FL95",
+      "3": "TARTU FIZ/RMZ LOWER\nSFC kuni 1500 ft MSL\nSFC to 1500 ft MSL"
+    },
+    {
+      "0": "3",
+      "1": "Õhuruumi klass\nAirspace classification",
+      "2": "G",
+      "3": ""
+    },
+    {
+      "0": "4",
+      "1": "ATS-üksuse kutsung\nATS unit call sign\nKeeled\nLanguage(s)",
+      "2": "Tartu Informatsioon\nTartu Information\nET, EN",
+      "3": ""
+    },
+    {
+      "0": "5",
+      "1": "Üleminekukõrgus\nTransition altitude",
+      "2": "5000 FT MSL",
+      "3": ""
+    },
+    {
+      "0": "6",
+      "1": "Rakendatavuse aeg\nHours of applicability",
+      "2": "Tartu FIZ/RMZ kehtib EETU ATS tööajal. Vaata NOTAM-it. *\nTartu FIZ/RMZ applicable during EETU ATS operational hours. See NOTAM.\n*",
+      "3": ""
+    }
+  ],
+  [
+    {
+      "0": "Teeninduse tähis\nService Designation",
+      "1": "Kutsung\nCall Sign",
+      "2": "Kanal(id)\nChannel(s)",
+      "3": "Tööaeg\nHours of Operation",
+      "4": "Märkused\nRemarks"
+    },
+    {
+      "0": "1",
+      "1": "2",
+      "2": "3",
+      "3": "4",
+      "4": "5"
+    },
+    {
+      "0": "AFIS",
+      "1": "Tartu Informatsioon\nTartu Information",
+      "2": "133.905",
+      "3": "HO",
+      "4": "Ei ole\nNIL"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "121.500 MHz",
+      "3": "",
+      "4": "EMERG FREQ"
+    },
+    {
+      "0": "ATIS",
+      "1": "Tartu Info\nTartu Information",
+      "2": "123.130",
+      "3": "H24",
+      "4": "EN\nTel: +372 730 9212"
+    }
+  ],
+  [
+    {
+      "0": "Seadme tüüp\nType of aid,\nMAG VAR\nType of Supported\nOP (for\nVOR/ILS/MLS, Giv-\nen Declination)",
+      "1": "ID",
+      "2": "FREQ",
+      "3": "Tööaeg\nOPR HR",
+      "4": "Saateantenni\nkoordinaadid\nPosition of\nTransmitting\nAntenna Co-\nordinates",
+      "5": "DME\nsaateantenni\nkõrgus\nElevation of\nDME Transmit-\nting Antenna",
+      "6": "Märkused\nRemarks"
+    },
+    {
+      "0": "1",
+      "1": "2",
+      "2": "3",
+      "3": "4",
+      "4": "5",
+      "5": "6",
+      "6": "7"
+    },
+    {
+      "0": "LOC 26\nILS CAT I\nI/C/3\n(10° E 2020)",
+      "1": "IUM",
+      "2": "108,500 MHz",
+      "3": "HO",
+      "4": "581825,5N\n0263948,9E",
+      "5": "",
+      "6": "LOC kurss 259°\nLOC course 259°"
+    },
+    {
+      "0": "GP 26\nILS CAT I\nI/C/3",
+      "1": "",
+      "2": "329,900 MHz",
+      "3": "HO",
+      "4": "581823,7N\n0264151,1E",
+      "5": "",
+      "6": "Nurk 3°\nAngle 3°"
+    },
+    {
+      "0": "DME 26",
+      "1": "IUM",
+      "2": "CH 22X",
+      "3": "HO",
+      "4": "581823,7N\n0264151,1E",
+      "5": "300 ft AMSL",
+      "6": "Tegevusraadius:\nCoverage:\n25 NM"
+    },
+    {
+      "0": "KAAREPERE DME",
+      "1": "KRP",
+      "2": "112.150 MHz\n(CH 58Y)",
+      "3": "H24",
+      "4": "583935,1N\n0263249,8E",
+      "5": "600 ft AMSL",
+      "6": "Ei ole\nNIL"
+    },
+    {
+      "0": "SULTSI DME",
+      "1": "SLT",
+      "2": "109.450 MHz\n(CH 31Y)",
+      "3": "H24",
+      "4": "581525,4N\n0253712,6E",
+      "5": "700 ft AMSL",
+      "6": "Ei ole\nNIL"
+    },
+    {
+      "0": "Märkused:\nRemarks:\nRaadionavigatsiooni- ja maandumisseadmete käitamise\nThe responsible unit for radio navigation and landing aids\neest vastutab Lennuliiklusteeninduse AS, kontaktid: vaata\nis Estonian ANS, for contacts see GEN 3.4.\nGEN 3.4.",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": ""
+    }
+  ],
+  [
+    {
+      "0": "RNAV HOLDINGS"
+    },
+    {
+      "0": "ID\nINBD\nINBD\nTurn\nMAX IAS\nMNM HLDG LVL\nTime\nDistance\nTR °T\nMAG°\ndirection\nkt\nft\nMIN\nNM"
+    },
+    {
+      "0": "NIVER\n178.1\n168\nLeft\n230\n2000\n1\n–"
+    },
+    {
+      "0": "ERULI\n178.7\n169\nRight\n230\n2000\n1\n–"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nname",
+      "4": "Flyover",
+      "5": "Course\n° T",
+      "6": "Course\n° MAG",
+      "7": "Distance\nNM",
+      "8": "Turn\ndirection",
+      "9": "Altitude\nft",
+      "10": "MAX IAS\nkt"
+    },
+    {
+      "0": "OSKAV\n2C",
+      "1": "RNAV 1",
+      "2": "IF",
+      "3": "OSKAV",
+      "4": "-",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU863",
+      "4": "-",
+      "5": "157.1",
+      "6": "147",
+      "7": "15.1",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "UMKOK",
+      "4": "-",
+      "5": "157.2",
+      "6": "147",
+      "7": "5.9",
+      "8": "-",
+      "9": "+3000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NIVER",
+      "4": "-",
+      "5": "157.3",
+      "6": "147",
+      "7": "5.0",
+      "8": "-",
+      "9": "+2000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "IF\nRISKU\n-\n-\n-\n-\n-\n-\n-\nRISKU\nRNAV 1\n1C\nTF\nNIVER\n-\n087.7\n078\n17.8\n-\n+2000\n230",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "IF\nOSLIK\n-\n-\n-\n-\n-\n-\n-\nOSLIK\nRNAV 1\nTF\nOSGEX\n-\n030.4\n020\n16.3\n-\n+3000\n230\n2C\nTF\nNIVER\n-\n358.2\n348\n5.0\n-\n+2000\n230",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "IF\nSUMIM\n-\n-\n-\n-\n-\n-\n-\nTF\nBARVU\n-\n306.3\n296\n31.9\n-\n-\n-\nSUMIM\nRNAV 1\n2C\nTF\nOSGEX\n-\n268.7\n259\n10.4\nRight\n+3000\n230\nTF\nNIVER\n-\n358.2\n348\n5.0\n-\n+2000\n230",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "BARVU",
+      "1": "581324.0N 0264036.0E"
+    },
+    {
+      "0": "NIVER",
+      "1": "581807.0N 0262035.0E"
+    },
+    {
+      "0": "OSGEX",
+      "1": "581307.8N 0262053.3E"
+    },
+    {
+      "0": "OSKAV",
+      "1": "584204.0N 0260122.0E"
+    },
+    {
+      "0": "OSLIK",
+      "1": "575909.0N 0260519.0E"
+    },
+    {
+      "0": "RISKU",
+      "1": "581729.0N 0254655.0E"
+    },
+    {
+      "0": "SUMIM",
+      "1": "575444.0N 0272910.0E"
+    },
+    {
+      "0": "TU863",
+      "1": "582809.0N 0261235.0E"
+    },
+    {
+      "0": "UMKOK",
+      "1": "582243.2N 0261655.5E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nname",
+      "4": "Flyover",
+      "5": "Course\n° T",
+      "6": "Course\n° MAG",
+      "7": "Distance\nNM",
+      "8": "Turn\ndirection",
+      "9": "Altitude\nft",
+      "10": "MAX IAS\nkt"
+    },
+    {
+      "0": "OSKAV\n2D",
+      "1": "RNAV 1",
+      "2": "IF",
+      "3": "OSKAV",
+      "4": "-",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU995",
+      "4": "-",
+      "5": "119.8",
+      "6": "110",
+      "7": "21.0",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NUKDU",
+      "4": "-",
+      "5": "119.9",
+      "6": "110",
+      "7": "15.8",
+      "8": "-",
+      "9": "+3000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "-",
+      "5": "178.7",
+      "6": "169",
+      "7": "5.0",
+      "8": "-",
+      "9": "+2000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "RISKU\n2D",
+      "1": "RNAV 1",
+      "2": "IF",
+      "3": "RISKU",
+      "4": "-",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "OSGEX",
+      "4": "-",
+      "5": "103.4",
+      "6": "093",
+      "7": "18.5",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "BARVU",
+      "4": "-",
+      "5": "088.4",
+      "6": "078",
+      "7": "10.4",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "BODSE",
+      "4": "-",
+      "5": "088.2",
+      "6": "078",
+      "7": "11.6",
+      "8": "-",
+      "9": "+3000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "-",
+      "5": "358.8",
+      "6": "349",
+      "7": "5.0",
+      "8": "-",
+      "9": "+2000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "IF\nOSLIK\n-\n-\n-\n-\n-\n-\n-\nTF\nBARVU\n-\n052.4\n042\n23.6\n-\n-\n-\nOSLIK\nRNAV 1\n2D\nTF\nBODSE\n-\n088.2\n078\n11.6\nLeft\n+3000\n230\nTF\nERULI\n-\n358.8\n349\n5.0\n-\n+2000\n230",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "IF\nSUMIM\n-\n-\n-\n-\n-\n-\n-\nSUMIM\nRNAV 1\nTF\nBODSE\n-\n323.5\n313\n23.8\n-\n+3000\n230\n2D\nTF\nERULI\n-\n358.8\n349\n5.0\n-\n+2000\n230",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "BARVU",
+      "1": "581324.0N 0264036.0E"
+    },
+    {
+      "0": "BODSE",
+      "1": "581343.9N 0270228.2E"
+    },
+    {
+      "0": "ERULI",
+      "1": "581843.0N 0270216.0E"
+    },
+    {
+      "0": "NUKDU",
+      "1": "582342.4N 0270203.4E"
+    },
+    {
+      "0": "OSGEX",
+      "1": "581307.8N 0262053.3E"
+    },
+    {
+      "0": "OSKAV",
+      "1": "584204.0N 0260122.0E"
+    },
+    {
+      "0": "OSLIK",
+      "1": "575909.0N 0260519.0E"
+    },
+    {
+      "0": "RISKU",
+      "1": "581729.0N 0254655.0E"
+    },
+    {
+      "0": "SUMIM",
+      "1": "575444.0N 0272910.0E"
+    },
+    {
+      "0": "TU995",
+      "1": "583136.0N 0263604.0E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nname",
+      "4": "Flyover",
+      "5": "Course\n° T",
+      "6": "Course\n° MAG",
+      "7": "Distance\nNM",
+      "8": "Turn\ndirection",
+      "9": "Altitude\nft",
+      "10": "MAX IAS\nkt"
+    },
+    {
+      "0": "OSKAV\n1A",
+      "1": "RNAV 1",
+      "2": "CF",
+      "3": "TU408",
+      "4": "-",
+      "5": "088.5",
+      "6": "078",
+      "7": "4.0",
+      "8": "Left",
+      "9": "+1000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU412",
+      "4": "-",
+      "5": "358.3",
+      "6": "348",
+      "7": "7.1",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU995",
+      "4": "-",
+      "5": "310.2",
+      "6": "300",
+      "7": "9.3",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "OSKAV",
+      "4": "-",
+      "5": "299.8",
+      "6": "290",
+      "7": "21.0",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "CF\nTU408\n-\n088.5\n078\n4.0\nRight\n+1000\n230\nTF\nTU690\n-\n178.5\n168\n6.5\n-\n-\n-\nRISKU\nRNAV 1\n1A\nTF\nTU779\n-\n250.4\n240\n16.0\n-\n-\n-\nTF\nRISKU\n-\n299.8\n290\n21.3\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "CF\nTU408\n-\n088.5\n078\n4.0\nRight\n+1000\n230\nTF\nTU690\n-\n178.5\n168\n6.5\n-\n-\n-\nOSLIK\nRNAV 1\n1A\nTF\nTU815\n-\n220.2\n210\n8.4\n-\n-\n-\nTF\nOSLIK\n-\n250.0\n240\n19.6\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "CF\nTU408\n-\n088.5\n078\n4.0\nRight\n+1000\n230\nSUMIM\nRNAV 1\nTF\nTU532\n-\n138.8\n129\n13.5\n-\n-\n-\n1A\nTF\nSUMIM\n-\n139.3\n129\n18.2\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "OSKAV",
+      "1": "584204.0N 0260122.0E"
+    },
+    {
+      "0": "OSLIK",
+      "1": "575909.0N 0260519.0E"
+    },
+    {
+      "0": "RISKU",
+      "1": "581729.0N 0254655.0E"
+    },
+    {
+      "0": "SUMIM",
+      "1": "575444.0N 0272910.0E"
+    },
+    {
+      "0": "TU408",
+      "1": "581834.0N 0264953.6E"
+    },
+    {
+      "0": "TU412",
+      "1": "582538.0N 0264930.0E"
+    },
+    {
+      "0": "TU532",
+      "1": "580828.0N 0270645.0E"
+    },
+    {
+      "0": "TU690",
+      "1": "581208.0N 0265013.0E"
+    },
+    {
+      "0": "TU779",
+      "1": "580650.0N 0262146.0E"
+    },
+    {
+      "0": "TU815",
+      "1": "580545.0N 0264000.0E"
+    },
+    {
+      "0": "TU995",
+      "1": "583136.0N 0263604.0E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nname",
+      "4": "Flyover",
+      "5": "Course\n° T",
+      "6": "Course\n° MAG",
+      "7": "Distance\nNM",
+      "8": "Turn\ndirection",
+      "9": "Altitude\nft",
+      "10": "MAX IAS\nkt"
+    },
+    {
+      "0": "OSKAV\n1B",
+      "1": "RNAV 1",
+      "2": "TF",
+      "3": "TU826",
+      "4": "-",
+      "5": "268.3",
+      "6": "258",
+      "7": "4.0",
+      "8": "-",
+      "9": "+1000",
+      "10": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU980",
+      "4": "-",
+      "5": "325.8",
+      "6": "316",
+      "7": "5.5",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "OSKAV",
+      "4": "-",
+      "5": "325.4",
+      "6": "315",
+      "7": "23.4",
+      "8": "-",
+      "9": "-",
+      "10": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "TF\nTU826\n-\n268.3\n258\n4.0\n-\n+1000\n230\nRISKU\nRNAV 1\nTF\nTU725\n-\n268.2\n258\n4.5\n-\n-\n-\n1B\nTF\nRISKU\n-\n267.7\n258\n19.6\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "TF\nTU826\n-\n268.3\n258\n4.0\n-\n+1000\n230\nTF\nTU830\n-\n216.9\n207\n6.0\n-\n-\n-\nOSLIK\nRNAV 1\n1B\nTF\nTU854\n-\n216.8\n207\n10.3\n-\n-\n-\nTF\nOSLIK\n-\n216.6\n207\n7.7\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "TF\nTU826\n-\n268.3\n258\n4.0\nLeft\n+1000\n230\nTF\nTU842\n-\n178.3\n168\n6.5\n-\n-\n-\nSUMIM\nRNAV 1\n1B\nTF\nTU758\n-\n128.0\n118\n16.8\n-\n-\n-\nTF\nSUMIM\n-\n112.6\n103\n18.1\n-\n-\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": ""
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "OSKAV",
+      "1": "584204.0N 0260122.0E"
+    },
+    {
+      "0": "OSLIK",
+      "1": "575909.0N 0260519.0E"
+    },
+    {
+      "0": "RISKU",
+      "1": "581729.0N 0254655.0E"
+    },
+    {
+      "0": "SUMIM",
+      "1": "575444.0N 0272910.0E"
+    },
+    {
+      "0": "TU725",
+      "1": "581811.0N 0262402.0E"
+    },
+    {
+      "0": "TU758",
+      "1": "580135.0N 0265749.0E"
+    },
+    {
+      "0": "TU826",
+      "1": "581818.9N 0263227.7E"
+    },
+    {
+      "0": "TU830",
+      "1": "581332.0N 0262538.0E"
+    },
+    {
+      "0": "TU842",
+      "1": "581152.0N 0263249.0E"
+    },
+    {
+      "0": "TU854",
+      "1": "580519.0N 0261359.0E"
+    },
+    {
+      "0": "TU980",
+      "1": "582251.0N 0262636.0E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nname",
+      "4": "Type",
+      "5": "Flyover",
+      "6": "Course\n° T",
+      "7": "Course\n° MAG",
+      "8": "Distance\nNM",
+      "9": "Turn\ndirection",
+      "10": "Altitude\nft",
+      "11": "MAX\nIAS\nkt"
+    },
+    {
+      "0": "UMKOK\nA",
+      "1": "RNP APCH",
+      "2": "IF",
+      "3": "UMKOK",
+      "4": "IAF",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "+3000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NIVER",
+      "4": "IF",
+      "5": "-",
+      "6": "157.4",
+      "7": "147",
+      "8": "5.0",
+      "9": "Left",
+      "10": "+2000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU710",
+      "4": "FAF",
+      "5": "-",
+      "6": "088.2",
+      "7": "078",
+      "8": "4.9",
+      "9": "-",
+      "10": "2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "RW08",
+      "4": "MAPt",
+      "5": "Yes",
+      "6": "088.4",
+      "7": "078",
+      "8": "5.5",
+      "9": "-",
+      "10": "-",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "MAHF",
+      "5": "Yes",
+      "6": "088.7",
+      "7": "079",
+      "8": "11.6",
+      "9": "-",
+      "10": "+2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "IF\nNIVER\nIAF\n-\n-\n-\n-\n-\n+2000\n230\nTF\nTU710\nFAF\n-\n088.2\n078\n4.9\n-\n2000\n-\nNIVER A\nRNP APCH\nTF\nRW08\nMAPt\nYes\n088.4\n078\n5.5\n-\n-\n-\nTF\nERULI\nMAHF\nYes\n088.7\n079\n11.6\n-\n+2000\n-",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "OSGEX\nA",
+      "1": "RNP APCH",
+      "2": "IF",
+      "3": "OSGEX",
+      "4": "IAF",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "+3000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NIVER",
+      "4": "IF",
+      "5": "-",
+      "6": "358.2",
+      "7": "348",
+      "8": "5.0",
+      "9": "Right",
+      "10": "+2000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU710",
+      "4": "FAF",
+      "5": "-",
+      "6": "088.2",
+      "7": "078",
+      "8": "4.9",
+      "9": "-",
+      "10": "2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "RW08",
+      "4": "MAPt",
+      "5": "Yes",
+      "6": "088.4",
+      "7": "078",
+      "8": "5.5",
+      "9": "-",
+      "10": "-",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "MAHF",
+      "5": "Yes",
+      "6": "088.7",
+      "7": "079",
+      "8": "11.6",
+      "9": "-",
+      "10": "+2000",
+      "11": "-"
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "BARVU",
+      "1": "581324.0N 0264036.0E"
+    },
+    {
+      "0": "ERULI",
+      "1": "581843.0N 0270216.0E"
+    },
+    {
+      "0": "NIVER",
+      "1": "581807.0N 0262035.0E"
+    },
+    {
+      "0": "RW08",
+      "1": "581825.87N 0264017.26E"
+    },
+    {
+      "0": "OSGEX",
+      "1": "581307.8N 0262053.3E"
+    },
+    {
+      "0": "TU710",
+      "1": "581816.4N 0262955.6E"
+    },
+    {
+      "0": "UMKOK",
+      "1": "582243.2N 0261655.5E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID",
+      "1": "Navigation\nspecification",
+      "2": "P/ T",
+      "3": "WPT\nName",
+      "4": "Type",
+      "5": "Flyover",
+      "6": "Course\n° T",
+      "7": "Course\n° MAG",
+      "8": "Distance\nNM",
+      "9": "Turn\nDirection",
+      "10": "Altitude\nft",
+      "11": "MAX\nIAS\nkt"
+    },
+    {
+      "0": "NUKDU\nA",
+      "1": "RNP APCH",
+      "2": "IF",
+      "3": "NUKDU",
+      "4": "IAF",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "+3000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "IF",
+      "5": "-",
+      "6": "178.7",
+      "7": "169",
+      "8": "5.0",
+      "9": "Right",
+      "10": "+2000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU435",
+      "4": "FAF",
+      "5": "-",
+      "6": "268.6",
+      "7": "259",
+      "8": "5.1",
+      "9": "-",
+      "10": "2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "RW26",
+      "4": "MAPt",
+      "5": "Yes",
+      "6": "268.5",
+      "7": "258",
+      "8": "5.5",
+      "9": "-",
+      "10": "-",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NIVER",
+      "4": "MAHF",
+      "5": "Yes",
+      "6": "268.1",
+      "7": "258",
+      "8": "11.4",
+      "9": "-",
+      "10": "+2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "9": "",
+      "10": "",
+      "11": ""
+    },
+    {
+      "0": "BODSE\nA",
+      "1": "RNP APCH",
+      "2": "IF",
+      "3": "BODSE",
+      "4": "IAF",
+      "5": "-",
+      "6": "-",
+      "7": "-",
+      "8": "-",
+      "9": "-",
+      "10": "+3000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "ERULI",
+      "4": "IF",
+      "5": "-",
+      "6": "358.8",
+      "7": "349",
+      "8": "5.0",
+      "9": "Left",
+      "10": "+2000",
+      "11": "230"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "TU435",
+      "4": "FAF",
+      "5": "-",
+      "6": "268.6",
+      "7": "259",
+      "8": "5.1",
+      "9": "-",
+      "10": "2000",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "RW26",
+      "4": "MAPt",
+      "5": "Yes",
+      "6": "268.5",
+      "7": "258",
+      "8": "5.5",
+      "9": "-",
+      "10": "-",
+      "11": "-"
+    },
+    {
+      "0": "",
+      "1": "",
+      "2": "TF",
+      "3": "NIVER",
+      "4": "MAHF",
+      "5": "Yes",
+      "6": "268.1",
+      "7": "258",
+      "8": "11.4",
+      "9": "-",
+      "10": "+2000",
+      "11": "-"
+    }
+  ],
+  [
+    {
+      "0": "WPT NAME",
+      "1": "Coordinates"
+    },
+    {
+      "0": "BARVU",
+      "1": "581324.0N 0264036.0E"
+    },
+    {
+      "0": "BODSE",
+      "1": "581343.9N 0270228.2E"
+    },
+    {
+      "0": "ERULI",
+      "1": "581843.0N 0270216.0E"
+    },
+    {
+      "0": "NIVER",
+      "1": "581807.0N 0262035.0E"
+    },
+    {
+      "0": "NUKDU",
+      "1": "582342.4N 0270203.4E"
+    },
+    {
+      "0": "RW26",
+      "1": "581827.47N 0264207.76E"
+    },
+    {
+      "0": "TU435",
+      "1": "581836.0N 0265234.0E"
+    }
+  ],
+  [
+    {
+      "0": "PROC ID\nNavigation\nP/ T\nWPT\nType\nF\nl\nyover\nCourse\nCourse\nDistance\nTurn\nAltitude\nMAX\nspecification\nname\n° T\n° MAG\nNM\ndirection\nIAS kt"
+    },
+    {
+      "0": "IF\nBODSE\nIAF\n–\n–\n–\n–\n–\n+3000\n230\nBODSE\nRNP APCH\nTF\nERULI\nIF\n–\n358.8\n348.8\n5.0\nLeft\n+2000\n230"
+    },
+    {
+      "0": ""
+    },
+    {
+      "0": ""
+    },
+    {
+      "0": "IF\nNUKDU\nIAF\n–\n–\n–\n–\n–\n+3000\n230\nNUKDU\nRNP APCH\nTF\nERULI\nIF\n–\n178.7\n168.7\n5.0\nRight\n+2000\n230"
+    },
+    {
+      "0": ""
+    }
+  ],
+  [
+    {
+      "0": "Teekonnapunkti nimi\nWPT NAME",
+      "1": "Radiaal ja kaugus\nRadial and distance",
+      "2": "Koordinaadid\nCoordinates"
+    },
+    {
+      "0": "NUKDU",
+      "1": "-",
+      "2": "582342.4N 0270203.4E"
+    },
+    {
+      "0": "BODSE",
+      "1": "-",
+      "2": "581343.9N 0270228.2E"
+    },
+    {
+      "0": "ERULI",
+      "1": "10.6 NM IUM",
+      "2": "581843.0N 0270216.0E"
+    },
+    {
+      "0": "FAP",
+      "1": "5.4 NM IUM",
+      "2": "581835.7N 0265223.3E"
+    }
+  ],
+  [
+    {
+      "0": "Nõuded\nRequirements",
+      "1": "",
+      "2": "Kõrvalekalde kirjeldus\nDeviation description"
+    },
+    {
+      "0": "CS ADR-DSN.M.630",
+      "1": "I kategooria täppislähenemise\nsüsteem\nPrecision approach Category I\nlighting system",
+      "2": "Idapoolsed lähenemistuled ettenähtust lühemad. Transpordiameti\npoolt aktsepteeritud riskianalüüs.\nApproach lights in the east are extended less than required. Esto-\nnian Transport Administration has approved the risk analysis."
+    },
+    {
+      "0": "CS ADR-DSN.B.165",
+      "1": "Objektid lennuribal\nObjects on runway strips",
+      "2": "Puudub nõuetekohane kalle vertikaalse pinna elimineerimiseks.\nThe required slope to eliminate a buried vertical surface is missing."
+    },
+    {
+      "0": "CS ADR-DSN.L.535",
+      "1": "Lävemärgistus\nThreshold marking",
+      "2": "Lävemärgistuse joonte vahelise ala laius peab olema 1.8 m.\nInspekteerimise käigus mõõdeti nii\njoone kui\njoontevahelise ala\nlaiuseks 1.5 m.\nSpacing between threshold marking stripes should be 1.8 m. During\nthe inspection, both the line and the spacing between the lines\nwere measured 1.5 m wide."
+    },
+    {
+      "0": "CS ADR-DSN.J.465",
+      "1": "Takistuste piirangupinnad\nObstacle limitation surfaces",
+      "2": "Lennurajast lõunasse jääval Suitsu kinnistul asuv kõrghaljastus\nläbib lennuraja üleminekupinda. Lennurajast läände jäävatel\nkinnistutel kasvav mets jääb osaliselt või täielikult Tartu lennuvälja\nlähenemis- ja tõusupiirangupinda.\nHigh vegetation on Suitsu land plot south of RWY penetrates the\ntransitional surface. The forest growing on land plots west of RWY\nis partly or completely in Tartu aerodrome approach and take-off\nclimb surface."
+    },
+    {
+      "0": "CS ADR-DSN.L.540",
+      "1": "Maandumiskoha märgistus\nAiming point marking",
+      "2": "Lennuraja maandumiskoha märgistuse algpunkt ei ole PAPI\ntuledega kohakuti.\nThe beginning of RWY aiming point marking is not coincident with\nPAPI lights."
+    }
+  ],
+  [
+    {
+      "0": "Kaardi nimetus\nName of chart",
+      "1": "Leht\nPage"
+    },
+    {
+      "0": "Lennuväljakaart - ICAO\nAerodrome Chart - ICAO",
+      "1": "AD 2.EETU-ADC\n(02 OCT 2025)"
+    },
+    {
+      "0": "Õhusõidukite parkimise / dokkimise kaart - ICAO\nAircraft Parking / Docking Chart - ICAO",
+      "1": "AD 2.EETU-APDC\n(02 OCT 2025)"
+    },
+    {
+      "0": "Lennuvälja takistuste kaart- ICAO - Tüüp A\nAerodrome Obstacle Chart – ICAO - Type A",
+      "1": "AD 2.EETU-AOC-A-08-26\n(15 MAY 2025)"
+    },
+    {
+      "0": "Standardse saabumise kaart - Instrument - ICAO - EETU RNAV STAR RWY 08\nStandard Arrival Chart - Instrument - ICAO - EETU RNAV STAR RWY 08",
+      "1": "AD 2.EETU-RNAV STAR-08\n(07 AUG 2025)"
+    },
+    {
+      "0": "Standardse saabumise kaart - Instrument - ICAO - EETU RNAV STAR RWY 26\nStandard Arrival Chart - Instrument - ICAO - EETU RNAV STAR RWY 26",
+      "1": "AD 2.EETU-RNAV STAR-26\n(07 AUG 2025)"
+    },
+    {
+      "0": "Standardse väljumise kaart - Instrument - ICAO - EETU RNAV SID RWY 08\nStandard Departure Chart - Instrument - ICAO - EETU RNAV SID RWY 08",
+      "1": "AD 2.EETU-RNAV SID-08\n(07 AUG 2025)"
+    },
+    {
+      "0": "Standardse väljumise kaart - Instrument - ICAO - EETU RNAV SID RWY 26\nStandard Departure Chart - Instrument - ICAO - EETU RNAV SID RWY 26",
+      "1": "AD 2.EETU-RNAV SID-26\n(07 AUG 2025)"
+    },
+    {
+      "0": "Instrumentaallähenemiskaart - ICAO - EETU RNP RWY 08\nInstrument Approach Chart - ICAO - EETU RNP RWY 08",
+      "1": "AD 2.EETU-IAC-08-2\n(08 SEP 2022)"
+    },
+    {
+      "0": "Lõpplähenemise segmendi andmete plokk - EETU RNP RWY 08\nFinal Approach Segment Data Block - EETU RNP RWY 08",
+      "1": "AD 2.EETU-FASDB-08-2\n(05 DEC 2019)"
+    },
+    {
+      "0": "Instrumentaallähenemiskaart - ICAO - EETU RNP RWY 26\nInstrument Approach Chart - ICAO - EETU RNP RWY 26",
+      "1": "AD 2.EETU-IAC-26-3\n(08 SEP 2022)"
+    },
+    {
+      "0": "Lõpplähenemise segmendi andmete plokk - EETU RNP RWY 26\nFinal Approach Segment Data Block - EETU RNP RWY 26",
+      "1": "AD 2.EETU-FASDB-26-3\n(05 DEC 2019)"
+    },
+    {
+      "0": "Instrumentaallähenemiskaart - ICAO - EETU ILS or LOC RWY 26\nInstrument Approach Chart - ICAO - EETU ILS or LOC RWY 26",
+      "1": "AD 2.EETU-IAC-26-4\n(05 SEP 2024)"
+    },
+    {
+      "0": "Visuaallähenemiskaart - ICAO\nVisual Approach Chart - ICAO",
+      "1": "AD 2.EETU-VAC\n(18 APR 2024)"
+    },
+    {
+      "0": "Maandumiskaart\nLanding Chart",
+      "1": "AD 2.EETU-LDG\n(29 DEC 2022)"
+    },
+    {
+      "0": "Lindude kogunemiskohad lennuvälja ümbruses\nBird Concentrations in the Vicinity of the Aerodrome",
+      "1": "AD 2.EETU-BIRD\n(07 APR 2011)"
+    }
+  ]
+]

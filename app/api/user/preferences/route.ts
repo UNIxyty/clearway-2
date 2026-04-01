@@ -40,11 +40,6 @@ export async function GET() {
     if (userErr || !userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
-    const metadataName =
-      (typeof metadata.full_name === "string" ? metadata.full_name : null) ??
-      (typeof metadata.name === "string" ? metadata.name : null);
-    const normalizedMetadataName = metadataName?.trim() || null;
 
     const admin = createSupabaseServiceRoleClient();
     const db = admin ?? supabase;
@@ -58,28 +53,7 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    let preferences: Record<string, unknown> | null = (data as Record<string, unknown> | null) ?? null;
-    if ((!preferences || !preferences.display_name) && normalizedMetadataName) {
-      const fallback = {
-        user_id: userId,
-        display_name: normalizedMetadataName,
-      };
-      const { data: synced, error: syncErr } = await db
-        .from("user_preferences")
-        .upsert(fallback, { onConflict: "user_id" })
-        .select(PREF_SELECT)
-        .maybeSingle();
-      if (!syncErr && synced) {
-        preferences = synced as Record<string, unknown>;
-      } else {
-        preferences = {
-          ...(preferences ?? {}),
-          display_name: normalizedMetadataName,
-        };
-      }
-    }
-
-    return NextResponse.json({ preferences });
+    return NextResponse.json({ preferences: data });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: (e as { message?: string })?.message || "Failed" },

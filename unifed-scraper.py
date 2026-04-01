@@ -11,6 +11,7 @@ Supports multiple eAIP platform types:
 import os
 import re
 import sys
+import unicodedata
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
@@ -125,17 +126,6 @@ COUNTRIES = {
         "history_url": "https://www.ais.pansa.pl/eaip/default_offline_2026-03-19.html",
         "base_url":    "https://www.ais.pansa.pl/eaip/",
     },
-    # ── TYPE C: ASECNA multi-country portal ──
-    "ASECNA": {
-        "type": "C",
-        "portal_url": "https://aim.asecna.aero/html/index-fr-FR.html",
-        "countries": [
-            "Benin", "Burkina Faso", "Cameroon", "Central African Republic",
-            "Chad", "Comoros", "Congo", "Côte d'Ivoire", "Gabon",
-            "Guinea", "Guinea-Bissau", "Madagascar", "Mali", "Mauritania",
-            "Niger", "Senegal", "Togo",
-        ],
-    },
     # ── TYPE D: Eurocontrol direct folder (Sri Lanka) ──
     "Sri Lanka": {
         "type": "D",
@@ -173,6 +163,121 @@ def get_soup(url, timeout=20):
     return BeautifulSoup(resp.text, "html.parser")
 
 
+def extract_hrefs(soup):
+    return [a["href"] for a in soup.find_all("a", href=True)]
+
+
+def _folder_from_href(href):
+    for pat in (r"(\d{4}-\d{2}-\d{2}-\d+)/html/", r"(\d{4}-\d{2}-\d{2})/html/"):
+        m = re.search(pat, href)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _extract_effective_from_history_soup(soup, base_url):
+    for href in extract_hrefs(soup):
+        folder = _folder_from_href(href)
+        if folder:
+            return folder, urljoin(base_url, folder + "/html/")
+    return None
+
+
+def _find_history_body_url(history_url, soup):
+    for frame in soup.find_all("frame", src=True):
+        src = frame["src"]
+        if "history-body" in src.lower():
+            return urljoin(history_url, src)
+    return None
+
+
+def _discover_menu_url_from_index(index_url, index_soup):
+    # Direct menu links sometimes exist in index.
+    for frame in index_soup.find_all("frame", src=True):
+        src = frame["src"]
+        if "menu" in src.lower() and src.lower().endswith(".html"):
+            return urljoin(index_url, src)
+
+    # Typical flow: index -> toc-frameset -> menu frame.
+    toc_url = None
+    for frame in index_soup.find_all("frame", src=True):
+        src = frame["src"]
+        if "toc" in src.lower() and src.lower().endswith(".html"):
+            toc_url = urljoin(index_url, src)
+            break
+    if not toc_url:
+        return None
+    try:
+        toc_soup = get_soup(toc_url)
+    except requests.RequestException:
+        return None
+    for frame in toc_soup.find_all("frame", src=True):
+        src = frame["src"]
+        if "menu" in src.lower() and src.lower().endswith(".html"):
+            return urljoin(toc_url, src)
+    return None
+
+
+def _get_navigation_soup(eaip_base, index_leaf):
+    index_url = urljoin(eaip_base, index_leaf)
+    index_soup = get_soup(index_url)
+    hrefs = extract_hrefs(index_soup)
+    if hrefs:
+        return index_url, index_soup
+    menu_url = _discover_menu_url_from_index(index_url, index_soup)
+    if not menu_url:
+        return index_url, index_soup
+    menu_soup = get_soup(menu_url)
+    return menu_url, menu_soup
+
+
+def _commands_js_style_name_from_html_page(page_url):
+    parsed = urlparse(page_url)
+    base_name = os.path.basename(parsed.path)
+    if not base_name.lower().endswith(".html"):
+        return None
+    stem = base_name[:-5]  # strip .html
+    # Remove country prefix "SV-" / "UG-" etc.
+    if "-" in stem:
+        stem = stem.split("-", 1)[1]
+    # Remove trailing language block "-en-GB" / "-fr-FR" etc.
+    stem = re.sub(r"-[a-z]{2}-[A-Z]{2}$", "", stem)
+    # Some pages may still end with "-en"
+    stem = re.sub(r"-[a-z]{2}$", "", stem)
+    if not stem:
+        return None
+    return stem + ".pdf"
+
+
+def _pdf_candidates_from_html_page(page_url):
+    parsed = urlparse(page_url)
+    path = parsed.path
+    # Generic html -> pdf conversion.
+    direct = re.sub(r"/html/", "/pdf/", path, flags=re.I)
+    direct = re.sub(r"\.html$", ".pdf", direct, flags=re.I)
+    candidates = [f"{parsed.scheme}://{parsed.netloc}{direct}"]
+
+    # Remove trailing language suffix if present.
+    no_lang = re.sub(r"-[a-z]{2}-[A-Z]{2}\.pdf$", ".pdf", candidates[0], flags=re.I)
+    if no_lang != candidates[0]:
+        candidates.append(no_lang)
+
+    # commands.js-style conversion keeps folder but rewrites basename.
+    cmd_pdf = _commands_js_style_name_from_html_page(page_url)
+    if cmd_pdf:
+        pdf_dir = re.sub(r"/html/", "/pdf/", os.path.dirname(path), flags=re.I)
+        candidates.append(f"{parsed.scheme}://{parsed.netloc}{pdf_dir}/{cmd_pdf}")
+
+    # Deduplicate while preserving order.
+    out = []
+    seen = set()
+    for c in candidates:
+        if c not in seen:
+            out.append(c)
+            seen.add(c)
+    return out
+
+
 def download_file(url, dest_path):
     parent = os.path.dirname(dest_path)
     if parent:
@@ -188,6 +293,89 @@ def download_file(url, dest_path):
 
 def safe_filename(name):
     return re.sub(r'[\\/*?:"<>|]', "_", name)
+
+
+def normalize_text(value):
+    folded = unicodedata.normalize("NFKD", value or "")
+    ascii_only = folded.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "", ascii_only.lower())
+
+
+def prompt_for_country(input_func=input):
+    countries = sorted(COUNTRIES)
+    print("Available countries:", ", ".join(countries))
+    while True:
+        raw = input_func("Enter country name: ").strip()
+        if not raw:
+            continue
+        exact = COUNTRIES.get(raw)
+        if exact:
+            return raw
+        n = normalize_text(raw)
+        for key in countries:
+            if normalize_text(key) == n:
+                return key
+        print(f"Unknown country: {raw!r}. Try again.")
+
+
+def prompt_for_mode(input_func=input):
+    print("Select mode (1=GEN, 2=AD2, 3=ALL): ", end="")
+    while True:
+        raw = input_func().strip().lower()
+        mode_map = {"1": "gen", "2": "ad2", "3": "all", "gen": "gen", "ad2": "ad2", "all": "all"}
+        mode = mode_map.get(raw)
+        if mode:
+            return mode
+        print("Enter 1, 2, 3, gen, ad2, or all: ", end="")
+
+
+def resolve_cli_inputs(args, input_func=input):
+    country = args.country or prompt_for_country(input_func=input_func)
+    if country not in COUNTRIES:
+        raise RuntimeError(
+            f"Unknown country: {country!r}. Available countries: {', '.join(sorted(COUNTRIES))}"
+        )
+
+    mode = args.mode or prompt_for_mode(input_func=input_func)
+    icao = args.icao.upper() if args.icao else None
+    if mode == "ad2" and not icao:
+        raw = input_func("Enter ICAO code: ").strip().upper()
+        if not raw:
+            raise RuntimeError("ICAO code is required for AD2 mode.")
+        icao = raw
+    return country, mode, icao
+
+
+ASECNA_PORTAL_URL = "https://aim.asecna.aero/html/index-fr-FR.html"
+ASECNA_HISTORY_URL = "https://aim.asecna.aero/html/history-fr-FR.html"
+ASECNA_COUNTRIES = [
+    "Benin",
+    "Burkina Faso",
+    "Cameroon",
+    "Central African Republic",
+    "Chad",
+    "Comoros",
+    "Congo",
+    "Cote d'Ivoire",
+    "Gabon",
+    "Guinea",
+    "Guinea-Bissau",
+    "Madagascar",
+    "Mali",
+    "Mauritania",
+    "Niger",
+    "Senegal",
+    "Togo",
+]
+
+for _asecna_country in ASECNA_COUNTRIES:
+    COUNTRIES[_asecna_country] = {
+        "type": "C",
+        "portal_url": ASECNA_PORTAL_URL,
+        "history_url": ASECNA_HISTORY_URL,
+        "index_page": "index-fr-FR.html",
+        "country_name": _asecna_country,
+    }
 
 
 # ─────────────────────────────────────────────
@@ -224,22 +412,21 @@ def type_a_get_effective_folder(history_urls):
 def _type_a_resolve_one_history_url(history_url):
     print(f"  Fetching history page: {history_url}")
     soup = get_soup(history_url)
-    base = history_url.rsplit("/", 1)[0] + "/"
+    resolved = _extract_effective_from_history_soup(soup, history_url)
+    if resolved:
+        folder, eaip_base = resolved
+        print(f"  → Effective folder: {folder}")
+        return folder, eaip_base
 
-    # CURRENT ISSUE row links, e.g. 2026-02-19-000000/html/… or 2026-02-19/html/…
-    patterns = (
-        r"(\d{4}-\d{2}-\d{2}-\d+)/html/",
-        r"(\d{4}-\d{2}-\d{2})/html/",
-    )
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        for pat in patterns:
-            m = re.search(pat, href)
-            if m:
-                folder = m.group(1)
-                eaip_base = urljoin(base, folder + "/html/")
-                print(f"  → Effective folder: {folder}")
-                return folder, eaip_base
+    # Frame-based history pages (e.g. .../history-en-GB.html + history-body-en-GB.html).
+    body_url = _find_history_body_url(history_url, soup)
+    if body_url:
+        body_soup = get_soup(body_url)
+        resolved = _extract_effective_from_history_soup(body_soup, body_url)
+        if resolved:
+            folder, eaip_base = resolved
+            print(f"  → Effective folder: {folder}")
+            return folder, eaip_base
 
     raise RuntimeError(f"Could not find effective issue folder in {history_url}")
 
@@ -285,19 +472,32 @@ def type_a_get_ad2_from_menu(eaip_base, menu_prefix, index_leaf="index-en-GB.htm
 
 def type_a_get_gen_pdfs(eaip_base, index_leaf="index-en-GB.html"):
     """Scrape GEN section PDF links from the eAIP index."""
-    index_url = urljoin(eaip_base, index_leaf)
-    soup = get_soup(index_url)
+    source_url, soup = _get_navigation_soup(eaip_base, index_leaf)
     pdfs = {}
     for a in soup.find_all("a", href=True):
         href = a["href"]
         # GEN PDFs: match links like "UG-GEN-1.1-en-GB.pdf" or similar
         if re.search(r"GEN[\-_]\d", href, re.IGNORECASE) and href.lower().endswith(".pdf"):
-            full_url = urljoin(eaip_base, href)
+            full_url = urljoin(source_url, href)
             label = a.get_text(strip=True) or os.path.basename(href)
             pdfs[label] = full_url
-    # Fallback: scan each GEN page for PDF link
+
+    # Fallback 1: scan each GEN page for PDF links.
     if not pdfs:
-        pdfs = type_a_scrape_pdf_from_section(eaip_base, "GEN", index_leaf)
+        pdfs = type_a_scrape_pdf_from_section(eaip_base, "GEN", index_leaf, source_url=source_url, soup=soup)
+
+    # Fallback 2: derive PDF URL from GEN HTML links (commands.js-style websites).
+    if not pdfs:
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "GEN" not in href.upper() or not href.lower().endswith(".html"):
+                continue
+            page_url = urljoin(source_url, href)
+            label = a.get_text(strip=True) or os.path.basename(href)
+            for candidate in _pdf_candidates_from_html_page(page_url):
+                if _type_a_pdf_head_ok(candidate):
+                    pdfs[label] = candidate
+                    break
     return pdfs
 
 
@@ -307,18 +507,19 @@ def type_a_get_ad2_airports(
     menu_prefix=None,
 ):
     """Return dict {ICAO: html_page_url} for all AD2 airports."""
-    index_url = urljoin(eaip_base, index_leaf)
-    soup = get_soup(index_url)
+    source_url, soup = _get_navigation_soup(eaip_base, index_leaf)
     airports = {}
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        # AD2 links: e.g. UGAM/html/... or AD-2-UGAM
-        m = re.search(r"AD[-_]2[-_]([A-Z]{4})", href, re.IGNORECASE)
+        # AD2 links: AD-2-UGAM, AD2.1SVAC, AD-2.SVAC, or /SVAC/html/
+        m = re.search(r"AD[-_\.\s]?2[-_\.\s]?([A-Z]{4})", href, re.IGNORECASE)
+        if not m:
+            m = re.search(r"AD2\.1([A-Z]{4})", href, re.IGNORECASE)
         if not m:
             m = re.search(r"/([A-Z]{4})/html/", href)
         if m:
             icao = m.group(1).upper()
-            full_url = urljoin(eaip_base, href)
+            full_url = urljoin(source_url, href)
             airports[icao] = full_url
     if menu_prefix:
         for icao, url in type_a_get_ad2_from_menu(
@@ -344,29 +545,23 @@ def _type_a_pdf_head_ok(url):
 
 def type_a_get_ad2_pdf(airport_page_url, eaip_base):
     """Given an AD2 airport page URL, find and return the PDF download URL."""
-    soup = get_soup(airport_page_url)
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.lower().endswith(".pdf"):
-            return urljoin(airport_page_url, href)
-    parsed = urlparse(airport_page_url)
-    path_parts = parsed.path.split("/")
-    pdf_path = "/".join(
-        "pdf" if p == "html" else p for p in path_parts
-    )
-    pdf_path = re.sub(r"\.html$", ".pdf", pdf_path)
-    candidates = [f"{parsed.scheme}://{parsed.netloc}{pdf_path}"]
-    # Many Eurocontrol trees drop the language tag on the PDF (…-en-GB.html → … .pdf)
-    alt = re.sub(r"-en-[A-Z]{2}\.pdf$", ".pdf", candidates[0], flags=re.I)
-    if alt != candidates[0]:
-        candidates.append(alt)
+    try:
+        soup = get_soup(airport_page_url)
+    except requests.RequestException:
+        soup = None
+    if soup is not None:
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.lower().endswith(".pdf"):
+                return urljoin(airport_page_url, href)
 
+    candidates = list(_pdf_candidates_from_html_page(airport_page_url))
     root = type_a_eaip_folder_root(eaip_base)
-    bn = os.path.basename(parsed.path)
-    short_pdf = re.sub(r"-en-[A-Z]{2}\.html$", ".pdf", bn, flags=re.I)
-    if not short_pdf.lower().endswith(".pdf"):
-        short_pdf = re.sub(r"\.html$", ".pdf", bn, flags=re.I)
-    candidates.append(f"{root.rstrip('/')}/pdf/{short_pdf}")
+    bn = os.path.basename(urlparse(airport_page_url).path)
+    short_pdf = re.sub(r"-[a-z]{2}-[A-Z]{2}\.html$", ".pdf", bn, flags=re.I)
+    short_pdf = re.sub(r"\.html$", ".pdf", short_pdf, flags=re.I)
+    if short_pdf.lower().endswith(".pdf"):
+        candidates.append(f"{root.rstrip('/')}/pdf/{short_pdf}")
 
     seen = set()
     for candidate in candidates:
@@ -378,16 +573,18 @@ def type_a_get_ad2_pdf(airport_page_url, eaip_base):
     return None
 
 
-def type_a_scrape_pdf_from_section(eaip_base, section_prefix, index_leaf="index-en-GB.html"):
+def type_a_scrape_pdf_from_section(
+    eaip_base, section_prefix, index_leaf="index-en-GB.html", source_url=None, soup=None
+):
     """Generic: fetch index, find all links starting with section_prefix, collect PDFs."""
-    index_url = urljoin(eaip_base, index_leaf)
-    soup = get_soup(index_url)
+    if source_url is None or soup is None:
+        source_url, soup = _get_navigation_soup(eaip_base, index_leaf)
     pdfs = {}
     for a in soup.find_all("a", href=True):
         href = a["href"]
         if section_prefix in href.upper() and href.lower().endswith(".pdf"):
             label = a.get_text(strip=True) or os.path.basename(href)
-            pdfs[label] = urljoin(eaip_base, href)
+            pdfs[label] = urljoin(source_url, href)
     return pdfs
 
 
@@ -397,45 +594,54 @@ def try_common_gen_pdfs(eaip_base, country_name, index_leaf="index-en-GB.html"):
     Used when the main index lists HTML hubs instead of PDFs directly.
     """
     del country_name  # reserved for future country-specific naming heuristics
-    index_url = urljoin(eaip_base, index_leaf)
-    soup = get_soup(index_url)
+    source_url, soup = _get_navigation_soup(eaip_base, index_leaf)
     seen_pages = set()
     pdfs = {}
     for a in soup.find_all("a", href=True):
         href = a["href"]
         if "GEN" not in href.upper() or not href.lower().endswith(".html"):
             continue
-        page_url = urljoin(eaip_base, href)
+        page_url = urljoin(source_url, href)
+        page_label = a.get_text(strip=True) or os.path.basename(href)
         if page_url in seen_pages:
             continue
         seen_pages.add(page_url)
+        found_pdf = False
         try:
             sub = get_soup(page_url)
         except Exception:
-            continue
-        for la in sub.find_all("a", href=True):
-            h = la["href"]
-            if not h.lower().endswith(".pdf"):
-                continue
-            if "GEN" not in h.upper():
-                continue
-            label = la.get_text(strip=True) or os.path.basename(h)
-            pdfs[label] = urljoin(page_url, h)
+            sub = None
+        if sub is not None:
+            for la in sub.find_all("a", href=True):
+                h = la["href"]
+                if not h.lower().endswith(".pdf"):
+                    continue
+                if "GEN" not in h.upper():
+                    continue
+                label = la.get_text(strip=True) or os.path.basename(h)
+                pdfs[label] = urljoin(page_url, h)
+                found_pdf = True
+        if not found_pdf:
+            for candidate in _pdf_candidates_from_html_page(page_url):
+                if _type_a_pdf_head_ok(candidate):
+                    pdfs[page_label] = candidate
+                    break
     return pdfs
 
 
 def scrape_airports_from_index(eaip_base, index_leaf="index-en-GB.html"):
     """Broader AD2 discovery when standard index patterns miss airports."""
-    index_url = urljoin(eaip_base, index_leaf)
-    soup = get_soup(index_url)
+    source_url, soup = _get_navigation_soup(eaip_base, index_leaf)
     airports = {}
     for a in soup.find_all("a", href=True):
         href = a["href"]
         if not href.lower().endswith(".html"):
             continue
-        full = urljoin(eaip_base, href)
+        full = urljoin(source_url, href)
         blob = href.upper().replace(" ", "")
-        m = re.search(r"AD[-_\s]?2[-_\s]?([A-Z]{4})", blob)
+        m = re.search(r"AD[-_\.\s]?2[-_\.\s]?([A-Z]{4})", blob)
+        if not m:
+            m = re.search(r"AD2\.1([A-Z]{4})", blob)
         if not m:
             continue
         airports[m.group(1)] = full
@@ -542,11 +748,105 @@ def run_type_b(country_name, config, mode, icao=None, output_dir="downloads"):
                     print(f"  ✗ Failed {pdf_url}: {e}")
 
 
+def _extract_type_c_issue_candidates(soup, base_url, country_name):
+    country_token = normalize_text(country_name)
+    candidates = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        text = a.get_text(" ", strip=True)
+        packed = f"{href} {text}"
+        norm = normalize_text(packed)
+        if country_token and country_token not in norm:
+            continue
+        if "index-fr-fr.html" not in href.lower():
+            continue
+        folder_match = re.search(r"(\d{4}-\d{2}-\d{2}(?:-\d{6})?)/html/", href)
+        folder = folder_match.group(1) if folder_match else None
+        abs_index = urljoin(base_url, href)
+        eaip_base = abs_index.rsplit("/", 1)[0] + "/"
+        candidates.append((folder or "current", eaip_base, abs_index))
+    return candidates
+
+
+def resolve_type_c_base(config, country_name):
+    history_url = config["history_url"]
+    portal_url = config["portal_url"]
+    candidates = []
+    try:
+        history_soup = get_soup(history_url, timeout=30)
+        candidates = _extract_type_c_issue_candidates(history_soup, history_url, country_name)
+    except requests.RequestException:
+        pass
+    if not candidates:
+        try:
+            portal_soup = get_soup(portal_url, timeout=30)
+            candidates = _extract_type_c_issue_candidates(portal_soup, portal_url, country_name)
+        except requests.RequestException:
+            pass
+    if not candidates:
+        # ASECNA may expose a frame-based menu without dated folder URLs.
+        portal_base = portal_url.rsplit("/", 1)[0] + "/"
+        return "current", portal_base
+    # Choose latest issue by lexical sort on YYYY-MM-DD[-HHMMSS] folder token.
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    folder, eaip_base, _index = candidates[0]
+    return folder, eaip_base
+
+
 def run_type_c(country_name, config, mode, icao=None, output_dir="downloads"):
-    del country_name, config, mode, icao, output_dir
-    raise NotImplementedError(
-        "ASECNA (type C) multi-country portal is not implemented in this script yet."
-    )
+    index_leaf = config.get("index_page", "index-fr-FR.html")
+    folder, eaip_base = resolve_type_c_base(config, country_name)
+    base_dir = os.path.join(output_dir, safe_filename(country_name), safe_filename(folder))
+
+    if mode in ("gen", "all"):
+        print(f"\n[{country_name}] Downloading GEN section...")
+        pdfs = type_a_get_gen_pdfs(eaip_base, index_leaf)
+        if not pdfs:
+            print("  ⚠ No GEN PDFs found via index. Trying GEN subpages...")
+            pdfs = try_common_gen_pdfs(eaip_base, country_name, index_leaf)
+        if not pdfs:
+            print(f"  ⚠ No GEN PDFs found for {country_name}.")
+        for label, url in pdfs.items():
+            fname = safe_filename(label)
+            if not fname.lower().endswith(".pdf"):
+                fname += ".pdf"
+            dest = os.path.join(base_dir, "GEN", fname)
+            try:
+                download_file(url, dest)
+            except Exception as e:
+                print(f"  ✗ Failed {url}: {e}")
+
+    if mode in ("ad2", "all"):
+        airports = type_a_get_ad2_airports(eaip_base, index_leaf=index_leaf)
+        if not airports:
+            print("  ⚠ Could not auto-detect airports. Trying broader index scrape...")
+            airports = scrape_airports_from_index(eaip_base, index_leaf)
+        if not airports:
+            print(f"  ⚠ No AD2 airports discovered for {country_name}.")
+            return
+
+        if mode == "all":
+            targets = list(airports.keys())
+        else:
+            if not icao:
+                print("  ✗ ICAO required for mode ad2")
+                return
+            targets = [icao.upper()]
+        for target_icao in targets:
+            if target_icao not in airports:
+                print(f"  ⚠ ICAO {target_icao} not found. Available: {list(airports.keys())}")
+                continue
+            print(f"\n[{country_name}] Downloading AD2 for {target_icao}...")
+            pdf_url = type_a_get_ad2_pdf(airports[target_icao], eaip_base)
+            if not pdf_url:
+                print(f"  ✗ Could not resolve PDF for {target_icao}")
+                continue
+            name = safe_filename(os.path.basename(urlparse(pdf_url).path))
+            dest = os.path.join(base_dir, "AD2", target_icao, name)
+            try:
+                download_file(pdf_url, dest)
+            except Exception as e:
+                print(f"  ✗ Failed {pdf_url}: {e}")
 
 
 def run_type_d(country_name, config, mode, icao=None, output_dir="downloads"):
@@ -605,7 +905,7 @@ def run_type_d(country_name, config, mode, icao=None, output_dir="downloads"):
 def run_type_a(country_name, config, mode, icao=None, output_dir="downloads"):
     index_leaf = config.get("index_page", "index-en-GB.html")
     folder, eaip_base = type_a_get_effective_folder(_history_urls_for_config(config))
-    base_dir = os.path.join(output_dir, safe_filename(country_name), folder)
+    base_dir = os.path.join(output_dir, safe_filename(country_name), safe_filename(folder))
 
     if mode in ("gen", "all"):
         print(f"\n[{country_name}] Downloading GEN section...")
@@ -659,8 +959,7 @@ def run_type_a(country_name, config, mode, icao=None, output_dir="downloads"):
 
 def run_country(country_name, mode="all", icao=None, output_dir="downloads"):
     if country_name not in COUNTRIES:
-        print(f"Unknown country: {country_name!r}. Keys: {sorted(COUNTRIES)}", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"Unknown country: {country_name!r}. Keys: {sorted(COUNTRIES)}")
     cfg = COUNTRIES[country_name]
     kind = cfg["type"]
     runners = {"A": run_type_a, "B": run_type_b, "C": run_type_c, "D": run_type_d}
@@ -680,18 +979,14 @@ def main():
         nargs="?",
         help=f"Country key from registry (e.g. Georgia, Poland). Keys: {', '.join(sorted(COUNTRIES))}",
     )
-    p.add_argument("--mode", choices=("gen", "ad2", "all"), default="all")
+    p.add_argument("--mode", choices=("gen", "ad2", "all"))
     p.add_argument("--icao", help="ICAO code (required for --mode ad2 unless --mode all)")
     p.add_argument("--output", "-o", default="downloads", help="Output root directory")
     args = p.parse_args()
 
-    if not args.country:
-        p.print_help()
-        print("\nRegistered countries:", ", ".join(sorted(COUNTRIES)))
-        sys.exit(0)
-
     try:
-        run_country(args.country, mode=args.mode, icao=args.icao, output_dir=args.output)
+        country, mode, icao = resolve_cli_inputs(args)
+        run_country(country, mode=mode, icao=icao, output_dir=args.output)
     except NotImplementedError as e:
         print(e, file=sys.stderr)
         sys.exit(2)

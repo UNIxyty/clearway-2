@@ -1,0 +1,527 @@
+[
+  {
+    "icao": "EFTS",
+    "country": "Finland",
+    "state": null,
+    "name": "Teisko Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "EGSY",
+    "country": "United Kingdom",
+    "state": null,
+    "name": "Sheffield City Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "EHMM",
+    "country": "Netherlands",
+    "state": null,
+    "name": "Midden-Zeeland Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "ENRE",
+    "country": "Norway",
+    "state": null,
+    "name": "Rørvik Airport, Ryum",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "ENSA",
+    "country": "Norway",
+    "state": null,
+    "name": "Stord Airport, Sørstokken",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "GSAI",
+    "country": "Spain",
+    "state": null,
+    "name": "Dakhla Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "GSVO",
+    "country": "Spain",
+    "state": null,
+    "name": "Villa Cisneros Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "HCDB",
+    "country": "Somalia",
+    "state": null,
+    "name": "DHOBLEY",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "HCDL",
+    "country": "Somalia",
+    "state": null,
+    "name": "DOLOW",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "HCGD",
+    "country": "Somalia",
+    "state": null,
+    "name": "GALDOGOB",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "HCGR",
+    "country": "Somalia",
+    "state": null,
+    "name": "GAROWE INTL",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "HLLT",
+    "country": "Libya",
+    "state": null,
+    "name": "TRIPOLI/ Tripoli International",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "IFR / VFR",
+    "country": "Mongolia",
+    "state": null,
+    "name": "Reference code: 4D",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "LCNC",
+    "country": "Cyprus",
+    "state": null,
+    "name": "Nicosia International Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LEPO",
+    "country": "Spain",
+    "state": null,
+    "name": "Portbou Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LERJ",
+    "country": "Spain",
+    "state": null,
+    "name": "Rejola Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LFHB",
+    "country": "France",
+    "state": null,
+    "name": "Metz-Frescaty Air Base",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LFKR",
+    "country": "France",
+    "state": null,
+    "name": "Propriano Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LFNN",
+    "country": "France",
+    "state": null,
+    "name": "Nevers-Fourchambault Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LFPR",
+    "country": "France",
+    "state": null,
+    "name": "Persan-Beaumont Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LFTB",
+    "country": "France",
+    "state": null,
+    "name": "Aubenas-Ardèche Méridionale Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LRCJ",
+    "country": "Romania",
+    "state": null,
+    "name": "Cluj-Napoca Airport (old)",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LRCR",
+    "country": "Romania",
+    "state": null,
+    "name": "Craiova Airport (old)",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LRCW",
+    "country": "Romania",
+    "state": null,
+    "name": "Câmpulung Moldovenesc Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LRDV",
+    "country": "Romania",
+    "state": null,
+    "name": "Deveselu Air Base",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LRHR",
+    "country": "Romania",
+    "state": null,
+    "name": "Hărman Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LUKE",
+    "country": "Moldova",
+    "state": null,
+    "name": "Crocmaz Airstrip",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LUKH",
+    "country": "Moldova",
+    "state": null,
+    "name": "Horesti Airfield",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LUKV",
+    "country": "Moldova",
+    "state": null,
+    "name": "Cahul International Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYCU",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Čurug Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYKG",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Kikinda Aerodrome",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYKU",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Kruševac Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYPJ",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Pirot Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYPR",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Priština Airport (old)",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYPT",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Batlava-Donja Penduha Airfield",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYSD",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Subotica Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYVJ",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Valjevo Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "LYZP",
+    "country": "Serbia and Montenegro",
+    "state": null,
+    "name": "Zrenjanin Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "OEAD",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "ARADAH",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OEBT",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "BATHA",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OEJL",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "KING ABDULAZIZ NAVAL BASE",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OEKA",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "KHASHM ALAN",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OEKN",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "KHURAIS",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OERS",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "HANAK / RED SEA INTERNATIONAL",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OEST",
+    "country": "Saudi Arabia",
+    "state": null,
+    "name": "SHABITAH",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OIBX",
+    "country": "Iran",
+    "state": null,
+    "name": "TUNB-E- BOZORG ISLAND/ TUNB-E- BOZORG /Military",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OODQ",
+    "country": "Oman",
+    "state": null,
+    "name": "DUQM/Duqm",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "OOMK",
+    "country": "Oman",
+    "state": null,
+    "name": "MUKHAIZNA/Mukhaizna",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "RPLG",
+    "country": "Philippines",
+    "state": null,
+    "name": "Lingayen Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "RPLM",
+    "country": "Philippines",
+    "state": null,
+    "name": "Mamburao Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "RPNO",
+    "country": "Philippines",
+    "state": null,
+    "name": "Laoag Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "SAGA",
+    "country": "Japan",
+    "state": null,
+    "name": "",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "UAIK",
+    "country": "Kazakhstan",
+    "state": null,
+    "name": "Shymkent Airport (old)",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UASU",
+    "country": "Kazakhstan",
+    "state": null,
+    "name": "Urdzhar Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UBEA",
+    "country": "Azerbaijan",
+    "state": null,
+    "name": "Aghjabadi Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UBKH",
+    "country": "Azerbaijan",
+    "state": null,
+    "name": "Khankendi Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UBLC",
+    "country": "Azerbaijan",
+    "state": null,
+    "name": "Lankaran International Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UBSW",
+    "country": "Azerbaijan",
+    "state": null,
+    "name": "Zangilan International Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UCFT",
+    "country": "Kyrgyzstan",
+    "state": null,
+    "name": "TALAS",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "UCFV",
+    "country": "Kyrgyzstan",
+    "state": null,
+    "name": "Isfana Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UCFZ",
+    "country": "Kyrgyzstan",
+    "state": null,
+    "name": "Kazarman Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UKHK",
+    "country": "Ukraine",
+    "state": null,
+    "name": "Kamianske Airport",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UKKT",
+    "country": "Ukraine",
+    "state": null,
+    "name": "Sviatoshyn Airfield",
+    "source": "ead_v3_cleaned"
+  },
+  {
+    "icao": "UMIO",
+    "country": "Belarus",
+    "state": null,
+    "name": "ORSHA",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "URFF",
+    "country": "Russia",
+    "state": null,
+    "name": "СИМФЕРОПОЛЬ",
+    "source": "portal_static_russia"
+  },
+  {
+    "icao": "UTAN",
+    "country": "Turkmenistan",
+    "state": null,
+    "name": "BALKANABAT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VNPR",
+    "country": "Nepal",
+    "state": null,
+    "name": "POKHARA/International",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VRCF",
+    "country": "Maldives",
+    "state": null,
+    "name": "FUNADHOO AIRPORT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VRGD",
+    "country": "Maldives",
+    "state": null,
+    "name": "MADIVARU AIRPORT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VRKM",
+    "country": "Maldives",
+    "state": null,
+    "name": "MULI AIRPORT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VRMR",
+    "country": "Maldives",
+    "state": null,
+    "name": "FUVAHMULAH AIRPORT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VRQF",
+    "country": "Maldives",
+    "state": null,
+    "name": "FARESMAATHODAA AIRPORT",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "VTSY",
+    "country": "Thailand",
+    "state": null,
+    "name": "Yala/ Betong",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "WIDT",
+    "country": "Singapore",
+    "state": null,
+    "name": "TANJUNG BALAI KARIMUN / RAJA HAJI ABDULLAH (INDONESIA)",
+    "source": "portal_static_aip"
+  },
+  {
+    "icao": "ZMKB",
+    "country": "Mongolia",
+    "state": null,
+    "name": "UMNUGOBI/Khanbumbat",
+    "source": "portal_static_aip"
+  }
+]

@@ -22,7 +22,7 @@ import UserBadge from "@/components/UserBadge";
 import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
-import { getAsecnaAirportsSet, getAsecnaAirportByIcao } from "@/lib/asecna-airports";
+import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 
 export type NotamItem = {
   location: string;
@@ -94,7 +94,7 @@ const EAD_ICAO_PREFIXES = new Set([
   "LE", "ES", "GC", "LS", "LT", "UK", "EG",
 ]);
 
-const MAIN_PAGE_DISABLE_GEN = true;
+const MAIN_PAGE_DISABLE_GEN = false;
 const ASECNA_ICAOS = getAsecnaAirportsSet();
 
 function isEadIcao(icao: string): boolean {
@@ -120,6 +120,34 @@ function isRussiaIcao(icao: string): boolean {
 
 function isAsecnaIcao(icao: string): boolean {
   return ASECNA_ICAOS.has(icao.toUpperCase());
+}
+
+function isAsecnaAirport(airport: AIPAirport | null): boolean {
+  if (!airport) return false;
+  if (airport.sourceType === "ASECNA_DYNAMIC") return true;
+  if (airport.webAipUrl && /aim\.asecna\.aero/i.test(airport.webAipUrl)) return true;
+  const target = String(airport.country || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .trim()
+    .toLowerCase();
+  return (getAsecnaData().countries || []).some((c) => {
+    const n = String(c.name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[’]/g, "'")
+      .trim()
+      .toLowerCase();
+    return n === target;
+  });
+}
+
+function hasAsecnaGen12(icao: string): boolean {
+  const airport = getAsecnaAirportByIcao(icao);
+  if (!airport) return false;
+  const country = (getAsecnaData().countries || []).find((c) => c.code === airport.countryCode);
+  return Boolean(country?.gen12?.anchor);
 }
 
 function supportsSyncedAipIcao(icao: string): boolean {
@@ -478,7 +506,8 @@ function AIPPortalPageInner() {
 
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !isEadIcao(icao)) return;
+    if (!icao || (!isEadIcao(icao) && !isAsecnaIcao(icao))) return;
+    if (isAsecnaIcao(icao)) return;
     const prefix = icao.slice(0, 2).toUpperCase();
     if (prefix in genPdfExistsOnServer) return;
     fetch(`/api/aip/gen/pdf/exists?prefix=${encodeURIComponent(prefix)}`, { cache: "no-store" })
@@ -732,7 +761,40 @@ function AIPPortalPageInner() {
     }
   }, []);
 
-  const downloadGenPdfWithSync = useCallback(async (icao: string) => {
+  const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false) => {
+    const useAsecnaGen = forceAsecna || isAsecnaIcao(icao);
+    if (useAsecnaGen) {
+      setGenPdfDownloadError(null);
+      setGenPdfDownloading(true);
+      setGenSyncingPrefix("AS");
+      setGenSyncSteps(["Fetching ASECNA GEN 1.2 PDF…"]);
+      try {
+        const pdfRes = await fetch(`/api/aip/asecna/gen/pdf?icao=${encodeURIComponent(icao)}`, {
+          cache: "no-store",
+        });
+        if (!pdfRes.ok) {
+          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
+          throw new Error(data.detail || data.error || "Failed to load ASECNA GEN PDF");
+        }
+        const blob = await pdfRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${icao}_ASECNA_GEN_1.2.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+      } catch (err) {
+        setGenPdfDownloadError(
+          err instanceof Error ? err.message : "ASECNA GEN PDF download failed",
+        );
+      } finally {
+        setGenPdfDownloading(false);
+        setGenSyncingPrefix(null);
+      }
+      return;
+    }
+
     const prefix = icao.slice(0, 2).toUpperCase();
     setGenPdfDownloadError(null);
     setGenPdfDownloading(true);
@@ -1073,10 +1135,26 @@ function AIPPortalPageInner() {
     if (MAIN_PAGE_DISABLE_GEN) return;
     const icao = viewingAirport?.icao ?? null;
     if (!icao) return;
+    if (isAsecnaIcao(icao)) {
+      const prefix = icao.slice(0, 2).toUpperCase();
+      if (!(prefix in genCache)) {
+        setGenCache((c) => ({
+          ...c,
+          [prefix]: {
+            general: emptyGenPart(),
+            nonScheduled: emptyGenPart(),
+            privateFlights: emptyGenPart(),
+            updatedAt: null,
+          },
+        }));
+      }
+      updateStage(icao, "gen", "done", "ASECNA GEN available via GEN PDF button");
+      return;
+    }
     const prefix = icao.slice(0, 2).toUpperCase();
     if (prefix in genCache || genLoadingPrefix === prefix) return;
     setGenLoadingPrefix(prefix);
-    const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao);
+    const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao);
     if (useSyncedGen) updateStage(icao, "gen", "running", "Loading GEN…");
     else updateStage(icao, "gen-non-ead", "running", "Rewriting non-EAD GEN…");
     const genUrl = useSyncedGen
@@ -2389,9 +2467,16 @@ function AIPPortalPageInner() {
                           variant="ghost"
                           size="sm"
                           className="shrink-0 h-9 gap-1.5 px-2"
-                          onClick={() => downloadGenPdfWithSync(viewingAirport.icao)}
-                          disabled={genPdfDownloading}
-                          title="Instantly fetch and download GEN PDF"
+                          onClick={() => downloadGenPdfWithSync(viewingAirport.icao, isAsecnaAirport(viewingAirport))}
+                          disabled={
+                            genPdfDownloading ||
+                            (isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao))
+                          }
+                          title={
+                            isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
+                              ? "GEN 1.2 is not available for this ASECNA country"
+                              : "Instantly fetch and download GEN PDF"
+                          }
                         >
                           <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
                           <span className="text-xs hidden sm:inline">GEN PDF</span>

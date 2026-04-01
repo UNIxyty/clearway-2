@@ -210,16 +210,69 @@ async function findBestAd2Link(page, expectedIcao = '') {
   return { status: 'ok', found: best };
 }
 
-async function ensureAipOverviewPage(page, logFn) {
-  const url = page.url();
-  if (!url.includes('aip_overview.faces')) {
-    logFn('Recovering: opening AIP Library overview');
-    await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForTimeout(1000);
+async function dismissIdleDialog(page) {
+  try {
+    const mask = page.locator('#idleDialog_modal').or(page.locator('.ui-widget-overlay.ui-dialog-mask'));
+    const visible = await mask.isVisible().catch(() => false);
+    if (visible) {
+      await page.locator('#idleDialog').locator('button').first().click({ timeout: 3000, force: true }).catch(() => {});
+      await page.waitForTimeout(700);
+    }
+  } catch (_) {}
+}
+
+async function loginAndOpenAipOverview(page, logFn, user, password, mode = 'initial') {
+  if (mode === 'recovery') logFn('Recovering session: re-login and reopen AIP Library');
+  else logFn('Opening login page');
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.getByLabel(/user name/i).fill(user);
+  await page.getByLabel(/password/i).fill(password);
+  await page.locator('input[type="submit"][value="Login"]').click();
+  await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 25000 });
+
+  const termsBtn = page.locator('#acceptTCButton');
+  await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+  if (await termsBtn.isVisible()) {
+    logFn('Accepting terms');
+    await termsBtn.click();
+    await page.waitForTimeout(700);
   }
-  const sel = page.locator('select[id$="selectAuthorityCode_input"]').first();
-  await sel.waitFor({ state: 'visible', timeout: 45000 });
-  return sel;
+
+  logFn('Opening AIP Library');
+  await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForTimeout(1200);
+}
+
+async function ensureAipOverviewPage(page, logFn, recoverFn = null) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const url = page.url();
+      if (!url.includes('aip_overview.faces')) {
+        logFn('Recovering: opening AIP Library overview');
+        await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await page.waitForTimeout(1000);
+      }
+      await dismissIdleDialog(page);
+
+      const bodyText = await page.locator('body').textContent().catch(() => '');
+      if (/Access denied|IB-101/i.test(bodyText)) {
+        throw new Error('EAD returned Access denied while recovering AIP overview.');
+      }
+
+      const sel = page.locator('select[id$="selectAuthorityCode_input"]').first();
+      await sel.waitFor({ state: 'visible', timeout: 15000 });
+      return sel;
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0 && recoverFn) {
+        await recoverFn();
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new Error('Failed to ensure AIP overview page');
 }
 
 async function setLanguageAndAipPart(page) {
@@ -344,38 +397,17 @@ async function main() {
   const page = await context.newPage();
 
   try {
-    log('Opening login page');
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.getByLabel(/user name/i).fill(user);
-    await page.getByLabel(/password/i).fill(password);
-    await page.locator('input[type="submit"][value="Login"]').click();
-    await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 20000 });
-
-    const termsBtn = page.locator('#acceptTCButton');
-    await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    if (await termsBtn.isVisible()) {
-      log('Accepting terms');
-      await termsBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    log('Opening AIP Library');
-    try {
-      await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    } catch (_) {}
-    if (!page.url().includes('aip_overview')) {
-      const aipLink = page.getByRole('link', { name: /aip\s*library/i }).or(page.locator('a').filter({ hasText: /aip\s*library/i })).first();
-      await aipLink.click({ timeout: 60000 });
-      await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
-    }
-    await page.waitForTimeout(1200);
+    await loginAndOpenAipOverview(page, log, user, password, 'initial');
 
     const bodyText = await page.locator('body').textContent().catch(() => '');
     if (/Access denied|IB-101/i.test(bodyText)) {
       throw new Error('EAD returned Access denied. Run locally from a normal desktop network (not datacenter IP).');
     }
 
-    let authoritySelect = await ensureAipOverviewPage(page, log);
+    const recoverSession = async () => {
+      await loginAndOpenAipOverview(page, log, user, password, 'recovery');
+    };
+    let authoritySelect = await ensureAipOverviewPage(page, log, recoverSession);
 
     const countryOptions = await authoritySelect.evaluate((el) => {
       return [...el.options]
@@ -535,7 +567,7 @@ async function main() {
       };
 
       try {
-        authoritySelect = await ensureAipOverviewPage(page, log);
+        authoritySelect = await ensureAipOverviewPage(page, log, recoverSession);
         await authoritySelect.selectOption({ value: country.value });
         await page.waitForTimeout(1200);
         await page.waitForLoadState('load').catch(() => {});

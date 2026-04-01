@@ -1,13 +1,13 @@
 {
   "source": "ASECNA eAIP menu (dynamic)",
-  "generatedAt": "2026-04-01T07:48:37.288Z",
+  "generatedAt": "2026-04-01T09:51:11.797Z",
   "menuBasename": "FR-menu-fr-FR.html",
   "menuUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
   "countries": [
     {
       "code": "01",
       "name": "Bénin",
-      "iso2": null,
+      "iso2": "BJ",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -71,7 +71,7 @@
     {
       "code": "03",
       "name": "Cameroun",
-      "iso2": null,
+      "iso2": "CM",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -123,7 +123,7 @@
     {
       "code": "04",
       "name": "Centrafrique",
-      "iso2": null,
+      "iso2": "CF",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -187,7 +187,7 @@
     {
       "code": "06",
       "name": "Côte d'Ivoire",
-      "iso2": null,
+      "iso2": "CI",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -291,7 +291,7 @@
     {
       "code": "08",
       "name": "Guinée Equatoriale",
-      "iso2": null,
+      "iso2": "GQ",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -519,7 +519,7 @@
     {
       "code": "11",
       "name": "Mauritanie",
-      "iso2": null,
+      "iso2": "MR",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -639,7 +639,7 @@
     {
       "code": "13",
       "name": "Sénégal",
-      "iso2": null,
+      "iso2": "SN",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -687,7 +687,7 @@
     {
       "code": "14",
       "name": "Tchad",
-      "iso2": null,
+      "iso2": "TD",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -767,7 +767,7 @@
     {
       "code": "16",
       "name": "Comores",
-      "iso2": null,
+      "iso2": "KM",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -791,7 +791,7 @@
     {
       "code": "17",
       "name": "Guinée Bissau",
-      "iso2": null,
+      "iso2": "GW",
       "sourceType": "ASECNA_DYNAMIC",
       "dynamicUpdated": true,
       "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",

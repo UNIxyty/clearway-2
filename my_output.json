@@ -1,0 +1,31 @@
+{
+  "publication_date": "12 JUN 2025",
+  "amendment_id": "AD 2 EETU-1",
+  "airport_code": "EETU",
+  "airport_name": "TARTU",
+  "ad2_2_types_of_traffic": "IFR/VFR",
+  "ad2_2_remarks": "NIL",
+  "ad2_2_operator_name": "AS Tallinna Lennujaam Tartu lennujaam",
+  "ad2_2_address": "Lennu tn 44, Reola küla\nKambja vald\n61707 Tartumaa\nESTONIA",
+  "ad2_2_telephone": "+372 605 8833",
+  "ad2_2_email": "tartu.info@tll.aero",
+  "ad2_2_afs": "EETUZTZX",
+  "ad2_2_website": "tartu.tallinn-airport.ee",
+  "ad2_3_ad_operator": "MON-FRI: 0600-1430 (0500-1330)",
+  "ad2_3_customs_immigration": "H24 nõutav 1 HR PN\nH24 1 HR PN required",
+  "ad2_3_ats": "Vaata NOTAM-it.\nSee NOTAM.\nATS kontaktid *\nATS contacts *",
+  "ad2_6_fire_fighting_category": "5. kategooria. Teenus tagatakse lennuvälja tööajal tellimus- ja regulaarlendudele.\n\nCAT 5. The service is provided for charter and scheduled flights within AD OPR HR. *",
+  "ad2_12_runways": [
+    {
+      "designator": "08",
+      "dimensions_m": "1800 x 31"
+    },
+    {
+      "designator": "26",
+      "dimensions_m": "1800 x 31"
+    }
+  ],
+  "ad2_12_runway_number": "08, 26",
+  "ad2_12_runway_dimensions": "08: 1800 x 31; 26: 1800 x 31",
+  "extraction_time_seconds": 25.955
+}

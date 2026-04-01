@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Viewer Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0d0f12;
+    --surface:   #13161b;
+    --border:    #1e2330;
+    --border-hi: #2e3448;
+    --text:      #c8cdd8;
+    --text-dim:  #4a5068;
+    --text-hi:   #e8ecf4;
+    --accent:    #4f7cff;
+    --accent-dim:#1e2f5e;
+    --green:     #3ddc97;
+    --amber:     #f5a623;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .logo span { color: var(--text-dim); }
+
+  .header-sep {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* Viewer tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .06em;
+    color: var(--text-dim);
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: none;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: var(--text); background: var(--border); }
+
+  .tab.active {
+    color: var(--text-hi);
+    background: var(--accent-dim);
+    border-color: var(--accent);
+  }
+
+  .tab-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: .5;
+    flex-shrink: 0;
+  }
+  .tab.active .tab-dot { opacity: 1; background: var(--accent); }
+
+  /* Upload button */
+  .upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    border-radius: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--bg);
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    transition: opacity .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .upload-btn:hover { opacity: .85; }
+  .upload-btn svg { flex-shrink: 0; }
+
+  #file-input { display: none; }
+
+  /* Status pill */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 120px;
+  }
+  .status.loaded { color: var(--green); }
+  .status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* ── Main layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-head {
+    padding: 14px 16px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #thumb-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hi) transparent;
+  }
+
+  .thumb-item {
+    border-radius: 4px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .15s;
+    position: relative;
+    background: var(--bg);
+  }
+  .thumb-item:hover { border-color: var(--border-hi); }
+  .thumb-item.active { border-color: var(--accent); }
+
+  .thumb-item canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .thumb-label {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 3px 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    background: rgba(13,15,18,.8);
+    text-align: right;
+  }
+  .thumb-item.active .thumb-label { color: var(--accent); }
+
+  /* Empty state */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .empty-icon {
+    width: 48px; height: 48px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border-hi);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+  }
+
+  .empty-state p {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    letter-spacing: .04em;
+  }
+
+  /* ── Viewer area ── */
+  #viewer-area {
+    position: relative;
+    overflow: hidden;
+    background: #080a0d;
+  }
+
+  .viewer-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hi) transparent;
+  }
+  .viewer-panel.active { display: block; }
+
+  /* PDF.js canvas viewer */
+  #pdfjs-viewer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    gap: 12px;
+  }
+
+  .pdf-page-wrap {
+    box-shadow: 0 4px 32px rgba(0,0,0,.6);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .pdf-page-wrap canvas { display: block; }
+
+  .page-num {
+    position: absolute;
+    bottom: 8px; right: 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: rgba(255,255,255,.3);
+    pointer-events: none;
+  }
+
+  /* Native / iframe viewers */
+  #native-viewer iframe,
+  #iframe-viewer iframe,
+  #native-viewer object,
+  #native-viewer embed {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  /* Loading overlay */
+  #loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13,15,18,.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 20;
+  }
+  #loading-overlay.show { display: flex; }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border-hi);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: .08em;
+  }
+
+  /* Drop zone overlay */
+  #drop-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13,15,18,.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 15;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  #drop-overlay.visible { opacity: 1; }
+
+  .drop-ring {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    border: 2px dashed var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(79,124,255,.3); }
+    50%       { box-shadow: 0 0 0 16px rgba(79,124,255,0); }
+  }
+  .drop-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  /* No-file placeholder */
+  #no-file-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    pointer-events: none;
+  }
+
+  .placeholder-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 10px;
+    opacity: .06;
+  }
+  .placeholder-page {
+    height: 96px;
+    border-radius: 3px;
+    background: var(--text);
+  }
+
+  .placeholder-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  /* Viewer info badge */
+  .viewer-badge {
+    position: absolute;
+    top: 12px; right: 12px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    background: var(--surface);
+    border: 1px solid var(--border-hi);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    display: flex;
+    gap: 4px;
+    z-index: 5;
+  }
+  .zoom-btn {
+    width: 30px; height: 30px;
+    border-radius: 4px;
+    border: 1px solid var(--border-hi);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    font-family: var(--mono);
+  }
+  .zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .zoom-level {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-hi);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    min-width: 52px;
+    justify-content: center;
+  }
+
+  /* Viewer info panel */
+  .info-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 20px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: .05em;
+  }
+  .info-bar span { display: flex; align-items: center; gap: 5px; }
+  .info-sep { width: 1px; height: 12px; background: var(--border); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PDF<span>/</span>VIEWER <span>— COMPARE</span></div>
+  <div class="header-sep"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-viewer="pdfjs">
+      <span class="tab-dot"></span>PDF.js Canvas
+    </button>
+    <button class="tab" data-viewer="native">
+      <span class="tab-dot"></span>Browser Native
+    </button>
+    <button class="tab" data-viewer="iframe">
+      <span class="tab-dot"></span>iframe Embed
+    </button>
+  </div>
+
+  <div class="status" id="status">
+    <span class="status-dot"></span>NO FILE LOADED
+  </div>
+
+  <div class="header-sep"></div>
+
+  <button class="upload-btn" id="upload-btn">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 1v7M3 4l3-3 3 3M1 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    LOAD PDF
+  </button>
+  <input type="file" id="file-input" accept=".pdf,application/pdf">
+</header>
+
+<main>
+  <aside>
+    <div class="sidebar-head">Pages</div>
+    <div id="thumb-list">
+      <div class="empty-state" id="thumb-empty">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="4" y="2" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7 7h8M7 11h8M7 15h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p>Load a PDF to<br>see page thumbnails</p>
+      </div>
+    </div>
+  </aside>
+
+  <div id="viewer-area">
+
+    <!-- No file placeholder -->
+    <div id="no-file-placeholder">
+      <div class="placeholder-grid">
+        <div class="placeholder-page"></div>
+        <div class="placeholder-page"></div>
+        <div class="placeholder-page"></div>
+      </div>
+      <div class="placeholder-label">
+        Drop a PDF here<br>or click LOAD PDF
+      </div>
+    </div>
+
+    <!-- Drop overlay -->
+    <div id="drop-overlay">
+      <div class="drop-ring">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M20 8v16M12 16l8-8 8 8M8 32h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="drop-label">Drop to load</div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loading-text">RENDERING...</div>
+    </div>
+
+    <!-- PDF.js viewer -->
+    <div class="viewer-panel active" id="pdfjs-panel">
+      <div class="viewer-badge">PDF.js — canvas</div>
+      <div id="pdfjs-viewer"></div>
+      <div class="zoom-controls" id="pdfjs-zoom" style="display:none">
+        <button class="zoom-btn" id="zoom-out">−</button>
+        <div class="zoom-level" id="zoom-label">100%</div>
+        <button class="zoom-btn" id="zoom-in">+</button>
+      </div>
+    </div>
+
+    <!-- Native viewer -->
+    <div class="viewer-panel" id="native-panel">
+      <div class="viewer-badge">Browser &lt;object&gt; tag</div>
+      <div id="native-viewer" style="height:100%"></div>
+    </div>
+
+    <!-- iframe viewer -->
+    <div class="viewer-panel" id="iframe-panel">
+      <div class="viewer-badge">iframe embed</div>
+      <div id="iframe-viewer" style="height:100%"></div>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar" id="info-bar" style="display:none">
+      <span id="info-file">—</span>
+      <div class="info-sep"></div>
+      <span id="info-pages">—</span>
+      <div class="info-sep"></div>
+      <span id="info-size">—</span>
+      <div class="info-sep"></div>
+      <span id="info-viewer">PDF.js Canvas</span>
+    </div>
+  </div>
+</main>
+
+<!-- PDF.js from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module" id="pdfjs-script"></script>
+
+<script type="module">
+// ── Wait for PDF.js to be available ──────────────────────────────────────────
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let pdfDoc    = null;
+let blobUrl   = null;
+let fileName  = '';
+let fileSize  = '';
+let scale     = 1.5;
+let activeTab = 'pdfjs';
+
+const SCALE_STEP = 0.25;
+const SCALE_MIN  = 0.5;
+const SCALE_MAX  = 3.0;
+const THUMB_SCALE = 0.2;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const fileInput     = document.getElementById('file-input');
+const uploadBtn     = document.getElementById('upload-btn');
+const thumbList     = document.getElementById('thumb-list');
+const thumbEmpty    = document.getElementById('thumb-empty');
+const pdfjsViewer   = document.getElementById('pdfjs-viewer');
+const nativeViewer  = document.getElementById('native-viewer');
+const iframeViewer  = document.getElementById('iframe-viewer');
+const loadingOverlay= document.getElementById('loading-overlay');
+const loadingText   = document.getElementById('loading-text');
+const noFilePlaceholder = document.getElementById('no-file-placeholder');
+const dropOverlay   = document.getElementById('drop-overlay');
+const statusEl      = document.getElementById('status');
+const infoBar       = document.getElementById('info-bar');
+const infoFile      = document.getElementById('info-file');
+const infoPages     = document.getElementById('info-pages');
+const infoSize      = document.getElementById('info-size');
+const infoViewer    = document.getElementById('info-viewer');
+const pdfjsZoom     = document.getElementById('pdfjs-zoom');
+const zoomLabel     = document.getElementById('zoom-label');
+const viewerArea    = document.getElementById('viewer-area');
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+const VIEWER_NAMES = {
+  pdfjs:  'PDF.js Canvas',
+  native: 'Browser <object>',
+  iframe: 'iframe Embed',
+};
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeTab = btn.dataset.viewer;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.viewer-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`${activeTab}-panel`).classList.add('active');
+    infoViewer.textContent = VIEWER_NAMES[activeTab];
+    pdfjsZoom.style.display = activeTab === 'pdfjs' && pdfDoc ? 'flex' : 'none';
+  });
+});
+
+// ── File loading ──────────────────────────────────────────────────────────────
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+  fileInput.value = '';
+});
+
+// Drag & drop
+viewerArea.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropOverlay.classList.add('visible');
+});
+viewerArea.addEventListener('dragleave', e => {
+  if (!viewerArea.contains(e.relatedTarget))
+    dropOverlay.classList.remove('visible');
+});
+viewerArea.addEventListener('drop', e => {
+  e.preventDefault();
+  dropOverlay.classList.remove('visible');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') loadFile(file);
+});
+
+async function loadFile(file) {
+  // Revoke previous blob
+  if (blobUrl) URL.revokeObjectURL(blobUrl);
+
+  fileName = file.name;
+  fileSize = formatBytes(file.size);
+  blobUrl  = URL.createObjectURL(file);
+
+  noFilePlaceholder.style.display = 'none';
+  showLoading('LOADING PDF...');
+
+  const arrayBuffer = await file.arrayBuffer();
+
+  try {
+    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  } catch(err) {
+    hideLoading();
+    alert('Failed to parse PDF: ' + err.message);
+    return;
+  }
+
+  // Update status
+  statusEl.className = 'status loaded';
+  statusEl.innerHTML = `<span class="status-dot"></span>${pdfDoc.numPages} PAGES`;
+
+  // Info bar
+  infoBar.style.display = 'flex';
+  infoFile.textContent  = fileName;
+  infoPages.textContent = `${pdfDoc.numPages} pages`;
+  infoSize.textContent  = fileSize;
+
+  // Build thumbnails
+  buildThumbnails();
+
+  // Render all viewers
+  await renderPdfJs();
+  renderNative();
+  renderIframe();
+
+  hideLoading();
+  pdfjsZoom.style.display = activeTab === 'pdfjs' ? 'flex' : 'none';
+}
+
+// ── PDF.js renderer ───────────────────────────────────────────────────────────
+async function renderPdfJs() {
+  pdfjsViewer.innerHTML = '';
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page   = await pdfDoc.getPage(i);
+    const vp     = page.getViewport({ scale });
+    const wrap   = document.createElement('div');
+    wrap.className = 'pdf-page-wrap';
+    wrap.id = `page-wrap-${i}`;
+    wrap.style.width  = vp.width  + 'px';
+    wrap.style.height = vp.height + 'px';
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = vp.width;
+    canvas.height = vp.height;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'page-num';
+    lbl.textContent = i;
+
+    wrap.appendChild(canvas);
+    wrap.appendChild(lbl);
+    pdfjsViewer.appendChild(wrap);
+
+    page.render({ canvasContext: canvas.getContext('2d'), viewport: vp });
+  }
+}
+
+// ── Thumbnails ────────────────────────────────────────────────────────────────
+async function buildThumbnails() {
+  thumbEmpty.style.display = 'none';
+  // Remove old thumbs
+  thumbList.querySelectorAll('.thumb-item').forEach(el => el.remove());
+
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    const page  = await pdfDoc.getPage(i);
+    const vp    = page.getViewport({ scale: THUMB_SCALE });
+    const item  = document.createElement('div');
+    item.className = 'thumb-item' + (i === 1 ? ' active' : '');
+    item.dataset.page = i;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = vp.width;
+    canvas.height = vp.height;
+    page.render({ canvasContext: canvas.getContext('2d'), viewport: vp });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'thumb-label';
+    lbl.textContent = i;
+
+    item.appendChild(canvas);
+    item.appendChild(lbl);
+    thumbList.appendChild(item);
+
+    item.addEventListener('click', () => scrollToPage(i));
+  }
+}
+
+function scrollToPage(n) {
+  thumbList.querySelectorAll('.thumb-item').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === n);
+  });
+  const wrap = document.getElementById(`page-wrap-${n}`);
+  if (wrap) {
+    document.getElementById('pdfjs-panel').scrollTo({
+      top: wrap.offsetTop - 24,
+      behavior: 'smooth',
+    });
+  }
+  // Also switch to PDF.js tab if not already there
+  if (activeTab !== 'pdfjs') {
+    document.querySelector('[data-viewer="pdfjs"]').click();
+  }
+}
+
+// ── Native viewer ─────────────────────────────────────────────────────────────
+function renderNative() {
+  nativeViewer.innerHTML = '';
+  const obj = document.createElement('object');
+  obj.data = blobUrl;
+  obj.type = 'application/pdf';
+  obj.style.cssText = 'width:100%;height:100%;border:none;display:block';
+  // Fallback
+  obj.innerHTML = `<p style="padding:40px;font-family:monospace;color:#4a5068;font-size:12px">
+    Browser does not support &lt;object&gt; PDF rendering.<br>Try a different viewer tab.
+  </p>`;
+  nativeViewer.appendChild(obj);
+}
+
+// ── iframe viewer ─────────────────────────────────────────────────────────────
+function renderIframe() {
+  iframeViewer.innerHTML = '';
+  const iframe = document.createElement('iframe');
+  iframe.src = blobUrl;
+  iframe.style.cssText = 'width:100%;height:100%;border:none;display:block';
+  iframeViewer.appendChild(iframe);
+}
+
+// ── Zoom ──────────────────────────────────────────────────────────────────────
+document.getElementById('zoom-in').addEventListener('click', async () => {
+  if (scale >= SCALE_MAX || !pdfDoc) return;
+  scale = Math.min(SCALE_MAX, scale + SCALE_STEP);
+  zoomLabel.textContent = Math.round(scale / 1.5 * 100) + '%';
+  showLoading('RE-RENDERING...');
+  await renderPdfJs();
+  hideLoading();
+});
+
+document.getElementById('zoom-out').addEventListener('click', async () => {
+  if (scale <= SCALE_MIN || !pdfDoc) return;
+  scale = Math.max(SCALE_MIN, scale - SCALE_STEP);
+  zoomLabel.textContent = Math.round(scale / 1.5 * 100) + '%';
+  showLoading('RE-RENDERING...');
+  await renderPdfJs();
+  hideLoading();
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showLoading(msg) {
+  loadingText.textContent = msg || 'LOADING...';
+  loadingOverlay.classList.add('show');
+}
+function hideLoading() {
+  loadingOverlay.classList.remove('show');
+}
+function formatBytes(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1048576)    return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+</script>
+</body>
+</html>

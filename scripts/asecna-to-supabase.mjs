@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const ROOT = process.cwd();
 const INPUT_PATH = join(ROOT, "data", "asecna-airports.json");
+const LOCAL_COORDS_PATH = join(ROOT, "data", "airport-coords.json");
 const OURAIRPORTS_URL = "https://ourairports.com/data/airports.csv";
 const BATCH_SIZE = 200;
 
@@ -96,7 +97,7 @@ function normCountryName(name) {
   return map[raw] ?? raw;
 }
 
-function toRows(payload, ourMap) {
+function toRows(payload, ourMap, localCoords) {
   const now = new Date().toISOString();
   const rows = [];
   for (const country of payload.countries || []) {
@@ -105,6 +106,7 @@ function toRows(payload, ourMap) {
       const icao = String(airport.icao || "").trim().toUpperCase();
       if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
       const fromOur = ourMap.get(icao) || null;
+      const fromLocal = localCoords?.[icao] || null;
       const gen12Label = country.gen12?.label ?? null;
       const gen12Href = country.gen12?.href ?? null;
       rows.push({
@@ -112,8 +114,8 @@ function toRows(payload, ourMap) {
         country: countryName,
         state: null,
         name: fromOur?.name || `${icao} Airport`,
-        lat: fromOur?.lat ?? null,
-        lon: fromOur?.lon ?? null,
+        lat: fromOur?.lat ?? fromLocal?.lat ?? null,
+        lon: fromOur?.lon ?? fromLocal?.lon ?? null,
         source: "asecna_dynamic",
         source_type: "ASECNA",
         dynamic_updated: true,
@@ -140,10 +142,11 @@ async function main() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
   const payload = JSON.parse(readFileSync(input, "utf8"));
+  const localCoords = JSON.parse(readFileSync(LOCAL_COORDS_PATH, "utf8"));
   const ourRes = await fetch(OURAIRPORTS_URL);
   if (!ourRes.ok) throw new Error(`Failed to fetch ${OURAIRPORTS_URL}: ${ourRes.status}`);
   const ourMap = buildOurAirportsMap(await ourRes.text());
-  const rows = toRows(payload, ourMap);
+  const rows = toRows(payload, ourMap, localCoords);
 
   if (rows.length === 0) {
     console.log("[ASECNA->Supabase] no rows to import.");

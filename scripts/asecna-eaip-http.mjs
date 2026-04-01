@@ -140,10 +140,16 @@ export function parseAd2IcaosForCountry(menuHtml, code, menuBasename = "FR-menu-
   const prefix = meta?.prefix ?? "FR";
   const esc = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const escP = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`href="${escP}-${esc}-AD-2\\.html#_${esc}AD-2\\.([A-Z]{4})"`, "gi");
+  const re = new RegExp(
+    `(?:href="${escP}-${esc}-AD-2\\.html#_${esc}AD-2\\.([A-Z0-9]{4})"|id="_${esc}AD-2\\.([A-Z0-9]{4})")`,
+    "gi",
+  );
   const set = new Set();
   let m;
-  while ((m = re.exec(menuHtml))) set.add(m[1].toUpperCase());
+  while ((m = re.exec(menuHtml))) {
+    const icao = (m[1] || m[2] || "").toUpperCase();
+    if (/^[A-Z0-9]{4}$/.test(icao)) set.add(icao);
+  }
   return [...set].sort();
 }
 

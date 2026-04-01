@@ -6,6 +6,7 @@ import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,9 @@ export type AIPAirport = {
   runwayDimensions: string;
   lat?: number;
   lon?: number;
+  sourceType?: string;
+  dynamicUpdated?: boolean;
+  webAipUrl?: string;
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
@@ -134,6 +138,8 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
     runwayDimensions: "",
     lat: row.lat ?? undefined,
     lon: row.lon ?? undefined,
+    sourceType: "DB_DYNAMIC",
+    dynamicUpdated: true,
   };
 }
 
@@ -242,6 +248,7 @@ function flattenAIP(countryFilter?: string): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
   for (const c of countries) {
+    if (isAsecnaCountry(c.country)) continue;
     if (countryFilter && c.country !== countryFilter) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
@@ -274,6 +281,8 @@ function flattenAIP(countryFilter?: string): AIPAirport[] {
         runwayDimensions: a["AD2.12 Runway Dimensions"] ?? "",
         lat: coord?.lat,
         lon: coord?.lon,
+        sourceType: "STATIC_PORTAL",
+        dynamicUpdated: false,
       });
     }
   }
@@ -313,6 +322,8 @@ function flattenRussia(): AIPAirport[] {
         runwayDimensions: "",
         lat: coord?.lat,
         lon: coord?.lon,
+        sourceType: "RUSSIA_DYNAMIC",
+        dynamicUpdated: true,
       };
     })
     .sort((a, b) => (a.name || a.icao).localeCompare(b.name || b.icao));
@@ -359,6 +370,8 @@ function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{
       runwayDimensions: "",
       lat: coord?.lat,
       lon: coord?.lon,
+      sourceType: "EAD_DYNAMIC",
+      dynamicUpdated: true,
     };
   });
   list.sort((a, b) => {
@@ -368,6 +381,55 @@ function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{
     return (a.name || a.icao).localeCompare(b.name || b.icao);
   });
   return list;
+}
+
+function flattenAsecnaCountry(countryName: string): AIPAirport[] {
+  const normalize = (v: string) =>
+    String(v || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[’]/g, "'")
+      .trim()
+      .toLowerCase();
+  const target = normalize(countryName);
+  const out: AIPAirport[] = [];
+  for (const icao of getAsecnaAirportsSet()) {
+    const row = getAsecnaAirportByIcao(icao);
+    if (!row) continue;
+    if (normalize(row.countryName) !== target) continue;
+    const coord = coordsMap[icao];
+    out.push({
+      country: row.countryName,
+      gen1_2: "",
+      gen1_2_point_4: "",
+      icao,
+      name: `${icao} Airport`,
+      publicationDate: "",
+      trafficPermitted: "",
+      trafficRemarks: "",
+      ad22Operator: "",
+      ad22Address: "",
+      ad22Telephone: "",
+      ad22Telefax: "",
+      ad22Email: "",
+      ad22Afs: "",
+      ad22Website: "",
+      operator: "",
+      customsImmigration: "",
+      ats: "",
+      atsRemarks: "",
+      fireFighting: "",
+      runwayNumber: "",
+      runwayDimensions: "",
+      lat: coord?.lat,
+      lon: coord?.lon,
+      sourceType: "ASECNA_DYNAMIC",
+      dynamicUpdated: true,
+      webAipUrl: row.webAipUrl,
+    });
+  }
+  out.sort((a, b) => (a.name || a.icao).localeCompare(b.name || b.icao));
+  return out;
 }
 
 export async function GET(request: NextRequest) {
@@ -400,6 +462,13 @@ export async function GET(request: NextRequest) {
   if (country === "Russia") {
     const list = flattenRussia();
     return NextResponse.json({ results: list });
+  }
+
+  if (country && isAsecnaCountry(country)) {
+    return NextResponse.json(
+      { results: flattenAsecnaCountry(country) },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 
   const list = country ? flattenAIP(country) : getAll();

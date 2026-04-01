@@ -1,0 +1,812 @@
+{
+  "source": "ASECNA eAIP menu (dynamic)",
+  "generatedAt": "2026-04-01T07:48:37.288Z",
+  "menuBasename": "FR-menu-fr-FR.html",
+  "menuUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+  "countries": [
+    {
+      "code": "01",
+      "name": "Bénin",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_01GEN-1.2-01",
+        "href": "FR-01-GEN-1.html#_01GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "DBBB",
+          "countryCode": "01",
+          "countryName": "Bénin",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DBBP",
+          "countryCode": "01",
+          "countryName": "Bénin",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "02",
+      "name": "Burkina Faso",
+      "iso2": "BF",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_02GEN-1.2-01",
+        "href": "FR-02-GEN-1.html#_02GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "DFFD",
+          "countryCode": "02",
+          "countryName": "Burkina Faso",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DFOO",
+          "countryCode": "02",
+          "countryName": "Burkina Faso",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "03",
+      "name": "Cameroun",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": null,
+      "airports": [
+        {
+          "icao": "FKKD",
+          "countryCode": "03",
+          "countryName": "Cameroun",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FKKL",
+          "countryCode": "03",
+          "countryName": "Cameroun",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FKKR",
+          "countryCode": "03",
+          "countryName": "Cameroun",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FKKU",
+          "countryCode": "03",
+          "countryName": "Cameroun",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FKYS",
+          "countryCode": "03",
+          "countryName": "Cameroun",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "04",
+      "name": "Centrafrique",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_04GEN-1.2-01",
+        "href": "FR-04-GEN-1.html#_04GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "FEFF",
+          "countryCode": "04",
+          "countryName": "Centrafrique",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "05",
+      "name": "Congo",
+      "iso2": "CG",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_05GEN-1.2-01",
+        "href": "FR-05-GEN-1.html#_05GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "FCBB",
+          "countryCode": "05",
+          "countryName": "Congo",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FCOD",
+          "countryCode": "05",
+          "countryName": "Congo",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FCPP",
+          "countryCode": "05",
+          "countryName": "Congo",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "06",
+      "name": "Côte d'Ivoire",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_06GEN-1.2-01",
+        "href": "FR-06-GEN-1.html#_06GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "DIAP",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DIBK",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DIKO",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DIMN",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DIOD",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DIYO",
+          "countryCode": "06",
+          "countryName": "Côte d'Ivoire",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "07",
+      "name": "Gabon",
+      "iso2": "GA",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_07GEN-1.2-01",
+        "href": "FR-07-GEN-1.html#_07GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "FOOG",
+          "countryCode": "07",
+          "countryName": "Gabon",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FOOL",
+          "countryCode": "07",
+          "countryName": "Gabon",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FOON",
+          "countryCode": "07",
+          "countryName": "Gabon",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "08",
+      "name": "Guinée Equatoriale",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_08GEN-1.2-01",
+        "href": "FR-08-GEN-1.html#_08GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "FGBT",
+          "countryCode": "08",
+          "countryName": "Guinée Equatoriale",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FGMY",
+          "countryCode": "08",
+          "countryName": "Guinée Equatoriale",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FGSL",
+          "countryCode": "08",
+          "countryName": "Guinée Equatoriale",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "09",
+      "name": "Madagascar",
+      "iso2": "MG",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": null,
+      "airports": [
+        {
+          "icao": "FMME",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMMI",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMMS",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMMT",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMMV",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMNA",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMNM",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMNN",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMNR",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMNS",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMSD",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMSF",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMSM",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FMST",
+          "countryCode": "09",
+          "countryName": "Madagascar",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "10",
+      "name": "Mali",
+      "iso2": "ML",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_10GEN-1.2-01",
+        "href": "FR-10-GEN-1.html#_10GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "GABS",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GAGO",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GAKD",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GAMB",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GASO",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GATB",
+          "countryCode": "10",
+          "countryName": "Mali",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "11",
+      "name": "Mauritanie",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_11GEN-1.2-01",
+        "href": "FR-11-GEN-1.html#_11GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "GQNI",
+          "countryCode": "11",
+          "countryName": "Mauritanie",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GQNO",
+          "countryCode": "11",
+          "countryName": "Mauritanie",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GQPA",
+          "countryCode": "11",
+          "countryName": "Mauritanie",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GQPP",
+          "countryCode": "11",
+          "countryName": "Mauritanie",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GQPZ",
+          "countryCode": "11",
+          "countryName": "Mauritanie",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "12",
+      "name": "Niger",
+      "iso2": "NE",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_12GEN-1.2-01",
+        "href": "FR-12-GEN-1.html#_12GEN-1.2-01",
+        "label": "Entrée et sortie des aéronefs Entry and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "DRRM",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DRRN",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DRRT",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DRZA",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DRZF",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DRZR",
+          "countryCode": "12",
+          "countryName": "Niger",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "13",
+      "name": "Sénégal",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_13GEN-1.2-01",
+        "href": "FR-13-GEN-1.html#_13GEN-1.2-01",
+        "label": "overflight and landing"
+      },
+      "airports": [
+        {
+          "icao": "GOBD",
+          "countryCode": "13",
+          "countryName": "Sénégal",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GOGS",
+          "countryCode": "13",
+          "countryName": "Sénégal",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GOOY",
+          "countryCode": "13",
+          "countryName": "Sénégal",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "GOSS",
+          "countryCode": "13",
+          "countryName": "Sénégal",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "14",
+      "name": "Tchad",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_14GEN-1.2-01",
+        "href": "FR-14-GEN-1.html#_14GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "FTTA",
+          "countryCode": "14",
+          "countryName": "Tchad",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FTTC",
+          "countryCode": "14",
+          "countryName": "Tchad",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FTTD",
+          "countryCode": "14",
+          "countryName": "Tchad",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "FTTJ",
+          "countryCode": "14",
+          "countryName": "Tchad",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "15",
+      "name": "Togo",
+      "iso2": "TG",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_15GEN-1.2-01",
+        "href": "FR-15-GEN-1.html#_15GEN-1.2-01",
+        "label": "Entry, transit and departure of aircraft"
+      },
+      "airports": [
+        {
+          "icao": "DXNG",
+          "countryCode": "15",
+          "countryName": "Togo",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        },
+        {
+          "icao": "DXXX",
+          "countryCode": "15",
+          "countryName": "Togo",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "16",
+      "name": "Comores",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": {
+        "anchor": "_16GEN-1.2-01",
+        "href": "FR-16-GEN-1.html#_16GEN-1.2-01",
+        "label": "overflight and landing"
+      },
+      "airports": [
+        {
+          "icao": "FMCH",
+          "countryCode": "16",
+          "countryName": "Comores",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "17",
+      "name": "Guinée Bissau",
+      "iso2": null,
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+      "menuDirUrl": "https://aim.asecna.aero/html/eAIP/",
+      "gen12": null,
+      "airports": [
+        {
+          "icao": "GGOV",
+          "countryCode": "17",
+          "countryName": "Guinée Bissau",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+        }
+      ]
+    }
+  ]
+}

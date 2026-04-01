@@ -4,6 +4,7 @@ import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
+import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -77,6 +78,9 @@ export type AIPAirport = {
   runwayDimensions: string;
   lat?: number;
   lon?: number;
+  sourceType?: string;
+  dynamicUpdated?: boolean;
+  webAipUrl?: string;
 };
 
 type RUSAirportRow = {
@@ -94,6 +98,7 @@ function flattenAIP(): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
   for (const c of countries) {
+    if (isAsecnaCountry(c.country)) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
     const gen1_2_point_4 = c.GEN_1_2_POINT_4 ?? "";
@@ -125,6 +130,8 @@ function flattenAIP(): AIPAirport[] {
         runwayDimensions: a["AD2.12 Runway Dimensions"] ?? "",
         lat: coord?.lat,
         lon: coord?.lon,
+        sourceType: "STATIC_PORTAL",
+        dynamicUpdated: false,
       });
     }
   }
@@ -165,6 +172,8 @@ function flattenEadFromGenerated(): AIPAirport[] {
         runwayDimensions: "",
         lat: coord?.lat,
         lon: coord?.lon,
+        sourceType: "EAD_DYNAMIC",
+        dynamicUpdated: true,
       });
     }
   }
@@ -204,8 +213,49 @@ function flattenRussia(): AIPAirport[] {
         runwayDimensions: "",
         lat: coord?.lat,
         lon: coord?.lon,
+        sourceType: "RUSSIA_DYNAMIC",
+        dynamicUpdated: true,
       };
     });
+}
+
+function flattenAsecna(): AIPAirport[] {
+  const list: AIPAirport[] = [];
+  for (const icao of getAsecnaAirportsSet()) {
+    const row = getAsecnaAirportByIcao(icao);
+    if (!row) continue;
+    const coord = coordsMap[icao];
+    list.push({
+      country: row.countryName,
+      gen1_2: "",
+      gen1_2_point_4: "",
+      icao,
+      name: `${icao} Airport`,
+      publicationDate: "",
+      trafficPermitted: "",
+      trafficRemarks: "",
+      ad22Operator: "",
+      ad22Address: "",
+      ad22Telephone: "",
+      ad22Telefax: "",
+      ad22Email: "",
+      ad22Afs: "",
+      ad22Website: "",
+      operator: "",
+      customsImmigration: "",
+      ats: "",
+      atsRemarks: "",
+      fireFighting: "",
+      runwayNumber: "",
+      runwayDimensions: "",
+      lat: coord?.lat,
+      lon: coord?.lon,
+      sourceType: "ASECNA_DYNAMIC",
+      dynamicUpdated: true,
+      webAipUrl: row.webAipUrl,
+    });
+  }
+  return list;
 }
 
 let cachedList: AIPAirport[] | null = null;
@@ -214,10 +264,12 @@ function getList(): AIPAirport[] {
   if (!cachedList) {
     const aip = flattenAIP();
     const eadGeneratedList = flattenEadFromGenerated();
+    const asecnaList = flattenAsecna();
     const russiaList = flattenRussia();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of asecnaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }

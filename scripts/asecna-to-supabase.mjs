@@ -72,29 +72,46 @@ function buildOurAirportsMap(csvText) {
 
 function normCountryName(name) {
   const raw = String(name || "").trim();
-  const map = {
-    "Bénin": "Benin",
-    Cameroun: "Cameroon",
-    "Congo (Brazza)": "Congo",
-    "Côte d’Ivoire": "Cote d'Ivoire",
-    "Côte d'Ivoire": "Cote d'Ivoire",
-    "Guinée Bissau": "Guinea-Bissau",
-    "République Centrafricaine": "Central African Republic",
-    Tchad: "Chad",
-    "Comores": "Comoros",
-    Mauritanie: "Mauritania",
-    Niger: "Niger",
-    Sénégal: "Senegal",
-    Togo: "Togo",
-    Gabon: "Gabon",
-    Guinée: "Guinea",
-    Madagascar: "Madagascar",
-    Mali: "Mali",
-    "Burkina Faso": "Burkina Faso",
-    "Equatorial Guinea": "Equatorial Guinea",
-    Rwanda: "Rwanda",
+  const key = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .toLowerCase();
+
+  // Canonical labels aligned with portal regions.json / AIP data.
+  const toCanonical = {
+    benin: "Bénin",
+    "burkina faso": "Burkina Faso",
+    cameroun: "Cameroun",
+    cameroon: "Cameroun",
+    centrafrique: "Centrafrique",
+    "central african republic": "Centrafrique",
+    tchad: "Tchad",
+    chad: "Tchad",
+    comores: "Comores",
+    comoros: "Comores",
+    congo: "Congo",
+    "cote d'ivoire": "Côte d'Ivoire",
+    "ivory coast (cote d'ivoire)": "Côte d'Ivoire",
+    "ivory coast": "Côte d'Ivoire",
+    gabon: "Gabon",
+    "guinee equatoriale": "Guinée Equatoriale",
+    "equatorial guinea": "Guinée Equatoriale",
+    guinee: "Guinée",
+    guinea: "Guinée",
+    "guinee bissau": "Guinée Bissau",
+    "guinea-bissau": "Guinée Bissau",
+    madagascar: "Madagascar",
+    mali: "Mali",
+    mauritanie: "Mauritanie",
+    mauritania: "Mauritanie",
+    niger: "Niger",
+    senegal: "Sénégal",
+    "sénégal": "Sénégal",
+    rwanda: "Rwanda",
+    togo: "Togo",
   };
-  return map[raw] ?? raw;
+  return toCanonical[key] ?? raw;
 }
 
 function toRows(payload, ourMap, localCoords) {

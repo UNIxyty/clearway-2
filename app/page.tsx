@@ -86,6 +86,28 @@ type AIPAirport = {
   webAipUrl?: string;
 };
 
+type ExtractedAirportRow = {
+  "Publication Date"?: string;
+  "Airport Code"?: string;
+  "Airport Name"?: string;
+  "AD2.2 Types of Traffic Permitted"?: string;
+  "AD2.2 Remarks"?: string;
+  "AD2.2 AD Operator"?: string;
+  "AD2.2 Address"?: string;
+  "AD2.2 Telephone"?: string;
+  "AD2.2 Telefax"?: string;
+  "AD2.2 E-mail"?: string;
+  "AD2.2 AFS"?: string;
+  "AD2.2 Website"?: string;
+  "AD2.3 AD Operator"?: string;
+  "AD 2.3 Customs and Immigration"?: string;
+  "AD2.3 ATS"?: string;
+  "AD2.3 Remarks"?: string;
+  "AD2.6 AD category for fire fighting"?: string;
+  "AD2.12 Runway Number"?: string;
+  "AD2.12 Runway Dimensions"?: string;
+};
+
 // ICAO prefixes for EAD (EU) countries – when user views an airport with this prefix, we show AIP (EAD) and can sync from EC2
 const EAD_ICAO_PREFIXES = new Set([
   "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF",
@@ -148,6 +170,46 @@ function hasAsecnaGen12(icao: string): boolean {
   if (!airport) return false;
   const country = (getAsecnaData().countries || []).find((c) => c.code === airport.countryCode);
   return Boolean(country?.gen12?.anchor);
+}
+
+function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {
+  const exact = list.find((a) => String(a["Airport Code"] ?? "").trim().toUpperCase() === icao);
+  if (exact) return exact;
+  if (list.length === 1) return list[0];
+  const loose = list.find((a) => String(a["Airport Code"] ?? "").toUpperCase().includes(icao));
+  return loose ?? null;
+}
+
+function mapExtractedRowToAirport(
+  row: ExtractedAirportRow | null,
+  icao: string,
+  fallbackCountry: string,
+): AIPAirport | null {
+  if (!row) return null;
+  return {
+    country: fallbackCountry,
+    gen1_2: "",
+    gen1_2_point_4: "",
+    icao: String(row["Airport Code"] ?? icao).trim().toUpperCase() || icao,
+    name: row["Airport Name"] ?? "",
+    publicationDate: row["Publication Date"] ?? "",
+    trafficPermitted: row["AD2.2 Types of Traffic Permitted"] ?? "",
+    trafficRemarks: row["AD2.2 Remarks"] ?? "",
+    ad22Operator: row["AD2.2 AD Operator"] ?? "",
+    ad22Address: row["AD2.2 Address"] ?? "",
+    ad22Telephone: row["AD2.2 Telephone"] ?? "",
+    ad22Telefax: row["AD2.2 Telefax"] ?? "",
+    ad22Email: row["AD2.2 E-mail"] ?? "",
+    ad22Afs: row["AD2.2 AFS"] ?? "",
+    ad22Website: row["AD2.2 Website"] ?? "",
+    operator: row["AD2.3 AD Operator"] ?? "",
+    customsImmigration: row["AD 2.3 Customs and Immigration"] ?? "",
+    ats: row["AD2.3 ATS"] ?? "",
+    atsRemarks: row["AD2.3 Remarks"] ?? "",
+    fireFighting: row["AD2.6 AD category for fire fighting"] ?? "",
+    runwayNumber: row["AD2.12 Runway Number"] ?? "",
+    runwayDimensions: row["AD2.12 Runway Dimensions"] ?? "",
+  };
 }
 
 function supportsSyncedAipIcao(icao: string): boolean {
@@ -942,55 +1004,15 @@ function AIPPortalPageInner() {
                     setAipEadSyncSteps((prev) => [...prev, step]);
                     updateStage(icao, "aip", "running", step);
                   } else if (data.done && Array.isArray(data.airports)) {
-                    const list = data.airports as Array<{
-                      "Publication Date"?: string;
-                      "Airport Code"?: string;
-                      "Airport Name"?: string;
-                      "AD2.2 Types of Traffic Permitted"?: string;
-                      "AD2.2 Remarks"?: string;
-                      "AD2.2 AD Operator"?: string;
-                      "AD2.2 Address"?: string;
-                      "AD2.2 Telephone"?: string;
-                      "AD2.2 Telefax"?: string;
-                      "AD2.2 E-mail"?: string;
-                      "AD2.2 AFS"?: string;
-                      "AD2.2 Website"?: string;
-                      "AD2.3 AD Operator"?: string;
-                      "AD 2.3 Customs and Immigration"?: string;
-                      "AD2.3 ATS"?: string;
-                      "AD2.3 Remarks"?: string;
-                      "AD2.6 AD category for fire fighting"?: string;
-                      "AD2.12 Runway Number"?: string;
-                      "AD2.12 Runway Dimensions"?: string;
-                    }>;
+                    const list = data.airports as ExtractedAirportRow[];
                     const updatedAt = new Date().toISOString();
-                    const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
-                    const airport: AIPAirport | null = match
-                      ? {
-                          country: "EAD (EU AIP)",
-                          gen1_2: "",
-                          gen1_2_point_4: "",
-                          icao: match["Airport Code"] ?? "",
-                          name: match["Airport Name"] ?? "",
-                          publicationDate: match["Publication Date"] ?? "",
-                          trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
-                          trafficRemarks: match["AD2.2 Remarks"] ?? "",
-                          ad22Operator: match["AD2.2 AD Operator"] ?? "",
-                          ad22Address: match["AD2.2 Address"] ?? "",
-                          ad22Telephone: match["AD2.2 Telephone"] ?? "",
-                          ad22Telefax: match["AD2.2 Telefax"] ?? "",
-                          ad22Email: match["AD2.2 E-mail"] ?? "",
-                          ad22Afs: match["AD2.2 AFS"] ?? "",
-                          ad22Website: match["AD2.2 Website"] ?? "",
-                          operator: match["AD2.3 AD Operator"] ?? "",
-                          customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
-                          ats: match["AD2.3 ATS"] ?? "",
-                          atsRemarks: match["AD2.3 Remarks"] ?? "",
-                          fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
-                          runwayNumber: match["AD2.12 Runway Number"] ?? "",
-                          runwayDimensions: match["AD2.12 Runway Dimensions"] ?? "",
-                        }
-                      : null;
+                    const match = pickExtractedAirportRow(list, icao);
+                    const fallbackCountry = isAsecnaIcao(icao)
+                      ? (viewingAirport?.country || "ASECNA")
+                      : isRussiaIcao(icao)
+                        ? "Russia"
+                        : "EAD (EU AIP)";
+                    const airport = mapExtractedRowToAirport(match, icao, fallbackCountry);
                     setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
                     setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
@@ -1029,55 +1051,15 @@ function AIPPortalPageInner() {
           updateStage(icao, "aip", "error", msg);
           return;
         }
-        const list = (data.airports ?? []) as Array<{
-          "Publication Date"?: string;
-          "Airport Code"?: string;
-          "Airport Name"?: string;
-          "AD2.2 Types of Traffic Permitted"?: string;
-          "AD2.2 Remarks"?: string;
-          "AD2.2 AD Operator"?: string;
-          "AD2.2 Address"?: string;
-          "AD2.2 Telephone"?: string;
-          "AD2.2 Telefax"?: string;
-          "AD2.2 E-mail"?: string;
-          "AD2.2 AFS"?: string;
-          "AD2.2 Website"?: string;
-          "AD2.3 AD Operator"?: string;
-          "AD 2.3 Customs and Immigration"?: string;
-          "AD2.3 ATS"?: string;
-          "AD2.3 Remarks"?: string;
-          "AD2.6 AD category for fire fighting"?: string;
-          "AD2.12 Runway Number"?: string;
-          "AD2.12 Runway Dimensions"?: string;
-        }>;
+        const list = (data.airports ?? []) as ExtractedAirportRow[];
         const updatedAt = new Date().toISOString();
-        const match = list.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
-        const airport: AIPAirport | null = match
-          ? {
-              country: "EAD (EU AIP)",
-              gen1_2: "",
-              gen1_2_point_4: "",
-              icao: match["Airport Code"] ?? "",
-              name: match["Airport Name"] ?? "",
-              publicationDate: match["Publication Date"] ?? "",
-              trafficPermitted: match["AD2.2 Types of Traffic Permitted"] ?? "",
-              trafficRemarks: match["AD2.2 Remarks"] ?? "",
-              ad22Operator: match["AD2.2 AD Operator"] ?? "",
-              ad22Address: match["AD2.2 Address"] ?? "",
-              ad22Telephone: match["AD2.2 Telephone"] ?? "",
-              ad22Telefax: match["AD2.2 Telefax"] ?? "",
-              ad22Email: match["AD2.2 E-mail"] ?? "",
-              ad22Afs: match["AD2.2 AFS"] ?? "",
-              ad22Website: match["AD2.2 Website"] ?? "",
-              operator: match["AD2.3 AD Operator"] ?? "",
-              customsImmigration: match["AD 2.3 Customs and Immigration"] ?? "",
-              ats: match["AD2.3 ATS"] ?? "",
-              atsRemarks: match["AD2.3 Remarks"] ?? "",
-              fireFighting: match["AD2.6 AD category for fire fighting"] ?? "",
-              runwayNumber: match["AD2.12 Runway Number"] ?? "",
-              runwayDimensions: match["AD2.12 Runway Dimensions"] ?? "",
-            }
-          : null;
+        const match = pickExtractedAirportRow(list, icao);
+        const fallbackCountry = isAsecnaIcao(icao)
+          ? (viewingAirport?.country || "ASECNA")
+          : isRussiaIcao(icao)
+            ? "Russia"
+            : "EAD (EU AIP)";
+        const airport = mapExtractedRowToAirport(match, icao, fallbackCountry);
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));

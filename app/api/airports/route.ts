@@ -102,6 +102,44 @@ function normalizeCountryLabel(country: string): string {
   return country.replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
 }
 
+function asciiCountry(country: string): string {
+  return normalizeCountryLabel(country)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .toLowerCase();
+}
+
+const COUNTRY_ALIASES: Record<string, string[]> = {
+  benin: ["Bénin", "Benin"],
+  "burkina faso": ["Burkina Faso"],
+  cameroun: ["Cameroun", "Cameroon"],
+  cameroon: ["Cameroun", "Cameroon"],
+  centrafrique: ["Centrafrique", "Central African Republic"],
+  "central african republic": ["Centrafrique", "Central African Republic"],
+  congo: ["Congo", "Congo (Brazza)"],
+  comores: ["Comores", "Comoros"],
+  comoros: ["Comores", "Comoros"],
+  "cote d'ivoire": ["Côte d'Ivoire", "Cote d'Ivoire", "Côte d’Ivoire", "Ivory Coast (Côte d’Ivoire)", "Ivory Coast"],
+  "guinee equatoriale": ["Guinée Equatoriale", "Equatorial Guinea"],
+  "equatorial guinea": ["Guinée Equatoriale", "Equatorial Guinea"],
+  guinee: ["Guinée", "Guinea"],
+  guinea: ["Guinée", "Guinea"],
+  "guinee bissau": ["Guinée Bissau", "Guinea-Bissau"],
+  "guinea-bissau": ["Guinée Bissau", "Guinea-Bissau"],
+  madagascar: ["Madagascar"],
+  mali: ["Mali"],
+  mauritanie: ["Mauritanie", "Mauritania"],
+  mauritania: ["Mauritanie", "Mauritania"],
+  niger: ["Niger"],
+  senegal: ["Sénégal", "Senegal"],
+  "sénégal": ["Sénégal", "Senegal"],
+  tchad: ["Tchad", "Chad"],
+  chad: ["Tchad", "Chad"],
+  rwanda: ["Rwanda"],
+  togo: ["Togo"],
+};
+
 function buildCountryCandidates(country?: string | null): string[] {
   if (!country) return [];
   const raw = country.trim();
@@ -109,6 +147,11 @@ function buildCountryCandidates(country?: string | null): string[] {
   const set = new Set<string>();
   if (raw) set.add(raw);
   if (normalized) set.add(normalized);
+  const aliasKey = asciiCountry(raw);
+  const aliases = COUNTRY_ALIASES[aliasKey];
+  if (aliases) {
+    for (const alias of aliases) set.add(alias);
+  }
   return Array.from(set);
 }
 
@@ -438,7 +481,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")?.trim() || null;
 
   const dbResults = await fetchVisibleAirportsFromDb(country, state);
-  if (dbResults !== null) {
+  if (dbResults !== null && (!country || dbResults.length > 0 || !isAsecnaCountry(country))) {
     return NextResponse.json(
       { results: dbResults },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

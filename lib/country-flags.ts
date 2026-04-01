@@ -205,5 +205,13 @@ export function getCountryFlagUrl(countryName: string): string | null {
 }
 
 export function getCountryIso(countryName: string): string | null {
-  return COUNTRY_TO_ISO[countryName] ?? null;
+  const name = normalize(countryName);
+  if (COUNTRY_TO_ISO[name]) return COUNTRY_TO_ISO[name];
+  const asciiName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'");
+  const key = Object.keys(COUNTRY_TO_ISO).find(
+    (k) =>
+      normalize(k).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'") ===
+      asciiName,
+  );
+  return key ? COUNTRY_TO_ISO[key] : null;
 }

@@ -12,7 +12,7 @@ import { createServer } from "http";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -29,6 +29,8 @@ const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
+const RWANDA_ICAO_PREFIX = "HR";
+const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -84,6 +86,11 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 async function runDownload(icao) {
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    return;
+  }
+  if (isRwandaIcao(icao)) {
+    // Rwanda uses ASECNA HTTP flow in ead-download-aip-pdf.mjs, no browser required.
+    await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
     return;
   }
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
@@ -275,9 +282,73 @@ function isRussiaIcao(icao) {
   return /^[A-Z0-9]{4}$/.test(upper) && RUSSIA_ICAO_PREFIXES.has(upper.slice(0, 2));
 }
 
+function isRwandaIcao(icao) {
+  const upper = String(icao || "").trim().toUpperCase();
+  return /^[A-Z0-9]{4}$/.test(upper) && upper.slice(0, 2) === RWANDA_ICAO_PREFIX;
+}
+
+function resolveRwandaTocUrl(menuHtmlWithButton) {
+  const m =
+    menuHtmlWithButton.match(/id\s*=\s*["']AIP_RWANDA["'][\s\S]*?href\s*=\s*["']([^"']+)["']/i) ||
+    menuHtmlWithButton.match(/href\s*=\s*["']([^"']+)["'][\s\S]*?id\s*=\s*["']AIP_RWANDA["']/i);
+  const raw = (m?.[1] || "").replace(/\\/g, "/");
+  if (!raw) throw new Error("AIP RWANDA link not found in FR menu.");
+  return new URL(raw, "https://aim.asecna.aero/html/eAIP/").href;
+}
+
+function resolveRwandaMenuUrl(tocFramesetHtml, tocUrl) {
+  const m =
+    tocFramesetHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i) ||
+    tocFramesetHtml.match(/<frame[^>]*src=["']([^"']*menu\.html[^"']*)["']/i);
+  const src = m?.[1];
+  if (!src) throw new Error("Rwanda menu frame URL not found.");
+  return new URL(src, tocUrl).href;
+}
+
+function parseRwandaGen12Href(menuHtml) {
+  const m = menuHtml.match(/href=['"]([^'"]*GEN[^'"]*1\.2[^'"]*)['"]/i);
+  if (!m?.[1]) throw new Error("GEN 1.2 link not found in Rwanda menu.");
+  return m[1];
+}
+
+function rwandaHtmlToPdfUrl(htmlUrl) {
+  let out = htmlUrl.replace(/#.*$/, "");
+  out = out.replace("-en-GB", "");
+  out = out.replace(".html", ".pdf");
+  out = out.replace("/eAIP/", "/documents/PDF/");
+  return out;
+}
+
+async function downloadToFile(url, filePath) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status}) for ${url}`);
+  }
+  const bytes = Buffer.from(await res.arrayBuffer());
+  writeFileSync(filePath, bytes);
+}
+
+async function runRwandaGenDownload() {
+  const frMenu = await (await fetch(RWANDA_FR_MENU_URL)).text();
+  const tocUrl = resolveRwandaTocUrl(frMenu);
+  const tocFrameset = await (await fetch(tocUrl)).text();
+  const menuUrl = resolveRwandaMenuUrl(tocFrameset, tocUrl);
+  const menuHtml = await (await fetch(menuUrl)).text();
+  const gen12Href = parseRwandaGen12Href(menuHtml);
+  const gen12HtmlUrl = new URL(gen12Href, menuUrl).href;
+  const gen12PdfUrl = rwandaHtmlToPdfUrl(gen12HtmlUrl);
+  mkdirSync(EAD_GEN_DIR, { recursive: true });
+  const outPath = join(EAD_GEN_DIR, `${RWANDA_ICAO_PREFIX}-GEN-1.2.pdf`);
+  await downloadToFile(gen12PdfUrl, outPath);
+}
+
 async function runGenDownloadForIcao(icao, prefix) {
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    return;
+  }
+  if (String(prefix || "").toUpperCase() === RWANDA_ICAO_PREFIX || isRwandaIcao(icao)) {
+    await runRwandaGenDownload();
     return;
   }
   await runGenDownload(prefix);

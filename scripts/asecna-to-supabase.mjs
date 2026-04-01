@@ -114,6 +114,22 @@ function normCountryName(name) {
   return toCanonical[key] ?? raw;
 }
 
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolveLink(href, base) {
+  const raw = String(href || "").trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  try {
+    return new URL(raw, String(base || "")).href;
+  } catch {
+    return raw;
+  }
+}
+
 function toRows(payload, ourMap, localCoords) {
   const now = new Date().toISOString();
   const rows = [];
@@ -125,20 +141,22 @@ function toRows(payload, ourMap, localCoords) {
       const fromOur = ourMap.get(icao) || null;
       const fromLocal = localCoords?.[icao] || null;
       const gen12Label = country.gen12?.label ?? null;
-      const gen12Href = country.gen12?.href ?? null;
+      const menuBase = country.menuDirUrl || (payload.menuUrl ? String(payload.menuUrl).replace(/[^/]+$/, "") : null);
+      const gen12Href = resolveLink(country.gen12?.htmlUrl || country.gen12?.href, menuBase);
       rows.push({
         icao,
         country: countryName,
         state: null,
-        name: fromOur?.name || `${icao} Airport`,
-        lat: fromOur?.lat ?? fromLocal?.lat ?? null,
-        lon: fromOur?.lon ?? fromLocal?.lon ?? null,
+        // Prefer AIP-provided name/coordinates (Rwanda AD2), then fallback datasets.
+        name: airport.name || fromOur?.name || `${icao} Airport`,
+        lat: toFiniteNumber(airport.lat) ?? fromOur?.lat ?? fromLocal?.lat ?? null,
+        lon: toFiniteNumber(airport.lon) ?? fromOur?.lon ?? fromLocal?.lon ?? null,
         source: "asecna_dynamic",
         source_type: "ASECNA",
         dynamic_updated: true,
         web_aip_url: airport.webAipUrl || payload.menuUrl || null,
         country_code: country.code || airport.countryCode || null,
-        ad2_html_url: null,
+        ad2_html_url: airport.ad2HtmlUrl || null,
         gen12_label: gen12Label,
         gen12_href: gen12Href,
         visible: true,
@@ -155,9 +173,6 @@ async function main() {
   const dryRun = hasFlag("--dry-run");
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRole) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
   const payload = JSON.parse(readFileSync(input, "utf8"));
   const localCoords = JSON.parse(readFileSync(LOCAL_COORDS_PATH, "utf8"));
   const ourRes = await fetch(OURAIRPORTS_URL);
@@ -172,6 +187,10 @@ async function main() {
 
   console.log(`[ASECNA->Supabase] prepared ${rows.length} rows from ${payload.countries?.length || 0} countries`);
   if (dryRun) return;
+
+  if (!supabaseUrl || !serviceRole) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
 
   const supabase = createClient(supabaseUrl, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },

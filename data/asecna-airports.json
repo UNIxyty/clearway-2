@@ -1,6 +1,6 @@
 {
   "source": "ASECNA eAIP menu (dynamic)",
-  "generatedAt": "2026-04-01T10:08:33.663Z",
+  "generatedAt": "2026-04-01T11:56:49.151Z",
   "menuBasename": "FR-menu-fr-FR.html",
   "menuUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
   "countries": [
@@ -24,7 +24,8 @@
           "countryName": "Bénin",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_01AD-2.DBBB-fr-FR.html"
         },
         {
           "icao": "DBBP",
@@ -32,7 +33,8 @@
           "countryName": "Bénin",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_01AD-2.DBBP-fr-FR.html"
         }
       ]
     },
@@ -56,7 +58,8 @@
           "countryName": "Burkina Faso",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_02AD-2.DFFD-fr-FR.html"
         },
         {
           "icao": "DFOO",
@@ -64,7 +67,8 @@
           "countryName": "Burkina Faso",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_02AD-2.DFOO-fr-FR.html"
         }
       ]
     },
@@ -84,7 +88,8 @@
           "countryName": "Cameroun",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_03AD-2.FKKD-fr-FR.html"
         },
         {
           "icao": "FKKL",
@@ -92,7 +97,8 @@
           "countryName": "Cameroun",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_03AD-2.FKKL-fr-FR.html"
         },
         {
           "icao": "FKKR",
@@ -100,7 +106,8 @@
           "countryName": "Cameroun",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_03AD-2.FKKR-fr-FR.html"
         },
         {
           "icao": "FKKU",
@@ -108,7 +115,8 @@
           "countryName": "Cameroun",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_03AD-2.FKKU-fr-FR.html"
         },
         {
           "icao": "FKYS",
@@ -116,7 +124,8 @@
           "countryName": "Cameroun",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_03AD-2.FKYS-fr-FR.html"
         }
       ]
     },
@@ -140,7 +149,8 @@
           "countryName": "Centrafrique",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_04AD-2.FEFF-fr-FR.html"
         }
       ]
     },
@@ -164,7 +174,8 @@
           "countryName": "Congo",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_05AD-2.FCBB-fr-FR.html"
         },
         {
           "icao": "FCOD",
@@ -172,7 +183,8 @@
           "countryName": "Congo",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_05AD-2.FCOD-fr-FR.html"
         },
         {
           "icao": "FCPP",
@@ -180,7 +192,8 @@
           "countryName": "Congo",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_05AD-2.FCPP-fr-FR.html"
         }
       ]
     },
@@ -204,7 +217,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIAP-fr-FR.html"
         },
         {
           "icao": "DIBK",
@@ -212,7 +226,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIBK-fr-FR.html"
         },
         {
           "icao": "DIKO",
@@ -220,7 +235,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIKO-fr-FR.html"
         },
         {
           "icao": "DIMN",
@@ -228,7 +244,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIMN-fr-FR.html"
         },
         {
           "icao": "DIOD",
@@ -236,7 +253,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIOD-fr-FR.html"
         },
         {
           "icao": "DIYO",
@@ -244,7 +262,8 @@
           "countryName": "Côte d'Ivoire",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_06AD-2.DIYO-fr-FR.html"
         }
       ]
     },
@@ -268,7 +287,8 @@
           "countryName": "Gabon",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_07AD-2.FOOG-fr-FR.html"
         },
         {
           "icao": "FOOL",
@@ -276,7 +296,8 @@
           "countryName": "Gabon",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_07AD-2.FOOL-fr-FR.html"
         },
         {
           "icao": "FOON",
@@ -284,7 +305,8 @@
           "countryName": "Gabon",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_07AD-2.FOON-fr-FR.html"
         }
       ]
     },
@@ -308,7 +330,8 @@
           "countryName": "Guinée Equatoriale",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_08AD-2.FGBT-fr-FR.html"
         },
         {
           "icao": "FGMY",
@@ -316,7 +339,8 @@
           "countryName": "Guinée Equatoriale",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_08AD-2.FGMY-fr-FR.html"
         },
         {
           "icao": "FGSL",
@@ -324,7 +348,8 @@
           "countryName": "Guinée Equatoriale",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_08AD-2.FGSL-fr-FR.html"
         }
       ]
     },
@@ -344,7 +369,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMME-fr-FR.html"
         },
         {
           "icao": "FMMI",
@@ -352,7 +378,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMMI-fr-FR.html"
         },
         {
           "icao": "FMMS",
@@ -360,7 +387,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMMS-fr-FR.html"
         },
         {
           "icao": "FMMT",
@@ -368,7 +396,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMMT-fr-FR.html"
         },
         {
           "icao": "FMMV",
@@ -376,7 +405,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMMV-fr-FR.html"
         },
         {
           "icao": "FMNA",
@@ -384,7 +414,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMNA-fr-FR.html"
         },
         {
           "icao": "FMNM",
@@ -392,7 +423,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMNM-fr-FR.html"
         },
         {
           "icao": "FMNN",
@@ -400,7 +432,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMNN-fr-FR.html"
         },
         {
           "icao": "FMNR",
@@ -408,7 +441,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMNR-fr-FR.html"
         },
         {
           "icao": "FMNS",
@@ -416,7 +450,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMNS-fr-FR.html"
         },
         {
           "icao": "FMSD",
@@ -424,7 +459,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMSD-fr-FR.html"
         },
         {
           "icao": "FMSF",
@@ -432,7 +468,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMSF-fr-FR.html"
         },
         {
           "icao": "FMSM",
@@ -440,7 +477,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMSM-fr-FR.html"
         },
         {
           "icao": "FMST",
@@ -448,7 +486,8 @@
           "countryName": "Madagascar",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_09AD-2.FMST-fr-FR.html"
         }
       ]
     },
@@ -472,7 +511,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GABS-fr-FR.html"
         },
         {
           "icao": "GAGO",
@@ -480,7 +520,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GAGO-fr-FR.html"
         },
         {
           "icao": "GAKD",
@@ -488,7 +529,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GAKD-fr-FR.html"
         },
         {
           "icao": "GAMB",
@@ -496,7 +538,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GAMB-fr-FR.html"
         },
         {
           "icao": "GASO",
@@ -504,7 +547,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GASO-fr-FR.html"
         },
         {
           "icao": "GATB",
@@ -512,7 +556,8 @@
           "countryName": "Mali",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_10AD-2.GATB-fr-FR.html"
         }
       ]
     },
@@ -536,7 +581,8 @@
           "countryName": "Mauritanie",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_11AD-2.GQNI-fr-FR.html"
         },
         {
           "icao": "GQNO",
@@ -544,7 +590,8 @@
           "countryName": "Mauritanie",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_11AD-2.GQNO-fr-FR.html"
         },
         {
           "icao": "GQPA",
@@ -552,7 +599,8 @@
           "countryName": "Mauritanie",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_11AD-2.GQPA-fr-FR.html"
         },
         {
           "icao": "GQPP",
@@ -560,7 +608,8 @@
           "countryName": "Mauritanie",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_11AD-2.GQPP-fr-FR.html"
         },
         {
           "icao": "GQPZ",
@@ -568,7 +617,8 @@
           "countryName": "Mauritanie",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_11AD-2.GQPZ-fr-FR.html"
         }
       ]
     },
@@ -592,7 +642,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRRM-fr-FR.html"
         },
         {
           "icao": "DRRN",
@@ -600,7 +651,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRRN-fr-FR.html"
         },
         {
           "icao": "DRRT",
@@ -608,7 +660,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRRT-fr-FR.html"
         },
         {
           "icao": "DRZA",
@@ -616,7 +669,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRZA-fr-FR.html"
         },
         {
           "icao": "DRZF",
@@ -624,7 +678,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRZF-fr-FR.html"
         },
         {
           "icao": "DRZR",
@@ -632,7 +687,8 @@
           "countryName": "Niger",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_12AD-2.DRZR-fr-FR.html"
         }
       ]
     },
@@ -656,7 +712,8 @@
           "countryName": "Sénégal",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_13AD-2.GOBD-fr-FR.html"
         },
         {
           "icao": "GOGS",
@@ -664,7 +721,8 @@
           "countryName": "Sénégal",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_13AD-2.GOGS-fr-FR.html"
         },
         {
           "icao": "GOOY",
@@ -672,7 +730,8 @@
           "countryName": "Sénégal",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_13AD-2.GOOY-fr-FR.html"
         },
         {
           "icao": "GOSS",
@@ -680,7 +739,8 @@
           "countryName": "Sénégal",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_13AD-2.GOSS-fr-FR.html"
         }
       ]
     },
@@ -704,7 +764,8 @@
           "countryName": "Tchad",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_14AD-2.FTTA-fr-FR.html"
         },
         {
           "icao": "FTTC",
@@ -712,7 +773,8 @@
           "countryName": "Tchad",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_14AD-2.FTTC-fr-FR.html"
         },
         {
           "icao": "FTTD",
@@ -720,7 +782,8 @@
           "countryName": "Tchad",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_14AD-2.FTTD-fr-FR.html"
         },
         {
           "icao": "FTTJ",
@@ -728,7 +791,8 @@
           "countryName": "Tchad",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_14AD-2.FTTJ-fr-FR.html"
         }
       ]
     },
@@ -752,7 +816,8 @@
           "countryName": "Togo",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_15AD-2.DXNG-fr-FR.html"
         },
         {
           "icao": "DXXX",
@@ -760,7 +825,8 @@
           "countryName": "Togo",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_15AD-2.DXXX-fr-FR.html"
         }
       ]
     },
@@ -784,7 +850,8 @@
           "countryName": "Comores",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_16AD-2.FMCH-fr-FR.html"
         }
       ]
     },
@@ -804,7 +871,97 @@
           "countryName": "Guinée Bissau",
           "sourceType": "ASECNA_DYNAMIC",
           "dynamicUpdated": true,
-          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html"
+          "webAipUrl": "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/html/eAIP/FR-_17AD-2.GGOV-fr-FR.html"
+        }
+      ]
+    },
+    {
+      "code": "RW",
+      "name": "Rwanda",
+      "iso2": "RW",
+      "sourceType": "ASECNA_DYNAMIC",
+      "dynamicUpdated": true,
+      "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+      "menuDirUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/",
+      "gen12": {
+        "anchor": "GEN-1.2",
+        "href": "HR-GEN 1.2-en-GB.html#GEN-1.2",
+        "label": "Entry, transit and departure of aircraft",
+        "htmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-GEN%201.2-en-GB.html#GEN-1.2"
+      },
+      "airports": [
+        {
+          "icao": "HRYG",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRYG-en-GB.html#AD-2-HRYG",
+          "name": "GISENYI",
+          "lat": -1.6766666666666665,
+          "lon": 29.259166666666665
+        },
+        {
+          "icao": "HRYI",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRYI-en-GB.html#AD-2-HRYI",
+          "name": "BUTARE",
+          "lat": -2.6,
+          "lon": 29.733333333333334
+        },
+        {
+          "icao": "HRYN",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRYN-en-GB.html#AD-2-HRYN",
+          "name": "NEMBA",
+          "lat": -2.3333333333333335,
+          "lon": 30.2
+        },
+        {
+          "icao": "HRYR",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRYR-en-GB.html#AD-2-HRYR",
+          "name": "KIGALI INTL",
+          "lat": -1.9684472222222222,
+          "lon": 30.13838611111111
+        },
+        {
+          "icao": "HRYU",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRYU-en-GB.html#AD-2-HRYU",
+          "name": "RUHENGERI",
+          "lat": -1.5,
+          "lon": 29.633333333333333
+        },
+        {
+          "icao": "HRZA",
+          "countryCode": "RW",
+          "countryName": "Rwanda",
+          "sourceType": "ASECNA_DYNAMIC",
+          "dynamicUpdated": true,
+          "webAipUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/toc-frameset.html",
+          "ad2HtmlUrl": "https://aim.asecna.aero/eAIP_Rwanda/02-25_2025_10_30/eAIP/HR-AD%202%20HRZA-en-GB.html#AD-2-HRZA",
+          "name": "KAMEMBE",
+          "lat": -2.462366666666667,
+          "lon": 28.90791111111111
         }
       ]
     }

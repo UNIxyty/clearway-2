@@ -105,9 +105,10 @@ function loadAsecnaAirportCountryCodeMap() {
     for (const country of (data.countries || [])) {
       for (const airport of (country.airports || [])) {
         const icao = String(airport.icao || '').toUpperCase();
-        const countryCode = String(airport.countryCode || country.code || '').padStart(2, '0');
-        if (/^[A-Z0-9]{4}$/.test(icao) && /^\d{2}$/.test(countryCode)) {
-          map.set(icao, countryCode);
+        const countryCode = String(airport.countryCode || country.code || '').trim().toUpperCase();
+        const ad2HtmlUrl = typeof airport.ad2HtmlUrl === 'string' ? airport.ad2HtmlUrl : null;
+        if (/^[A-Z0-9]{4}$/.test(icao)) {
+          map.set(icao, { countryCode, ad2HtmlUrl });
         }
       }
     }
@@ -119,6 +120,14 @@ function loadAsecnaAirportCountryCodeMap() {
   } catch (_) {
     return { map: new Map(), menuUrl: null, menuBasename: null };
   }
+}
+
+function rwandaHtmlToPdfUrl(htmlUrl) {
+  let out = htmlUrl.replace(/#.*$/, '');
+  out = out.replace('-en-GB', '');
+  out = out.replace('.html', '.pdf');
+  out = out.replace('/eAIP/', '/documents/PDF/');
+  return out;
 }
 
 function jsfId(id) {
@@ -137,21 +146,28 @@ async function main() {
 
   // ASECNA path (same script, no EAD login required).
   const asecnaMeta = loadAsecnaAirportCountryCodeMap();
-  const asecnaCountryCode = asecnaMeta.map.get(icao);
-  if (asecnaCountryCode) {
+  const asecnaAirportMeta = asecnaMeta.map.get(icao);
+  if (asecnaAirportMeta) {
     const cli = parseAsecnaCli(process.argv);
     if (cli.insecureTls) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     const strictTls = cli.strictTls && !cli.insecureTls;
+    const countryCode = String(asecnaAirportMeta.countryCode || '');
     const menuBasename = cli.menuBasename || asecnaMeta.menuBasename || 'FR-menu-fr-FR.html';
     const menuDirUrl = asecnaMeta.menuUrl
       ? asecnaMeta.menuUrl.replace(/[^/]+$/, '')
       : 'https://aim.asecna.aero/html/eAIP/';
-    const htmlFile = asecnaAd2AirportBasename(asecnaCountryCode, icao, menuBasename);
-    const htmlUrl = resolveAsecnaHtmlUrl(htmlFile, menuDirUrl);
-    const pdfUrl = htmlUrlToPdfUrl(htmlUrl);
+    const htmlUrl = asecnaAirportMeta.ad2HtmlUrl
+      ? asecnaAirportMeta.ad2HtmlUrl
+      : (/^\d{2}$/.test(countryCode)
+        ? resolveAsecnaHtmlUrl(asecnaAd2AirportBasename(countryCode, icao, menuBasename), menuDirUrl)
+        : null);
+    if (!htmlUrl) {
+      throw new Error(`ASECNA metadata for ${icao} is missing AD2 URL/country code. Run services/asecna/asecna-sync.mjs first.`);
+    }
+    const pdfUrl = /\/eAIP_Rwanda\//i.test(htmlUrl) ? rwandaHtmlToPdfUrl(htmlUrl) : htmlUrlToPdfUrl(htmlUrl);
     const savePath = join(outDir, `${icao}_ASECNA_AD2.pdf`);
 
-    log(`ASECNA ICAO detected (${icao}, country code ${asecnaCountryCode})`);
+    log(`ASECNA ICAO detected (${icao}, country code ${countryCode || 'n/a'})`);
     log('Downloading ASECNA AD 2 PDF: ' + pdfUrl);
     const http = createAsecnaFetch('EAD-SCRIPT');
     await http.downloadPdfToFile(pdfUrl, savePath, `ASECNA AD2 ${icao}`, { strictTls });

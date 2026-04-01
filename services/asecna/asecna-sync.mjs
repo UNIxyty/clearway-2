@@ -2,6 +2,7 @@
 import { writeFileSync } from "fs";
 import { join } from "path";
 import {
+  asecnaAd2AirportBasename,
   asecnaMenuUrl,
   createAsecnaFetch,
   parseMenuBasename,
@@ -86,6 +87,139 @@ function parseAd2IcaosFromCountryHtml(countryHtml, countryCode) {
   return [...set].sort();
 }
 
+function stripHtml(s) {
+  return String(s || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveRwandaTocUrl(menuHtmlWithButton) {
+  const m =
+    menuHtmlWithButton.match(/id\s*=\s*["']AIP_RWANDA["'][\s\S]*?href\s*=\s*["']([^"']+)["']/i) ||
+    menuHtmlWithButton.match(/href\s*=\s*["']([^"']+)["'][\s\S]*?id\s*=\s*["']AIP_RWANDA["']/i);
+  const raw = (m?.[1] || "").replace(/\\/g, "/");
+  if (!raw) return null;
+  return new URL(raw, "https://aim.asecna.aero/html/eAIP/").href;
+}
+
+function resolveRwandaMenuUrl(tocFramesetHtml, tocUrl) {
+  const m =
+    tocFramesetHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i) ||
+    tocFramesetHtml.match(/<frame[^>]*src=["']([^"']*menu\.html[^"']*)["']/i);
+  const src = m?.[1];
+  if (!src) return null;
+  return new URL(src, tocUrl).href;
+}
+
+function parseRwandaAd2Entries(menuHtml) {
+  const re = /href=['"]([^'"]*AD\s*2\s*([A-Z0-9]{4})[^'"]*\.html#[^'"]*)['"]/gi;
+  const byIcao = new Map();
+  let m;
+  while ((m = re.exec(menuHtml))) {
+    const href = String(m[1] || "");
+    const icao = String(m[2] || "").toUpperCase();
+    if (/^[A-Z0-9]{4}$/.test(icao) && !byIcao.has(icao)) byIcao.set(icao, href);
+  }
+  return [...byIcao.entries()]
+    .map(([icao, href]) => ({ icao, href }))
+    .sort((a, b) => a.icao.localeCompare(b.icao));
+}
+
+function parseRwandaGen12(menuHtml) {
+  const m =
+    menuHtml.match(/href=['"]([^'"]*GEN[^'"]*1\.2[^'"]*)['"][^>]*title=['"]([^'"]*)/i) ||
+    menuHtml.match(/href=['"]([^'"]*GEN[^'"]*1\.2[^'"]*)['"]/i);
+  if (!m?.[1]) return null;
+  return {
+    href: m[1],
+    label: m[2] || "GEN 1.2 Entry, transit and departure of aircraft",
+  };
+}
+
+function parseCompactDmsToDecimal(value) {
+  const v = String(value || "").trim().toUpperCase();
+  const m = v.match(/^(\d{2,3})(\d{2})(\d{2}(?:\.\d+)?)([NSEW])$/);
+  if (!m) return null;
+  const deg = Number(m[1]);
+  const min = Number(m[2]);
+  const sec = Number(m[3]);
+  if (!Number.isFinite(deg) || !Number.isFinite(min) || !Number.isFinite(sec)) return null;
+  const sign = m[4] === "S" || m[4] === "W" ? -1 : 1;
+  return sign * (deg + min / 60 + sec / 3600);
+}
+
+function parseRwandaAirportMeta(ad2Html, icao) {
+  const label =
+    ad2Html.match(new RegExp(`${icao}\\s*-\\s*([^<\\n]+)`, "i"))?.[1]?.trim() ||
+    ad2Html.match(/AD 2\.\d+\s+[A-Z0-9]{4}\s*-\s*([A-Z0-9 '\-]+)/i)?.[1]?.trim() ||
+    null;
+  const text = stripHtml(ad2Html);
+  const coord = text.match(
+    /ARP coordinates and site at AD\s+([0-9]{6,7}(?:\.\d+)?[NS])\s+([0-9]{7,8}(?:\.\d+)?[EW])/i,
+  );
+  const lat = coord ? parseCompactDmsToDecimal(coord[1]) : null;
+  const lon = coord ? parseCompactDmsToDecimal(coord[2]) : null;
+  return { name: label, lat, lon };
+}
+
+async function fetchRwandaCountry(http, strictTls) {
+  const frMenuUrl = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
+  const frMenu = await http.fetchText(frMenuUrl, "FR menu with Rwanda button", { strictTls });
+  const tocUrl = resolveRwandaTocUrl(frMenu);
+  if (!tocUrl) return null;
+  const tocFrameset = await http.fetchText(tocUrl, "Rwanda toc-frameset", { strictTls });
+  const menuUrl = resolveRwandaMenuUrl(tocFrameset, tocUrl);
+  if (!menuUrl) return null;
+  const menuHtml = await http.fetchText(menuUrl, "Rwanda menu", { strictTls });
+  const entries = parseRwandaAd2Entries(menuHtml);
+  const gen12 = parseRwandaGen12(menuHtml);
+  const gen12Resolved = gen12
+    ? {
+        anchor: "GEN-1.2",
+        href: gen12.href,
+        label: gen12.label,
+        htmlUrl: new URL(gen12.href, menuUrl).href,
+      }
+    : null;
+  const airports = [];
+  for (const entry of entries) {
+    const ad2HtmlUrl = new URL(entry.href, menuUrl).href;
+    let meta = { name: null, lat: null, lon: null };
+    try {
+      const ad2Html = await http.fetchText(ad2HtmlUrl, `Rwanda AD2 ${entry.icao}`, { strictTls });
+      meta = parseRwandaAirportMeta(ad2Html, entry.icao);
+    } catch (_) {
+      // Keep airport with null metadata if one page fails.
+    }
+    airports.push({
+      icao: entry.icao,
+      countryCode: "RW",
+      countryName: "Rwanda",
+      sourceType: "ASECNA_DYNAMIC",
+      dynamicUpdated: true,
+      webAipUrl: tocUrl,
+      ad2HtmlUrl,
+      name: meta.name,
+      lat: meta.lat,
+      lon: meta.lon,
+    });
+  }
+  return {
+    code: "RW",
+    name: "Rwanda",
+    iso2: "RW",
+    sourceType: "ASECNA_DYNAMIC",
+    dynamicUpdated: true,
+    webAipUrl: tocUrl,
+    menuDirUrl: menuUrl.replace(/[^/]+$/, ""),
+    gen12: gen12Resolved,
+    airports,
+  };
+}
+
 async function run() {
   const cli = parseAsecnaCli(process.argv);
   const output = argValue("--out", DEFAULT_OUTPUT);
@@ -139,15 +273,27 @@ async function run() {
       webAipUrl: menuUrl,
       menuDirUrl,
       gen12,
-      airports: icaos.map((icao) => ({
-        icao,
-        countryCode: country.code,
-        countryName: country.name,
-        sourceType: "ASECNA_DYNAMIC",
-        dynamicUpdated: true,
-        webAipUrl: menuUrl,
-      })),
+      airports: icaos.map((icao) => {
+        const ad2HtmlFile = asecnaAd2AirportBasename(country.code, icao, cli.menuBasename);
+        const ad2HtmlUrl = resolveAsecnaHtmlUrl(ad2HtmlFile, menuDirUrl);
+        return {
+          icao,
+          countryCode: country.code,
+          countryName: country.name,
+          sourceType: "ASECNA_DYNAMIC",
+          dynamicUpdated: true,
+          webAipUrl: menuUrl,
+          ad2HtmlUrl,
+        };
+      }),
     });
+  }
+
+  try {
+    const rwanda = await fetchRwandaCountry(http, strictTls);
+    if (rwanda && rwanda.airports.length) countries.push(rwanda);
+  } catch (err) {
+    console.warn("[ASECNA sync] Rwanda fetch skipped:", err?.message || err);
   }
 
   const payload = {

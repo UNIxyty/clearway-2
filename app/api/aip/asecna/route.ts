@@ -7,7 +7,7 @@ import {
   htmlUrlToPdfUrl,
   parseAsecnaCli,
   resolveAsecnaHtmlUrl,
-} from "@/scripts/asecna-eaip-http.mjs";
+} from "@/scripts/asecna/asecna-eaip-http.mjs";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const REGION = process.env.AWS_REGION || "us-east-1";

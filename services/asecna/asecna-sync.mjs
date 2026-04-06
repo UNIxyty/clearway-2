@@ -11,7 +11,7 @@ import {
   parseAd2IcaosForCountry,
   parseGen1SectionsForCountry,
   resolveAsecnaHtmlUrl,
-} from "../../scripts/asecna-eaip-http.mjs";
+} from "../../scripts/asecna/asecna-eaip-http.mjs";
 
 const ROOT = process.cwd();
 const DEFAULT_OUTPUT = join(ROOT, "data", "asecna-airports.json");
@@ -151,6 +151,31 @@ function parseCompactDmsToDecimal(value) {
   return sign * (deg + min / 60 + sec / 3600);
 }
 
+function toTitleCaseWords(value) {
+  return String(value || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function normalizeRwandaAirportName(icao, ad2Label) {
+  const explicit = {
+    HRYG: "Gisenyi Airport",
+    HRYI: "Butare Airport",
+    HRYN: "Nemba Airport",
+    HRYR: "Kigali International Airport",
+    HRYU: "Ruhengeri Airport",
+    HRZA: "Kamembe International Airport",
+  };
+  if (explicit[icao]) return explicit[icao];
+  const cleaned = String(ad2Label || "").replace(/\bINTL\b/gi, "International").trim();
+  if (!cleaned) return `${icao} Airport`;
+  const titled = toTitleCaseWords(cleaned);
+  return /\bAirport\b/i.test(titled) ? titled : `${titled} Airport`;
+}
+
 function parseRwandaAirportMeta(ad2Html, icao) {
   const label =
     ad2Html.match(new RegExp(`${icao}\\s*-\\s*([^<\\n]+)`, "i"))?.[1]?.trim() ||
@@ -162,7 +187,7 @@ function parseRwandaAirportMeta(ad2Html, icao) {
   );
   const lat = coord ? parseCompactDmsToDecimal(coord[1]) : null;
   const lon = coord ? parseCompactDmsToDecimal(coord[2]) : null;
-  return { name: label, lat, lon };
+  return { name: normalizeRwandaAirportName(icao, label), lat, lon };
 }
 
 async function fetchRwandaCountry(http, strictTls) {

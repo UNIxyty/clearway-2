@@ -6,9 +6,9 @@
  * AD 2: Aerodromes → country → ICAO; PDF is FR-_01AD-2.ICAO-fr-FR.pdf for that aerodrome.
  *
  * Usage:
- *   node scripts/asecna-eaip-interactive.mjs
- *   node scripts/asecna-eaip-interactive.mjs --insecure
- *   node scripts/asecna-eaip-interactive.mjs --menu EN-menu-en-GB.html
+ *   node scripts/asecna/asecna-eaip-interactive.mjs
+ *   node scripts/asecna/asecna-eaip-interactive.mjs --insecure
+ *   node scripts/asecna/asecna-eaip-interactive.mjs --menu EN-menu-en-GB.html
  *
  * Env: ASECNA_TLS_INSECURE, ASECNA_TLS_STRICT, ASECNA_MENU_FILE
  */
@@ -36,7 +36,7 @@ import {
 } from "./asecna-eaip-http.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(__dirname, "..");
+const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "asecna-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "asecna-eaip", "AD2");
 
@@ -166,7 +166,7 @@ async function promptPickIcao(rl, icaos) {
 
 function parseArgv(argv) {
   if (argv.includes("--help") || argv.includes("-h")) {
-    console.log(`Usage: node scripts/asecna-eaip-interactive.mjs [options]
+    console.log(`Usage: node scripts/asecna/asecna-eaip-interactive.mjs [options]
 
 Portal: ${DEFAULT_ASECNA_INDEX}
 

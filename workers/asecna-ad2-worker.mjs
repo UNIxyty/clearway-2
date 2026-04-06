@@ -8,7 +8,7 @@ import {
   createAsecnaFetch,
   htmlUrlToPdfUrl,
   resolveAsecnaHtmlUrl,
-} from "../scripts/asecna-eaip-http.mjs";
+} from "../scripts/asecna/asecna-eaip-http.mjs";
 
 const ROOT = process.cwd();
 const ASECNA_JSON = join(ROOT, "data", "asecna-airports.json");

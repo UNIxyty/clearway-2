@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna-eaip-http.mjs";
+import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna/asecna-eaip-http.mjs";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 
 function rwandaHtmlToPdfUrl(htmlUrl: string): string {

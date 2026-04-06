@@ -17,7 +17,7 @@ import {
   htmlUrlToPdfUrl,
   parseAsecnaCli,
   resolveAsecnaHtmlUrl,
-} from './asecna-eaip-http.mjs';
+} from './asecna/asecna-eaip-http.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');

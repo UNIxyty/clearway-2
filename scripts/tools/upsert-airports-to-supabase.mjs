@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+import fs from "node:fs/promises";
+import path from "node:path";
+import { createClient } from "@supabase/supabase-js";
+
+const ROOT = process.cwd();
+const IN_DEFAULT = path.join(ROOT, "data", "dynamic-airports.json");
+const BATCH_SIZE = 200;
+
+function hasFlag(flag) {
+  return process.argv.includes(flag);
+}
+
+function argValue(flag, fallback = null) {
+  const i = process.argv.indexOf(flag);
+  if (i === -1) return fallback;
+  return process.argv[i + 1] ?? fallback;
+}
+
+async function main() {
+  const inPath = argValue("--in", IN_DEFAULT);
+  const dryRun = hasFlag("--dry-run");
+  const payload = JSON.parse(await fs.readFile(inPath, "utf8"));
+  const airports = Array.isArray(payload.airports) ? payload.airports : [];
+  if (!airports.length) {
+    console.log("[upsert-airports] no airports to upsert.");
+    return;
+  }
+
+  const rows = airports.map((a) => ({
+    icao: String(a.icao || "").toUpperCase(),
+    country: String(a.country || ""),
+    state: null,
+    name: String(a.name || ""),
+    lat: Number.isFinite(Number(a.lat)) ? Number(a.lat) : null,
+    lon: Number.isFinite(Number(a.lon)) ? Number(a.lon) : null,
+    source: "web_table_scraper_dynamic",
+    visible: true,
+    updated_at: new Date().toISOString(),
+  }));
+
+  console.log(`[upsert-airports] prepared ${rows.length} rows from ${path.relative(ROOT, inPath)}`);
+  if (dryRun) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRole) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRole, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase.from("airports").upsert(batch, { onConflict: "icao" });
+    if (error) throw new Error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error.message}`);
+  }
+  console.log("[upsert-airports] upsert complete.");
+}
+
+main().catch((err) => {
+  console.error("[upsert-airports] failed:", err?.message || err);
+  process.exit(1);
+});

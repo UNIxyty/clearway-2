@@ -1,0 +1,3570 @@
+{
+  "generatedAt": "2026-04-07T08:09:33.173Z",
+  "fromPackages": "data/dynamic-packages.json",
+  "airports": [
+    {
+      "icao": "2018",
+      "country": "Myanmar",
+      "name": "2018 Airport",
+      "lat": null,
+      "lon": null,
+      "source": "web_table_scraper_dynamic",
+      "visible": true
+    },
+    {
+      "icao": "2024",
+      "country": "Cabo Verde",
+      "name": "2024 Airport",
+      "lat": null,
+      "lon": null,
+      "source": "web_table_scraper_dynamic",
+      "visible": true
+    },
+    {
+      "icao": "2025",
+      "country": "Costa Rica",
+      "name": "2025 Airport",
+      "lat": null,
+      "lon": null,
+      "source": "web_table_scraper_dynamic",
+      "visible": true
+    },
+    {
+      "icao": "2026",
+      "country": "Bahrain",
+      "name": "2026 Airport",
+      "lat": null,
+      "lon": null,
+      "source": "web_table_scraper_dynamic",
+      "visible": true
+    },
+    {
+      "icao": "BKPR",
+      "country": "Kosovo",
+      "name": "Prishtina International Airport",
+      "lat": 42.5728,
+      "lon": 21.035801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCAD",
+      "country": "Somalia",
+      "name": "ADADO",
+      "lat": 6.095802,
+      "lon": 46.6375,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCDB",
+      "country": "Somalia",
+      "name": "DHOBLEY",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCDL",
+      "country": "Somalia",
+      "name": "DOLOW",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCDM",
+      "country": "Somalia",
+      "name": "DUSA MAREB",
+      "lat": 5.472,
+      "lon": 46.359833,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCGD",
+      "country": "Somalia",
+      "name": "GALDOGOB",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCGR",
+      "country": "Somalia",
+      "name": "GAROWE INTL",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMB",
+      "country": "Somalia",
+      "name": "BAIDOA",
+      "lat": 3.10192,
+      "lon": 43.627137,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMF",
+      "country": "Somalia",
+      "name": "BOSASO INTL",
+      "lat": 11.275235,
+      "lon": 49.139231,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMH",
+      "country": "Somalia",
+      "name": "EGAL INTL",
+      "lat": 9.514082,
+      "lon": 44.083469,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMI",
+      "country": "Somalia",
+      "name": "BERBERA INTL",
+      "lat": 10.385035,
+      "lon": 44.936723,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMK",
+      "country": "Somalia",
+      "name": "KISMAYO",
+      "lat": -0.377353,
+      "lon": 42.459202,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMM",
+      "country": "Somalia",
+      "name": "ADEN ADDE INTL",
+      "lat": 2.01444,
+      "lon": 45.304699,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMN",
+      "country": "Somalia",
+      "name": "UGAS KHALIF",
+      "lat": 4.766976,
+      "lon": 45.2388,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMR",
+      "country": "Somalia",
+      "name": "GALKAIO",
+      "lat": 6.78082990646,
+      "lon": 47.45470047,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HCMV",
+      "country": "Somalia",
+      "name": "BURAO",
+      "lat": 9.5275,
+      "lon": 45.5549,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLGD",
+      "country": "Libya",
+      "name": "SIRTE/Ghardabiya International",
+      "lat": 31.058578,
+      "lon": 16.597095,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLKF",
+      "country": "Libya",
+      "name": "KUFRA / Kufra",
+      "lat": 24.178699493408203,
+      "lon": 23.31399917602539,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLLB",
+      "country": "Libya",
+      "name": "BENGHAZI/Benina International",
+      "lat": 32.096802,
+      "lon": 20.269501,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLLM",
+      "country": "Libya",
+      "name": "TRIPOLI/Mitiga International",
+      "lat": 32.89177,
+      "lon": 13.287878,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLLQ",
+      "country": "Libya",
+      "name": "EL BEIDA / Labraq",
+      "lat": 32.789036,
+      "lon": 21.954864,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLLS",
+      "country": "Libya",
+      "name": "SEBHA/ Sebha International",
+      "lat": 26.992452,
+      "lon": 14.466162,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLLT",
+      "country": "Libya",
+      "name": "TRIPOLI/ Tripoli International",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HLMS",
+      "country": "Libya",
+      "name": "MISRATA / Misrata International",
+      "lat": 32.325001,
+      "lon": 15.061,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRYG",
+      "country": "Rwanda",
+      "name": "GISENYI",
+      "lat": -1.6771999597549438,
+      "lon": 29.258899688720703,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRYI",
+      "country": "Rwanda",
+      "name": "BUTARE",
+      "lat": -2.59583,
+      "lon": 29.7367,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRYN",
+      "country": "Rwanda",
+      "name": "NEMBA",
+      "lat": -2.336167,
+      "lon": 30.206658,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRYR",
+      "country": "Rwanda",
+      "name": "KIGALI INTL",
+      "lat": -1.96863,
+      "lon": 30.1395,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRYU",
+      "country": "Rwanda",
+      "name": "RUHENGERI",
+      "lat": -1.496873,
+      "lon": 29.631343,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "HRZA",
+      "country": "Rwanda",
+      "name": "KAMEMBE",
+      "lat": -2.462239980697632,
+      "lon": 28.907899856567383,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "LLBG",
+      "country": "Israel",
+      "name": "TEL-AVIV/Ben-Gurion airport",
+      "lat": 32.011398,
+      "lon": 34.8867,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "LLER",
+      "country": "Israel",
+      "name": "EILAT/Ilan & Asaf Ramon International Airport",
+      "lat": 29.727009,
+      "lon": 35.014116,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "LLHA",
+      "country": "Israel",
+      "name": "HAIFA/U. Michaeli airport",
+      "lat": 32.810219,
+      "lon": 35.043719,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MRLB",
+      "country": "Costa Rica",
+      "name": "DANIEL ODUBER QUIROS INTL.",
+      "lat": 10.5933,
+      "lon": -85.544403,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MRLM",
+      "country": "Costa Rica",
+      "name": "LIMON INTL.",
+      "lat": 9.95796,
+      "lon": -83.022003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MROC",
+      "country": "Costa Rica",
+      "name": "JUAN SANTAMARIA INTL / JUAN SANTAMARIA INTL.",
+      "lat": 9.99386,
+      "lon": -84.208801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MRPV",
+      "country": "Costa Rica",
+      "name": "TOBIAS BOLANOS INTL. / TOBIAS BOLANOS INTL",
+      "lat": 9.95705,
+      "lon": -84.139801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUBA",
+      "country": "Cuba",
+      "name": "BARACOA / Gustavo Rizo",
+      "lat": 20.365299224853516,
+      "lon": -74.5062026977539,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUBR",
+      "country": "Cuba",
+      "name": "CAYO LAS BRUJAS / Las Brujas",
+      "lat": 22.6213,
+      "lon": -79.147202,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUBY",
+      "country": "Cuba",
+      "name": "BAYAMO / Carlos Manuel de Céspedes",
+      "lat": 20.3964,
+      "lon": -76.621399,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUCC",
+      "country": "Cuba",
+      "name": "CAYO COCO / Jardines del Rey Intl.",
+      "lat": 22.461000442499998,
+      "lon": -78.32839965820001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUCF",
+      "country": "Cuba",
+      "name": "CIENFUEGOS / Jaime González Intl",
+      "lat": 22.149999618530273,
+      "lon": -80.41419982910156,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "MUCL",
+      "country": "Cuba",
+      "name": "CAYO LARGO DEL SUR / Vilo Acuña Intl.",
+      "lat": 21.6165008545,
+      "lon": -81.5459976196,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OBBI",
+      "country": "Bahrain",
+      "name": "BAHRAIN INTERNATIONAL",
+      "lat": 26.267295,
+      "lon": 50.63764,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OBBS",
+      "country": "Bahrain",
+      "name": "BAHRAIN / ISA AIRBASE",
+      "lat": 25.9184,
+      "lon": 50.590599,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OBKH",
+      "country": "Bahrain",
+      "name": "BAHRAIN / SAKHIR AIRBASE",
+      "lat": 26.034533,
+      "lon": 50.524544,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEAB",
+      "country": "Saudi Arabia",
+      "name": "ABHA",
+      "lat": 18.2404,
+      "lon": 42.656601,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEAD",
+      "country": "Saudi Arabia",
+      "name": "ARADAH",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEAH",
+      "country": "Saudi Arabia",
+      "name": "AL AHSA",
+      "lat": 25.285299,
+      "lon": 49.485199,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEAO",
+      "country": "Saudi Arabia",
+      "name": "ALULA INTERNATIONAL",
+      "lat": 26.483634,
+      "lon": 38.117048,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEBA",
+      "country": "Saudi Arabia",
+      "name": "AL BAHA / KING SAUD BIN ABDULAZIZ AIRPORT",
+      "lat": 20.298506,
+      "lon": 41.636153,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEBH",
+      "country": "Saudi Arabia",
+      "name": "BISHA",
+      "lat": 19.9844,
+      "lon": 42.620899,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEBN",
+      "country": "Saudi Arabia",
+      "name": "THABLOTIN",
+      "lat": 19.831632,
+      "lon": 54.022115,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEBQ",
+      "country": "Saudi Arabia",
+      "name": "ABQAIQ",
+      "lat": 25.911301,
+      "lon": 49.591202,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEBT",
+      "country": "Saudi Arabia",
+      "name": "BATHA",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEDF",
+      "country": "Saudi Arabia",
+      "name": "DAMMAM / KING FAHD INTERNATIONAL",
+      "lat": 26.4691,
+      "lon": 49.798209,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEDM",
+      "country": "Saudi Arabia",
+      "name": "AL DAWADMI",
+      "lat": 24.4499,
+      "lon": 44.121201,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEDR",
+      "country": "Saudi Arabia",
+      "name": "DHAHRAN / KING ABDULAZIZ AIR BASE",
+      "lat": 26.2654,
+      "lon": 50.152,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEGN",
+      "country": "Saudi Arabia",
+      "name": "JAZAN / KING ABDULLAH BIN ABDULAZIZ",
+      "lat": 16.9011,
+      "lon": 42.5858,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEGS",
+      "country": "Saudi Arabia",
+      "name": "GASSIM / PRINCE NAIF BIN ABDULAZIZ",
+      "lat": 26.302799,
+      "lon": 43.774399,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEGT",
+      "country": "Saudi Arabia",
+      "name": "GURIAT",
+      "lat": 31.412413,
+      "lon": 37.278898,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEHL",
+      "country": "Saudi Arabia",
+      "name": "HAIL",
+      "lat": 27.437901,
+      "lon": 41.686298,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEHR",
+      "country": "Saudi Arabia",
+      "name": "HARAD",
+      "lat": 24.09653,
+      "lon": 49.22432,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEHW",
+      "country": "Saudi Arabia",
+      "name": "AL HAWTAH",
+      "lat": 22.9678,
+      "lon": 46.899502,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEJB",
+      "country": "Saudi Arabia",
+      "name": "JUBAIL",
+      "lat": 27.039,
+      "lon": 49.405102,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEJF",
+      "country": "Saudi Arabia",
+      "name": "KING FAISAL NAVAL BASE",
+      "lat": 21.348101,
+      "lon": 39.173,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEJL",
+      "country": "Saudi Arabia",
+      "name": "KING ABDULAZIZ NAVAL BASE",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEJN",
+      "country": "Saudi Arabia",
+      "name": "JEDDAH / KING ABDULAZIZ INTERNATIONAL",
+      "lat": 21.680241,
+      "lon": 39.157436,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEKA",
+      "country": "Saudi Arabia",
+      "name": "KHASHM ALAN",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEKF",
+      "country": "Saudi Arabia",
+      "name": "KING FAISAL AIR ACADEMY",
+      "lat": 26.085278,
+      "lon": 45.196667,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEKK",
+      "country": "Saudi Arabia",
+      "name": "KING SAUD AIR BASE",
+      "lat": 27.9009,
+      "lon": 45.528198,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEKM",
+      "country": "Saudi Arabia",
+      "name": "KHAMIS MUSHAIT / KING KHALED AIR BASE",
+      "lat": 18.2973,
+      "lon": 42.803501,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEKN",
+      "country": "Saudi Arabia",
+      "name": "KHURAIS",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEMA",
+      "country": "Saudi Arabia",
+      "name": "MADINAH / PRINCE MOHAMMAD BIN ABDULAZIZ INTERNATIONAL",
+      "lat": 24.5534,
+      "lon": 39.705101,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OENG",
+      "country": "Saudi Arabia",
+      "name": "NEJRAN",
+      "lat": 17.611401,
+      "lon": 44.419201,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OENN",
+      "country": "Saudi Arabia",
+      "name": "NEOM BAY AIRPORT",
+      "lat": 27.924261,
+      "lon": 35.29358,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEOM",
+      "country": "Saudi Arabia",
+      "name": "UM ALMELH",
+      "lat": 19.11176,
+      "lon": 50.127353,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPA",
+      "country": "Saudi Arabia",
+      "name": "AL QAISUMAH INTERNATIONAL",
+      "lat": 28.335726,
+      "lon": 46.127108,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPC",
+      "country": "Saudi Arabia",
+      "name": "PUMP STATION 3",
+      "lat": 25.1745,
+      "lon": 47.4884,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPF",
+      "country": "Saudi Arabia",
+      "name": "PUMP STATION 6",
+      "lat": 24.7103,
+      "lon": 44.9645,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPI",
+      "country": "Saudi Arabia",
+      "name": "PUMP STATION 9",
+      "lat": 24.2761,
+      "lon": 42.1437,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPJ",
+      "country": "Saudi Arabia",
+      "name": "PUMP STATION 10",
+      "lat": 24.1073,
+      "lon": 41.035999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEPS",
+      "country": "Saudi Arabia",
+      "name": "AL KHARJ / PRINCE SULTAN AIR BASE",
+      "lat": 24.0627,
+      "lon": 47.580502,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERB",
+      "country": "Saudi Arabia",
+      "name": "RABIGH",
+      "lat": 22.7026,
+      "lon": 39.069801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERF",
+      "country": "Saudi Arabia",
+      "name": "RAFHA",
+      "lat": 29.626399993896484,
+      "lon": 43.4906005859375,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERK",
+      "country": "Saudi Arabia",
+      "name": "RIYADH / KING KHALED INTERNATIONAL",
+      "lat": 24.9576,
+      "lon": 46.698799,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERM",
+      "country": "Saudi Arabia",
+      "name": "RAS MISHAB",
+      "lat": 28.079599,
+      "lon": 48.611,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERR",
+      "country": "Saudi Arabia",
+      "name": "ARAR",
+      "lat": 30.906600952148438,
+      "lon": 41.13819885253906,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERS",
+      "country": "Saudi Arabia",
+      "name": "HANAK / RED SEA INTERNATIONAL",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OERT",
+      "country": "Saudi Arabia",
+      "name": "RAS TANURA",
+      "lat": 26.723101,
+      "lon": 50.0308,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OESB",
+      "country": "Saudi Arabia",
+      "name": "SHAIBAH",
+      "lat": 22.514781,
+      "lon": 53.964114,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OESH",
+      "country": "Saudi Arabia",
+      "name": "SHARURAH",
+      "lat": 17.4669,
+      "lon": 47.121399,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OESK",
+      "country": "Saudi Arabia",
+      "name": "AL JOUF",
+      "lat": 29.783301,
+      "lon": 40.100905,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEST",
+      "country": "Saudi Arabia",
+      "name": "SHABITAH",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OETB",
+      "country": "Saudi Arabia",
+      "name": "TABUK / PRINCE SULTAN BIN ABDULAZIZ",
+      "lat": 28.3711,
+      "lon": 36.624865,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OETF",
+      "country": "Saudi Arabia",
+      "name": "TAIF INTERNATIONAL AIRPORT",
+      "lat": 21.484739,
+      "lon": 40.544074,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OETH",
+      "country": "Saudi Arabia",
+      "name": "THUMAMAH",
+      "lat": 25.212979,
+      "lon": 46.640847,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OETN",
+      "country": "Saudi Arabia",
+      "name": "RAS TANAJIB",
+      "lat": 27.8678,
+      "lon": 48.7691,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OETR",
+      "country": "Saudi Arabia",
+      "name": "TURAIF",
+      "lat": 31.692188,
+      "lon": 38.731544,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEUD",
+      "country": "Saudi Arabia",
+      "name": "UDHAILIYAH",
+      "lat": 25.1511,
+      "lon": 49.3288,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEUM",
+      "country": "Saudi Arabia",
+      "name": "UMMLEJJ",
+      "lat": 25.285833,
+      "lon": 37.199167,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEWD",
+      "country": "Saudi Arabia",
+      "name": "WADI AL DAWASIR",
+      "lat": 20.504299,
+      "lon": 45.1996,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEWJ",
+      "country": "Saudi Arabia",
+      "name": "WEJH",
+      "lat": 26.198601,
+      "lon": 36.476398,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OEYN",
+      "country": "Saudi Arabia",
+      "name": "YENBO / PRINCE ABDULMOHSIN BIN ABDULAZIZ",
+      "lat": 24.144199,
+      "lon": 38.0634,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPBW",
+      "country": "Pakistan",
+      "name": "BAHAWALPUR Intl",
+      "lat": 29.348100662231445,
+      "lon": 71.71800231933594,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPCH",
+      "country": "Pakistan",
+      "name": "CHITRAL",
+      "lat": 35.886213,
+      "lon": 71.799922,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPDB",
+      "country": "Pakistan",
+      "name": "DALBANDIN",
+      "lat": 28.878299713100002,
+      "lon": 64.3998031616,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPDG",
+      "country": "Pakistan",
+      "name": "D.G. KHAN/FAROOQ AHMAD KHAN LEGHARI INTL",
+      "lat": 29.961000442504883,
+      "lon": 70.48590087890625,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPDI",
+      "country": "Pakistan",
+      "name": "D.I. KHAN",
+      "lat": 31.909401,
+      "lon": 70.896599,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPFA",
+      "country": "Pakistan",
+      "name": "FAISALABAD INTL",
+      "lat": 31.364923,
+      "lon": 72.995319,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPGT",
+      "country": "Pakistan",
+      "name": "GILGIT",
+      "lat": 35.918800354003906,
+      "lon": 74.33360290527344,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPGW",
+      "country": "Pakistan",
+      "name": "NEW GWADAR INTL",
+      "lat": 25.23298,
+      "lon": 62.328735,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPIS",
+      "country": "Pakistan",
+      "name": "ISLAMABAD INTL",
+      "lat": 33.549,
+      "lon": 72.82566,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPKC",
+      "country": "Pakistan",
+      "name": "KARACHI/Jinnah INT'L",
+      "lat": 24.9065,
+      "lon": 67.160797,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPKD",
+      "country": "Pakistan",
+      "name": "HYDERABAD",
+      "lat": 25.3181,
+      "lon": 68.366096,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPLA",
+      "country": "Pakistan",
+      "name": "LAHORE/ AIIAP INTL",
+      "lat": 31.521601,
+      "lon": 74.403603,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPMJ",
+      "country": "Pakistan",
+      "name": "MOENJODARO",
+      "lat": 27.335199,
+      "lon": 68.143097,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPMT",
+      "country": "Pakistan",
+      "name": "MULTAN INT'L",
+      "lat": 30.203199,
+      "lon": 71.419098,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPNH",
+      "country": "Pakistan",
+      "name": "NAWABSHAH",
+      "lat": 26.2194,
+      "lon": 68.390099,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPPG",
+      "country": "Pakistan",
+      "name": "PANJGUR",
+      "lat": 26.9545,
+      "lon": 64.1325,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPPI",
+      "country": "Pakistan",
+      "name": "PASNI",
+      "lat": 25.290501,
+      "lon": 63.3451,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPPS",
+      "country": "Pakistan",
+      "name": "PESHAWAR INTL/ Bacha Khan International",
+      "lat": 33.9939,
+      "lon": 71.514603,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPQT",
+      "country": "Pakistan",
+      "name": "QUETTA/ Quetta International",
+      "lat": 30.2514,
+      "lon": 66.937798,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPRK",
+      "country": "Pakistan",
+      "name": "RAHIM YAR KHAN/ Sheikh Zayed Intl",
+      "lat": 28.383899688720703,
+      "lon": 70.27960205078125,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPSD",
+      "country": "Pakistan",
+      "name": "SKARDU INTL",
+      "lat": 35.33866,
+      "lon": 75.538648,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPSK",
+      "country": "Pakistan",
+      "name": "SUKKUR/Begum Nusrat Bhutto Airport",
+      "lat": 27.722,
+      "lon": 68.791702,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPSS",
+      "country": "Pakistan",
+      "name": "SAIDU SHARIF",
+      "lat": 34.813599,
+      "lon": 72.352798,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPST",
+      "country": "Pakistan",
+      "name": "SIALKOT INTL",
+      "lat": 32.535941,
+      "lon": 74.364623,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPTU",
+      "country": "Pakistan",
+      "name": "TURBAT INT'L",
+      "lat": 25.984767,
+      "lon": 63.028856,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OPZB",
+      "country": "Pakistan",
+      "name": "ZHOB",
+      "lat": 31.358400344848633,
+      "lon": 69.4636001586914,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OTBD",
+      "country": "Qatar",
+      "name": "DOHA INTL",
+      "lat": 25.259431,
+      "lon": 51.565528,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "OTHH",
+      "country": "Qatar",
+      "name": "HAMAD INTL",
+      "lat": 25.273056,
+      "lon": 51.608056,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCBS",
+      "country": "Taiwan",
+      "name": "金門 KINMEN",
+      "lat": 24.4279,
+      "lon": 118.359001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCCM",
+      "country": "Taiwan",
+      "name": "七美 QIMEI",
+      "lat": 23.213127,
+      "lon": 119.417539,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCDC",
+      "country": "Taiwan",
+      "name": "屏東南 PINGTUNG SOUTH",
+      "lat": 22.6724,
+      "lon": 120.461998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCFG",
+      "country": "Taiwan",
+      "name": "馬祖/南竿 MATSU/NANGAN",
+      "lat": 26.159656,
+      "lon": 119.958376,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCFN",
+      "country": "Taiwan",
+      "name": "臺東/豐年 TAITUNG/FONGNIAN",
+      "lat": 22.7549991607666,
+      "lon": 121.10199737548828,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCGI",
+      "country": "Taiwan",
+      "name": "綠島 LUDAO",
+      "lat": 22.673901,
+      "lon": 121.466003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCKH",
+      "country": "Taiwan",
+      "name": "高雄國際 KAOHSIUNG INTL",
+      "lat": 22.577101,
+      "lon": 120.349998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCKU",
+      "country": "Taiwan",
+      "name": "嘉義 CHIAYI",
+      "lat": 23.462577,
+      "lon": 120.390544,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCKW",
+      "country": "Taiwan",
+      "name": "恆春 HENGCHUN",
+      "lat": 22.0411,
+      "lon": 120.730003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCLY",
+      "country": "Taiwan",
+      "name": "蘭嶼 LANYU",
+      "lat": 22.027000427246094,
+      "lon": 121.53500366210938,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCMQ",
+      "country": "Taiwan",
+      "name": "臺中/清泉崗 TAICHUNG/CINGCYUANGANG",
+      "lat": 24.2647,
+      "lon": 120.621002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCMT",
+      "country": "Taiwan",
+      "name": "馬祖/北竿 MATSU/BEIGAN",
+      "lat": 26.224199,
+      "lon": 120.002998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCNN",
+      "country": "Taiwan",
+      "name": "臺南 TAINAN",
+      "lat": 22.950399,
+      "lon": 120.206001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCQC",
+      "country": "Taiwan",
+      "name": "澎湖 PENGHU",
+      "lat": 23.568701,
+      "lon": 119.627998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCSP",
+      "country": "Taiwan",
+      "name": "太平 TAIPING",
+      "lat": 10.377089,
+      "lon": 114.365637,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCSS",
+      "country": "Taiwan",
+      "name": "臺北/松山 TAIPEI/SONGSHAN",
+      "lat": 25.067244,
+      "lon": 121.552822,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCTP",
+      "country": "Taiwan",
+      "name": "臺灣桃園國際 TAIPEI/TAIWAN TAOYUAN INTL",
+      "lat": 25.0777,
+      "lon": 121.233002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCWA",
+      "country": "Taiwan",
+      "name": "望安 WANG-AN",
+      "lat": 23.369108,
+      "lon": 119.503598,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RCYU",
+      "country": "Taiwan",
+      "name": "花蓮 HUALIEN",
+      "lat": 24.023163,
+      "lon": 121.617991,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAA",
+      "country": "Japan",
+      "name": "NARITA INTL",
+      "lat": 35.76858,
+      "lon": 140.388714,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAF",
+      "country": "Japan",
+      "name": "MATSUMOTO",
+      "lat": 36.166801,
+      "lon": 137.923004,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAH",
+      "country": "Japan",
+      "name": "HYAKURI",
+      "lat": 36.181456,
+      "lon": 140.414434,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAM",
+      "country": "Japan",
+      "name": "MINAMI TORISHIMA",
+      "lat": 24.2897,
+      "lon": 153.979004,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAN",
+      "country": "Japan",
+      "name": "NIIJIMA",
+      "lat": 34.3694000244,
+      "lon": 139.268997192,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJAZ",
+      "country": "Japan",
+      "name": "KOZUSHIMA",
+      "lat": 34.189998626699996,
+      "lon": 139.134002686,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJBB",
+      "country": "Japan",
+      "name": "KANSAI International",
+      "lat": 34.427299,
+      "lon": 135.244003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJBE",
+      "country": "Japan",
+      "name": "KOBE",
+      "lat": 34.632801,
+      "lon": 135.223999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJBK",
+      "country": "Japan",
+      "name": "KOHNAN",
+      "lat": 34.590801,
+      "lon": 133.932999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJCC",
+      "country": "Japan",
+      "name": "NEW CHITOSE",
+      "lat": 42.774753,
+      "lon": 141.690414,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJCJ",
+      "country": "Japan",
+      "name": "CHITOSE",
+      "lat": 42.794498,
+      "lon": 141.666,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJCK",
+      "country": "Japan",
+      "name": "KUSHIRO",
+      "lat": 43.041,
+      "lon": 144.192993,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJCO",
+      "country": "Japan",
+      "name": "SAPPORO",
+      "lat": 43.117447,
+      "lon": 141.38134,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJCT",
+      "country": "Japan",
+      "name": "TOKACHI",
+      "lat": 42.890499,
+      "lon": 143.158005,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJDK",
+      "country": "Japan",
+      "name": "KAMIGOTO",
+      "lat": 33.013576,
+      "lon": 129.192363,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJDM",
+      "country": "Japan",
+      "name": "METABARU",
+      "lat": 33.325445,
+      "lon": 130.413787,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJEC",
+      "country": "Japan",
+      "name": "ASAHIKAWA",
+      "lat": 43.670799,
+      "lon": 142.447006,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFC",
+      "country": "Japan",
+      "name": "YAKUSHIMA",
+      "lat": 30.385599,
+      "lon": 130.658997,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFF",
+      "country": "Japan",
+      "name": "FUKUOKA",
+      "lat": 33.585899353027344,
+      "lon": 130.4510040283203,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFO",
+      "country": "Japan",
+      "name": "OITA",
+      "lat": 33.479400634799994,
+      "lon": 131.736999512,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFU",
+      "country": "Japan",
+      "name": "NAGASAKI",
+      "lat": 32.916901,
+      "lon": 129.914001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFY",
+      "country": "Japan",
+      "name": "KANOYA",
+      "lat": 31.36672,
+      "lon": 130.838805,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJFZ",
+      "country": "Japan",
+      "name": "TSUIKI",
+      "lat": 33.685001,
+      "lon": 131.039993,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJGG",
+      "country": "Japan",
+      "name": "CHUBU CENTRAIR International",
+      "lat": 34.858398,
+      "lon": 136.804993,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJKA",
+      "country": "Japan",
+      "name": "AMAMI",
+      "lat": 28.430599212646484,
+      "lon": 129.71299743652344,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJKN",
+      "country": "Japan",
+      "name": "TOKUNOSHIMA",
+      "lat": 27.836382,
+      "lon": 128.881356,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNA",
+      "country": "Japan",
+      "name": "NAGOYA",
+      "lat": 35.255759,
+      "lon": 136.924095,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNF",
+      "country": "Japan",
+      "name": "FUKUI",
+      "lat": 36.142799,
+      "lon": 136.223999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNG",
+      "country": "Japan",
+      "name": "GIFU",
+      "lat": 35.3941,
+      "lon": 136.869995,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNH",
+      "country": "Japan",
+      "name": "HAMAMATSU",
+      "lat": 34.750198,
+      "lon": 137.703003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNK",
+      "country": "Japan",
+      "name": "KOMATSU",
+      "lat": 36.393407,
+      "lon": 136.406895,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNS",
+      "country": "Japan",
+      "name": "SHIZUOKA",
+      "lat": 34.795022,
+      "lon": 138.190976,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJNT",
+      "country": "Japan",
+      "name": "TOYAMA",
+      "lat": 36.648416,
+      "lon": 137.187359,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOA",
+      "country": "Japan",
+      "name": "HIROSHIMA",
+      "lat": 34.4361,
+      "lon": 132.919006,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOF",
+      "country": "Japan",
+      "name": "HOFU",
+      "lat": 34.034746,
+      "lon": 131.548716,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOH",
+      "country": "Japan",
+      "name": "MIHO",
+      "lat": 35.492199,
+      "lon": 133.235992,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOI",
+      "country": "Japan",
+      "name": "IWAKUNI",
+      "lat": 34.146333,
+      "lon": 132.247238,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOK",
+      "country": "Japan",
+      "name": "KOCHI",
+      "lat": 33.545217,
+      "lon": 133.670166,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOO",
+      "country": "Japan",
+      "name": "OSAKA International",
+      "lat": 34.780853,
+      "lon": 135.440829,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOR",
+      "country": "Japan",
+      "name": "TOTTORI",
+      "lat": 35.530058,
+      "lon": 134.165023,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOS",
+      "country": "Japan",
+      "name": "TOKUSHIMA",
+      "lat": 34.132559,
+      "lon": 134.607816,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJOZ",
+      "country": "Japan",
+      "name": "OZUKI",
+      "lat": 34.0453,
+      "lon": 131.052002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSA",
+      "country": "Japan",
+      "name": "AOMORI",
+      "lat": 40.733777,
+      "lon": 140.689477,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSC",
+      "country": "Japan",
+      "name": "YAMAGATA",
+      "lat": 38.4119,
+      "lon": 140.371002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSF",
+      "country": "Japan",
+      "name": "FUKUSHIMA",
+      "lat": 37.22740173339844,
+      "lon": 140.43099975585938,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSI",
+      "country": "Japan",
+      "name": "HANAMAKI",
+      "lat": 39.4286,
+      "lon": 141.134995,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSM",
+      "country": "Japan",
+      "name": "MISAWA",
+      "lat": 40.703201,
+      "lon": 141.367996,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSR",
+      "country": "Japan",
+      "name": "ODATE-NOSHIRO",
+      "lat": 40.191898,
+      "lon": 140.371002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJSS",
+      "country": "Japan",
+      "name": "SENDAI",
+      "lat": 38.139702,
+      "lon": 140.917007,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJST",
+      "country": "Japan",
+      "name": "MATSUSHIMA",
+      "lat": 38.4049,
+      "lon": 141.220001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTA",
+      "country": "Japan",
+      "name": "ATSUGI",
+      "lat": 35.454601,
+      "lon": 139.449997,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTF",
+      "country": "Japan",
+      "name": "CHOFU",
+      "lat": 35.6717,
+      "lon": 139.528,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTH",
+      "country": "Japan",
+      "name": "HACHIJOJIMA",
+      "lat": 33.114843,
+      "lon": 139.785645,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTL",
+      "country": "Japan",
+      "name": "SHIMOFUSA",
+      "lat": 35.798901,
+      "lon": 140.011002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTT",
+      "country": "Japan",
+      "name": "TOKYO International",
+      "lat": 35.549678,
+      "lon": 139.786958,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTU",
+      "country": "Japan",
+      "name": "UTSUNOMIYA",
+      "lat": 36.5145,
+      "lon": 139.87101,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RJTY",
+      "country": "Japan",
+      "name": "YOKOTA",
+      "lat": 35.748501,
+      "lon": 139.348007,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ROAH",
+      "country": "Japan",
+      "name": "NAHA",
+      "lat": 26.192437,
+      "lon": 127.639804,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RODN",
+      "country": "Japan",
+      "name": "KADENA",
+      "lat": 26.351667,
+      "lon": 127.769444,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ROIG",
+      "country": "Japan",
+      "name": "ISHIGAKI",
+      "lat": 24.396389,
+      "lon": 124.245,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ROKR",
+      "country": "Japan",
+      "name": "KERAMA",
+      "lat": 26.168337,
+      "lon": 127.293423,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RORE",
+      "country": "Japan",
+      "name": "IEJIMA",
+      "lat": 26.722537,
+      "lon": 127.786801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RORH",
+      "country": "Japan",
+      "name": "HATERUMA",
+      "lat": 24.059751,
+      "lon": 123.80558,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "RORS",
+      "country": "Japan",
+      "name": "SHIMOJISHIMA",
+      "lat": 24.8267,
+      "lon": 125.144997,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "SAGA",
+      "country": "Japan",
+      "name": "SAGA Airport",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMBB",
+      "country": "Belarus",
+      "name": "BREST",
+      "lat": 52.108138,
+      "lon": 23.89676,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMGG",
+      "country": "Belarus",
+      "name": "HOMIEL",
+      "lat": 52.527000427246094,
+      "lon": 31.016700744628906,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMII",
+      "country": "Belarus",
+      "name": "VICIEBSK",
+      "lat": 55.126499176025,
+      "lon": 30.349599838257,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMIO",
+      "country": "Belarus",
+      "name": "ORSHA",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMMG",
+      "country": "Belarus",
+      "name": "HRODNA",
+      "lat": 53.602001,
+      "lon": 24.053801,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMMS",
+      "country": "Belarus",
+      "name": "MINSK-2",
+      "lat": 53.888071,
+      "lon": 28.039964,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UMOO",
+      "country": "Belarus",
+      "name": "MAHILIOU",
+      "lat": 53.954898834228516,
+      "lon": 30.09510040283203,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAA",
+      "country": "Turkmenistan",
+      "name": "ASHGABAT",
+      "lat": 37.986801,
+      "lon": 58.361,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAE",
+      "country": "Turkmenistan",
+      "name": "KERKI",
+      "lat": 37.822051,
+      "lon": 65.135279,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAK",
+      "country": "Turkmenistan",
+      "name": "TURKMENBASHI",
+      "lat": 40.062833,
+      "lon": 53.005085,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAM",
+      "country": "Turkmenistan",
+      "name": "MARY",
+      "lat": 37.62353,
+      "lon": 61.895668,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAN",
+      "country": "Turkmenistan",
+      "name": "BALKANABAT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAT",
+      "country": "Turkmenistan",
+      "name": "DASHOGUZ",
+      "lat": 41.759853,
+      "lon": 59.836149,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTAV",
+      "country": "Turkmenistan",
+      "name": "TURKMENABAT",
+      "lat": 38.930662,
+      "lon": 63.563982,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTDD",
+      "country": "Tajikistan",
+      "name": "DUSHANBE",
+      "lat": 38.543746,
+      "lon": 68.822977,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTDK",
+      "country": "Tajikistan",
+      "name": "KULOB",
+      "lat": 37.988098,
+      "lon": 69.805,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTDL",
+      "country": "Tajikistan",
+      "name": "KHUJAND",
+      "lat": 40.215401,
+      "lon": 69.694702,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "UTDT",
+      "country": "Tajikistan",
+      "name": "BOKHTAR",
+      "lat": 37.866315,
+      "lon": 68.864475,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCBI",
+      "country": "Sri Lanka",
+      "name": "KATUNAYAKE / BANDARANAIKE INTERNATIONAL AIRPORT COLOMBO",
+      "lat": 7.180759906768799,
+      "lon": 79.88410186767578,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCA",
+      "country": "Sri Lanka",
+      "name": "ANURADHAPURA",
+      "lat": 8.301542,
+      "lon": 80.42848,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCB",
+      "country": "Sri Lanka",
+      "name": "BATTICALOA",
+      "lat": 7.705073,
+      "lon": 81.677163,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCC",
+      "country": "Sri Lanka",
+      "name": "RATMALANA / COLOMBO INTERNATIONAL AIRPORT RATMALANA",
+      "lat": 6.821638,
+      "lon": 79.885859,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCG",
+      "country": "Sri Lanka",
+      "name": "GAL-OYA / AMPARAI",
+      "lat": 7.336745,
+      "lon": 81.623869,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCH",
+      "country": "Sri Lanka",
+      "name": "HINGURAKGODA / MINNERIYA",
+      "lat": 8.04981,
+      "lon": 80.9814,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCJ",
+      "country": "Sri Lanka",
+      "name": "KANKESANTURAI / JAFFNA INTERNATIONAL AIRPORT",
+      "lat": 9.79233,
+      "lon": 80.070099,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCK",
+      "country": "Sri Lanka",
+      "name": "KOGGALA",
+      "lat": 5.993680000305176,
+      "lon": 80.32029724121094,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCN",
+      "country": "Sri Lanka",
+      "name": "KATUKURUNDA",
+      "lat": 6.55212020874,
+      "lon": 79.9775009155,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCS",
+      "country": "Sri Lanka",
+      "name": "SIGIRIYA",
+      "lat": 7.95667,
+      "lon": 80.7285,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCT",
+      "country": "Sri Lanka",
+      "name": "TRINCOMALEE / CHINA-BAY",
+      "lat": 8.539159,
+      "lon": 81.18128,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCV",
+      "country": "Sri Lanka",
+      "name": "VAVUNIYA",
+      "lat": 8.741009,
+      "lon": 80.497845,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCCW",
+      "country": "Sri Lanka",
+      "name": "WIRAWILA",
+      "lat": 6.25449,
+      "lon": 81.235199,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VCRI",
+      "country": "Sri Lanka",
+      "name": "MATTALA / MATTALA RAJAPAKSA INTERNATIONAL AIRPORT",
+      "lat": 6.283878,
+      "lon": 81.124163,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VHHH",
+      "country": "Hong Kong",
+      "name": "HONG KONG/ INTERNATIONAL",
+      "lat": 22.31184,
+      "lon": 113.914862,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VMMC",
+      "country": "Hong Kong",
+      "name": "MACAO/ INTL AIRPORT",
+      "lat": 22.149599,
+      "lon": 113.592003,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNBP",
+      "country": "Nepal",
+      "name": "BHARATPUR/Domestic",
+      "lat": 27.678101,
+      "lon": 84.429398,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNBW",
+      "country": "Nepal",
+      "name": "GAUTAM BUDDHA/International",
+      "lat": 27.504591,
+      "lon": 83.414618,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNCG",
+      "country": "Nepal",
+      "name": "CHANDRAGADHI/Domestic",
+      "lat": 26.5708007812,
+      "lon": 88.07959747310001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNDH",
+      "country": "Nepal",
+      "name": "Dhangadhi/Domestic",
+      "lat": 28.755283,
+      "lon": 80.583398,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNJP",
+      "country": "Nepal",
+      "name": "JANAKPUR/Domestic",
+      "lat": 26.708799,
+      "lon": 85.922401,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNKT",
+      "country": "Nepal",
+      "name": "TRIBHUVAN/International",
+      "lat": 27.6966,
+      "lon": 85.3591,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNNG",
+      "country": "Nepal",
+      "name": "NEPALGUNJ/Domestic",
+      "lat": 28.1036,
+      "lon": 81.667,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNPK",
+      "country": "Nepal",
+      "name": "POKHARA /Domestic",
+      "lat": 28.200621,
+      "lon": 83.981203,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNPR",
+      "country": "Nepal",
+      "name": "POKHARA/International",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNRB",
+      "country": "Nepal",
+      "name": "Rajbiraj/Domestic",
+      "lat": 26.510066,
+      "lon": 86.733902,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNSI",
+      "country": "Nepal",
+      "name": "SIMARA/Domestic",
+      "lat": 27.159803,
+      "lon": 84.980021,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNSK",
+      "country": "Nepal",
+      "name": "Surkhet/Domestic",
+      "lat": 28.586,
+      "lon": 81.636002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNTR",
+      "country": "Nepal",
+      "name": "Tumlingtar/Domestic",
+      "lat": 27.315001,
+      "lon": 87.193298,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VNVT",
+      "country": "Nepal",
+      "name": "BIRATNAGAR / Domestic",
+      "lat": 26.48150062561035,
+      "lon": 87.26399993896484,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VQBT",
+      "country": "Bhutan",
+      "name": "Bumthang, Bathbalathang/Domestic",
+      "lat": 27.5622,
+      "lon": 90.7471,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VQGP",
+      "country": "Bhutan",
+      "name": "Sarpang, Gelephu/International",
+      "lat": 26.88456,
+      "lon": 90.46412,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VQPR",
+      "country": "Bhutan",
+      "name": "PARO/International",
+      "lat": 27.4032,
+      "lon": 89.424599,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VQTY",
+      "country": "Bhutan",
+      "name": "Trashigang, Yonphula/Domestic",
+      "lat": 27.25627,
+      "lon": 91.514633,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRAH",
+      "country": "Maldives",
+      "name": "HOARAFUSHI AIRPORT",
+      "lat": 6.96967,
+      "lon": 72.896287,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRBK",
+      "country": "Maldives",
+      "name": "KULHUDHUFFUSHI AIRPORT",
+      "lat": 6.630762,
+      "lon": 73.067815,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRCF",
+      "country": "Maldives",
+      "name": "FUNADHOO AIRPORT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRDA",
+      "country": "Maldives",
+      "name": "MAAFARU INTERNATIONAL AIRPORT",
+      "lat": 5.817407,
+      "lon": 73.468404,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VREI",
+      "country": "Maldives",
+      "name": "IFURU AIRPORT",
+      "lat": 5.7083,
+      "lon": 73.025,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRGD",
+      "country": "Maldives",
+      "name": "MADIVARU AIRPORT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRKM",
+      "country": "Maldives",
+      "name": "MULI AIRPORT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMD",
+      "country": "Maldives",
+      "name": "DHARAVANDHOO AIRPORT",
+      "lat": 5.1561,
+      "lon": 73.1302,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMG",
+      "country": "Maldives",
+      "name": "GAN INTERNATIONAL AIRPORT",
+      "lat": -0.692975,
+      "lon": 73.152627,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMH",
+      "country": "Maldives",
+      "name": "HANIMAADHOO INTERNATIONAL AIRPORT",
+      "lat": 6.743235,
+      "lon": 73.167072,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMK",
+      "country": "Maldives",
+      "name": "KADHDHOO AIRPORT",
+      "lat": 1.8591699600219727,
+      "lon": 73.52189636230469,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMM",
+      "country": "Maldives",
+      "name": "VELANA INTERNATIONAL AIRPORT",
+      "lat": 4.19183,
+      "lon": 73.529099,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMO",
+      "country": "Maldives",
+      "name": "KOODDOO AIRPORT",
+      "lat": 0.7324,
+      "lon": 73.4336,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMR",
+      "country": "Maldives",
+      "name": "FUVAHMULAH AIRPORT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMT",
+      "country": "Maldives",
+      "name": "KAADEDHDHOO AIRPORT",
+      "lat": 0.488131,
+      "lon": 72.996902,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMU",
+      "country": "Maldives",
+      "name": "DHAALU AIRPORT",
+      "lat": 2.666075,
+      "lon": 72.887118,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRMV",
+      "country": "Maldives",
+      "name": "VILLA INTERNATIONAL AIRPORT MAAMIGILI",
+      "lat": 3.471751,
+      "lon": 72.832633,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRNT",
+      "country": "Maldives",
+      "name": "THIMARAFUSHI AIRPORT",
+      "lat": 2.211,
+      "lon": 73.1533,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRQF",
+      "country": "Maldives",
+      "name": "FARESMAATHODAA AIRPORT",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VRQM",
+      "country": "Maldives",
+      "name": "MAAVARULU AIRPORT",
+      "lat": 0.338085,
+      "lon": 73.512869,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBD",
+      "country": "Thailand",
+      "name": "Bangkok/ Don Mueang International Airport",
+      "lat": 13.9126,
+      "lon": 100.607002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBK",
+      "country": "Thailand",
+      "name": "Nakhon Pathom/ Kamphaeng Saen",
+      "lat": 14.1020002365,
+      "lon": 99.9171981812,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBL",
+      "country": "Thailand",
+      "name": "Lop Buri/ Khok Kathiam",
+      "lat": 14.87462,
+      "lon": 100.663397,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBO",
+      "country": "Thailand",
+      "name": "Trat/ Khao Sming",
+      "lat": 12.2746,
+      "lon": 102.319,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBP",
+      "country": "Thailand",
+      "name": "Prachuap Khiri Khan",
+      "lat": 11.7884,
+      "lon": 99.804703,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBS",
+      "country": "Thailand",
+      "name": "Bangkok/ Suvarnabhumi International Airport",
+      "lat": 13.6811,
+      "lon": 100.747002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBU",
+      "country": "Thailand",
+      "name": "Rayong/ U-Tapao Rayong Pattaya International Airport",
+      "lat": 12.6799,
+      "lon": 101.004997,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTBW",
+      "country": "Thailand",
+      "name": "Sa Kaeo/ Watthana Nakhon",
+      "lat": 13.769203,
+      "lon": 102.316017,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCC",
+      "country": "Thailand",
+      "name": "Chiang Mai/ Chiang Mai International Airport",
+      "lat": 18.766799926799997,
+      "lon": 98.962600708,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCH",
+      "country": "Thailand",
+      "name": "Mae Hong Son",
+      "lat": 19.3013,
+      "lon": 97.9758,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCI",
+      "country": "Thailand",
+      "name": "Mae Hong Son / Pai",
+      "lat": 19.372054,
+      "lon": 98.435904,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCL",
+      "country": "Thailand",
+      "name": "Lampang",
+      "lat": 18.27090072631836,
+      "lon": 99.50420379638672,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCN",
+      "country": "Thailand",
+      "name": "Nan/ Nan Nakhon",
+      "lat": 18.807899475097656,
+      "lon": 100.78299713134766,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCP",
+      "country": "Thailand",
+      "name": "Phrae",
+      "lat": 18.1322,
+      "lon": 100.165001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTCT",
+      "country": "Thailand",
+      "name": "Chiang Rai/ Mae Fah Luang-Chiang Rai International Airport",
+      "lat": 19.952299,
+      "lon": 99.882896,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPB",
+      "country": "Thailand",
+      "name": "Phetchabun",
+      "lat": 16.6760005951,
+      "lon": 101.194999695,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPH",
+      "country": "Thailand",
+      "name": "Prachuap Khiri Khan/ Hua Hin",
+      "lat": 12.6361999512,
+      "lon": 99.951499939,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPI",
+      "country": "Thailand",
+      "name": "Nakhon Sawan/ Takhli",
+      "lat": 15.2773,
+      "lon": 100.295998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPM",
+      "country": "Thailand",
+      "name": "VTPM",
+      "lat": 16.699899673461914,
+      "lon": 98.54509735107422,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPN",
+      "country": "Thailand",
+      "name": "Nakhon Sawan",
+      "lat": 15.673,
+      "lon": 100.137001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPO",
+      "country": "Thailand",
+      "name": "Sukhothai",
+      "lat": 17.238000869750977,
+      "lon": 99.81819915771484,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPP",
+      "country": "Thailand",
+      "name": "Phitsanulok",
+      "lat": 16.7829,
+      "lon": 100.278999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTPT",
+      "country": "Thailand",
+      "name": "Tak",
+      "lat": 16.896,
+      "lon": 99.253304,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSB",
+      "country": "Thailand",
+      "name": "Surat Thani",
+      "lat": 9.13259983063,
+      "lon": 99.135597229,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSC",
+      "country": "Thailand",
+      "name": "Narathiwat",
+      "lat": 6.5199198722839355,
+      "lon": 101.74299621582031,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSE",
+      "country": "Thailand",
+      "name": "Chumphon/ Chumphon",
+      "lat": 10.7112,
+      "lon": 99.361702,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSF",
+      "country": "Thailand",
+      "name": "Nakhon Si Thammarat",
+      "lat": 8.539620399475098,
+      "lon": 99.9447021484375,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSG",
+      "country": "Thailand",
+      "name": "Krabi",
+      "lat": 8.095591,
+      "lon": 98.988955,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSH",
+      "country": "Thailand",
+      "name": "Songkhla",
+      "lat": 7.186560153961182,
+      "lon": 100.60800170898438,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSK",
+      "country": "Thailand",
+      "name": "Pattani",
+      "lat": 6.78546,
+      "lon": 101.153999,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSM",
+      "country": "Thailand",
+      "name": "Surat Thani/ Samui",
+      "lat": 9.54779,
+      "lon": 100.061996,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSN",
+      "country": "Thailand",
+      "name": "Nakhon Si Thammarat / Cha - Ian",
+      "lat": 8.47115,
+      "lon": 99.955597,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSP",
+      "country": "Thailand",
+      "name": "Phuket/ Phuket International Airport",
+      "lat": 8.113257,
+      "lon": 98.3174,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSR",
+      "country": "Thailand",
+      "name": "Ranong",
+      "lat": 9.77762,
+      "lon": 98.585503,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSS",
+      "country": "Thailand",
+      "name": "Songkhla / Hat Yai International Airport",
+      "lat": 6.93321,
+      "lon": 100.392998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTST",
+      "country": "Thailand",
+      "name": "Trang",
+      "lat": 7.50874,
+      "lon": 99.6166,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTSY",
+      "country": "Thailand",
+      "name": "Yala/ Betong",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUD",
+      "country": "Thailand",
+      "name": "Udon Thani",
+      "lat": 17.386186,
+      "lon": 102.788577,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUI",
+      "country": "Thailand",
+      "name": "Sakon Nakhon/ Sakon Nakhon",
+      "lat": 17.195100784301758,
+      "lon": 104.11900329589844,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUK",
+      "country": "Thailand",
+      "name": "Khon Kaen",
+      "lat": 16.466600418099997,
+      "lon": 102.783996582,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUL",
+      "country": "Thailand",
+      "name": "Loei",
+      "lat": 17.43910026550293,
+      "lon": 101.72200012207031,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUN",
+      "country": "Thailand",
+      "name": "Nakhon Ratchasima / Khorat",
+      "lat": 14.934713,
+      "lon": 102.078945,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUO",
+      "country": "Thailand",
+      "name": "Buri Ram Airport",
+      "lat": 15.2295,
+      "lon": 103.252998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUQ",
+      "country": "Thailand",
+      "name": "Nakhon Ratchasima",
+      "lat": 14.9495,
+      "lon": 102.313004,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUU",
+      "country": "Thailand",
+      "name": "Ubon Ratchathani",
+      "lat": 15.2512998581,
+      "lon": 104.870002747,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUV",
+      "country": "Thailand",
+      "name": "Roi Et",
+      "lat": 16.1168,
+      "lon": 103.774002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUW",
+      "country": "Thailand",
+      "name": "Nakhon Phanom",
+      "lat": 17.383801,
+      "lon": 104.642998,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VTUZ",
+      "country": "Thailand",
+      "name": "KHON-KAEN / NAM PHONG",
+      "lat": 16.65220069885254,
+      "lon": 102.96700286865234,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYAN",
+      "country": "Myanmar",
+      "name": "ANN",
+      "lat": 19.769199,
+      "lon": 94.0261,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYAS",
+      "country": "Myanmar",
+      "name": "ANISAKAN",
+      "lat": 21.9554,
+      "lon": 96.406097,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYBG",
+      "country": "Myanmar",
+      "name": "BAGAN",
+      "lat": 21.178800582885742,
+      "lon": 94.9301986694336,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYBM",
+      "country": "Myanmar",
+      "name": "BANMAW",
+      "lat": 24.27044,
+      "lon": 97.2476,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYBP",
+      "country": "Myanmar",
+      "name": "BOKPYINN",
+      "lat": 11.1494,
+      "lon": 98.735901,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYDW",
+      "country": "Myanmar",
+      "name": "DAWEI/DAWEI",
+      "lat": 14.1039,
+      "lon": 98.203598,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYHH",
+      "country": "Myanmar",
+      "name": "HEHO",
+      "lat": 20.74714,
+      "lon": 96.792029,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYHL",
+      "country": "Myanmar",
+      "name": "HOMMALINN",
+      "lat": 24.899599,
+      "lon": 94.914001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKG",
+      "country": "Myanmar",
+      "name": "KENGTUNG",
+      "lat": 21.301599502563477,
+      "lon": 99.63600158691406,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKI",
+      "country": "Myanmar",
+      "name": "KANTI",
+      "lat": 25.9883,
+      "lon": 95.6744,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKL",
+      "country": "Myanmar",
+      "name": "KALAY",
+      "lat": 23.188801,
+      "lon": 94.051102,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKP",
+      "country": "Myanmar",
+      "name": "KYAUKPYU",
+      "lat": 19.42639923095703,
+      "lon": 93.53479766845703,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKT",
+      "country": "Myanmar",
+      "name": "KAWTHOUNG",
+      "lat": 10.049300193786621,
+      "lon": 98.53800201416016,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYKU",
+      "country": "Myanmar",
+      "name": "KYAUKTU",
+      "lat": 21.399999618530273,
+      "lon": 94.13330078125,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYLK",
+      "country": "Myanmar",
+      "name": "LOIKAW",
+      "lat": 19.691499710083008,
+      "lon": 97.21479797363281,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYLS",
+      "country": "Myanmar",
+      "name": "LASHIO",
+      "lat": 22.9778995513916,
+      "lon": 97.752197265625,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMD",
+      "country": "Myanmar",
+      "name": "MANDALAY INTERNATIONAL",
+      "lat": 21.702199935913086,
+      "lon": 95.97789764404297,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYME",
+      "country": "Myanmar",
+      "name": "MYEIK",
+      "lat": 12.439800262451172,
+      "lon": 98.62149810791016,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMK",
+      "country": "Myanmar",
+      "name": "MYITKYINA",
+      "lat": 25.3836,
+      "lon": 97.351898,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMM",
+      "country": "Myanmar",
+      "name": "MAWLAMYINE",
+      "lat": 16.444700241088867,
+      "lon": 97.66069793701172,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMN",
+      "country": "Myanmar",
+      "name": "MANAUNG",
+      "lat": 18.8458,
+      "lon": 93.688904,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMS",
+      "country": "Myanmar",
+      "name": "MONG-HSAT",
+      "lat": 20.516799926757812,
+      "lon": 99.25679779052734,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMW",
+      "country": "Myanmar",
+      "name": "MAGWAY",
+      "lat": 20.1656,
+      "lon": 94.941399,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYMY",
+      "country": "Myanmar",
+      "name": "MONYWAR",
+      "lat": 22.221638,
+      "lon": 95.093479,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYNT",
+      "country": "Myanmar",
+      "name": "NAYPYITAW INTERNATIONAL",
+      "lat": 19.623501,
+      "lon": 96.200996,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYPA",
+      "country": "Myanmar",
+      "name": "HPA-AN",
+      "lat": 16.8937,
+      "lon": 97.674599,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYPN",
+      "country": "Myanmar",
+      "name": "PATHEIN",
+      "lat": 16.815201,
+      "lon": 94.7799,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYPT",
+      "country": "Myanmar",
+      "name": "PUTAO",
+      "lat": 27.32990074157715,
+      "lon": 97.42630004882812,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYPU",
+      "country": "Myanmar",
+      "name": "PAKHOKKU",
+      "lat": 21.4043,
+      "lon": 95.11125,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYSW",
+      "country": "Myanmar",
+      "name": "SITTWE",
+      "lat": 20.133165,
+      "lon": 92.870693,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYTD",
+      "country": "Myanmar",
+      "name": "THANDWE",
+      "lat": 18.4606990814209,
+      "lon": 94.30010223388672,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYTL",
+      "country": "Myanmar",
+      "name": "TACHILEIK",
+      "lat": 20.483800888061523,
+      "lon": 99.9354019165039,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "VYYY",
+      "country": "Myanmar",
+      "name": "YANGON / YANGON INTERNATIONAL",
+      "lat": 16.907300949099998,
+      "lon": 96.1332015991,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "WBSB",
+      "country": "Bhutan",
+      "name": "BRUNEI/International",
+      "lat": 4.9442,
+      "lon": 114.928001,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMAH",
+      "country": "Mongolia",
+      "name": "UVURKHANGAI/Arvaikheer",
+      "lat": 46.250301361083984,
+      "lon": 102.802001953125,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMAT",
+      "country": "Mongolia",
+      "name": "GOBI-ALTAI/Altai",
+      "lat": 46.376399993896484,
+      "lon": 96.22109985351562,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMBH",
+      "country": "Mongolia",
+      "name": "BAYANKHONGOR/Bayankhongor",
+      "lat": 46.1633,
+      "lon": 100.704002,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMBN",
+      "country": "Mongolia",
+      "name": "BULGAN/Bulgan",
+      "lat": 48.85499954223633,
+      "lon": 103.47599792480469,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMBS",
+      "country": "Mongolia",
+      "name": "KHOVD/Bulgan sum",
+      "lat": 46.100601,
+      "lon": 91.584198,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMBU",
+      "country": "Mongolia",
+      "name": "SUKHBAATAR/Baruun-Urt",
+      "lat": 46.660301208496094,
+      "lon": 113.28500366210938,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMCD",
+      "country": "Mongolia",
+      "name": "DORNOD/Choibalsan",
+      "lat": 48.135381,
+      "lon": 114.647231,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMCK",
+      "country": "Mongolia",
+      "name": "ULAANBAATAR/Chinggis khaan",
+      "lat": 47.646916,
+      "lon": 106.819833,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMDN",
+      "country": "Mongolia",
+      "name": "ZAVKHAN/Otgontenger",
+      "lat": 47.7093,
+      "lon": 96.5258,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMDZ",
+      "country": "Mongolia",
+      "name": "UMNUGOBI/Gurvansaikhan",
+      "lat": 43.608628,
+      "lon": 104.367734,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMHG",
+      "country": "Mongolia",
+      "name": "KHUVSGUL/Khatgal",
+      "lat": 50.435988,
+      "lon": 100.139532,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMHH",
+      "country": "Mongolia",
+      "name": "UVURKHANGAI/Kharkhorin",
+      "lat": 47.246667,
+      "lon": 102.826111,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMKB",
+      "country": "Mongolia",
+      "name": "UMNUGOBI/Khanbumbat",
+      "lat": null,
+      "lon": null,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMKD",
+      "country": "Mongolia",
+      "name": "KHOVD/Khovd",
+      "lat": 47.954102,
+      "lon": 91.628197,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMMG",
+      "country": "Mongolia",
+      "name": "DUNDGOBI/Mandalgobi",
+      "lat": 45.7380981445,
+      "lon": 106.268997192,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMMN",
+      "country": "Mongolia",
+      "name": "KHUVSGUL/Muren",
+      "lat": 49.663677,
+      "lon": 100.100028,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMSF",
+      "country": "Mongolia",
+      "name": "NALAIKH/Sky friend",
+      "lat": 47.773056,
+      "lon": 107.437778,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMTL",
+      "country": "Mongolia",
+      "name": "ZAVKHAN/Tosontsengel",
+      "lat": 48.73887,
+      "lon": 98.2941,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMTT",
+      "country": "Mongolia",
+      "name": "UMNUGOBI/Tavan tolgoi",
+      "lat": 43.773667,
+      "lon": 105.578667,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMUG",
+      "country": "Mongolia",
+      "name": "UVS/ Deglii tsagaan",
+      "lat": 50.066588,
+      "lon": 91.938273,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMUH",
+      "country": "Mongolia",
+      "name": "KHENTII/Undurkhaan",
+      "lat": 47.30486,
+      "lon": 110.6092,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    },
+    {
+      "icao": "ZMUL",
+      "country": "Mongolia",
+      "name": "BAYAN-ULGII/Ulgii",
+      "lat": 48.993301,
+      "lon": 89.922501,
+      "source": "hardcoded_backfill_for_scraper_country",
+      "visible": true
+    }
+  ]
+}

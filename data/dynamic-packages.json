@@ -1,0 +1,752 @@
+{
+  "generatedAt": "2026-04-07T08:09:08.814Z",
+  "source": "scripts/web-table-scrapers",
+  "countries": [
+    {
+      "countrySlug": "bahrain-eaip",
+      "countryName": "Bahrain",
+      "scriptPath": "scripts/web-table-scrapers/bahrain-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/bahrain-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/bahrain-eaip/GEN",
+        "ad2": "downloads/bahrain-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-03-19-AIRAC_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2026-03-19-AIRAC_OBBS_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "belarus-eaip",
+      "countryName": "Belarus",
+      "scriptPath": "scripts/web-table-scrapers/belarus-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/belarus-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/belarus-eaip/GEN",
+        "ad2": "downloads/belarus-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-04-16_UM_GEN_1_2_en.pdf"
+      ],
+      "ad2Files": [
+        "2026-04-16_UM_AD_2_UMII_en.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "bhutan-aip",
+      "countryName": "Bhutan",
+      "scriptPath": "scripts/web-table-scrapers/bhutan-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/bhutan-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/bhutan-aip/GEN",
+        "ad2": "downloads/bhutan-aip/AD2"
+      },
+      "genFiles": [
+        "BT_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "BT_AD2_VQPR.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "bosnia-eaip",
+      "countryName": "Bosnia",
+      "scriptPath": "scripts/web-table-scrapers/bosnia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/bosnia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/bosnia-eaip/GEN",
+        "ad2": "downloads/bosnia-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-03-19_GEN-1.22017081407481400170000.pdf"
+      ],
+      "ad2Files": [
+        "2026-03-19_LQSA_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "cabo-verde-eaip",
+      "countryName": "Cabo Verde",
+      "scriptPath": "scripts/web-table-scrapers/cabo-verde-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/cabo-verde-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/cabo-verde-eaip/GEN",
+        "ad2": "downloads/cabo-verde-eaip/AD2"
+      },
+      "genFiles": [
+        "2024-04-18-AIRAC_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2024-02-22-AIRAC_GVMA_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2024"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "chile-aip",
+      "countryName": "Chile",
+      "scriptPath": "scripts/web-table-scrapers/chile-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/chile-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/chile-aip/GEN",
+        "ad2": null
+      },
+      "genFiles": [
+        "GEN_1.pdf"
+      ],
+      "ad2Files": [],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "costa-rica-eaip",
+      "countryName": "Costa Rica",
+      "scriptPath": "scripts/web-table-scrapers/costa-rica-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/costa-rica-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/costa-rica-eaip/GEN",
+        "ad2": "downloads/costa-rica-eaip/AD2"
+      },
+      "genFiles": [
+        "2025-10-30-DOUBLE_AIRAC_GEN-0.2.pdf",
+        "2025-10-30-DOUBLE_AIRAC_GEN-1.2.pdf",
+        "AIP_2605-Eurocontrol-COSTA_RICA-2026-04-16-AIRAC_GEN-0.2.pdf"
+      ],
+      "ad2Files": [
+        "2025-10-30-DOUBLE_AIRAC_MRLB_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2025"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "cuba-aip",
+      "countryName": "Cuba",
+      "scriptPath": "scripts/web-table-scrapers/cuba-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/cuba-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/cuba-aip/GEN",
+        "ad2": "downloads/cuba-aip/AD2"
+      },
+      "genFiles": [
+        "GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "MUBA_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "ecuador-ifis3",
+      "countryName": "Ecuador",
+      "scriptPath": "scripts/web-table-scrapers/ecuador-ifis3-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/ecuador-ifis3-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/ecuador-ifis3/GEN",
+        "ad2": "downloads/ecuador-ifis3/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "SELT_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "el-salvador-eaip",
+      "countryName": "El Salvador",
+      "scriptPath": "scripts/web-table-scrapers/el-salvador-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/el-salvador-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/el-salvador-eaip/GEN",
+        "ad2": "downloads/el-salvador-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-01-22-NON_AIRAC_GEN-0.2.pdf",
+        "2026-01-22-NON_AIRAC_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2026-01-22-NON_AIRAC_MSLP_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "guatemala-eaip",
+      "countryName": "Guatemala",
+      "scriptPath": "scripts/web-table-scrapers/guatemala-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/guatemala-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/guatemala-eaip/GEN",
+        "ad2": "downloads/guatemala-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-04-16-AIRAC_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "2026-04-16-AIRAC_MGPB_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "honduras-eaip",
+      "countryName": "Honduras",
+      "scriptPath": "scripts/web-table-scrapers/honduras-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/honduras-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/honduras-eaip/GEN",
+        "ad2": "downloads/honduras-eaip/AD2"
+      },
+      "genFiles": [
+        "2025-08-07-AIRAC_GEN-1.2.pdf",
+        "2025-08-07-AIRAC_GEN-1.3.pdf"
+      ],
+      "ad2Files": [
+        "2025-08-07-AIRAC_MHLC_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2025"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "hong-kong-eaip",
+      "countryName": "Hong Kong",
+      "scriptPath": "scripts/web-table-scrapers/hong-kong-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/hong-kong-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/hong-kong-eaip/GEN",
+        "ad2": "downloads/hong-kong-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-03-19-000000_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "2026-03-19-000000_VHHH_AD2.pdf",
+        "2026-03-19-000000_VMMC_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "india-eaip",
+      "countryName": "India",
+      "scriptPath": "scripts/web-table-scrapers/india-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/india-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/india-eaip/GEN",
+        "ad2": "downloads/india-eaip/AD2"
+      },
+      "genFiles": [
+        "03-2026_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "03-2026_VEIM_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "israel-eaip",
+      "countryName": "Israel",
+      "scriptPath": "scripts/web-table-scrapers/israel-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/israel-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/israel-eaip/GEN",
+        "ad2": "downloads/israel-eaip/AD2"
+      },
+      "genFiles": [
+        "2025-10-02-AIRAC_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2025-10-02-AIRAC_LLBG_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2025"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "japan-aip",
+      "countryName": "Japan",
+      "scriptPath": "scripts/web-table-scrapers/japan-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/japan-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": null,
+        "ad2": null
+      },
+      "genFiles": [],
+      "ad2Files": [],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "korea-eaip",
+      "countryName": "Korea",
+      "scriptPath": "scripts/web-table-scrapers/korea-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/korea-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/korea-eaip/GEN",
+        "ad2": "downloads/korea-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "RKSI_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "kosovo-eaip",
+      "countryName": "Kosovo",
+      "scriptPath": "scripts/web-table-scrapers/kosovo-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/kosovo-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/kosovo-eaip/GEN",
+        "ad2": "downloads/kosovo-eaip/AD2"
+      },
+      "genFiles": [
+        "AIRAC_AMDT_03-2026_2026_03_19-index.html_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "AIRAC_AMDT_03-2026_2026_03_19-index.html_BKPR_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "kuwait-aip",
+      "countryName": "Kuwait",
+      "scriptPath": "scripts/web-table-scrapers/kuwait-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/kuwait-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/kuwait-aip/GEN",
+        "ad2": "downloads/kuwait-aip/AD2"
+      },
+      "genFiles": [
+        "1_GEN_1.-_NATIONAL_REGULATIONS_AND_REQUIREMENTS.pdf"
+      ],
+      "ad2Files": [
+        "OKKK_AD2-1.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "libya-aip",
+      "countryName": "Libya",
+      "scriptPath": "scripts/web-table-scrapers/libya-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/libya-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/libya-aip/GEN",
+        "ad2": "downloads/libya-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "HLBK_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "malaysia-eaip",
+      "countryName": "Malaysia",
+      "scriptPath": "scripts/web-table-scrapers/malaysia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/malaysia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/malaysia-aip/GEN",
+        "ad2": "downloads/malaysia-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "WBGS_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "maldives-aip",
+      "countryName": "Maldives",
+      "scriptPath": "scripts/web-table-scrapers/maldives-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/maldives-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/maldives-aip/GEN",
+        "ad2": "downloads/maldives-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "VRMH_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "mongolia-eaip",
+      "countryName": "Mongolia",
+      "scriptPath": "scripts/web-table-scrapers/mongolia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/mongolia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/mongolia-eaip/GEN",
+        "ad2": "downloads/mongolia-eaip/AD2"
+      },
+      "genFiles": [
+        "valid_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "valid_ZMKD_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "myanmar-eaip",
+      "countryName": "Myanmar",
+      "scriptPath": "scripts/web-table-scrapers/myanmar-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/myanmar-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/myanmar-eaip/GEN",
+        "ad2": "downloads/myanmar-eaip/AD2"
+      },
+      "genFiles": [
+        "2018-02-15_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2018-02-15_VYMW_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2018"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "nepal-eaip",
+      "countryName": "Nepal",
+      "scriptPath": "scripts/web-table-scrapers/nepal-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/nepal-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/nepal-aip/GEN",
+        "ad2": "downloads/nepal-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "VNRB_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "north-macedonia-eaip",
+      "countryName": "North Macedonia",
+      "scriptPath": "scripts/web-table-scrapers/north-macedonia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/north-macedonia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/north-macedonia-eaip/GEN",
+        "ad2": "downloads/north-macedonia-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "LWSK_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "pakistan-eaip",
+      "countryName": "Pakistan",
+      "scriptPath": "scripts/web-table-scrapers/pakistan-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/pakistan-eaip/GEN",
+        "ad2": "downloads/pakistan-eaip/AD2"
+      },
+      "genFiles": [
+        "AIRAC_AIP_AMDT_01-26_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "AIRAC_AIP_AMDT_01-26_CHITRAL_AD2.pdf",
+        "AIRAC_AIP_AMDT_01-26_OPNH_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "panama-aip",
+      "countryName": "Panama",
+      "scriptPath": "scripts/web-table-scrapers/panama-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/panama-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/panama-aip/GEN",
+        "ad2": "downloads/panama-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.pdf"
+      ],
+      "ad2Files": [
+        "MPMG_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "qatar-eaip",
+      "countryName": "Qatar",
+      "scriptPath": "scripts/web-table-scrapers/qatar-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/qatar-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/qatar-eaip/GEN",
+        "ad2": "downloads/qatar-eaip/AD2"
+      },
+      "genFiles": [
+        "2026-01-22-AIRAC_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "2026-01-22-AIRAC_OTBD_AD2.pdf"
+      ],
+      "ad2Icaos": [
+        "2026"
+      ],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "rwanda-aip",
+      "countryName": "Rwanda",
+      "scriptPath": "scripts/web-table-scrapers/rwanda-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/rwanda-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/rwanda-eaip/GEN",
+        "ad2": "downloads/rwanda-eaip/AD2"
+      },
+      "genFiles": [
+        "RWANDA_GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "RWANDA_AD2_HRYI.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "saudi-arabia-eaip",
+      "countryName": "Saudi Arabia",
+      "scriptPath": "scripts/web-table-scrapers/saudi-arabia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/saudi-arabia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/saudi-arabia-eaip/GEN",
+        "ad2": "downloads/saudi-arabia-eaip/AD2"
+      },
+      "genFiles": [
+        "_probe_render_GEN1_2.pdf",
+        "AIRAC_AIP_AMDT_05_24_2024_05_16_GEN-1.2.pdf"
+      ],
+      "ad2Files": [
+        "_probe_render_OEJF.pdf",
+        "AIRAC_AIP_AMDT_05_24_2024_05_16_OERK_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "somalia-eaip",
+      "countryName": "Somalia",
+      "scriptPath": "scripts/web-table-scrapers/somalia-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/somalia-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/somalia-eaip/GEN",
+        "ad2": "downloads/somalia-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "HCMM_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "sri-lanka-aip",
+      "countryName": "Sri Lanka",
+      "scriptPath": "scripts/web-table-scrapers/sri-lanka-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/sri-lanka-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/sri-lanka-aip/GEN",
+        "ad2": "downloads/sri-lanka-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "VCCT_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "taiwan-eaip",
+      "countryName": "Taiwan",
+      "scriptPath": "scripts/web-table-scrapers/taiwan-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/taiwan-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/taiwan-eaip/GEN",
+        "ad2": "downloads/taiwan-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "RCMT_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "tajikistan-aip",
+      "countryName": "Tajikistan",
+      "scriptPath": "scripts/web-table-scrapers/tajikistan-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/tajikistan-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/tajikistan-aip/GEN",
+        "ad2": "downloads/tajikistan-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "UTDK_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "thailand-eaip",
+      "countryName": "Thailand",
+      "scriptPath": "scripts/web-table-scrapers/thailand-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/thailand-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/thailand-eaip/GEN",
+        "ad2": "downloads/thailand-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "VTCL_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "turkmenistan-aip",
+      "countryName": "Turkmenistan",
+      "scriptPath": "scripts/web-table-scrapers/turkmenistan-aip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/turkmenistan-aip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/turkmenistan-aip/GEN",
+        "ad2": "downloads/turkmenistan-aip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "UTAM_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "uae-eaip",
+      "countryName": "Uae",
+      "scriptPath": "scripts/web-table-scrapers/uae-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/uae-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/uae-eaip/GEN",
+        "ad2": "downloads/uae-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "OMDL_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "uzbekistan-ais",
+      "countryName": "Uzbekistan",
+      "scriptPath": "scripts/web-table-scrapers/uzbekistan-ais-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/uzbekistan-ais-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/uzbekistan-ais/GEN",
+        "ad2": "downloads/uzbekistan-ais/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "UZFA_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    },
+    {
+      "countrySlug": "venezuela-eaip",
+      "countryName": "Venezuela",
+      "scriptPath": "scripts/web-table-scrapers/venezuela-eaip-interactive.mjs",
+      "runCommand": "node scripts/web-table-scrapers/venezuela-eaip-interactive.mjs",
+      "outputDirs": {
+        "gen": "downloads/venezuela-eaip/GEN",
+        "ad2": "downloads/venezuela-eaip/AD2"
+      },
+      "genFiles": [
+        "GEN_1.2.pdf"
+      ],
+      "ad2Files": [
+        "SVCS_AD2.pdf"
+      ],
+      "ad2Icaos": [],
+      "generatedFromDownloads": true
+    }
+  ]
+}

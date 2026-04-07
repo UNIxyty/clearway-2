@@ -34,7 +34,9 @@ This checklist is only what you need to **create / update / delete / run** to ke
 - Update package collector to include:
   - `effectiveDate`
   - `webAipUrl`
-  - clean ICAO extraction from AD2 filenames
+  - network-based AD2 ICAO collection from each scraper (`--collect`)
+  - merge network ICAOs with clean ICAO extraction from AD2 filenames
+  - `--offline` mode to force filename-only behavior
   - file: `scripts/tools/collect-all-packages.mjs`
 
 - Update airport enrichment to:
@@ -76,6 +78,9 @@ This checklist is only what you need to **create / update / delete / run** to ke
 
 ```bash
 node scripts/tools/collect-all-packages.mjs --out data/dynamic-packages.json
+# Optional:
+# node scripts/tools/collect-all-packages.mjs --out data/dynamic-packages.json --offline
+# node scripts/tools/collect-all-packages.mjs --out data/dynamic-packages.json --collect-timeout-ms 120000
 ```
 
 ### Build enriched dynamic airport dataset

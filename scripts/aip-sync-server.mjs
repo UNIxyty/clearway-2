@@ -179,9 +179,14 @@ function getDynamicData() {
 }
 
 function findScraperCountryByIcao(icao) {
-  const { airports } = getDynamicData();
+  const { airports, packages } = getDynamicData();
   const row = airports.find((a) => String(a.icao || "").toUpperCase() === icao);
-  return row ? String(row.country || "") : null;
+  if (row) return String(row.country || "");
+  for (const pkg of packages) {
+    const match = (pkg?.ad2Icaos || []).some((code) => String(code || "").toUpperCase() === icao);
+    if (match) return String(pkg?.countryName || "");
+  }
+  return null;
 }
 
 function findScraperPackageByCountry(country) {

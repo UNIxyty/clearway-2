@@ -22,6 +22,7 @@ const RUS_AIP_RUNS_DIR = join(PROJECT_ROOT, "downloads", "rus-aip", "by-icao");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
+const AUTO_INPUT_CLOSE_MS = 60_000;
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
@@ -104,9 +105,14 @@ function runWithInput(cmd, args, inputLines = [], env = process.env) {
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let closeInputTimer = null;
     child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
     child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
     const endStdin = () => {
+      if (closeInputTimer) {
+        clearTimeout(closeInputTimer);
+        closeInputTimer = null;
+      }
       try {
         child.stdin?.end();
       } catch {}
@@ -140,6 +146,10 @@ function runWithInput(cmd, args, inputLines = [], env = process.env) {
     try {
       const payload = [...inputLines, ""].join("\n");
       child.stdin?.write(payload);
+      // Avoid indefinite hangs if the scraper asks for more input than provided.
+      closeInputTimer = setTimeout(() => {
+        endStdin();
+      }, AUTO_INPUT_CLOSE_MS);
     } catch (err) {
       clearTimeout(timeout);
       endStdin();
@@ -334,8 +344,16 @@ function parseRunCommand(runCommand, scriptPath) {
 async function runScraperAd2Auto(icao, pkg) {
   const { cmd, args } = parseRunCommand(pkg?.runCommand, pkg?.scriptPath);
   const attempts = [
+    { extra: [], input: ["", "2", icao] },
+    { extra: ["--insecure"], input: ["", "2", icao] },
+    { extra: [], input: ["1", "2", icao] },
+    { extra: ["--insecure"], input: ["1", "2", icao] },
     { extra: [], input: ["2", icao] },
     { extra: ["--insecure"], input: ["2", icao] },
+    { extra: [], input: ["", "2", "1"] },
+    { extra: ["--insecure"], input: ["", "2", "1"] },
+    { extra: [], input: ["1", "2", "1"] },
+    { extra: ["--insecure"], input: ["1", "2", "1"] },
     { extra: [], input: ["2", "1"] },
     { extra: ["--insecure"], input: ["2", "1"] },
   ];

@@ -156,24 +156,34 @@ function parseGenEntries(entries) {
   return [...bySection.values()].sort((a, b) => a.section.localeCompare(b.section, undefined, { numeric: true }));
 }
 
-function parseAd2Entries(entries) {
-  const out = [];
-  const seen = new Set();
-  for (const e of entries) {
-    if (!/^AD\//i.test(e.href)) continue;
-    if (!/_data\.pdf$/i.test(e.href) && !/^AD\/OP[A-Z0-9]{2}_data\.pdf$/i.test(e.href)) continue;
-    const file = decodeURIComponent(e.href.split("/").pop() || "");
-    const airportKey = file.replace(/_data\.pdf$/i, "").replace(/\s+/g, "_");
-    const code = airportKey.toUpperCase();
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
-    out.push({
-      code,
-      label: `${airportKey.replace(/_/g, " ")} (${e.label})`,
-      pdfUrl: e.pdfUrl,
-    });
+function parseAd2EntriesFromLeftHtml(leftHtml, leftUrl) {
+  const byIcao = new Map();
+  const blockToIcao = new Map();
+
+  // Example:
+  // stIT("p3i0",["BAHAWALPUR (OPBW)",...]); stBS("p5",[],"p0");
+  const headingRe =
+    /stIT\([^[]*\["([^"]+\([A-Z0-9]{4}\)[^"]*)"[^\)]*\)\s*;\s*stBS\("p(\d+)"/gi;
+  let m;
+  while ((m = headingRe.exec(leftHtml))) {
+    const heading = stripHtml(m[1]);
+    const blockId = m[2];
+    const icao = heading.match(/\(([A-Z0-9]{4})\)/i)?.[1]?.toUpperCase();
+    if (icao) blockToIcao.set(blockId, icao);
   }
-  return out.sort((a, b) => a.code.localeCompare(b.code));
+
+  // Example:
+  // stIT("p5i0",["Aerodrome Data","AD/bah_data.pdf"],...)
+  const dataRe = /stIT\("p(\d+)i\d+"\s*,\["Aerodrome Data","([^"]+_data\.pdf)"/gi;
+  while ((m = dataRe.exec(leftHtml))) {
+    const blockId = m[1];
+    const relPdf = String(m[2] || "").trim();
+    const icao = blockToIcao.get(blockId);
+    if (!icao || !relPdf || byIcao.has(icao)) continue;
+    byIcao.set(icao, { icao, pdfUrl: new URL(relPdf, leftUrl).href });
+  }
+
+  return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
 }
 
 async function downloadPdf(url, outFile) {
@@ -242,9 +252,9 @@ async function main() {
     if (!menuEntries.length) throw new Error("No PDF menu entries found in package left menu.");
 
     const genEntries = parseGenEntries(menuEntries);
-    const ad2Entries = parseAd2Entries(menuEntries);
+    const ad2Entries = parseAd2EntriesFromLeftHtml(leftHtml, leftUrl);
     if (!genEntries.length) throw new Error("No GEN entries found in package menu.");
-    if (!ad2Entries.length) throw new Error("No AD2 airport data entries found in package menu.");
+    if (!ad2Entries.length) throw new Error("No AD2 ICAO airport entries found in package menu.");
 
     const mode = (await rl.question("\nDownload:\n  [1] GEN section PDF\n  [2] AD 2 airport DATA PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;
@@ -260,10 +270,10 @@ async function main() {
     }
 
     if (mode === "2") {
-      ad2Entries.forEach((e, i) => console.error(`${String(i + 1).padStart(3)}. ${e.code}  ${e.label}`));
-      const chosen = await pickFromList(rl, `\nAirport number 1-${ad2Entries.length} or code: `, ad2Entries, (e) => `${e.code} ${e.label}`);
+      ad2Entries.forEach((e, i) => console.error(`${String(i + 1).padStart(3)}. ${e.icao}`));
+      const chosen = await pickFromList(rl, `\nAirport number 1-${ad2Entries.length} or ICAO: `, ad2Entries, (e) => e.icao);
       mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, safeFilename(`${issue.title}_${chosen.code}_AD2.pdf`));
+      const outFile = join(OUT_AD2, safeFilename(`${issue.title}_${chosen.icao}_AD2.pdf`));
       await downloadPdf(chosen.pdfUrl, outFile);
       console.error(`\nSaved: ${outFile}`);
       return;

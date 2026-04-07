@@ -161,9 +161,9 @@ function buildCountryCandidates(country?: string | null): string[] {
 
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
   const country = row.country ?? "";
-  const dynamicWebAipUrl = getDynamicWebAipUrl(country);
   const dynamicPackage = getDynamicPackageByCountry(country);
-  const sourceType = dynamicWebAipUrl ? "SCRAPER_DYNAMIC" : "DB_DYNAMIC";
+  const dynamicWebAipUrl = dynamicPackage?.webAipUrl || getDynamicWebAipUrl(country);
+  const sourceType = dynamicPackage || dynamicWebAipUrl ? "SCRAPER_DYNAMIC" : "DB_DYNAMIC";
   return {
     country,
     gen1_2: "",

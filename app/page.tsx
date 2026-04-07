@@ -220,7 +220,10 @@ function supportsSyncedAipIcao(icao: string): boolean {
 
 function isScraperDynamicAirport(airport: AIPAirport | null): boolean {
   if (!airport) return false;
-  return airport.sourceType === "SCRAPER_DYNAMIC";
+  if (airport.sourceType === "SCRAPER_DYNAMIC") return true;
+  // Safety fallback: if country is present in dynamic package metadata,
+  // force scraper flow even when stale sourceType came from older cache.
+  return Boolean(getDynamicPackageByCountry(airport.country));
 }
 
 function supportsSyncedAipAirport(airport: AIPAirport | null): boolean {

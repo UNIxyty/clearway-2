@@ -307,12 +307,14 @@ function getList(): AIPAirport[] {
     const eadGeneratedList = flattenEadFromGenerated();
     const asecnaList = flattenAsecna();
     const russiaList = flattenRussia();
+    const dynamicList = flattenDynamic();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of asecnaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of flattenDynamic()) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    // Dynamic scraper countries must override any static/EAD match for same ICAO.
+    for (const a of dynamicList) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;

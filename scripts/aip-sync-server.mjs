@@ -10,7 +10,6 @@
 
 import { createServer } from "http";
 import { spawn } from "child_process";
-import { PassThrough } from "node:stream";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
@@ -97,11 +96,10 @@ function runWithInput(cmd, args, inputLines = [], env = process.env) {
     // Keep stdin writable open until the child exits. Several scrapers create readline on
     // stdin *before* long async fetches; calling end() immediately makes Node deliver early
     // EOF and readline closes with "readline was closed" before prompts run.
-    const inputStream = new PassThrough();
     const child = spawn(cmd, args, {
       cwd: PROJECT_ROOT,
       env: { ...process.env, ...env },
-      stdio: [inputStream, "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
     let stderr = "";
@@ -110,7 +108,7 @@ function runWithInput(cmd, args, inputLines = [], env = process.env) {
     child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
     const endStdin = () => {
       try {
-        inputStream.end();
+        child.stdin?.end();
       } catch {}
     };
     const timeout = setTimeout(() => {
@@ -141,7 +139,7 @@ function runWithInput(cmd, args, inputLines = [], env = process.env) {
     });
     try {
       const payload = [...inputLines, ""].join("\n");
-      inputStream.write(payload);
+      child.stdin?.write(payload);
     } catch (err) {
       clearTimeout(timeout);
       endStdin();

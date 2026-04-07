@@ -91,6 +91,38 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
   });
 }
 
+function runWithInput(cmd, args, inputLines = [], env = process.env) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      cwd: PROJECT_ROOT,
+      env: { ...process.env, ...env },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`Timeout: ${cmd} ${args.join(" ")}`));
+    }, RUN_TIMEOUT_MS);
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-800)}`));
+      else resolve();
+    });
+    try {
+      const payload = [...inputLines, ""].join("\n");
+      child.stdin?.write(payload);
+      child.stdin?.end();
+    } catch {}
+  });
+}
+
 async function runDownload(icao) {
   if (isScraperIcao(icao)) {
     await stageScraperAd2Pdf(icao);
@@ -258,6 +290,34 @@ function pickNewestScraperAd2Pdf(icao, pkg) {
   return (exact || candidates[0]).full;
 }
 
+function parseRunCommand(runCommand, scriptPath) {
+  if (runCommand) {
+    const parts = String(runCommand).trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return { cmd: parts[0], args: parts.slice(1) };
+  }
+  return { cmd: "node", args: [scriptPath] };
+}
+
+async function runScraperAd2Auto(icao, pkg) {
+  const { cmd, args } = parseRunCommand(pkg?.runCommand, pkg?.scriptPath);
+  const attempts = [
+    { extra: [], input: ["2", icao] },
+    { extra: ["--insecure"], input: ["2", icao] },
+    { extra: [], input: ["2", "1"] },
+    { extra: ["--insecure"], input: ["2", "1"] },
+  ];
+  let lastErr = "unknown";
+  for (const attempt of attempts) {
+    try {
+      await runWithInput(cmd, [...args, ...attempt.extra], attempt.input);
+      return true;
+    } catch (err) {
+      lastErr = err?.message || String(err);
+    }
+  }
+  throw new Error(`Automatic AD2 scraper run failed for ${icao}: ${lastErr}`);
+}
+
 function pickNewestScraperGenPdf(pkg) {
   const genRel = pkg?.outputDirs?.gen;
   if (!genRel) return null;
@@ -276,6 +336,18 @@ async function ensureScraperGenPdf(icao) {
   if (normalizeCountryKey(country) === "belarus") {
     return await ensureBelarusGen12Pdf(pkg);
   }
+  const { cmd, args } = parseRunCommand(pkg?.runCommand, pkg?.scriptPath);
+  const attempts = [
+    { extra: [], input: ["1", "1"] },
+    { extra: ["--insecure"], input: ["1", "1"] },
+  ];
+  for (const attempt of attempts) {
+    try {
+      await runWithInput(cmd, [...args, ...attempt.extra], attempt.input);
+      const src = pickNewestScraperGenPdf(pkg);
+      if (src) return src;
+    } catch {}
+  }
   return null;
 }
 
@@ -291,6 +363,10 @@ async function stageScraperAd2Pdf(icao) {
   let src = pickNewestScraperAd2Pdf(icao, pkg);
   if (!src && normalizeCountryKey(country) === "belarus") {
     src = await ensureBelarusAd2Pdf(icao, pkg);
+  }
+  if (!src) {
+    await runScraperAd2Auto(icao, pkg);
+    src = pickNewestScraperAd2Pdf(icao, pkg);
   }
   if (!src) {
     throw new Error(`No AD2 PDF found for ${icao} in ${pkg?.outputDirs?.ad2 || "unknown directory"}`);

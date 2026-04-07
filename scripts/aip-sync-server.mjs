@@ -35,6 +35,10 @@ const RWANDA_ICAO_PREFIX = "HR";
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 const SCRAPER_AD2_BY_ICAO = new Map();
 const SCRAPER_GEN_BY_ICAO = new Map();
+const BELARUS_AMDT_URLS = [
+  "https://www.ban.by/ru/sbornik-aip/amdt",
+  "https://www.ban.by/sbornik-aip/amdt",
+];
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -121,6 +125,18 @@ function parseJsonFile(filePath, fallback) {
   }
 }
 
+async function fetchTextStrict(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
+  return await res.text();
+}
+
+async function fetchBytesStrict(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 function getDynamicData() {
   const packages = parseJsonFile(DYNAMIC_PACKAGES_PATH, { countries: [] });
   const airports = parseJsonFile(DYNAMIC_AIRPORTS_PATH, { airports: [] });
@@ -163,6 +179,75 @@ function listPdfCandidates(dirPath) {
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 }
 
+function parseBelarusEffectiveDates(amdtHtml) {
+  const rows = [...String(amdtHtml || "").matchAll(/eAIP\s*EFFECTIVE\s*DATE\s*(\d{4}-\d{2}-\d{2})/gi)].map((m) => m[1]);
+  return [...new Set(rows)];
+}
+
+function pickNewestIsoDate(dates) {
+  const sorted = [...dates].sort((a, b) => String(b).localeCompare(String(a)));
+  return sorted[0] || null;
+}
+
+function belarusDateToPackageCode(date) {
+  const m = String(date || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return `${m[1].slice(-2)}${m[2]}${m[3]}`;
+}
+
+async function fetchBelarusMenuWithDate() {
+  let lastErr = "unknown";
+  for (const amdtUrl of BELARUS_AMDT_URLS) {
+    try {
+      const amdtHtml = await fetchTextStrict(amdtUrl);
+      const dates = parseBelarusEffectiveDates(amdtHtml);
+      const newest = pickNewestIsoDate(dates);
+      if (!newest) continue;
+      const pkgCode = belarusDateToPackageCode(newest);
+      if (!pkgCode) continue;
+      const indexUrl = `https://www.ban.by/AIP/Belarus${pkgCode}/html/index.html`;
+      const indexHtml = await fetchTextStrict(indexUrl);
+      const frameMatch = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i);
+      if (!frameMatch?.[1]) throw new Error("Belarus menu frame not found");
+      const menuUrl = new URL(frameMatch[1], indexUrl).href;
+      const menuHtml = await fetchTextStrict(menuUrl);
+      return { newestDate: newest, menuUrl, menuHtml };
+    } catch (err) {
+      lastErr = err?.message || String(err);
+    }
+  }
+  throw new Error(`Belarus amendments lookup failed: ${lastErr}`);
+}
+
+async function ensureBelarusAd2Pdf(icao, pkg) {
+  const { newestDate, menuUrl, menuHtml } = await fetchBelarusMenuWithDate();
+  const rx = new RegExp(`href="([^"]*\\/pdf\\/(UM_AD_2_${icao}_en\\.pdf))"`, "i");
+  const m = menuHtml.match(rx);
+  if (!m?.[1] || !m?.[2]) throw new Error(`Belarus AD2 PDF for ${icao} not found in newest package`);
+  const pdfUrl = new URL(m[1], menuUrl).href;
+  const outDirRel = pkg?.outputDirs?.ad2 || "downloads/belarus-eaip/AD2";
+  const outDir = join(PROJECT_ROOT, outDirRel);
+  mkdirSync(outDir, { recursive: true });
+  const outPath = join(outDir, `${newestDate}_${m[2]}`);
+  const bytes = await fetchBytesStrict(pdfUrl);
+  writeFileSync(outPath, bytes);
+  return outPath;
+}
+
+async function ensureBelarusGen12Pdf(pkg) {
+  const { newestDate, menuUrl, menuHtml } = await fetchBelarusMenuWithDate();
+  const genMatch = menuHtml.match(/href="([^"]*\/pdf\/(UM_GEN_1_2_en\.pdf))"/i);
+  if (!genMatch?.[1] || !genMatch?.[2]) throw new Error("Belarus GEN 1.2 PDF not found in newest package");
+  const pdfUrl = new URL(genMatch[1], menuUrl).href;
+  const outDirRel = pkg?.outputDirs?.gen || "downloads/belarus-eaip/GEN";
+  const outDir = join(PROJECT_ROOT, outDirRel);
+  mkdirSync(outDir, { recursive: true });
+  const outPath = join(outDir, `${newestDate}_${genMatch[2]}`);
+  const bytes = await fetchBytesStrict(pdfUrl);
+  writeFileSync(outPath, bytes);
+  return outPath;
+}
+
 function pickNewestScraperAd2Pdf(icao, pkg) {
   const ad2Rel = pkg?.outputDirs?.ad2;
   if (!ad2Rel) return null;
@@ -183,6 +268,17 @@ function pickNewestScraperGenPdf(pkg) {
   return (gen12 || candidates[0]).full;
 }
 
+async function ensureScraperGenPdf(icao) {
+  const country = findScraperCountryByIcao(icao);
+  if (!country) return null;
+  const pkg = findScraperPackageByCountry(country);
+  if (!pkg) return null;
+  if (normalizeCountryKey(country) === "belarus") {
+    return await ensureBelarusGen12Pdf(pkg);
+  }
+  return null;
+}
+
 function isScraperIcao(icao) {
   return Boolean(findScraperCountryByIcao(icao));
 }
@@ -192,7 +288,10 @@ async function stageScraperAd2Pdf(icao) {
   if (!country) throw new Error(`No dynamic scraper country mapping for ${icao}`);
   const pkg = findScraperPackageByCountry(country);
   if (!pkg) throw new Error(`No package metadata for scraper country ${country}`);
-  const src = pickNewestScraperAd2Pdf(icao, pkg);
+  let src = pickNewestScraperAd2Pdf(icao, pkg);
+  if (!src && normalizeCountryKey(country) === "belarus") {
+    src = await ensureBelarusAd2Pdf(icao, pkg);
+  }
   if (!src) {
     throw new Error(`No AD2 PDF found for ${icao} in ${pkg?.outputDirs?.ad2 || "unknown directory"}`);
   }
@@ -453,7 +552,8 @@ async function runGenDownloadForIcao(icao, prefix) {
   if (isScraperIcao(icao)) {
     const country = findScraperCountryByIcao(icao);
     const pkg = findScraperPackageByCountry(country);
-    const src = pickNewestScraperGenPdf(pkg);
+    let src = pickNewestScraperGenPdf(pkg);
+    if (!src) src = await ensureScraperGenPdf(icao);
     if (!src) {
       throw new Error(`No GEN PDF found for ${country || icao} in ${pkg?.outputDirs?.gen || "unknown directory"}`);
     }

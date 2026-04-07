@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { spawn } from "node:child_process";
 
 const ROOT = process.cwd();
 const SCRAPERS_DIR = path.join(ROOT, "scripts", "web-table-scrapers");
@@ -10,6 +11,10 @@ function argValue(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
   if (i === -1) return fallback;
   return process.argv[i + 1] ?? fallback;
+}
+
+function hasFlag(flag) {
+  return process.argv.includes(flag);
 }
 
 function titleCaseFromSlug(slug) {
@@ -122,7 +127,66 @@ function pickNewestDate(candidates) {
   return valid[0] || null;
 }
 
-async function collectOne(scriptFile) {
+function runScraperCollect(absScriptPath, timeoutMs, extraArgs = []) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [absScriptPath, "--collect", ...extraArgs], {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+    let out = "";
+    let err = "";
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGTERM");
+      } catch {}
+      reject(new Error("collect timeout"));
+    }, timeoutMs);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (c) => {
+      out += c;
+    });
+    child.stderr.on("data", (c) => {
+      err += c;
+    });
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error(err.trim() || `exit ${code}`));
+        return;
+      }
+      try {
+        const j = JSON.parse(String(out).trim());
+        if (!j || typeof j !== "object") throw new Error("not an object");
+        resolve(j);
+      } catch {
+        reject(new Error(`invalid JSON: ${String(out).slice(0, 160)}`));
+      }
+    });
+  });
+}
+
+async function tryCollectNetwork(absScriptPath, timeoutMs) {
+  try {
+    const data = await runScraperCollect(absScriptPath, timeoutMs, []);
+    return { ok: true, data, usedInsecure: false };
+  } catch {
+    try {
+      const data = await runScraperCollect(absScriptPath, timeoutMs, ["--insecure"]);
+      return { ok: true, data, usedInsecure: true };
+    } catch (e2) {
+      return { ok: false, error: String(e2?.message || e2) };
+    }
+  }
+}
+
+async function collectOne(scriptFile, opts) {
+  const { offline, collectTimeoutMs } = opts;
   const scriptPath = path.join(SCRAPERS_DIR, scriptFile);
   const src = await fs.readFile(scriptPath, "utf8");
   const slug = scriptFile.replace(/-interactive\.mjs$/i, "");
@@ -134,17 +198,41 @@ async function collectOne(scriptFile) {
   const ad2Dir = outBaseAd2 ? path.join(ROOT, "downloads", outBaseAd2, "AD2") : null;
   const genFiles = genDir ? await listPdfFiles(genDir) : [];
   const ad2Files = ad2Dir ? await listPdfFiles(ad2Dir) : [];
-  const effectiveDate = pickNewestDate(
+  const pdfEffectiveDate = pickNewestDate(
     [...genFiles, ...ad2Files].map((name) => parseDateFromString(name)).filter(Boolean),
   );
 
-  const ad2Icaos = Array.from(
+  const pdfIcaos = Array.from(
     new Set(
       ad2Files
         .map(toIcaoFromFilename)
         .filter(Boolean),
     ),
   ).sort((a, b) => a.localeCompare(b));
+
+  let networkEffectiveDate = null;
+  let networkIcaos = [];
+  let collectOk = false;
+  let collectError = null;
+  let collectUsedInsecure = false;
+
+  if (!offline) {
+    const net = await tryCollectNetwork(scriptPath, collectTimeoutMs);
+    if (net.ok) {
+      collectOk = true;
+      collectUsedInsecure = net.usedInsecure;
+      networkEffectiveDate = net.data.effectiveDate ?? null;
+      networkIcaos = Array.isArray(net.data.ad2Icaos) ? net.data.ad2Icaos : [];
+    } else {
+      collectError = net.error;
+    }
+  }
+
+  const ad2Icaos = Array.from(new Set([...pdfIcaos, ...networkIcaos])).sort((a, b) => a.localeCompare(b));
+  const effectiveDate =
+    networkEffectiveDate != null && String(networkEffectiveDate).trim() !== ""
+      ? networkEffectiveDate
+      : pdfEffectiveDate;
 
   return {
     countrySlug: slug,
@@ -159,6 +247,10 @@ async function collectOne(scriptFile) {
     ad2Files,
     ad2Icaos,
     effectiveDate,
+    effectiveDateFromDownloads: pdfEffectiveDate,
+    collectOk,
+    collectError,
+    collectUsedInsecure,
     webAipUrl: WEB_AIP_BY_COUNTRY[normalizeCountry(countryName)] ?? null,
     generatedFromDownloads: true,
   };
@@ -166,15 +258,18 @@ async function collectOne(scriptFile) {
 
 async function main() {
   const outPath = argValue("--out", OUT_DEFAULT);
+  const offline = hasFlag("--offline");
+  const collectTimeoutMs = Number(argValue("--collect-timeout-ms", "90000")) || 90_000;
   const rows = await fs.readdir(SCRAPERS_DIR);
   const scraperFiles = rows.filter((f) => f.endsWith("-interactive.mjs")).sort((a, b) => a.localeCompare(b));
   const countries = [];
   for (const f of scraperFiles) {
-    countries.push(await collectOne(f));
+    countries.push(await collectOne(f, { offline, collectTimeoutMs }));
   }
   const payload = {
     generatedAt: new Date().toISOString(),
     source: "scripts/web-table-scrapers",
+    collectMode: offline ? "offline" : "network",
     countries,
   };
   await fs.mkdir(path.dirname(outPath), { recursive: true });

@@ -20,9 +20,18 @@ function titleCaseFromSlug(slug) {
 }
 
 function toIcaoFromFilename(name) {
-  const up = String(name || "").toUpperCase();
-  const m = up.match(/\b([A-Z0-9]{4})\b/);
-  return m ? m[1] : null;
+  const up = String(name || "")
+    .toUpperCase()
+    .replace(/\.PDF$/i, "");
+  const tokens = up.split(/[^A-Z0-9]+/).filter(Boolean);
+  const stop = new Set(["AIRAC", "GEN", "AD2", "DOUBLE", "NON", "VALID", "INDEX", "HTML"]);
+  for (const t of tokens) {
+    if (/^[A-Z]{4}$/.test(t) && !stop.has(t)) return t;
+  }
+  for (const t of tokens) {
+    if (/^[A-Z0-9]{4}$/.test(t) && /[A-Z]/.test(t)) return t;
+  }
+  return null;
 }
 
 async function listPdfFiles(dir) {
@@ -46,6 +55,73 @@ function parseOutDirFromSource(src, kind) {
   return m?.[1] ?? null;
 }
 
+function normalizeCountry(v) {
+  return String(v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .trim()
+    .toLowerCase();
+}
+
+const WEB_AIP_BY_COUNTRY = {
+  bahrain: "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",
+  belarus: "https://www.ban.by/ru/sbornik-aip/amdt",
+  bhutan: "https://www.doat.gov.bt/aip/",
+  bosnia: "https://eaip.bhansa.gov.ba",
+  "cabo verde": "https://eaip.asa.cv",
+  chile: "https://aipchile.dgac.gob.cl/aip/vol1",
+  "costa rica": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+  cuba: "https://aismet.avianet.cu/html/aip.html",
+  ecuador: "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+  "el salvador": "https://www.cocesna.org/aipca/AIPMS/history.html",
+  guatemala: "https://www.dgac.gob.gt/home/aip_e/",
+  honduras: "https://www.cocesna.org/aipca/AIPMH/history.html",
+  "hong kong": "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",
+  india: "https://aim-india.aai.aero/aip-supplements?page=1",
+  israel: "https://e-aip.azurefd.net",
+  japan: "https://nagodede.github.io/aip/japan/",
+  kosovo: "https://ashna.rks-gov.net/index.php?page=2,23",
+  kuwait: "https://dgca.gov.kw/AIP",
+  libya: "https://caa.gov.ly/ais/ad/",
+  malaysia: "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+  maldives: "https://www.macl.aero/corporate/services/operational/ans/aip",
+  mongolia: "https://ais.mn/eaip/history-en-GB.html",
+  myanmar: "https://www.ais.gov.mm/eAIP/history-en-GB.html",
+  nepal: "https://e-aip.caanepal.gov.np/welcome/listall/1",
+  "north macedonia": "https://www.caa.gov.mk/AIP/default_en.asp",
+  pakistan: "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+  panama: "https://www.aeronautica.gob.pa/ais-aip/",
+  qatar: "https://www.caa.gov.qa/en/aeronautical-information-management",
+  rwanda: "https://aim.asecna.aero/html/eAIP/eAIP_Rwanda/index-en-GB.html",
+  "saudi arabia": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+  somalia: "https://aip.scaa.gov.so/history-en-GB.html",
+  "sri lanka": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+  taiwan: "https://ais.caa.gov.tw/eaip/",
+  tajikistan: "http://www.caica.ru/aiptjk/?lang=en",
+  thailand: "https://aip.caat.or.th/",
+  turkmenistan: "http://www.caica.ru/aiptkm/?lang=en",
+  "united arab emirates": "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/AIP.aspx",
+  uzbekistan: "https://uzaeronavigation.com/ais/#",
+  venezuela: "https://www.inac.gob.ve/eaip/history-en-GB.html",
+};
+
+function parseDateFromString(value) {
+  const s = String(value || "");
+  const iso = s.match(/\b(20\d{2})[-_](\d{2})[-_](\d{2})\b/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const compact = s.match(/\b(20\d{2})(\d{2})(\d{2})\b/);
+  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+  const rev = s.match(/\b(\d{2})[-_](\d{2})[-_](20\d{2})\b/);
+  if (rev) return `${rev[3]}-${rev[2]}-${rev[1]}`;
+  return null;
+}
+
+function pickNewestDate(candidates) {
+  const valid = candidates.filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)));
+  return valid[0] || null;
+}
+
 async function collectOne(scriptFile) {
   const scriptPath = path.join(SCRAPERS_DIR, scriptFile);
   const src = await fs.readFile(scriptPath, "utf8");
@@ -58,6 +134,9 @@ async function collectOne(scriptFile) {
   const ad2Dir = outBaseAd2 ? path.join(ROOT, "downloads", outBaseAd2, "AD2") : null;
   const genFiles = genDir ? await listPdfFiles(genDir) : [];
   const ad2Files = ad2Dir ? await listPdfFiles(ad2Dir) : [];
+  const effectiveDate = pickNewestDate(
+    [...genFiles, ...ad2Files].map((name) => parseDateFromString(name)).filter(Boolean),
+  );
 
   const ad2Icaos = Array.from(
     new Set(
@@ -79,6 +158,8 @@ async function collectOne(scriptFile) {
     genFiles,
     ad2Files,
     ad2Icaos,
+    effectiveDate,
+    webAipUrl: WEB_AIP_BY_COUNTRY[normalizeCountry(countryName)] ?? null,
     generatedFromDownloads: true,
   };
 }

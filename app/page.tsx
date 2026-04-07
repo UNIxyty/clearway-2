@@ -23,6 +23,7 @@ import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
+import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 export type NotamItem = {
   location: string;
@@ -84,6 +85,7 @@ type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
+  effectiveDate?: string | null;
 };
 
 type ExtractedAirportRow = {
@@ -227,13 +229,15 @@ function supportsSyncedAipAirport(airport: AIPAirport | null): boolean {
   return supportsSyncedAipIcao(airport.icao);
 }
 
-function getSyncedAipApiBase(airport: AIPAirport | null): "/api/aip/asecna" | "/api/aip/ead" {
+function getSyncedAipApiBase(airport: AIPAirport | null): "/api/aip/asecna" | "/api/aip/ead" | "/api/aip/scraper" {
   if (airport && isAsecnaIcao(airport.icao)) return "/api/aip/asecna";
+  if (airport && isScraperDynamicAirport(airport)) return "/api/aip/scraper";
   return "/api/aip/ead";
 }
 
-function getSyncedAipPdfApiBase(airport: AIPAirport | null): "/api/aip/asecna/pdf" | "/api/aip/ead/pdf" {
+function getSyncedAipPdfApiBase(airport: AIPAirport | null): "/api/aip/asecna/pdf" | "/api/aip/ead/pdf" | "/api/aip/scraper/pdf" {
   if (airport && isAsecnaIcao(airport.icao)) return "/api/aip/asecna/pdf";
+  if (airport && isScraperDynamicAirport(airport)) return "/api/aip/scraper/pdf";
   return "/api/aip/ead/pdf";
 }
 
@@ -845,7 +849,37 @@ function AIPPortalPageInner() {
   }, []);
 
   const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false) => {
+    const isScraper = isScraperDynamicAirport(viewingAirport);
     const useAsecnaGen = forceAsecna || isAsecnaIcao(icao);
+    if (isScraper) {
+      setGenPdfDownloadError(null);
+      setGenPdfDownloading(true);
+      setGenSyncingPrefix(icao);
+      setGenSyncSteps(["Fetching dynamic scraper GEN 1.2 PDF…"]);
+      try {
+        const pdfRes = await fetch(`/api/aip/scraper/gen/pdf?icao=${encodeURIComponent(icao)}`, {
+          cache: "no-store",
+        });
+        if (!pdfRes.ok) {
+          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
+          throw new Error(data.detail || data.error || "Failed to load scraper GEN PDF");
+        }
+        const blob = await pdfRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${icao}_GEN_1.2.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+      } catch (err) {
+        setGenPdfDownloadError(err instanceof Error ? err.message : "GEN PDF download failed");
+      } finally {
+        setGenPdfDownloading(false);
+        setGenSyncingPrefix(null);
+      }
+      return;
+    }
     if (useAsecnaGen) {
       setGenPdfDownloadError(null);
       setGenPdfDownloading(true);
@@ -946,7 +980,7 @@ function AIPPortalPageInner() {
       setGenPdfDownloading(false);
       setGenSyncingPrefix(null);
     }
-  }, [genPdfExistsOnServer]);
+  }, [genPdfExistsOnServer, viewingAirport]);
 
   // Fetch synced AIP (EAD + Russia). Default flow is PDF-first (extract=0).
   // AI extraction runs only when explicitly requested (extract=1).
@@ -1138,6 +1172,22 @@ function AIPPortalPageInner() {
     if (MAIN_PAGE_DISABLE_GEN) return;
     const icao = viewingAirport?.icao ?? null;
     if (!icao) return;
+    if (isScraperDynamicAirport(viewingAirport)) {
+      const prefix = icao.slice(0, 2).toUpperCase();
+      if (!(prefix in genCache)) {
+        setGenCache((c) => ({
+          ...c,
+          [prefix]: {
+            general: emptyGenPart(),
+            nonScheduled: emptyGenPart(),
+            privateFlights: emptyGenPart(),
+            updatedAt: null,
+          },
+        }));
+      }
+      updateStage(icao, "gen", "done", "Dynamic scraper GEN available via GEN PDF button");
+      return;
+    }
     if (isAsecnaIcao(icao)) {
       const prefix = icao.slice(0, 2).toUpperCase();
       if (!(prefix in genCache)) {
@@ -2523,11 +2573,18 @@ function AIPPortalPageInner() {
                         size="sm"
                         className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
-                          const webAip = viewingAirport.webAipUrl || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
+                          const dynamicPkg = getDynamicPackageByCountry(viewingAirport.country);
+                          const webAip = viewingAirport.webAipUrl
+                            || dynamicPkg?.webAipUrl
+                            || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
                           if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
                         }}
                         title="Open Web AIP"
-                        disabled={!viewingAirport.webAipUrl && !isAsecnaIcao(viewingAirport.icao)}
+                        disabled={
+                          !viewingAirport.webAipUrl
+                          && !getDynamicPackageByCountry(viewingAirport.country)?.webAipUrl
+                          && !isAsecnaIcao(viewingAirport.icao)
+                        }
                       >
                         <GlobeIcon className="size-4" />
                         <span className="text-xs hidden sm:inline">Web AIP</span>
@@ -2537,6 +2594,15 @@ function AIPPortalPageInner() {
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                    {(() => {
+                      const dynamicPkg = getDynamicPackageByCountry(viewingAirport.country);
+                      const effectiveDate = viewingAirport.effectiveDate || dynamicPkg?.effectiveDate || null;
+                      return effectiveDate ? (
+                        <div className="mb-1">
+                          Effective: <strong>{effectiveDate}</strong>
+                        </div>
+                      ) : null;
+                    })()}
                     Source:{" "}
                     <strong>
                       {isAsecnaIcao(viewingAirport.icao)

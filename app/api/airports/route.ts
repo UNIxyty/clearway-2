@@ -9,6 +9,7 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getDynamicWebAipUrl } from "@/lib/dynamic-web-aip";
+import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
+  effectiveDate?: string | null;
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
@@ -160,6 +162,7 @@ function buildCountryCandidates(country?: string | null): string[] {
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
   const country = row.country ?? "";
   const dynamicWebAipUrl = getDynamicWebAipUrl(country);
+  const dynamicPackage = getDynamicPackageByCountry(country);
   const sourceType = dynamicWebAipUrl ? "SCRAPER_DYNAMIC" : "DB_DYNAMIC";
   return {
     country,
@@ -189,6 +192,7 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
     sourceType,
     dynamicUpdated: true,
     webAipUrl: dynamicWebAipUrl,
+    effectiveDate: dynamicPackage?.effectiveDate ?? null,
   };
 }
 
@@ -518,6 +522,7 @@ function flattenDynamicCountry(countryName?: string): AIPAirport[] {
       sourceType: "SCRAPER_DYNAMIC",
       dynamicUpdated: true,
       webAipUrl: getDynamicWebAipUrl(String(r.country || "")),
+      effectiveDate: typeof r.effectiveDate === "string" ? r.effectiveDate : (getDynamicPackageByCountry(String(r.country || ""))?.effectiveDate ?? null),
     } satisfies AIPAirport))
     .filter((x) => /^[A-Z0-9]{4}$/.test(x.icao));
   list.sort((a, b) => a.icao.localeCompare(b.icao));

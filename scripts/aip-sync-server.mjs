@@ -28,9 +28,13 @@ const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_i
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
+const DYNAMIC_PACKAGES_PATH = join(PROJECT_ROOT, "data", "dynamic-packages.json");
+const DYNAMIC_AIRPORTS_PATH = join(PROJECT_ROOT, "data", "dynamic-airports.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
+const SCRAPER_AD2_BY_ICAO = new Map();
+const SCRAPER_GEN_BY_ICAO = new Map();
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -84,6 +88,10 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 }
 
 async function runDownload(icao) {
+  if (isScraperIcao(icao)) {
+    await stageScraperAd2Pdf(icao);
+    return;
+  }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
@@ -94,6 +102,101 @@ async function runDownload(icao) {
     return;
   }
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
+}
+
+function normalizeCountryKey(v) {
+  return String(v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .trim()
+    .toLowerCase();
+}
+
+function parseJsonFile(filePath, fallback) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function getDynamicData() {
+  const packages = parseJsonFile(DYNAMIC_PACKAGES_PATH, { countries: [] });
+  const airports = parseJsonFile(DYNAMIC_AIRPORTS_PATH, { airports: [] });
+  return {
+    packages: Array.isArray(packages.countries) ? packages.countries : [],
+    airports: Array.isArray(airports.airports) ? airports.airports : [],
+  };
+}
+
+function findScraperCountryByIcao(icao) {
+  const { airports } = getDynamicData();
+  const row = airports.find((a) => String(a.icao || "").toUpperCase() === icao);
+  return row ? String(row.country || "") : null;
+}
+
+function findScraperPackageByCountry(country) {
+  if (!country) return null;
+  const key = normalizeCountryKey(country);
+  const { packages } = getDynamicData();
+  return (
+    packages.find((p) => normalizeCountryKey(String(p.countryName || "")) === key)
+    || null
+  );
+}
+
+function listPdfCandidates(dirPath) {
+  if (!dirPath || !existsSync(dirPath)) return [];
+  return readdirSync(dirPath)
+    .filter((f) => /\.pdf$/i.test(f))
+    .map((name) => {
+      const full = join(dirPath, name);
+      let mtimeMs = 0;
+      try {
+        mtimeMs = statSync(full).mtimeMs;
+      } catch {
+        mtimeMs = 0;
+      }
+      return { name, full, mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+function pickNewestScraperAd2Pdf(icao, pkg) {
+  const ad2Rel = pkg?.outputDirs?.ad2;
+  if (!ad2Rel) return null;
+  const ad2Dir = join(PROJECT_ROOT, ad2Rel);
+  const candidates = listPdfCandidates(ad2Dir);
+  if (candidates.length === 0) return null;
+  const exact = candidates.find((c) => String(c.name || "").toUpperCase().includes(icao));
+  return (exact || candidates[0]).full;
+}
+
+function pickNewestScraperGenPdf(pkg) {
+  const genRel = pkg?.outputDirs?.gen;
+  if (!genRel) return null;
+  const genDir = join(PROJECT_ROOT, genRel);
+  const candidates = listPdfCandidates(genDir);
+  if (candidates.length === 0) return null;
+  const gen12 = candidates.find((c) => /GEN[-_. ]?1[._-]?2/i.test(c.name));
+  return (gen12 || candidates[0]).full;
+}
+
+function isScraperIcao(icao) {
+  return Boolean(findScraperCountryByIcao(icao));
+}
+
+async function stageScraperAd2Pdf(icao) {
+  const country = findScraperCountryByIcao(icao);
+  if (!country) throw new Error(`No dynamic scraper country mapping for ${icao}`);
+  const pkg = findScraperPackageByCountry(country);
+  if (!pkg) throw new Error(`No package metadata for scraper country ${country}`);
+  const src = pickNewestScraperAd2Pdf(icao, pkg);
+  if (!src) {
+    throw new Error(`No AD2 PDF found for ${icao} in ${pkg?.outputDirs?.ad2 || "unknown directory"}`);
+  }
+  SCRAPER_AD2_BY_ICAO.set(icao, src);
 }
 
 function mapMetaToAirportRow(meta, icao) {
@@ -174,13 +277,13 @@ async function uploadToS3() {
   );
 }
 
-async function deleteOldFromS3(icao) {
+async function deleteOldFromS3(icao, namespace = "ead") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
   const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
-  const keys = [`aip/ead/${icao}.json`, `aip/ead-pdf/${icao}.pdf`];
+  const keys = [`aip/${namespace}/${icao}.json`, `aip/${namespace}-pdf/${icao}.pdf`];
   for (const Key of keys) {
     try {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key }));
@@ -189,6 +292,10 @@ async function deleteOldFromS3(icao) {
 }
 
 function findDownloadedPdf(icao) {
+  if (isScraperIcao(icao)) {
+    const staged = SCRAPER_AD2_BY_ICAO.get(icao);
+    if (staged && existsSync(staged)) return staged;
+  }
   if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
     const icaoUpper = icao.toUpperCase();
@@ -232,7 +339,7 @@ function findDownloadedPdf(icao) {
   return join(EAD_AIP_DIR, files[0]);
 }
 
-async function uploadPdfToS3(icao) {
+async function uploadPdfToS3(icao, namespace = "ead") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
@@ -244,14 +351,14 @@ async function uploadPdfToS3(icao) {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: `aip/ead-pdf/${icao}.pdf`,
+      Key: `aip/${namespace}-pdf/${icao}.pdf`,
       Body: body,
       ContentType: "application/pdf",
     })
   );
 }
 
-async function uploadPerIcaoToS3(icao, data) {
+async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket || !data?.airports) return;
@@ -266,7 +373,7 @@ async function uploadPerIcaoToS3(icao, data) {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: `aip/ead/${icao}.json`,
+      Key: `aip/${namespace}/${icao}.json`,
       Body: body,
       ContentType: "application/json",
     })
@@ -343,6 +450,16 @@ async function runRwandaGenDownload() {
 }
 
 async function runGenDownloadForIcao(icao, prefix) {
+  if (isScraperIcao(icao)) {
+    const country = findScraperCountryByIcao(icao);
+    const pkg = findScraperPackageByCountry(country);
+    const src = pickNewestScraperGenPdf(pkg);
+    if (!src) {
+      throw new Error(`No GEN PDF found for ${country || icao} in ${pkg?.outputDirs?.gen || "unknown directory"}`);
+    }
+    SCRAPER_GEN_BY_ICAO.set(icao, src);
+    return;
+  }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
@@ -355,6 +472,10 @@ async function runGenDownloadForIcao(icao, prefix) {
 }
 
 function findDownloadedGenPdf(icao, prefix) {
+  if (isScraperIcao(icao)) {
+    const staged = SCRAPER_GEN_BY_ICAO.get(icao);
+    if (staged && existsSync(staged)) return staged;
+  }
   if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
     const icaoUpper = icao.toUpperCase();
@@ -385,7 +506,7 @@ function findDownloadedGenPdf(icao, prefix) {
   return existsSync(eadGenPdf) ? eadGenPdf : null;
 }
 
-async function uploadGenPdfToS3(icao, prefix) {
+async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
@@ -397,7 +518,9 @@ async function uploadGenPdfToS3(icao, prefix) {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
+      Key: namespace === "scraper-gen-pdf"
+        ? `aip/scraper-gen-pdf/${icao}-GEN-1.2.pdf`
+        : `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
       Body: body,
       ContentType: "application/pdf",
     })
@@ -425,6 +548,9 @@ const server = createServer(async (req, res) => {
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
   const shouldExtract = !(url.searchParams.get("extract") === "0" || url.searchParams.get("extract") === "false");
+  const scraperRequested = url.searchParams.get("scraper") === "1" || url.searchParams.get("scraper") === "true";
+  const useScraperFlow = scraperRequested || isScraperIcao(icao);
+  const aipNamespace = useScraperFlow ? "scraper" : "ead";
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
@@ -456,7 +582,7 @@ const server = createServer(async (req, res) => {
     try {
       await runGenDownloadForIcao(icao, prefix);
       if (process.env.AWS_S3_BUCKET) {
-        await uploadGenPdfToS3(icao, prefix);
+        await uploadGenPdfToS3(icao, prefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
         if (stream) {
           send({ step: GEN_STEPS[1] });
           send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });
@@ -525,11 +651,11 @@ const server = createServer(async (req, res) => {
 
   try {
     send({ step: AIP_STEPS[0] });
-    if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao);
+    if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao, aipNamespace);
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
     if (process.env.AWS_S3_BUCKET) {
-      await uploadPdfToS3(icao);
+      await uploadPdfToS3(icao, aipNamespace);
       send({ step: AIP_STEPS[2] });
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
@@ -545,7 +671,7 @@ const server = createServer(async (req, res) => {
       send({ step: AIP_STEPS[4] });
       if (process.env.AWS_S3_BUCKET) {
         await uploadToS3();
-        await uploadPerIcaoToS3(icao, data);
+        await uploadPerIcaoToS3(icao, data, aipNamespace);
       }
     } else {
       send({ step: "Extraction skipped (PDF only)." });

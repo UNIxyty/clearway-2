@@ -7,6 +7,7 @@ import dynamicAirportsData from "@/data/dynamic-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getDynamicWebAipUrl } from "@/lib/dynamic-web-aip";
+import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -83,6 +84,7 @@ export type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
+  effectiveDate?: string | null;
 };
 
 type RUSAirportRow = {
@@ -292,6 +294,7 @@ function flattenDynamic(): AIPAirport[] {
       sourceType: "SCRAPER_DYNAMIC",
       dynamicUpdated: true,
       webAipUrl: getDynamicWebAipUrl(String(r.country || "")),
+      effectiveDate: typeof r.effectiveDate === "string" ? r.effectiveDate : (getDynamicPackageByCountry(String(r.country || ""))?.effectiveDate ?? null),
     } satisfies AIPAirport))
     .filter((x) => /^[A-Z0-9]{4}$/.test(x.icao));
 }

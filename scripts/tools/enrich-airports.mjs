@@ -107,6 +107,23 @@ function matchesCountry(countryA, countryB) {
   return aliases.has(`${a}|${b}`) || aliases.has(`${b}|${a}`);
 }
 
+function normalizeAirportName(name, icao) {
+  const raw = String(name || "").replace(/\s+/g, " ").trim();
+  if (!raw) return `${icao} Airport`;
+  const stripped = raw
+    .replace(/\((ARP|AIRPORT REFERENCE POINT)[^)]+\)/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const tc = stripped
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase())
+    .replace(/\bIntl\b/g, "Intl")
+    .replace(/\bIntl\.\b/g, "Intl")
+    .replace(/\bAfb\b/g, "AFB")
+    .replace(/\bAb\b/g, "AB");
+  return tc || `${icao} Airport`;
+}
+
 async function main() {
   const inPath = argValue("--in", IN_DEFAULT);
   const outPath = argValue("--out", OUT_DEFAULT);
@@ -119,6 +136,9 @@ async function main() {
   const ourMap = buildOurAirportsMap(await ourRes.text());
   const aipNameMap = buildAipNameMap(aipData);
 
+  const packageByCountry = new Map(
+    (packages.countries || []).map((c) => [normKey(c.countryName), c]),
+  );
   const airportsByIcao = new Map();
   for (const country of packages.countries || []) {
     for (const icaoRaw of country.ad2Icaos || []) {
@@ -127,7 +147,7 @@ async function main() {
       if (airportsByIcao.has(icao)) continue;
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
-      const name = aipNameMap.get(icao) || our?.name || `${icao} Airport`;
+      const name = normalizeAirportName(aipNameMap.get(icao) || our?.name || "", icao);
       airportsByIcao.set(icao, {
         icao,
         country: country.countryName,
@@ -135,6 +155,8 @@ async function main() {
         lat: localCoord?.lat ?? our?.lat ?? null,
         lon: localCoord?.lon ?? our?.lon ?? null,
         source: "web_table_scraper_dynamic",
+        effectiveDate: country.effectiveDate || null,
+        webAipUrl: country.webAipUrl || null,
         visible: true,
       });
     }
@@ -152,13 +174,16 @@ async function main() {
       if (airportsByIcao.has(icao)) continue;
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
+      const pkg = packageByCountry.get(normKey(rowCountry)) || null;
       airportsByIcao.set(icao, {
         icao,
         country: rowCountry,
-        name: String(airport["Airport Name"] || "").trim() || our?.name || `${icao} Airport`,
+        name: normalizeAirportName(String(airport["Airport Name"] || "").trim() || our?.name || "", icao),
         lat: localCoord?.lat ?? our?.lat ?? null,
         lon: localCoord?.lon ?? our?.lon ?? null,
         source: "hardcoded_backfill_for_scraper_country",
+        effectiveDate: pkg?.effectiveDate || null,
+        webAipUrl: pkg?.webAipUrl || null,
         visible: true,
       });
     }

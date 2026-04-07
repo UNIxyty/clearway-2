@@ -187,7 +187,7 @@ Interactive flow:
     return;
   }
 
-  const rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
+  let rl = null;
   try {
     console.error("Bahrain eAIP — interactive downloader\n");
     console.error(`History: ${HISTORY_URL}\n`);
@@ -208,6 +208,7 @@ Interactive flow:
     console.error(`\nAuto-selected newest package: ${version.label}`);
     console.error(`Menu: ${menuUrl}\n`);
 
+    rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;
 
@@ -253,7 +254,7 @@ Interactive flow:
 
     console.error("Unknown choice.");
   } finally {
-    rl.close();
+    rl?.close();
   }
 }
 

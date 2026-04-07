@@ -136,8 +136,7 @@ async function main() {
     return;
   }
 
-  const rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
-
+  let rl = null;
   try {
     console.error("Rwanda AIP via ASECNA — interactive downloader\n");
     console.error(`Menu with AIP RWANDA button: ${ASECNA_MENU_WITH_RWANDA}\n`);
@@ -149,6 +148,7 @@ async function main() {
     const menuHtml = await http.fetchText(menuUrl, "Rwanda menu", tlsOpts);
 
     console.error(`Resolved Rwanda menu: ${menuUrl}\n`);
+    rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN 1.2\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") {
       console.error("Bye.");
@@ -201,7 +201,7 @@ async function main() {
 
     console.error("Unknown choice.");
   } finally {
-    rl.close();
+    rl?.close();
   }
 }
 

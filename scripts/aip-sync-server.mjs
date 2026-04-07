@@ -10,6 +10,7 @@
 
 import { createServer } from "http";
 import { spawn } from "child_process";
+import { PassThrough } from "node:stream";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
@@ -93,33 +94,62 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 
 function runWithInput(cmd, args, inputLines = [], env = process.env) {
   return new Promise((resolve, reject) => {
+    // Keep stdin writable open until the child exits. Several scrapers create readline on
+    // stdin *before* long async fetches; calling end() immediately makes Node deliver early
+    // EOF and readline closes with "readline was closed" before prompts run.
+    const inputStream = new PassThrough();
     const child = spawn(cmd, args, {
       cwd: PROJECT_ROOT,
       env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [inputStream, "pipe", "pipe"],
     });
     let stdout = "";
     let stderr = "";
+    let settled = false;
     child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
     child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    const endStdin = () => {
+      try {
+        inputStream.end();
+      } catch {}
+    };
     const timeout = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new Error(`Timeout: ${cmd} ${args.join(" ")}`));
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+      endStdin();
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Timeout: ${cmd} ${args.join(" ")}`));
+      }
     }, RUN_TIMEOUT_MS);
     child.on("error", (err) => {
       clearTimeout(timeout);
-      reject(err);
+      endStdin();
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
+      endStdin();
+      if (settled) return;
+      settled = true;
       if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-800)}`));
       else resolve();
     });
     try {
       const payload = [...inputLines, ""].join("\n");
-      child.stdin?.write(payload);
-      child.stdin?.end();
-    } catch {}
+      inputStream.write(payload);
+    } catch (err) {
+      clearTimeout(timeout);
+      endStdin();
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    }
   });
 }
 

@@ -6,6 +6,7 @@ import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import dynamicAirportsData from "@/data/dynamic-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
+import { getDynamicWebAipUrl } from "@/lib/dynamic-web-aip";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -290,6 +291,7 @@ function flattenDynamic(): AIPAirport[] {
       lon: typeof r.lon === "number" ? r.lon : undefined,
       sourceType: "SCRAPER_DYNAMIC",
       dynamicUpdated: true,
+      webAipUrl: getDynamicWebAipUrl(String(r.country || "")),
     } satisfies AIPAirport))
     .filter((x) => /^[A-Z0-9]{4}$/.test(x.icao));
 }

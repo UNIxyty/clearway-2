@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createClient } from "@supabase/supabase-js";
 
 const ROOT = process.cwd();
 const IN_DEFAULT = path.join(ROOT, "data", "dynamic-packages.json");
@@ -8,6 +9,12 @@ const OUT_DEFAULT = path.join(ROOT, "data", "dynamic-airports.json");
 const COORDS_PATH = path.join(ROOT, "data", "airport-coords.json");
 const AIP_DATA_PATH = path.join(ROOT, "data", "aip-data.json");
 const OURAIRPORTS_URL = "https://ourairports.com/data/airports.csv";
+const OPENFLIGHTS_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat";
+const MANUAL_COORD_OVERRIDES = {
+  OERS: { lat: 25.628333, lon: 37.088889 }, // Hanak / Red Sea International (AIP AD2)
+  OEST: { lat: 22.709, lon: 53.284667 }, // Shabitah
+  VTSY: { lat: 5.788833, lon: 101.147167 }, // Yala / Betong
+};
 
 function argValue(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
@@ -65,6 +72,25 @@ function buildOurAirportsMap(csvText) {
   return map;
 }
 
+function buildOpenFlightsMap(csvText) {
+  const map = new Map();
+  const lines = csvText.split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
+    const cols = parseCsvLine(line);
+    const icao = String(cols[5] || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
+    const name = String(cols[1] || "").trim();
+    const lat = Number(cols[6]);
+    const lon = Number(cols[7]);
+    map.set(icao, {
+      name: name || null,
+      lat: Number.isFinite(lat) ? lat : null,
+      lon: Number.isFinite(lon) ? lon : null,
+    });
+  }
+  return map;
+}
+
 function buildAipNameMap(aipData) {
   const map = new Map();
   for (const c of Array.isArray(aipData) ? aipData : []) {
@@ -107,6 +133,13 @@ function matchesCountry(countryA, countryB) {
   return aliases.has(`${a}|${b}`) || aliases.has(`${b}|${a}`);
 }
 
+function isValidIcao(icao) {
+  const up = String(icao || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(up)) return false;
+  const banned = new Set(["AMDT", "AIRA", "AIPM", "AD2A", "GEN1", "HTML", "PDFS", "NONE", "NULL"]);
+  return !banned.has(up);
+}
+
 function normalizeAirportName(name, icao) {
   const raw = String(name || "").replace(/\s+/g, " ").trim();
   if (!raw) return `${icao} Airport`;
@@ -114,14 +147,89 @@ function normalizeAirportName(name, icao) {
     .replace(/\((ARP|AIRPORT REFERENCE POINT)[^)]+\)/gi, "")
     .replace(/\s+/g, " ")
     .trim();
-  const tc = stripped
+  const deDupSlash = stripped
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .reduce((acc, cur) => {
+      const key = cur.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      if (!acc.some((x) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() === key)) acc.push(cur);
+      return acc;
+    }, [])
+    .join(" / ");
+  const tc = deDupSlash
     .toLowerCase()
     .replace(/\b([a-z])/g, (m) => m.toUpperCase())
     .replace(/\bIntl\b/g, "Intl")
     .replace(/\bIntl\.\b/g, "Intl")
+    .replace(/\bInt'l\b/g, "Intl")
     .replace(/\bAfb\b/g, "AFB")
-    .replace(/\bAb\b/g, "AB");
+    .replace(/\bAb\b/g, "AB")
+    .replace(/\b\/\s+/g, "/ ")
+    .replace(/\s+\./g, ".")
+    .trim();
   return tc || `${icao} Airport`;
+}
+
+function looksGenericName(name, icao) {
+  const n = String(name || "").trim().toLowerCase();
+  const generic = `${icao} airport`.toLowerCase();
+  return !n || n === generic || n === icao.toLowerCase();
+}
+
+async function fetchSupabaseAirportMap(icaos) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRole) return new Map();
+  const supabase = createClient(supabaseUrl, serviceRole, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const map = new Map();
+  const list = Array.from(icaos);
+  const chunk = 200;
+  for (let i = 0; i < list.length; i += chunk) {
+    const slice = list.slice(i, i + chunk);
+    const { data, error } = await supabase
+      .from("airports")
+      .select("icao,name,lat,lon")
+      .in("icao", slice);
+    if (error) continue;
+    for (const row of data || []) {
+      const icao = String(row.icao || "").toUpperCase();
+      if (!icao) continue;
+      map.set(icao, {
+        name: row.name ? String(row.name) : null,
+        lat: Number.isFinite(Number(row.lat)) ? Number(row.lat) : null,
+        lon: Number.isFinite(Number(row.lon)) ? Number(row.lon) : null,
+      });
+    }
+  }
+  return map;
+}
+
+async function geocodeMissingCoords(rows) {
+  const missing = rows.filter((r) => (r.lat == null || r.lon == null) && !looksGenericName(r.name, r.icao));
+  for (const row of missing.slice(0, 40)) {
+    const q = encodeURIComponent(`${row.name}, ${row.country}`);
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${q}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "clearway-airport-enricher/1.0",
+          "Accept": "application/json",
+        },
+      });
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => []);
+      const first = Array.isArray(data) ? data[0] : null;
+      const lat = Number(first?.lat);
+      const lon = Number(first?.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        row.lat = lat;
+        row.lon = lon;
+      }
+    } catch {}
+  }
 }
 
 async function main() {
@@ -134,6 +242,8 @@ async function main() {
   const ourRes = await fetch(OURAIRPORTS_URL);
   if (!ourRes.ok) throw new Error(`Failed to fetch ${OURAIRPORTS_URL}: ${ourRes.status}`);
   const ourMap = buildOurAirportsMap(await ourRes.text());
+  const ofRes = await fetch(OPENFLIGHTS_URL);
+  const openFlightsMap = ofRes.ok ? buildOpenFlightsMap(await ofRes.text()) : new Map();
   const aipNameMap = buildAipNameMap(aipData);
 
   const packageByCountry = new Map(
@@ -143,23 +253,38 @@ async function main() {
   for (const country of packages.countries || []) {
     for (const icaoRaw of country.ad2Icaos || []) {
       const icao = String(icaoRaw || "").trim().toUpperCase();
-      if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
+      if (!isValidIcao(icao)) continue;
       if (airportsByIcao.has(icao)) continue;
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
+      const of = openFlightsMap.get(icao) || null;
       const name = normalizeAirportName(aipNameMap.get(icao) || our?.name || "", icao);
       airportsByIcao.set(icao, {
         icao,
         country: country.countryName,
-        name,
-        lat: localCoord?.lat ?? our?.lat ?? null,
-        lon: localCoord?.lon ?? our?.lon ?? null,
+        name: normalizeAirportName(name || of?.name || "", icao),
+        lat: localCoord?.lat ?? our?.lat ?? of?.lat ?? null,
+        lon: localCoord?.lon ?? our?.lon ?? of?.lon ?? null,
         source: "web_table_scraper_dynamic",
         effectiveDate: country.effectiveDate || null,
         webAipUrl: country.webAipUrl || null,
         visible: true,
       });
     }
+  }
+
+  const supabaseMap = await fetchSupabaseAirportMap(new Set(airportsByIcao.keys()));
+  for (const [icao, row] of airportsByIcao.entries()) {
+    const db = supabaseMap.get(icao);
+    if (!db) continue;
+    if ((row.lat == null || row.lon == null) && db.lat != null && db.lon != null) {
+      row.lat = db.lat;
+      row.lon = db.lon;
+    }
+    if (looksGenericName(row.name, icao) && db.name) {
+      row.name = normalizeAirportName(db.name, icao);
+    }
+    airportsByIcao.set(icao, row);
   }
 
   // Fill gaps from existing hard-coded AIP data for countries that now have web-table scrapers.
@@ -170,17 +295,18 @@ async function main() {
     if (!shouldInclude) continue;
     for (const airport of Array.isArray(countryRow.airports) ? countryRow.airports : []) {
       const icao = String(airport["Airport Code"] || "").trim().toUpperCase();
-      if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
+      if (!isValidIcao(icao)) continue;
       if (airportsByIcao.has(icao)) continue;
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
+      const of = openFlightsMap.get(icao) || null;
       const pkg = packageByCountry.get(normKey(rowCountry)) || null;
       airportsByIcao.set(icao, {
         icao,
         country: rowCountry,
-        name: normalizeAirportName(String(airport["Airport Name"] || "").trim() || our?.name || "", icao),
-        lat: localCoord?.lat ?? our?.lat ?? null,
-        lon: localCoord?.lon ?? our?.lon ?? null,
+        name: normalizeAirportName(String(airport["Airport Name"] || "").trim() || our?.name || of?.name || "", icao),
+        lat: localCoord?.lat ?? our?.lat ?? of?.lat ?? null,
+        lon: localCoord?.lon ?? our?.lon ?? of?.lon ?? null,
         source: "hardcoded_backfill_for_scraper_country",
         effectiveDate: pkg?.effectiveDate || null,
         webAipUrl: pkg?.webAipUrl || null,
@@ -189,10 +315,24 @@ async function main() {
     }
   }
 
+  const finalRows = Array.from(airportsByIcao.values())
+    .map((a) => ({ ...a, name: normalizeAirportName(a.name, a.icao) }))
+    .sort((a, b) => a.icao.localeCompare(b.icao));
+
+  await geocodeMissingCoords(finalRows);
+  for (const row of finalRows) {
+    if (row.lat != null && row.lon != null) continue;
+    const override = MANUAL_COORD_OVERRIDES[String(row.icao || "").toUpperCase()];
+    if (override) {
+      row.lat = override.lat;
+      row.lon = override.lon;
+    }
+  }
+
   const payload = {
     generatedAt: new Date().toISOString(),
     fromPackages: path.relative(ROOT, inPath),
-    airports: Array.from(airportsByIcao.values()).sort((a, b) => a.icao.localeCompare(b.icao)),
+    airports: finalRows,
   };
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, JSON.stringify(payload, null, 2) + "\n", "utf8");

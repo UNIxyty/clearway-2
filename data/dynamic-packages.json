@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-07T09:44:28.206Z",
+  "generatedAt": "2026-04-07T10:06:25.166Z",
   "source": "scripts/web-table-scrapers",
   "countries": [
     {
@@ -388,7 +388,7 @@
         "AIRAC_AMDT_03-2026_2026_03_19-index.html_BKPR_AD2.pdf"
       ],
       "ad2Icaos": [
-        "AMDT"
+        "BKPR"
       ],
       "effectiveDate": null,
       "webAipUrl": "https://ashna.rks-gov.net/index.php?page=2,23",
@@ -587,7 +587,8 @@
         "AIRAC_AIP_AMDT_01-26_OPNH_AD2.pdf"
       ],
       "ad2Icaos": [
-        "AMDT"
+        "AMDT",
+        "OPNH"
       ],
       "effectiveDate": null,
       "webAipUrl": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
@@ -677,8 +678,8 @@
         "AIRAC_AIP_AMDT_05_24_2024_05_16_OERK_AD2.pdf"
       ],
       "ad2Icaos": [
-        "AMDT",
-        "OEJF"
+        "OEJF",
+        "OERK"
       ],
       "effectiveDate": null,
       "webAipUrl": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",

@@ -24,7 +24,7 @@ function toIcaoFromFilename(name) {
     .toUpperCase()
     .replace(/\.PDF$/i, "");
   const tokens = up.split(/[^A-Z0-9]+/).filter(Boolean);
-  const stop = new Set(["AIRAC", "GEN", "AD2", "DOUBLE", "NON", "VALID", "INDEX", "HTML"]);
+  const stop = new Set(["AIRAC", "GEN", "AD2", "DOUBLE", "NON", "VALID", "INDEX", "HTML", "AMDT", "AIP", "AD", "SUPP"]);
   for (const t of tokens) {
     if (/^[A-Z]{4}$/.test(t) && !stop.has(t)) return t;
   }

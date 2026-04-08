@@ -26,6 +26,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "korea-eaip", "AD2");
 
 const HISTORY_URL = "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html";
 const FETCH_TIMEOUT_MS = 30_000;
+const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-kr-scraper/1.0)";
 
 function stripHtml(value) {
@@ -44,14 +45,34 @@ function safeFilename(name) {
 }
 
 async function fetchText(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let lastError = null;
+  for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (err) {
+      lastError = err;
+      if (attempt < FETCH_RETRIES) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Some hosts fail under Node fetch TLS on certain environments; browser fetch is a robust fallback.
+  const browser = await chromium.launch({ headless: true });
   try {
-    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
+    const page = await browser.newPage({ userAgent: UA });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    return await page.content();
+  } catch {
+    throw lastError || new Error("fetch failed");
   } finally {
-    clearTimeout(timeout);
+    await browser.close();
   }
 }
 

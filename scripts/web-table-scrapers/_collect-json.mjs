@@ -45,7 +45,7 @@ export function printCollectJson({ effectiveDate, ad2Icaos }) {
     ...new Set(
       (ad2Icaos || [])
         .map((x) => String(x).toUpperCase().trim())
-        .filter((x) => /^[A-Z0-9]{4}$/.test(x)),
+        .filter((x) => /^[A-Z]{4}$/.test(x)),
     ),
   ].sort((a, b) => a.localeCompare(b));
   let ed = null;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const REGION = process.env.AWS_REGION || "us-east-1";
@@ -10,7 +11,7 @@ function s3() {
 }
 
 function contentDisposition(inline: boolean, icao: string) {
-  const file = `${icao}_ASECNA_AD2.pdf`;
+  const file = buildPdfDownloadFilename("AD2", icao);
   return inline ? `inline; filename="${file}"` : `attachment; filename="${file}"`;
 }
 

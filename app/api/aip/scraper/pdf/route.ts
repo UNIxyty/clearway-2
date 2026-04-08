@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const PDF_PREFIX = "aip/scraper-pdf";
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
 
   const inline = useInline(request);
   const key = `${PDF_PREFIX}/${icao}.pdf`;
+  const filename = buildPdfDownloadFilename("AD2", icao);
   try {
     let res;
     try {
@@ -78,8 +80,8 @@ export async function GET(request: NextRequest) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": inline
-          ? `inline; filename="${icao}_SCRAPER_AD2.pdf"`
-          : `attachment; filename="${icao}_SCRAPER_AD2.pdf"`,
+          ? `inline; filename="${filename}"`
+          : `attachment; filename="${filename}"`,
         "Cache-Control": "private, max-age=300",
       },
     });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna/asecna-eaip-http.mjs";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 
 function rwandaHtmlToPdfUrl(htmlUrl: string): string {
   let out = htmlUrl.replace(/#.*$/, "");
@@ -48,11 +49,12 @@ export async function GET(request: NextRequest) {
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
+  const filename = buildPdfDownloadFilename("GEN12", icao);
   return new NextResponse(bytes, {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${icao}_ASECNA_GEN_1.2.pdf"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
 }

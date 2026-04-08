@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PDF_PREFIX = "aip/ead-pdf";
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
 
   const region = process.env.AWS_REGION || "us-east-1";
   const inline = useInlineDisposition(request);
-  const filename = `${icao}_AIP_AD2.pdf`;
+  const filename = buildPdfDownloadFilename("AD2", icao);
 
   try {
     const client = new S3Client({ region });

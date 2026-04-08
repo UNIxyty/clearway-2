@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const GEN_PDF_PREFIX = "aip/gen-pdf";
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   try {
     const client = new S3Client({ region });
     const key = `${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`;
+    const filename = buildPdfDownloadFilename("GEN12", icao || prefix);
     const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
     const body = res.Body;
     if (!body) return new NextResponse(null, { status: 404 });
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${prefix}_GEN_1.2.pdf"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (e: unknown) {

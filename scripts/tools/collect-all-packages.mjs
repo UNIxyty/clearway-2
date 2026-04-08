@@ -37,13 +37,21 @@ function toIcaoFromFilename(name) {
 }
 
 function normalizeIcaoList(values) {
-  return Array.from(
-    new Set(
-      (Array.isArray(values) ? values : [])
-        .map((v) => String(v || "").trim().toUpperCase())
-        .filter((v) => /^[A-Z]{4}$/.test(v)),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
+  const seen = new Set();
+  let droppedInvalid = 0;
+  for (const raw of Array.isArray(values) ? values : []) {
+    const token = String(raw || "").trim().toUpperCase();
+    if (!token) continue;
+    if (!/^[A-Z]{4}$/.test(token)) {
+      droppedInvalid += 1;
+      continue;
+    }
+    seen.add(token);
+  }
+  return {
+    icaos: Array.from(seen).sort((a, b) => a.localeCompare(b)),
+    droppedInvalid,
+  };
 }
 
 async function listPdfFiles(dir) {
@@ -209,10 +217,12 @@ async function collectOne(scriptFile, opts) {
     [...genFiles, ...ad2Files].map((name) => parseDateFromString(name)).filter(Boolean),
   );
 
-  const pdfIcaos = normalizeIcaoList(ad2Files.map(toIcaoFromFilename));
+  const pdfNorm = normalizeIcaoList(ad2Files.map(toIcaoFromFilename));
+  const pdfIcaos = pdfNorm.icaos;
 
   let networkEffectiveDate = null;
   let networkIcaos = [];
+  let networkDroppedInvalid = 0;
   let collectOk = false;
   let collectError = null;
   let collectUsedInsecure = false;
@@ -223,13 +233,16 @@ async function collectOne(scriptFile, opts) {
       collectOk = true;
       collectUsedInsecure = net.usedInsecure;
       networkEffectiveDate = net.data.effectiveDate ?? null;
-      networkIcaos = normalizeIcaoList(net.data.ad2Icaos);
+      const networkNorm = normalizeIcaoList(net.data.ad2Icaos);
+      networkIcaos = networkNorm.icaos;
+      networkDroppedInvalid = networkNorm.droppedInvalid;
     } else {
       collectError = net.error;
     }
   }
 
-  const ad2Icaos = normalizeIcaoList([...pdfIcaos, ...networkIcaos]);
+  const mergedNorm = normalizeIcaoList([...pdfIcaos, ...networkIcaos]);
+  const ad2Icaos = mergedNorm.icaos;
   const effectiveDate =
     networkEffectiveDate != null && String(networkEffectiveDate).trim() !== ""
       ? networkEffectiveDate
@@ -252,6 +265,11 @@ async function collectOne(scriptFile, opts) {
     collectOk,
     collectError,
     collectUsedInsecure,
+    droppedInvalidIcaos: {
+      fromPdf: pdfNorm.droppedInvalid,
+      fromNetwork: networkDroppedInvalid,
+      fromMerge: mergedNorm.droppedInvalid,
+    },
     webAipUrl: WEB_AIP_BY_COUNTRY[normalizeCountry(countryName)] ?? null,
     generatedFromDownloads: true,
   };
@@ -263,10 +281,31 @@ async function main() {
   const collectTimeoutMs = Number(argValue("--collect-timeout-ms", "90000")) || 90_000;
   const rows = await fs.readdir(SCRAPERS_DIR);
   const scraperFiles = rows.filter((f) => f.endsWith("-interactive.mjs")).sort((a, b) => a.localeCompare(b));
+  console.log(
+    `[collect-all-packages] mode=${offline ? "offline" : "network"} timeoutMs=${collectTimeoutMs} countries=${scraperFiles.length}`,
+  );
   const countries = [];
   for (const f of scraperFiles) {
-    countries.push(await collectOne(f, { offline, collectTimeoutMs }));
+    const country = await collectOne(f, { offline, collectTimeoutMs });
+    const collectModeLabel = offline ? "offline" : country.collectOk ? "network-ok" : "network-failed";
+    console.log(
+      `[collect-all-packages] ${country.countrySlug} ${collectModeLabel} ad2=${country.ad2Icaos.length} effective=${country.effectiveDate || "n/a"} droppedInvalid=${country.droppedInvalidIcaos.fromPdf + country.droppedInvalidIcaos.fromNetwork + country.droppedInvalidIcaos.fromMerge}`,
+    );
+    if (!offline && !country.collectOk && country.collectError) {
+      console.log(`[collect-all-packages] ${country.countrySlug} collectError=${country.collectError}`);
+    }
+    countries.push(country);
   }
+  const totalAd2 = countries.reduce((sum, c) => sum + (Array.isArray(c.ad2Icaos) ? c.ad2Icaos.length : 0), 0);
+  const totalDropped = countries.reduce(
+    (sum, c) =>
+      sum +
+      Number(c?.droppedInvalidIcaos?.fromPdf || 0) +
+      Number(c?.droppedInvalidIcaos?.fromNetwork || 0) +
+      Number(c?.droppedInvalidIcaos?.fromMerge || 0),
+    0,
+  );
+  console.log(`[collect-all-packages] summary countries=${countries.length} totalAd2=${totalAd2} droppedInvalid=${totalDropped}`);
   const payload = {
     generatedAt: new Date().toISOString(),
     source: "scripts/web-table-scrapers",

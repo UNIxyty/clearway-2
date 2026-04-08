@@ -238,6 +238,9 @@ async function main() {
   const packages = JSON.parse(await fs.readFile(inPath, "utf8"));
   const coords = JSON.parse(await fs.readFile(COORDS_PATH, "utf8"));
   const aipData = JSON.parse(await fs.readFile(AIP_DATA_PATH, "utf8"));
+  console.log(
+    `[enrich-airports] start in=${path.relative(ROOT, inPath)} out=${path.relative(ROOT, outPath)} countries=${Array.isArray(packages.countries) ? packages.countries.length : 0}`,
+  );
 
   const ourRes = await fetch(OURAIRPORTS_URL);
   if (!ourRes.ok) throw new Error(`Failed to fetch ${OURAIRPORTS_URL}: ${ourRes.status}`);
@@ -250,11 +253,19 @@ async function main() {
     (packages.countries || []).map((c) => [normKey(c.countryName), c]),
   );
   const airportsByIcao = new Map();
+  let skippedInvalidFromPackages = 0;
+  let skippedDuplicatesFromPackages = 0;
   for (const country of packages.countries || []) {
     for (const icaoRaw of country.ad2Icaos || []) {
       const icao = String(icaoRaw || "").trim().toUpperCase();
-      if (!isValidIcao(icao)) continue;
-      if (airportsByIcao.has(icao)) continue;
+      if (!isValidIcao(icao)) {
+        skippedInvalidFromPackages += 1;
+        continue;
+      }
+      if (airportsByIcao.has(icao)) {
+        skippedDuplicatesFromPackages += 1;
+        continue;
+      }
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
       const of = openFlightsMap.get(icao) || null;
@@ -272,6 +283,9 @@ async function main() {
       });
     }
   }
+  console.log(
+    `[enrich-airports] from packages unique=${airportsByIcao.size} skippedInvalid=${skippedInvalidFromPackages} skippedDuplicates=${skippedDuplicatesFromPackages}`,
+  );
 
   const supabaseMap = await fetchSupabaseAirportMap(new Set(airportsByIcao.keys()));
   for (const [icao, row] of airportsByIcao.entries()) {
@@ -289,14 +303,23 @@ async function main() {
 
   // Fill gaps from existing hard-coded AIP data for countries that now have web-table scrapers.
   const targetCountries = new Set((packages.countries || []).map((c) => c.countryName));
+  let backfillAdded = 0;
+  let backfillSkippedInvalid = 0;
+  let backfillSkippedExisting = 0;
   for (const countryRow of Array.isArray(aipData) ? aipData : []) {
     const rowCountry = String(countryRow.country || "");
     const shouldInclude = Array.from(targetCountries).some((c) => matchesCountry(c, rowCountry));
     if (!shouldInclude) continue;
     for (const airport of Array.isArray(countryRow.airports) ? countryRow.airports : []) {
       const icao = String(airport["Airport Code"] || "").trim().toUpperCase();
-      if (!isValidIcao(icao)) continue;
-      if (airportsByIcao.has(icao)) continue;
+      if (!isValidIcao(icao)) {
+        backfillSkippedInvalid += 1;
+        continue;
+      }
+      if (airportsByIcao.has(icao)) {
+        backfillSkippedExisting += 1;
+        continue;
+      }
       const localCoord = coords[icao] || null;
       const our = ourMap.get(icao) || null;
       const of = openFlightsMap.get(icao) || null;
@@ -312,8 +335,12 @@ async function main() {
         webAipUrl: pkg?.webAipUrl || null,
         visible: true,
       });
+      backfillAdded += 1;
     }
   }
+  console.log(
+    `[enrich-airports] backfill added=${backfillAdded} skippedInvalid=${backfillSkippedInvalid} skippedExisting=${backfillSkippedExisting}`,
+  );
 
   const finalRows = Array.from(airportsByIcao.values())
     .map((a) => ({ ...a, name: normalizeAirportName(a.name, a.icao) }))
@@ -336,7 +363,10 @@ async function main() {
   };
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, JSON.stringify(payload, null, 2) + "\n", "utf8");
-  console.log(`[enrich-airports] wrote ${payload.airports.length} airports -> ${outPath}`);
+  const withCoords = finalRows.filter((r) => r.lat != null && r.lon != null).length;
+  console.log(
+    `[enrich-airports] wrote ${payload.airports.length} airports -> ${outPath} withCoords=${withCoords} withoutCoords=${payload.airports.length - withCoords}`,
+  );
 }
 
 main().catch((err) => {

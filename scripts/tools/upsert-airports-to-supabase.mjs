@@ -22,11 +22,13 @@ async function main() {
   const dryRun = hasFlag("--dry-run");
   const payload = JSON.parse(await fs.readFile(inPath, "utf8"));
   const airports = Array.isArray(payload.airports) ? payload.airports : [];
+  console.log(`[upsert-airports] start in=${path.relative(ROOT, inPath)} airports=${airports.length} dryRun=${dryRun ? "yes" : "no"}`);
   if (!airports.length) {
     console.log("[upsert-airports] no airports to upsert.");
     return;
   }
 
+  let droppedInvalidIcao = 0;
   const rows = airports
     .map((a) => ({
       icao: String(a.icao || "").trim().toUpperCase(),
@@ -39,9 +41,15 @@ async function main() {
       visible: true,
       updated_at: new Date().toISOString(),
     }))
-    .filter((row) => /^[A-Z]{4}$/.test(row.icao));
+    .filter((row) => {
+      const ok = /^[A-Z]{4}$/.test(row.icao);
+      if (!ok) droppedInvalidIcao += 1;
+      return ok;
+    });
 
-  console.log(`[upsert-airports] prepared ${rows.length} rows from ${path.relative(ROOT, inPath)}`);
+  console.log(
+    `[upsert-airports] prepared ${rows.length} rows from ${path.relative(ROOT, inPath)} droppedInvalidIcao=${droppedInvalidIcao}`,
+  );
   if (dryRun) return;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -56,6 +64,9 @@ async function main() {
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
+    const batchNo = Math.floor(i / BATCH_SIZE) + 1;
+    const batchTotal = Math.ceil(rows.length / BATCH_SIZE);
+    console.log(`[upsert-airports] batch ${batchNo}/${batchTotal} size=${batch.length}`);
     const { error } = await supabase.from("airports").upsert(batch, { onConflict: "icao" });
     if (error) throw new Error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error.message}`);
   }

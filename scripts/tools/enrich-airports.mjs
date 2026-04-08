@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { loadEnvFromProjectRoot } from "./_load-env.mjs";
 
 const ROOT = process.cwd();
 const IN_DEFAULT = path.join(ROOT, "data", "dynamic-packages.json");
@@ -239,6 +240,7 @@ async function geocodeMissingCoords(rows) {
 }
 
 async function main() {
+  loadEnvFromProjectRoot(ROOT);
   const inPath = argValue("--in", IN_DEFAULT);
   const outPath = argValue("--out", OUT_DEFAULT);
   const packages = JSON.parse(await fs.readFile(inPath, "utf8"));

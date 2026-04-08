@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { loadEnvFromProjectRoot } from "./_load-env.mjs";
 
 const ROOT = process.cwd();
 const IN_DEFAULT = path.join(ROOT, "data", "dynamic-airports.json");
@@ -17,6 +18,7 @@ function argValue(flag, fallback = null) {
 }
 
 async function main() {
+  loadEnvFromProjectRoot(ROOT);
   const inPath = argValue("--in", IN_DEFAULT);
   const dryRun = hasFlag("--dry-run");
   const payload = JSON.parse(await fs.readFile(inPath, "utf8"));

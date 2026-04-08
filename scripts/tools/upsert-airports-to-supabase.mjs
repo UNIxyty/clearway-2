@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
 
 const ROOT = process.cwd();
 const IN_DEFAULT = path.join(ROOT, "data", "dynamic-airports.json");
@@ -56,6 +55,14 @@ async function main() {
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRole) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  let createClient;
+  try {
+    ({ createClient } = await import("@supabase/supabase-js"));
+  } catch {
+    throw new Error(
+      "Missing module '@supabase/supabase-js'. Run 'npm install' in the project directory on EC2 and rerun this command.",
+    );
   }
 
   const supabase = createClient(supabaseUrl, serviceRole, {

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
 
 const ROOT = process.cwd();
 const IN_DEFAULT = path.join(ROOT, "data", "dynamic-packages.json");
@@ -181,6 +180,13 @@ async function fetchSupabaseAirportMap(icaos) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRole) return new Map();
+  let createClient;
+  try {
+    ({ createClient } = await import("@supabase/supabase-js"));
+  } catch {
+    console.warn("[enrich-airports] @supabase/supabase-js not installed; skipping Supabase fallback enrichment.");
+    return new Map();
+  }
   const supabase = createClient(supabaseUrl, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
   });

@@ -20,7 +20,6 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
     country: "Bhutan",
     prefixes: ["VQ"],
-    extraIcaos: ["WBSB"],
     webAipUrl: "https://www.doat.gov.bt/aip/",
   },
   {

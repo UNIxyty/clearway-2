@@ -49,7 +49,6 @@ const SCRAPER_COUNTRY_SPECS = [
   {
     country: "Bhutan",
     prefixes: ["VQ"],
-    extraIcaos: ["WBSB"],
     script: "scripts/web-table-scrapers/bhutan-aip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "GEN"),

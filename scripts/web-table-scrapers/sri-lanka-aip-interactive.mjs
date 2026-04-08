@@ -20,6 +20,8 @@ import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { chromium } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +35,7 @@ const FETCH_TIMEOUT_MS = 45_000;
 const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-lk-scraper/1.0)";
 const INSECURE_TLS = process.argv.includes("--insecure");
+const execFileAsync = promisify(execFile);
 
 function stripHtml(value) {
   return String(value || "")
@@ -60,6 +63,7 @@ function normalizeRelativeHref(href) {
 
 async function fetchText(url) {
   let lastError = null;
+  let browserError = null;
   for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -93,11 +97,43 @@ async function fetchText(url) {
     const html = await page.content();
     await context.close();
     return html;
-  } catch {
-    throw lastError || new Error("fetch failed");
+  } catch (err) {
+    browserError = err;
   } finally {
     await browser.close();
   }
+
+  // Last resort on server environments where browser startup/network is restricted.
+  try {
+    const curlArgs = [
+      "-fsSL",
+      "--retry",
+      "2",
+      "--retry-delay",
+      "1",
+      "--connect-timeout",
+      "20",
+      "--max-time",
+      String(Math.ceil(FETCH_TIMEOUT_MS / 1000)),
+      "-A",
+      UA,
+    ];
+    if (INSECURE_TLS) curlArgs.push("-k");
+    curlArgs.push(url);
+    const { stdout } = await execFileAsync("curl", curlArgs, {
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (String(stdout || "").trim()) return String(stdout);
+  } catch (curlError) {
+    const nodeMsg = lastError?.message || String(lastError || "n/a");
+    const browserMsg = browserError?.message || String(browserError || "n/a");
+    const curlMsg = curlError?.message || String(curlError || "n/a");
+    throw new Error(`fetch failed (node=${nodeMsg}; browser=${browserMsg}; curl=${curlMsg})`);
+  }
+
+  const nodeMsg = lastError?.message || String(lastError || "n/a");
+  const browserMsg = browserError?.message || String(browserError || "n/a");
+  throw new Error(`fetch failed (node=${nodeMsg}; browser=${browserMsg})`);
 }
 
 async function parseIssuesFromDropdown(indexUrl) {

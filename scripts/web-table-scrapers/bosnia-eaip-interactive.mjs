@@ -136,18 +136,22 @@ function parseGenEntries(menuHtml, menuUrl) {
 }
 
 function parseAd2Entries(menuHtml, menuUrl) {
-  const re = /<a[^>]*href="([^"]*LQ-AD-2\.([A-Z0-9]{4})-en-GB\.html#AD-2\.\2)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const re = /<a[^>]*href="([^"]*AD-2[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
   const byIcao = new Map();
   let m;
   while ((m = re.exec(menuHtml))) {
     const href = m[1];
-    const icao = m[2].toUpperCase();
-    const label = stripHtml(m[3]) || icao;
+    const absoluteHref = new URL(href, menuUrl).href;
+    const label = stripHtml(m[2]);
+    const icao =
+      absoluteHref.match(/\b(LQ[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase() ||
+      label.match(/\b(LQ[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase();
+    if (!icao) continue;
     if (byIcao.has(icao)) continue;
     byIcao.set(icao, {
       icao,
       label,
-      htmlUrl: new URL(href, menuUrl).href,
+      htmlUrl: absoluteHref,
     });
   }
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));

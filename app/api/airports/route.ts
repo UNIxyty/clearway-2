@@ -9,6 +9,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
+import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
 export const dynamic = "force-dynamic";
 
@@ -159,11 +160,14 @@ function buildCountryCandidates(country?: string | null): string[] {
 }
 
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
+  const icao = (row.icao ?? "").toUpperCase();
+  const country = row.country ?? "";
+  const scraperWebAip = getScraperWebAipUrlByCountryOrIcao(country, icao);
   return {
-    country: row.country ?? "",
+    country,
     gen1_2: "",
     gen1_2_point_4: "",
-    icao: (row.icao ?? "").toUpperCase(),
+    icao,
     name: row.name ?? "",
     publicationDate: "",
     trafficPermitted: "",
@@ -184,8 +188,10 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
     runwayDimensions: "",
     lat: row.lat ?? undefined,
     lon: row.lon ?? undefined,
-    sourceType: "DB_DYNAMIC",
+    sourceType: scraperWebAip ? "SCRAPER_DYNAMIC" : "DB_DYNAMIC",
     dynamicUpdated: true,
+    webAipUrl: scraperWebAip ?? undefined,
+    effectiveDate: null,
   };
 }
 
@@ -293,10 +299,9 @@ function flattenUSAByState(state: string): AIPAirport[] {
 function flattenAIP(countryFilter?: string): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
-  const scraperCountries = new Set(["Bahrain", "Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"]);
   for (const c of countries) {
     if (isAsecnaCountry(c.country)) continue;
-    if (scraperCountries.has(c.country)) continue;
+    if (isScraperCountryName(c.country)) continue;
     if (countryFilter && c.country !== countryFilter) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
@@ -610,7 +615,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (country && ["Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"].includes(country)) {
+  if (country && isScraperCountryName(country) && country !== "Bahrain") {
     return NextResponse.json(
       { results: await flattenScraperBatchCountry(country) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

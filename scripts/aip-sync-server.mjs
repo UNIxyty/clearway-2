@@ -49,6 +49,7 @@ const SCRAPER_COUNTRY_SPECS = [
   {
     country: "Bhutan",
     prefixes: ["VQ"],
+    extraIcaos: ["WBSB"],
     script: "scripts/web-table-scrapers/bhutan-aip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "GEN"),
@@ -347,6 +348,9 @@ function isBahrainIcao(icao) {
 function getScraperSpecByIcao(icao) {
   const upper = String(icao || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(upper)) return null;
+  for (const s of SCRAPER_COUNTRY_SPECS) {
+    if ((s.extraIcaos || []).includes(upper)) return s;
+  }
   const prefix = upper.slice(0, 2);
   return SCRAPER_COUNTRY_SPECS.find((s) => s.prefixes.includes(prefix)) || null;
 }

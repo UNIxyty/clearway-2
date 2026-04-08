@@ -77,6 +77,15 @@ function parseIssueDateCode(effectiveDate: string): string | null {
   return `${m[3]}-${month}-${day}`;
 }
 
+function parseBosniaMenuAd2Icaos(menuHtml: string): string[] {
+  const hrefMatches = [...menuHtml.matchAll(/href="([^"]*AD-2[^"]*)"/gi)].map((m) => String(m[1] || ""));
+  const hrefIcaos = hrefMatches
+    .map((h) => h.match(/\b(LQ[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase() || "")
+    .filter(Boolean);
+  const textIcaos = [...menuHtml.matchAll(/\b(LQ[A-Z0-9]{2})\b/gi)].map((m) => String(m[1] || "").toUpperCase());
+  return normalizeIcaos([...hrefIcaos, ...textIcaos]);
+}
+
 function parseBosniaUpdates(raw: unknown): { effectiveDate: string | null; issueCode: string | null } {
   const arr = Array.isArray(raw) ? raw : [];
   const rows = arr
@@ -130,8 +139,18 @@ async function resolveBosniaMetaLive(): Promise<ScraperMeta> {
   }
   const indexUrl = new URL(`${issueCode}-AIRAC/html/index.html`, BOSNIA_WEB_AIP_URL).href;
   const indexHtml = await fetchText(indexUrl);
-  const frameSrc = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
-  if (!frameSrc) {
+  const directMenuFrame = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+  const baseFrame = indexHtml.match(/<frame[^>]*name="eAISNavigationBase"[^>]*src="([^"]+)"/i)?.[1];
+  let menuUrl: string | null = null;
+  if (directMenuFrame) {
+    menuUrl = new URL(directMenuFrame, indexUrl).href;
+  } else if (baseFrame) {
+    const baseUrl = new URL(baseFrame, indexUrl).href;
+    const baseHtml = await fetchText(baseUrl);
+    const menuFrame = baseHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+    if (menuFrame) menuUrl = new URL(menuFrame, baseUrl).href;
+  }
+  if (!menuUrl) {
     return {
       country: "Bosnia and Herzegovina",
       effectiveDate,
@@ -139,15 +158,13 @@ async function resolveBosniaMetaLive(): Promise<ScraperMeta> {
       webAipUrl: BOSNIA_WEB_AIP_URL,
     };
   }
-  const menuUrl = new URL(frameSrc, indexUrl).href;
   const menuHtml = await fetchText(menuUrl);
-  const ad2Icaos = normalizeIcaos(
-    [...menuHtml.matchAll(/LQ-AD-2\.([A-Z0-9]{4})-en-GB\.html#AD-2\.\1/gi)].map((m) => String(m[1] || "").toUpperCase()),
-  );
+  const ad2Icaos = parseBosniaMenuAd2Icaos(menuHtml);
+  const fallbackIcaos = ["LQBK", "LQMO", "LQSA", "LQTZ"];
   return {
     country: "Bosnia and Herzegovina",
     effectiveDate,
-    ad2Icaos,
+    ad2Icaos: ad2Icaos.length ? ad2Icaos : fallbackIcaos,
     webAipUrl: BOSNIA_WEB_AIP_URL,
   };
 }

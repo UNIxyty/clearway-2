@@ -7,6 +7,7 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
+import { isScraperCountryName } from "@/lib/scraper-country-config";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -100,10 +101,9 @@ const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
 function flattenAIP(): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
-  const scraperCountries = new Set(["Bahrain", "Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"]);
   for (const c of countries) {
     if (isAsecnaCountry(c.country)) continue;
-    if (scraperCountries.has(c.country)) continue;
+    if (isScraperCountryName(c.country)) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
     const gen1_2_point_4 = c.GEN_1_2_POINT_4 ?? "";

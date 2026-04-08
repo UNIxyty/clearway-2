@@ -23,6 +23,7 @@ import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
+import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 
 export type NotamItem = {
   location: string;
@@ -169,16 +170,15 @@ function isAsecnaAirport(airport: AIPAirport | null): boolean {
 function isBahrainScraperAirport(airport: AIPAirport | null): boolean {
   if (!airport) return false;
   if (airport.sourceType === "SCRAPER_DYNAMIC") return true;
-  const country = String(airport.country || "").trim().toLowerCase();
-  return ["bahrain", "belarus", "bhutan", "bosnia and herzegovina", "bosnia"].includes(country);
+  if (isScraperCountryName(airport.country || "")) return true;
+  return Boolean(getScraperCountryByIcao(airport.icao || ""));
 }
 
 function isBahrainScraperIcao(icao: string, airport: AIPAirport | null): boolean {
   if (airport && isBahrainScraperAirport(airport) && airport.icao.toUpperCase() === icao.toUpperCase()) {
     return true;
   }
-  const prefix = icao.toUpperCase().slice(0, 2);
-  return ["OB", "UM", "VQ", "LQ"].includes(prefix);
+  return Boolean(getScraperCountryByIcao(icao));
 }
 
 function hasAsecnaGen12(icao: string): boolean {
@@ -2558,7 +2558,10 @@ function AIPPortalPageInner() {
                         size="sm"
                         className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
-                          const webAip = viewingAirport.webAipUrl || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
+                          const webAip =
+                            viewingAirport.webAipUrl ||
+                            getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
+                            getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao);
                           if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
                         }}
                         title={

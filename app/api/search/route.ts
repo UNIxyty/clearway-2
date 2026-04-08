@@ -6,6 +6,7 @@ import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
+import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -99,9 +100,10 @@ const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
 function flattenAIP(): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
+  const scraperCountries = new Set(["Bahrain", "Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"]);
   for (const c of countries) {
     if (isAsecnaCountry(c.country)) continue;
-    if (c.country === "Bahrain") continue;
+    if (scraperCountries.has(c.country)) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
     const gen1_2_point_4 = c.GEN_1_2_POINT_4 ?? "";
@@ -298,6 +300,52 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
   });
 }
 
+async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
+  const [belarus, bhutan, bosnia] = await Promise.all([
+    getBelarusMeta(),
+    getBhutanMeta(),
+    getBosniaMeta(),
+  ]);
+  const metas = [belarus, bhutan, bosnia];
+  const out: AIPAirport[] = [];
+  for (const meta of metas) {
+    for (const icao of meta.ad2Icaos) {
+      const coord = coordsMap[icao];
+      out.push({
+        country: meta.country,
+        gen1_2: "",
+        gen1_2_point_4: "",
+        icao,
+        name: `${icao} Airport`,
+        publicationDate: "",
+        trafficPermitted: "",
+        trafficRemarks: "",
+        ad22Operator: "",
+        ad22Address: "",
+        ad22Telephone: "",
+        ad22Telefax: "",
+        ad22Email: "",
+        ad22Afs: "",
+        ad22Website: "",
+        operator: "",
+        customsImmigration: "",
+        ats: "",
+        atsRemarks: "",
+        fireFighting: "",
+        runwayNumber: "",
+        runwayDimensions: "",
+        lat: coord?.lat,
+        lon: coord?.lon,
+        sourceType: "SCRAPER_DYNAMIC",
+        dynamicUpdated: true,
+        webAipUrl: meta.webAipUrl,
+        effectiveDate: meta.effectiveDate,
+      });
+    }
+  }
+  return out;
+}
+
 let cachedList: AIPAirport[] | null = null;
 
 async function getList(): Promise<AIPAirport[]> {
@@ -307,12 +355,14 @@ async function getList(): Promise<AIPAirport[]> {
     const asecnaList = flattenAsecna();
     const russiaList = flattenRussia();
     const bahrainList = await flattenBahrain();
+    const scraperBatchList = await flattenScraperCountryMeta();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of asecnaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of bahrainList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
+    for (const a of scraperBatchList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;

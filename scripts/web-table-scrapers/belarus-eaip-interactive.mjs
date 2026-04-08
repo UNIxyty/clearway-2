@@ -30,6 +30,11 @@ const AMDT_URLS = [
   "https://www.ban.by/sbornik-aip/amdt",
 ];
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -176,6 +181,8 @@ async function downloadPdf(url, outFile) {
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`Usage: node scripts/web-table-scrapers/belarus-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/belarus-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/belarus-eaip-interactive.mjs --download-gen12
 
 Interactive flow:
   [1] Auto-select newest Belarus eAIP release from BAN amendments page
@@ -225,6 +232,28 @@ Interactive flow:
     const indexHtml = await fetchText(indexUrl);
     const menuUrl = parseMenuUrl(indexHtml, indexUrl);
     const menuHtml = await fetchText(menuUrl);
+
+    if (downloadGen12) {
+      const entries = parseGenEntries(menuHtml, menuUrl);
+      if (!entries.length) throw new Error("No GEN PDFs found in Belarus menu.");
+      const chosen = entries.find((e) => /GEN[_ -]?1[._-]?2/i.test(e.pdfFile) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${newestDate}_${chosen.pdfFile}`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD 2 ICAO not found in Belarus menu: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${newestDate}_${chosen.pdfFile}`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     console.error(`Resolved amendments page: ${amdtUrlUsed}`);
     console.error(`Auto-selected newest effective date: ${newestDate}`);

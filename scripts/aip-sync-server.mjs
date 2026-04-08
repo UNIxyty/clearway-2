@@ -31,10 +31,36 @@ const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
-const BAHRAIN_ICAO_PREFIX = "OB";
-const BAHRAIN_SCRIPT = "scripts/web-table-scrapers/bahrain-eaip-interactive.mjs";
-const BAHRAIN_AD2_DIR = join(PROJECT_ROOT, "downloads", "bahrain-eaip", "AD2");
-const BAHRAIN_GEN_DIR = join(PROJECT_ROOT, "downloads", "bahrain-eaip", "GEN");
+const SCRAPER_COUNTRY_SPECS = [
+  {
+    country: "Bahrain",
+    prefixes: ["OB"],
+    script: "scripts/web-table-scrapers/bahrain-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "bahrain-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "bahrain-eaip", "GEN"),
+  },
+  {
+    country: "Belarus",
+    prefixes: ["UM"],
+    script: "scripts/web-table-scrapers/belarus-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "belarus-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "belarus-eaip", "GEN"),
+  },
+  {
+    country: "Bhutan",
+    prefixes: ["VQ"],
+    script: "scripts/web-table-scrapers/bhutan-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "bhutan-aip", "GEN"),
+  },
+  {
+    country: "Bosnia and Herzegovina",
+    prefixes: ["LQ"],
+    script: "scripts/web-table-scrapers/bosnia-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "bosnia-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "bosnia-eaip", "GEN"),
+  },
+];
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -88,8 +114,9 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 }
 
 async function runDownload(icao) {
-  if (isBahrainIcao(icao)) {
-    await run("node", [BAHRAIN_SCRIPT, "--download-ad2", icao], process.env);
+  const scraper = getScraperSpecByIcao(icao);
+  if (scraper) {
+    await run("node", [scraper.script, "--download-ad2", icao], process.env);
     return;
   }
   if (isRussiaIcao(icao)) {
@@ -199,19 +226,20 @@ async function deleteOldFromS3(icao, namespace = "ead") {
 }
 
 function findDownloadedPdf(icao) {
-  if (isBahrainIcao(icao)) {
-    if (!existsSync(BAHRAIN_AD2_DIR)) return null;
+  const scraper = getScraperSpecByIcao(icao);
+  if (scraper) {
+    if (!existsSync(scraper.ad2Dir)) return null;
     const icaoUpper = icao.toUpperCase();
-    const files = readdirSync(BAHRAIN_AD2_DIR).filter((f) => f.endsWith(".pdf") && f.toUpperCase().includes(icaoUpper));
+    const files = readdirSync(scraper.ad2Dir).filter((f) => f.endsWith(".pdf") && f.toUpperCase().includes(icaoUpper));
     if (files.length === 0) return null;
     files.sort((a, b) => {
       try {
-        return statSync(join(BAHRAIN_AD2_DIR, b)).mtimeMs - statSync(join(BAHRAIN_AD2_DIR, a)).mtimeMs;
+        return statSync(join(scraper.ad2Dir, b)).mtimeMs - statSync(join(scraper.ad2Dir, a)).mtimeMs;
       } catch {
         return 0;
       }
     });
-    return join(BAHRAIN_AD2_DIR, files[0]);
+    return join(scraper.ad2Dir, files[0]);
   }
 
   if (isRussiaIcao(icao)) {
@@ -313,8 +341,18 @@ function isRwandaIcao(icao) {
 }
 
 function isBahrainIcao(icao) {
+  return isScraperIcao(icao);
+}
+
+function getScraperSpecByIcao(icao) {
   const upper = String(icao || "").trim().toUpperCase();
-  return /^[A-Z0-9]{4}$/.test(upper) && upper.slice(0, 2) === BAHRAIN_ICAO_PREFIX;
+  if (!/^[A-Z0-9]{4}$/.test(upper)) return null;
+  const prefix = upper.slice(0, 2);
+  return SCRAPER_COUNTRY_SPECS.find((s) => s.prefixes.includes(prefix)) || null;
+}
+
+function isScraperIcao(icao) {
+  return Boolean(getScraperSpecByIcao(icao));
 }
 
 function resolveRwandaTocUrl(menuHtmlWithButton) {
@@ -373,8 +411,9 @@ async function runRwandaGenDownload() {
 }
 
 async function runGenDownloadForIcao(icao, prefix) {
-  if (isBahrainIcao(icao)) {
-    await run("node", [BAHRAIN_SCRIPT, "--download-gen12"], process.env);
+  const scraper = getScraperSpecByIcao(icao);
+  if (scraper) {
+    await run("node", [scraper.script, "--download-gen12"], process.env);
     return;
   }
   if (isRussiaIcao(icao)) {
@@ -389,18 +428,19 @@ async function runGenDownloadForIcao(icao, prefix) {
 }
 
 function findDownloadedGenPdf(icao, prefix) {
-  if (isBahrainIcao(icao)) {
-    if (!existsSync(BAHRAIN_GEN_DIR)) return null;
-    const files = readdirSync(BAHRAIN_GEN_DIR).filter((f) => f.endsWith(".pdf") && /GEN[-_. ]?1[._-]?2/i.test(f));
+  const scraper = getScraperSpecByIcao(icao);
+  if (scraper) {
+    if (!existsSync(scraper.genDir)) return null;
+    const files = readdirSync(scraper.genDir).filter((f) => f.endsWith(".pdf") && /GEN[-_. ]?1[._-]?2/i.test(f));
     if (!files.length) return null;
     files.sort((a, b) => {
       try {
-        return statSync(join(BAHRAIN_GEN_DIR, b)).mtimeMs - statSync(join(BAHRAIN_GEN_DIR, a)).mtimeMs;
+        return statSync(join(scraper.genDir, b)).mtimeMs - statSync(join(scraper.genDir, a)).mtimeMs;
       } catch {
         return 0;
       }
     });
-    return join(BAHRAIN_GEN_DIR, files[0]);
+    return join(scraper.genDir, files[0]);
   }
   if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
@@ -486,7 +526,7 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
-    const useScraperFlow = scraperRequested || isBahrainIcao(icao);
+    const useScraperFlow = scraperRequested || isScraperIcao(icao);
     const send = (obj) => {
       if (!stream) return;
       res.write("data: " + JSON.stringify(obj) + "\n\n");
@@ -573,7 +613,7 @@ const server = createServer(async (req, res) => {
   }
 
   try {
-    const useScraperFlow = scraperRequested || isBahrainIcao(icao);
+    const useScraperFlow = scraperRequested || isScraperIcao(icao);
     const aipNamespace = useScraperFlow ? "scraper" : "ead";
     send({ step: AIP_STEPS[0] });
     if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao, aipNamespace);

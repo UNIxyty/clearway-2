@@ -28,6 +28,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "bhutan-aip", "AD2");
 
 const BHUTAN_AIP_URL = "https://www.doat.gov.bt/aip/";
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -150,6 +155,8 @@ async function downloadPdf(url, outFile) {
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`Usage: node scripts/web-table-scrapers/bhutan-aip-interactive.mjs [--insecure]
+       node scripts/web-table-scrapers/bhutan-aip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/bhutan-aip-interactive.mjs --download-gen12
 
 Interactive flow:
   [1] Parse "General" section PDFs from Bhutan AIP page
@@ -186,6 +193,28 @@ Interactive flow:
     const { genEntries, ad2Entries } = parseBhutanEntries(html);
     if (!genEntries.length && !ad2Entries.length) {
       throw new Error("No GEN or AD2 PDF links found on Bhutan AIP page.");
+    }
+
+    if (downloadGen12) {
+      if (!genEntries.length) throw new Error("No GEN PDFs found.");
+      const chosen =
+        genEntries.find((e) => /\b1\.2\b/.test(String(e.section)) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`BT_GEN_${chosen.section}.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      if (!ad2Entries.length) throw new Error("No AD2 PDFs found.");
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD 2 ICAO not found in Bhutan page: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`BT_AD2_${chosen.icao}.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
     }
 
     rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });

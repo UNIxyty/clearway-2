@@ -8,6 +8,7 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
+import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
 
 export const dynamic = "force-dynamic";
 
@@ -292,9 +293,10 @@ function flattenUSAByState(state: string): AIPAirport[] {
 function flattenAIP(countryFilter?: string): AIPAirport[] {
   const countries = aipData as AIPCountry[];
   const list: AIPAirport[] = [];
+  const scraperCountries = new Set(["Bahrain", "Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"]);
   for (const c of countries) {
     if (isAsecnaCountry(c.country)) continue;
-    if (c.country === "Bahrain") continue;
+    if (scraperCountries.has(c.country)) continue;
     if (countryFilter && c.country !== countryFilter) continue;
     if (!c.airports || !Array.isArray(c.airports)) continue;
     const gen1_2 = c.GEN_1_2 ?? "";
@@ -516,6 +518,52 @@ async function flattenBahrainCountry(countryName: string): Promise<AIPAirport[]>
   });
 }
 
+async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirport[]> {
+  const normalized = String(countryName || "").trim().toLowerCase();
+  const meta =
+    normalized === "belarus"
+      ? await getBelarusMeta()
+      : normalized === "bhutan"
+        ? await getBhutanMeta()
+        : normalized === "bosnia and herzegovina" || normalized === "bosnia"
+          ? await getBosniaMeta()
+          : null;
+  if (!meta) return [];
+  return meta.ad2Icaos.map((icao) => {
+    const coord = coordsMap[icao];
+    return {
+      country: meta.country,
+      gen1_2: "",
+      gen1_2_point_4: "",
+      icao,
+      name: `${icao} Airport`,
+      publicationDate: "",
+      trafficPermitted: "",
+      trafficRemarks: "",
+      ad22Operator: "",
+      ad22Address: "",
+      ad22Telephone: "",
+      ad22Telefax: "",
+      ad22Email: "",
+      ad22Afs: "",
+      ad22Website: "",
+      operator: "",
+      customsImmigration: "",
+      ats: "",
+      atsRemarks: "",
+      fireFighting: "",
+      runwayNumber: "",
+      runwayDimensions: "",
+      lat: coord?.lat,
+      lon: coord?.lon,
+      sourceType: "SCRAPER_DYNAMIC",
+      dynamicUpdated: true,
+      webAipUrl: meta.webAipUrl,
+      effectiveDate: meta.effectiveDate,
+    };
+  });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
@@ -558,6 +606,13 @@ export async function GET(request: NextRequest) {
   if (country === "Bahrain") {
     return NextResponse.json(
       { results: await flattenBahrainCountry(country) },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
+  }
+
+  if (country && ["Belarus", "Bhutan", "Bosnia and Herzegovina", "Bosnia"].includes(country)) {
+    return NextResponse.json(
+      { results: await flattenScraperBatchCountry(country) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }

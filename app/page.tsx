@@ -169,14 +169,16 @@ function isAsecnaAirport(airport: AIPAirport | null): boolean {
 function isBahrainScraperAirport(airport: AIPAirport | null): boolean {
   if (!airport) return false;
   if (airport.sourceType === "SCRAPER_DYNAMIC") return true;
-  return String(airport.country || "").trim().toLowerCase() === "bahrain";
+  const country = String(airport.country || "").trim().toLowerCase();
+  return ["bahrain", "belarus", "bhutan", "bosnia and herzegovina", "bosnia"].includes(country);
 }
 
 function isBahrainScraperIcao(icao: string, airport: AIPAirport | null): boolean {
   if (airport && isBahrainScraperAirport(airport) && airport.icao.toUpperCase() === icao.toUpperCase()) {
     return true;
   }
-  return icao.toUpperCase().startsWith("OB");
+  const prefix = icao.toUpperCase().slice(0, 2);
+  return ["OB", "UM", "VQ", "LQ"].includes(prefix);
 }
 
 function hasAsecnaGen12(icao: string): boolean {
@@ -1060,7 +1062,7 @@ function AIPPortalPageInner() {
                     const fallbackCountry = isAsecnaIcao(icao)
                       ? (viewingAirport?.country || "ASECNA")
                       : isBahrainScraperIcao(icao, viewingAirport)
-                        ? (viewingAirport?.country || "Bahrain")
+                        ? (viewingAirport?.country || "Scraper")
                       : isRussiaIcao(icao)
                         ? "Russia"
                         : "EAD (EU AIP)";
@@ -1109,7 +1111,7 @@ function AIPPortalPageInner() {
         const fallbackCountry = isAsecnaIcao(icao)
           ? (viewingAirport?.country || "ASECNA")
           : isBahrainScraperIcao(icao, viewingAirport)
-            ? (viewingAirport?.country || "Bahrain")
+            ? (viewingAirport?.country || "Scraper")
           : isRussiaIcao(icao)
             ? "Russia"
             : "EAD (EU AIP)";
@@ -2423,7 +2425,7 @@ function AIPPortalPageInner() {
                         : isAsecnaIcao(viewingAirport.icao)
                           ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
                           : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                            ? "AD 2 PDF is fetched dynamically from Bahrain Web AIP. GEN 1.2 is synced from scraper source."
+                            ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
                           : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
                     </CardDescription>
                   </div>
@@ -2562,7 +2564,7 @@ function AIPPortalPageInner() {
                         title={
                           isAsecnaIcao(viewingAirport.icao)
                             ? "Open ASECNA Web AIP"
-                            : "Open Bahrain Web AIP"
+                            : `Open ${viewingAirport.country || "Scraper"} Web AIP`
                         }
                       >
                         <GlobeIcon className="size-4" />
@@ -2578,7 +2580,7 @@ function AIPPortalPageInner() {
                       {isAsecnaIcao(viewingAirport.icao)
                         ? "ASECNA Web AIP (dynamically updated)"
                         : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                          ? "Bahrain Web AIP (dynamically updated)"
+                          ? `${viewingAirport.country || "Scraper"} Web AIP (dynamically updated)`
                         : isRussiaIcao(viewingAirport.icao)
                           ? "CAICA Russia AIP"
                           : "Eurocontrol (EAD)"}
@@ -2587,7 +2589,7 @@ function AIPPortalPageInner() {
                     {isAsecnaIcao(viewingAirport.icao)
                       ? "PDF is fetched from live ASECNA source and stored to S3."
                       : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                        ? "PDF is fetched from live Bahrain source and stored to S3."
+                        ? "PDF is fetched from live scraper source and stored to S3."
                       : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
                     {isBahrainScraperIcao(viewingAirport.icao, viewingAirport) && viewingAirport.effectiveDate
                       ? ` Effective: ${viewingAirport.effectiveDate}.`

@@ -32,6 +32,7 @@ const START_INDEX_URL =
 const FETCH_TIMEOUT_MS = 45_000;
 const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-lk-scraper/1.0)";
+const INSECURE_TLS = process.argv.includes("--insecure");
 
 function stripHtml(value) {
   return String(value || "")
@@ -79,7 +80,24 @@ async function fetchText(url) {
       clearTimeout(timeout);
     }
   }
-  throw lastError || new Error("fetch failed");
+
+  // Fallback for environments where Node fetch TLS/network is unreliable.
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({
+      userAgent: UA,
+      ignoreHTTPSErrors: INSECURE_TLS,
+    });
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    const html = await page.content();
+    await context.close();
+    return html;
+  } catch {
+    throw lastError || new Error("fetch failed");
+  } finally {
+    await browser.close();
+  }
 }
 
 async function parseIssuesFromDropdown(indexUrl) {

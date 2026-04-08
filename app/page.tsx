@@ -23,7 +23,6 @@ import { useBackgroundSearch } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
-import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 export type NotamItem = {
   location: string;
@@ -85,7 +84,6 @@ type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
-  effectiveDate?: string | null;
 };
 
 type ExtractedAirportRow = {
@@ -216,32 +214,6 @@ function mapExtractedRowToAirport(
 
 function supportsSyncedAipIcao(icao: string): boolean {
   return isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao);
-}
-
-function isScraperDynamicAirport(airport: AIPAirport | null): boolean {
-  if (!airport) return false;
-  if (airport.sourceType === "SCRAPER_DYNAMIC") return true;
-  // Safety fallback: if country is present in dynamic package metadata,
-  // force scraper flow even when stale sourceType came from older cache.
-  return Boolean(getDynamicPackageByCountry(airport.country));
-}
-
-function supportsSyncedAipAirport(airport: AIPAirport | null): boolean {
-  if (!airport) return false;
-  if (isScraperDynamicAirport(airport)) return true;
-  return supportsSyncedAipIcao(airport.icao);
-}
-
-function getSyncedAipApiBase(airport: AIPAirport | null): "/api/aip/asecna" | "/api/aip/ead" | "/api/aip/scraper" {
-  if (airport && isAsecnaIcao(airport.icao)) return "/api/aip/asecna";
-  if (airport && isScraperDynamicAirport(airport)) return "/api/aip/scraper";
-  return "/api/aip/ead";
-}
-
-function getSyncedAipPdfApiBase(airport: AIPAirport | null): "/api/aip/asecna/pdf" | "/api/aip/ead/pdf" | "/api/aip/scraper/pdf" {
-  if (airport && isAsecnaIcao(airport.icao)) return "/api/aip/asecna/pdf";
-  if (airport && isScraperDynamicAirport(airport)) return "/api/aip/scraper/pdf";
-  return "/api/aip/ead/pdf";
 }
 
 /** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
@@ -852,37 +824,7 @@ function AIPPortalPageInner() {
   }, []);
 
   const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false) => {
-    const isScraper = isScraperDynamicAirport(viewingAirport);
     const useAsecnaGen = forceAsecna || isAsecnaIcao(icao);
-    if (isScraper) {
-      setGenPdfDownloadError(null);
-      setGenPdfDownloading(true);
-      setGenSyncingPrefix(icao);
-      setGenSyncSteps(["Fetching dynamic scraper GEN 1.2 PDF…"]);
-      try {
-        const pdfRes = await fetch(`/api/aip/scraper/gen/pdf?icao=${encodeURIComponent(icao)}`, {
-          cache: "no-store",
-        });
-        if (!pdfRes.ok) {
-          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
-          throw new Error(data.detail || data.error || "Failed to load scraper GEN PDF");
-        }
-        const blob = await pdfRes.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${icao}_GEN_1.2.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setGenSyncSteps((prev) => [...prev, "Download ready."]);
-      } catch (err) {
-        setGenPdfDownloadError(err instanceof Error ? err.message : "GEN PDF download failed");
-      } finally {
-        setGenPdfDownloading(false);
-        setGenSyncingPrefix(null);
-      }
-      return;
-    }
     if (useAsecnaGen) {
       setGenPdfDownloadError(null);
       setGenPdfDownloading(true);
@@ -983,13 +925,13 @@ function AIPPortalPageInner() {
       setGenPdfDownloading(false);
       setGenSyncingPrefix(null);
     }
-  }, [genPdfExistsOnServer, viewingAirport]);
+  }, [genPdfExistsOnServer]);
 
   // Fetch synced AIP (EAD + Russia). Default flow is PDF-first (extract=0).
   // AI extraction runs only when explicitly requested (extract=1).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !supportsSyncedAipAirport(viewingAirport ?? null)) return;
+    if (!icao || !supportsSyncedAipIcao(icao)) return;
     if (aipEadInFlightRef.current.has(icao)) return;
     const cacheEntry = aipEadCache[icao];
     const hasCacheEntry = icao in aipEadCache;
@@ -1026,7 +968,7 @@ function AIPPortalPageInner() {
     const syncParams = doSync
       ? `&sync=1&stream=1&extract=${shouldExtractSync ? "1" : "0"}`
       : "";
-    const aipApiBase = getSyncedAipApiBase(viewingAirport ?? null);
+    const aipApiBase = isAsecnaIcao(icao) ? "/api/aip/asecna" : "/api/aip/ead";
     const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}${syncParams}&_t=${Date.now()}`;
     fetch(url, { cache: "no-store" })
       .then(async (res) => {
@@ -1153,9 +1095,9 @@ function AIPPortalPageInner() {
   // Probe S3 for EAD PDF (enables download/viewer as soon as the file exists, without waiting for AI extract).
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
-    if (!icao || !supportsSyncedAipAirport(viewingAirport ?? null)) return;
+    if (!icao || !supportsSyncedAipIcao(icao)) return;
     let cancelled = false;
-    const pdfApiBase = getSyncedAipPdfApiBase(viewingAirport ?? null);
+    const pdfApiBase = isAsecnaIcao(icao) ? "/api/aip/asecna/pdf" : "/api/aip/ead/pdf";
     fetch(`${pdfApiBase}?icao=${encodeURIComponent(icao)}`, { method: "HEAD" })
       .then((r) => {
         if (cancelled) return;
@@ -1175,22 +1117,6 @@ function AIPPortalPageInner() {
     if (MAIN_PAGE_DISABLE_GEN) return;
     const icao = viewingAirport?.icao ?? null;
     if (!icao) return;
-    if (isScraperDynamicAirport(viewingAirport)) {
-      const prefix = icao.slice(0, 2).toUpperCase();
-      if (!(prefix in genCache)) {
-        setGenCache((c) => ({
-          ...c,
-          [prefix]: {
-            general: emptyGenPart(),
-            nonScheduled: emptyGenPart(),
-            privateFlights: emptyGenPart(),
-            updatedAt: null,
-          },
-        }));
-      }
-      updateStage(icao, "gen", "done", "Dynamic scraper GEN available via GEN PDF button");
-      return;
-    }
     if (isAsecnaIcao(icao)) {
       const prefix = icao.slice(0, 2).toUpperCase();
       if (!(prefix in genCache)) {
@@ -2420,7 +2346,7 @@ function AIPPortalPageInner() {
         </Card>
 
             {/* Single synced AIP section: EAD + Russia */}
-            {viewingAirport && supportsSyncedAipAirport(viewingAirport) && (
+            {viewingAirport && supportsSyncedAipIcao(viewingAirport.icao) && (
               <Card
                 className={`shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200 ${
                   aipEadSyncingIcao === viewingAirport.icao
@@ -2431,23 +2357,13 @@ function AIPPortalPageInner() {
                 <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
                   <div>
                     <CardTitle className="text-base sm:text-lg font-semibold">
-                      AIP (
-                      {isAsecnaIcao(viewingAirport.icao)
-                        ? "ASECNA"
-                        : isScraperDynamicAirport(viewingAirport)
-                          ? "Web Table Scraper"
-                          : isRussiaIcao(viewingAirport.icao)
-                            ? "Russia"
-                            : "EAD"}
-                      ) — {viewingAirport.icao}
+                      AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) — {viewingAirport.icao}
                     </CardTitle>
                     <CardDescription className="text-muted-foreground text-sm">
                       {aipEadCache[viewingAirport.icao]?.updatedAt
                         ? `Cached ${new Date(aipEadCache[viewingAirport.icao].updatedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. Use Extract Data to refresh.`
                         : isAsecnaIcao(viewingAirport.icao)
                           ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
-                          : isScraperDynamicAirport(viewingAirport)
-                            ? "AD 2 PDF is fetched dynamically from the country Web AIP scraper flow."
                           : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
                     </CardDescription>
                   </div>
@@ -2477,7 +2393,9 @@ function AIPPortalPageInner() {
                         setPdfDownloadError(null);
                         setPdfDownloading(true);
                         try {
-                          const pdfRoute = getSyncedAipPdfApiBase(viewingAirport);
+                          const pdfRoute = isAsecnaIcao(viewingAirport.icao)
+                            ? "/api/aip/asecna/pdf"
+                            : "/api/aip/ead/pdf";
                           const res = await fetch(
                             `${pdfRoute}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`
                           );
@@ -2491,7 +2409,7 @@ function AIPPortalPageInner() {
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = url;
-                          a.download = `${viewingAirport.icao}_${isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isScraperDynamicAirport(viewingAirport) ? "DYNAMIC" : "AIP"}_AD2.pdf`;
+                          a.download = `${viewingAirport.icao}_${isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : "AIP"}_AD2.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
                         } catch (err) {
@@ -2520,7 +2438,7 @@ function AIPPortalPageInner() {
                       <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
                       <span className="text-xs hidden sm:inline">Extract Data</span>
                     </Button>
-                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isScraperDynamicAirport(viewingAirport)) && (
+                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao)) && (
                       <div
                         className="relative"
                         onMouseEnter={() => setShowGenSyncOverlay(true)}
@@ -2569,25 +2487,17 @@ function AIPPortalPageInner() {
                         )}
                       </div>
                     )}
-                    {(isAsecnaIcao(viewingAirport.icao) || isScraperDynamicAirport(viewingAirport)) && (
+                    {isAsecnaIcao(viewingAirport.icao) && (
                       <Button
                         type="button"
                         variant="default"
                         size="sm"
                         className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
-                          const dynamicPkg = getDynamicPackageByCountry(viewingAirport.country);
-                          const webAip = viewingAirport.webAipUrl
-                            || dynamicPkg?.webAipUrl
-                            || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
+                          const webAip = viewingAirport.webAipUrl || getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl;
                           if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
                         }}
-                        title="Open Web AIP"
-                        disabled={
-                          !viewingAirport.webAipUrl
-                          && !getDynamicPackageByCountry(viewingAirport.country)?.webAipUrl
-                          && !isAsecnaIcao(viewingAirport.icao)
-                        }
+                        title="Open ASECNA Web AIP"
                       >
                         <GlobeIcon className="size-4" />
                         <span className="text-xs hidden sm:inline">Web AIP</span>
@@ -2597,21 +2507,10 @@ function AIPPortalPageInner() {
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
                   <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                    {(() => {
-                      const dynamicPkg = getDynamicPackageByCountry(viewingAirport.country);
-                      const effectiveDate = viewingAirport.effectiveDate || dynamicPkg?.effectiveDate || null;
-                      return effectiveDate ? (
-                        <div className="mb-1">
-                          Effective: <strong>{effectiveDate}</strong>
-                        </div>
-                      ) : null;
-                    })()}
                     Source:{" "}
                     <strong>
                       {isAsecnaIcao(viewingAirport.icao)
                         ? "ASECNA Web AIP (dynamically updated)"
-                        : isScraperDynamicAirport(viewingAirport)
-                          ? "Web AIP (dynamically updated)"
                         : isRussiaIcao(viewingAirport.icao)
                           ? "CAICA Russia AIP"
                           : "Eurocontrol (EAD)"}
@@ -2619,8 +2518,6 @@ function AIPPortalPageInner() {
                     {" "}
                     {isAsecnaIcao(viewingAirport.icao)
                       ? "PDF is fetched from live ASECNA source and stored to S3."
-                      : isScraperDynamicAirport(viewingAirport)
-                        ? <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>
                       : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
                   </div>
                   <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
@@ -2648,7 +2545,7 @@ function AIPPortalPageInner() {
                       aipEadCache[viewingAirport.icao]?.updatedAt ||
                       aipPdfExistsOnServer[viewingAirport.icao] ? (
                         <object
-                          data={`${getSyncedAipPdfApiBase(viewingAirport)}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                          data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                           type="application/pdf"
                           className="w-full h-[520px] rounded-md border border-border/60 bg-background"
                           aria-label={`AIP PDF ${viewingAirport.icao}`}
@@ -2657,7 +2554,7 @@ function AIPPortalPageInner() {
                             Native PDF preview is not available in this browser.
                             {" "}
                             <a
-                              href={`${getSyncedAipPdfApiBase(viewingAirport)}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                               target="_blank"
                               rel="noreferrer"
                               className="underline underline-offset-2"
@@ -2666,7 +2563,7 @@ function AIPPortalPageInner() {
                             </a>
                             {" "}or{" "}
                             <a
-                              href={`${getSyncedAipPdfApiBase(viewingAirport)}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
+                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
                               className="underline underline-offset-2"
                             >
                               download it
@@ -2743,7 +2640,7 @@ function AIPPortalPageInner() {
             )}
 
             {/* Single AIP section: stored data for non-synced countries */}
-            {viewingAirport && !supportsSyncedAipAirport(viewingAirport) && (
+            {viewingAirport && !supportsSyncedAipIcao(viewingAirport.icao) && (
               <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
                 <CardHeader className="pb-2 px-4 sm:px-6">
                   <CardTitle className="text-base sm:text-lg font-semibold">

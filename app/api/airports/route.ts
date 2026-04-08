@@ -4,12 +4,9 @@ import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
-import dynamicAirportsData from "@/data/dynamic-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
-import { getDynamicWebAipUrl } from "@/lib/dynamic-web-aip";
-import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +85,6 @@ export type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
-  effectiveDate?: string | null;
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
@@ -160,12 +156,8 @@ function buildCountryCandidates(country?: string | null): string[] {
 }
 
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
-  const country = row.country ?? "";
-  const dynamicPackage = getDynamicPackageByCountry(country);
-  const dynamicWebAipUrl = dynamicPackage?.webAipUrl || getDynamicWebAipUrl(country);
-  const sourceType = dynamicPackage || dynamicWebAipUrl ? "SCRAPER_DYNAMIC" : "DB_DYNAMIC";
   return {
-    country,
+    country: row.country ?? "",
     gen1_2: "",
     gen1_2_point_4: "",
     icao: (row.icao ?? "").toUpperCase(),
@@ -189,10 +181,8 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
     runwayDimensions: "",
     lat: row.lat ?? undefined,
     lon: row.lon ?? undefined,
-    sourceType,
+    sourceType: "DB_DYNAMIC",
     dynamicUpdated: true,
-    webAipUrl: dynamicWebAipUrl,
-    effectiveDate: dynamicPackage?.effectiveDate ?? null,
   };
 }
 
@@ -485,50 +475,6 @@ function flattenAsecnaCountry(countryName: string): AIPAirport[] {
   return out;
 }
 
-function flattenDynamicCountry(countryName?: string): AIPAirport[] {
-  const payload = dynamicAirportsData as { airports?: Array<any> };
-  const rows = Array.isArray(payload.airports) ? payload.airports : [];
-  const target = String(countryName || "").trim().toLowerCase();
-  const list = rows
-    .filter((r) => {
-      if (!target) return true;
-      return String(r.country || "").trim().toLowerCase() === target;
-    })
-    .map((r) => ({
-      country: String(r.country || ""),
-      gen1_2: "",
-      gen1_2_point_4: "",
-      icao: String(r.icao || "").toUpperCase(),
-      name: String(r.name || ""),
-      publicationDate: "",
-      trafficPermitted: "",
-      trafficRemarks: "",
-      ad22Operator: "",
-      ad22Address: "",
-      ad22Telephone: "",
-      ad22Telefax: "",
-      ad22Email: "",
-      ad22Afs: "",
-      ad22Website: "",
-      operator: "",
-      customsImmigration: "",
-      ats: "",
-      atsRemarks: "",
-      fireFighting: "",
-      runwayNumber: "",
-      runwayDimensions: "",
-      lat: typeof r.lat === "number" ? r.lat : undefined,
-      lon: typeof r.lon === "number" ? r.lon : undefined,
-      sourceType: "SCRAPER_DYNAMIC",
-      dynamicUpdated: true,
-      webAipUrl: getDynamicWebAipUrl(String(r.country || "")),
-      effectiveDate: typeof r.effectiveDate === "string" ? r.effectiveDate : (getDynamicPackageByCountry(String(r.country || ""))?.effectiveDate ?? null),
-    } satisfies AIPAirport))
-    .filter((x) => /^[A-Z0-9]{4}$/.test(x.icao));
-  list.sort((a, b) => a.icao.localeCompare(b.icao));
-  return list;
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
@@ -566,26 +512,6 @@ export async function GET(request: NextRequest) {
       { results: flattenAsecnaCountry(country) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
-  }
-
-  if (country) {
-    const dynamicCountry = flattenDynamicCountry(country);
-    if (dynamicCountry.length > 0) {
-      return NextResponse.json(
-        { results: dynamicCountry },
-        { headers: { "Cache-Control": "no-store, max-age=0" } }
-      );
-    }
-  }
-
-  if (!country) {
-    const byIcao = new Map<string, AIPAirport>();
-    for (const row of getAll()) byIcao.set(row.icao.toUpperCase(), row);
-    for (const row of flattenDynamicCountry()) {
-      const icao = row.icao.toUpperCase();
-      if (!byIcao.has(icao)) byIcao.set(icao, row);
-    }
-    return NextResponse.json({ results: Array.from(byIcao.values()) });
   }
 
   const list = country ? flattenAIP(country) : getAll();

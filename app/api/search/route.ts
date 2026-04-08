@@ -3,11 +3,8 @@ import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
-import dynamicAirportsData from "@/data/dynamic-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
-import { getDynamicWebAipUrl } from "@/lib/dynamic-web-aip";
-import { getDynamicPackageByCountry } from "@/lib/dynamic-packages";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -84,7 +81,6 @@ export type AIPAirport = {
   sourceType?: string;
   dynamicUpdated?: boolean;
   webAipUrl?: string;
-  effectiveDate?: string | null;
 };
 
 type RUSAirportRow = {
@@ -262,43 +258,6 @@ function flattenAsecna(): AIPAirport[] {
   return list;
 }
 
-function flattenDynamic(): AIPAirport[] {
-  const payload = dynamicAirportsData as { airports?: Array<any> };
-  const rows = Array.isArray(payload.airports) ? payload.airports : [];
-  return rows
-    .map((r) => ({
-      country: String(r.country || ""),
-      gen1_2: "",
-      gen1_2_point_4: "",
-      icao: String(r.icao || "").toUpperCase(),
-      name: String(r.name || ""),
-      publicationDate: "",
-      trafficPermitted: "",
-      trafficRemarks: "",
-      ad22Operator: "",
-      ad22Address: "",
-      ad22Telephone: "",
-      ad22Telefax: "",
-      ad22Email: "",
-      ad22Afs: "",
-      ad22Website: "",
-      operator: "",
-      customsImmigration: "",
-      ats: "",
-      atsRemarks: "",
-      fireFighting: "",
-      runwayNumber: "",
-      runwayDimensions: "",
-      lat: typeof r.lat === "number" ? r.lat : undefined,
-      lon: typeof r.lon === "number" ? r.lon : undefined,
-      sourceType: "SCRAPER_DYNAMIC",
-      dynamicUpdated: true,
-      webAipUrl: getDynamicWebAipUrl(String(r.country || "")),
-      effectiveDate: typeof r.effectiveDate === "string" ? r.effectiveDate : (getDynamicPackageByCountry(String(r.country || ""))?.effectiveDate ?? null),
-    } satisfies AIPAirport))
-    .filter((x) => /^[A-Z0-9]{4}$/.test(x.icao));
-}
-
 let cachedList: AIPAirport[] | null = null;
 
 function getList(): AIPAirport[] {
@@ -307,14 +266,11 @@ function getList(): AIPAirport[] {
     const eadGeneratedList = flattenEadFromGenerated();
     const asecnaList = flattenAsecna();
     const russiaList = flattenRussia();
-    const dynamicList = flattenDynamic();
     const byIcao = new Map<string, AIPAirport>();
     for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of asecnaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
     for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    // Dynamic scraper countries must override any static/EAD match for same ICAO.
-    for (const a of dynamicList) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
     cachedList = Array.from(byIcao.values());
   }
   return cachedList;

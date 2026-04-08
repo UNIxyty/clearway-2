@@ -22,24 +22,15 @@ const RUS_AIP_RUNS_DIR = join(PROJECT_ROOT, "downloads", "rus-aip", "by-icao");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
-const AUTO_INPUT_CLOSE_MS = 60_000;
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
 const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
-const DYNAMIC_PACKAGES_PATH = join(PROJECT_ROOT, "data", "dynamic-packages.json");
-const DYNAMIC_AIRPORTS_PATH = join(PROJECT_ROOT, "data", "dynamic-airports.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
-const SCRAPER_AD2_BY_ICAO = new Map();
-const SCRAPER_GEN_BY_ICAO = new Map();
-const BELARUS_AMDT_URLS = [
-  "https://www.ban.by/ru/sbornik-aip/amdt",
-  "https://www.ban.by/sbornik-aip/amdt",
-];
 
 function requireAuth(req) {
   if (!SYNC_SECRET) return true;
@@ -92,80 +83,7 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
   });
 }
 
-function runWithInput(cmd, args, inputLines = [], env = process.env) {
-  return new Promise((resolve, reject) => {
-    // Keep stdin writable open until the child exits. Several scrapers create readline on
-    // stdin *before* long async fetches; calling end() immediately makes Node deliver early
-    // EOF and readline closes with "readline was closed" before prompts run.
-    const child = spawn(cmd, args, {
-      cwd: PROJECT_ROOT,
-      env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    let settled = false;
-    let closeInputTimer = null;
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
-    const endStdin = () => {
-      if (closeInputTimer) {
-        clearTimeout(closeInputTimer);
-        closeInputTimer = null;
-      }
-      try {
-        child.stdin?.end();
-      } catch {}
-    };
-    const timeout = setTimeout(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {}
-      endStdin();
-      if (!settled) {
-        settled = true;
-        reject(new Error(`Timeout: ${cmd} ${args.join(" ")}`));
-      }
-    }, RUN_TIMEOUT_MS);
-    child.on("error", (err) => {
-      clearTimeout(timeout);
-      endStdin();
-      if (!settled) {
-        settled = true;
-        reject(err);
-      }
-    });
-    child.on("close", (code) => {
-      clearTimeout(timeout);
-      endStdin();
-      if (settled) return;
-      settled = true;
-      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-800)}`));
-      else resolve();
-    });
-    try {
-      const payload = [...inputLines, ""].join("\n");
-      child.stdin?.write(payload);
-      // Avoid indefinite hangs if the scraper asks for more input than provided.
-      closeInputTimer = setTimeout(() => {
-        endStdin();
-      }, AUTO_INPUT_CLOSE_MS);
-    } catch (err) {
-      clearTimeout(timeout);
-      endStdin();
-      if (!settled) {
-        settled = true;
-        reject(err);
-      }
-    }
-  });
-}
-
 async function runDownload(icao) {
-  if (isScraperIcao(icao)) {
-    await stageScraperAd2Pdf(icao);
-    return;
-  }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
@@ -176,253 +94,6 @@ async function runDownload(icao) {
     return;
   }
   await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
-}
-
-function normalizeCountryKey(v) {
-  return String(v || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[’]/g, "'")
-    .trim()
-    .toLowerCase();
-}
-
-function parseJsonFile(filePath, fallback) {
-  try {
-    return JSON.parse(readFileSync(filePath, "utf8"));
-  } catch {
-    return fallback;
-  }
-}
-
-async function fetchTextStrict(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
-  return await res.text();
-}
-
-async function fetchBytesStrict(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Fetch failed (${res.status}) for ${url}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
-function getDynamicData() {
-  const packages = parseJsonFile(DYNAMIC_PACKAGES_PATH, { countries: [] });
-  const airports = parseJsonFile(DYNAMIC_AIRPORTS_PATH, { airports: [] });
-  return {
-    packages: Array.isArray(packages.countries) ? packages.countries : [],
-    airports: Array.isArray(airports.airports) ? airports.airports : [],
-  };
-}
-
-function findScraperCountryByIcao(icao) {
-  const { airports, packages } = getDynamicData();
-  const row = airports.find((a) => String(a.icao || "").toUpperCase() === icao);
-  if (row) return String(row.country || "");
-  for (const pkg of packages) {
-    const match = (pkg?.ad2Icaos || []).some((code) => String(code || "").toUpperCase() === icao);
-    if (match) return String(pkg?.countryName || "");
-  }
-  return null;
-}
-
-function findScraperPackageByCountry(country) {
-  if (!country) return null;
-  const key = normalizeCountryKey(country);
-  const { packages } = getDynamicData();
-  return (
-    packages.find((p) => normalizeCountryKey(String(p.countryName || "")) === key)
-    || null
-  );
-}
-
-function listPdfCandidates(dirPath) {
-  if (!dirPath || !existsSync(dirPath)) return [];
-  return readdirSync(dirPath)
-    .filter((f) => /\.pdf$/i.test(f))
-    .map((name) => {
-      const full = join(dirPath, name);
-      let mtimeMs = 0;
-      try {
-        mtimeMs = statSync(full).mtimeMs;
-      } catch {
-        mtimeMs = 0;
-      }
-      return { name, full, mtimeMs };
-    })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
-}
-
-function parseBelarusEffectiveDates(amdtHtml) {
-  const rows = [...String(amdtHtml || "").matchAll(/eAIP\s*EFFECTIVE\s*DATE\s*(\d{4}-\d{2}-\d{2})/gi)].map((m) => m[1]);
-  return [...new Set(rows)];
-}
-
-function pickNewestIsoDate(dates) {
-  const sorted = [...dates].sort((a, b) => String(b).localeCompare(String(a)));
-  return sorted[0] || null;
-}
-
-function belarusDateToPackageCode(date) {
-  const m = String(date || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  return `${m[1].slice(-2)}${m[2]}${m[3]}`;
-}
-
-async function fetchBelarusMenuWithDate() {
-  let lastErr = "unknown";
-  for (const amdtUrl of BELARUS_AMDT_URLS) {
-    try {
-      const amdtHtml = await fetchTextStrict(amdtUrl);
-      const dates = parseBelarusEffectiveDates(amdtHtml);
-      const newest = pickNewestIsoDate(dates);
-      if (!newest) continue;
-      const pkgCode = belarusDateToPackageCode(newest);
-      if (!pkgCode) continue;
-      const indexUrl = `https://www.ban.by/AIP/Belarus${pkgCode}/html/index.html`;
-      const indexHtml = await fetchTextStrict(indexUrl);
-      const frameMatch = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i);
-      if (!frameMatch?.[1]) throw new Error("Belarus menu frame not found");
-      const menuUrl = new URL(frameMatch[1], indexUrl).href;
-      const menuHtml = await fetchTextStrict(menuUrl);
-      return { newestDate: newest, menuUrl, menuHtml };
-    } catch (err) {
-      lastErr = err?.message || String(err);
-    }
-  }
-  throw new Error(`Belarus amendments lookup failed: ${lastErr}`);
-}
-
-async function ensureBelarusAd2Pdf(icao, pkg) {
-  const { newestDate, menuUrl, menuHtml } = await fetchBelarusMenuWithDate();
-  const rx = new RegExp(`href="([^"]*\\/pdf\\/(UM_AD_2_${icao}_en\\.pdf))"`, "i");
-  const m = menuHtml.match(rx);
-  if (!m?.[1] || !m?.[2]) throw new Error(`Belarus AD2 PDF for ${icao} not found in newest package`);
-  const pdfUrl = new URL(m[1], menuUrl).href;
-  const outDirRel = pkg?.outputDirs?.ad2 || "downloads/belarus-eaip/AD2";
-  const outDir = join(PROJECT_ROOT, outDirRel);
-  mkdirSync(outDir, { recursive: true });
-  const outPath = join(outDir, `${newestDate}_${m[2]}`);
-  const bytes = await fetchBytesStrict(pdfUrl);
-  writeFileSync(outPath, bytes);
-  return outPath;
-}
-
-async function ensureBelarusGen12Pdf(pkg) {
-  const { newestDate, menuUrl, menuHtml } = await fetchBelarusMenuWithDate();
-  const genMatch = menuHtml.match(/href="([^"]*\/pdf\/(UM_GEN_1_2_en\.pdf))"/i);
-  if (!genMatch?.[1] || !genMatch?.[2]) throw new Error("Belarus GEN 1.2 PDF not found in newest package");
-  const pdfUrl = new URL(genMatch[1], menuUrl).href;
-  const outDirRel = pkg?.outputDirs?.gen || "downloads/belarus-eaip/GEN";
-  const outDir = join(PROJECT_ROOT, outDirRel);
-  mkdirSync(outDir, { recursive: true });
-  const outPath = join(outDir, `${newestDate}_${genMatch[2]}`);
-  const bytes = await fetchBytesStrict(pdfUrl);
-  writeFileSync(outPath, bytes);
-  return outPath;
-}
-
-function pickNewestScraperAd2Pdf(icao, pkg) {
-  const ad2Rel = pkg?.outputDirs?.ad2;
-  if (!ad2Rel) return null;
-  const ad2Dir = join(PROJECT_ROOT, ad2Rel);
-  const candidates = listPdfCandidates(ad2Dir);
-  if (candidates.length === 0) return null;
-  const exact = candidates.find((c) => String(c.name || "").toUpperCase().includes(icao));
-  return (exact || candidates[0]).full;
-}
-
-function parseRunCommand(runCommand, scriptPath) {
-  if (runCommand) {
-    const parts = String(runCommand).trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return { cmd: parts[0], args: parts.slice(1) };
-  }
-  return { cmd: "node", args: [scriptPath] };
-}
-
-async function runScraperAd2Auto(icao, pkg) {
-  const { cmd, args } = parseRunCommand(pkg?.runCommand, pkg?.scriptPath);
-  const attempts = [
-    { extra: [], input: ["", "2", icao] },
-    { extra: ["--insecure"], input: ["", "2", icao] },
-    { extra: [], input: ["1", "2", icao] },
-    { extra: ["--insecure"], input: ["1", "2", icao] },
-    { extra: [], input: ["2", icao] },
-    { extra: ["--insecure"], input: ["2", icao] },
-    { extra: [], input: ["", "2", "1"] },
-    { extra: ["--insecure"], input: ["", "2", "1"] },
-    { extra: [], input: ["1", "2", "1"] },
-    { extra: ["--insecure"], input: ["1", "2", "1"] },
-    { extra: [], input: ["2", "1"] },
-    { extra: ["--insecure"], input: ["2", "1"] },
-  ];
-  let lastErr = "unknown";
-  for (const attempt of attempts) {
-    try {
-      await runWithInput(cmd, [...args, ...attempt.extra], attempt.input);
-      return true;
-    } catch (err) {
-      lastErr = err?.message || String(err);
-    }
-  }
-  throw new Error(`Automatic AD2 scraper run failed for ${icao}: ${lastErr}`);
-}
-
-function pickNewestScraperGenPdf(pkg) {
-  const genRel = pkg?.outputDirs?.gen;
-  if (!genRel) return null;
-  const genDir = join(PROJECT_ROOT, genRel);
-  const candidates = listPdfCandidates(genDir);
-  if (candidates.length === 0) return null;
-  const gen12 = candidates.find((c) => /GEN[-_. ]?1[._-]?2/i.test(c.name));
-  return (gen12 || candidates[0]).full;
-}
-
-async function ensureScraperGenPdf(icao) {
-  const country = findScraperCountryByIcao(icao);
-  if (!country) return null;
-  const pkg = findScraperPackageByCountry(country);
-  if (!pkg) return null;
-  if (normalizeCountryKey(country) === "belarus") {
-    return await ensureBelarusGen12Pdf(pkg);
-  }
-  const { cmd, args } = parseRunCommand(pkg?.runCommand, pkg?.scriptPath);
-  const attempts = [
-    { extra: [], input: ["1", "1"] },
-    { extra: ["--insecure"], input: ["1", "1"] },
-  ];
-  for (const attempt of attempts) {
-    try {
-      await runWithInput(cmd, [...args, ...attempt.extra], attempt.input);
-      const src = pickNewestScraperGenPdf(pkg);
-      if (src) return src;
-    } catch {}
-  }
-  return null;
-}
-
-function isScraperIcao(icao) {
-  return Boolean(findScraperCountryByIcao(icao));
-}
-
-async function stageScraperAd2Pdf(icao) {
-  const country = findScraperCountryByIcao(icao);
-  if (!country) throw new Error(`No dynamic scraper country mapping for ${icao}`);
-  const pkg = findScraperPackageByCountry(country);
-  if (!pkg) throw new Error(`No package metadata for scraper country ${country}`);
-  let src = pickNewestScraperAd2Pdf(icao, pkg);
-  if (!src && normalizeCountryKey(country) === "belarus") {
-    src = await ensureBelarusAd2Pdf(icao, pkg);
-  }
-  if (!src) {
-    await runScraperAd2Auto(icao, pkg);
-    src = pickNewestScraperAd2Pdf(icao, pkg);
-  }
-  if (!src) {
-    throw new Error(`No AD2 PDF found for ${icao} in ${pkg?.outputDirs?.ad2 || "unknown directory"}`);
-  }
-  SCRAPER_AD2_BY_ICAO.set(icao, src);
 }
 
 function mapMetaToAirportRow(meta, icao) {
@@ -503,13 +174,13 @@ async function uploadToS3() {
   );
 }
 
-async function deleteOldFromS3(icao, namespace = "ead") {
+async function deleteOldFromS3(icao) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
   const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
-  const keys = [`aip/${namespace}/${icao}.json`, `aip/${namespace}-pdf/${icao}.pdf`];
+  const keys = [`aip/ead/${icao}.json`, `aip/ead-pdf/${icao}.pdf`];
   for (const Key of keys) {
     try {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key }));
@@ -518,10 +189,6 @@ async function deleteOldFromS3(icao, namespace = "ead") {
 }
 
 function findDownloadedPdf(icao) {
-  if (isScraperIcao(icao)) {
-    const staged = SCRAPER_AD2_BY_ICAO.get(icao);
-    if (staged && existsSync(staged)) return staged;
-  }
   if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
     const icaoUpper = icao.toUpperCase();
@@ -565,7 +232,7 @@ function findDownloadedPdf(icao) {
   return join(EAD_AIP_DIR, files[0]);
 }
 
-async function uploadPdfToS3(icao, namespace = "ead") {
+async function uploadPdfToS3(icao) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
@@ -577,14 +244,14 @@ async function uploadPdfToS3(icao, namespace = "ead") {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: `aip/${namespace}-pdf/${icao}.pdf`,
+      Key: `aip/ead-pdf/${icao}.pdf`,
       Body: body,
       ContentType: "application/pdf",
     })
   );
 }
 
-async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
+async function uploadPerIcaoToS3(icao, data) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket || !data?.airports) return;
@@ -599,7 +266,7 @@ async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: `aip/${namespace}/${icao}.json`,
+      Key: `aip/ead/${icao}.json`,
       Body: body,
       ContentType: "application/json",
     })
@@ -676,17 +343,6 @@ async function runRwandaGenDownload() {
 }
 
 async function runGenDownloadForIcao(icao, prefix) {
-  if (isScraperIcao(icao)) {
-    const country = findScraperCountryByIcao(icao);
-    const pkg = findScraperPackageByCountry(country);
-    let src = pickNewestScraperGenPdf(pkg);
-    if (!src) src = await ensureScraperGenPdf(icao);
-    if (!src) {
-      throw new Error(`No GEN PDF found for ${country || icao} in ${pkg?.outputDirs?.gen || "unknown directory"}`);
-    }
-    SCRAPER_GEN_BY_ICAO.set(icao, src);
-    return;
-  }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
@@ -699,10 +355,6 @@ async function runGenDownloadForIcao(icao, prefix) {
 }
 
 function findDownloadedGenPdf(icao, prefix) {
-  if (isScraperIcao(icao)) {
-    const staged = SCRAPER_GEN_BY_ICAO.get(icao);
-    if (staged && existsSync(staged)) return staged;
-  }
   if (isRussiaIcao(icao)) {
     if (!existsSync(RUS_AIP_RUNS_DIR)) return null;
     const icaoUpper = icao.toUpperCase();
@@ -733,7 +385,7 @@ function findDownloadedGenPdf(icao, prefix) {
   return existsSync(eadGenPdf) ? eadGenPdf : null;
 }
 
-async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
+async function uploadGenPdfToS3(icao, prefix) {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
   if (!bucket) return;
@@ -745,9 +397,7 @@ async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: namespace === "scraper-gen-pdf"
-        ? `aip/scraper-gen-pdf/${icao}-GEN-1.2.pdf`
-        : `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
+      Key: `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
       Body: body,
       ContentType: "application/pdf",
     })
@@ -775,9 +425,6 @@ const server = createServer(async (req, res) => {
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
   const shouldExtract = !(url.searchParams.get("extract") === "0" || url.searchParams.get("extract") === "false");
-  const scraperRequested = url.searchParams.get("scraper") === "1" || url.searchParams.get("scraper") === "true";
-  const useScraperFlow = scraperRequested || isScraperIcao(icao);
-  const aipNamespace = useScraperFlow ? "scraper" : "ead";
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
@@ -809,7 +456,7 @@ const server = createServer(async (req, res) => {
     try {
       await runGenDownloadForIcao(icao, prefix);
       if (process.env.AWS_S3_BUCKET) {
-        await uploadGenPdfToS3(icao, prefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
+        await uploadGenPdfToS3(icao, prefix);
         if (stream) {
           send({ step: GEN_STEPS[1] });
           send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });
@@ -878,11 +525,11 @@ const server = createServer(async (req, res) => {
 
   try {
     send({ step: AIP_STEPS[0] });
-    if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao, aipNamespace);
+    if (process.env.AWS_S3_BUCKET && shouldExtract) await deleteOldFromS3(icao);
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
     if (process.env.AWS_S3_BUCKET) {
-      await uploadPdfToS3(icao, aipNamespace);
+      await uploadPdfToS3(icao);
       send({ step: AIP_STEPS[2] });
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
@@ -898,7 +545,7 @@ const server = createServer(async (req, res) => {
       send({ step: AIP_STEPS[4] });
       if (process.env.AWS_S3_BUCKET) {
         await uploadToS3();
-        await uploadPerIcaoToS3(icao, data, aipNamespace);
+        await uploadPerIcaoToS3(icao, data);
       }
     } else {
       send({ step: "Extraction skipped (PDF only)." });

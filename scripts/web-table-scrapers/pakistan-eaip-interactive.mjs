@@ -13,11 +13,9 @@
  * Usage:
  *   node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs
  *   node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs --insecure
- *   node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs --collect
  */
 
 import readline from "node:readline/promises";
-import { collectMode, printCollectJson } from "./_collect-json.mjs";
 import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -222,30 +220,12 @@ function pickIssueFromInput(raw, issues) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs [--insecure] [--collect]");
+    console.log("Usage: node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs [--insecure]");
     return;
   }
   if (process.argv.includes("--insecure")) {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     console.error("[PK] TLS verification disabled (--insecure)\n");
-  }
-
-  if (collectMode()) {
-    try {
-      const issues = await fetchIssuePackages();
-      if (!issues.length) throw new Error("No effective-date packages found.");
-      const issue = issues.find((x) => x.latest) ?? issues[0];
-      const leftUrl = new URL("left.htm", issue.issueUrl).href;
-      const leftHtml = await fetchText(leftUrl);
-      const ad2Entries = parseAd2EntriesFromLeftHtml(leftHtml, leftUrl);
-      const d = parseDate(issue.effectiveDate);
-      const effectiveDate = d && !Number.isNaN(d.valueOf()) ? d.toISOString().slice(0, 10) : null;
-      printCollectJson({ effectiveDate, ad2Icaos: ad2Entries.map((e) => e.icao) });
-    } catch (err) {
-      console.error("[PK] collect failed:", err?.message || err);
-      process.exit(1);
-    }
-    return;
   }
 
   let rl = null;

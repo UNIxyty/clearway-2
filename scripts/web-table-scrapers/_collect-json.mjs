@@ -7,6 +7,21 @@ export function collectMode(argv = process.argv) {
   return argv.includes("--collect");
 }
 
+const NON_ICAO_TOKENS = new Set([
+  "EAIP",
+  "AIPM",
+  "AD2A",
+  "GEN1",
+  "GEN2",
+  "AMDT",
+  "SUPP",
+  "AIRA",
+  "HTML",
+  "PDFS",
+  "NONE",
+  "NULL",
+]);
+
 /** First ISO date (YYYY-MM-DD) found in a string, or null. */
 export function isoDateFromText(value) {
   const s = String(value || "");
@@ -45,7 +60,7 @@ export function printCollectJson({ effectiveDate, ad2Icaos }) {
     ...new Set(
       (ad2Icaos || [])
         .map((x) => String(x).toUpperCase().trim())
-        .filter((x) => /^[A-Z]{4}$/.test(x)),
+        .filter((x) => /^[A-Z]{4}$/.test(x) && !NON_ICAO_TOKENS.has(x)),
     ),
   ].sort((a, b) => a.localeCompare(b));
   let ed = null;

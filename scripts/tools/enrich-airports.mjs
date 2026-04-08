@@ -135,7 +135,7 @@ function matchesCountry(countryA, countryB) {
 function isValidIcao(icao) {
   const up = String(icao || "").trim().toUpperCase();
   if (!/^[A-Z]{4}$/.test(up)) return false;
-  const banned = new Set(["AMDT", "AIRA", "AIPM", "AD2A", "GEN1", "HTML", "PDFS", "NONE", "NULL"]);
+  const banned = new Set(["AMDT", "AIRA", "AIPM", "AD2A", "GEN1", "GEN2", "EAIP", "HTML", "PDFS", "NONE", "NULL"]);
   return !banned.has(up);
 }
 

@@ -30,6 +30,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "AD2");
 const START_INDEX_URL =
   "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html";
 const FETCH_TIMEOUT_MS = 45_000;
+const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-lk-scraper/1.0)";
 
 function stripHtml(value) {
@@ -57,18 +58,28 @@ function normalizeRelativeHref(href) {
 }
 
 async function fetchText(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": UA },
-    });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
-  } finally {
-    clearTimeout(timeout);
+  let lastError = null;
+  for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": UA },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (err) {
+      lastError = err;
+      if (attempt < FETCH_RETRIES) {
+        const waitMs = 500 * attempt;
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  throw lastError || new Error("fetch failed");
 }
 
 async function parseIssuesFromDropdown(indexUrl) {

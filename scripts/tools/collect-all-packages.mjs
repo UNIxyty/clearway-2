@@ -37,12 +37,26 @@ function toIcaoFromFilename(name) {
 }
 
 function normalizeIcaoList(values) {
+  const nonIcaoTokens = new Set([
+    "EAIP",
+    "AIPM",
+    "AD2A",
+    "GEN1",
+    "GEN2",
+    "AMDT",
+    "SUPP",
+    "AIRA",
+    "HTML",
+    "PDFS",
+    "NONE",
+    "NULL",
+  ]);
   const seen = new Set();
   let droppedInvalid = 0;
   for (const raw of Array.isArray(values) ? values : []) {
     const token = String(raw || "").trim().toUpperCase();
     if (!token) continue;
-    if (!/^[A-Z]{4}$/.test(token)) {
+    if (!/^[A-Z]{4}$/.test(token) || nonIcaoTokens.has(token)) {
       droppedInvalid += 1;
       continue;
     }

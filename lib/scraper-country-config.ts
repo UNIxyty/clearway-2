@@ -24,7 +24,7 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   },
   {
     country: "Bosnia and Herzegovina",
-    aliases: ["Bosnia"],
+    aliases: ["Bosnia", "Bosnia/Herzeg", "Bosnia/Herzeg."],
     prefixes: ["LQ"],
     webAipUrl: "https://eaip.bhansa.gov.ba",
   },
@@ -35,6 +35,8 @@ function normalizeCountry(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[’]/g, "'")
+    .replace(/[./_-]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }

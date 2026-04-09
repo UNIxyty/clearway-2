@@ -142,6 +142,10 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
   chad: ["Tchad", "Chad"],
   rwanda: ["Rwanda"],
   togo: ["Togo"],
+  "bosnia/herzeg": ["Bosnia", "Bosnia and Herzegovina", "Bosnia/Herzeg", "Bosnia/Herzeg."],
+  "bosnia/herzeg.": ["Bosnia", "Bosnia and Herzegovina", "Bosnia/Herzeg", "Bosnia/Herzeg."],
+  bosnia: ["Bosnia", "Bosnia and Herzegovina", "Bosnia/Herzeg", "Bosnia/Herzeg."],
+  "bosnia and herzegovina": ["Bosnia", "Bosnia and Herzegovina", "Bosnia/Herzeg", "Bosnia/Herzeg."],
 };
 
 function buildCountryCandidates(country?: string | null): string[] {
@@ -524,13 +528,17 @@ async function flattenBahrainCountry(countryName: string): Promise<AIPAirport[]>
 }
 
 async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirport[]> {
-  const normalized = String(countryName || "").trim().toLowerCase();
+  const normalized = String(countryName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[./_-]+/g, " ")
+    .replace(/\s+/g, " ");
   const meta =
-    normalized === "belarus"
+    normalized.includes("belarus")
       ? await getBelarusMeta()
-      : normalized === "bhutan"
+      : normalized.includes("bhutan")
         ? await getBhutanMeta()
-        : normalized === "bosnia and herzegovina" || normalized === "bosnia"
+        : normalized.includes("bosnia")
           ? await getBosniaMeta()
           : null;
   if (!meta) return [];
@@ -575,11 +583,15 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")?.trim() || null;
 
   const dbResults = await fetchVisibleAirportsFromDb(country, state);
-  if (dbResults !== null && (!country || dbResults.length > 0 || !isAsecnaCountry(country))) {
-    return NextResponse.json(
-      { results: dbResults },
-      { headers: { "Cache-Control": "no-store, max-age=0" } }
-    );
+  if (dbResults !== null) {
+    const allowEmptyDbResult =
+      !country || (!isAsecnaCountry(country) && !isScraperCountryName(country));
+    if (dbResults.length > 0 || allowEmptyDbResult) {
+      return NextResponse.json(
+        { results: dbResults },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
+    }
   }
 
   if (country === "United States of America" && state) {

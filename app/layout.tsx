@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "Clearway AIP Data Lookup Portal",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans">
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

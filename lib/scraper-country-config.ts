@@ -49,6 +49,26 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     prefixes: ["MU"],
     webAipUrl: "https://aismet.avianet.cu/html/aip.html",
   },
+  {
+    country: "Ecuador",
+    prefixes: ["SE"],
+    webAipUrl: "https://www.ais.aviacioncivil.gob.ec/ifis3/",
+  },
+  {
+    country: "El Salvador",
+    prefixes: ["MS"],
+    webAipUrl: "https://www.cocesna.org/aipca/AIPMS/history.html",
+  },
+  {
+    country: "Guatemala",
+    prefixes: ["MG"],
+    webAipUrl: "https://www.dgac.gob.gt/home/aip_e/",
+  },
+  {
+    country: "Honduras",
+    prefixes: ["MH"],
+    webAipUrl: "https://www.cocesna.org/aipca/AIPMH/history.html",
+  },
 ];
 
 function normalizeCountry(value: string): string {

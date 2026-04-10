@@ -2454,34 +2454,68 @@ function AIPPortalPageInner() {
                       }
                       onClick={async () => {
                         if (!viewingAirport?.icao) return;
+                        const icao = viewingAirport.icao;
+                        const pushPdfStep = (step: string) => {
+                          setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
+                        };
                         setPdfDownloadError(null);
                         setPdfDownloading(true);
+                        setAipEadLoadingIcao(icao);
+                        setAipEadSyncingIcao(icao);
+                        setAipEadSyncRequestedIcao(null);
+                        setAipEadSyncSteps(["Checking PDF cache on server…"]);
+                        let slowHintTimer: number | null = null;
                         try {
-                          const pdfRoute = isAsecnaIcao(viewingAirport.icao)
+                          const pdfRoute = isAsecnaIcao(icao)
                             ? "/api/aip/asecna/pdf"
-                            : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
+                            : isBahrainScraperIcao(icao, viewingAirport)
                               ? "/api/aip/scraper/pdf"
                               : "/api/aip/ead/pdf";
+                          const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, {
+                            method: "HEAD",
+                            cache: "no-store",
+                          }).catch(() => null);
+                          if (headRes?.ok) {
+                            pushPdfStep("Cached PDF found in storage.");
+                          } else {
+                            pushPdfStep("PDF missing in cache. Triggering source download…");
+                          }
+                          slowHintTimer = window.setTimeout(() => {
+                            pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes.");
+                          }, 12000);
+                          pushPdfStep("Downloading PDF bytes…");
                           const res = await fetch(
-                            `${pdfRoute}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`
+                            `${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`
                           );
                           if (!res.ok) {
                             const data = await res.json().catch(() => ({}));
                             const msg = data.detail || data.error || "Failed to load PDF";
+                            pushPdfStep(`Failed: ${msg}`);
                             setPdfDownloadError(msg);
                             return;
                           }
+                          pushPdfStep("Preparing file for browser download…");
                           const blob = await res.blob();
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = url;
-                          a.download = `${viewingAirport.icao}_${isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "SCRAPER" : "AIP"}_AD2.pdf`;
+                          a.download = `${icao}_${isAsecnaIcao(icao) ? "ASECNA" : isBahrainScraperIcao(icao, viewingAirport) ? "SCRAPER" : "AIP"}_AD2.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
+                          setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+                          setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+                          pushPdfStep("Download started.");
                         } catch (err) {
+                          pushPdfStep("Failed to download PDF.");
                           setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
                         } finally {
+                          if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
                           setPdfDownloading(false);
+                          window.setTimeout(() => {
+                            setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
+                            setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+                            setAipEadSyncSteps((prev) => (prev.length ? [] : prev));
+                          }, 900);
                         }
                       }}
                     >

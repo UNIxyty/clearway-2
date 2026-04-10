@@ -88,6 +88,34 @@ const SCRAPER_COUNTRY_SPECS = [
     ad2Dir: join(PROJECT_ROOT, "downloads", "cuba-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "cuba-aip", "GEN"),
   },
+  {
+    country: "Ecuador",
+    prefixes: ["SE"],
+    script: "scripts/web-table-scrapers/ecuador-ifis3-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "ecuador-ifis3", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "ecuador-ifis3", "GEN"),
+  },
+  {
+    country: "El Salvador",
+    prefixes: ["MS"],
+    script: "scripts/web-table-scrapers/el-salvador-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "el-salvador-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "el-salvador-eaip", "GEN"),
+  },
+  {
+    country: "Guatemala",
+    prefixes: ["MG"],
+    script: "scripts/web-table-scrapers/guatemala-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "guatemala-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "guatemala-eaip", "GEN"),
+  },
+  {
+    country: "Honduras",
+    prefixes: ["MH"],
+    script: "scripts/web-table-scrapers/honduras-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "honduras-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "honduras-eaip", "GEN"),
+  },
 ];
 
 function requireAuth(req) {

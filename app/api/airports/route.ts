@@ -16,6 +16,10 @@ import {
   getChileMeta,
   getCostaRicaMeta,
   getCubaMeta,
+  getEcuadorMeta,
+  getElSalvadorMeta,
+  getGuatemalaMeta,
+  getHondurasMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
@@ -559,6 +563,14 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                 ? await getCostaRicaMeta()
                 : normalized.includes("cuba")
                   ? await getCubaMeta()
+                    : normalized.includes("ecuador")
+                      ? await getEcuadorMeta()
+                      : normalized.includes("el salvador")
+                        ? await getElSalvadorMeta()
+                        : normalized.includes("guatemala")
+                          ? await getGuatemalaMeta()
+                          : normalized.includes("honduras")
+                            ? await getHondurasMeta()
           : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {

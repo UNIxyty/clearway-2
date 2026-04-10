@@ -22,6 +22,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "guatemala-eaip", "AD2");
 
 const HISTORY_URL = "https://www.dgac.gob.gt/home/aip_e/";
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -146,7 +151,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log(`Usage: node scripts/web-table-scrapers/guatemala-eaip-interactive.mjs [--insecure] [--collect]`);
+    console.log(`Usage: node scripts/web-table-scrapers/guatemala-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/guatemala-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/guatemala-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -184,17 +191,48 @@ async function main() {
     const issues = parseIssues(historyHtml);
     if (!issues.length) throw new Error("No issue links found.");
 
-    console.error("--- Available issues ---\n");
-    issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.effectiveDate}  ${x.issueCode}`));
+    const autoMode = Boolean(downloadAd2Icao || downloadGen12);
+    let issue;
+    if (autoMode) {
+      issue = pickNewestIssueByIso(issues, (x) => `${x.effectiveDate} ${x.issueCode}`);
+      console.error(`Auto-selected newest issue: ${issue.issueCode}`);
+    } else {
+      console.error("--- Available issues ---\n");
+      issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.effectiveDate}  ${x.issueCode}`));
 
-    rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
-    const issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.effectiveDate} ${x.issueCode}`);
+      rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
+      issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.effectiveDate} ${x.issueCode}`);
+    }
 
     const indexHtml = await fetchText(issue.indexUrl);
     const { tocUrl } = parseMenuUrl(indexHtml, issue.indexUrl);
     const tocHtml = await fetchText(tocUrl);
     const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
     const menuHtml = await fetchText(menuUrl);
+
+    if (downloadGen12) {
+      const entries = parseGenEntries(menuHtml, menuUrl);
+      if (!entries.length) throw new Error("No GEN entries found.");
+      const chosen = entries.find((e) => /\b1\.2\b/.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+      const pdfUrl = htmlToPdfUrl(chosen.htmlUrl);
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${issue.issueCode}_GEN_${chosen.anchor}.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Guatemala menu: ${downloadAd2Icao}`);
+      const pdfUrl = htmlToPdfUrl(chosen.htmlUrl);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${issue.issueCode}_${chosen.icao}_AD2.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     console.error(`\nSelected: ${issue.effectiveDate} (${issue.issueCode})`);
     console.error(`Menu: ${menuUrl}\n`);

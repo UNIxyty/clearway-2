@@ -5,6 +5,10 @@ const CABO_VERDE_WEB_AIP_URL = "https://eaip.asa.cv";
 const CHILE_WEB_AIP_URL = "https://aipchile.dgac.gob.cl/aip/vol1";
 const COSTA_RICA_WEB_AIP_URL = "https://www.cocesna.org/aipca/AIPMR/inicio.html";
 const CUBA_WEB_AIP_URL = "https://aismet.avianet.cu/html/aip.html";
+const ECUADOR_WEB_AIP_URL = "https://www.ais.aviacioncivil.gob.ec/ifis3/";
+const EL_SALVADOR_WEB_AIP_URL = "https://www.cocesna.org/aipca/AIPMS/history.html";
+const GUATEMALA_WEB_AIP_URL = "https://www.dgac.gob.gt/home/aip_e/";
+const HONDURAS_WEB_AIP_URL = "https://www.ahac.gob.hn/eAIP1/inicio.html";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -24,6 +28,10 @@ let caboVerdeCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let chileCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let costaRicaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let cubaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let ecuadorCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let elSalvadorCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let guatemalaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let hondurasCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   const controller = new AbortController();
@@ -169,6 +177,77 @@ function parseCubaAd2Icaos(html: string): string[] {
     if (icao) out.push(icao);
   }
   return normalizeIcaos(out);
+}
+
+function parseEcuadorAd2Icaos(html: string): string[] {
+  const out: string[] = [];
+  const re = /<a[^>]*href=["']([^"']*\/ifis3\/aip\/AD%202%20([A-Z]{4})[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(html))) {
+    const icao = String(m[2] || "").toUpperCase();
+    if (icao) out.push(icao);
+  }
+  return normalizeIcaos(out);
+}
+
+function parseCocesnaIssues(historyHtml: string, baseUrl: string): Array<{ issueCode: string; indexUrl: string; ts: number }> {
+  const out: Array<{ issueCode: string; indexUrl: string; ts: number }> = [];
+  const re = /<a[^>]*href=["']([^"']*index-es-ES\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const rawHref = m[1];
+    const decodedHref = decodeURIComponent(rawHref);
+    const issueCode =
+      decodedHref.match(/(\d{4}-\d{2}-\d{2}-(?:NON|DOUBLE|AIRAC)[^/]+)/i)?.[1] ??
+      decodedHref.replace(/\/html\/index-es-ES\.html$/i, "");
+    const iso = issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+    const ts = iso ? new Date(`${iso}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({
+      issueCode,
+      indexUrl: new URL(normalizeRelativeHref(rawHref), baseUrl).href,
+      ts,
+    });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseMenuUrlFromIndex(indexHtml: string, indexUrl: string): string | null {
+  const tocUrlMatch = indexHtml.match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  if (!tocUrlMatch) return null;
+  return new URL(tocUrlMatch, indexUrl).href;
+}
+
+function parseMenuUrlFromToc(tocHtml: string, tocUrl: string): string | null {
+  const menuFrame = tocHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  return menuFrame ? new URL(menuFrame, tocUrl).href : null;
+}
+
+function parseCocesnaAd2Icaos(menuHtml: string): string[] {
+  const out = [
+    ...[...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})[^"']*\.html#[^"']*/gi)].map((m) => String(m[1] || "").toUpperCase()),
+    ...[...menuHtml.matchAll(/AD[-\s]*2[.-]([A-Z0-9]{4})/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  ];
+  return normalizeIcaos(out);
+}
+
+function parseGuatemalaIssues(historyHtml: string): Array<{ issueCode: string; effectiveDate: string | null; indexUrl: string; ts: number }> {
+  const re = /<a[^>]*href="([^"]*index-es-ES\.html)"[^>]*>([^<]+)<\/a>/gi;
+  const out: Array<{ issueCode: string; effectiveDate: string | null; indexUrl: string; ts: number }> = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const href = m[1];
+    const effectiveDateRaw = String(m[2] || "").trim();
+    const issueCode = href.match(/(\d{4}-\d{2}-\d{2}-(?:AIRAC|DOUBLE AIRAC))/i)?.[1] ?? href;
+    const effectiveDate = parseIssueDateCode(effectiveDateRaw) ?? issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+    const ts = effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({
+      issueCode,
+      effectiveDate,
+      indexUrl: new URL(href, GUATEMALA_WEB_AIP_URL).href,
+      ts,
+    });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
 }
 
 function parseBosniaMenuAd2Icaos(menuHtml: string): string[] {
@@ -368,6 +447,107 @@ async function resolveCubaMetaLive(): Promise<ScraperMeta> {
   };
 }
 
+async function resolveEcuadorMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(ECUADOR_WEB_AIP_URL);
+  return {
+    country: "Ecuador",
+    effectiveDate: null,
+    ad2Icaos: parseEcuadorAd2Icaos(html),
+    webAipUrl: ECUADOR_WEB_AIP_URL,
+  };
+}
+
+async function resolveElSalvadorMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(EL_SALVADOR_WEB_AIP_URL);
+  const issues = parseCocesnaIssues(historyHtml, EL_SALVADOR_WEB_AIP_URL);
+  const issue = issues[0];
+  if (!issue) {
+    return {
+      country: "El Salvador",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: EL_SALVADOR_WEB_AIP_URL,
+    };
+  }
+  const effectiveDate = issue.issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.indexUrl);
+  if (!tocUrl) return { country: "El Salvador", effectiveDate, ad2Icaos: [], webAipUrl: EL_SALVADOR_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "El Salvador", effectiveDate, ad2Icaos: [], webAipUrl: EL_SALVADOR_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  return {
+    country: "El Salvador",
+    effectiveDate,
+    ad2Icaos: parseCocesnaAd2Icaos(menuHtml),
+    webAipUrl: EL_SALVADOR_WEB_AIP_URL,
+  };
+}
+
+async function resolveGuatemalaMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(GUATEMALA_WEB_AIP_URL);
+  const issues = parseGuatemalaIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) {
+    return {
+      country: "Guatemala",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: GUATEMALA_WEB_AIP_URL,
+    };
+  }
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrlMatch = indexHtml.match(/<frame[^>]*name="eAISNavigationBase"[^>]*src="([^"]+)"/i)?.[1];
+  const tocUrl = tocUrlMatch ? new URL(tocUrlMatch, issue.indexUrl).href : new URL("toc-frameset-es-ES.html", issue.indexUrl).href;
+  const tocHtml = await fetchText(tocUrl);
+  const menuFrame = tocHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+  if (!menuFrame) {
+    return { country: "Guatemala", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: GUATEMALA_WEB_AIP_URL };
+  }
+  const menuUrl = new URL(menuFrame, tocUrl).href;
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})-[^"]*\.html#AD-2(?:\.eAIP)?(?:\.[A-Z0-9]{4})?/gi)].map((m) =>
+      String(m[1] || "").toUpperCase(),
+    ),
+  );
+  return {
+    country: "Guatemala",
+    effectiveDate: issue.effectiveDate,
+    ad2Icaos,
+    webAipUrl: GUATEMALA_WEB_AIP_URL,
+  };
+}
+
+async function resolveHondurasMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(HONDURAS_WEB_AIP_URL);
+  const issues = parseCocesnaIssues(historyHtml, HONDURAS_WEB_AIP_URL);
+  const issue = issues[0];
+  if (!issue) {
+    return {
+      country: "Honduras",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: HONDURAS_WEB_AIP_URL,
+    };
+  }
+  const effectiveDate = issue.issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.indexUrl);
+  if (!tocUrl) return { country: "Honduras", effectiveDate, ad2Icaos: [], webAipUrl: HONDURAS_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Honduras", effectiveDate, ad2Icaos: [], webAipUrl: HONDURAS_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  return {
+    country: "Honduras",
+    effectiveDate,
+    ad2Icaos: parseCocesnaAd2Icaos(menuHtml),
+    webAipUrl: HONDURAS_WEB_AIP_URL,
+  };
+}
+
 export async function getBelarusMeta(): Promise<ScraperMeta> {
   if (belarusCache && Date.now() < belarusCache.expiresAt) return belarusCache.value;
   try {
@@ -447,5 +627,54 @@ export async function getCubaMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return cubaCache?.value ?? { country: "Cuba", effectiveDate: null, ad2Icaos: [], webAipUrl: CUBA_WEB_AIP_URL };
+  }
+}
+
+export async function getEcuadorMeta(): Promise<ScraperMeta> {
+  if (ecuadorCache && Date.now() < ecuadorCache.expiresAt) return ecuadorCache.value;
+  try {
+    const value = await withTimeout(resolveEcuadorMetaLive(), FETCH_TIMEOUT_MS * 4);
+    ecuadorCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return ecuadorCache?.value ?? { country: "Ecuador", effectiveDate: null, ad2Icaos: [], webAipUrl: ECUADOR_WEB_AIP_URL };
+  }
+}
+
+export async function getElSalvadorMeta(): Promise<ScraperMeta> {
+  if (elSalvadorCache && Date.now() < elSalvadorCache.expiresAt) return elSalvadorCache.value;
+  try {
+    const value = await withTimeout(resolveElSalvadorMetaLive(), FETCH_TIMEOUT_MS * 4);
+    elSalvadorCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return elSalvadorCache?.value ?? {
+      country: "El Salvador",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: EL_SALVADOR_WEB_AIP_URL,
+    };
+  }
+}
+
+export async function getGuatemalaMeta(): Promise<ScraperMeta> {
+  if (guatemalaCache && Date.now() < guatemalaCache.expiresAt) return guatemalaCache.value;
+  try {
+    const value = await withTimeout(resolveGuatemalaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    guatemalaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return guatemalaCache?.value ?? { country: "Guatemala", effectiveDate: null, ad2Icaos: [], webAipUrl: GUATEMALA_WEB_AIP_URL };
+  }
+}
+
+export async function getHondurasMeta(): Promise<ScraperMeta> {
+  if (hondurasCache && Date.now() < hondurasCache.expiresAt) return hondurasCache.value;
+  try {
+    const value = await withTimeout(resolveHondurasMetaLive(), FETCH_TIMEOUT_MS * 4);
+    hondurasCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return hondurasCache?.value ?? { country: "Honduras", effectiveDate: null, ad2Icaos: [], webAipUrl: HONDURAS_WEB_AIP_URL };
   }
 }

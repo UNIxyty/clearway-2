@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import aipData from "@/data/aip-data.json";
 import airportCoords from "@/data/airport-coords.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import {
@@ -110,6 +113,15 @@ type RUSAirportRow = {
 
 type RUSData = {
   airports?: RUSAirportRow[];
+};
+
+type DbAirportRow = {
+  country: string | null;
+  icao: string | null;
+  name: string | null;
+  lat: number | null;
+  lon: number | null;
+  web_aip_url?: string | null;
 };
 
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
@@ -422,6 +434,102 @@ async function refreshDynamicList(): Promise<void> {
   return dynamicRefreshInFlight;
 }
 
+async function getCurrentUserId(): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  const cookieStore = cookies();
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: () => {},
+    },
+  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+function mapDbRowToAirport(row: DbAirportRow): AIPAirport | null {
+  const icao = String(row.icao ?? "").toUpperCase();
+  if (!icao) return null;
+  const coord = coordsMap[icao];
+  return {
+    country: row.country ?? "",
+    gen1_2: "",
+    gen1_2_point_4: "",
+    icao,
+    name: row.name ?? `${icao} Airport`,
+    publicationDate: "",
+    trafficPermitted: "",
+    trafficRemarks: "",
+    ad22Operator: "",
+    ad22Address: "",
+    ad22Telephone: "",
+    ad22Telefax: "",
+    ad22Email: "",
+    ad22Afs: "",
+    ad22Website: "",
+    operator: "",
+    customsImmigration: "",
+    ats: "",
+    atsRemarks: "",
+    fireFighting: "",
+    runwayNumber: "",
+    runwayDimensions: "",
+    lat: row.lat ?? coord?.lat,
+    lon: row.lon ?? coord?.lon,
+    sourceType: "DB_DYNAMIC",
+    dynamicUpdated: true,
+    webAipUrl: String(row.web_aip_url ?? "").trim() || undefined,
+  };
+}
+
+async function searchVisibleAirportsFromDb(q: string, userId: string | null): Promise<AIPAirport[]> {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return [];
+  const term = String(q || "").trim().replace(/[,%*]/g, "");
+  if (!term) return [];
+  const qUp = term.toUpperCase();
+
+  let query = service
+    .from("airports")
+    .select("country,icao,name,lat,lon,web_aip_url")
+    .eq("visible", true)
+    .order("icao", { ascending: true });
+
+  if (qUp.length === 4) {
+    query = query.eq("icao", qUp);
+  } else {
+    query = query.or(`icao.ilike.%${term}%,name.ilike.%${term}%,country.ilike.%${term}%`);
+  }
+
+  const { data, error } = await query.limit(400);
+  if (error) return [];
+  const rows = ((data ?? []) as DbAirportRow[]).filter((r) => r?.icao);
+  if (!rows.length) return [];
+
+  let visibleRows = rows;
+  if (userId) {
+    const icaos = rows.map((r) => String(r.icao || "").toUpperCase()).filter(Boolean);
+    if (icaos.length > 0) {
+      const { data: hiddenRows } = await service
+        .from("deleted_airports")
+        .select("icao")
+        .eq("deleted_by", userId)
+        .is("restored_at", null)
+        .in("icao", icaos);
+      const hiddenSet = new Set((hiddenRows ?? []).map((r) => String((r as { icao?: string }).icao ?? "").toUpperCase()));
+      visibleRows = rows.filter((r) => !hiddenSet.has(String(r.icao ?? "").toUpperCase()));
+    }
+  }
+
+  return visibleRows
+    .map(mapDbRowToAirport)
+    .filter((a): a is AIPAirport => Boolean(a));
+}
+
 function getAllEadIcaos(): Set<string> {
   const data = getEadCountryIcaos();
   const set = new Set<string>();
@@ -445,13 +553,20 @@ export async function GET(request: NextRequest) {
 
   // Fast path: return cached/static list immediately and refresh scraper metadata in background.
   void refreshDynamicList();
-  const list = cachedList;
-  let results = list.filter(
+  const baseResults = cachedList.filter(
     (a) =>
       a.icao.toUpperCase().includes(qUpper) ||
       a.name.toUpperCase().includes(qUpper) ||
       a.country.toUpperCase().includes(qUpper)
   );
+
+  const userId = await getCurrentUserId();
+  const dbResults = await searchVisibleAirportsFromDb(q, userId);
+  const mergedByIcao = new Map<string, AIPAirport>();
+  for (const airport of baseResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
+  // Prefer DB rows when available so all visible airports are searchable.
+  for (const airport of dbResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
+  let results = Array.from(mergedByIcao.values());
 
   // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
   if (qUpper.length === 4) {

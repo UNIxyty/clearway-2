@@ -2697,11 +2697,11 @@ function AIPPortalPageInner() {
                             Some airports serve large files slowly. The sync is still running unless an error appears.
                           </p>
                           {aipEadSyncSteps.length > 0 && (
-                            <ul className="list-disc pl-5 space-y-1">
-                              {aipEadSyncSteps.slice(-4).map((step, i) => (
-                                <li key={`${step}-${i}`}>{step}</li>
+                            <div className="rounded border border-amber-300/60 bg-amber-100/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
+                              {aipEadSyncSteps.map((step, i) => (
+                                <div key={`${step}-${i}`}>{step}</div>
                               ))}
-                            </ul>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2720,11 +2720,11 @@ function AIPPortalPageInner() {
                             </span>
                           </div>
                           {aipEadSyncSteps.length > 0 && (
-                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
+                            <div className="rounded border border-border/60 bg-background/70 p-2 font-mono text-[11px] leading-5 text-muted-foreground whitespace-pre-wrap">
                               {aipEadSyncSteps.map((step, i) => (
-                                <li key={i}>{step}</li>
+                                <div key={i}>{step}</div>
                               ))}
-                            </ul>
+                            </div>
                           )}
                           {aipEadSyncSteps.length === 0 && (
                             <span className="text-xs text-muted-foreground">

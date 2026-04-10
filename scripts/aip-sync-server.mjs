@@ -60,6 +60,34 @@ const SCRAPER_COUNTRY_SPECS = [
     ad2Dir: join(PROJECT_ROOT, "downloads", "bosnia-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "bosnia-eaip", "GEN"),
   },
+  {
+    country: "Republic of Cabo Verde",
+    prefixes: ["GV"],
+    script: "scripts/web-table-scrapers/cabo-verde-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "cabo-verde-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "cabo-verde-eaip", "GEN"),
+  },
+  {
+    country: "Chile",
+    prefixes: ["SC"],
+    script: "scripts/web-table-scrapers/chile-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "chile-aip", "AD2A"),
+    genDir: join(PROJECT_ROOT, "downloads", "chile-aip", "GEN"),
+  },
+  {
+    country: "Costa Rica",
+    prefixes: ["MR"],
+    script: "scripts/web-table-scrapers/costa-rica-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "costa-rica-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "costa-rica-eaip", "GEN"),
+  },
+  {
+    country: "Cuba",
+    prefixes: ["MU"],
+    script: "scripts/web-table-scrapers/cuba-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "cuba-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "cuba-aip", "GEN"),
+  },
 ];
 
 function requireAuth(req) {

@@ -6,7 +6,15 @@ import rusAirportsDb from "@/data/rus-aip-international-airports.json";
 import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
-import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
+import {
+  getBelarusMeta,
+  getBhutanMeta,
+  getBosniaMeta,
+  getCaboVerdeMeta,
+  getChileMeta,
+  getCostaRicaMeta,
+  getCubaMeta,
+} from "@/lib/scraper-batch-meta";
 import { isScraperCountryName } from "@/lib/scraper-country-config";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
@@ -301,12 +309,16 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
 }
 
 async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
-  const [belarus, bhutan, bosnia] = await Promise.all([
+  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba] = await Promise.all([
     getBelarusMeta(),
     getBhutanMeta(),
     getBosniaMeta(),
+    getCaboVerdeMeta(),
+    getChileMeta(),
+    getCostaRicaMeta(),
+    getCubaMeta(),
   ]);
-  const metas = [belarus, bhutan, bosnia];
+  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba];
   const out: AIPAirport[] = [];
   for (const meta of metas) {
     for (const icao of meta.ad2Icaos) {

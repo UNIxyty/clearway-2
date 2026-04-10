@@ -750,6 +750,8 @@ function AIPPortalPageInner() {
         event.preventDefault();
         setBrowseCountrySearch((prev) => prev.slice(0, -1));
       } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        // Prevent native key insertion when we programmatically focus the search input.
+        event.preventDefault();
         setBrowseCountrySearch((prev) => prev + event.key);
       } else {
         return;

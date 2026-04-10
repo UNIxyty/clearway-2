@@ -8,7 +8,15 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
-import { getBelarusMeta, getBhutanMeta, getBosniaMeta } from "@/lib/scraper-batch-meta";
+import {
+  getBelarusMeta,
+  getBhutanMeta,
+  getBosniaMeta,
+  getCaboVerdeMeta,
+  getChileMeta,
+  getCostaRicaMeta,
+  getCubaMeta,
+} from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
 export const dynamic = "force-dynamic";
@@ -131,6 +139,9 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
   guinea: ["Guinée", "Guinea"],
   "guinee bissau": ["Guinée Bissau", "Guinea-Bissau"],
   "guinea-bissau": ["Guinée Bissau", "Guinea-Bissau"],
+  "republic of cabo verde": ["Republic of Cabo Verde", "Cabo Verde", "Cape Verde"],
+  "cabo verde": ["Republic of Cabo Verde", "Cabo Verde", "Cape Verde"],
+  "cape verde": ["Republic of Cabo Verde", "Cabo Verde", "Cape Verde"],
   madagascar: ["Madagascar"],
   mali: ["Mali"],
   mauritanie: ["Mauritanie", "Mauritania"],
@@ -540,6 +551,14 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
         ? await getBhutanMeta()
         : normalized.includes("bosnia")
           ? await getBosniaMeta()
+          : normalized.includes("cabo verde") || normalized.includes("cape verde")
+            ? await getCaboVerdeMeta()
+            : normalized.includes("chile")
+              ? await getChileMeta()
+              : normalized.includes("costa rica")
+                ? await getCostaRicaMeta()
+                : normalized.includes("cuba")
+                  ? await getCubaMeta()
           : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {

@@ -30,6 +30,11 @@ const VOL1_URL = "https://aipchile.dgac.gob.cl/aip/vol1";
 const GEN_URL = "https://aipchile.dgac.gob.cl/aip/vol1/seccion/gen";
 const AD_URL = "https://aipchile.dgac.gob.cl/aip/vol1/seccion/ad";
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -147,7 +152,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/chile-aip-interactive.mjs [--insecure] [--collect]");
+    console.log(`Usage: node scripts/web-table-scrapers/chile-aip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/chile-aip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/chile-aip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -180,6 +187,25 @@ async function main() {
     const ad2aEntries = parseAd2aEntries(adHtml, AD_URL);
     if (!genEntries.length) throw new Error("No GEN PDF entries found.");
     if (!ad2aEntries.length) throw new Error("No AD2a PDF entries found.");
+
+    if (downloadGen12) {
+      const chosen = genEntries.find((e) => /\bGEN[-_. ]?1[._-]?2\b/i.test(e.section) || /\bGEN[-_. ]?1[._-]?2\b/i.test(e.label)) ?? genEntries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename("GEN-1.2.pdf"));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const chosen = ad2aEntries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Chile AD2a list: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2A, { recursive: true });
+      const outFile = join(OUT_AD2A, safeFilename(`${chosen.icao}_AD2A.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
 

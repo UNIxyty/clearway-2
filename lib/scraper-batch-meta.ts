@@ -1,6 +1,10 @@
 const BELARUS_WEB_AIP_URL = "https://www.ban.by/ru/sbornik-aip/amdt";
 const BHUTAN_WEB_AIP_URL = "https://www.doat.gov.bt/aip/";
 const BOSNIA_WEB_AIP_URL = "https://eaip.bhansa.gov.ba";
+const CABO_VERDE_WEB_AIP_URL = "https://eaip.asa.cv";
+const CHILE_WEB_AIP_URL = "https://aipchile.dgac.gob.cl/aip/vol1";
+const COSTA_RICA_WEB_AIP_URL = "https://www.cocesna.org/aipca/AIPMR/inicio.html";
+const CUBA_WEB_AIP_URL = "https://aismet.avianet.cu/html/aip.html";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -16,6 +20,10 @@ const NON_ICAO = new Set(["EAIP", "AIPM", "AD2A", "GEN1", "GEN2", "AMDT", "SUPP"
 let belarusCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let bhutanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let bosniaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let caboVerdeCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let chileCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let costaRicaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let cubaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   const controller = new AbortController();
@@ -75,6 +83,92 @@ function parseIssueDateCode(effectiveDate: string): string | null {
   const month = String(months[m[2].toUpperCase()] || "").padStart(2, "0");
   if (!month) return null;
   return `${m[3]}-${month}-${day}`;
+}
+
+function normalizeRelativeHref(href: string): string {
+  const clean = String(href || "").trim().replace(/\\/g, "/");
+  const [pathAndQuery, hashPart] = clean.split("#", 2);
+  const [rawPath, rawQuery] = pathAndQuery.split("?", 2);
+  const encodedPath = rawPath
+    .split("/")
+    .map((part) => {
+      try {
+        return encodeURIComponent(decodeURIComponent(part));
+      } catch {
+        return encodeURIComponent(part);
+      }
+    })
+    .join("/");
+  return `${encodedPath}${rawQuery ? `?${rawQuery}` : ""}${hashPart ? `#${hashPart}` : ""}`;
+}
+
+function parseCaboVerdeIssues(historyHtml: string): Array<{ effectiveDate: string; issueCode: string; indexUrl: string; ts: number }> {
+  const re = /<a[^>]*href="([^"]*AIRAC\/html\/index-[^"]+\.html)"[^>]*>([^<]+)<\/a>/gi;
+  const out: Array<{ effectiveDate: string; issueCode: string; indexUrl: string; ts: number }> = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const href = m[1];
+    const effectiveDate = String(m[2] || "").trim();
+    const issueCode = href.match(/(\d{4}-\d{2}-\d{2}-AIRAC)/i)?.[1] ?? href;
+    const iso = issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+    const ts = iso ? new Date(`${iso}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({
+      effectiveDate,
+      issueCode,
+      indexUrl: new URL(href, CABO_VERDE_WEB_AIP_URL).href,
+      ts,
+    });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseCostaRicaIssues(historyHtml: string): Array<{ label: string; issueCode: string; indexUrl: string; ts: number }> {
+  const out: Array<{ label: string; issueCode: string; indexUrl: string; ts: number }> = [];
+  const re = /<a[^>]*href=["']([^"']*index-es-ES\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const rawHref = m[1];
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const decodedHref = decodeURIComponent(rawHref);
+    const issueCode =
+      decodedHref.match(/(\d{4}-\d{2}-\d{2}-(?:NON|DOUBLE|AIRAC)[^/]+)/i)?.[1] ??
+      decodedHref.replace(/\/html\/index-es-ES\.html$/i, "");
+    const iso = issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+    const ts = iso ? new Date(`${iso}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({
+      label,
+      issueCode,
+      indexUrl: new URL(normalizeRelativeHref(rawHref), COSTA_RICA_WEB_AIP_URL).href,
+      ts,
+    });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseChileAd2aIcaos(html: string): string[] {
+  const out: string[] = [];
+  const re = /<a[^>]*href=["']([^"']+\.pdf)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(html))) {
+    const href = String(m[1] || "");
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ");
+    if (!/AD\s*2a\s*Aeropuertos/i.test(href) && !/AD\s*2a/i.test(label)) continue;
+    const icao = href.match(/\b(SC[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase() || label.match(/\b(SC[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase();
+    if (icao) out.push(icao);
+  }
+  return normalizeIcaos(out);
+}
+
+function parseCubaAd2Icaos(html: string): string[] {
+  const out: string[] = [];
+  const re = /<a[^>]*href=["']([^"']+MU[A-Z0-9_%]*\.pdf[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(html))) {
+    const href = String(m[1] || "");
+    const icao = href.match(/\/(MU[A-Z0-9]{2})/i)?.[1]?.toUpperCase();
+    if (icao) out.push(icao);
+  }
+  return normalizeIcaos(out);
 }
 
 function parseBosniaMenuAd2Icaos(menuHtml: string): string[] {
@@ -169,6 +263,111 @@ async function resolveBosniaMetaLive(): Promise<ScraperMeta> {
   };
 }
 
+async function resolveCaboVerdeMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(CABO_VERDE_WEB_AIP_URL);
+  const issues = parseCaboVerdeIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) {
+    return {
+      country: "Republic of Cabo Verde",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: CABO_VERDE_WEB_AIP_URL,
+    };
+  }
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrlMatch = indexHtml.match(/<frame[^>]*name="eAISNavigationBase"[^>]*src="([^"]+)"/i)?.[1];
+  const tocUrl = tocUrlMatch ? new URL(tocUrlMatch, issue.indexUrl).href : new URL("toc-frameset-en-GB.html", issue.indexUrl).href;
+  const tocHtml = await fetchText(tocUrl);
+  const menuFrame = tocHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+  if (!menuFrame) {
+    return {
+      country: "Republic of Cabo Verde",
+      effectiveDate: issue.issueCode.slice(0, 10),
+      ad2Icaos: [],
+      webAipUrl: CABO_VERDE_WEB_AIP_URL,
+    };
+  }
+  const menuUrl = new URL(menuFrame, tocUrl).href;
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/GV-AD-2\.([A-Z0-9]{4})-en-GB\.html#AD-2\.\1/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Republic of Cabo Verde",
+    effectiveDate: issue.issueCode.slice(0, 10),
+    ad2Icaos,
+    webAipUrl: CABO_VERDE_WEB_AIP_URL,
+  };
+}
+
+async function resolveChileMetaLive(): Promise<ScraperMeta> {
+  const adHtml = await fetchText("https://aipchile.dgac.gob.cl/aip/vol1/seccion/ad");
+  return {
+    country: "Chile",
+    effectiveDate: null,
+    ad2Icaos: parseChileAd2aIcaos(adHtml),
+    webAipUrl: CHILE_WEB_AIP_URL,
+  };
+}
+
+async function resolveCostaRicaMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(COSTA_RICA_WEB_AIP_URL);
+  const issues = parseCostaRicaIssues(historyHtml);
+  const issue = issues[0];
+  const effectiveDate = issue?.issueCode?.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+  if (!issue) {
+    return {
+      country: "Costa Rica",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: COSTA_RICA_WEB_AIP_URL,
+    };
+  }
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrlMatch = indexHtml.match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  if (!tocUrlMatch) {
+    return {
+      country: "Costa Rica",
+      effectiveDate,
+      ad2Icaos: [],
+      webAipUrl: COSTA_RICA_WEB_AIP_URL,
+    };
+  }
+  const tocUrl = new URL(tocUrlMatch, issue.indexUrl).href;
+  const tocHtml = await fetchText(tocUrl);
+  const menuFrame = tocHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  if (!menuFrame) {
+    return {
+      country: "Costa Rica",
+      effectiveDate,
+      ad2Icaos: [],
+      webAipUrl: COSTA_RICA_WEB_AIP_URL,
+    };
+  }
+  const menuUrl = new URL(menuFrame, tocUrl).href;
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})[^"']*\.html#[^"']*/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Costa Rica",
+    effectiveDate,
+    ad2Icaos,
+    webAipUrl: COSTA_RICA_WEB_AIP_URL,
+  };
+}
+
+async function resolveCubaMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(CUBA_WEB_AIP_URL);
+  return {
+    country: "Cuba",
+    effectiveDate: null,
+    ad2Icaos: parseCubaAd2Icaos(html),
+    webAipUrl: CUBA_WEB_AIP_URL,
+  };
+}
+
 export async function getBelarusMeta(): Promise<ScraperMeta> {
   if (belarusCache && Date.now() < belarusCache.expiresAt) return belarusCache.value;
   try {
@@ -199,5 +398,54 @@ export async function getBosniaMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return bosniaCache?.value ?? { country: "Bosnia and Herzegovina", effectiveDate: null, ad2Icaos: [], webAipUrl: BOSNIA_WEB_AIP_URL };
+  }
+}
+
+export async function getCaboVerdeMeta(): Promise<ScraperMeta> {
+  if (caboVerdeCache && Date.now() < caboVerdeCache.expiresAt) return caboVerdeCache.value;
+  try {
+    const value = await withTimeout(resolveCaboVerdeMetaLive(), FETCH_TIMEOUT_MS * 4);
+    caboVerdeCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return caboVerdeCache?.value ?? {
+      country: "Republic of Cabo Verde",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: CABO_VERDE_WEB_AIP_URL,
+    };
+  }
+}
+
+export async function getChileMeta(): Promise<ScraperMeta> {
+  if (chileCache && Date.now() < chileCache.expiresAt) return chileCache.value;
+  try {
+    const value = await withTimeout(resolveChileMetaLive(), FETCH_TIMEOUT_MS * 4);
+    chileCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return chileCache?.value ?? { country: "Chile", effectiveDate: null, ad2Icaos: [], webAipUrl: CHILE_WEB_AIP_URL };
+  }
+}
+
+export async function getCostaRicaMeta(): Promise<ScraperMeta> {
+  if (costaRicaCache && Date.now() < costaRicaCache.expiresAt) return costaRicaCache.value;
+  try {
+    const value = await withTimeout(resolveCostaRicaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    costaRicaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return costaRicaCache?.value ?? { country: "Costa Rica", effectiveDate: null, ad2Icaos: [], webAipUrl: COSTA_RICA_WEB_AIP_URL };
+  }
+}
+
+export async function getCubaMeta(): Promise<ScraperMeta> {
+  if (cubaCache && Date.now() < cubaCache.expiresAt) return cubaCache.value;
+  try {
+    const value = await withTimeout(resolveCubaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    cubaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return cubaCache?.value ?? { country: "Cuba", effectiveDate: null, ad2Icaos: [], webAipUrl: CUBA_WEB_AIP_URL };
   }
 }

@@ -28,6 +28,27 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     prefixes: ["LQ"],
     webAipUrl: "https://eaip.bhansa.gov.ba",
   },
+  {
+    country: "Republic of Cabo Verde",
+    aliases: ["Cabo Verde", "Cape Verde"],
+    prefixes: ["GV"],
+    webAipUrl: "https://eaip.asa.cv",
+  },
+  {
+    country: "Chile",
+    prefixes: ["SC"],
+    webAipUrl: "https://aipchile.dgac.gob.cl/aip/vol1",
+  },
+  {
+    country: "Costa Rica",
+    prefixes: ["MR"],
+    webAipUrl: "https://www.cocesna.org/aipca/AIPMR/inicio.html",
+  },
+  {
+    country: "Cuba",
+    prefixes: ["MU"],
+    webAipUrl: "https://aismet.avianet.cu/html/aip.html",
+  },
 ];
 
 function normalizeCountry(value: string): string {

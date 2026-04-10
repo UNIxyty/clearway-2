@@ -107,12 +107,23 @@ function toIssueCode(dateStr) {
   return `${year}-${month}-${day}`;
 }
 
-function parseIndexAndMenuUrls(indexHtml, indexUrl) {
-  const frameMatch = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i);
-  const frameSrc = frameMatch?.[1];
-  if (!frameSrc) throw new Error("Could not find eAISNavigation frame in selected issue index.");
-  const menuUrl = new URL(frameSrc, indexUrl).href;
-  return { menuUrl };
+async function resolveMenuUrl(indexHtml, indexUrl) {
+  const directFrame = indexHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+  if (directFrame) {
+    return new URL(directFrame, indexUrl).href;
+  }
+
+  const baseFrame = indexHtml.match(/<frame[^>]*name="eAISNavigationBase"[^>]*src="([^"]+)"/i)?.[1];
+  if (baseFrame) {
+    const baseUrl = new URL(baseFrame, indexUrl).href;
+    const baseHtml = await fetchText(baseUrl);
+    const nestedFrame = baseHtml.match(/<frame[^>]*name="eAISNavigation"[^>]*src="([^"]+)"/i)?.[1];
+    if (nestedFrame) {
+      return new URL(nestedFrame, baseUrl).href;
+    }
+  }
+
+  throw new Error("Could not find eAISNavigation frame in selected issue index.");
 }
 
 function parseGenEntries(menuHtml, menuUrl) {
@@ -252,7 +263,7 @@ Interactive flow:
       if (!issues.length) throw new Error("Could not parse effective-date issues.");
       const issue = issues[0];
       const indexHtml = await fetchText(issue.indexUrl);
-      const { menuUrl } = parseIndexAndMenuUrls(indexHtml, issue.indexUrl);
+      const menuUrl = await resolveMenuUrl(indexHtml, issue.indexUrl);
       const menuHtml = await fetchText(menuUrl);
       const entries = parseAd2Entries(menuHtml, menuUrl);
       printCollectJson({ effectiveDate: issue.code, ad2Icaos: entries.map((e) => e.icao) });
@@ -293,25 +304,32 @@ Interactive flow:
 
     if (!issues.length) throw new Error("Could not parse effective-date issues.");
 
-    console.error("--- Effective-date issues ---\n");
-    issues.slice(0, 30).forEach((issue, i) => {
-      const descOneLine = issue.description.replace(/\s+/g, " ").trim();
-      console.error(`${String(i + 1).padStart(3)}. ${issue.effectiveDate}  (${issue.code})  ${descOneLine}`);
-    });
-    if (issues.length > 30) {
-      console.error(`... and ${issues.length - 30} more (search by typing date/code).\n`);
+    const autoMode = Boolean(downloadGen12 || downloadAd2Icao);
+    let issue;
+    if (autoMode) {
+      issue = issues[0];
+      console.error(`Auto-selected newest issue: ${issue.code}`);
+    } else {
+      console.error("--- Effective-date issues ---\n");
+      issues.slice(0, 30).forEach((item, i) => {
+        const descOneLine = item.description.replace(/\s+/g, " ").trim();
+        console.error(`${String(i + 1).padStart(3)}. ${item.effectiveDate}  (${item.code})  ${descOneLine}`);
+      });
+      if (issues.length > 30) {
+        console.error(`... and ${issues.length - 30} more (search by typing date/code).\n`);
+      }
+
+      rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
+      issue = await pickFromList(
+        rl,
+        `\nPick issue number 1-${issues.length} or type date/code: `,
+        issues,
+        (x) => `${x.effectiveDate} ${x.code} ${x.description}`
+      );
     }
 
-    rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
-    const issue = await pickFromList(
-      rl,
-      `\nPick issue number 1-${issues.length} or type date/code: `,
-      issues,
-      (x) => `${x.effectiveDate} ${x.code} ${x.description}`
-    );
-
     const indexHtml = await fetchText(issue.indexUrl);
-    const { menuUrl } = parseIndexAndMenuUrls(indexHtml, issue.indexUrl);
+    const menuUrl = await resolveMenuUrl(indexHtml, issue.indexUrl);
     const menuHtml = await fetchText(menuUrl);
 
     if (downloadGen12) {

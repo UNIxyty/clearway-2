@@ -118,7 +118,7 @@ const SCRAPER_COUNTRY_SPECS = [
   },
   {
     country: "Hong Kong",
-    prefixes: ["VH"],
+    prefixes: ["VH", "VM"],
     script: "scripts/web-table-scrapers/hong-kong-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "hong-kong-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "hong-kong-eaip", "GEN"),
@@ -172,15 +172,26 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
     const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
+    const emitLines = (text) => {
+      if (typeof onStdoutLine !== "function") return;
+      const lines = String(text)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      for (const line of lines) onStdoutLine(line);
+    };
     child.stdout?.on("data", (chunk) => {
       const text = chunk.toString();
       stdout += text;
-      if (typeof onStdoutLine === "function") {
-        const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-        for (const line of lines) onStdoutLine(line);
-      }
+      emitLines(text);
     });
-    child.stderr?.on("data", (chunk) => { stderr += chunk; });
+    child.stderr?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      // Some scraper progress logs are printed to stderr (e.g., chunk progress).
+      // Forward them so portal loading UI can show live download progress.
+      emitLines(text);
+    });
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new Error(`Timeout: ${cmd} ${args.join(" ")}`));

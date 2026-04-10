@@ -72,7 +72,7 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
     country: "Hong Kong",
     aliases: ["Hongkong"],
-    prefixes: ["VH"],
+    prefixes: ["VH", "VM"],
     webAipUrl: "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",
   },
   {

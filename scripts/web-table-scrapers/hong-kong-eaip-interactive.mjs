@@ -110,7 +110,7 @@ function parseGenEntries(menuHtml, menuUrl) {
 }
 
 function parseAd2Entries(menuHtml, menuUrl) {
-  const re = /<a[^>]*href="([^"]*VH-AD-2[-.]([A-Z0-9]{4})-en-US\.html#(?:AD-2[-.]\2|i[^"]*))"[^>]*>([\s\S]*?)<\/a>/gi;
+  const re = /<a[^>]*href="([^"]*(?:VH|VM)-AD-2[-.]([A-Z0-9]{4})-en-US\.html#(?:AD-2[-.]\2|i[^"]*))"[^>]*>([\s\S]*?)<\/a>/gi;
   const byIcao = new Map();
   let m;
   while ((m = re.exec(menuHtml))) {

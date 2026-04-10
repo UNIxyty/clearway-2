@@ -622,7 +622,7 @@ async function resolveHongKongMetaLive(): Promise<ScraperMeta> {
   if (!menuUrl) return { country: "Hong Kong", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: HONG_KONG_WEB_AIP_URL };
   const menuHtml = await fetchText(menuUrl);
   const ad2Icaos = normalizeIcaos(
-    [...menuHtml.matchAll(/VH-AD-2[-.]([A-Z0-9]{4})-en-US\.html#(?:AD-2[-.][A-Z0-9]{4}|i[^"]*)/gi)].map((m) =>
+    [...menuHtml.matchAll(/(?:VH|VM)-AD-2[-.]([A-Z0-9]{4})-en-US\.html#(?:AD-2[-.][A-Z0-9]{4}|i[^"]*)/gi)].map((m) =>
       String(m[1] || "").toUpperCase(),
     ),
   );

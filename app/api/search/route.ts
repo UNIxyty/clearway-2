@@ -374,26 +374,52 @@ async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
   return out;
 }
 
-let cachedList: AIPAirport[] | null = null;
-
-async function getList(): Promise<AIPAirport[]> {
-  if (!cachedList) {
-    const aip = flattenAIP();
-    const eadGeneratedList = flattenEadFromGenerated();
-    const asecnaList = flattenAsecna();
-    const russiaList = flattenRussia();
-    const bahrainList = await flattenBahrain();
-    const scraperBatchList = await flattenScraperCountryMeta();
-    const byIcao = new Map<string, AIPAirport>();
-    for (const a of aip) if (a.icao) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of eadGeneratedList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of asecnaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of russiaList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of bahrainList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    for (const a of scraperBatchList) if (a.icao && !byIcao.has(a.icao.toUpperCase())) byIcao.set(a.icao.toUpperCase(), a);
-    cachedList = Array.from(byIcao.values());
+function mergeByIcao(...lists: AIPAirport[][]): AIPAirport[] {
+  const byIcao = new Map<string, AIPAirport>();
+  for (const list of lists) {
+    for (const a of list) {
+      if (!a?.icao) continue;
+      const key = a.icao.toUpperCase();
+      if (!byIcao.has(key)) byIcao.set(key, a);
+    }
   }
-  return cachedList;
+  return Array.from(byIcao.values());
+}
+
+function buildBaseList(): AIPAirport[] {
+  const aip = flattenAIP();
+  const eadGeneratedList = flattenEadFromGenerated();
+  const asecnaList = flattenAsecna();
+  const russiaList = flattenRussia();
+  return mergeByIcao(aip, eadGeneratedList, asecnaList, russiaList);
+}
+
+let cachedList: AIPAirport[] = buildBaseList();
+let dynamicRefreshInFlight: Promise<void> | null = null;
+let dynamicRefreshedAt = 0;
+const DYNAMIC_REFRESH_TTL_MS = 10 * 60 * 1000;
+
+async function refreshDynamicList(): Promise<void> {
+  const now = Date.now();
+  if (dynamicRefreshInFlight) return dynamicRefreshInFlight;
+  if (now - dynamicRefreshedAt < DYNAMIC_REFRESH_TTL_MS) return;
+
+  dynamicRefreshInFlight = (async () => {
+    try {
+      const [bahrainList, scraperBatchList] = await Promise.all([
+        flattenBahrain(),
+        flattenScraperCountryMeta(),
+      ]);
+      cachedList = mergeByIcao(buildBaseList(), bahrainList, scraperBatchList);
+      dynamicRefreshedAt = Date.now();
+    } catch {
+      // Keep search fast even when external scraper metadata sources are slow/down.
+    } finally {
+      dynamicRefreshInFlight = null;
+    }
+  })();
+
+  return dynamicRefreshInFlight;
 }
 
 function getAllEadIcaos(): Set<string> {
@@ -417,7 +443,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const list = await getList();
+  // Fast path: return cached/static list immediately and refresh scraper metadata in background.
+  void refreshDynamicList();
+  const list = cachedList;
   let results = list.filter(
     (a) =>
       a.icao.toUpperCase().includes(qUpper) ||

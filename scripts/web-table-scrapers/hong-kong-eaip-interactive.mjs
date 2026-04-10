@@ -11,12 +11,11 @@
 import readline from "node:readline/promises";
 import { collectMode, printCollectJson, pickNewestIssueByIso, isoDateFromText } from "./_collect-json.mjs";
 import { stdin as input, stderr } from "node:process";
-import { appendFileSync, createWriteStream, existsSync, mkdirSync, unlinkSync, writeFileSync } from "fs";
+import { appendFileSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import http from "node:http";
 import https from "node:https";
-import { once } from "node:events";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -26,7 +25,6 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "hong-kong-eaip", "AD2");
 const HISTORY_URL = "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html";
 const FETCH_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 120_000;
-const DOWNLOAD_CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB for faster download
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
   return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
@@ -136,7 +134,7 @@ function htmlToPdfUrl(htmlUrl) {
 
 async function downloadPdf(url, outFile) {
   const userAgent = "Mozilla/5.0 (compatible; clearway-hk-scraper/1.0)";
-  const chunkSize = DOWNLOAD_CHUNK_SIZE;
+  const chunkSize = 2 * 1024 * 1024;
 
   async function requestBinary(requestUrl, redirectCount = 0, extraHeaders = {}, method = "GET") {
     if (redirectCount > 5) throw new Error("Too many redirects while downloading PDF.");
@@ -210,91 +208,20 @@ async function downloadPdf(url, outFile) {
     throw lastError || new Error("Unknown download failure.");
   }
 
-  async function downloadDirectStreamWithRetry(requestUrl, totalLength) {
-    let lastError = null;
-    const retries = 2;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS * 2);
-      try {
-        const res = await fetch(requestUrl, {
-          signal: controller.signal,
-          headers: {
-            "User-Agent": userAgent,
-            Accept: "application/pdf,*/*",
-          },
-        });
-        if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("No response body stream");
-
-        if (existsSync(outFile)) unlinkSync(outFile);
-        const file = createWriteStream(outFile, { flags: "w" });
-        let received = 0;
-        let nextPct = 5;
-        let nextMbLog = 20;
-
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!value) continue;
-          const chunk = Buffer.from(value);
-          if (!file.write(chunk)) await once(file, "drain");
-          received += chunk.length;
-          if (totalLength > 0) {
-            const pct = (received / totalLength) * 100;
-            if (pct >= nextPct || received >= totalLength) {
-              console.error(
-                `  stream: ${Math.min(100, pct).toFixed(1)}% (${(received / (1024 * 1024)).toFixed(1)} / ${(totalLength / (1024 * 1024)).toFixed(1)} MB)`
-              );
-              nextPct += 5;
-            }
-          } else if (received / (1024 * 1024) >= nextMbLog) {
-            console.error(`  stream: ${(received / (1024 * 1024)).toFixed(1)} MB downloaded`);
-            nextMbLog += 20;
-          }
-        }
-        file.end();
-        await once(file, "finish");
-        return;
-      } catch (err) {
-        lastError = err;
-        if (attempt < retries) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-    throw lastError || new Error("Direct stream download failed.");
-  }
-
   const head = await requestWithRetry(url, {}, "HEAD");
   const totalLength = Number(head?.length ?? 0);
 
   if (!Number.isFinite(totalLength) || totalLength <= 0) {
     console.error("Downloading PDF (unknown size)...");
-    try {
-      await downloadDirectStreamWithRetry(url, 0);
-      return;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`Direct stream failed (${msg}); falling back to buffered download...`);
-      const bytes = await requestWithRetry(url);
-      writeFileSync(outFile, bytes);
-      return;
-    }
-  }
-
-  console.error(`Downloading PDF (${(totalLength / (1024 * 1024)).toFixed(1)} MB)...`);
-  try {
-    await downloadDirectStreamWithRetry(url, totalLength);
+    const bytes = await requestWithRetry(url);
+    writeFileSync(outFile, bytes);
     return;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`Direct stream failed (${msg}); falling back to ranged chunks...`);
   }
 
   if (existsSync(outFile)) unlinkSync(outFile);
   writeFileSync(outFile, Buffer.alloc(0));
+  console.error(`Downloading PDF (${(totalLength / (1024 * 1024)).toFixed(1)} MB)...`);
+
   let start = 0;
   let chunkIndex = 0;
   while (start < totalLength) {

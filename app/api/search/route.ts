@@ -23,7 +23,7 @@ import {
   getIsraelMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
-import { isScraperCountryName } from "@/lib/scraper-country-config";
+import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -496,6 +496,44 @@ export async function GET(request: NextRequest) {
           fireFighting: "",
           runwayNumber: "",
           runwayDimensions: "",
+        } as AIPAirport,
+      ];
+    }
+
+    // Fast fallback for scraper ICAOs (e.g., VMMC) when dynamic meta refresh is still warming up.
+    const scraperCfg = getScraperCountryByIcao(qUpper);
+    if (scraperCfg && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+      const coord = coordsMap[qUpper];
+      results = [
+        ...results,
+        {
+          country: scraperCfg.country,
+          gen1_2: "",
+          gen1_2_point_4: "",
+          icao: qUpper,
+          name: `${qUpper} Airport`,
+          publicationDate: "",
+          trafficPermitted: "",
+          trafficRemarks: "",
+          ad22Operator: "",
+          ad22Address: "",
+          ad22Telephone: "",
+          ad22Telefax: "",
+          ad22Email: "",
+          ad22Afs: "",
+          ad22Website: "",
+          operator: "",
+          customsImmigration: "",
+          ats: "",
+          atsRemarks: "",
+          fireFighting: "",
+          runwayNumber: "",
+          runwayDimensions: "",
+          lat: coord?.lat,
+          lon: coord?.lon,
+          sourceType: "SCRAPER_DYNAMIC",
+          dynamicUpdated: true,
+          webAipUrl: scraperCfg.webAipUrl,
         } as AIPAirport,
       ];
     }

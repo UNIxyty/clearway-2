@@ -39,33 +39,51 @@ export async function POST(request: Request) {
   }
 
   let targetIcao = icao;
+  let targetDeletedId = Number.isFinite(deletedId) ? deletedId : NaN;
   if (!targetIcao && Number.isFinite(deletedId)) {
     const { data: deleted, error: deletedError } = await service
       .from("deleted_airports")
-      .select("icao")
+      .select("id, icao")
       .eq("id", deletedId)
+      .eq("deleted_by", user.id)
       .maybeSingle();
     if (deletedError) return NextResponse.json({ error: deletedError.message }, { status: 500 });
     targetIcao = String(deleted?.icao || "").toUpperCase();
+    targetDeletedId = Number(deleted?.id ?? NaN);
   }
   if (!targetIcao) return NextResponse.json({ error: "Unable to resolve ICAO" }, { status: 400 });
 
-  const { error: updateError } = await service
-    .from("airports")
-    .update({ visible: true, updated_at: new Date().toISOString() })
-    .eq("icao", targetIcao);
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (!Number.isFinite(targetDeletedId)) {
+    const { data: latestHidden, error: latestHiddenError } = await service
+      .from("deleted_airports")
+      .select("id")
+      .eq("icao", targetIcao)
+      .eq("deleted_by", user.id)
+      .is("restored_at", null)
+      .order("deleted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestHiddenError) return NextResponse.json({ error: latestHiddenError.message }, { status: 500 });
+    targetDeletedId = Number(latestHidden?.id ?? NaN);
+  }
+
+  if (!Number.isFinite(targetDeletedId)) {
+    return NextResponse.json({ error: "No hidden airport found for current user" }, { status: 404 });
+  }
 
   const markRestore = service
     .from("deleted_airports")
     .update({ restored_at: new Date().toISOString() })
-    .eq("icao", targetIcao)
-    .is("restored_at", null);
-  if (Number.isFinite(deletedId)) {
-    markRestore.eq("id", deletedId);
-  }
-  const { error: restoreError } = await markRestore;
+    .eq("id", targetDeletedId)
+    .eq("deleted_by", user.id)
+    .is("restored_at", null)
+    .select("id")
+    .maybeSingle();
+  const { data: restoredRow, error: restoreError } = await markRestore;
   if (restoreError) return NextResponse.json({ error: restoreError.message }, { status: 500 });
+  if (!restoredRow) {
+    return NextResponse.json({ error: "No deletions to restore for current user" }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true });
 }

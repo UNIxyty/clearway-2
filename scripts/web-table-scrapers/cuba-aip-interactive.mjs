@@ -12,6 +12,8 @@ import readline from "node:readline/promises";
 import { collectMode, printCollectJson } from "./_collect-json.mjs";
 import { stdin as input, stdout as output, stderr } from "node:process";
 import { mkdirSync, writeFileSync } from "fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -22,6 +24,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "cuba-aip", "AD2");
 
 const CUBA_AIP_URL = "https://aismet.avianet.cu/html/aip.html";
 const FETCH_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TIMEOUT_MS = 240_000;
+const FETCH_RETRIES = 3;
+const DOWNLOAD_RETRIES = 2;
+const UA = "Mozilla/5.0 (compatible; clearway-cu-scraper/1.0)";
+const execFileAsync = promisify(execFile);
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
   return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
@@ -62,17 +69,105 @@ function normalizeRelativeHref(href) {
 }
 
 async function fetchText(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let lastError = null;
+  for (let attempt = 1; attempt <= DOWNLOAD_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": UA },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (err) {
+      lastError = err;
+      if (attempt < FETCH_RETRIES) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Last resort on hosts where node fetch is flaky for this source.
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; clearway-cu-scraper/1.0)" },
-    });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
-  } finally {
-    clearTimeout(timeout);
+    const { stdout } = await execFileAsync(
+      "curl",
+      [
+        "-fsSL",
+        "--retry",
+        "2",
+        "--retry-delay",
+        "1",
+        "--connect-timeout",
+        "20",
+        "--max-time",
+        String(Math.ceil(FETCH_TIMEOUT_MS / 1000)),
+        "-A",
+        UA,
+        url,
+      ],
+      { maxBuffer: 20 * 1024 * 1024 }
+    );
+    if (String(stdout || "").trim()) return String(stdout);
+  } catch {}
+
+  throw lastError || new Error("fetch failed");
+}
+
+async function downloadPdfWithFallback(url, outFile) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
+      if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
+      const bytes = Buffer.from(await res.arrayBuffer());
+      if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
+      writeFileSync(outFile, bytes);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < DOWNLOAD_RETRIES) {
+        await new Promise((r) => setTimeout(r, 750 * attempt));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  try {
+    const { stdout } = await execFileAsync(
+      "curl",
+      [
+        "-fsSL",
+        "--retry",
+        "2",
+        "--retry-delay",
+        "1",
+        "--connect-timeout",
+        "20",
+        "--max-time",
+        String(Math.ceil(DOWNLOAD_TIMEOUT_MS / 1000)),
+        "-A",
+        UA,
+        url,
+      ],
+      {
+        maxBuffer: 30 * 1024 * 1024,
+        encoding: "buffer",
+      }
+    );
+    const bytes = Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout || "");
+    if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("curl payload is not a PDF");
+    writeFileSync(outFile, bytes);
+    return;
+  } catch (curlErr) {
+    const msg = curlErr instanceof Error ? curlErr.message : String(curlErr);
+    const prev = lastError instanceof Error ? lastError.message : String(lastError || "unknown");
+    throw new Error(`PDF download failed (fetch=${prev}; curl=${msg})`);
   }
 }
 
@@ -118,11 +213,7 @@ function parseAd2Entries(html, baseUrl) {
 }
 
 async function downloadPdf(url, outFile) {
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; clearway-cu-scraper/1.0)" } });
-  if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
-  const bytes = Buffer.from(await res.arrayBuffer());
-  if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
-  writeFileSync(outFile, bytes);
+  await downloadPdfWithFallback(url, outFile);
 }
 
 async function pickFromList(rl, prompt, items, display) {

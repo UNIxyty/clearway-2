@@ -494,19 +494,6 @@
     "AD_Category_for_fire_fighting": "Within AD HR: CAT 4"
   },
   {
-    "country": "Bhutan",
-    "ICAO": "WBSB",
-    "Name": "BRUNEI/International",
-    "AD_Administration_Telephone": "Tel Nr: 673-2-330142/3 & 332337",
-    "Operating_Hours": "Daily H24.",
-    "Types_of_traffic_permitted": "IFR/VFR",
-    "Remarks_AD2_2": "Nil",
-    "Customs_and_immigration": "As AD",
-    "ATS": "H24",
-    "Remarks_AD2_3": "Nil",
-    "AD_Category_for_fire_fighting": "Category 9 (H24)"
-  },
-  {
     "country": "Bulgaria",
     "ICAO": "LBBG",
     "Name": "БУРГАС / BURGAS",

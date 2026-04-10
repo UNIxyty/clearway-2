@@ -3632,18 +3632,6 @@
         "AD2.3 ATS": "During Operational Hrs",
         "AD2.3 Remarks": "Out side those hours, service available O/R. Request to be submitted to the AD 24hrs before intended operation.",
         "AD2.6 AD category for fire fighting": "Within AD HR: CAT 4"
-      },
-      {
-        "row_number": 6,
-        "Airport Code": "WBSB",
-        "Airport Name": "BRUNEI/International",
-        "AD2.2 Types of Traffic Permitted": "IFR/VFR",
-        "AD2.2 Remarks": "Nil",
-        "AD2.3 AD Operator": "Daily H24.",
-        "AD 2.3 Customs and Immigration": "As AD",
-        "AD2.3 ATS": "H24",
-        "AD2.3 Remarks": "Nil",
-        "AD2.6 AD category for fire fighting": "Category 9 (H24)"
       }
     ]
   },

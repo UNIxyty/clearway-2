@@ -256,11 +256,6 @@
         "sourcePageType": "PDF Based"
       },
       {
-        "country": "Brunei",
-        "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
-        "sourcePageType": "PDF Based"
-      },
-      {
         "country": "India",
         "url": "https://aim-india.aai.aero/aip-supplements?page=1",
         "sourcePageType": "Web Table Based"
@@ -557,7 +552,6 @@
     "Afghanistan: https://www.afgais.com/",
     "Bangladesh: http://www.caab.gov.bd/aip/#",
     "Bhutan: https://www.doat.gov.bt/aip/",
-    "Brunei: https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
     "Cambodia: https://aim.cats.com.kh/eaip.html",
     "China: https://www.eaipchina.cn/#/",
     "East Timor (Timor-Leste): https://ru.scribd.com/document/277669067/Timor-Leste-Aip",
@@ -1491,31 +1485,6 @@
       "suggestedIntegration": "needs-manual-or-scraper",
       "linkType": "web_portal_other",
       "linkTypeDescription": "General HTML portal (gov/CMS); not ASECNA / not classified eAIP URL pattern"
-    },
-    {
-      "country": "Brunei",
-      "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
-      "sourcePageType": "PDF Based",
-      "probe": {
-        "url": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
-        "ok": true,
-        "finalUrl": "https://www.dca.gov.bn/Site%20Pages/Information%20TAB/AIP%20Supplements/Aeronautical%20Information%20Publications%20Supplements.aspx",
-        "status": 200,
-        "error": null,
-        "contentType": "text/html; charset=utf-8",
-        "classification": "html",
-        "isLikelyPdf": false,
-        "bytesSampled": 130195,
-        "eaipSignals": [
-          "mentions-AD2"
-        ],
-        "notes": [
-          "signals:mentions-AD2"
-        ]
-      },
-      "suggestedIntegration": "needs-manual-or-scraper",
-      "linkType": "web_portal_listings",
-      "linkTypeDescription": "Portal / listings / supplements page (tables, not full eAIP frame)"
     },
     {
       "country": "Cambodia",

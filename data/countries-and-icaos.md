@@ -363,10 +363,10 @@ DBBB, DBBP
 ```
 
 ### Bhutan
-**5 airports**
+**4 airports**
 
 ```
-VQBT, VQGP, VQPR, VQTY, WBSB
+VQBT, VQGP, VQPR, VQTY
 ```
 
 ### Burkina Faso

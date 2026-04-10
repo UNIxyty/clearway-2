@@ -42,7 +42,6 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
   "Azerbaijan": "az",
   "Belarus": "by",
   "Bhutan": "bt",
-  "Brunei Darussalam": "bn",
   "Bulgaria": "bg",
   "Chile": "cl",
   "Costa Rica": "cr",

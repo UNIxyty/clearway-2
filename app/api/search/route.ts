@@ -18,6 +18,10 @@ import {
   getElSalvadorMeta,
   getGuatemalaMeta,
   getHondurasMeta,
+  getHongKongMeta,
+  getIndiaMeta,
+  getIsraelMeta,
+  getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { isScraperCountryName } from "@/lib/scraper-country-config";
 
@@ -313,7 +317,7 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
 }
 
 async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
-  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras] = await Promise.all([
+  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, japan] = await Promise.all([
     getBelarusMeta(),
     getBhutanMeta(),
     getBosniaMeta(),
@@ -325,8 +329,12 @@ async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
     getElSalvadorMeta(),
     getGuatemalaMeta(),
     getHondurasMeta(),
+    getHongKongMeta(),
+    getIndiaMeta(),
+    getIsraelMeta(),
+    getJapanMeta(),
   ]);
-  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras];
+  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, japan];
   const out: AIPAirport[] = [];
   for (const meta of metas) {
     for (const icao of meta.ad2Icaos) {

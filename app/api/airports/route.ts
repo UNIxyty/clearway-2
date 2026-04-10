@@ -20,6 +20,10 @@ import {
   getElSalvadorMeta,
   getGuatemalaMeta,
   getHondurasMeta,
+  getHongKongMeta,
+  getIndiaMeta,
+  getIsraelMeta,
+  getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
@@ -112,6 +116,7 @@ type DbAirportRow = {
   name: string | null;
   lat: number | null;
   lon: number | null;
+  web_aip_url?: string | null;
 };
 
 function normalizeCountryLabel(country: string): string {
@@ -181,7 +186,8 @@ function buildCountryCandidates(country?: string | null): string[] {
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
   const icao = (row.icao ?? "").toUpperCase();
   const country = row.country ?? "";
-  const scraperWebAip = getScraperWebAipUrlByCountryOrIcao(country, icao);
+  const dbWebAip = String(row.web_aip_url || "").trim() || null;
+  const scraperWebAip = dbWebAip || getScraperWebAipUrlByCountryOrIcao(country, icao);
   return {
     country,
     gen1_2: "",
@@ -221,7 +227,7 @@ async function fetchVisibleAirportsFromDb(country?: string | null, state?: strin
   const countryCandidates = buildCountryCandidates(country);
   let query = service
     .from("airports")
-    .select("country,state,icao,name,lat,lon")
+    .select("country,state,icao,name,lat,lon,web_aip_url")
     .eq("visible", true)
     .order("icao", { ascending: true });
   if (countryCandidates.length === 1) query = query.eq("country", countryCandidates[0]);
@@ -571,6 +577,14 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                           ? await getGuatemalaMeta()
                           : normalized.includes("honduras")
                             ? await getHondurasMeta()
+                            : normalized.includes("hong kong") || normalized.includes("hongkong")
+                              ? await getHongKongMeta()
+                              : normalized.includes("india")
+                                ? await getIndiaMeta()
+                                : normalized.includes("israel")
+                                  ? await getIsraelMeta()
+                                  : normalized.includes("japan")
+                                    ? await getJapanMeta()
           : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {

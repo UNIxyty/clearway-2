@@ -67,7 +67,28 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
     country: "Honduras",
     prefixes: ["MH"],
-    webAipUrl: "https://www.cocesna.org/aipca/AIPMH/history.html",
+    webAipUrl: "https://www.ahac.gob.hn/eAIP1/inicio.html",
+  },
+  {
+    country: "Hong Kong",
+    aliases: ["Hongkong"],
+    prefixes: ["VH"],
+    webAipUrl: "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",
+  },
+  {
+    country: "India",
+    prefixes: ["VA", "VE", "VI", "VO"],
+    webAipUrl: "https://aim-india.aai.aero/aip-supplements?page=1",
+  },
+  {
+    country: "Israel",
+    prefixes: ["LL"],
+    webAipUrl: "https://e-aip.azurefd.net",
+  },
+  {
+    country: "Japan",
+    prefixes: ["RJ", "RO"],
+    webAipUrl: "https://nagodede.github.io/aip/japan/",
   },
 ];
 

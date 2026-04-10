@@ -2686,9 +2686,24 @@ function AIPPortalPageInner() {
                           </div>
                         </object>
                       ) : (
-                        <p className="text-sm text-muted-foreground p-3">
-                          PDF loading… We fetch the PDF automatically when you open this airport.
-                        </p>
+                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Spinner className="size-4 shrink-0 text-amber-700" />
+                            <span className="font-medium">
+                              PDF is still loading from the source website.
+                            </span>
+                          </div>
+                          <p>
+                            Some airports serve large files slowly. The sync is still running unless an error appears.
+                          </p>
+                          {aipEadSyncSteps.length > 0 && (
+                            <ul className="list-disc pl-5 space-y-1">
+                              {aipEadSyncSteps.slice(-4).map((step, i) => (
+                                <li key={`${step}-${i}`}>{step}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

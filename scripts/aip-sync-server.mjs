@@ -21,7 +21,7 @@ const EAD_GEN_DIR = join(PROJECT_ROOT, "data", "ead-gen");
 const RUS_AIP_RUNS_DIR = join(PROJECT_ROOT, "downloads", "rus-aip", "by-icao");
 const PORT = Number(process.env.AIP_SYNC_PORT) || 3002;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
-const RUN_TIMEOUT_MS = 300_000; // 5 min per step (download + extract can be slow)
+const RUN_TIMEOUT_MS = 600_000; // 10 min per step (large AD2 PDFs can be slow on source hosts)
 
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
@@ -115,6 +115,34 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/honduras-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "honduras-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "honduras-eaip", "GEN"),
+  },
+  {
+    country: "Hong Kong",
+    prefixes: ["VH"],
+    script: "scripts/web-table-scrapers/hong-kong-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "hong-kong-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "hong-kong-eaip", "GEN"),
+  },
+  {
+    country: "India",
+    prefixes: ["VA", "VE", "VI", "VO"],
+    script: "scripts/web-table-scrapers/india-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "india-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "india-eaip", "GEN"),
+  },
+  {
+    country: "Israel",
+    prefixes: ["LL"],
+    script: "scripts/web-table-scrapers/israel-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "israel-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "israel-eaip", "GEN"),
+  },
+  {
+    country: "Japan",
+    prefixes: ["RJ", "RO"],
+    script: "scripts/web-table-scrapers/japan-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "japan-aip", "FULL"),
+    genDir: join(PROJECT_ROOT, "downloads", "japan-aip", "FULL"),
   },
 ];
 

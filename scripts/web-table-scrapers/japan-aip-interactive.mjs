@@ -24,6 +24,11 @@ const OUT_FULL = join(PROJECT_ROOT, "downloads", "japan-aip", "FULL");
 
 const JAPAN_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function safeFilename(name) {
   return String(name || "")
@@ -88,6 +93,8 @@ async function pickFromList(rl, prompt, items, display) {
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`Usage: node scripts/web-table-scrapers/japan-aip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/japan-aip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/japan-aip-interactive.mjs --download-gen12
 
 Interactive flow:
   [1] Load ICAO list from Japan AIP page
@@ -122,6 +129,26 @@ Interactive flow:
     const html = await fetchText(JAPAN_AIP_URL);
     const entries = parseJapanFullEntries(html);
     if (!entries.length) throw new Error("No ICAO full-PDF entries found.");
+
+    if (downloadGen12) {
+      // Source does not provide dedicated GEN split; keep sync path alive with newest full package.
+      const chosen = entries[0];
+      mkdirSync(OUT_FULL, { recursive: true });
+      const outFile = join(OUT_FULL, safeFilename("GEN-1.2.pdf"));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Japan list: ${downloadAd2Icao}`);
+      mkdirSync(OUT_FULL, { recursive: true });
+      const outFile = join(OUT_FULL, safeFilename(`${chosen.icao}_full.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     console.error(`Found ${entries.length} ICAO entries.\n`);
     entries.forEach((e, i) => {

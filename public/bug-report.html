@@ -44,20 +44,58 @@
     }
     h2:first-of-type { margin-top: 0; }
     .row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 0.75rem 1rem;
-      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
       padding: 0.65rem 0.85rem;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 8px;
       margin-bottom: 0.5rem;
     }
+    .row-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem 1rem;
+      align-items: center;
+    }
     @media (max-width: 560px) {
-      .row { grid-template-columns: 1fr; }
+      .row-top { grid-template-columns: 1fr; }
     }
     .desc { font-size: 0.9rem; }
+    .remarks-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .remarks-block label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .remarks-block textarea {
+      width: 100%;
+      min-height: 2.75rem;
+      resize: vertical;
+      padding: 0.45rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.8rem;
+      font-family: inherit;
+      line-height: 1.35;
+    }
+    .remarks-block textarea:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+    .remarks-block textarea::placeholder {
+      color: var(--muted);
+      opacity: 0.7;
+    }
     select {
       min-width: 9.5rem;
       padding: 0.45rem 0.6rem;
@@ -175,7 +213,7 @@
 </head>
 <body>
   <h1>BUG REPORT</h1>
-  <p class="sub">Source: BUG REPORT.docx · Plain “- Ok” = working. <strong>False</strong> hides plain Ok and anything marked <strong>Solved</strong>. Status is saved in this browser.</p>
+  <p class="sub">Source: BUG REPORT.docx · Plain “- Ok” = working. <strong>False</strong> hides plain Ok and anything marked <strong>Solved</strong>. Status and remarks are saved in this browser.</p>
   <div class="toolbar">
     <div class="filter-switch" role="group" aria-label="List filter">
       <span>Show</span>
@@ -189,6 +227,7 @@
 
   <script>
     const STORAGE_KEY = "bug-report-status-v1";
+    const REMARKS_KEY = "bug-report-remarks-v1";
     const FILTER_KEY = "bug-report-filter-v1";
 
     /** Plain “- Ok” / “– Ok” only: working, no bug fix. Not “Ok, but …”. */
@@ -365,6 +404,39 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
+    function loadRemarks() {
+      try {
+        const raw = localStorage.getItem(REMARKS_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveRemarks(remarks) {
+      localStorage.setItem(REMARKS_KEY, JSON.stringify(remarks));
+    }
+
+    const remarkTimers = new Map();
+    function persistRemarksForRow(id, value) {
+      const all = loadRemarks();
+      const v = value.trim();
+      if (v) all[id] = v;
+      else delete all[id];
+      saveRemarks(all);
+    }
+    function scheduleRemarksSave(id, value) {
+      const prev = remarkTimers.get(id);
+      if (prev) clearTimeout(prev);
+      remarkTimers.set(
+        id,
+        setTimeout(() => {
+          remarkTimers.delete(id);
+          persistRemarksForRow(id, value);
+        }, 350),
+      );
+    }
+
     function syncFilterButtons() {
       const allBtn = document.getElementById("filter-all");
       const falseBtn = document.getElementById("filter-false");
@@ -384,6 +456,7 @@
 
     function render() {
       const state = loadState();
+      const remarksState = loadRemarks();
       const app = document.getElementById("app");
       app.innerHTML = "";
       syncFilterButtons();
@@ -402,6 +475,9 @@
 
           const row = document.createElement("div");
           row.className = ["row", plain ? "row--ok" : "", statusClass(status)].filter(Boolean).join(" ");
+
+          const top = document.createElement("div");
+          top.className = "row-top";
 
           const left = document.createElement("div");
           left.className = "desc";
@@ -439,8 +515,33 @@
             render();
           });
 
-          row.appendChild(left);
-          row.appendChild(sel);
+          top.appendChild(left);
+          top.appendChild(sel);
+          row.appendChild(top);
+
+          const remarksWrap = document.createElement("div");
+          remarksWrap.className = "remarks-block";
+          const remarksLabel = document.createElement("label");
+          remarksLabel.setAttribute("for", `remarks-${id}`);
+          remarksLabel.textContent = "Remarks";
+          const ta = document.createElement("textarea");
+          ta.id = `remarks-${id}`;
+          ta.rows = 2;
+          ta.placeholder = "Notes, owner, links…";
+          ta.value = remarksState[id] || "";
+          ta.addEventListener("input", () => scheduleRemarksSave(id, ta.value));
+          ta.addEventListener("blur", () => {
+            const t = remarkTimers.get(id);
+            if (t) {
+              clearTimeout(t);
+              remarkTimers.delete(id);
+            }
+            persistRemarksForRow(id, ta.value);
+          });
+          remarksWrap.appendChild(remarksLabel);
+          remarksWrap.appendChild(ta);
+          row.appendChild(remarksWrap);
+
           fragment.appendChild(row);
           anyShown = true;
         });
@@ -466,20 +567,26 @@
     });
 
     document.getElementById("btn-reset").addEventListener("click", () => {
-      if (!confirm("Reset statuses? Plain Ok rows → solved; everything else → awaiting.")) return;
+      if (!confirm("Reset statuses and clear all remarks? Plain Ok → solved; others → awaiting.")) return;
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(REMARKS_KEY);
       render();
     });
 
     document.getElementById("btn-export").addEventListener("click", () => {
       const state = loadState();
+      const remarks = loadRemarks();
       const out = REPORT.map((sec, si) => ({
         section: sec.section,
-        items: sec.items.map((text, ii) => ({
-          text,
-          plainOk: isPlainOk(text),
-          status: state[rowId(si, ii)] || defaultStatusForRow(text),
-        })),
+        items: sec.items.map((text, ii) => {
+          const id = rowId(si, ii);
+          return {
+            text,
+            plainOk: isPlainOk(text),
+            status: state[id] || defaultStatusForRow(text),
+            remarks: remarks[id] || "",
+          };
+        }),
       }));
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
       const a = document.createElement("a");

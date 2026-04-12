@@ -92,6 +92,12 @@ const PREFIX_TO_COUNTRY = {
   GC: 'Spain (GC)', // Canary Islands
 };
 
+// ICAO-level overrides when a shared prefix belongs to a different authority.
+// Keep prefix EK mapped to Denmark, but route EKVG to Faroe Islands only.
+const ICAO_TO_COUNTRY = {
+  EKVG: 'Faroe Islands (XX)',
+};
+
 function log(msg) {
   console.log('[EAD]', msg);
 }
@@ -215,7 +221,7 @@ async function main() {
   }
 
   const prefix = icao.slice(0, 2);
-  const countryLabel = PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
+  const countryLabel = ICAO_TO_COUNTRY[icao] || PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
 
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);
 

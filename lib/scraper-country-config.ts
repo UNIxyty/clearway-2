@@ -3,6 +3,7 @@ export type ScraperCountryConfig = {
   aliases?: string[];
   prefixes: string[];
   extraIcaos?: string[];
+  excludedIcaos?: string[];
   webAipUrl: string;
 };
 
@@ -108,7 +109,8 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   },
   {
     country: "Malaysia",
-    prefixes: ["WM"],
+    prefixes: ["WM", "WB"],
+    excludedIcaos: ["WBSB"],
     webAipUrl: "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
   },
   {
@@ -143,10 +145,10 @@ export function getScraperCountryByIcao(icao: string): ScraperCountryConfig | nu
   const up = String(icao || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(up)) return null;
   for (const cfg of SCRAPER_COUNTRIES) {
-    if ((cfg.extraIcaos || []).includes(up)) return cfg;
+    if ((cfg.extraIcaos || []).includes(up) && !(cfg.excludedIcaos || []).includes(up)) return cfg;
   }
   const prefix = up.slice(0, 2);
-  return SCRAPER_COUNTRIES.find((cfg) => cfg.prefixes.includes(prefix)) || null;
+  return SCRAPER_COUNTRIES.find((cfg) => cfg.prefixes.includes(prefix) && !(cfg.excludedIcaos || []).includes(up)) || null;
 }
 
 export function isScraperCountryName(country: string): boolean {

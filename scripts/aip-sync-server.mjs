@@ -167,7 +167,8 @@ const SCRAPER_COUNTRY_SPECS = [
   },
   {
     country: "Malaysia",
-    prefixes: ["WM"],
+    prefixes: ["WM", "WB"],
+    excludedIcaos: ["WBSB"],
     script: "scripts/web-table-scrapers/malaysia-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "malaysia-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "malaysia-aip", "GEN"),
@@ -492,10 +493,10 @@ function getScraperSpecByIcao(icao) {
   const upper = String(icao || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(upper)) return null;
   for (const s of SCRAPER_COUNTRY_SPECS) {
-    if ((s.extraIcaos || []).includes(upper)) return s;
+    if ((s.extraIcaos || []).includes(upper) && !(s.excludedIcaos || []).includes(upper)) return s;
   }
   const prefix = upper.slice(0, 2);
-  return SCRAPER_COUNTRY_SPECS.find((s) => s.prefixes.includes(prefix)) || null;
+  return SCRAPER_COUNTRY_SPECS.find((s) => s.prefixes.includes(prefix) && !(s.excludedIcaos || []).includes(upper)) || null;
 }
 
 function isScraperIcao(icao) {

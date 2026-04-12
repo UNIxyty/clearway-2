@@ -198,6 +198,14 @@ function isKuwaitScraperIcao(icao: string): boolean {
   return cfg?.country === "Kuwait";
 }
 
+function getEadWebAipUrlForAirport(airport: AIPAirport | null): string | null {
+  if (!airport) return null;
+  const country = String(airport.country || "").trim();
+  // First EAD rollout country: Denmark (EK)
+  if (country === "Denmark (EK)") return "https://aim.naviair.dk/en/";
+  return null;
+}
+
 function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {
   const exact = list.find((a) => String(a["Airport Code"] ?? "").trim().toUpperCase() === icao);
   if (exact) return exact;
@@ -2612,7 +2620,7 @@ function AIPPortalPageInner() {
                         )}
                       </div>
                     )}
-                    {(isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport)) && (
+                    {(isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || Boolean(getEadWebAipUrlForAirport(viewingAirport))) && (
                       <Button
                         type="button"
                         variant="default"
@@ -2622,13 +2630,16 @@ function AIPPortalPageInner() {
                           const webAip =
                             viewingAirport.webAipUrl ||
                             getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
-                            getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao);
+                            getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
+                            getEadWebAipUrlForAirport(viewingAirport);
                           if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
                         }}
                         title={
                           isAsecnaIcao(viewingAirport.icao)
                             ? "Open ASECNA Web AIP"
-                            : `Open ${viewingAirport.country || "Scraper"} Web AIP`
+                            : getEadWebAipUrlForAirport(viewingAirport)
+                              ? `Open ${viewingAirport.country} Web AIP`
+                              : `Open ${viewingAirport.country || "Scraper"} Web AIP`
                         }
                       >
                         <GlobeIcon className="size-4" />

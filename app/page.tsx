@@ -2417,7 +2417,7 @@ function AIPPortalPageInner() {
               <Card
                 className={`shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200 ${
                   aipEadSyncingIcao === viewingAirport.icao
-                    ? "ring-2 ring-primary/70 shadow-[0_0_0_4px_rgba(99,102,241,0.18)] animate-pulse"
+                    ? "border-2 border-transparent bg-[linear-gradient(hsl(var(--card)),hsl(var(--card)))_padding-box,linear-gradient(90deg,#22d3ee,#818cf8,#f472b6)_border-box] shadow-[0_0_26px_rgba(129,140,248,0.35)]"
                     : ""
                 }`}
               >
@@ -2693,7 +2693,7 @@ function AIPPortalPageInner() {
                             .
                           </div>
                         </object>
-                      ) : (
+                      ) : aipEadLoadingIcao === viewingAirport.icao ? null : (
                         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
                           <div className="flex items-center gap-2">
                             <Spinner className="size-4 shrink-0 text-amber-700" />
@@ -2718,9 +2718,9 @@ function AIPPortalPageInner() {
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-4 py-4 animate-fade-in">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <div className="space-y-2 rounded-xl border-2 border-border/60 bg-muted/20 p-4">
+                        <div className="space-y-2 rounded-xl border-2 border-cyan-300 bg-cyan-50 p-4 text-cyan-900">
                           <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-primary" />
+                            <Spinner className="size-4 shrink-0 text-cyan-700" />
                             <span className="text-sm font-medium">
                               {aipEadSyncRequestedIcao === viewingAirport.icao
                                 ? "Extracting AIP data…"
@@ -2728,14 +2728,14 @@ function AIPPortalPageInner() {
                             </span>
                           </div>
                           {aipEadSyncSteps.length > 0 && (
-                            <div className="rounded border border-border/60 bg-background/70 p-2 font-mono text-[11px] leading-5 text-muted-foreground whitespace-pre-wrap">
+                            <div className="rounded border border-cyan-200 bg-white/80 p-2 font-mono text-[11px] leading-5 text-cyan-900 whitespace-pre-wrap">
                               {aipEadSyncSteps.map((step, i) => (
                                 <div key={i}>{step}</div>
                               ))}
                             </div>
                           )}
                           {aipEadSyncSteps.length === 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-cyan-800">
                               {aipEadSyncRequestedIcao === viewingAirport.icao
                                 ? "Starting extraction… can take 1–2 min."
                                 : "Starting PDF fetch…"}

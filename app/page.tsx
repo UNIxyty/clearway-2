@@ -552,6 +552,7 @@ function AIPPortalPageInner() {
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
+  const [aipPdfSlowIcao, setAipPdfSlowIcao] = useState<string | null>(null);
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
   const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
   const [aipViewMode, setAipViewMode] = useState<"ai" | "pdf">("ai");
@@ -1006,11 +1007,20 @@ function AIPPortalPageInner() {
 
     if (hasCacheEntry && !syncRequested && !shouldPdfSync) return;
     const doSync = shouldExtractSync || shouldPdfSync;
+    let slowPdfTimer: number | null = null;
     aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
       setAipEadSyncingIcao(icao);
       setAipEadSyncSteps([]);
+      if (shouldPdfSync) {
+        setAipPdfSlowIcao((prev) => (prev === icao ? prev : null));
+        slowPdfTimer = window.setTimeout(() => {
+          setAipPdfSlowIcao(icao);
+        }, 10_000);
+      } else {
+        setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
+      }
       if (!shouldExtractSync) setAipViewMode("pdf");
       updateStage(
         icao,
@@ -1139,9 +1149,11 @@ function AIPPortalPageInner() {
         updateStage(icao, "aip", "error", "AIP sync failed");
       })
       .finally(() => {
+        if (slowPdfTimer != null) window.clearTimeout(slowPdfTimer);
         aipEadInFlightRef.current.delete(icao);
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+        setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
   }, [
@@ -2417,7 +2429,7 @@ function AIPPortalPageInner() {
               <Card
                 className={`shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200 ${
                   aipEadSyncingIcao === viewingAirport.icao
-                    ? "border-2 border-transparent bg-[linear-gradient(hsl(var(--card)),hsl(var(--card)))_padding-box,linear-gradient(90deg,#22d3ee,#818cf8,#f472b6)_border-box] shadow-[0_0_26px_rgba(129,140,248,0.35)]"
+                    ? "border-2 border-primary/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]"
                     : ""
                 }`}
               >
@@ -2718,24 +2730,41 @@ function AIPPortalPageInner() {
                   {aipEadLoadingIcao === viewingAirport.icao && (
                     <div className="flex flex-col gap-4 py-4 animate-fade-in">
                       {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <div className="space-y-2 rounded-xl border-2 border-cyan-300 bg-cyan-50 p-4 text-cyan-900">
+                        <div
+                          className={`space-y-2 rounded-xl border-2 p-4 ${
+                            aipPdfSlowIcao === viewingAirport.icao
+                              ? "border-amber-300 bg-amber-50 text-amber-900"
+                              : "border-border/60 bg-muted/20 text-foreground"
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-cyan-700" />
+                            <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-primary"}`} />
                             <span className="text-sm font-medium">
                               {aipEadSyncRequestedIcao === viewingAirport.icao
                                 ? "Extracting AIP data…"
                                 : "Fetching AIP PDF…"}
                             </span>
                           </div>
+                          {aipPdfSlowIcao === viewingAirport.icao && (
+                            <p className="text-xs text-amber-800">
+                              Source is still responding. Sync is running; large files can take extra time.
+                            </p>
+                          )}
                           {aipEadSyncSteps.length > 0 && (
-                            <div className="rounded border border-cyan-200 bg-white/80 p-2 font-mono text-[11px] leading-5 text-cyan-900 whitespace-pre-wrap">
+                            <div
+                              className={`rounded p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap ${
+                                aipPdfSlowIcao === viewingAirport.icao
+                                  ? "border border-amber-200 bg-white/80 text-amber-900"
+                                  : "border border-border/60 bg-background/70 text-muted-foreground"
+                              }`}
+                            >
                               {aipEadSyncSteps.map((step, i) => (
                                 <div key={i}>{step}</div>
                               ))}
                             </div>
                           )}
                           {aipEadSyncSteps.length === 0 && (
-                            <span className="text-xs text-cyan-800">
+                            <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-muted-foreground"}`}>
                               {aipEadSyncRequestedIcao === viewingAirport.icao
                                 ? "Starting extraction… can take 1–2 min."
                                 : "Starting PDF fetch…"}

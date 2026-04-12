@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import aipData from "@/data/aip-data.json";
 import usaByState from "@/data/usa-aip-icaos-by-state.json";
 import airportCoords from "@/data/airport-coords.json";
@@ -23,6 +25,9 @@ import {
   getHongKongMeta,
   getIndiaMeta,
   getIsraelMeta,
+  getSouthKoreaMeta,
+  getKosovoMeta,
+  getKuwaitMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -218,6 +223,45 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
     webAipUrl: scraperWebAip ?? undefined,
     effectiveDate: null,
   };
+}
+
+async function getCurrentUserId(): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+
+  const cookieStore = cookies();
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: () => {},
+    },
+  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+async function getHiddenAirportIcaosForUser(userId: string | null): Promise<Set<string>> {
+  if (!userId) return new Set<string>();
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return new Set<string>();
+
+  const { data, error } = await service
+    .from("deleted_airports")
+    .select("icao")
+    .eq("deleted_by", userId)
+    .is("restored_at", null)
+    .limit(10000);
+  if (error) return new Set<string>();
+
+  return new Set((data ?? []).map((row) => String((row as { icao?: string }).icao ?? "").toUpperCase()).filter(Boolean));
+}
+
+function applyHiddenAirportFilter(list: AIPAirport[], hiddenAirportIcaos: Set<string>): AIPAirport[] {
+  if (hiddenAirportIcaos.size === 0) return list;
+  return list.filter((airport) => !hiddenAirportIcaos.has(String(airport.icao || "").toUpperCase()));
 }
 
 async function fetchVisibleAirportsFromDb(country?: string | null, state?: string | null): Promise<AIPAirport[] | null> {
@@ -583,6 +627,12 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                                 ? await getIndiaMeta()
                                 : normalized.includes("israel")
                                   ? await getIsraelMeta()
+                                  : normalized.includes("south korea") || normalized.includes("korea")
+                                    ? await getSouthKoreaMeta()
+                                    : normalized.includes("kosovo")
+                                      ? await getKosovoMeta()
+                                      : normalized.includes("kuwait")
+                                        ? await getKuwaitMeta()
                                   : normalized.includes("japan")
                                     ? await getJapanMeta()
           : null;
@@ -626,27 +676,30 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
   const state = searchParams.get("state")?.trim() || null;
+  const userId = await getCurrentUserId();
+  const hiddenAirportIcaos = await getHiddenAirportIcaosForUser(userId);
 
   const dbResults = await fetchVisibleAirportsFromDb(country, state);
   if (dbResults !== null) {
+    const filteredDbResults = applyHiddenAirportFilter(dbResults, hiddenAirportIcaos);
     const allowEmptyDbResult =
       !country || (!isAsecnaCountry(country) && !isScraperCountryName(country));
-    if (dbResults.length > 0 || allowEmptyDbResult) {
+    if (filteredDbResults.length > 0 || allowEmptyDbResult) {
       return NextResponse.json(
-        { results: dbResults },
+        { results: filteredDbResults },
         { headers: { "Cache-Control": "no-store, max-age=0" } }
       );
     }
   }
 
   if (country === "United States of America" && state) {
-    const list = flattenUSAByState(state);
+    const list = applyHiddenAirportFilter(flattenUSAByState(state), hiddenAirportIcaos);
     return NextResponse.json({ results: list });
   }
 
   const eadData = getEadCountryIcaos();
   if (country && country in eadData) {
-    const list = flattenEadCountry(country, eadData);
+    const list = applyHiddenAirportFilter(flattenEadCountry(country, eadData), hiddenAirportIcaos);
     return NextResponse.json(
       { results: list },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
@@ -654,31 +707,31 @@ export async function GET(request: NextRequest) {
   }
 
   if (country === "Russia") {
-    const list = flattenRussia();
+    const list = applyHiddenAirportFilter(flattenRussia(), hiddenAirportIcaos);
     return NextResponse.json({ results: list });
   }
 
   if (country && isAsecnaCountry(country)) {
     return NextResponse.json(
-      { results: flattenAsecnaCountry(country) },
+      { results: applyHiddenAirportFilter(flattenAsecnaCountry(country), hiddenAirportIcaos) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
   if (country === "Bahrain") {
     return NextResponse.json(
-      { results: await flattenBahrainCountry(country) },
+      { results: applyHiddenAirportFilter(await flattenBahrainCountry(country), hiddenAirportIcaos) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
   if (country && isScraperCountryName(country) && country !== "Bahrain") {
     return NextResponse.json(
-      { results: await flattenScraperBatchCountry(country) },
+      { results: applyHiddenAirportFilter(await flattenScraperBatchCountry(country), hiddenAirportIcaos) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
-  const list = country ? flattenAIP(country) : getAll();
+  const list = applyHiddenAirportFilter(country ? flattenAIP(country) : getAll(), hiddenAirportIcaos);
   return NextResponse.json({ results: list });
 }

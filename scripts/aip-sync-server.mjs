@@ -138,6 +138,27 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "israel-eaip", "GEN"),
   },
   {
+    country: "South Korea",
+    prefixes: ["RK"],
+    script: "scripts/web-table-scrapers/korea-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "korea-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "korea-eaip", "GEN"),
+  },
+  {
+    country: "Kosovo",
+    prefixes: ["BK"],
+    script: "scripts/web-table-scrapers/kosovo-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "kosovo-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "kosovo-eaip", "GEN"),
+  },
+  {
+    country: "Kuwait",
+    prefixes: ["OK"],
+    script: "scripts/web-table-scrapers/kuwait-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "kuwait-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "kuwait-aip", "GEN"),
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     script: "scripts/web-table-scrapers/japan-aip-interactive.mjs",

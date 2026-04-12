@@ -86,6 +86,22 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://e-aip.azurefd.net",
   },
   {
+    country: "South Korea",
+    aliases: ["Korea", "Republic of Korea"],
+    prefixes: ["RK"],
+    webAipUrl: "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+  },
+  {
+    country: "Kosovo",
+    prefixes: ["BK"],
+    webAipUrl: "https://www.ashna-ks.org/eAIP/default.html",
+  },
+  {
+    country: "Kuwait",
+    prefixes: ["OK"],
+    webAipUrl: "https://dgca.gov.kw/AIP",
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     webAipUrl: "https://nagodede.github.io/aip/japan/",

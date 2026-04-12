@@ -188,6 +188,11 @@ function hasAsecnaGen12(icao: string): boolean {
   return Boolean(country?.gen12?.anchor);
 }
 
+function isJapanScraperIcao(icao: string): boolean {
+  const cfg = getScraperCountryByIcao(icao);
+  return cfg?.country === "Japan";
+}
+
 function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {
   const exact = list.find((a) => String(a["Airport Code"] ?? "").trim().toUpperCase() === icao);
   if (exact) return exact;
@@ -2552,10 +2557,13 @@ function AIPPortalPageInner() {
                           onClick={() => downloadGenPdfWithSync(viewingAirport.icao, isAsecnaAirport(viewingAirport), isBahrainScraperAirport(viewingAirport))}
                           disabled={
                             genPdfDownloading ||
+                            isJapanScraperIcao(viewingAirport.icao) ||
                             (isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao))
                           }
                           title={
-                            isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
+                            isJapanScraperIcao(viewingAirport.icao)
+                              ? "No GEN files to scrape for Japan"
+                              : isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
                               ? "GEN 1.2 is not available for this ASECNA country"
                               : "Instantly fetch and download GEN PDF"
                           }
@@ -2563,7 +2571,7 @@ function AIPPortalPageInner() {
                           <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
                           <span className="text-xs hidden sm:inline">GEN PDF</span>
                         </Button>
-                        {showGenSyncOverlay && (
+                        {showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao) && (
                           <div className="absolute right-0 mt-1 w-72 rounded-md border border-border/70 bg-popover p-3 shadow-lg z-20">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
                               GEN loading steps

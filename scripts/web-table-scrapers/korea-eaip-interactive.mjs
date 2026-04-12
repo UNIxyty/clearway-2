@@ -28,6 +28,11 @@ const HISTORY_URL = "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html";
 const FETCH_TIMEOUT_MS = 30_000;
 const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-kr-scraper/1.0)";
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -199,7 +204,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/korea-eaip-interactive.mjs [--insecure] [--collect]");
+    console.log(`Usage: node scripts/web-table-scrapers/korea-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/korea-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/korea-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -233,14 +240,20 @@ async function main() {
     const historyHtml = await fetchText(HISTORY_URL);
     const issues = parseIssues(historyHtml);
     if (!issues.length) throw new Error("No effective-date issues found.");
-
-    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
-    issues.slice(0, 25).forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
-    const issueRaw = (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
-    const issue =
-      !issueRaw || issueRaw === "1"
-        ? issues[0]
-        : await pickFromList(rl, "", issues, (x) => x.label);
+    const autoMode = Boolean(downloadAd2Icao || downloadGen12);
+    let issue;
+    if (autoMode) {
+      issue = issues[0];
+      console.error(`Auto-selected newest issue: ${issue.label}`);
+    } else {
+      rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
+      issues.slice(0, 25).forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
+      const issueRaw = (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
+      issue =
+        !issueRaw || issueRaw === "1"
+          ? issues[0]
+          : await pickFromList(rl, "", issues, (x) => x.label);
+    }
 
     console.error(`\nUsing issue: ${issue.label}`);
     const menuUrl = await resolveMenuUrl(issue.issueUrl);
@@ -249,6 +262,25 @@ async function main() {
     const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
     if (!genEntries.length) throw new Error("No GEN entries found.");
     if (!ad2Entries.length) throw new Error("No AD2 entries found.");
+
+    if (downloadGen12) {
+      const chosen = genEntries.find((e) => /\b1\.2\b/.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${chosen.section}.pdf`));
+      await savePdfWithFallback(chosen.htmlUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Korea menu: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
+      await savePdfWithFallback(chosen.htmlUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     const mode = (await rl.question("\nDownload:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;

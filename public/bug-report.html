@@ -140,16 +140,47 @@
     .row.row--ok select {
       opacity: 0.85;
     }
+    .row--st-awaiting {
+      border-left: 4px solid #c9a227;
+      background: linear-gradient(90deg, rgba(201, 162, 39, 0.14) 0%, var(--card) 55%);
+    }
+    .row--st-solved {
+      border-left: 4px solid #3d9e5c;
+      background: linear-gradient(90deg, rgba(61, 158, 92, 0.14) 0%, var(--card) 55%);
+    }
+    .row--st-failed {
+      border-left: 4px solid #c94a4a;
+      background: linear-gradient(90deg, rgba(201, 74, 74, 0.14) 0%, var(--card) 55%);
+    }
+    .row.row--ok.row--st-solved {
+      background: #15221c;
+      border-left-color: #4caf50;
+    }
+    .row--st-awaiting select {
+      background: #241e12;
+      border-color: #7a6220;
+      color: #f2e6bc;
+    }
+    .row--st-solved select {
+      background: #122018;
+      border-color: #2d6a45;
+      color: #c8f0d8;
+    }
+    .row--st-failed select {
+      background: #241212;
+      border-color: #7a3030;
+      color: #f0c8c8;
+    }
   </style>
 </head>
 <body>
   <h1>BUG REPORT</h1>
-  <p class="sub">Source: BUG REPORT.docx · Plain “- Ok” lines are working (no bug fix). Status is saved in this browser.</p>
+  <p class="sub">Source: BUG REPORT.docx · Plain “- Ok” = working. <strong>False</strong> hides plain Ok and anything marked <strong>Solved</strong>. Status is saved in this browser.</p>
   <div class="toolbar">
     <div class="filter-switch" role="group" aria-label="List filter">
       <span>Show</span>
       <button type="button" id="filter-all" aria-pressed="true">All</button>
-      <button type="button" id="filter-false" aria-pressed="false" title="Only rows that are not plain Ok (need a fix)">False</button>
+      <button type="button" id="filter-false" aria-pressed="false" title="Hide plain Ok and all Solved rows">False</button>
     </div>
     <button type="button" id="btn-export">Export JSON</button>
     <button type="button" id="btn-reset">Reset statuses</button>
@@ -345,6 +376,12 @@
       return isPlainOk(text) ? "solved" : "awaiting";
     }
 
+    function statusClass(status) {
+      if (status === "solved") return "row--st-solved";
+      if (status === "failed") return "row--st-failed";
+      return "row--st-awaiting";
+    }
+
     function render() {
       const state = loadState();
       const app = document.getElementById("app");
@@ -357,11 +394,14 @@
 
         sec.items.forEach((text, ii) => {
           const plain = isPlainOk(text);
-          if (filterMode === "false" && plain) return;
-
           const id = rowId(si, ii);
+          const def = defaultStatusForRow(text);
+          const status = state[id] || def;
+          if (filterMode === "false" && plain) return;
+          if (filterMode === "false" && status === "solved") return;
+
           const row = document.createElement("div");
-          row.className = "row" + (plain ? " row--ok" : "");
+          row.className = ["row", plain ? "row--ok" : "", statusClass(status)].filter(Boolean).join(" ");
 
           const left = document.createElement("div");
           left.className = "desc";
@@ -387,8 +427,7 @@
             opt.textContent = val.charAt(0).toUpperCase() + val.slice(1);
             sel.appendChild(opt);
           });
-          const def = defaultStatusForRow(text);
-          sel.value = state[id] || def;
+          sel.value = status;
           if (plain) {
             sel.title = "Marked working (plain Ok); change if you still want to track it.";
           }
@@ -397,6 +436,7 @@
             const next = loadState();
             next[id] = sel.value;
             saveState(next);
+            render();
           });
 
           row.appendChild(left);

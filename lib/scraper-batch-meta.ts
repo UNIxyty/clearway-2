@@ -15,6 +15,10 @@ const ISRAEL_WEB_AIP_URL = "https://e-aip.azurefd.net";
 const SOUTH_KOREA_WEB_AIP_URL = "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html";
 const KOSOVO_WEB_AIP_URL = "https://www.ashna-ks.org/eAIP/default.html";
 const KUWAIT_WEB_AIP_URL = "https://dgca.gov.kw/AIP";
+const LIBYA_WEB_AIP_URL = "https://caa.gov.ly/ais/ad/";
+const MALAYSIA_WEB_AIP_URL = "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html";
+const MALDIVES_WEB_AIP_URL = "https://www.macl.aero/corporate/services/operational/ans/aip";
+const MONGOLIA_WEB_AIP_URL = "https://ais.mn/files/aip/eAIP/";
 const JAPAN_WEB_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -45,6 +49,10 @@ let israelCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let southKoreaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let kosovoCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let kuwaitCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let libyaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let malaysiaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let maldivesCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let mongoliaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let japanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -337,6 +345,38 @@ function parseKosovoIssues(historyHtml: string): Array<{ label: string; issueCod
       indexUrl: new URL(normalizeRelativeHref(rawHref), KOSOVO_WEB_AIP_URL).href,
       ts,
     });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseMalaysiaIssues(historyHtml: string): Array<{ label: string; issueUrl: string; ts: number }> {
+  const re = /<a[^>]*href=["']([^"']*index-en-MS\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const out: Array<{ label: string; issueUrl: string; ts: number }> = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const href = String(m[1] || "").trim();
+    if (!href || seen.has(href)) continue;
+    seen.add(href);
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const iso = label.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? parseIssueDateCode(label) ?? "";
+    const ts = iso ? new Date(`${iso}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({ label, issueUrl: new URL(href, MALAYSIA_WEB_AIP_URL).href, ts });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseMongoliaIssues(historyHtml: string): Array<{ issueCode: string; indexUrl: string; ts: number }> {
+  const re = /<a[^>]*href=["']([^"']*index-en-MN\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const out: Array<{ issueCode: string; indexUrl: string; ts: number }> = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const rawHref = String(m[1] || "").trim();
+    if (!rawHref) continue;
+    const issueCode = rawHref.match(/([0-9]{4}-[0-9]{2}-[0-9]{2}(?:-AIRAC)?)/i)?.[1] ?? rawHref;
+    const iso = issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+    const ts = iso ? new Date(`${iso}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({ issueCode, indexUrl: new URL(rawHref, MONGOLIA_WEB_AIP_URL).href, ts });
   }
   return out.sort((a, b) => b.ts - a.ts);
 }
@@ -805,6 +845,81 @@ async function resolveKuwaitMetaLive(): Promise<ScraperMeta> {
   };
 }
 
+async function resolveLibyaMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(LIBYA_WEB_AIP_URL);
+  const ad2Icaos = normalizeIcaos(
+    [...html.matchAll(/\/(HL[A-Z0-9]{2})\.pdf/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Libya",
+    effectiveDate: null,
+    ad2Icaos,
+    webAipUrl: LIBYA_WEB_AIP_URL,
+  };
+}
+
+async function resolveMalaysiaMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(MALAYSIA_WEB_AIP_URL);
+  const issues = parseMalaysiaIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) return { country: "Malaysia", effectiveDate: null, ad2Icaos: [], webAipUrl: MALAYSIA_WEB_AIP_URL };
+  const indexHtml = await fetchText(issue.issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.issueUrl);
+  if (!tocUrl) return { country: "Malaysia", effectiveDate: parseIssueDateCode(issue.label), ad2Icaos: [], webAipUrl: MALAYSIA_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Malaysia", effectiveDate: parseIssueDateCode(issue.label), ad2Icaos: [], webAipUrl: MALAYSIA_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})[^"']*\.html/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Malaysia",
+    effectiveDate: parseIssueDateCode(issue.label),
+    ad2Icaos,
+    webAipUrl: MALAYSIA_WEB_AIP_URL,
+  };
+}
+
+async function resolveMaldivesMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(MALDIVES_WEB_AIP_URL);
+  const ad2Icaos = normalizeIcaos(
+    [...html.matchAll(/<h6[^>]*class=["'][^"']*\bdataloadlist\b[^"']*["'][^>]*>([\s\S]*?)<\/h6>/gi)]
+      .map((m) => String(m[1] || "").replace(/<[^>]+>/g, " "))
+      .map((label) => label.match(/\b([A-Z]{4})\b/)?.[1]?.toUpperCase() || "")
+      .filter(Boolean),
+  );
+  return {
+    country: "Maldives",
+    effectiveDate: null,
+    ad2Icaos,
+    webAipUrl: MALDIVES_WEB_AIP_URL,
+  };
+}
+
+async function resolveMongoliaMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(MONGOLIA_WEB_AIP_URL);
+  const issues = parseMongoliaIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) return { country: "Mongolia", effectiveDate: null, ad2Icaos: [], webAipUrl: MONGOLIA_WEB_AIP_URL };
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.indexUrl);
+  if (!tocUrl) return { country: "Mongolia", effectiveDate: issue.issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null, ad2Icaos: [], webAipUrl: MONGOLIA_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Mongolia", effectiveDate: issue.issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null, ad2Icaos: [], webAipUrl: MONGOLIA_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})[^"']*\.html/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Mongolia",
+    effectiveDate: issue.issueCode.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null,
+    ad2Icaos,
+    webAipUrl: MONGOLIA_WEB_AIP_URL,
+  };
+}
+
 async function resolveJapanMetaLive(): Promise<ScraperMeta> {
   const html = await fetchText(JAPAN_WEB_AIP_URL);
   return {
@@ -1009,6 +1124,50 @@ export async function getKuwaitMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return kuwaitCache?.value ?? { country: "Kuwait", effectiveDate: null, ad2Icaos: [], webAipUrl: KUWAIT_WEB_AIP_URL };
+  }
+}
+
+export async function getLibyaMeta(): Promise<ScraperMeta> {
+  if (libyaCache && Date.now() < libyaCache.expiresAt) return libyaCache.value;
+  try {
+    const value = await withTimeout(resolveLibyaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    libyaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return libyaCache?.value ?? { country: "Libya", effectiveDate: null, ad2Icaos: [], webAipUrl: LIBYA_WEB_AIP_URL };
+  }
+}
+
+export async function getMalaysiaMeta(): Promise<ScraperMeta> {
+  if (malaysiaCache && Date.now() < malaysiaCache.expiresAt) return malaysiaCache.value;
+  try {
+    const value = await withTimeout(resolveMalaysiaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    malaysiaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return malaysiaCache?.value ?? { country: "Malaysia", effectiveDate: null, ad2Icaos: [], webAipUrl: MALAYSIA_WEB_AIP_URL };
+  }
+}
+
+export async function getMaldivesMeta(): Promise<ScraperMeta> {
+  if (maldivesCache && Date.now() < maldivesCache.expiresAt) return maldivesCache.value;
+  try {
+    const value = await withTimeout(resolveMaldivesMetaLive(), FETCH_TIMEOUT_MS * 4);
+    maldivesCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return maldivesCache?.value ?? { country: "Maldives", effectiveDate: null, ad2Icaos: [], webAipUrl: MALDIVES_WEB_AIP_URL };
+  }
+}
+
+export async function getMongoliaMeta(): Promise<ScraperMeta> {
+  if (mongoliaCache && Date.now() < mongoliaCache.expiresAt) return mongoliaCache.value;
+  try {
+    const value = await withTimeout(resolveMongoliaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    mongoliaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return mongoliaCache?.value ?? { country: "Mongolia", effectiveDate: null, ad2Icaos: [], webAipUrl: MONGOLIA_WEB_AIP_URL };
   }
 }
 

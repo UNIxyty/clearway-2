@@ -193,6 +193,11 @@ function isJapanScraperIcao(icao: string): boolean {
   return cfg?.country === "Japan";
 }
 
+function isKuwaitScraperIcao(icao: string): boolean {
+  const cfg = getScraperCountryByIcao(icao);
+  return cfg?.country === "Kuwait";
+}
+
 function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {
   const exact = list.find((a) => String(a["Airport Code"] ?? "").trim().toUpperCase() === icao);
   if (exact) return exact;
@@ -2654,6 +2659,30 @@ function AIPPortalPageInner() {
                       ? ` Effective: ${viewingAirport.effectiveDate}.`
                       : ""}
                   </div>
+                  {isKuwaitScraperIcao(viewingAirport.icao) && (
+                    <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      Kuwait AIP access is now paid. Review the subscription terms and pricing in the official order form before requesting files.
+                      {" "}
+                      <a
+                        href="https://dgcawebappstg.blob.core.windows.net/upload/AIPItemSub/live/627/AIP%20Subscription%20order%20form%202026.pdf"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 font-medium"
+                      >
+                        Open 2026 AIP subscription order form (PDF)
+                      </a>
+                      {" "}·{" "}
+                      <a
+                        href="https://dgca.gov.kw/AIP"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 font-medium"
+                      >
+                        Open DGCA Kuwait AIP page
+                      </a>
+                      .
+                    </div>
+                  )}
                   <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
                     <button
                       type="button"

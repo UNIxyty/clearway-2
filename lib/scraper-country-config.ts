@@ -102,6 +102,26 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://dgca.gov.kw/AIP",
   },
   {
+    country: "Libya",
+    prefixes: ["HL"],
+    webAipUrl: "https://caa.gov.ly/ais/ad/",
+  },
+  {
+    country: "Malaysia",
+    prefixes: ["WM"],
+    webAipUrl: "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+  },
+  {
+    country: "Maldives",
+    prefixes: ["VR"],
+    webAipUrl: "https://www.macl.aero/corporate/services/operational/ans/aip",
+  },
+  {
+    country: "Mongolia",
+    prefixes: ["ZM"],
+    webAipUrl: "https://ais.mn/files/aip/eAIP/",
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     webAipUrl: "https://nagodede.github.io/aip/japan/",

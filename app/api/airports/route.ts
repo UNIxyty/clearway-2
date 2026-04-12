@@ -28,6 +28,10 @@ import {
   getSouthKoreaMeta,
   getKosovoMeta,
   getKuwaitMeta,
+  getLibyaMeta,
+  getMalaysiaMeta,
+  getMaldivesMeta,
+  getMongoliaMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -633,8 +637,16 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                                       ? await getKosovoMeta()
                                       : normalized.includes("kuwait")
                                         ? await getKuwaitMeta()
-                                  : normalized.includes("japan")
-                                    ? await getJapanMeta()
+                                        : normalized.includes("libya")
+                                          ? await getLibyaMeta()
+                                          : normalized.includes("malaysia")
+                                            ? await getMalaysiaMeta()
+                                            : normalized.includes("maldives")
+                                              ? await getMaldivesMeta()
+                                              : normalized.includes("mongolia")
+                                                ? await getMongoliaMeta()
+                                                : normalized.includes("japan")
+                                                  ? await getJapanMeta()
           : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {

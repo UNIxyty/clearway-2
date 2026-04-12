@@ -88,19 +88,100 @@
       cursor: pointer;
     }
     .toolbar button:hover { border-color: var(--accent); }
+    .filter-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .filter-switch span {
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 0 0.35rem;
+    }
+    .filter-switch button {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .filter-switch button[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 600;
+    }
+    .row.row--ok {
+      opacity: 0.72;
+      border-color: #2a4a3a;
+      background: #15221c;
+    }
+    .row-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge-ok {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      background: #1e3d2f;
+      color: #8fd4a8;
+      white-space: nowrap;
+    }
+    .row.row--ok select {
+      opacity: 0.85;
+    }
   </style>
 </head>
 <body>
   <h1>BUG REPORT</h1>
-  <p class="sub">Source: BUG REPORT.docx · Status is saved in this browser (localStorage).</p>
+  <p class="sub">Source: BUG REPORT.docx · Plain “- Ok” lines are working (no bug fix). Status is saved in this browser.</p>
   <div class="toolbar">
+    <div class="filter-switch" role="group" aria-label="List filter">
+      <span>Show</span>
+      <button type="button" id="filter-all" aria-pressed="true">All</button>
+      <button type="button" id="filter-false" aria-pressed="false" title="Only rows that are not plain Ok (need a fix)">False</button>
+    </div>
     <button type="button" id="btn-export">Export JSON</button>
-    <button type="button" id="btn-reset">Reset all to awaiting</button>
+    <button type="button" id="btn-reset">Reset statuses</button>
   </div>
   <div id="app"></div>
 
   <script>
     const STORAGE_KEY = "bug-report-status-v1";
+    const FILTER_KEY = "bug-report-filter-v1";
+
+    /** Plain “- Ok” / “– Ok” only: working, no bug fix. Not “Ok, but …”. */
+    function isPlainOk(text) {
+      const t = text.trim();
+      if (/\bbut\b/i.test(t)) return false;
+      if (/not\s+working|not\s+loading|missing\s+link|\bspanish\b/i.test(t)) return false;
+      return /\s*[-\u2013]\s*Ok\.?\s*$/i.test(t);
+    }
+
+    function loadFilter() {
+      try {
+        const v = localStorage.getItem(FILTER_KEY);
+        return v === "false" ? "false" : "all";
+      } catch {
+        return "all";
+      }
+    }
+
+    function saveFilter(mode) {
+      localStorage.setItem(FILTER_KEY, mode);
+    }
+
+    let filterMode = loadFilter();
 
     const REPORT = [
       {
@@ -253,24 +334,50 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
+    function syncFilterButtons() {
+      const allBtn = document.getElementById("filter-all");
+      const falseBtn = document.getElementById("filter-false");
+      allBtn.setAttribute("aria-pressed", filterMode === "all" ? "true" : "false");
+      falseBtn.setAttribute("aria-pressed", filterMode === "false" ? "true" : "false");
+    }
+
+    function defaultStatusForRow(text) {
+      return isPlainOk(text) ? "solved" : "awaiting";
+    }
+
     function render() {
       const state = loadState();
       const app = document.getElementById("app");
       app.innerHTML = "";
+      syncFilterButtons();
 
       REPORT.forEach((sec, si) => {
-        const h2 = document.createElement("h2");
-        h2.textContent = sec.section;
-        app.appendChild(h2);
+        const fragment = document.createDocumentFragment();
+        let anyShown = false;
 
         sec.items.forEach((text, ii) => {
+          const plain = isPlainOk(text);
+          if (filterMode === "false" && plain) return;
+
           const id = rowId(si, ii);
           const row = document.createElement("div");
-          row.className = "row";
+          row.className = "row" + (plain ? " row--ok" : "");
 
-          const desc = document.createElement("div");
-          desc.className = "desc";
-          desc.textContent = text;
+          const left = document.createElement("div");
+          left.className = "desc";
+
+          const head = document.createElement("div");
+          head.className = "row-head";
+          const textEl = document.createElement("span");
+          textEl.textContent = text;
+          head.appendChild(textEl);
+          if (plain) {
+            const badge = document.createElement("span");
+            badge.className = "badge-ok";
+            badge.textContent = "Working · no fix";
+            head.appendChild(badge);
+          }
+          left.appendChild(head);
 
           const sel = document.createElement("select");
           sel.setAttribute("aria-label", "Status for: " + text);
@@ -280,7 +387,11 @@
             opt.textContent = val.charAt(0).toUpperCase() + val.slice(1);
             sel.appendChild(opt);
           });
-          sel.value = state[id] || "awaiting";
+          const def = defaultStatusForRow(text);
+          sel.value = state[id] || def;
+          if (plain) {
+            sel.title = "Marked working (plain Ok); change if you still want to track it.";
+          }
 
           sel.addEventListener("change", () => {
             const next = loadState();
@@ -288,15 +399,34 @@
             saveState(next);
           });
 
-          row.appendChild(desc);
+          row.appendChild(left);
           row.appendChild(sel);
-          app.appendChild(row);
+          fragment.appendChild(row);
+          anyShown = true;
         });
+
+        if (!anyShown) return;
+
+        const h2 = document.createElement("h2");
+        h2.textContent = sec.section;
+        app.appendChild(h2);
+        app.appendChild(fragment);
       });
     }
 
+    document.getElementById("filter-all").addEventListener("click", () => {
+      filterMode = "all";
+      saveFilter("all");
+      render();
+    });
+    document.getElementById("filter-false").addEventListener("click", () => {
+      filterMode = "false";
+      saveFilter("false");
+      render();
+    });
+
     document.getElementById("btn-reset").addEventListener("click", () => {
-      if (!confirm("Reset all rows to “awaiting”?")) return;
+      if (!confirm("Reset statuses? Plain Ok rows → solved; everything else → awaiting.")) return;
       localStorage.removeItem(STORAGE_KEY);
       render();
     });
@@ -307,7 +437,8 @@
         section: sec.section,
         items: sec.items.map((text, ii) => ({
           text,
-          status: state[rowId(si, ii)] || "awaiting",
+          plainOk: isPlainOk(text),
+          status: state[rowId(si, ii)] || defaultStatusForRow(text),
         })),
       }));
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });

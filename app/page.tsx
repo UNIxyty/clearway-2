@@ -202,7 +202,7 @@ function getEadWebAipUrlForAirport(airport: AIPAirport | null): string | null {
   if (!airport) return null;
   const country = String(airport.country || "").trim();
   // First EAD rollout country: Denmark (EK)
-  if (country === "Denmark (EK)") return "https://aim.naviair.dk/en/";
+  if (country === "Denmark (EK)" || country === "Denmark") return "https://aim.naviair.dk/en/";
   return null;
 }
 

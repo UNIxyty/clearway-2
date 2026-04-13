@@ -319,14 +319,17 @@ async function main() {
     const issues = await fetchIssuePackages();
     if (!issues.length) throw new Error("No effective-date packages found.");
 
-    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
-    issues.forEach((x, i) => {
-      const latest = x.latest ? " [latest]" : "";
-      console.error(
-        `${String(i + 1).padStart(3)}. ${x.title}${latest}  (effective: ${fmtDate(x.effectiveDate)}, published: ${fmtDate(x.publicationDate)})`,
-      );
-    });
-    const issueRaw = (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
+    const nonInteractiveMode = Boolean(downloadAd2Icao || downloadGen12);
+    if (!nonInteractiveMode) {
+      rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
+      issues.forEach((x, i) => {
+        const latest = x.latest ? " [latest]" : "";
+        console.error(
+          `${String(i + 1).padStart(3)}. ${x.title}${latest}  (effective: ${fmtDate(x.effectiveDate)}, published: ${fmtDate(x.publicationDate)})`,
+        );
+      });
+    }
+    const issueRaw = nonInteractiveMode ? "" : (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
     const issue = pickIssueFromInput(issueRaw, issues);
 
     const leftUrl = new URL("left.htm", issue.issueUrl).href;

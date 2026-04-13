@@ -15,11 +15,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon, SquareIcon } from "lucide-react";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import UserBadge from "@/components/UserBadge";
-import { useBackgroundSearch } from "@/lib/search-context";
+import { useBackgroundSearch, type SyncStage } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
@@ -523,7 +523,7 @@ function AIPResultCard({
 type RegionEntry = { region: string; countries: string[] };
 
 function AIPPortalPageInner() {
-  const { bgList, startBackground, updateStage, finishBackground } = useBackgroundSearch();
+  const { bgList, startBackground, updateStage, finishBackground, cancelBackground } = useBackgroundSearch();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
@@ -593,6 +593,36 @@ function AIPPortalPageInner() {
   const resultsLengthRef = useRef(0);
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
   const handledIcaoParamRef = useRef<string | null>(null);
+  const requestControllersRef = useRef<Map<string, AbortController>>(new Map());
+
+  const beginRequest = useCallback((key: string) => {
+    const prev = requestControllersRef.current.get(key);
+    if (prev) prev.abort();
+    const controller = new AbortController();
+    requestControllersRef.current.set(key, controller);
+    return controller;
+  }, []);
+
+  const finishRequest = useCallback((key: string, controller: AbortController) => {
+    if (requestControllersRef.current.get(key) === controller) {
+      requestControllersRef.current.delete(key);
+    }
+  }, []);
+
+  const isAbortError = useCallback((err: unknown) => {
+    const msg = String((err as { message?: string })?.message || "").toLowerCase();
+    const name = String((err as { name?: string })?.name || "").toLowerCase();
+    return name === "aborterror" || msg.includes("aborted") || msg.includes("aborterror");
+  }, []);
+
+  const stopAllRequests = useCallback(() => {
+    for (const controller of requestControllersRef.current.values()) controller.abort();
+    requestControllersRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    return () => stopAllRequests();
+  }, [stopAllRequests]);
 
   useEffect(() => {
     setPdfDownloadError(null);
@@ -1052,7 +1082,8 @@ function AIPPortalPageInner() {
         ? "/api/aip/scraper"
         : "/api/aip/ead";
     const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}${syncParams}&_t=${Date.now()}`;
-    fetch(url, { cache: "no-store" })
+    const controller = beginRequest(`aip-${icao}`);
+    fetch(url, { cache: "no-store", signal: controller.signal })
       .then(async (res) => {
         if (doSync && res.ok && res.body) {
           const reader = res.body.getReader();
@@ -1157,11 +1188,16 @@ function AIPPortalPageInner() {
         }
       })
       .catch((err) => {
+        if (isAbortError(err)) {
+          updateStage(icao, "aip", "cancelled", "AIP sync cancelled");
+          return;
+        }
         setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
         updateStage(icao, "aip", "error", "AIP sync failed");
       })
       .finally(() => {
+        finishRequest(`aip-${icao}`, controller);
         if (slowPdfTimer != null) window.clearTimeout(slowPdfTimer);
         aipEadInFlightRef.current.delete(icao);
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
@@ -1178,6 +1214,9 @@ function AIPPortalPageInner() {
     notifPrefs,
     updateStage,
     searchParams,
+    beginRequest,
+    finishRequest,
+    isAbortError,
   ]);
 
   // Probe S3 for EAD PDF (enables download/viewer as soon as the file exists, without waiting for AI extract).
@@ -1190,7 +1229,8 @@ function AIPPortalPageInner() {
       : isBahrainScraperIcao(icao, viewingAirport)
         ? "/api/aip/scraper/pdf"
         : "/api/aip/ead/pdf";
-    fetch(`${pdfApiBase}?icao=${encodeURIComponent(icao)}`, { method: "HEAD" })
+    const controller = beginRequest(`aip-head-${icao}`);
+    fetch(`${pdfApiBase}?icao=${encodeURIComponent(icao)}`, { method: "HEAD", signal: controller.signal })
       .then((r) => {
         if (cancelled) return;
         if (r.ok) setAipPdfExistsOnServer((c) => ({ ...c, [icao]: true }));
@@ -1199,8 +1239,10 @@ function AIPPortalPageInner() {
       .catch(() => {});
     return () => {
       cancelled = true;
+      controller.abort();
+      finishRequest(`aip-head-${icao}`, controller);
     };
-  }, [viewingAirport?.icao]);
+  }, [viewingAirport?.icao, beginRequest, finishRequest]);
 
   // Fetch GEN (scraped GEN 1.2) when viewing any airport.
   // EAD + Russia use /api/aip/gen (sync-server-backed PDF cache),
@@ -1234,7 +1276,8 @@ function AIPPortalPageInner() {
     const genUrl = useSyncedGen
       ? `/api/aip/gen?icao=${encodeURIComponent(icao)}`
       : `/api/aip/gen-non-ead?prefix=${encodeURIComponent(prefix)}`;
-    fetch(genUrl, { cache: "no-store" })
+    const controller = beginRequest(`gen-${prefix}`);
+    fetch(genUrl, { cache: "no-store", signal: controller.signal })
       .then((res) => res.json())
       .then((data: { general?: GenPart; nonScheduled?: GenPart; privateFlights?: GenPart; part4?: GenPart; updatedAt?: string | null }) => {
         const g = data.general && typeof data.general === "object" ? data.general : emptyGenPart();
@@ -1250,13 +1293,21 @@ function AIPPortalPageInner() {
           sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (isAbortError(err)) {
+          if (useSyncedGen) updateStage(icao, "gen", "cancelled", "GEN cancelled");
+          else updateStage(icao, "gen-non-ead", "cancelled", "GEN cancelled");
+          return;
+        }
         setGenCache((c) => ({ ...c, [prefix]: { general: emptyGenPart(), nonScheduled: emptyGenPart(), privateFlights: emptyGenPart(), updatedAt: null } }));
         if (useSyncedGen) updateStage(icao, "gen", "error", "GEN load failed");
         else updateStage(icao, "gen-non-ead", "error", "Non-EAD GEN load failed");
       })
-      .finally(() => setGenLoadingPrefix((p) => (p === prefix ? null : p)));
-  }, [viewingAirport?.icao, genCache, genLoadingPrefix, notifPrefs, updateStage]);
+      .finally(() => {
+        finishRequest(`gen-${prefix}`, controller);
+        setGenLoadingPrefix((p) => (p === prefix ? null : p));
+      });
+  }, [viewingAirport?.icao, genCache, genLoadingPrefix, notifPrefs, updateStage, beginRequest, finishRequest, isAbortError]);
 
   // Fetch NOTAMs when an airport is selected (search or browse). Load/sync even without coords so map + NOTAMs show after user initiates.
   useEffect(() => {
@@ -1279,7 +1330,8 @@ function AIPPortalPageInner() {
     if (isSync) {
       // Stream sync: get progress steps from server, then final result
       const url = `/api/notams?icao=${encodeURIComponent(icao)}&sync=1&stream=1&_t=${Date.now()}`;
-      fetch(url, { cache: "no-store" })
+      const controller = beginRequest(`notam-${icao}`);
+      fetch(url, { cache: "no-store", signal: controller.signal })
         .then(async (res) => {
           if (!res.ok || !res.body) {
             const text = await res.text();
@@ -1330,6 +1382,10 @@ function AIPPortalPageInner() {
           }
         })
         .catch((err) => {
+          if (isAbortError(err)) {
+            updateStage(icao, "notam", "cancelled", "NOTAM sync cancelled");
+            return;
+          }
           setNotamsCache((c) => ({
             ...c,
             [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null },
@@ -1337,6 +1393,7 @@ function AIPPortalPageInner() {
           updateStage(icao, "notam", "error", "NOTAM sync failed");
         })
         .finally(() => {
+          finishRequest(`notam-${icao}`, controller);
           setNotamsLoadingIcao(null);
           setNotamsSyncingIcao(null);
           setNotamsSyncSteps([]);
@@ -1347,7 +1404,8 @@ function AIPPortalPageInner() {
 
     // Non-sync: plain JSON fetch
     const url = `/api/notams?icao=${encodeURIComponent(icao)}`;
-    fetch(url)
+    const controller = beginRequest(`notam-${icao}`);
+    fetch(url, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
@@ -1360,14 +1418,19 @@ function AIPPortalPageInner() {
         }
       })
       .catch((err) => {
+        if (isAbortError(err)) {
+          updateStage(icao, "notam", "cancelled", "NOTAM load cancelled");
+          return;
+        }
         setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
         updateStage(icao, "notam", "error", "NOTAM load failed");
       })
       .finally(() => {
+        finishRequest(`notam-${icao}`, controller);
         setNotamsLoadingIcao(null);
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
-  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, notifPrefs, updateStage, searchParams]);
+  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, notifPrefs, updateStage, searchParams, beginRequest, finishRequest, isAbortError]);
 
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
@@ -1387,7 +1450,8 @@ function AIPPortalPageInner() {
 
     if (isSync) {
       const url = `/api/weather?icao=${encodeURIComponent(icao)}&sync=1&stream=1&_t=${Date.now()}`;
-      fetch(url, { cache: "no-store" })
+      const controller = beginRequest(`weather-${icao}`);
+      fetch(url, { cache: "no-store", signal: controller.signal })
         .then(async (res) => {
           if (!res.ok || !res.body) {
             const text = await res.text();
@@ -1437,6 +1501,10 @@ function AIPPortalPageInner() {
           }
         })
         .catch((err) => {
+          if (isAbortError(err)) {
+            updateStage(icao, "weather", "cancelled", "Weather sync cancelled");
+            return;
+          }
           setWeatherCache((c) => ({
             ...c,
             [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null },
@@ -1444,6 +1512,7 @@ function AIPPortalPageInner() {
           updateStage(icao, "weather", "error", "Weather sync failed");
         })
         .finally(() => {
+          finishRequest(`weather-${icao}`, controller);
           setWeatherLoadingIcao(null);
           setWeatherSyncingIcao(null);
           setWeatherSyncSteps([]);
@@ -1452,7 +1521,8 @@ function AIPPortalPageInner() {
       return;
     }
 
-    fetch(`/api/weather?icao=${encodeURIComponent(icao)}`, { cache: "no-store" })
+    const controller = beginRequest(`weather-${icao}`);
+    fetch(`/api/weather?icao=${encodeURIComponent(icao)}`, { cache: "no-store", signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (data.error) {
@@ -1464,14 +1534,19 @@ function AIPPortalPageInner() {
         }
       })
       .catch((err) => {
+        if (isAbortError(err)) {
+          updateStage(icao, "weather", "cancelled", "Weather load cancelled");
+          return;
+        }
         setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
         updateStage(icao, "weather", "error", "Weather load failed");
       })
       .finally(() => {
+        finishRequest(`weather-${icao}`, controller);
         setWeatherLoadingIcao(null);
         setWeatherSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
-  }, [viewingAirport?.icao, weatherSyncRequestedIcao, weatherCache, updateStage, searchParams]);
+  }, [viewingAirport?.icao, weatherSyncRequestedIcao, weatherCache, updateStage, searchParams, beginRequest, finishRequest, isAbortError]);
 
   const runBrowseLoading = useCallback(async (then: () => void) => {
     setBrowseLoading(true);
@@ -1501,8 +1576,9 @@ function AIPPortalPageInner() {
       router.replace(params.toString() ? `/?${params.toString()}` : "/");
     }
 
+    const searchController = beginRequest("airport-search");
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: searchController.signal });
       let data: { results?: AIPAirport[]; error?: string };
       try {
         data = await res.json();
@@ -1589,14 +1665,46 @@ function AIPPortalPageInner() {
             console.warn("[search/log] fetch failed", err);
           }
         });
-    } catch {
+    } catch (err) {
+      if (isAbortError(err)) {
+        updateStage(qUpper, "airport", "cancelled", "Search cancelled");
+        cancelBackground(qUpper, "Search cancelled");
+        return;
+      }
       setError("Connection error. Please try again.");
       updateStage(qUpper, "airport", "error", "Connection error");
     } finally {
+      finishRequest("airport-search", searchController);
       setLoading(false);
       setHasSearched(true);
     }
-  }, [query, notifPrefs, startBackground, updateStage, searchParams, router]);
+  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground]);
+
+  const stopSearch = useCallback(() => {
+    stopAllRequests();
+    setLoading(false);
+    setNotamsLoadingIcao(null);
+    setNotamsSyncingIcao(null);
+    setNotamsSyncSteps([]);
+    setWeatherLoadingIcao(null);
+    setWeatherSyncingIcao(null);
+    setWeatherSyncSteps([]);
+    setAipEadLoadingIcao(null);
+    setAipEadSyncingIcao(null);
+    setAipEadSyncSteps([]);
+    setGenLoadingPrefix(null);
+    setGenSyncingPrefix(null);
+    setGenSyncSteps([]);
+    for (const item of bgList) {
+      const hasRunning = Object.values(item.stages).some((s) => s === "running");
+      if (hasRunning) {
+        for (const [stage, status] of Object.entries(item.stages) as Array<[SyncStage, typeof item.stages[SyncStage]]>) {
+          if (status === "running") updateStage(item.icao, stage, "cancelled", "Search cancelled");
+        }
+        cancelBackground(item.icao, "Search cancelled");
+      }
+    }
+  }, [stopAllRequests, bgList, updateStage, cancelBackground]);
 
   useEffect(() => {
     const icaoParam = searchParams.get("icao")?.trim().toUpperCase() ?? "";
@@ -2344,6 +2452,16 @@ function AIPPortalPageInner() {
                 ) : (
                   "Find"
                 )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 px-4 shrink-0"
+                onClick={stopSearch}
+                disabled={!loading && !notamsLoading && !weatherLoading && !aipEadLoadingIcao && !genLoadingPrefix}
+              >
+                <SquareIcon className="size-4 mr-2" />
+                Stop
               </Button>
             </div>
 

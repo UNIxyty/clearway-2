@@ -461,20 +461,27 @@ function findDownloadedPdf(icao) {
 async function uploadPdfToS3(icao, namespace = "ead") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
-  if (!bucket) return;
+  if (!bucket) return null;
   const pdfPath = findDownloadedPdf(icao);
-  if (!pdfPath) return;
+  if (!pdfPath) {
+    throw new Error(`Downloaded PDF not found for ${icao}`);
+  }
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
   const body = readFileSync(pdfPath);
+  if (body.length < 32 || !body.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error(`Invalid PDF artifact for ${icao}: ${pdfPath}`);
+  }
+  const key = namespace === "scraper" ? `aip/scraper-pdf/${icao}.pdf` : `aip/ead-pdf/${icao}.pdf`;
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: namespace === "scraper" ? `aip/scraper-pdf/${icao}.pdf` : `aip/ead-pdf/${icao}.pdf`,
+      Key: key,
       Body: body,
       ContentType: "application/pdf",
     })
   );
+  return key;
 }
 
 async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
@@ -651,20 +658,27 @@ function findDownloadedGenPdf(icao, prefix) {
 async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
   const bucket = process.env.AWS_S3_BUCKET;
   const region = process.env.AWS_REGION || "us-east-1";
-  if (!bucket) return;
+  if (!bucket) return null;
   const pdfPath = findDownloadedGenPdf(icao, prefix);
-  if (!pdfPath) return;
+  if (!pdfPath) {
+    throw new Error(`Downloaded GEN PDF not found for ${icao || prefix}`);
+  }
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({ region });
   const body = readFileSync(pdfPath);
+  if (body.length < 32 || !body.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error(`Invalid GEN PDF artifact for ${icao || prefix}: ${pdfPath}`);
+  }
+  const key = namespace === "scraper-gen-pdf" ? `aip/scraper-gen-pdf/${icao}-GEN-1.2.pdf` : `aip/gen-pdf/${prefix}-GEN-1.2.pdf`;
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: namespace === "scraper-gen-pdf" ? `aip/scraper-gen-pdf/${icao}-GEN-1.2.pdf` : `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
+      Key: key,
       Body: body,
       ContentType: "application/pdf",
     })
   );
+  return key;
 }
 
 // AIP-only sync steps (sent when stream=1)
@@ -721,9 +735,10 @@ const server = createServer(async (req, res) => {
     try {
       await runGenDownloadForIcao(icao, prefix);
       if (process.env.AWS_S3_BUCKET) {
-        await uploadGenPdfToS3(icao, prefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
+        const uploadedGenKey = await uploadGenPdfToS3(icao, prefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
         if (stream) {
           send({ step: GEN_STEPS[1] });
+          send({ step: `GEN PDF uploaded: ${uploadedGenKey}` });
           send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });
         }
       }
@@ -796,8 +811,9 @@ const server = createServer(async (req, res) => {
     send({ step: AIP_STEPS[1] });
     await runDownload(icao);
     if (process.env.AWS_S3_BUCKET) {
-      await uploadPdfToS3(icao, aipNamespace);
+      const uploadedPdfKey = await uploadPdfToS3(icao, aipNamespace);
       send({ step: AIP_STEPS[2] });
+      send({ step: `PDF uploaded: ${uploadedPdfKey}` });
       send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     }
     let data = null;

@@ -94,9 +94,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    request.signal.addEventListener("abort", onAbort, { once: true });
     const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
     const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
     clearTimeout(timeout);
+    request.signal.removeEventListener("abort", onAbort);
     if (stream && res.ok && res.body) {
       return new Response(res.body, {
         headers: {
@@ -130,6 +133,9 @@ export async function GET(request: NextRequest) {
     await putToS3(icao, { airports, updatedAt });
     return NextResponse.json({ airports, updatedAt });
   } catch (e) {
+    if (request.signal.aborted) {
+      return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       { error: "AIP sync request failed", detail: `Cannot reach AIP sync server. ${msg}` },

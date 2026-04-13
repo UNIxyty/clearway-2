@@ -80,9 +80,12 @@ export async function GET(request: NextRequest) {
     if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
     try {
       const controller = new AbortController();
+      const onAbort = () => controller.abort();
+      request.signal.addEventListener("abort", onAbort, { once: true });
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
       clearTimeout(timeoutId);
+      request.signal.removeEventListener("abort", onAbort);
       // Stream mode: forward SSE from EC2 to client (no buffering)
       if (stream && res.ok && res.body) {
         return new Response(res.body, {
@@ -112,6 +115,9 @@ export async function GET(request: NextRequest) {
         { status: 502 }
       );
     } catch (e) {
+      if (request.signal.aborted) {
+        return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
+      }
       const msg = e instanceof Error ? e.message : String(e);
       console.error("NOTAM sync request failed:", e);
       return NextResponse.json(

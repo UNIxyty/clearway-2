@@ -65,9 +65,12 @@ export async function GET(request: NextRequest) {
     if (WEATHER_SYNC_SECRET) headers["X-Sync-Secret"] = WEATHER_SYNC_SECRET;
     try {
       const controller = new AbortController();
+      const onAbort = () => controller.abort();
+      request.signal.addEventListener("abort", onAbort, { once: true });
       const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
       const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
       clearTimeout(timeoutId);
+      request.signal.removeEventListener("abort", onAbort);
 
       if (stream && res.ok && res.body) {
         return new Response(res.body, {
@@ -106,6 +109,9 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.json({ icao, weather: data.weather ?? "", updatedAt: data.updatedAt ?? null });
     } catch (e) {
+      if (request.signal.aborted) {
+        return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
+      }
       const msg = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: "Weather sync server unreachable", detail: msg }, { status: 502 });
     }

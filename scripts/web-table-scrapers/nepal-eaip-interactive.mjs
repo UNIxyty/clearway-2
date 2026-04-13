@@ -25,6 +25,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "nepal-aip", "AD2");
 
 const PAGE_URL = "https://e-aip.caanepal.gov.np/welcome/listall/1";
 const FETCH_TIMEOUT_MS = 30_000;
+const FETCH_RETRIES = 4;
 const UA = "Mozilla/5.0 (compatible; clearway-np-scraper/1.0)";
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
@@ -47,19 +48,85 @@ function safeFilename(name) {
     .replace(/\s+/g, "_");
 }
 
-async function fetchText(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { "User-Agent": UA },
-    });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
-  } finally {
-    clearTimeout(timeout);
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientFetchError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  const cause = String(err?.cause?.message || "").toLowerCase();
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("timed out") ||
+    msg.includes("timeout") ||
+    msg.includes("aborted") ||
+    cause.includes("econnreset") ||
+    cause.includes("econnrefused") ||
+    cause.includes("enotfound") ||
+    cause.includes("etimedout") ||
+    cause.includes("socket") ||
+    cause.includes("tls")
+  );
+}
+
+async function withRetries(label, fn) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= FETCH_RETRIES || !isTransientFetchError(err)) break;
+      const backoffMs = attempt * 1200;
+      console.error(`[NP] ${label} failed (attempt ${attempt}/${FETCH_RETRIES}): ${err?.message || err}; retrying in ${backoffMs}ms`);
+      await sleep(backoffMs);
+    }
   }
+  throw lastErr;
+}
+
+function formatError(err) {
+  const base = String(err?.message || err || "Unknown error");
+  const cause = err?.cause;
+  if (!cause) return base;
+  const causeMsg = String(cause?.message || cause || "").trim();
+  const causeCode = String(cause?.code || "").trim();
+  if (!causeMsg && !causeCode) return base;
+  return `${base} (cause${causeCode ? ` ${causeCode}` : ""}: ${causeMsg || "n/a"})`;
+}
+
+async function fetchText(url) {
+  return await withRetries(`fetch ${url}`, async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": UA },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+}
+
+async function fetchPdfBytes(url) {
+  return await withRetries(`download ${url}`, async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": UA },
+      });
+      if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
+      return Buffer.from(await res.arrayBuffer());
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 function parseEntries(html) {
@@ -100,9 +167,7 @@ function parseEntries(html) {
 }
 
 async function downloadPdf(url, outFile) {
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
-  const bytes = Buffer.from(await res.arrayBuffer());
+  const bytes = await fetchPdfBytes(url);
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
   writeFileSync(outFile, bytes);
 }
@@ -204,7 +269,7 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[NP] failed:", err?.message || err);
+  console.error("[NP] failed:", formatError(err));
   process.exit(1);
 });
 

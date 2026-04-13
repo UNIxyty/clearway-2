@@ -68,7 +68,7 @@ function splitGenIntoThreeParts(fullText: string) {
   };
 }
 
-async function rewriteWithAI(rawText: string, model: string): Promise<string> {
+async function rewriteWithAI(rawText: string, model: string, signal?: AbortSignal): Promise<string> {
   if (!rawText?.trim()) return "";
   const isOpenRouter = model.includes("/");
   const apiUrl = isOpenRouter
@@ -79,6 +79,7 @@ async function rewriteWithAI(rawText: string, model: string): Promise<string> {
 
   const res = await fetch(apiUrl, {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
@@ -208,9 +209,9 @@ export async function GET(request: NextRequest) {
       ? !!process.env.OPENROUTER_API_KEY
       : !!process.env.OPENAI_API_KEY;
 
-    const generalRewritten = generalRaw && hasKey ? await rewriteWithAI(generalRaw, model) : generalRaw;
-    const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteWithAI(nonSchedRaw, model) : nonSchedRaw;
-    const privateRewritten = privateRaw && hasKey ? await rewriteWithAI(privateRaw, model) : privateRaw;
+    const generalRewritten = generalRaw && hasKey ? await rewriteWithAI(generalRaw, model, request.signal) : generalRaw;
+    const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteWithAI(nonSchedRaw, model, request.signal) : nonSchedRaw;
+    const privateRewritten = privateRaw && hasKey ? await rewriteWithAI(privateRaw, model, request.signal) : privateRaw;
 
     const payload: GenPayload = {
       general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
@@ -223,6 +224,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (e) {
+    if (request.signal.aborted) {
+      return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Non-EAD GEN AI rewrite failed:", msg);
     return NextResponse.json(

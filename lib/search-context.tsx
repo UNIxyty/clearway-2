@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, t
 
 export type SyncStage = "airport" | "notam" | "weather" | "aip" | "gen" | "gen-non-ead";
 
-export type StageStatus = "pending" | "running" | "done" | "error";
+export type StageStatus = "pending" | "running" | "done" | "error" | "cancelled";
 
 export type BackgroundSearch = {
   icao: string;
@@ -24,6 +24,7 @@ type SearchContextValue = {
   startBackground: (icao: string) => void;
   updateStage: (icao: string, stage: SyncStage, status: StageStatus, progress?: string) => void;
   finishBackground: (icao: string, progress?: string) => void;
+  cancelBackground: (icao: string, progress?: string) => void;
   clearBackground: (icao?: string) => void;
 };
 
@@ -123,6 +124,29 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const cancelBackground = useCallback((icao: string, progress?: string) => {
+    const normalized = icao.trim().toUpperCase();
+    setBgList((prev) =>
+      prev.map((item) => {
+        if (item.icao !== normalized) return item;
+        const stages = Object.fromEntries(
+          (Object.entries(item.stages) as Array<[SyncStage, StageStatus]>).map(([stage, status]) => [
+            stage,
+            status === "running" ? "cancelled" : status,
+          ]),
+        ) as Record<SyncStage, StageStatus>;
+        return {
+          ...item,
+          stages,
+          done: true,
+          currentStage: null,
+          progress: progress ?? "Cancelled",
+          updatedAt: Date.now(),
+        };
+      })
+    );
+  }, []);
+
   const clearBackground = useCallback((icao?: string) => {
     if (!icao) {
       setBgList([]);
@@ -141,7 +165,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   return (
     <SearchContext.Provider
-      value={{ bgList: orderedBgList, bg, activeIcaos, startBackground, updateStage, finishBackground, clearBackground }}
+      value={{ bgList: orderedBgList, bg, activeIcaos, startBackground, updateStage, finishBackground, cancelBackground, clearBackground }}
     >
       {children}
     </SearchContext.Provider>

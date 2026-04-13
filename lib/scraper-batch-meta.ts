@@ -32,6 +32,10 @@ const QATAR_WEB_AIP_URL = "https://www.caa.gov.qa/en/aeronautical-information-ma
 const RWANDA_WEB_AIP_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 const SAUDI_ARABIA_WEB_AIP_URL = "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html";
 const SOMALIA_WEB_AIP_URL = "https://aip.scaa.gov.so/history-en-GB.html";
+const SRI_LANKA_WEB_AIP_URL = "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html";
+const TAIWAN_WEB_AIP_URL = "https://ais.caa.gov.tw/eaip/";
+const TAJIKISTAN_WEB_AIP_URL = "http://www.caica.ru/aiptjk/?lang=en";
+const THAILAND_WEB_AIP_URL = "https://aip.caat.or.th/";
 const JAPAN_WEB_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -75,6 +79,10 @@ let qatarCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let rwandaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let saudiArabiaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let somaliaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let sriLankaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let taiwanCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let tajikistanCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let thailandCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let japanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -533,6 +541,64 @@ function parseSomaliaIssues(historyHtml: string): Array<{ issueUrl: string; effe
     out.push({ issueUrl: new URL(href, SOMALIA_WEB_AIP_URL).href, effectiveDate, ts });
   }
   return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseSriLankaIssueUrls(indexHtml: string, indexUrl: string): Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> {
+  const out: Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> = [];
+  const optionRe = /<option[^>]*value=["']([^"']+)["'][^>]*>([\s\S]*?)<\/option>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = optionRe.exec(indexHtml))) {
+    const rawValue = String(m[1] || "").trim();
+    if (!/index(?:-en-EN)?\.html?$/i.test(rawValue)) continue;
+    const issueUrl = new URL(normalizeRelativeHref(rawValue), indexUrl).href.replace(/\/index\.html$/i, "/index-en-EN.html");
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const effectiveDate = parseIssueDateCode(label) ?? issueUrl.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+    const ts = effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({ issueUrl, effectiveDate, ts });
+  }
+  const dedup = new Map<string, { issueUrl: string; effectiveDate: string | null; ts: number }>();
+  for (const row of out) {
+    if (!dedup.has(row.issueUrl)) dedup.set(row.issueUrl, row);
+  }
+  return [...dedup.values()].sort((a, b) => b.ts - a.ts);
+}
+
+function parseTaiwanIssues(historyHtml: string): Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> {
+  const out: Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> = [];
+  const re = /<a[^>]*href=["']([^"']*index\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const rawHref = normalizeRelativeHref(m[1]);
+    const issueUrl = new URL(rawHref, TAIWAN_WEB_AIP_URL).href;
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const effectiveDate = parseIssueDateCode(label) ?? issueUrl.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+    const ts = effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({ issueUrl, effectiveDate, ts });
+  }
+  const dedup = new Map<string, { issueUrl: string; effectiveDate: string | null; ts: number }>();
+  for (const row of out) {
+    if (!dedup.has(row.issueUrl)) dedup.set(row.issueUrl, row);
+  }
+  return [...dedup.values()].sort((a, b) => b.ts - a.ts);
+}
+
+function parseThailandIssues(historyHtml: string): Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> {
+  const out: Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> = [];
+  const re = /<a[^>]*href=["']([^"']*index-en-GB\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(historyHtml))) {
+    const href = m[1];
+    const issueUrl = new URL(href, THAILAND_WEB_AIP_URL).href;
+    const label = String(m[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const effectiveDate = parseIssueDateCode(label) ?? issueUrl.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+    const ts = effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+    out.push({ issueUrl, effectiveDate, ts });
+  }
+  const dedup = new Map<string, { issueUrl: string; effectiveDate: string | null; ts: number }>();
+  for (const row of out) {
+    if (!dedup.has(row.issueUrl)) dedup.set(row.issueUrl, row);
+  }
+  return [...dedup.values()].sort((a, b) => b.ts - a.ts);
 }
 
 function parseBosniaMenuAd2Icaos(menuHtml: string): string[] {
@@ -1252,6 +1318,86 @@ async function resolveSomaliaMetaLive(): Promise<ScraperMeta> {
   return { country: "Somalia", effectiveDate: issue.effectiveDate, ad2Icaos, webAipUrl: SOMALIA_WEB_AIP_URL };
 }
 
+async function resolveSriLankaMetaLive(): Promise<ScraperMeta> {
+  const indexHtml = await fetchText(SRI_LANKA_WEB_AIP_URL);
+  const issues = parseSriLankaIssueUrls(indexHtml, SRI_LANKA_WEB_AIP_URL);
+  const issue = issues[0];
+  const issueUrl = issue?.issueUrl ?? SRI_LANKA_WEB_AIP_URL;
+  const issueHtml = await fetchText(issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(issueHtml, issueUrl);
+  if (!tocUrl) return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})/gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^VC[A-Z0-9]{2}$/.test(icao)),
+  );
+  return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos, webAipUrl: SRI_LANKA_WEB_AIP_URL };
+}
+
+async function resolveTaiwanMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(TAIWAN_WEB_AIP_URL);
+  const issues = parseTaiwanIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) return { country: "Taiwan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAIWAN_WEB_AIP_URL };
+  const indexHtml = await fetchText(issue.issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.issueUrl);
+  if (!tocUrl) return { country: "Taiwan", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: TAIWAN_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Taiwan", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: TAIWAN_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/\b(RC[A-Z0-9]{2})\b/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return { country: "Taiwan", effectiveDate: issue.effectiveDate, ad2Icaos, webAipUrl: TAIWAN_WEB_AIP_URL };
+}
+
+async function resolveTajikistanMetaLive(): Promise<ScraperMeta> {
+  const landingHtml = await fetchText(TAJIKISTAN_WEB_AIP_URL);
+  const validaipPath = landingHtml.match(/onclick="window\.open\('([^']*validaip\/\?lang=en)'\)"/i)?.[1];
+  if (!validaipPath) return { country: "Tajikistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAJIKISTAN_WEB_AIP_URL };
+  const validaipUrl = new URL(validaipPath, TAJIKISTAN_WEB_AIP_URL).href;
+  const validaipHtml = await fetchText(validaipUrl);
+  const englishPath = validaipHtml.match(/<a[^>]*href=["']([^"']*html\/eng\.htm)["'][^>]*>/i)?.[1];
+  if (!englishPath) return { country: "Tajikistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAJIKISTAN_WEB_AIP_URL };
+  const englishUrl = new URL(englishPath, validaipUrl).href;
+  const engHtml = await fetchText(englishUrl);
+  const menuPath = engHtml.match(/<frame[^>]*name=["']menu["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  if (!menuPath) return { country: "Tajikistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAJIKISTAN_WEB_AIP_URL };
+  const menuUrl = new URL(menuPath, englishUrl).href;
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/\/ad2\/([a-z0-9]{4})\//gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^UT[A-Z0-9]{2}$/.test(icao)),
+  );
+  return { country: "Tajikistan", effectiveDate: null, ad2Icaos, webAipUrl: TAJIKISTAN_WEB_AIP_URL };
+}
+
+async function resolveThailandMetaLive(): Promise<ScraperMeta> {
+  const historyHtml = await fetchText(THAILAND_WEB_AIP_URL);
+  const issues = parseThailandIssues(historyHtml);
+  const issue = issues[0];
+  if (!issue) return { country: "Thailand", effectiveDate: null, ad2Icaos: [], webAipUrl: THAILAND_WEB_AIP_URL };
+  const indexHtml = await fetchText(issue.issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issue.issueUrl);
+  if (!tocUrl) return { country: "Thailand", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: THAILAND_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Thailand", effectiveDate: issue.effectiveDate, ad2Icaos: [], webAipUrl: THAILAND_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})/gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^VT[A-Z0-9]{2}$/.test(icao)),
+  );
+  return { country: "Thailand", effectiveDate: issue.effectiveDate, ad2Icaos, webAipUrl: THAILAND_WEB_AIP_URL };
+}
+
 async function resolveJapanMetaLive(): Promise<ScraperMeta> {
   const html = await fetchText(JAPAN_WEB_AIP_URL);
   return {
@@ -1609,6 +1755,50 @@ export async function getSomaliaMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return somaliaCache?.value ?? { country: "Somalia", effectiveDate: null, ad2Icaos: [], webAipUrl: SOMALIA_WEB_AIP_URL };
+  }
+}
+
+export async function getSriLankaMeta(): Promise<ScraperMeta> {
+  if (sriLankaCache && Date.now() < sriLankaCache.expiresAt) return sriLankaCache.value;
+  try {
+    const value = await withTimeout(resolveSriLankaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    sriLankaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return sriLankaCache?.value ?? { country: "Sri Lanka", effectiveDate: null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
+  }
+}
+
+export async function getTaiwanMeta(): Promise<ScraperMeta> {
+  if (taiwanCache && Date.now() < taiwanCache.expiresAt) return taiwanCache.value;
+  try {
+    const value = await withTimeout(resolveTaiwanMetaLive(), FETCH_TIMEOUT_MS * 4);
+    taiwanCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return taiwanCache?.value ?? { country: "Taiwan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAIWAN_WEB_AIP_URL };
+  }
+}
+
+export async function getTajikistanMeta(): Promise<ScraperMeta> {
+  if (tajikistanCache && Date.now() < tajikistanCache.expiresAt) return tajikistanCache.value;
+  try {
+    const value = await withTimeout(resolveTajikistanMetaLive(), FETCH_TIMEOUT_MS * 4);
+    tajikistanCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return tajikistanCache?.value ?? { country: "Tajikistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TAJIKISTAN_WEB_AIP_URL };
+  }
+}
+
+export async function getThailandMeta(): Promise<ScraperMeta> {
+  if (thailandCache && Date.now() < thailandCache.expiresAt) return thailandCache.value;
+  try {
+    const value = await withTimeout(resolveThailandMetaLive(), FETCH_TIMEOUT_MS * 4);
+    thailandCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return thailandCache?.value ?? { country: "Thailand", effectiveDate: null, ad2Icaos: [], webAipUrl: THAILAND_WEB_AIP_URL };
   }
 }
 

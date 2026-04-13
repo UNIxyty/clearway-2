@@ -170,6 +170,26 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://aip.scaa.gov.so/history-en-GB.html",
   },
   {
+    country: "Sri Lanka",
+    prefixes: ["VC"],
+    webAipUrl: "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+  },
+  {
+    country: "Taiwan",
+    prefixes: ["RC"],
+    webAipUrl: "https://ais.caa.gov.tw/eaip/",
+  },
+  {
+    country: "Tajikistan",
+    prefixes: ["UT"],
+    webAipUrl: "http://www.caica.ru/aiptjk/?lang=en",
+  },
+  {
+    country: "Thailand",
+    prefixes: ["VT"],
+    webAipUrl: "https://aip.caat.or.th/",
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     webAipUrl: "https://nagodede.github.io/aip/japan/",

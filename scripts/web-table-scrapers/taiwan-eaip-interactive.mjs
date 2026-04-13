@@ -27,6 +27,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "taiwan-eaip", "AD2");
 const HISTORY_URL = "https://ais.caa.gov.tw/eaip/";
 const FETCH_TIMEOUT_MS = 30_000;
 const UA = "Mozilla/5.0 (compatible; clearway-tw-scraper/1.0)";
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -207,7 +212,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/taiwan-eaip-interactive.mjs [--insecure] [--collect]");
+    console.log(`Usage: node scripts/web-table-scrapers/taiwan-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/taiwan-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/taiwan-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -241,6 +248,36 @@ async function main() {
     const historyHtml = await fetchText(HISTORY_URL);
     const issues = parseIssues(historyHtml);
     if (!issues.length) throw new Error("No effective-date issues found.");
+
+    if (downloadGen12 || downloadAd2Icao) {
+      const issue = issues[0];
+      const menuUrl = await resolveMenuUrl(issue.issueUrl);
+      const menuHtml = await fetchText(menuUrl);
+      const genEntries = parseGenEntries(menuHtml, menuUrl);
+      const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
+      if (!genEntries.length) throw new Error("No GEN entries found.");
+      if (!ad2Entries.length) throw new Error("No AD2 entries found.");
+
+      if (downloadGen12) {
+        const chosen = genEntries.find((e) => /\bGEN\s*1\.2\b/i.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label) || /GEN[-_. ]?1[._-]?2/i.test(e.htmlUrl)) ?? genEntries[0];
+        if (!/\bGEN\s*1\.2\b/i.test(chosen.section) && !/\bGEN\s*1\.2\b/i.test(chosen.label) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.htmlUrl)) {
+          console.error("[TW] GEN 1.2 not found; falling back to first available GEN entry.");
+        }
+        mkdirSync(OUT_GEN, { recursive: true });
+        const outFile = join(OUT_GEN, "RC-GEN-1.2.pdf");
+        await savePdfWithFallback(chosen.htmlUrl, outFile);
+        console.error(`Saved: ${outFile}`);
+        return;
+      }
+
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Taiwan package: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
+      await savePdfWithFallback(chosen.htmlUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
     issues.slice(0, 20).forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));

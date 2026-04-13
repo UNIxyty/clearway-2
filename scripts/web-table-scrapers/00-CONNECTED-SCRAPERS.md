@@ -39,6 +39,10 @@ Connected scripts
 - [x] `rwanda-aip-interactive.mjs`
 - [x] `saudi-arabia-eaip-interactive.mjs`
 - [x] `somalia-eaip-interactive.mjs`
+- [x] `sri-lanka-aip-interactive.mjs`
+- [x] `taiwan-eaip-interactive.mjs`
+- [x] `tajikistan-aip-interactive.mjs`
+- [x] `thailand-eaip-interactive.mjs`
 
 Notes
 -----

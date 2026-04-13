@@ -83,6 +83,13 @@ function normalizeIcaos(values: string[]): string[] {
   ).sort((a, b) => a.localeCompare(b));
 }
 
+function parseDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.valueOf())) return null;
+  return d;
+}
+
 async function fetchText(url: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

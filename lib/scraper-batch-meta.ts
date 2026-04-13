@@ -32,7 +32,7 @@ const QATAR_WEB_AIP_URL = "https://www.caa.gov.qa/en/aeronautical-information-ma
 const RWANDA_WEB_AIP_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 const SAUDI_ARABIA_WEB_AIP_URL = "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html";
 const SOMALIA_WEB_AIP_URL = "https://aip.scaa.gov.so/history-en-GB.html";
-const SRI_LANKA_WEB_AIP_URL = "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html";
+const SRI_LANKA_WEB_AIP_URL = "https://www.aimibsrilanka.lk/eaip/current/index.html";
 const TAIWAN_WEB_AIP_URL = "https://ais.caa.gov.tw/eaip/";
 const TAJIKISTAN_WEB_AIP_URL = "http://www.caica.ru/aiptjk/?lang=en";
 const THAILAND_WEB_AIP_URL = "https://aip.caat.or.th/";
@@ -560,7 +560,14 @@ function parseSriLankaIssueUrls(indexHtml: string, indexUrl: string): Array<{ is
   for (const row of out) {
     if (!dedup.has(row.issueUrl)) dedup.set(row.issueUrl, row);
   }
-  return [...dedup.values()].sort((a, b) => b.ts - a.ts);
+  const rows = [...dedup.values()].sort((a, b) => b.ts - a.ts);
+  if (rows.length > 0) return rows;
+  const refreshTarget = indexHtml.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i)?.[1]?.trim();
+  if (!refreshTarget) return rows;
+  const issueUrl = new URL(normalizeRelativeHref(refreshTarget), indexUrl).href.replace(/\/index\.html$/i, "/index-en-EN.html");
+  const effectiveDate = issueUrl.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+  const ts = effectiveDate ? new Date(`${effectiveDate}T00:00:00Z`).getTime() : Number.NEGATIVE_INFINITY;
+  return [{ issueUrl, effectiveDate, ts }];
 }
 
 function parseTaiwanIssues(historyHtml: string): Array<{ issueUrl: string; effectiveDate: string | null; ts: number }> {
@@ -1323,13 +1330,33 @@ async function resolveSriLankaMetaLive(): Promise<ScraperMeta> {
   const issues = parseSriLankaIssueUrls(indexHtml, SRI_LANKA_WEB_AIP_URL);
   const issue = issues[0];
   const issueUrl = issue?.issueUrl ?? SRI_LANKA_WEB_AIP_URL;
-  const issueHtml = await fetchText(issueUrl);
-  const tocUrl = parseMenuUrlFromIndex(issueHtml, issueUrl);
-  if (!tocUrl) return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
-  const tocHtml = await fetchText(tocUrl);
-  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-  if (!menuUrl) return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
-  const menuHtml = await fetchText(menuUrl);
+  const candidates = [
+    issueUrl,
+    issueUrl.replace(/\/index-en-EN\.html$/i, "/index.html"),
+    issueUrl.replace(/\/index-en-EN\.html$/i, "/index-en-GB.html"),
+    SRI_LANKA_WEB_AIP_URL,
+  ];
+  let menuHtml = "";
+  for (const candidate of [...new Set(candidates)]) {
+    let indexUrl = candidate;
+    for (let i = 0; i < 3; i += 1) {
+      const candidateHtml = await fetchText(indexUrl);
+      const tocUrl = parseMenuUrlFromIndex(candidateHtml, indexUrl);
+      if (tocUrl) {
+        const tocHtml = await fetchText(tocUrl);
+        const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+        if (menuUrl) {
+          menuHtml = await fetchText(menuUrl);
+          break;
+        }
+      }
+      const refreshTarget = candidateHtml.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i)?.[1]?.trim();
+      if (!refreshTarget) break;
+      indexUrl = new URL(normalizeRelativeHref(refreshTarget), indexUrl).href;
+    }
+    if (menuHtml) break;
+  }
+  if (!menuHtml) return { country: "Sri Lanka", effectiveDate: issue?.effectiveDate ?? null, ad2Icaos: [], webAipUrl: SRI_LANKA_WEB_AIP_URL };
   const ad2Icaos = normalizeIcaos(
     [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})/gi)]
       .map((m) => String(m[1] || "").toUpperCase())

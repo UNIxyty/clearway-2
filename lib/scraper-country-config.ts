@@ -172,7 +172,7 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
     country: "Sri Lanka",
     prefixes: ["VC"],
-    webAipUrl: "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+    webAipUrl: "https://www.aimibsrilanka.lk/eaip/current/index.html",
   },
   {
     country: "Taiwan",

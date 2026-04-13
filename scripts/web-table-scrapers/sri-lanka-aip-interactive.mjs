@@ -29,8 +29,10 @@ const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "AD2");
 
-const START_INDEX_URL =
-  "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html";
+const START_INDEX_URLS = [
+  "https://www.aimibsrilanka.lk/eaip/current/index.html",
+  "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
+];
 const FETCH_TIMEOUT_MS = 45_000;
 const FETCH_RETRIES = 3;
 const UA = "Mozilla/5.0 (compatible; clearway-lk-scraper/1.0)";
@@ -143,6 +145,11 @@ async function fetchText(url) {
 
 async function parseIssuesFromDropdown(indexUrl) {
   const indexHtml = await fetchText(indexUrl);
+  const refreshTarget = parseMetaRefreshTarget(indexHtml);
+  if (refreshTarget) {
+    const issueUrl = new URL(normalizeRelativeHref(refreshTarget), indexUrl).href.replace(/\/index\.html$/i, "/index-en-EN.html");
+    return [{ label: "CURRENT", issueUrl }];
+  }
   const navBase = indexHtml.match(/name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1];
   if (!navBase) throw new Error("Navigation frame not found.");
   const tocUrl = new URL(normalizeRelativeHref(navBase), indexUrl).href;
@@ -172,6 +179,19 @@ async function parseIssuesFromDropdown(indexUrl) {
   return out;
 }
 
+async function resolveIssueList() {
+  let lastError = null;
+  for (const startUrl of START_INDEX_URLS) {
+    try {
+      const issues = await parseIssuesFromDropdown(startUrl);
+      if (issues.length) return issues;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("No effective-date issues found.");
+}
+
 function parseMetaRefreshTarget(html) {
   return html.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i)?.[1]?.trim() || null;
 }
@@ -181,7 +201,7 @@ async function resolveMenuUrl(issueUrl) {
     issueUrl,
     issueUrl.replace(/\/index-en-EN\.html$/i, "/index.html"),
     issueUrl.replace(/\/index-en-EN\.html$/i, "/index-en-GB.html"),
-    START_INDEX_URL,
+    ...START_INDEX_URLS,
   ];
 
   for (const candidate of [...new Set(candidates)]) {
@@ -348,7 +368,7 @@ async function main() {
 
   if (collectMode()) {
     try {
-      const issues = await parseIssuesFromDropdown(START_INDEX_URL);
+      const issues = await resolveIssueList();
       if (!issues.length) throw new Error("No effective-date issues found in dropdown.");
       const issue = pickIssueFromInput("", issues);
       const menuUrl = await resolveMenuUrl(issue.issueUrl);
@@ -368,8 +388,40 @@ async function main() {
   let rl = null;
   try {
     console.error("Sri Lanka AIP — interactive downloader\n");
-    const issues = await parseIssuesFromDropdown(START_INDEX_URL);
+    const issues = await resolveIssueList();
     if (!issues.length) throw new Error("No effective-date issues found in dropdown.");
+
+    if (downloadGen12 || downloadAd2Icao) {
+      const issue = issues[0];
+      const menuUrl = await resolveMenuUrl(issue.issueUrl);
+      const menuHtml = await fetchText(menuUrl);
+      const genEntries = parseGenEntries(menuHtml, menuUrl);
+      const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
+      if (!genEntries.length) throw new Error("No GEN entries found in issue menu.");
+      if (!ad2Entries.length) throw new Error("No AD2 entries found in issue menu.");
+
+      if (downloadGen12) {
+        const chosen = genEntries.find((e) => /\bGEN\s*1\.2\b/i.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label) || /GEN[-_. ]?1[._-]?2/i.test(e.htmlUrl)) ?? genEntries[0];
+        if (!/\bGEN\s*1\.2\b/i.test(chosen.section) && !/\bGEN\s*1\.2\b/i.test(chosen.label) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.htmlUrl)) {
+          console.error("[LK] GEN 1.2 not found; falling back to first available GEN entry.");
+        }
+        mkdirSync(OUT_GEN, { recursive: true });
+        const outFile = join(OUT_GEN, "VC-GEN-1.2.pdf");
+        const result = await savePdfWithFallback(chosen.htmlUrl, outFile);
+        if (result.mode === "rendered") console.error("[LK] Direct PDF not available; saved rendered HTML as PDF.");
+        console.error(`Saved: ${outFile}`);
+        return;
+      }
+
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Sri Lanka package: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
+      const result = await savePdfWithFallback(chosen.htmlUrl, outFile);
+      if (result.mode === "rendered") console.error("[LK] Direct PDF not available; saved rendered HTML as PDF.");
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
     issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
@@ -383,30 +435,6 @@ async function main() {
     const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
     if (!genEntries.length) throw new Error("No GEN entries found in issue menu.");
     if (!ad2Entries.length) throw new Error("No AD2 entries found in issue menu.");
-
-    if (downloadGen12) {
-      const chosen = genEntries.find((e) => /\bGEN\s*1\.2\b/i.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label) || /GEN[-_. ]?1[._-]?2/i.test(e.htmlUrl)) ?? genEntries[0];
-      if (!/\bGEN\s*1\.2\b/i.test(chosen.section) && !/\bGEN\s*1\.2\b/i.test(chosen.label) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.htmlUrl)) {
-        console.error("[LK] GEN 1.2 not found; falling back to first available GEN entry.");
-      }
-      mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, "VC-GEN-1.2.pdf");
-      const result = await savePdfWithFallback(chosen.htmlUrl, outFile);
-      if (result.mode === "rendered") console.error("[LK] Direct PDF not available; saved rendered HTML as PDF.");
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
-
-    if (downloadAd2Icao) {
-      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
-      if (!chosen) throw new Error(`AD2 ICAO not found in Sri Lanka package: ${downloadAd2Icao}`);
-      mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
-      const result = await savePdfWithFallback(chosen.htmlUrl, outFile);
-      if (result.mode === "rendered") console.error("[LK] Direct PDF not available; saved rendered HTML as PDF.");
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
 
     const mode = (await rl.question("\nDownload:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;

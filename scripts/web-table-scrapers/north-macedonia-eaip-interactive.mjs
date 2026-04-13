@@ -283,9 +283,12 @@ async function main() {
     const issues = parseIssues(startHtml);
     if (!issues.length) throw new Error("No issue package links found.");
 
-    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
-    issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
-    const issueRaw = (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
+    const nonInteractiveMode = Boolean(downloadAd2Icao || downloadGen12);
+    if (!nonInteractiveMode) {
+      rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
+      issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
+    }
+    const issueRaw = nonInteractiveMode ? "" : (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
     const issue = pickIssueFromInput(issueRaw, issues);
 
     console.error(`\nUsing issue: ${issue.label}`);

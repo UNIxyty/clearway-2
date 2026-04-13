@@ -2455,13 +2455,13 @@ function AIPPortalPageInner() {
               </Button>
               <Button
                 type="button"
-                variant="outline"
-                className="h-10 px-4 shrink-0"
+                variant="destructive"
+                className="h-10 px-4 shrink-0 font-semibold"
                 onClick={stopSearch}
                 disabled={!loading && !notamsLoading && !weatherLoading && !aipEadLoadingIcao && !genLoadingPrefix}
               >
-                <SquareIcon className="size-4 mr-2" />
-                Stop
+                <SquareIcon className="size-4 mr-2 fill-current" />
+                Stop Search
               </Button>
             </div>
 

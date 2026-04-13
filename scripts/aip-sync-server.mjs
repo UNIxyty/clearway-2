@@ -286,10 +286,18 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
   });
 }
 
+function withSystemCaEnv(baseEnv = process.env) {
+  const prev = String(baseEnv.NODE_OPTIONS || "").trim();
+  if (prev.includes("--use-system-ca")) return baseEnv;
+  return { ...baseEnv, NODE_OPTIONS: `${prev ? `${prev} ` : ""}--use-system-ca`.trim() };
+}
+
 async function runDownload(icao) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
-    await run("node", [scraper.script, "--download-ad2", icao], process.env);
+    const args = [scraper.script, "--download-ad2", icao];
+    if (scraper.country === "Nepal" || scraper.country === "Pakistan") args.push("--insecure");
+    await run("node", args, withSystemCaEnv(process.env));
     return;
   }
   if (isRussiaIcao(icao)) {
@@ -596,7 +604,9 @@ async function runRwandaGenDownload() {
 async function runGenDownloadForIcao(icao, prefix) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
-    await run("node", [scraper.script, "--download-gen12"], process.env);
+    const args = [scraper.script, "--download-gen12"];
+    if (scraper.country === "Nepal" || scraper.country === "Pakistan") args.push("--insecure");
+    await run("node", args, withSystemCaEnv(process.env));
     return;
   }
   if (isRussiaIcao(icao)) {

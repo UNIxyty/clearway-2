@@ -2455,8 +2455,8 @@ function AIPPortalPageInner() {
               </Button>
               <Button
                 type="button"
-                variant="destructive"
-                className="h-10 px-4 shrink-0 font-semibold"
+                variant="outline"
+                className="h-10 px-4 shrink-0 border-amber-500/60 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 dark:hover:text-amber-300 font-semibold"
                 onClick={stopSearch}
                 disabled={!loading && !notamsLoading && !weatherLoading && !aipEadLoadingIcao && !genLoadingPrefix}
               >

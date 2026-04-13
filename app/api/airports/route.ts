@@ -32,6 +32,10 @@ import {
   getMalaysiaMeta,
   getMaldivesMeta,
   getMongoliaMeta,
+  getMyanmarMeta,
+  getNepalMeta,
+  getNorthMacedoniaMeta,
+  getPakistanMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -645,6 +649,14 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                                               ? await getMaldivesMeta()
                                               : normalized.includes("mongolia")
                                                 ? await getMongoliaMeta()
+                                                : normalized.includes("myanmar")
+                                                  ? await getMyanmarMeta()
+                                                  : normalized.includes("nepal")
+                                                    ? await getNepalMeta()
+                                                    : normalized.includes("north macedonia") || normalized.includes("macedonia")
+                                                      ? await getNorthMacedoniaMeta()
+                                                      : normalized.includes("pakistan")
+                                                        ? await getPakistanMeta()
                                                 : normalized.includes("japan")
                                                   ? await getJapanMeta()
           : null;

@@ -23,6 +23,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "myanmar-eaip", "AD2");
 // User-provided entry point.
 const INDEX_URL = "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html";
 const FETCH_TIMEOUT_MS = 40_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 let _browser = null;
 let _page = null;
@@ -177,7 +182,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/myanmar-eaip-interactive.mjs [--insecure] [--collect]");
+    console.log(`Usage: node scripts/web-table-scrapers/myanmar-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/myanmar-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/myanmar-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -219,11 +226,43 @@ async function main() {
     console.error(`Issue: ${INDEX_URL}`);
     console.error(`Menu:  ${menuUrl}\n`);
 
+    const issueCode = "2018-02-15";
+
+    if (downloadGen12) {
+      const entries = parseGenEntries(menuHtml, menuUrl);
+      if (!entries.length) throw new Error("No GEN entries found.");
+      const chosen = entries.find((e) => /\b1\.2\b/.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${issueCode}_${chosen.anchor}.pdf`));
+      const candidates = buildPdfCandidates(chosen.htmlUrl);
+      try {
+        await downloadPdfFromCandidates(candidates, outFile);
+      } catch {
+        await renderHtmlToPdf(chosen.htmlUrl, outFile);
+      }
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Myanmar menu: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${issueCode}_${chosen.icao}_AD2.pdf`));
+      const candidates = buildPdfCandidates(chosen.htmlUrl);
+      try {
+        await downloadPdfFromCandidates(candidates, outFile);
+      } catch {
+        await renderHtmlToPdf(chosen.htmlUrl, outFile);
+      }
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;
-
-    const issueCode = "2018-02-15";
 
     if (mode === "1") {
       const entries = parseGenEntries(menuHtml, menuUrl);

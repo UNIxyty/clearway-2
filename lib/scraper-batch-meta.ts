@@ -19,6 +19,14 @@ const LIBYA_WEB_AIP_URL = "https://caa.gov.ly/ais/ad/";
 const MALAYSIA_WEB_AIP_URL = "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html";
 const MALDIVES_WEB_AIP_URL = "https://www.macl.aero/corporate/services/operational/ans/aip";
 const MONGOLIA_WEB_AIP_URL = "https://ais.mn/files/aip/eAIP/";
+const MYANMAR_WEB_AIP_URL = "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html";
+const NEPAL_WEB_AIP_URL = "https://e-aip.caanepal.gov.np/welcome/listall/1";
+const NORTH_MACEDONIA_WEB_AIP_URL = "https://ais.m-nav.info/eAIP/Start.htm";
+const PAKISTAN_WEB_AIP_URL = "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication";
+const PAKISTAN_MENUS_API =
+  "https://paawebadmin.paa.gov.pk/api/v1/Content/GetMenus?ApiKey=123456789_API&_IPAddress=0.0.0.0&_Header=clearway";
+const PAKISTAN_CONTENT_BY_ID_API = "https://paawebadmin.paa.gov.pk/api/v1/Content/GetContentById";
+const PAKISTAN_EAIP_ROUTE = "/aeronautical-information/electronic-aeronautical-information-publication";
 const JAPAN_WEB_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -53,6 +61,10 @@ let libyaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let malaysiaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let maldivesCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let mongoliaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let myanmarCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let nepalCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let northMacedoniaCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let pakistanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let japanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -85,6 +97,11 @@ async function fetchText(url: string): Promise<string> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchJson(url: string): Promise<any> {
+  const text = await fetchText(url);
+  return JSON.parse(text);
 }
 
 function parseBelarusMeta(html: string): { effectiveDate: string | null; ad2Icaos: string[] } {
@@ -379,6 +396,64 @@ function parseMongoliaIssues(historyHtml: string): Array<{ issueCode: string; in
     out.push({ issueCode, indexUrl: new URL(rawHref, MONGOLIA_WEB_AIP_URL).href, ts });
   }
   return out.sort((a, b) => b.ts - a.ts);
+}
+
+function parseNorthMacedoniaIssues(startHtml: string): Array<{ label: string; issueUrl: string; rank: number }> {
+  const cleaned = startHtml.replace(/<!--[\s\S]*?-->/g, "");
+  const re =
+    /<a\s+href=["']((?:current|future)\/index\.htm)["'][^>]*>\s*<b[^>]*>\s*(Current|Future)\s+version:\s*AIP\s+NORTH\s+MACEDONIA\s*<\/b>\s*<\/a>([\s\S]*?)(?:<br|$)/gi;
+  const out: Array<{ label: string; issueUrl: string; rank: number }> = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null = null;
+  while ((m = re.exec(cleaned))) {
+    const href = String(m[1] || "").trim();
+    const kind = String(m[2] || "").trim().toUpperCase();
+    const tail = String(m[3] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!href) continue;
+    const key = `${kind}:${href}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      label: tail ? `${kind}: ${tail}` : kind,
+      issueUrl: new URL(normalizeRelativeHref(href), NORTH_MACEDONIA_WEB_AIP_URL).href,
+      rank: kind === "CURRENT" ? 0 : 1,
+    });
+  }
+  return out.sort((a, b) => a.rank - b.rank);
+}
+
+function parseMetaRefreshTarget(html: string): string | null {
+  return html.match(/http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i)?.[1]?.trim() || null;
+}
+
+async function resolveNorthMacedoniaMenuUrl(issueUrl: string): Promise<string> {
+  let indexUrl = issueUrl;
+  for (let i = 0; i < 3; i++) {
+    const indexHtml = await fetchText(indexUrl);
+    const navBase = indexHtml.match(/name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1];
+    if (navBase) {
+      const tocUrl = new URL(normalizeRelativeHref(navBase), indexUrl).href;
+      const tocHtml = await fetchText(tocUrl);
+      const menuSrc = tocHtml.match(/name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i)?.[1];
+      if (!menuSrc) throw new Error("North Macedonia menu frame source not found.");
+      return new URL(normalizeRelativeHref(menuSrc), tocUrl).href;
+    }
+    const directMenuSrc =
+      indexHtml.match(/<frame[^>]*name=["']menu["'][^>]*src=["']([^"']+)["']/i)?.[1] ||
+      indexHtml.match(/<frame[^>]*src=["']([^"']+)["'][^>]*name=["']menu["']/i)?.[1];
+    if (directMenuSrc) return new URL(normalizeRelativeHref(directMenuSrc), indexUrl).href;
+    const refreshTarget = parseMetaRefreshTarget(indexHtml);
+    if (!refreshTarget) break;
+    indexUrl = new URL(normalizeRelativeHref(refreshTarget), indexUrl).href;
+  }
+  throw new Error("North Macedonia navigation frame not found.");
+}
+
+function flattenMenus(root: any, out: any[] = []): any[] {
+  if (!root || typeof root !== "object") return out;
+  out.push(root);
+  for (const c of root.children || []) flattenMenus(c, out);
+  return out;
 }
 
 function parseJapanFullIcaos(html: string): string[] {
@@ -920,6 +995,107 @@ async function resolveMongoliaMetaLive(): Promise<ScraperMeta> {
   };
 }
 
+async function resolveMyanmarMetaLive(): Promise<ScraperMeta> {
+  const indexHtml = await fetchText(MYANMAR_WEB_AIP_URL);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, MYANMAR_WEB_AIP_URL);
+  if (!tocUrl) return { country: "Myanmar", effectiveDate: "2018-02-15", ad2Icaos: [], webAipUrl: MYANMAR_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "Myanmar", effectiveDate: "2018-02-15", ad2Icaos: [], webAipUrl: MYANMAR_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})[^"']*\.html#AD-2[^"']*/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Myanmar",
+    effectiveDate: "2018-02-15",
+    ad2Icaos,
+    webAipUrl: MYANMAR_WEB_AIP_URL,
+  };
+}
+
+async function resolveNepalMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(NEPAL_WEB_AIP_URL);
+  const ad2Icaos = normalizeIcaos(
+    [...html.matchAll(/\b(VN[A-Z0-9]{2})\b/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "Nepal",
+    effectiveDate: null,
+    ad2Icaos,
+    webAipUrl: NEPAL_WEB_AIP_URL,
+  };
+}
+
+async function resolveNorthMacedoniaMetaLive(): Promise<ScraperMeta> {
+  const startHtml = await fetchText(NORTH_MACEDONIA_WEB_AIP_URL);
+  const issues = parseNorthMacedoniaIssues(startHtml);
+  const issue = issues[0];
+  if (!issue) return { country: "North Macedonia", effectiveDate: null, ad2Icaos: [], webAipUrl: NORTH_MACEDONIA_WEB_AIP_URL };
+  const menuUrl = await resolveNorthMacedoniaMenuUrl(issue.issueUrl);
+  const menuHtml = await fetchText(menuUrl);
+  const treeItemsSrc = menuHtml.match(/<script[^>]*src=["']([^"']*tree_items\.js[^"']*)["']/i)?.[1];
+  if (!treeItemsSrc) return { country: "North Macedonia", effectiveDate: parseIssueDateCode(issue.label), ad2Icaos: [], webAipUrl: NORTH_MACEDONIA_WEB_AIP_URL };
+  const treeUrl = new URL(normalizeRelativeHref(treeItemsSrc), menuUrl).href;
+  const treeJs = await fetchText(treeUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...treeJs.matchAll(/'[^']*LW_AD_2_([A-Z]{4})_en\.pdf'/gi)].map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return {
+    country: "North Macedonia",
+    effectiveDate: parseIssueDateCode(issue.label),
+    ad2Icaos,
+    webAipUrl: NORTH_MACEDONIA_WEB_AIP_URL,
+  };
+}
+
+async function resolvePakistanMetaLive(): Promise<ScraperMeta> {
+  const menus = await fetchJson(PAKISTAN_MENUS_API);
+  const all: any[] = [];
+  for (const row of menus?.data || []) {
+    if (row?.paaEnglishMenus) flattenMenus(row.paaEnglishMenus, all);
+  }
+  const match = all.find((x) => String(x?.redirctFrontURL || "").toLowerCase() === PAKISTAN_EAIP_ROUTE.toLowerCase());
+  if (!match?.uniqueId) {
+    return { country: "Pakistan", effectiveDate: null, ad2Icaos: [], webAipUrl: PAKISTAN_WEB_AIP_URL };
+  }
+  const url = `${PAKISTAN_CONTENT_BY_ID_API}?Id=${encodeURIComponent(match.uniqueId)}&ApiKey=123456789_API`;
+  const payload = await fetchJson(url);
+  const items = payload?.data?.en?.properties?.addEAIP?.items || [];
+  const issues = items
+    .map((item: any) => {
+      const p = item?.content?.properties || {};
+      const rawUrl = p?.uRL?.[0]?.url;
+      return {
+        issueUrl: String(rawUrl || "").trim(),
+        effectiveDate: p?.effectiveDate || null,
+        latest: Boolean(p?.latest),
+      };
+    })
+    .filter((x: any) => x.issueUrl)
+    .sort((a: any, b: any) => {
+      const da = parseDate(a.effectiveDate)?.valueOf() || 0;
+      const db = parseDate(b.effectiveDate)?.valueOf() || 0;
+      return db - da;
+    });
+  const issue = issues.find((x: any) => x.latest) ?? issues[0];
+  if (!issue) return { country: "Pakistan", effectiveDate: null, ad2Icaos: [], webAipUrl: PAKISTAN_WEB_AIP_URL };
+  const leftUrl = new URL("left.htm", issue.issueUrl).href;
+  const leftHtml = await fetchText(leftUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...leftHtml.matchAll(/\(([A-Z0-9]{4})\)/gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^OP[A-Z0-9]{2}$/.test(icao)),
+  );
+  const d = parseDate(issue.effectiveDate);
+  return {
+    country: "Pakistan",
+    effectiveDate: d && !Number.isNaN(d.valueOf()) ? d.toISOString().slice(0, 10) : null,
+    ad2Icaos,
+    webAipUrl: PAKISTAN_WEB_AIP_URL,
+  };
+}
+
 async function resolveJapanMetaLive(): Promise<ScraperMeta> {
   const html = await fetchText(JAPAN_WEB_AIP_URL);
   return {
@@ -1168,6 +1344,55 @@ export async function getMongoliaMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return mongoliaCache?.value ?? { country: "Mongolia", effectiveDate: null, ad2Icaos: [], webAipUrl: MONGOLIA_WEB_AIP_URL };
+  }
+}
+
+export async function getMyanmarMeta(): Promise<ScraperMeta> {
+  if (myanmarCache && Date.now() < myanmarCache.expiresAt) return myanmarCache.value;
+  try {
+    const value = await withTimeout(resolveMyanmarMetaLive(), FETCH_TIMEOUT_MS * 4);
+    myanmarCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return myanmarCache?.value ?? { country: "Myanmar", effectiveDate: null, ad2Icaos: [], webAipUrl: MYANMAR_WEB_AIP_URL };
+  }
+}
+
+export async function getNepalMeta(): Promise<ScraperMeta> {
+  if (nepalCache && Date.now() < nepalCache.expiresAt) return nepalCache.value;
+  try {
+    const value = await withTimeout(resolveNepalMetaLive(), FETCH_TIMEOUT_MS * 4);
+    nepalCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return nepalCache?.value ?? { country: "Nepal", effectiveDate: null, ad2Icaos: [], webAipUrl: NEPAL_WEB_AIP_URL };
+  }
+}
+
+export async function getNorthMacedoniaMeta(): Promise<ScraperMeta> {
+  if (northMacedoniaCache && Date.now() < northMacedoniaCache.expiresAt) return northMacedoniaCache.value;
+  try {
+    const value = await withTimeout(resolveNorthMacedoniaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    northMacedoniaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return northMacedoniaCache?.value ?? {
+      country: "North Macedonia",
+      effectiveDate: null,
+      ad2Icaos: [],
+      webAipUrl: NORTH_MACEDONIA_WEB_AIP_URL,
+    };
+  }
+}
+
+export async function getPakistanMeta(): Promise<ScraperMeta> {
+  if (pakistanCache && Date.now() < pakistanCache.expiresAt) return pakistanCache.value;
+  try {
+    const value = await withTimeout(resolvePakistanMetaLive(), FETCH_TIMEOUT_MS * 4);
+    pakistanCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return pakistanCache?.value ?? { country: "Pakistan", effectiveDate: null, ad2Icaos: [], webAipUrl: PAKISTAN_WEB_AIP_URL };
   }
 }
 

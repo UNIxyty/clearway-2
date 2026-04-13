@@ -30,6 +30,10 @@ Connected scripts
 - [x] `malaysia-eaip-interactive.mjs`
 - [x] `maldives-aip-interactive.mjs`
 - [x] `mongolia-eaip-interactive.mjs`
+- [x] `myanmar-eaip-interactive.mjs`
+- [x] `nepal-eaip-interactive.mjs`
+- [x] `north-macedonia-eaip-interactive.mjs`
+- [x] `pakistan-eaip-interactive.mjs`
 
 Notes
 -----

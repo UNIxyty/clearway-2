@@ -34,6 +34,11 @@ const CONTENT_BY_ID_API = "https://paawebadmin.paa.gov.pk/api/v1/Content/GetCont
 const EAIP_ROUTE = "/aeronautical-information/electronic-aeronautical-information-publication";
 const FETCH_TIMEOUT_MS = 45_000;
 const UA = "Mozilla/5.0 (compatible; clearway-pk-scraper/1.0)";
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -222,7 +227,9 @@ function pickIssueFromInput(raw, issues) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log("Usage: node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs [--insecure] [--collect]");
+    console.log(`Usage: node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/pakistan-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -275,6 +282,25 @@ async function main() {
     const ad2Entries = parseAd2EntriesFromLeftHtml(leftHtml, leftUrl);
     if (!genEntries.length) throw new Error("No GEN entries found in package menu.");
     if (!ad2Entries.length) throw new Error("No AD2 ICAO airport entries found in package menu.");
+
+    if (downloadGen12) {
+      const chosen = genEntries.find((e) => /\b1\.2\b/.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${issue.title}_${chosen.section}.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Pakistan package: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${issue.title}_${chosen.icao}_AD2.pdf`));
+      await downloadPdf(chosen.pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     const mode = (await rl.question("\nDownload:\n  [1] GEN section PDF\n  [2] AD 2 airport DATA PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;

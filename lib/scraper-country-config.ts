@@ -124,6 +124,27 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://ais.mn/files/aip/eAIP/",
   },
   {
+    country: "Myanmar",
+    prefixes: ["VY"],
+    webAipUrl: "https://www.ais.gov.mm/eAIP/2018-02-15/html/index-en-GB.html",
+  },
+  {
+    country: "Nepal",
+    prefixes: ["VN"],
+    webAipUrl: "https://e-aip.caanepal.gov.np/welcome/listall/1",
+  },
+  {
+    country: "North Macedonia",
+    aliases: ["Republic of North Macedonia", "Macedonia"],
+    prefixes: ["LW"],
+    webAipUrl: "https://ais.m-nav.info/eAIP/Start.htm",
+  },
+  {
+    country: "Pakistan",
+    prefixes: ["OP"],
+    webAipUrl: "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     webAipUrl: "https://nagodede.github.io/aip/japan/",

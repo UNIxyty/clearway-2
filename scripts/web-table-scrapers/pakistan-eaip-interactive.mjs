@@ -215,27 +215,14 @@ function parseGenEntries(entries) {
 
 function parseAd2EntriesFromLeftHtml(leftHtml, leftUrl) {
   const byIcao = new Map();
-  const blockToIcao = new Map();
-
-  // Example:
-  // stIT("p3i0",["BAHAWALPUR (OPBW)",...]); stBS("p5",[],"p0");
-  const headingRe =
-    /stIT\([^[]*\["([^"]+\([A-Z0-9]{4}\)[^"]*)"[^\)]*\)\s*;\s*stBS\("p(\d+)"/gi;
+  // Block IDs can repeat across different airports, so parse sequentially instead
+  // of mapping block-id -> ICAO globally.
+  const sectionRe =
+    /stIT\([^[]*\["[^"]*\(([A-Z0-9]{4})\)[^"]*"\][\s\S]*?stIT\("p\d+i\d+"\s*,\["Aerodrome Data","([^"]+_data\.pdf)"/gi;
   let m;
-  while ((m = headingRe.exec(leftHtml))) {
-    const heading = stripHtml(m[1]);
-    const blockId = m[2];
-    const icao = heading.match(/\(([A-Z0-9]{4})\)/i)?.[1]?.toUpperCase();
-    if (icao) blockToIcao.set(blockId, icao);
-  }
-
-  // Example:
-  // stIT("p5i0",["Aerodrome Data","AD/bah_data.pdf"],...)
-  const dataRe = /stIT\("p(\d+)i\d+"\s*,\["Aerodrome Data","([^"]+_data\.pdf)"/gi;
-  while ((m = dataRe.exec(leftHtml))) {
-    const blockId = m[1];
+  while ((m = sectionRe.exec(leftHtml))) {
+    const icao = String(m[1] || "").toUpperCase();
     const relPdf = String(m[2] || "").trim();
-    const icao = blockToIcao.get(blockId);
     if (!icao || !relPdf || byIcao.has(icao)) continue;
     byIcao.set(icao, { icao, pdfUrl: new URL(relPdf, leftUrl).href });
   }

@@ -43,6 +43,10 @@ Connected scripts
 - [x] `taiwan-eaip-interactive.mjs`
 - [x] `tajikistan-aip-interactive.mjs`
 - [x] `thailand-eaip-interactive.mjs`
+- [x] `turkmenistan-aip-interactive.mjs`
+- [x] `uae-eaip-interactive.mjs`
+- [x] `uzbekistan-ais-interactive.mjs`
+- [x] `venezuela-eaip-interactive.mjs`
 
 Notes
 -----

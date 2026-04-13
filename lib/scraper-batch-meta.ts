@@ -36,6 +36,12 @@ const SRI_LANKA_WEB_AIP_URL = "https://www.aimibsrilanka.lk/eaip/current/index.h
 const TAIWAN_WEB_AIP_URL = "https://ais.caa.gov.tw/eaip/";
 const TAJIKISTAN_WEB_AIP_URL = "http://www.caica.ru/aiptjk/?lang=en";
 const THAILAND_WEB_AIP_URL = "https://aip.caat.or.th/";
+const TURKMENISTAN_WEB_AIP_URL = "http://www.caica.ru/aiptkm/?lang=en";
+const UAE_WEB_AIP_URL = "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/AIP.aspx";
+const UAE_CONTENT_WEB_AIP_URL = "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/UAE_AIP.html";
+const UZBEKISTAN_WEB_AIP_URL = "https://uzaeronavigation.com/ais/#";
+const VENEZUELA_WEB_AIP_URL = "https://www.inac.gob.ve/eaip/history-en-GB.html";
+const VENEZUELA_HISTORY_BODY_URL = "https://www.inac.gob.ve/eaip/history-body-en-GB.html";
 const JAPAN_WEB_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -83,6 +89,10 @@ let sriLankaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let taiwanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let tajikistanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let thailandCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let turkmenistanCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let uaeCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let uzbekistanCache: { expiresAt: number; value: ScraperMeta } | null = null;
+let venezuelaCache: { expiresAt: number; value: ScraperMeta } | null = null;
 let japanCache: { expiresAt: number; value: ScraperMeta } | null = null;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -1425,6 +1435,86 @@ async function resolveThailandMetaLive(): Promise<ScraperMeta> {
   return { country: "Thailand", effectiveDate: issue.effectiveDate, ad2Icaos, webAipUrl: THAILAND_WEB_AIP_URL };
 }
 
+async function resolveTurkmenistanMetaLive(): Promise<ScraperMeta> {
+  const landingHtml = await fetchText(TURKMENISTAN_WEB_AIP_URL);
+  const validaipPath = landingHtml.match(/onclick="window\.open\('([^']*validaip\/\?lang=en)'\)"/i)?.[1];
+  if (!validaipPath) return { country: "Turkmenistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TURKMENISTAN_WEB_AIP_URL };
+  const validaipUrl = new URL(validaipPath, TURKMENISTAN_WEB_AIP_URL).href;
+  const validaipHtml = await fetchText(validaipUrl);
+  const englishPath = validaipHtml.match(/<a[^>]*href=["']([^"']*html\/eng\.htm)["'][^>]*>/i)?.[1];
+  if (!englishPath) return { country: "Turkmenistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TURKMENISTAN_WEB_AIP_URL };
+  const englishUrl = new URL(englishPath, validaipUrl).href;
+  const engHtml = await fetchText(englishUrl);
+  const menuPath = engHtml.match(/<frame[^>]*name=["']menu["'][^>]*src=["']([^"']+)["']/i)?.[1];
+  if (!menuPath) return { country: "Turkmenistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TURKMENISTAN_WEB_AIP_URL };
+  const menuUrl = new URL(menuPath, englishUrl).href;
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/\/ad2\/([a-z0-9]{4})\//gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^UT[A-Z0-9]{2}$/.test(icao)),
+  );
+  return { country: "Turkmenistan", effectiveDate: null, ad2Icaos, webAipUrl: TURKMENISTAN_WEB_AIP_URL };
+}
+
+async function resolveUaeMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(UAE_CONTENT_WEB_AIP_URL);
+  const issueMatch = html.match(/<a[^>]*href=["']([^"']*index-en-GB\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/i);
+  if (!issueMatch?.[1]) return { country: "United Arab Emirates", effectiveDate: null, ad2Icaos: [], webAipUrl: UAE_WEB_AIP_URL };
+  const issueUrl = new URL(issueMatch[1], UAE_CONTENT_WEB_AIP_URL).href;
+  const issueLabel = String(issueMatch[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const indexHtml = await fetchText(issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issueUrl);
+  if (!tocUrl) return { country: "United Arab Emirates", effectiveDate: parseIssueDateCode(issueLabel), ad2Icaos: [], webAipUrl: UAE_WEB_AIP_URL };
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) return { country: "United Arab Emirates", effectiveDate: parseIssueDateCode(issueLabel), ad2Icaos: [], webAipUrl: UAE_WEB_AIP_URL };
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/AD-2\.([A-Z0-9]{4})/gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^OM[A-Z0-9]{2}$/.test(icao)),
+  );
+  return { country: "United Arab Emirates", effectiveDate: parseIssueDateCode(issueLabel), ad2Icaos, webAipUrl: UAE_WEB_AIP_URL };
+}
+
+async function resolveUzbekistanMetaLive(): Promise<ScraperMeta> {
+  const html = await fetchText(UZBEKISTAN_WEB_AIP_URL);
+  const ad2Icaos = normalizeIcaos(
+    [...html.matchAll(/\b(UZ[A-Z0-9]{2})\b/gi)]
+      .map((m) => String(m[1] || "").toUpperCase()),
+  );
+  return { country: "Uzbekistan", effectiveDate: null, ad2Icaos, webAipUrl: UZBEKISTAN_WEB_AIP_URL };
+}
+
+async function resolveVenezuelaMetaLive(): Promise<ScraperMeta> {
+  const historyBodyHtml = await fetchText(VENEZUELA_HISTORY_BODY_URL);
+  const issueMatch = historyBodyHtml.match(/<a[^>]*href=['"](\d{4}-\d{2}-\d{2})\/html\/index-en-GB\.html['"][^>]*>([\s\S]*?)<\/a>/i);
+  if (!issueMatch?.[1]) return { country: "Venezuela", effectiveDate: null, ad2Icaos: [], webAipUrl: VENEZUELA_WEB_AIP_URL };
+  const issueUrl = new URL(`${issueMatch[1]}/html/index-en-GB.html`, VENEZUELA_WEB_AIP_URL).href;
+  const issueLabel = String(issueMatch[2] || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const indexHtml = await fetchText(issueUrl);
+  const tocUrl = parseMenuUrlFromIndex(indexHtml, issueUrl);
+  if (!tocUrl) {
+    const effectiveDate = parseIssueDateCode(issueLabel) ?? issueMatch[1];
+    return { country: "Venezuela", effectiveDate, ad2Icaos: [], webAipUrl: VENEZUELA_WEB_AIP_URL };
+  }
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  if (!menuUrl) {
+    const effectiveDate = parseIssueDateCode(issueLabel) ?? issueMatch[1];
+    return { country: "Venezuela", effectiveDate, ad2Icaos: [], webAipUrl: VENEZUELA_WEB_AIP_URL };
+  }
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Icaos = normalizeIcaos(
+    [...menuHtml.matchAll(/SV-AD2\.1([A-Z]{4})-en-GB\.html/gi)]
+      .map((m) => String(m[1] || "").toUpperCase())
+      .filter((icao) => /^SV[A-Z0-9]{2}$/.test(icao)),
+  );
+  const effectiveDate = parseIssueDateCode(issueLabel) ?? issueMatch[1];
+  return { country: "Venezuela", effectiveDate, ad2Icaos, webAipUrl: VENEZUELA_WEB_AIP_URL };
+}
+
 async function resolveJapanMetaLive(): Promise<ScraperMeta> {
   const html = await fetchText(JAPAN_WEB_AIP_URL);
   return {
@@ -1826,6 +1916,50 @@ export async function getThailandMeta(): Promise<ScraperMeta> {
     return value;
   } catch {
     return thailandCache?.value ?? { country: "Thailand", effectiveDate: null, ad2Icaos: [], webAipUrl: THAILAND_WEB_AIP_URL };
+  }
+}
+
+export async function getTurkmenistanMeta(): Promise<ScraperMeta> {
+  if (turkmenistanCache && Date.now() < turkmenistanCache.expiresAt) return turkmenistanCache.value;
+  try {
+    const value = await withTimeout(resolveTurkmenistanMetaLive(), FETCH_TIMEOUT_MS * 4);
+    turkmenistanCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return turkmenistanCache?.value ?? { country: "Turkmenistan", effectiveDate: null, ad2Icaos: [], webAipUrl: TURKMENISTAN_WEB_AIP_URL };
+  }
+}
+
+export async function getUaeMeta(): Promise<ScraperMeta> {
+  if (uaeCache && Date.now() < uaeCache.expiresAt) return uaeCache.value;
+  try {
+    const value = await withTimeout(resolveUaeMetaLive(), FETCH_TIMEOUT_MS * 4);
+    uaeCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return uaeCache?.value ?? { country: "United Arab Emirates", effectiveDate: null, ad2Icaos: [], webAipUrl: UAE_WEB_AIP_URL };
+  }
+}
+
+export async function getUzbekistanMeta(): Promise<ScraperMeta> {
+  if (uzbekistanCache && Date.now() < uzbekistanCache.expiresAt) return uzbekistanCache.value;
+  try {
+    const value = await withTimeout(resolveUzbekistanMetaLive(), FETCH_TIMEOUT_MS * 4);
+    uzbekistanCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return uzbekistanCache?.value ?? { country: "Uzbekistan", effectiveDate: null, ad2Icaos: [], webAipUrl: UZBEKISTAN_WEB_AIP_URL };
+  }
+}
+
+export async function getVenezuelaMeta(): Promise<ScraperMeta> {
+  if (venezuelaCache && Date.now() < venezuelaCache.expiresAt) return venezuelaCache.value;
+  try {
+    const value = await withTimeout(resolveVenezuelaMetaLive(), FETCH_TIMEOUT_MS * 4);
+    venezuelaCache = { value, expiresAt: Date.now() + CACHE_TTL_MS };
+    return value;
+  } catch {
+    return venezuelaCache?.value ?? { country: "Venezuela", effectiveDate: null, ad2Icaos: [], webAipUrl: VENEZUELA_WEB_AIP_URL };
   }
 }
 

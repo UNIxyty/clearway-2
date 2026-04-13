@@ -181,13 +181,36 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   },
   {
     country: "Tajikistan",
-    prefixes: ["UT"],
+    prefixes: [],
+    extraIcaos: ["UTDD", "UTDK", "UTDL", "UTDT"],
     webAipUrl: "http://www.caica.ru/aiptjk/?lang=en",
   },
   {
     country: "Thailand",
     prefixes: ["VT"],
     webAipUrl: "https://aip.caat.or.th/",
+  },
+  {
+    country: "Turkmenistan",
+    prefixes: [],
+    extraIcaos: ["UTAA", "UTAE", "UTAK", "UTAM", "UTAN", "UTAT", "UTAV"],
+    webAipUrl: "http://www.caica.ru/aiptkm/?lang=en",
+  },
+  {
+    country: "United Arab Emirates",
+    aliases: ["UAE"],
+    prefixes: ["OM"],
+    webAipUrl: "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/AIP.aspx",
+  },
+  {
+    country: "Uzbekistan",
+    prefixes: ["UZ"],
+    webAipUrl: "https://uzaeronavigation.com/ais/#",
+  },
+  {
+    country: "Venezuela",
+    prefixes: ["SV"],
+    webAipUrl: "https://www.inac.gob.ve/eaip/history-en-GB.html",
   },
   {
     country: "Japan",

@@ -44,6 +44,10 @@ import {
   getTaiwanMeta,
   getTajikistanMeta,
   getThailandMeta,
+  getTurkmenistanMeta,
+  getUaeMeta,
+  getUzbekistanMeta,
+  getVenezuelaMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -349,7 +353,7 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
 }
 
 async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
-  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, japan] = await Promise.all([
+  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, turkmenistan, uae, uzbekistan, venezuela, japan] = await Promise.all([
     getBelarusMeta(),
     getBhutanMeta(),
     getBosniaMeta(),
@@ -384,9 +388,13 @@ async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
     getTaiwanMeta(),
     getTajikistanMeta(),
     getThailandMeta(),
+    getTurkmenistanMeta(),
+    getUaeMeta(),
+    getUzbekistanMeta(),
+    getVenezuelaMeta(),
     getJapanMeta(),
   ]);
-  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, japan];
+  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, turkmenistan, uae, uzbekistan, venezuela, japan];
   const out: AIPAirport[] = [];
   for (const meta of metas) {
     for (const icao of meta.ad2Icaos) {

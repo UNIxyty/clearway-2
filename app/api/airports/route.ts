@@ -45,6 +45,10 @@ import {
   getTaiwanMeta,
   getTajikistanMeta,
   getThailandMeta,
+  getTurkmenistanMeta,
+  getUaeMeta,
+  getUzbekistanMeta,
+  getVenezuelaMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -684,9 +688,17 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
                                                                         ? await getTajikistanMeta()
                                                                         : normalized.includes("thailand")
                                                                           ? await getThailandMeta()
-                                                                  : normalized.includes("japan")
-                                                                    ? await getJapanMeta()
-          : null;
+                                                                          : normalized.includes("turkmenistan")
+                                                                            ? await getTurkmenistanMeta()
+                                                                            : normalized.includes("united arab emirates") || normalized === "uae"
+                                                                              ? await getUaeMeta()
+                                                                              : normalized.includes("uzbekistan")
+                                                                                ? await getUzbekistanMeta()
+                                                                                : normalized.includes("venezuela")
+                                                                                  ? await getVenezuelaMeta()
+                                                                                  : normalized.includes("japan")
+                                                                                    ? await getJapanMeta()
+                                                                                    : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {
     const coord = coordsMap[icao];

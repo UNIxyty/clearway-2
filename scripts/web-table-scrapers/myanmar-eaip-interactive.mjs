@@ -48,6 +48,10 @@ function safeFilename(name) {
     .replace(/\s+/g, "_");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function extractNamedFrameSrc(html, targetName) {
   const frameTags = String(html || "").match(/<(?:i)?frame\b[^>]*>/gi) || [];
   const normalizedTarget = String(targetName || "").trim().toLowerCase();
@@ -137,7 +141,7 @@ function parseGenEntries(menuHtml, menuUrl) {
 }
 
 function parseAd2Entries(menuHtml, menuUrl) {
-  const re = /<a[^>]*href=["']([^"']*AD-2\.([A-Z0-9]{4})[^"']*\.html#AD-2[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const re = /<a[^>]*href=["']([^"']*AD-2\.([A-Z0-9]{4})[^"']*\.html(?:#AD-2[^"']*)?)["'][^>]*>([\s\S]*?)<\/a>/gi;
   const byIcao = new Map();
   let m;
   while ((m = re.exec(menuHtml))) {
@@ -147,6 +151,32 @@ function parseAd2Entries(menuHtml, menuUrl) {
     if (!byIcao.has(icao)) byIcao.set(icao, { icao, label, htmlUrl: new URL(href, menuUrl).href });
   }
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
+}
+
+async function fetchMenuContext() {
+  const indexHtml = await fetchText(INDEX_URL);
+  const tocUrl = parseTocUrl(indexHtml, INDEX_URL);
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  const menuHtml = await fetchText(menuUrl);
+  const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
+  return { menuUrl, menuHtml, ad2Entries };
+}
+
+async function fetchMenuContextWithRetry(requiredIcao = "", maxAttempts = 5) {
+  let last = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const ctx = await fetchMenuContext();
+    const hasRequired = requiredIcao ? ctx.ad2Entries.some((e) => e.icao === requiredIcao) : true;
+    if (ctx.ad2Entries.length > 0 && hasRequired) return ctx;
+    last = ctx;
+    if (attempt < maxAttempts) {
+      const waitMs = attempt * 1500;
+      console.error(`[MM] menu incomplete (attempt ${attempt}/${maxAttempts}); retrying in ${waitMs}ms...`);
+      await sleep(waitMs);
+    }
+  }
+  return last || { menuUrl: INDEX_URL, menuHtml: "", ad2Entries: [] };
 }
 
 function buildPdfCandidates(htmlUrl) {
@@ -218,12 +248,7 @@ async function main() {
 
   if (collectMode()) {
     try {
-      const indexHtml = await fetchText(INDEX_URL);
-      const tocUrl = parseTocUrl(indexHtml, INDEX_URL);
-      const tocHtml = await fetchText(tocUrl);
-      const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-      const menuHtml = await fetchText(menuUrl);
-      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const { ad2Entries: entries } = await fetchMenuContextWithRetry();
       const issueCode = INDEX_URL.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
       printCollectJson({
         effectiveDate: issueCode ? isoDateFromText(issueCode) ?? issueCode : null,
@@ -241,11 +266,8 @@ async function main() {
   let rl = null;
   try {
     console.error("Myanmar eAIP — interactive downloader\n");
-    const indexHtml = await fetchText(INDEX_URL);
-    const tocUrl = parseTocUrl(indexHtml, INDEX_URL);
-    const tocHtml = await fetchText(tocUrl);
-    const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-    const menuHtml = await fetchText(menuUrl);
+    const ctx = await fetchMenuContextWithRetry(downloadAd2Icao || "");
+    const { menuUrl, menuHtml } = ctx;
 
     console.error(`Issue: ${INDEX_URL}`);
     console.error(`Menu:  ${menuUrl}\n`);

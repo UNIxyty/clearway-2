@@ -145,6 +145,31 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
   },
   {
+    country: "Panama",
+    prefixes: ["MP"],
+    webAipUrl: "https://www.aeronautica.gob.pa/ais-aip/",
+  },
+  {
+    country: "Qatar",
+    prefixes: ["OT"],
+    webAipUrl: "https://www.caa.gov.qa/en/aeronautical-information-management",
+  },
+  {
+    country: "Rwanda",
+    prefixes: ["HR"],
+    webAipUrl: "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
+  },
+  {
+    country: "Saudi Arabia",
+    prefixes: ["OE"],
+    webAipUrl: "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+  },
+  {
+    country: "Somalia",
+    prefixes: ["HC"],
+    webAipUrl: "https://aip.scaa.gov.so/history-en-GB.html",
+  },
+  {
     country: "Japan",
     prefixes: ["RJ", "RO"],
     webAipUrl: "https://nagodede.github.io/aip/japan/",

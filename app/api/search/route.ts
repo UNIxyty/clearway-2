@@ -35,6 +35,11 @@ import {
   getNepalMeta,
   getNorthMacedoniaMeta,
   getPakistanMeta,
+  getPanamaMeta,
+  getQatarMeta,
+  getRwandaMeta,
+  getSaudiArabiaMeta,
+  getSomaliaMeta,
   getJapanMeta,
 } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
@@ -340,7 +345,7 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
 }
 
 async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
-  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, japan] = await Promise.all([
+  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, japan] = await Promise.all([
     getBelarusMeta(),
     getBhutanMeta(),
     getBosniaMeta(),
@@ -366,9 +371,14 @@ async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
     getNepalMeta(),
     getNorthMacedoniaMeta(),
     getPakistanMeta(),
+    getPanamaMeta(),
+    getQatarMeta(),
+    getRwandaMeta(),
+    getSaudiArabiaMeta(),
+    getSomaliaMeta(),
     getJapanMeta(),
   ]);
-  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, japan];
+  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, japan];
   const out: AIPAirport[] = [];
   for (const meta of metas) {
     for (const icao of meta.ad2Icaos) {

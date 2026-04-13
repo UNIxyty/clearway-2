@@ -25,6 +25,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "qatar-eaip", "AD2");
 
 const QATAR_AIM_URL = "https://www.caa.gov.qa/en/aeronautical-information-management";
 const FETCH_TIMEOUT_MS = 30_000;
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function stripHtml(value) {
   return String(value || "")
@@ -159,7 +164,9 @@ async function pickFromList(rl, prompt, items, display) {
 
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
-    console.log(`Usage: node scripts/web-table-scrapers/qatar-eaip-interactive.mjs [--insecure] [--collect]`);
+    console.log(`Usage: node scripts/web-table-scrapers/qatar-eaip-interactive.mjs [--insecure] [--collect]
+       node scripts/web-table-scrapers/qatar-eaip-interactive.mjs --download-ad2 <ICAO>
+       node scripts/web-table-scrapers/qatar-eaip-interactive.mjs --download-gen12`);
     return;
   }
   if (process.argv.includes("--insecure")) {
@@ -204,6 +211,30 @@ async function main() {
     console.error(`Selected (first Effective Date row): ${issue.effectiveDate}  ${issue.issueCode}`);
     console.error(`Issue: ${issue.indexUrl}`);
     console.error(`Menu:  ${menuUrl}\n`);
+
+    if (downloadGen12) {
+      const entries = parseGenEntries(menuHtml, menuUrl);
+      if (!entries.length) throw new Error("No GEN entries found.");
+      const chosen = entries.find((e) => /^GEN-1\.2/i.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+      const pdfUrl = htmlToPdfUrl(chosen.htmlUrl);
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`${issue.issueCode}_${chosen.anchor}.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Qatar package: ${downloadAd2Icao}`);
+      const pdfUrl = htmlToPdfUrl(chosen.htmlUrl);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${issue.issueCode}_${chosen.icao}_AD2.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
 
     rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();

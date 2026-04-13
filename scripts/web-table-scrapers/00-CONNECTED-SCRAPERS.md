@@ -34,6 +34,11 @@ Connected scripts
 - [x] `nepal-eaip-interactive.mjs`
 - [x] `north-macedonia-eaip-interactive.mjs`
 - [x] `pakistan-eaip-interactive.mjs`
+- [x] `panama-aip-interactive.mjs`
+- [x] `qatar-eaip-interactive.mjs`
+- [x] `rwanda-aip-interactive.mjs`
+- [x] `saudi-arabia-eaip-interactive.mjs`
+- [x] `somalia-eaip-interactive.mjs`
 
 Notes
 -----

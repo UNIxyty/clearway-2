@@ -29,6 +29,11 @@ const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "rwanda-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "rwanda-eaip", "AD2");
 const ASECNA_MENU_WITH_RWANDA = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
+const downloadAd2Icao = (() => {
+  const i = process.argv.indexOf("--download-ad2");
+  return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
+})();
+const downloadGen12 = process.argv.includes("--download-gen12");
 
 function usage() {
   console.log(`Usage: node scripts/web-table-scrapers/rwanda-aip-interactive.mjs [options]
@@ -37,6 +42,8 @@ Options:
   --insecure     Disable TLS verification
   --strict-tls   Disable TLS auto-retry fallback
   --collect      Print JSON { effectiveDate, ad2Icaos } to stdout and exit
+  --download-ad2 <ICAO>  Download AD2 PDF non-interactively
+  --download-gen12       Download GEN 1.2 PDF non-interactively
   -h, --help     Show this help
 `);
 }
@@ -148,6 +155,36 @@ async function main() {
     const menuHtml = await http.fetchText(menuUrl, "Rwanda menu", tlsOpts);
 
     console.error(`Resolved Rwanda menu: ${menuUrl}\n`);
+    if (downloadGen12) {
+      const gen12 = parseRwandaGen12(menuHtml);
+      if (!gen12) throw new Error("GEN 1.2 link not found in Rwanda menu.");
+      const htmlUrl = new URL(gen12.href, menuUrl).href;
+      const pdfUrl = rwandaHtmlToPdfUrl(htmlUrl);
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, "RWANDA_GEN_1.2.pdf");
+      await http.fetchOk(htmlUrl, "Rwanda GEN 1.2 HTML", tlsOpts);
+      await http.downloadPdfToFile(pdfUrl, outFile, "Rwanda GEN 1.2 PDF", tlsOpts);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
+    if (downloadAd2Icao) {
+      const icaos = parseRwandaAd2Icaos(menuHtml);
+      if (!icaos.includes(downloadAd2Icao)) {
+        throw new Error(`AD2 ICAO not found in Rwanda menu: ${downloadAd2Icao}`);
+      }
+      const ad2Href = findRwandaAd2Href(menuHtml, downloadAd2Icao);
+      if (!ad2Href) throw new Error(`Could not find AD 2 href for ${downloadAd2Icao} in Rwanda menu.`);
+      const htmlUrl = new URL(ad2Href, menuUrl).href;
+      const pdfUrl = rwandaHtmlToPdfUrl(htmlUrl);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, `RWANDA_AD2_${downloadAd2Icao}.pdf`);
+      await http.fetchOk(htmlUrl, `Rwanda AD2 HTML ${downloadAd2Icao}`, tlsOpts);
+      await http.downloadPdfToFile(pdfUrl, outFile, `Rwanda AD2 PDF ${downloadAd2Icao}`, tlsOpts);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
     rl = readline.createInterface({ input, output: stderr, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN 1.2\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") {

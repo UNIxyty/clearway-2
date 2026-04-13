@@ -48,6 +48,21 @@ function safeFilename(name) {
     .replace(/\s+/g, "_");
 }
 
+function extractNamedFrameSrc(html, targetName) {
+  const frameTags = String(html || "").match(/<(?:i)?frame\b[^>]*>/gi) || [];
+  const normalizedTarget = String(targetName || "").trim().toLowerCase();
+  for (const tag of frameTags) {
+    const attrs = Object.create(null);
+    for (const m of tag.matchAll(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*["']([^"']*)["']/g)) {
+      attrs[String(m[1] || "").toLowerCase()] = String(m[2] || "");
+    }
+    if (String(attrs.name || "").trim().toLowerCase() === normalizedTarget && attrs.src) {
+      return attrs.src;
+    }
+  }
+  return "";
+}
+
 async function getBrowserPage() {
   if (_page) return _page;
   const { chromium } = await import("playwright");
@@ -85,15 +100,24 @@ async function fetchText(url) {
 }
 
 function parseTocUrl(indexHtml, indexUrl) {
-  const m = indexHtml.match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i);
-  if (!m?.[1]) throw new Error("Could not find eAISNavigationBase frame URL.");
-  return new URL(m[1], indexUrl).href;
+  const src = extractNamedFrameSrc(indexHtml, "eAISNavigationBase");
+  if (src) return new URL(src, indexUrl).href;
+
+  // Fallback for markup drift: known fixed eAIP path convention.
+  const fallback = String(indexUrl || "").match(/^(.*\/html\/)[^/]+$/i)?.[1];
+  if (fallback) return new URL("toc-frameset-en-GB.html", fallback).href;
+
+  throw new Error("Could not resolve eAISNavigationBase frame URL.");
 }
 
 function parseMenuUrlFromToc(tocHtml, tocUrl) {
-  const m = tocHtml.match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i);
-  if (!m?.[1]) throw new Error("Could not find eAISNavigation frame URL.");
-  return new URL(m[1], tocUrl).href;
+  const src = extractNamedFrameSrc(tocHtml, "eAISNavigation");
+  if (src) return new URL(src, tocUrl).href;
+
+  const fallback = String(tocUrl || "").match(/^(.*\/html\/).+$/i)?.[1];
+  if (fallback) return new URL("eAIP/menu-en-GB.html", fallback).href;
+
+  throw new Error("Could not resolve eAISNavigation frame URL.");
 }
 
 function parseGenEntries(menuHtml, menuUrl) {

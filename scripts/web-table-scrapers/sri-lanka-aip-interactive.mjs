@@ -31,10 +31,11 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "AD2");
 
 const START_INDEX_URLS = [
   "https://www.aimibsrilanka.lk/eaip/current/index.html",
+  "https://www.aimsrilanka.lk/eAIP.php",
   "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",
 ];
-const FETCH_TIMEOUT_MS = 45_000;
-const FETCH_RETRIES = 3;
+const FETCH_TIMEOUT_MS = 25_000;
+const FETCH_RETRIES = 2;
 const UA = "Mozilla/5.0 (compatible; clearway-lk-scraper/1.0)";
 const INSECURE_TLS = process.argv.includes("--insecure");
 const execFileAsync = promisify(execFile);
@@ -69,9 +70,11 @@ function normalizeRelativeHref(href) {
 }
 
 async function fetchText(url) {
+  const startedAt = Date.now();
   let lastError = null;
   let browserError = null;
   for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
+    console.error(`[LK] fetch(node) ${url} attempt ${attempt}/${FETCH_RETRIES}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
@@ -93,6 +96,7 @@ async function fetchText(url) {
   }
 
   // Fallback for environments where Node fetch TLS/network is unreliable.
+  console.error(`[LK] fetch(browser) ${url}`);
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext({
@@ -100,7 +104,7 @@ async function fetchText(url) {
       ignoreHTTPSErrors: INSECURE_TLS,
     });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
     const html = await page.content();
     await context.close();
     return html;
@@ -112,16 +116,17 @@ async function fetchText(url) {
 
   // Last resort on server environments where browser startup/network is restricted.
   try {
+    console.error(`[LK] fetch(curl) ${url}`);
     const curlArgs = [
       "-fsSL",
       "--retry",
-      "2",
+      "1",
       "--retry-delay",
       "1",
       "--connect-timeout",
-      "20",
+      "10",
       "--max-time",
-      String(Math.ceil(FETCH_TIMEOUT_MS / 1000)),
+      "30",
       "-A",
       UA,
     ];
@@ -140,7 +145,8 @@ async function fetchText(url) {
 
   const nodeMsg = lastError?.message || String(lastError || "n/a");
   const browserMsg = browserError?.message || String(browserError || "n/a");
-  throw new Error(`fetch failed (node=${nodeMsg}; browser=${browserMsg})`);
+  const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+  throw new Error(`fetch failed after ${elapsedSec}s (node=${nodeMsg}; browser=${browserMsg})`);
 }
 
 async function parseIssuesFromDropdown(indexUrl) {
@@ -183,10 +189,15 @@ async function resolveIssueList() {
   let lastError = null;
   for (const startUrl of START_INDEX_URLS) {
     try {
+      console.error(`[LK] trying start URL: ${startUrl}`);
       const issues = await parseIssuesFromDropdown(startUrl);
-      if (issues.length) return issues;
+      if (issues.length) {
+        console.error(`[LK] start URL OK: ${startUrl} (${issues.length} issue entries)`);
+        return issues;
+      }
     } catch (err) {
       lastError = err;
+      console.error(`[LK] start URL failed: ${startUrl} (${err?.message || err})`);
     }
   }
   throw lastError || new Error("No effective-date issues found.");

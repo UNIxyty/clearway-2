@@ -214,17 +214,23 @@ function parseGenEntries(entries) {
 }
 
 function parseAd2EntriesFromLeftHtml(leftHtml, leftUrl) {
+  const source = String(leftHtml || "").replace(/\/\*[\s\S]*?\*\//g, "");
   const byIcao = new Map();
-  // Block IDs can repeat across different airports, so parse sequentially instead
-  // of mapping block-id -> ICAO globally.
-  const sectionRe =
-    /stIT\([^[]*\["[^"]*\(([A-Z0-9]{4})\)[^"]*"\][\s\S]*?stIT\("p\d+i\d+"\s*,\["Aerodrome Data","([^"]+_data\.pdf)"/gi;
-  let m;
-  while ((m = sectionRe.exec(leftHtml))) {
-    const icao = String(m[1] || "").toUpperCase();
-    const relPdf = String(m[2] || "").trim();
-    if (!icao || !relPdf || byIcao.has(icao)) continue;
-    byIcao.set(icao, { icao, pdfUrl: new URL(relPdf, leftUrl).href });
+  const headings = [...source.matchAll(/stIT\([^[]*\["([^"]*\([A-Z0-9]{4}\)[^"]*)"/gi)].map((m) => ({
+    icao: String(m[1] || "").match(/\(([A-Z0-9]{4})\)/i)?.[1]?.toUpperCase() || "",
+    idx: Number(m.index || 0),
+  }));
+  const dataLinks = [...source.matchAll(/stIT\("p\d+i\d+"\s*,\["Aerodrome Data","([^"]+_data\.pdf)"/gi)].map((m) => ({
+    href: String(m[1] || "").trim(),
+    idx: Number(m.index || 0),
+  }));
+
+  for (let i = 0; i < headings.length; i += 1) {
+    const curr = headings[i];
+    const nextIdx = i + 1 < headings.length ? headings[i + 1].idx : Number.POSITIVE_INFINITY;
+    const match = dataLinks.find((d) => d.idx > curr.idx && d.idx < nextIdx);
+    if (!curr.icao || !match?.href || byIcao.has(curr.icao)) continue;
+    byIcao.set(curr.icao, { icao: curr.icao, pdfUrl: new URL(match.href, leftUrl).href });
   }
 
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));

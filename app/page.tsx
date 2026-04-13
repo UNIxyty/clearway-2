@@ -1715,8 +1715,12 @@ function AIPPortalPageInner() {
     if (handledIcaoParamRef.current === icaoParam) return;
     handledIcaoParamRef.current = icaoParam;
     setQuery(icaoParam);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("icao");
+    params.delete("fromBanner");
+    router.replace(params.toString() ? `/?${params.toString()}` : "/");
     void search(icaoParam);
-  }, [searchParams, search]);
+  }, [searchParams, search, router]);
 
   useEffect(() => {
     if (loading || notamsLoadingIcao || aipEadLoadingIcao || genLoadingPrefix) return;

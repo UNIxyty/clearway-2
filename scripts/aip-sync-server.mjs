@@ -289,7 +289,7 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 async function runDownload(icao) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
-    const args = [scraper.script, "--download-ad2", icao];
+    const args = [scraper.script, "--download-ad2", resolveScraperDownloadIcao(icao)];
     if (scraper.country === "Nepal" || scraper.country === "Pakistan") args.push("--insecure");
     await run("node", args, process.env);
     return;
@@ -404,8 +404,14 @@ function findDownloadedPdf(icao) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     if (!existsSync(scraper.ad2Dir)) return null;
-    const icaoUpper = icao.toUpperCase();
-    const files = readdirSync(scraper.ad2Dir).filter((f) => f.endsWith(".pdf") && f.toUpperCase().includes(icaoUpper));
+    const requested = String(icao || "").toUpperCase();
+    const alias = resolveScraperDownloadIcao(requested);
+    const matchCodes = Array.from(new Set([requested, alias]));
+    const files = readdirSync(scraper.ad2Dir).filter((f) => {
+      if (!f.endsWith(".pdf")) return false;
+      const upper = f.toUpperCase();
+      return matchCodes.some((code) => upper.includes(code));
+    });
     if (files.length === 0) return null;
     files.sort((a, b) => {
       try {
@@ -534,6 +540,13 @@ function getScraperSpecByIcao(icao) {
   }
   const prefix = upper.slice(0, 2);
   return SCRAPER_COUNTRY_SPECS.find((s) => s.prefixes.includes(prefix) && !(s.excludedIcaos || []).includes(upper)) || null;
+}
+
+function resolveScraperDownloadIcao(icao) {
+  const upper = String(icao || "").trim().toUpperCase();
+  // Pakistan package currently publishes Islamabad as OPIS. OPRN is legacy.
+  if (upper === "OPRN") return "OPIS";
+  return upper;
 }
 
 function isScraperIcao(icao) {

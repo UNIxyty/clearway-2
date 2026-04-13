@@ -158,9 +158,14 @@ async function main() {
     if (!ad2Entries.length) throw new Error("No AD2 entries found.");
 
     if (downloadGen12) {
-      const chosen = genEntries.find((e) => /\b1\.2\b/.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
+      const chosen = genEntries.find(
+        (e) => /GEN[-_. ]?1[._-]?2/i.test(e.section) || /GEN[-_. ]?1[._-]?2/i.test(e.label) || /GEN[-_. ]?1[._-]?2/i.test(e.pdfUrl),
+      ) ?? genEntries[0];
+      if (!/GEN[-_. ]?1[._-]?2/i.test(chosen.section) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.label) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.pdfUrl)) {
+        console.error("[PA] GEN 1.2 not found; falling back to first available GEN entry.");
+      }
       mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, safeFilename(`${chosen.section}.pdf`));
+      const outFile = join(OUT_GEN, "MP-GEN-1.2.pdf");
       await downloadPdf(chosen.pdfUrl, outFile);
       console.error(`Saved: ${outFile}`);
       return;

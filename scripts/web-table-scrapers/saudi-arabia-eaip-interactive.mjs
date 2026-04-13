@@ -242,35 +242,33 @@ async function main() {
     const issues = parseIssues(historyHtml);
     if (!issues.length) throw new Error("No issue links found.");
 
-    console.error("--- Available issues ---\n");
-    issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label || x.issueCode}`));
+    if (downloadGen12 || downloadAd2Icao) {
+      const issue = pickNewestIssueByIso(issues, (x) => `${x.label || ""} ${x.issueCode || ""}`);
+      const indexHtml = await fetchText(issue.indexUrl);
+      const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
+      const tocHtml = await fetchText(tocUrl);
+      const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+      const menuHtml = await fetchText(menuUrl);
 
-    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
-    const issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.label} ${x.issueCode}`);
-
-    const indexHtml = await fetchText(issue.indexUrl);
-    const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
-    const tocHtml = await fetchText(tocUrl);
-    const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-    const menuHtml = await fetchText(menuUrl);
-
-    if (downloadGen12) {
-      const entries = parseGenEntries(menuHtml, menuUrl);
-      if (!entries.length) throw new Error("No GEN entries found.");
-      const chosen = entries.find((e) => /^GEN-1\.2/i.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
-      const candidates = buildPdfCandidates(chosen.htmlUrl);
-      mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, safeFilename(`${issue.issueCode}_${chosen.anchor}.pdf`));
-      try {
-        await downloadPdfFromCandidates(candidates, outFile);
-      } catch {
-        await renderHtmlToPdf(chosen.htmlUrl, outFile);
+      if (downloadGen12) {
+        const entries = parseGenEntries(menuHtml, menuUrl);
+        if (!entries.length) throw new Error("No GEN entries found.");
+        const chosen = entries.find((e) => /^GEN-1\.2/i.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+        if (!/^GEN-1\.2/i.test(chosen.anchor) && !/\bGEN\s*1\.2\b/i.test(chosen.label)) {
+          console.error("[SA] GEN 1.2 not found; falling back to first available GEN entry.");
+        }
+        const candidates = buildPdfCandidates(chosen.htmlUrl);
+        mkdirSync(OUT_GEN, { recursive: true });
+        const outFile = join(OUT_GEN, "OE-GEN-1.2.pdf");
+        try {
+          await downloadPdfFromCandidates(candidates, outFile);
+        } catch {
+          await renderHtmlToPdf(chosen.htmlUrl, outFile);
+        }
+        console.error(`Saved: ${outFile}`);
+        return;
       }
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
 
-    if (downloadAd2Icao) {
       const entries = parseAd2Entries(menuHtml, menuUrl);
       const chosen = entries.find((e) => e.icao === downloadAd2Icao);
       if (!chosen) throw new Error(`AD2 ICAO not found in Saudi Arabia package: ${downloadAd2Icao}`);
@@ -285,6 +283,18 @@ async function main() {
       console.error(`Saved: ${outFile}`);
       return;
     }
+
+    console.error("--- Available issues ---\n");
+    issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label || x.issueCode}`));
+
+    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
+    const issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.label} ${x.issueCode}`);
+
+    const indexHtml = await fetchText(issue.indexUrl);
+    const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
+    const tocHtml = await fetchText(tocUrl);
+    const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+    const menuHtml = await fetchText(menuUrl);
 
     console.error(`\nSelected: ${issue.label || issue.issueCode}`);
     console.error(`Issue: ${issue.indexUrl}`);

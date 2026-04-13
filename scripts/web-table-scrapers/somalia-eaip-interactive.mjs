@@ -220,6 +220,36 @@ async function main() {
     const issues = parseIssues(historyHtml);
     if (!issues.length) throw new Error("No effective-date issues found.");
 
+    if (downloadGen12 || downloadAd2Icao) {
+      const issue = issues[0];
+      const menuUrl = await resolveMenuUrl(issue.issueUrl);
+      const menuHtml = await fetchText(menuUrl);
+      const genEntries = parseGenEntries(menuHtml, menuUrl);
+      const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
+      if (!genEntries.length) throw new Error("No GEN entries found.");
+      if (!ad2Entries.length) throw new Error("No AD2 entries found.");
+
+      if (downloadGen12) {
+        const chosen = genEntries.find((e) => /\bGEN\s*1\.2\b/i.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label) || /GEN[-_. ]?1[._-]?2/i.test(e.htmlUrl)) ?? genEntries[0];
+        if (!/\bGEN\s*1\.2\b/i.test(chosen.section) && !/\bGEN\s*1\.2\b/i.test(chosen.label) && !/GEN[-_. ]?1[._-]?2/i.test(chosen.htmlUrl)) {
+          console.error("[SO] GEN 1.2 not found; falling back to first available GEN entry.");
+        }
+        mkdirSync(OUT_GEN, { recursive: true });
+        const outFile = join(OUT_GEN, "HC-GEN-1.2.pdf");
+        await savePdfWithFallback(chosen.htmlUrl, outFile);
+        console.error(`Saved: ${outFile}`);
+        return;
+      }
+
+      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+      if (!chosen) throw new Error(`AD2 ICAO not found in Somalia package: ${downloadAd2Icao}`);
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
+      await savePdfWithFallback(chosen.htmlUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+      return;
+    }
+
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
     issues.slice(0, 20).forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}`));
     const issueRaw = (await rl.question(`\nIssue number [enter=1, 1-${issues.length}]: `)).trim();
@@ -235,25 +265,6 @@ async function main() {
     const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
     if (!genEntries.length) throw new Error("No GEN entries found.");
     if (!ad2Entries.length) throw new Error("No AD2 entries found.");
-
-    if (downloadGen12) {
-      const chosen = genEntries.find((e) => /\bGEN\s*1\.2\b/i.test(e.section) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
-      mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, safeFilename(`${chosen.section}.pdf`));
-      await savePdfWithFallback(chosen.htmlUrl, outFile);
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
-
-    if (downloadAd2Icao) {
-      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
-      if (!chosen) throw new Error(`AD2 ICAO not found in Somalia package: ${downloadAd2Icao}`);
-      mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
-      await savePdfWithFallback(chosen.htmlUrl, outFile);
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
 
     const mode = (await rl.question("\nDownload:\n  [1] GEN section PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;

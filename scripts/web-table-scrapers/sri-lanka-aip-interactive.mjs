@@ -95,26 +95,7 @@ async function fetchText(url) {
     }
   }
 
-  // Fallback for environments where Node fetch TLS/network is unreliable.
-  console.error(`[LK] fetch(browser) ${url}`);
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const context = await browser.newContext({
-      userAgent: UA,
-      ignoreHTTPSErrors: INSECURE_TLS,
-    });
-    const page = await context.newPage();
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    const html = await page.content();
-    await context.close();
-    return html;
-  } catch (err) {
-    browserError = err;
-  } finally {
-    await browser.close();
-  }
-
-  // Last resort on server environments where browser startup/network is restricted.
+  // Prefer curl before browser startup; browser launch is expensive.
   try {
     console.error(`[LK] fetch(curl) ${url}`);
     const curlArgs = [
@@ -141,6 +122,25 @@ async function fetchText(url) {
     const browserMsg = browserError?.message || String(browserError || "n/a");
     const curlMsg = curlError?.message || String(curlError || "n/a");
     throw new Error(`fetch failed (node=${nodeMsg}; browser=${browserMsg}; curl=${curlMsg})`);
+  }
+
+  // Last resort for environments where direct HTTP clients are blocked but Chromium still works.
+  console.error(`[LK] fetch(browser) ${url}`);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({
+      userAgent: UA,
+      ignoreHTTPSErrors: INSECURE_TLS,
+    });
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    const html = await page.content();
+    await context.close();
+    return html;
+  } catch (err) {
+    browserError = err;
+  } finally {
+    await browser.close();
   }
 
   const nodeMsg = lastError?.message || String(lastError || "n/a");
@@ -314,10 +314,11 @@ async function derivePdfCandidates(htmlUrl) {
 }
 
 async function renderHtmlToPdf(htmlUrl, outFile) {
+  console.error(`[LK] Rendering HTML to PDF (fallback): ${htmlUrl}`);
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
-    await page.goto(htmlUrl, { waitUntil: "networkidle", timeout: 120_000 });
+    await page.goto(htmlUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.pdf({
       path: outFile,
       printBackground: true,

@@ -2740,7 +2740,12 @@ function AIPPortalPageInner() {
                         )}
                       </div>
                     )}
-                    {(isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || Boolean(getEadWebAipUrlForAirport(viewingAirport))) && (
+                    {Boolean(
+                      viewingAirport.webAipUrl ||
+                      getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
+                      getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
+                      getEadWebAipUrlForAirport(viewingAirport)
+                    ) && (
                       <Button
                         type="button"
                         variant="default"
@@ -2757,9 +2762,7 @@ function AIPPortalPageInner() {
                         title={
                           isAsecnaIcao(viewingAirport.icao)
                             ? "Open ASECNA Web AIP"
-                            : getEadWebAipUrlForAirport(viewingAirport)
-                              ? `Open ${viewingAirport.country} Web AIP`
-                              : `Open ${viewingAirport.country || "Scraper"} Web AIP`
+                            : `Open ${viewingAirport.country || "Airport"} Web AIP`
                         }
                       >
                         <GlobeIcon className="size-4" />

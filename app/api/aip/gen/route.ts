@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 
 const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const GEN_PREFIX = "aip/gen";
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefixParam = request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "";
 
-  const prefix = prefixParam || (icao.length >= 2 ? icao.slice(0, 2) : "");
+  const prefix = resolveGenPrefix(icao, prefixParam);
   if (!/^[A-Z]{2}$/.test(prefix)) {
     return NextResponse.json(
       { error: "Valid ICAO or 2-letter prefix required (e.g. icao=EDQA or prefix=ED)" },

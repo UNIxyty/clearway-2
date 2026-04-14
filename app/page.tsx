@@ -25,6 +25,7 @@ import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-wea
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
+import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export type NotamItem = {
@@ -646,9 +647,9 @@ function AIPPortalPageInner() {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || (!isEadIcao(icao) && !isAsecnaIcao(icao))) return;
     if (isAsecnaIcao(icao)) return;
-    const prefix = icao.slice(0, 2).toUpperCase();
+    const prefix = resolveGenPrefix(icao);
     if (prefix in genPdfExistsOnServer) return;
-    fetch(`/api/aip/gen/pdf/exists?prefix=${encodeURIComponent(prefix)}`, { cache: "no-store" })
+    fetch(`/api/aip/gen/pdf/exists?icao=${encodeURIComponent(icao)}&prefix=${encodeURIComponent(prefix)}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { exists?: boolean }) => {
         setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: Boolean(data?.exists) }));
@@ -967,7 +968,7 @@ function AIPPortalPageInner() {
       return;
     }
 
-    const prefix = icao.slice(0, 2).toUpperCase();
+    const prefix = resolveGenPrefix(icao);
     setGenPdfDownloadError(null);
     setGenPdfDownloading(true);
     setGenSyncingPrefix(prefix);
@@ -1278,7 +1279,7 @@ function AIPPortalPageInner() {
       updateStage(icao, "gen", "done", "ASECNA GEN available via GEN PDF button");
       return;
     }
-    const prefix = icao.slice(0, 2).toUpperCase();
+    const prefix = resolveGenPrefix(icao);
     if (prefix in genCache || genLoadingPrefix === prefix) return;
     setGenLoadingPrefix(prefix);
     const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, viewingAirport);

@@ -11,6 +11,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
+import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import {
   getBelarusMeta,
   getBhutanMeta,
@@ -212,9 +213,10 @@ function buildCountryCandidates(country?: string | null): string[] {
 
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport {
   const icao = (row.icao ?? "").toUpperCase();
-  const country = row.country ?? "";
+  const usaState = isUsaAipIcao(icao) ? getUsaStateByIcao(icao) : null;
+  const country = usaState ? `${usaState}, USA` : (row.country ?? "");
   const dbWebAip = String(row.web_aip_url || "").trim() || null;
-  const scraperWebAip = dbWebAip || getScraperWebAipUrlByCountryOrIcao(country, icao);
+  const scraperWebAip = dbWebAip || getScraperWebAipUrlByCountryOrIcao(country, icao) || (usaState ? USA_WEB_AIP_URL : null);
   return {
     country,
     gen1_2: "",
@@ -359,7 +361,7 @@ function flattenUSAByState(state: string): AIPAirport[] {
     const icao = a["Airport Code"] ?? "";
     const coord = coordsMap[icao];
     return {
-      country: data.country,
+      country: `${state}, USA`,
       gen1_2,
       gen1_2_point_4,
       icao,
@@ -383,6 +385,7 @@ function flattenUSAByState(state: string): AIPAirport[] {
       runwayDimensions: a["AD2.12 Runway Dimensions"] ?? "",
       lat: coord?.lat,
       lon: coord?.lon,
+      webAipUrl: USA_WEB_AIP_URL,
     };
   });
 }

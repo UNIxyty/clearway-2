@@ -26,6 +26,7 @@ import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/l
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
+import { USA_WEB_AIP_URL, isUsaAipIcao } from "@/lib/usa-aip";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export type NotamItem = {
@@ -261,7 +262,7 @@ function mapExtractedRowToAirport(
 }
 
 function supportsSyncedAipIcao(icao: string): boolean {
-  return isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, null);
+  return isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, null) || isUsaAipIcao(icao);
 }
 
 /** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
@@ -906,6 +907,38 @@ function AIPPortalPageInner() {
   }, []);
 
   const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false, forceScraper = false) => {
+    if (isUsaAipIcao(icao)) {
+      setGenPdfDownloadError(null);
+      setGenPdfDownloading(true);
+      setGenSyncingPrefix("US");
+      setGenSyncSteps(["Fetching USA GEN 1.2 PDF…"]);
+      try {
+        const pdfRes = await fetch(`/api/aip/usa/gen/pdf?icao=${encodeURIComponent(icao)}`, {
+          cache: "no-store",
+        });
+        if (!pdfRes.ok) {
+          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
+          throw new Error(data.detail || data.error || "Failed to load USA GEN PDF");
+        }
+        const blob = await pdfRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${icao}_USA_GEN_1.2.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+      } catch (err) {
+        setGenPdfDownloadError(
+          err instanceof Error ? err.message : "USA GEN PDF download failed",
+        );
+      } finally {
+        setGenPdfDownloading(false);
+        setGenSyncingPrefix(null);
+      }
+      return;
+    }
+
     if (forceScraper || isBahrainScraperIcao(icao, null)) {
       setGenPdfDownloadError(null);
       setGenPdfDownloading(true);
@@ -1095,6 +1128,8 @@ function AIPPortalPageInner() {
       ? "/api/aip/asecna"
       : isBahrainScraperIcao(icao, viewingAirport)
         ? "/api/aip/scraper"
+        : isUsaAipIcao(icao)
+          ? "/api/aip/usa"
         : "/api/aip/ead";
     const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}${syncParams}&_t=${Date.now()}`;
     const controller = beginRequest(`aip-${icao}`);
@@ -1243,6 +1278,8 @@ function AIPPortalPageInner() {
       ? "/api/aip/asecna/pdf"
       : isBahrainScraperIcao(icao, viewingAirport)
         ? "/api/aip/scraper/pdf"
+        : isUsaAipIcao(icao)
+          ? "/api/aip/usa/pdf"
         : "/api/aip/ead/pdf";
     const controller = beginRequest(`aip-head-${icao}`);
     fetch(`${pdfApiBase}?icao=${encodeURIComponent(icao)}`, { method: "HEAD", signal: controller.signal })
@@ -1285,7 +1322,7 @@ function AIPPortalPageInner() {
     const prefix = resolveGenPrefix(icao);
     if (prefix in genCache || genLoadingPrefix === prefix) return;
     setGenLoadingPrefix(prefix);
-    const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, viewingAirport);
+    const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, viewingAirport) || isUsaAipIcao(icao);
     if (useSyncedGen) updateStage(icao, "gen", "running", "Loading GEN…");
     else updateStage(icao, "gen-non-ead", "running", "Rewriting non-EAD GEN…");
     const genUrl = useSyncedGen
@@ -2761,7 +2798,8 @@ function AIPPortalPageInner() {
                       viewingAirport.webAipUrl ||
                       getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
                       getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                      getEadWebAipUrlForAirport(viewingAirport)
+                      getEadWebAipUrlForAirport(viewingAirport) ||
+                      isUsaAipIcao(viewingAirport.icao)
                     ) && (
                       <Button
                         type="button"
@@ -2773,7 +2811,8 @@ function AIPPortalPageInner() {
                             viewingAirport.webAipUrl ||
                             getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
                             getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                            getEadWebAipUrlForAirport(viewingAirport);
+                            getEadWebAipUrlForAirport(viewingAirport) ||
+                            (isUsaAipIcao(viewingAirport.icao) ? USA_WEB_AIP_URL : null);
                           if (webAip) {
                             setWebAipConsent({
                               url: webAip,
@@ -2784,6 +2823,8 @@ function AIPPortalPageInner() {
                         title={
                           isAsecnaIcao(viewingAirport.icao)
                             ? "Open ASECNA Web AIP"
+                            : isUsaAipIcao(viewingAirport.icao)
+                              ? "Open FAA USA AIP"
                             : `Open ${viewingAirport.country || "Airport"} Web AIP`
                         }
                       >
@@ -2799,6 +2840,8 @@ function AIPPortalPageInner() {
                     <strong>
                       {isAsecnaIcao(viewingAirport.icao)
                         ? "ASECNA Web AIP (dynamically updated)"
+                        : isUsaAipIcao(viewingAirport.icao)
+                          ? "FAA USA AIP (hard-coded source PDF set)"
                         : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
                           ? `${viewingAirport.country || "Scraper"} Web AIP (dynamically updated)`
                         : isRussiaIcao(viewingAirport.icao)
@@ -2808,6 +2851,8 @@ function AIPPortalPageInner() {
                     {" "}
                     {isAsecnaIcao(viewingAirport.icao)
                       ? "PDF is fetched from live ASECNA source and stored to S3."
+                      : isUsaAipIcao(viewingAirport.icao)
+                        ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3. AI extraction runs on-demand when you press Extract Data."
                       : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
                         ? "PDF is fetched from live scraper source and stored to S3."
                       : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
@@ -2839,6 +2884,21 @@ function AIPPortalPageInner() {
                       .
                     </div>
                   )}
+                  {isUsaAipIcao(viewingAirport.icao) && (
+                    <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      USA AIP here uses hard-coded PDF files extracted from an FAA multi-page document released on 10.11.2016.
+                      {" "}
+                      <a
+                        href={USA_WEB_AIP_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 font-medium"
+                      >
+                        Open FAA AIP web publication
+                      </a>
+                      .
+                    </div>
+                  )}
                   <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
                     <button
                       type="button"
@@ -2864,7 +2924,7 @@ function AIPPortalPageInner() {
                       aipEadCache[viewingAirport.icao]?.updatedAt ||
                       aipPdfExistsOnServer[viewingAirport.icao] ? (
                         <object
-                          data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                          data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                           type="application/pdf"
                           className="w-full h-[520px] rounded-md border border-border/60 bg-background"
                           aria-label={`AIP PDF ${viewingAirport.icao}`}
@@ -2873,7 +2933,7 @@ function AIPPortalPageInner() {
                             Native PDF preview is not available in this browser.
                             {" "}
                             <a
-                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                               target="_blank"
                               rel="noreferrer"
                               className="underline underline-offset-2"
@@ -2882,7 +2942,7 @@ function AIPPortalPageInner() {
                             </a>
                             {" "}or{" "}
                             <a
-                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
+                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
                               className="underline underline-offset-2"
                             >
                               download it

@@ -10,6 +10,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
+import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import {
   getBelarusMeta,
   getBhutanMeta,
@@ -162,9 +163,10 @@ function flattenAIP(): AIPAirport[] {
     const gen1_2_point_4 = c.GEN_1_2_POINT_4 ?? "";
     for (const a of c.airports) {
       const icao = a["Airport Code"] ?? "";
+      const usaState = isUsaAipIcao(icao) ? getUsaStateByIcao(icao) : null;
       const coord = coordsMap[icao];
       list.push({
-        country: c.country,
+        country: usaState ? `${usaState}, USA` : c.country,
         gen1_2,
         gen1_2_point_4,
         icao,
@@ -190,6 +192,7 @@ function flattenAIP(): AIPAirport[] {
         lon: coord?.lon,
         sourceType: "STATIC_PORTAL",
         dynamicUpdated: false,
+        webAipUrl: usaState ? USA_WEB_AIP_URL : undefined,
       });
     }
   }
@@ -504,9 +507,10 @@ async function getCurrentUserId(): Promise<string | null> {
 function mapDbRowToAirport(row: DbAirportRow): AIPAirport | null {
   const icao = String(row.icao ?? "").toUpperCase();
   if (!icao) return null;
+  const usaState = isUsaAipIcao(icao) ? getUsaStateByIcao(icao) : null;
   const coord = coordsMap[icao];
   return {
-    country: row.country ?? "",
+    country: usaState ? `${usaState}, USA` : (row.country ?? ""),
     gen1_2: "",
     gen1_2_point_4: "",
     icao,
@@ -532,7 +536,7 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport | null {
     lon: row.lon ?? coord?.lon,
     sourceType: "DB_DYNAMIC",
     dynamicUpdated: true,
-    webAipUrl: String(row.web_aip_url ?? "").trim() || undefined,
+    webAipUrl: String(row.web_aip_url ?? "").trim() || (usaState ? USA_WEB_AIP_URL : undefined),
   };
 }
 

@@ -1,0 +1,67 @@
+import { NextRequest, NextResponse } from "next/server";
+import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
+import { isUsaAipIcao } from "@/lib/usa-aip";
+
+const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
+const PDF_PREFIX = "aip/usa-pdf";
+
+function s3() {
+  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+}
+
+function useInline(request: NextRequest): boolean {
+  const p = request.nextUrl.searchParams;
+  if (p.get("download") === "1" || p.get("attachment") === "1") return false;
+  return p.get("inline") === "1" || p.get("inline") === "true";
+}
+
+export async function HEAD(request: NextRequest) {
+  const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
+  if (!/^[A-Z0-9]{4}$/.test(icao) || !isUsaAipIcao(icao) || !BUCKET) {
+    return new NextResponse(null, { status: 400 });
+  }
+  try {
+    await s3().send(new HeadObjectCommand({ Bucket: BUCKET, Key: `${PDF_PREFIX}/${icao}.pdf` }));
+    return new NextResponse(null, { status: 200 });
+  } catch {
+    return new NextResponse(null, { status: 404 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
+  if (!/^[A-Z0-9]{4}$/.test(icao)) {
+    return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
+  }
+  if (!isUsaAipIcao(icao)) {
+    return NextResponse.json({ error: "ICAO is not mapped to USA AIP static PDFs" }, { status: 404 });
+  }
+  if (!BUCKET) {
+    return NextResponse.json({ error: "PDF storage not configured" }, { status: 503 });
+  }
+
+  const inline = useInline(request);
+  const key = `${PDF_PREFIX}/${icao}.pdf`;
+  const filename = buildPdfDownloadFilename("AD2", icao);
+
+  try {
+    const res = await s3().send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    const body = res.Body;
+    if (!body) return new NextResponse(null, { status: 404 });
+    const bytes = await body.transformToByteArray();
+    const copy = new Uint8Array(bytes.length);
+    copy.set(bytes);
+    return new NextResponse(copy, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": inline ? `inline; filename="${filename}"` : `attachment; filename="${filename}"`,
+        "Cache-Control": "private, max-age=300",
+      },
+    });
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message || "Failed to load PDF";
+    return NextResponse.json({ error: "Failed to load PDF", detail: msg }, { status: 502 });
+  }
+}

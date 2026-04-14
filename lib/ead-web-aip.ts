@@ -20,10 +20,62 @@ export function getEadWebAipUrlByCountry(country: string | null | undefined): st
   const raw = String(country || "").trim();
   if (!raw) return null;
 
-  const normalized = normalizeCountry(raw).replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
-  if (normalized === "denmark") return "https://aim.naviair.dk/en/";
-
   const prefix = raw.match(/\(([A-Z0-9]{2})\)\s*$/)?.[1]?.toUpperCase() || "";
+  const byPrefix: Record<string, string> = {
+    LA: "https://www.albcontrol.al/aip/",
+    UD: "http://www.armats.am/activities/ais/eaip",
+    LO: "https://eaip.austrocontrol.at/",
+    EB: "https://ops.skeyes.be/",
+    LQ: "https://eaip.bhansa.gov.ba/",
+    LB: "https://www.bulatsa.com/en/services/aeronautical-information-services/",
+    LD: "https://www.crocontrol.hr/en/services/aeronautical-information-management/",
+    LC: "http://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/index_en/index_en",
+    LK: "http://ais.ans.cz/",
+    EK: "https://aim.naviair.dk/",
+    XX: "https://aim.naviair.dk/",
+    BG: "https://aim.naviair.dk/",
+    EE: "https://aim.eans.ee/",
+    EF: "https://www.ais.fi/",
+    LF: "https://www.sia.aviation-civile.gouv.fr/",
+    UG: "https://ais.airnav.ge/en/",
+    ED: "https://aip.dfs.de/basicAIP/",
+    LG: "https://aisgr.hasp.gov.gr/",
+    LH: "https://ais-en.hungarocontrol.hu/aip/",
+    BI: "https://www.avians.is/en/c-preflight-information",
+    EI: "https://www.airnav.ie/air-traffic-management/aeronautical-information-management",
+    LI: "https://www.enav.it/sites/public/en/Servizi/areonautical-information.html",
+    OJ: "https://carc.gov.jo/en/directory-flight-information",
+    BK: "https://www.ashna-ks.org/en/services/ais/",
+    UA: "http://www.ans.kz/en/ais/eaip",
+    UC: "https://ansp.kg/aeronautical-information-service",
+    EV: "https://ais.lgs.lv/",
+    EY: "https://www.ans.lt/en/aim",
+    EL: "https://ops.skeyes.be/",
+    LM: "https://www.maltats.com/aim/",
+    LU: "https://aim.moldatsa.md/",
+    EH: "https://www.lvnl.nl/diensten/aip",
+    EN: "https://avinor.no/ais",
+    RP: "https://ais.caap.gov.ph/home",
+    EP: "https://www.ais.pansa.pl/en/publications/ais-products/",
+    LP: "https://ais.nav.pt/",
+    LW: "http://ais.m-nav.info/eAIP/current/en/index.htm",
+    LR: "https://www.aisro.ro/",
+    LY: "https://smatsa.rs/upload/aip/published/start_page.html",
+    LZ: "https://aim.lps.sk/web/",
+    LJ: "https://aim.sloveniacontrol.si/aim/products/",
+    LE: "https://aip.enaire.es/aip/aip-en.html",
+    GC: "https://aip.enaire.es/aip/aip-en.html",
+    ES: "https://aro.lfv.se/Editorial/View/IAIP",
+    LS: "https://www.skyguide.ch/en/services/aeronautical-information-management/",
+    LT: "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+    UK: "http://www.aisukraine.net/titul_en.php",
+    EG: "https://www.nats.aero/do-it-online/ais/",
+  };
+  if (prefix && byPrefix[prefix]) return byPrefix[prefix];
+
+  const normalized = normalizeCountry(raw).replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
+  if (normalized === "denmark") return "https://aim.naviair.dk/";
+
   if (prefix && EAD_PREFIXES.has(prefix)) return EAD_WEB_AIP_DEFAULT_URL;
 
   return null;

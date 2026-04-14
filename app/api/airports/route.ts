@@ -10,6 +10,7 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
+import { getEadWebAipUrlByCountry } from "@/lib/ead-web-aip";
 import {
   getBelarusMeta,
   getBhutanMeta,
@@ -515,6 +516,7 @@ function flattenEadCountry(countryLabel: string, eadData: Record<string, Array<{
       lon: coord?.lon,
       sourceType: "EAD_DYNAMIC",
       dynamicUpdated: true,
+      webAipUrl: getEadWebAipUrlByCountry(countryLabel) ?? undefined,
     };
   });
   list.sort((a, b) => {

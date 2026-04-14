@@ -24,6 +24,7 @@ import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } 
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
+import { getEadWebAipUrlByCountry } from "@/lib/ead-web-aip";
 
 export type NotamItem = {
   location: string;
@@ -200,10 +201,7 @@ function isKuwaitScraperIcao(icao: string): boolean {
 
 function getEadWebAipUrlForAirport(airport: AIPAirport | null): string | null {
   if (!airport) return null;
-  const country = String(airport.country || "").trim();
-  // First EAD rollout country: Denmark (EK)
-  if (country === "Denmark (EK)" || country === "Denmark") return "https://aim.naviair.dk/en/";
-  return null;
+  return getEadWebAipUrlByCountry(airport.country);
 }
 
 function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {

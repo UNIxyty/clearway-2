@@ -80,7 +80,6 @@ const PREFIX_TO_COUNTRY = {
   LT: 'Turkey (LT)',
   UK: 'Ukraine (UK)',
   EG: 'United Kingdom (EG)',
-  GC: 'Spain (GC)',
 };
 
 function log(msg) {

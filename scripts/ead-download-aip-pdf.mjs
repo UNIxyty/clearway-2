@@ -89,13 +89,25 @@ const PREFIX_TO_COUNTRY = {
   LT: 'Turkey (LT)',
   UK: 'Ukraine (UK)',
   EG: 'United Kingdom (EG)',
-  GC: 'Spain (GC)', // Canary Islands
 };
 
 // ICAO-level overrides when a shared prefix belongs to a different authority.
 // Keep prefix EK mapped to Denmark, but route EKVG to Faroe Islands only.
+// Spain AD2 package is published under "Spain (LE)" for specific GC/GE/GS airports.
 const ICAO_TO_COUNTRY = {
   EKVG: 'Faroe Islands (XX)',
+  GCFV: 'Spain (LE)',
+  GCGM: 'Spain (LE)',
+  GCHI: 'Spain (LE)',
+  GCLA: 'Spain (LE)',
+  GCLP: 'Spain (LE)',
+  GCRR: 'Spain (LE)',
+  GCTS: 'Spain (LE)',
+  GCXM: 'Spain (LE)',
+  GCXO: 'Spain (LE)',
+  GEML: 'Spain (LE)',
+  GSAI: 'Spain (LE)',
+  GSVO: 'Spain (LE)',
 };
 
 function log(msg) {

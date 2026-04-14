@@ -30,6 +30,20 @@ const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
+const SPAIN_LE_GEN_ALIAS_ICAOS = new Set([
+  "GCFV",
+  "GCGM",
+  "GCHI",
+  "GCLA",
+  "GCLP",
+  "GCRR",
+  "GCTS",
+  "GCXM",
+  "GCXO",
+  "GEML",
+  "GSAI",
+  "GSVO",
+]);
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 const SCRAPER_COUNTRY_SPECS = [
   {
@@ -718,7 +732,9 @@ async function runGenDownloadForIcao(icao, prefix) {
     await runRwandaGenDownload();
     return;
   }
-  await runGenDownload(prefix);
+  const upperIcao = String(icao || "").trim().toUpperCase();
+  const normalizedPrefix = SPAIN_LE_GEN_ALIAS_ICAOS.has(upperIcao) ? "LE" : prefix;
+  await runGenDownload(normalizedPrefix);
 }
 
 function findDownloadedGenPdf(icao, prefix) {
@@ -817,6 +833,7 @@ const server = createServer(async (req, res) => {
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
+    const effectivePrefix = SPAIN_LE_GEN_ALIAS_ICAOS.has(icao) ? "LE" : prefix;
     if (!/^[A-Z]{2}$/.test(prefix)) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Valid icao or prefix required (e.g. icao=EDQA or prefix=ED)" }));
@@ -844,25 +861,25 @@ const server = createServer(async (req, res) => {
       res.setHeader("Content-Type", "application/json");
     }
     try {
-      await runGenDownloadForIcao(icao, prefix);
+      await runGenDownloadForIcao(icao, effectivePrefix);
       if (process.env.AWS_S3_BUCKET) {
-        const uploadedGenKey = await uploadGenPdfToS3(icao, prefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
+        const uploadedGenKey = await uploadGenPdfToS3(icao, effectivePrefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
         if (stream) {
           send({ step: GEN_STEPS[1] });
           send({ step: `GEN PDF uploaded: ${uploadedGenKey}` });
-          send({ step: "PDF ready", pdfReady: true, type: "gen", prefix });
+          send({ step: "PDF ready", pdfReady: true, type: "gen", prefix: effectivePrefix });
         }
       }
       if (stream) send({ step: GEN_STEPS[2] });
       if (stream) {
-        send({ done: true, prefix });
+        send({ done: true, prefix: effectivePrefix });
         res.end();
       } else {
         res.writeHead(200);
-        res.end(JSON.stringify({ ok: true, prefix }));
+        res.end(JSON.stringify({ ok: true, prefix: effectivePrefix }));
       }
     } catch (genErr) {
-      console.error("GEN sync failed for", prefix, genErr.message);
+      console.error("GEN sync failed for", effectivePrefix, genErr.message);
       const fail = syncFailurePayload(genErr);
       const payload =
         fail.code === 402

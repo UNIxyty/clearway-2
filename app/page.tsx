@@ -25,6 +25,7 @@ import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-wea
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
+import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export type NotamItem = {
   location: string;
@@ -119,11 +120,23 @@ const EAD_ICAO_PREFIXES = new Set([
   "LE", "ES", "GC", "LS", "LT", "UK", "EG",
 ]);
 
+const SPAIN_LE_SPECIAL_EAD_ICAOS = (() => {
+  const data = eadCountryIcaos as Record<string, Array<{ icao: string; name: string }>>;
+  const rows = Array.isArray(data["Spain (LE)"]) ? data["Spain (LE)"] : [];
+  return new Set(
+    rows
+      .map((row) => String(row?.icao || "").trim().toUpperCase())
+      .filter((icao) => /^(GC|GE|GS)[A-Z0-9]{2}$/.test(icao)),
+  );
+})();
+
 const MAIN_PAGE_DISABLE_GEN = false;
 const ASECNA_ICAOS = getAsecnaAirportsSet();
 
 function isEadIcao(icao: string): boolean {
-  return icao.length >= 2 && EAD_ICAO_PREFIXES.has(icao.slice(0, 2).toUpperCase());
+  const up = String(icao || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(up)) return false;
+  return EAD_ICAO_PREFIXES.has(up.slice(0, 2)) || SPAIN_LE_SPECIAL_EAD_ICAOS.has(up);
 }
 
 const RUSSIA_ICAO_PREFIXES = new Set([

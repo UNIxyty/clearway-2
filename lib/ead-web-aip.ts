@@ -91,6 +91,9 @@ function getEadWebAipUrlByPrefixOrCountry(prefix: string, rawCountry: string): s
   if (resolvedPrefix && byPrefix[resolvedPrefix]) return byPrefix[resolvedPrefix];
 
   const normalized = normalizeCountry(raw).replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
+  if (normalized === "spain" && /^(LE|GC|GE|GS)$/.test(resolvedPrefix)) {
+    return "https://aip.enaire.es/aip/aip-en.html";
+  }
   if (normalized === "denmark") return "https://aim.naviair.dk/";
 
   if (resolvedPrefix && EAD_PREFIXES.has(resolvedPrefix)) return EAD_WEB_AIP_DEFAULT_URL;

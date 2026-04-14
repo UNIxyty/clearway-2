@@ -126,7 +126,7 @@
       border-color: var(--muted);
       background: rgba(148, 163, 184, 0.08);
     }
-    .status-changed-view[hidden] {
+    .status-pick-view[hidden] {
       display: none !important;
     }
     .status-segmented {
@@ -175,7 +175,7 @@
 <body>
   <h1>EAD countries — Web AIP links</h1>
   <p class="sub">
-    Defaults match <code>lib/ead-web-aip.ts</code>. Edit the URL if a link moves; use <strong>Link updated</strong> to flag a row, then pick <strong>Correct</strong> when verified.
+    Defaults match <code>lib/ead-web-aip.ts</code>. Each row starts with no status chosen; pick <strong>Correct</strong> or <strong>Changed</strong> after you check the link. Editing the URL selects <strong>Changed</strong> automatically.
     Use <strong>Download JSON</strong> to save overrides and merge into code or a CMS later.
   </p>
 
@@ -336,16 +336,17 @@
         <td><input type="url" class="url-input" value="${escapeAttr(url)}" spellcheck="false" /></td>
         <td><a class="btn open-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">Web AIP</a></td>
         <td class="status-cell">
-          <input type="radio" name="status-${prefix}" value="correct" id="status-${prefix}-correct" class="sr-only" checked />
+          <input type="radio" name="status-${prefix}" value="unset" id="status-${prefix}-unset" class="sr-only" checked />
+          <input type="radio" name="status-${prefix}" value="correct" id="status-${prefix}-correct" class="sr-only" />
           <input type="radio" name="status-${prefix}" value="changed" id="status-${prefix}-changed" class="sr-only" />
-          <div class="status-correct-view" data-status-view="correct">
+          <div class="status-correct-view" data-status-view="correct" hidden>
             <span class="status-ok-pill" aria-hidden="true">Verified</span>
             <button type="button" class="status-flag-btn" aria-label="Mark this row as link updated">Link updated</button>
           </div>
-          <div class="status-changed-view" data-status-view="changed" hidden>
+          <div class="status-pick-view" data-status-view="pick">
             <div class="status-segmented" role="group" aria-label="Link verification for ${escapeAttr(prefix)}">
               <button type="button" class="seg seg-correct" aria-pressed="false">Correct</button>
-              <button type="button" class="seg seg-changed" aria-pressed="true">Changed</button>
+              <button type="button" class="seg seg-changed" aria-pressed="false">Changed</button>
             </div>
           </div>
         </td>
@@ -366,29 +367,40 @@
     }
 
     function setRowStatus(tr, status) {
+      const unset = tr.querySelector('input[value="unset"]');
       const correct = tr.querySelector('input[value="correct"]');
       const changed = tr.querySelector('input[value="changed"]');
       const viewCorrect = tr.querySelector('[data-status-view="correct"]');
-      const viewChanged = tr.querySelector('[data-status-view="changed"]');
+      const viewPick = tr.querySelector('[data-status-view="pick"]');
       const segCorrect = tr.querySelector(".seg-correct");
       const segChanged = tr.querySelector(".seg-changed");
 
-      if (status === "changed") {
-        changed.checked = true;
+      unset.checked = status === "unset";
+      correct.checked = status === "correct";
+      changed.checked = status === "changed";
+
+      if (status === "correct") {
+        viewCorrect.hidden = false;
+        viewPick.hidden = true;
+        segCorrect.classList.remove("is-on");
+        segChanged.classList.remove("is-on");
+        segCorrect.setAttribute("aria-pressed", "false");
+        segChanged.setAttribute("aria-pressed", "false");
+        tr.classList.remove("row-changed");
+      } else if (status === "changed") {
         viewCorrect.hidden = true;
-        viewChanged.hidden = false;
+        viewPick.hidden = false;
         segCorrect.classList.remove("is-on");
         segChanged.classList.add("is-on");
         segCorrect.setAttribute("aria-pressed", "false");
         segChanged.setAttribute("aria-pressed", "true");
         tr.classList.add("row-changed");
       } else {
-        correct.checked = true;
-        viewCorrect.hidden = false;
-        viewChanged.hidden = true;
-        segCorrect.classList.add("is-on");
+        viewCorrect.hidden = true;
+        viewPick.hidden = false;
+        segCorrect.classList.remove("is-on");
         segChanged.classList.remove("is-on");
-        segCorrect.setAttribute("aria-pressed", "true");
+        segCorrect.setAttribute("aria-pressed", "false");
         segChanged.setAttribute("aria-pressed", "false");
         tr.classList.remove("row-changed");
       }
@@ -418,6 +430,7 @@
       segChanged.addEventListener("click", () => setRowStatus(tr, "changed"));
 
       syncOpenHref();
+      setRowStatus(tr, "unset");
     }
 
     document.getElementById("btn-mark-all-correct").addEventListener("click", () => {
@@ -431,7 +444,7 @@
       document.querySelectorAll("#rows tr").forEach((tr) => {
         const prefix = tr.dataset.prefix;
         const url = (tr.querySelector(".url-input").value || "").trim();
-        const status = tr.querySelector('input[name="status-' + prefix + '"]:checked')?.value || "correct";
+        const status = tr.querySelector('input[name="status-' + prefix + '"]:checked')?.value || "unset";
         items.push({
           prefix,
           countryLabel: countryLabel(prefix),

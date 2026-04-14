@@ -9,6 +9,9 @@ Usage:
   python scripts/extract-pdf-pages.py file.pdf --pages 21-30 --overwrite
 
 Pages are 1-based (as shown in PDF viewers).
+
+Output paths: use ./my-folder/out.pdf (relative) or /Users/you/.../out.pdf.
+A leading slash alone (/usa-aip/...) is the system root, not a project folder.
 """
 import argparse
 import re
@@ -70,7 +73,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    pdf_path = args.pdf.resolve()
+    pdf_path = args.pdf.expanduser().resolve()
     if not pdf_path.exists():
         parser.error(f"File not found: {pdf_path}")
 
@@ -104,9 +107,20 @@ def main() -> None:
         out_path = args.out or pdf_path.parent / (
             pdf_path.stem + "-extracted" + pdf_path.suffix
         )
-        out_path = out_path.resolve()
-        with open(out_path, "wb") as f:
-            writer.write(f)
+        out_path = out_path.expanduser().resolve()
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            parser.error(
+                f"Cannot create output directory {out_path.parent}: {e}\n"
+                "Hint: paths starting with / are absolute from disk root. "
+                "For a folder next to your project use ./usa-aip/file.pdf not /usa-aip/file.pdf."
+            )
+        try:
+            with open(out_path, "wb") as f:
+                writer.write(f)
+        except OSError as e:
+            parser.error(f"Cannot write output {out_path}: {e}")
         print(f"Kept {len(pages_1based)} pages → {out_path}")
 
 

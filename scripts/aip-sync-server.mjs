@@ -384,7 +384,7 @@ async function runDownload(icao) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     const args = [scraper.script, "--download-ad2", resolveScraperDownloadIcao(icao)];
-    if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka") args.push("--insecure");
+    if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka" || scraper.country === "Venezuela") args.push("--insecure");
     await run("node", args, process.env);
     return;
   }
@@ -706,7 +706,7 @@ async function runGenDownloadForIcao(icao, prefix) {
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     const args = [scraper.script, "--download-gen12"];
-    if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka") args.push("--insecure");
+    if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka" || scraper.country === "Venezuela") args.push("--insecure");
     await run("node", args, process.env);
     return;
   }

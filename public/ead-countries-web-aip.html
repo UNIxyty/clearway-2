@@ -161,6 +161,14 @@
       background: rgba(245, 158, 11, 0.18);
       color: #fbbf24;
     }
+    .info-cell {
+      color: var(--muted);
+      font-size: 0.72rem;
+      max-width: 20rem;
+    }
+    .info-cell a {
+      color: var(--accent);
+    }
     .prefix { font-family: ui-monospace, monospace; font-weight: 600; color: var(--accent); }
     .row-changed td { outline: 1px solid var(--warn); outline-offset: -1px; }
     footer {
@@ -178,6 +186,11 @@
     Defaults match <code>lib/ead-web-aip.ts</code>. Each row starts with no status chosen; pick <strong>Correct</strong> or <strong>Changed</strong> after you check the link. Editing the URL selects <strong>Changed</strong> automatically.
     Use <strong>Download JSON</strong> to save overrides and merge into code or a CMS later.
   </p>
+  <p class="sub">
+    These links are from official country/authority websites and may be paid, blocked, or unavailable in some regions.
+    If one is unavailable, check free data in
+    <a href="https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/" target="_blank" rel="noopener noreferrer">Eurocontrol EAD Basic</a>.
+  </p>
 
   <div class="toolbar">
     <button type="button" id="btn-mark-all-correct">Mark all as Correct</button>
@@ -191,6 +204,7 @@
         <th>Prefix</th>
         <th>Web AIP URL (editable)</th>
         <th>Open</th>
+        <th>Info</th>
         <th>Check</th>
       </tr>
     </thead>
@@ -335,6 +349,10 @@
         <td class="prefix">${escapeHtml(prefix)}</td>
         <td><input type="url" class="url-input" value="${escapeAttr(url)}" spellcheck="false" /></td>
         <td><a class="btn open-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">Web AIP</a></td>
+        <td class="info-cell">
+          Official source; may be paid/geo-restricted.
+          <a href="${escapeAttr(EAD_WEB_AIP_DEFAULT_URL)}" target="_blank" rel="noopener noreferrer">EAD Basic</a>
+        </td>
         <td class="status-cell">
           <input type="radio" name="status-${prefix}" value="unset" id="status-${prefix}-unset" class="sr-only" checked />
           <input type="radio" name="status-${prefix}" value="correct" id="status-${prefix}-correct" class="sr-only" />
@@ -450,6 +468,9 @@
           countryLabel: countryLabel(prefix),
           webAipUrl: url,
           status,
+          sourceType: "official-country-site",
+          fallbackUrl: EAD_WEB_AIP_DEFAULT_URL,
+          fallbackNote: "If official source is unavailable, use Eurocontrol EAD Basic.",
         });
       });
       const payload = {

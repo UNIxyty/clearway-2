@@ -19,8 +19,25 @@ function normalizeCountry(value: string): string {
 export function getEadWebAipUrlByCountry(country: string | null | undefined): string | null {
   const raw = String(country || "").trim();
   if (!raw) return null;
+  return getEadWebAipUrlByPrefixOrCountry("", raw);
+}
 
-  const prefix = raw.match(/\(([A-Z0-9]{2})\)\s*$/)?.[1]?.toUpperCase() || "";
+export function getEadWebAipUrlByIcaoOrCountry(
+  icao: string | null | undefined,
+  country: string | null | undefined,
+): string | null {
+  const up = String(icao || "").trim().toUpperCase();
+  const prefix = /^[A-Z0-9]{4}$/.test(up) ? up.slice(0, 2) : "";
+  const rawCountry = String(country || "").trim();
+  return getEadWebAipUrlByPrefixOrCountry(prefix, rawCountry);
+}
+
+function getEadWebAipUrlByPrefixOrCountry(prefix: string, rawCountry: string): string | null {
+  const raw = String(rawCountry || "").trim();
+  if (!raw && !prefix) return null;
+
+  const countrySuffixPrefix = raw.match(/\(([A-Z0-9]{2})\)\s*$/)?.[1]?.toUpperCase() || "";
+  const resolvedPrefix = prefix || countrySuffixPrefix;
   const byPrefix: Record<string, string> = {
     LA: "https://www.albcontrol.al/aip/",
     UD: "http://www.armats.am/activities/ais/eaip",
@@ -71,12 +88,12 @@ export function getEadWebAipUrlByCountry(country: string | null | undefined): st
     UK: "http://www.aisukraine.net/titul_en.php",
     EG: "https://www.nats.aero/do-it-online/ais/",
   };
-  if (prefix && byPrefix[prefix]) return byPrefix[prefix];
+  if (resolvedPrefix && byPrefix[resolvedPrefix]) return byPrefix[resolvedPrefix];
 
   const normalized = normalizeCountry(raw).replace(/\s*\([A-Z0-9]{2}\)\s*$/, "").trim();
   if (normalized === "denmark") return "https://aim.naviair.dk/";
 
-  if (prefix && EAD_PREFIXES.has(prefix)) return EAD_WEB_AIP_DEFAULT_URL;
+  if (resolvedPrefix && EAD_PREFIXES.has(resolvedPrefix)) return EAD_WEB_AIP_DEFAULT_URL;
 
   return null;
 }

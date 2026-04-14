@@ -9,7 +9,7 @@ import { formatRussiaAirportName } from "@/lib/russia-airport-name";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@/lib/asecna-airports";
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
-import { getEadWebAipUrlByCountry } from "@/lib/ead-web-aip";
+import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import {
   getBelarusMeta,
   getBhutanMeta,
@@ -232,7 +232,7 @@ function flattenEadFromGenerated(): AIPAirport[] {
         lon: coord?.lon,
         sourceType: "EAD_DYNAMIC",
         dynamicUpdated: true,
-        webAipUrl: getEadWebAipUrlByCountry(country) ?? undefined,
+        webAipUrl: getEadWebAipUrlByIcaoOrCountry(icao, country) ?? undefined,
       });
     }
   }
@@ -661,7 +661,7 @@ export async function GET(request: NextRequest) {
           fireFighting: "",
           runwayNumber: "",
           runwayDimensions: "",
-          webAipUrl: getEadWebAipUrlByCountry(foundCountry) ?? undefined,
+          webAipUrl: getEadWebAipUrlByIcaoOrCountry(qUpper, foundCountry) ?? undefined,
         } as AIPAirport,
       ];
     }

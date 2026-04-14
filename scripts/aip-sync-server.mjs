@@ -30,21 +30,26 @@ const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
 const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
-const SPAIN_LE_GEN_ALIAS_ICAOS = new Set([
-  "GCFV",
-  "GCGM",
-  "GCHI",
-  "GCLA",
-  "GCLP",
-  "GCRR",
-  "GCTS",
-  "GCXM",
-  "GCXO",
-  "GEML",
-  "GSAI",
-  "GSVO",
-]);
+const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, "data", "ead-country-icaos.json");
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
+
+function loadSpainLeGenAliasIcaos() {
+  try {
+    if (!existsSync(EAD_COUNTRY_ICAOS_PATH)) return new Set();
+    const raw = readFileSync(EAD_COUNTRY_ICAOS_PATH, "utf8");
+    const data = JSON.parse(raw);
+    const rows = Array.isArray(data?.["Spain (LE)"]) ? data["Spain (LE)"] : [];
+    return new Set(
+      rows
+        .map((x) => String(x || "").trim().toUpperCase())
+        .filter((icao) => /^(GC|GE|GS)[A-Z0-9]{2}$/.test(icao)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+const SPAIN_LE_GEN_ALIAS_ICAOS = loadSpainLeGenAliasIcaos();
 const SCRAPER_COUNTRY_SPECS = [
   {
     country: "Bahrain",

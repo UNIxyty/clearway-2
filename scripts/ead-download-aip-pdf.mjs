@@ -39,6 +39,7 @@ const LOGIN_URL = BASE + '/cms-eadbasic/opencms/en/login/ead-basic/';
 const AIP_OVERVIEW_PATH = '/fwf-eadbasic/restricted/user/aip/aip_overview.faces';
 const AIP_OVERVIEW_URL = BASE + AIP_OVERVIEW_PATH;
 const ASECNA_JSON_PATH = join(PROJECT_ROOT, 'data', 'asecna-airports.json');
+const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, 'data', 'ead-country-icaos.json');
 
 // ICAO prefix (first 2 letters) → EAD authority label, e.g. EV → "Latvia (EV)"
 const PREFIX_TO_COUNTRY = {
@@ -93,22 +94,34 @@ const PREFIX_TO_COUNTRY = {
 
 // ICAO-level overrides when a shared prefix belongs to a different authority.
 // Keep prefix EK mapped to Denmark, but route EKVG to Faroe Islands only.
-// Spain AD2 package is published under "Spain (LE)" for specific GC/GE/GS airports.
 const ICAO_TO_COUNTRY = {
   EKVG: 'Faroe Islands (XX)',
-  GCFV: 'Spain (LE)',
-  GCGM: 'Spain (LE)',
-  GCHI: 'Spain (LE)',
-  GCLA: 'Spain (LE)',
-  GCLP: 'Spain (LE)',
-  GCRR: 'Spain (LE)',
-  GCTS: 'Spain (LE)',
-  GCXM: 'Spain (LE)',
-  GCXO: 'Spain (LE)',
-  GEML: 'Spain (LE)',
-  GSAI: 'Spain (LE)',
-  GSVO: 'Spain (LE)',
 };
+
+function loadSpainLeSpecialIcaos() {
+  try {
+    if (!existsSync(EAD_COUNTRY_ICAOS_PATH)) return new Set();
+    const raw = readFileSync(EAD_COUNTRY_ICAOS_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    const rows = Array.isArray(data?.['Spain (LE)']) ? data['Spain (LE)'] : [];
+    return new Set(
+      rows
+        .map((x) => String(x || '').trim().toUpperCase())
+        .filter((icao) => /^(GC|GE|GS)[A-Z0-9]{2}$/.test(icao)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+const SPAIN_LE_SPECIAL_ICAOS = loadSpainLeSpecialIcaos();
+
+function resolveCountryLabelForIcao(icao) {
+  if (ICAO_TO_COUNTRY[icao]) return ICAO_TO_COUNTRY[icao];
+  if (SPAIN_LE_SPECIAL_ICAOS.has(icao)) return 'Spain (LE)';
+  const prefix = icao.slice(0, 2);
+  return PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
+}
 
 function log(msg) {
   console.log('[EAD]', msg);
@@ -232,8 +245,7 @@ async function main() {
     process.exit(1);
   }
 
-  const prefix = icao.slice(0, 2);
-  const countryLabel = ICAO_TO_COUNTRY[icao] || PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
+  const countryLabel = resolveCountryLabelForIcao(icao);
 
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);
 

@@ -31,6 +31,7 @@ try {
 const BASE = 'https://www.ead.eurocontrol.int';
 const LOGIN_URL = BASE + '/cms-eadbasic/opencms/en/login/ead-basic/';
 const AIP_OVERVIEW_URL = BASE + '/fwf-eadbasic/restricted/user/aip/aip_overview.faces';
+const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, 'data', 'ead-country-icaos.json');
 
 const PREFIX_TO_COUNTRY = {
   LA: 'Albania (LA)',
@@ -82,6 +83,24 @@ const PREFIX_TO_COUNTRY = {
   EG: 'United Kingdom (EG)',
 };
 
+function loadSpainLeSpecialIcaos() {
+  try {
+    if (!existsSync(EAD_COUNTRY_ICAOS_PATH)) return new Set();
+    const raw = readFileSync(EAD_COUNTRY_ICAOS_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    const rows = Array.isArray(data?.['Spain (LE)']) ? data['Spain (LE)'] : [];
+    return new Set(
+      rows
+        .map((x) => String(x || '').trim().toUpperCase())
+        .filter((icao) => /^(GC|GE|GS)[A-Z0-9]{2}$/.test(icao)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+const SPAIN_LE_SPECIAL_ICAOS = loadSpainLeSpecialIcaos();
+
 function log(msg) {
   console.error('[EAD GEN]', msg);
 }
@@ -92,6 +111,10 @@ function jsfId(id) {
 
 function resolveCountryLabel(arg) {
   const raw = (arg || 'ED').trim();
+  const maybeIcao = raw.toUpperCase();
+  if (/^[A-Z0-9]{4}$/.test(maybeIcao) && SPAIN_LE_SPECIAL_ICAOS.has(maybeIcao)) {
+    return 'Spain (LE)';
+  }
   if (raw.includes('(')) return raw;
   const prefix = raw.toUpperCase().slice(0, 2);
   return PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;

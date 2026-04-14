@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EAD countries — Web AIP links</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem;
+      max-width: 1200px;
+      margin-inline: auto;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 0.5rem; }
+    .sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.25rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    button, a.btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.875rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.primary, a.btn.primary {
+      background: #0369a1;
+      border-color: #0284c7;
+      color: #fff;
+    }
+    button:hover, a.btn:hover { filter: brightness(1.08); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.6rem;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th { background: var(--card); color: var(--muted); font-weight: 600; }
+    tr:nth-child(even) td { background: rgba(30, 41, 59, 0.5); }
+    input[type="url"], input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      padding: 0.4rem 0.5rem;
+      border-radius: 0.25rem;
+      border: 1px solid var(--border);
+      background: #0c1222;
+      color: var(--text);
+      font-size: 0.75rem;
+    }
+    .status-cell { white-space: nowrap; }
+    .status-cell label {
+      margin-right: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .status-cell input { accent-color: var(--accent); }
+    .prefix { font-family: ui-monospace, monospace; font-weight: 600; color: var(--accent); }
+    .row-changed td { outline: 1px solid var(--warn); outline-offset: -1px; }
+    footer {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>EAD countries — Web AIP links</h1>
+  <p class="sub">
+    Defaults match <code>lib/ead-web-aip.ts</code>. Edit the URL field if a link changes; mark <strong>Changed</strong> when you do.
+    Use <strong>Download JSON</strong> to save overrides and merge into code or a CMS later.
+  </p>
+
+  <div class="toolbar">
+    <button type="button" id="btn-mark-all-correct">Mark all as Correct</button>
+    <button type="button" class="primary" id="btn-download-json">Download JSON</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Country / authority</th>
+        <th>Prefix</th>
+        <th>Web AIP URL (editable)</th>
+        <th>Open</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <footer>
+    Source of truth in repo: <code>lib/ead-web-aip.ts</code> (byPrefix map + EAD Basic fallback). Spain <code>GE**</code>/<code>GS**</code> airports in the Spain (LE) package use the same ENAIRE URL as <code>LE</code>/<code>GC</code>.
+  </footer>
+
+  <script>
+    const EAD_WEB_AIP_DEFAULT_URL = "https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/";
+
+    const EAD_PREFIXES = [
+      "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF",
+      "LF", "UG", "ED", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "BK", "UA", "UC", "EV",
+      "EY", "EL", "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ",
+      "LE", "ES", "GC", "LS", "LT", "UK", "EG",
+    ];
+
+    const BY_PREFIX = {
+      LA: "https://www.albcontrol.al/aip/",
+      UD: "http://www.armats.am/activities/ais/eaip",
+      LO: "https://eaip.austrocontrol.at/",
+      EB: "https://ops.skeyes.be/",
+      LQ: "https://eaip.bhansa.gov.ba/",
+      LB: "https://www.bulatsa.com/en/services/aeronautical-information-services/",
+      LD: "https://www.crocontrol.hr/en/services/aeronautical-information-management/",
+      LC: "http://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/index_en/index_en",
+      LK: "http://ais.ans.cz/",
+      EK: "https://aim.naviair.dk/",
+      XX: "https://aim.naviair.dk/",
+      BG: "https://aim.naviair.dk/",
+      EE: "https://aim.eans.ee/",
+      EF: "https://www.ais.fi/",
+      LF: "https://www.sia.aviation-civile.gouv.fr/",
+      UG: "https://ais.airnav.ge/en/",
+      ED: "https://aip.dfs.de/basicAIP/",
+      LG: "https://aisgr.hasp.gov.gr/",
+      LH: "https://ais-en.hungarocontrol.hu/aip/",
+      BI: "https://www.avians.is/en/c-preflight-information",
+      EI: "https://www.airnav.ie/air-traffic-management/aeronautical-information-management",
+      LI: "https://www.enav.it/sites/public/en/Servizi/areonautical-information.html",
+      OJ: "https://carc.gov.jo/en/directory-flight-information",
+      BK: "https://www.ashna-ks.org/en/services/ais/",
+      UA: "http://www.ans.kz/en/ais/eaip",
+      UC: "https://ansp.kg/aeronautical-information-service",
+      EV: "https://ais.lgs.lv/",
+      EY: "https://www.ans.lt/en/aim",
+      EL: "https://ops.skeyes.be/",
+      LM: "https://www.maltats.com/aim/",
+      LU: "https://aim.moldatsa.md/",
+      EH: "https://www.lvnl.nl/diensten/aip",
+      EN: "https://avinor.no/ais",
+      RP: "https://ais.caap.gov.ph/home",
+      EP: "https://www.ais.pansa.pl/en/publications/ais-products/",
+      LP: "https://ais.nav.pt/",
+      LW: "http://ais.m-nav.info/eAIP/current/en/index.htm",
+      LR: "https://www.aisro.ro/",
+      LY: "https://smatsa.rs/upload/aip/published/start_page.html",
+      LZ: "https://aim.lps.sk/web/",
+      LJ: "https://aim.sloveniacontrol.si/aim/products/",
+      LE: "https://aip.enaire.es/aip/aip-en.html",
+      GC: "https://aip.enaire.es/aip/aip-en.html",
+      ES: "https://aro.lfv.se/Editorial/View/IAIP",
+      LS: "https://www.skyguide.ch/en/services/aeronautical-information-management/",
+      LT: "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+      UK: "http://www.aisukraine.net/titul_en.php",
+      EG: "https://www.nats.aero/do-it-online/ais/",
+    };
+
+    const PREFIX_LABELS = {
+      LA: "Albania",
+      UD: "Armenia",
+      LO: "Austria",
+      UB: "Azerbaijan",
+      EB: "Belgium",
+      LQ: "Bosnia and Herzegovina",
+      LB: "Bulgaria",
+      LD: "Croatia",
+      LC: "Cyprus",
+      LK: "Czech Republic",
+      EK: "Denmark",
+      EE: "Estonia",
+      XX: "Faroe Islands",
+      EF: "Finland",
+      LF: "France",
+      UG: "Georgia",
+      ED: "Germany",
+      LG: "Greece",
+      BG: "Greenland",
+      LH: "Hungary",
+      BI: "Iceland",
+      EI: "Ireland",
+      LI: "Italy",
+      OJ: "Jordan",
+      BK: "KFOR sector",
+      UA: "Kazakhstan",
+      UC: "Kyrgyzstan",
+      EV: "Latvia",
+      EY: "Lithuania",
+      EL: "Luxembourg",
+      LM: "Malta",
+      LU: "Moldova",
+      EH: "Netherlands",
+      EN: "Norway",
+      RP: "Philippines",
+      EP: "Poland",
+      LP: "Portugal",
+      LW: "North Macedonia",
+      LR: "Romania",
+      LY: "Serbia and Montenegro",
+      LZ: "Slovakia",
+      LJ: "Slovenia",
+      LE: "Spain (mainland / LE)",
+      GC: "Spain (Canary Islands / GC)",
+      ES: "Sweden",
+      LS: "Switzerland",
+      LT: "Türkiye",
+      UK: "Ukraine",
+      EG: "United Kingdom",
+    };
+
+    function defaultUrl(prefix) {
+      if (BY_PREFIX[prefix]) return BY_PREFIX[prefix];
+      return EAD_WEB_AIP_DEFAULT_URL;
+    }
+
+    function countryLabel(prefix) {
+      const name = PREFIX_LABELS[prefix] || prefix;
+      return `${name} (${prefix})`;
+    }
+
+    const tbody = document.getElementById("rows");
+
+    EAD_PREFIXES.slice().sort((a, b) => a.localeCompare(b)).forEach((prefix) => {
+      const url = defaultUrl(prefix);
+      const tr = document.createElement("tr");
+      tr.dataset.prefix = prefix;
+      tr.innerHTML = `
+        <td>${escapeHtml(countryLabel(prefix))}</td>
+        <td class="prefix">${escapeHtml(prefix)}</td>
+        <td><input type="url" class="url-input" value="${escapeAttr(url)}" spellcheck="false" /></td>
+        <td><a class="btn open-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">Web AIP</a></td>
+        <td class="status-cell">
+          <label><input type="radio" name="status-${prefix}" value="correct" checked /> Correct</label>
+          <label><input type="radio" name="status-${prefix}" value="changed" /> Changed</label>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      wireRow(tr);
+    });
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+    function escapeAttr(s) {
+      return String(s).replace(/"/g, "&quot;");
+    }
+
+    function wireRow(tr) {
+      const input = tr.querySelector(".url-input");
+      const openBtn = tr.querySelector(".open-link");
+      const radios = tr.querySelectorAll('input[type="radio"]');
+
+      function syncOpenHref() {
+        const u = (input.value || "").trim();
+        openBtn.href = u || "#";
+        openBtn.setAttribute("aria-disabled", u ? "false" : "true");
+      }
+
+      input.addEventListener("input", () => {
+        syncOpenHref();
+        tr.querySelector('input[value="changed"]').checked = true;
+        tr.classList.add("row-changed");
+      });
+
+      radios.forEach((r) => {
+        r.addEventListener("change", () => {
+          if (r.value === "changed") tr.classList.add("row-changed");
+          else tr.classList.remove("row-changed");
+        });
+      });
+
+      syncOpenHref();
+    }
+
+    document.getElementById("btn-mark-all-correct").addEventListener("click", () => {
+      document.querySelectorAll("#rows tr").forEach((tr) => {
+        tr.querySelector('input[value="correct"]').checked = true;
+        tr.classList.remove("row-changed");
+      });
+    });
+
+    document.getElementById("btn-download-json").addEventListener("click", () => {
+      const items = [];
+      document.querySelectorAll("#rows tr").forEach((tr) => {
+        const prefix = tr.dataset.prefix;
+        const url = (tr.querySelector(".url-input").value || "").trim();
+        const status = tr.querySelector('input[name="status-' + prefix + '"]:checked')?.value || "correct";
+        items.push({
+          prefix,
+          countryLabel: countryLabel(prefix),
+          webAipUrl: url,
+          status,
+        });
+      });
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        source: "public/ead-countries-web-aip.html",
+        note: "Merge into lib/ead-web-aip.ts byPrefix or use as runtime config.",
+        items,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ead-web-aip-overrides.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  </script>
+</body>
+</html>

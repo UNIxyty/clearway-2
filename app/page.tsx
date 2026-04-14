@@ -218,6 +218,8 @@ function getEadWebAipUrlForAirport(airport: AIPAirport | null): string | null {
   return getEadWebAipUrlByIcaoOrCountry(airport.icao, airport.country);
 }
 
+const EAD_BASIC_LOGIN_URL = "https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/";
+
 function pickExtractedAirportRow(list: ExtractedAirportRow[], icao: string): ExtractedAirportRow | null {
   const exact = list.find((a) => String(a["Airport Code"] ?? "").trim().toUpperCase() === icao);
   if (exact) return exact;
@@ -595,6 +597,7 @@ function AIPPortalPageInner() {
   const [showGenSyncOverlay, setShowGenSyncOverlay] = useState(false);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
+  const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -2771,7 +2774,12 @@ function AIPPortalPageInner() {
                             getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
                             getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
                             getEadWebAipUrlForAirport(viewingAirport);
-                          if (webAip) window.open(webAip, "_blank", "noopener,noreferrer");
+                          if (webAip) {
+                            setWebAipConsent({
+                              url: webAip,
+                              label: viewingAirport.country || viewingAirport.icao || "this airport",
+                            });
+                          }
                         }}
                         title={
                           isAsecnaIcao(viewingAirport.icao)
@@ -3009,6 +3017,69 @@ function AIPPortalPageInner() {
                   <AIPResultCard airport={viewingAirport} />
                 </CardContent>
               </Card>
+            )}
+
+            {webAipConsent && (
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center sm:p-4">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Web AIP access notice"
+                  className="w-full max-w-xl rounded-xl border border-border bg-background p-4 shadow-2xl sm:p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm sm:text-base font-semibold">Before opening Web AIP</h3>
+                      <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                        These links are from official websites and can be paid or inaccessible due to geographical position.
+                        If this source is not working, you can always find actual new and free information on{" "}
+                        <a
+                          href={EAD_BASIC_LOGIN_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 font-medium"
+                        >
+                          EUROCONTROL EAD Basic
+                        </a>
+                        .
+                      </p>
+                      <p className="mt-2 text-[11px] sm:text-xs text-muted-foreground">
+                        Target source: <span className="font-medium text-foreground">{webAipConsent.label}</span>
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => setWebAipConsent(null)}
+                    >
+                      <XIcon className="size-4" />
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWebAipConsent(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-sky-600 hover:bg-sky-700 text-white"
+                      onClick={() => {
+                        window.open(webAipConsent.url, "_blank", "noopener,noreferrer");
+                        setWebAipConsent(null);
+                      }}
+                    >
+                      I understand, open Web AIP
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">

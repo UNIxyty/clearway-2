@@ -2807,13 +2807,18 @@ function AIPPortalPageInner() {
                         size="sm"
                         className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
+                          const isUsa = isUsaAipIcao(viewingAirport.icao);
                           const webAip =
                             viewingAirport.webAipUrl ||
                             getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
                             getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
                             getEadWebAipUrlForAirport(viewingAirport) ||
-                            (isUsaAipIcao(viewingAirport.icao) ? USA_WEB_AIP_URL : null);
+                            (isUsa ? USA_WEB_AIP_URL : null);
                           if (webAip) {
+                            if (isUsa) {
+                              window.open(webAip, "_blank", "noopener,noreferrer");
+                              return;
+                            }
                             setWebAipConsent({
                               url: webAip,
                               label: viewingAirport.country || viewingAirport.icao || "this airport",

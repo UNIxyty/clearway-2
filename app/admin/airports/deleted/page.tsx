@@ -137,7 +137,7 @@ export default function DeletedAirportsPage() {
           <CardHeader>
             <CardTitle className="text-base">Recently deleted</CardTitle>
             <CardDescription>
-              Visibility-only deletes. Restore returns airport to browse menu.
+              Airports hidden by your account. Restore returns airport to your browse menu.
             </CardDescription>
           </CardHeader>
           <CardContent>

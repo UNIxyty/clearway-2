@@ -44,11 +44,15 @@ export async function POST(request: Request) {
   if (airportError) return NextResponse.json({ error: airportError.message }, { status: 500 });
   if (!airport) return NextResponse.json({ error: "Airport not found" }, { status: 404 });
 
-  const { error: updateError } = await service
-    .from("airports")
-    .update({ visible: false, updated_at: new Date().toISOString() })
-    .eq("icao", icao);
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  const { data: existingHidden, error: existingHiddenError } = await service
+    .from("deleted_airports")
+    .select("id")
+    .eq("icao", icao)
+    .eq("deleted_by", user.id)
+    .is("restored_at", null)
+    .limit(1);
+  if (existingHiddenError) return NextResponse.json({ error: existingHiddenError.message }, { status: 500 });
+  if ((existingHidden ?? []).length > 0) return NextResponse.json({ ok: true, alreadyHidden: true });
 
   const { error: archiveError } = await service.from("deleted_airports").insert({
     airport_id: typeof (airport as { id?: unknown }).id === "number" ? (airport as { id: number }).id : null,

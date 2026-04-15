@@ -216,6 +216,9 @@ function isKuwaitScraperIcao(icao: string): boolean {
 
 function getEadWebAipUrlForAirport(airport: AIPAirport | null): string | null {
   if (!airport) return null;
+  if (isRussiaIcao(airport.icao)) {
+    return "https://www.caica.ru/common/AirInter/validaip/html/menurus.htm";
+  }
   return getEadWebAipUrlByIcaoOrCountry(airport.icao, airport.country);
 }
 

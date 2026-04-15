@@ -203,6 +203,7 @@
           <thead>
             <tr>
               <th>Country</th>
+              <th>AIP link</th>
               <th>Overall status</th>
               <th>AIP downloading</th>
               <th>Pages extracting</th>
@@ -265,6 +266,7 @@
 
     const defaultRow = (country) => ({
       country,
+      aipLink: "",
       overall: PREBUILT.has(country) ? "done" : "not_started",
       aipDownloading: PREBUILT.has(country) ? "done" : "not_started",
       pagesExtracting: PREBUILT.has(country) ? "done" : "not_started",
@@ -345,6 +347,15 @@
             ${row.country}
             ${PREBUILT.has(row.country) ? '<span class="badge">already built</span>' : ""}
           </td>
+          <td class="notes">
+            <input
+              class="note"
+              data-kind="aipLink"
+              type="url"
+              value="${escapeHtml(row.aipLink || "")}"
+              placeholder="https://..."
+            />
+          </td>
           <td>${statusSelect(row.overall)}</td>
           <td>${statusSelect(row.aipDownloading)}</td>
           <td>${statusSelect(row.pagesExtracting)}</td>
@@ -381,6 +392,11 @@
         const note = tr.querySelector('input[data-kind="notes"]');
         note.addEventListener("change", () => {
           row.notes = note.value.trim();
+          save();
+        });
+        const aipLink = tr.querySelector('input[data-kind="aipLink"]');
+        aipLink.addEventListener("change", () => {
+          row.aipLink = aipLink.value.trim();
           save();
         });
       });

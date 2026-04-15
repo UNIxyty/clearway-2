@@ -12,9 +12,11 @@
  *    accessible via export. Uses /export?format=csv&gid=...
  *
  * Usage:
- *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "Sheet1!A:ZZ"
+ *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --list-sheets
+ *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "'My Tab'!A:ZZ"
  *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --gid 0 --csv
- *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "Sheet1!A:ZZ" --out data/sheet.json
+ *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --out data/sheet.json
+ *   (Omit --range to use the first tab and columns A:ZZ; tab names are auto-quoted for the API.)
  *
  * Range must be A1 notation: "Sheet1!A:ZZ" or "Sheet1!A1:F100". A lone "Sheet1ZZ"
  * (missing !) is invalid; the script may rewrite SheetName+digits+COLS to Name!A:COLS.
@@ -57,9 +59,29 @@ function assertNotOAuthClientSecret(key) {
  * Google ranges need "SheetName!A1:B2" or "SheetName!A:ZZ".
  * Common typo: "Sheet1ZZ" (no !) — treat as sheet "Sheet1" + last columns "ZZ" → "Sheet1!A:ZZ".
  */
+/** Google A1: wrap sheet title in single quotes; double any ' inside the title. */
+function quoteSheetTitle(title) {
+  const s = String(title).replace(/'/g, "''");
+  return `'${s}'`;
+}
+
+/**
+ * Ensure sheet segment uses quoted form (e.g. Sheet1!A1 → 'Sheet1'!A1) so the API parser is unambiguous.
+ * Leaves ranges that already start with a quote before ! unchanged.
+ */
+function quoteSheetInA1Range(range) {
+  const t = String(range ?? "").trim();
+  const bang = t.indexOf("!");
+  if (bang === -1) return t;
+  const sheetPart = t.slice(0, bang);
+  const cellPart = t.slice(bang + 1);
+  if (sheetPart.startsWith("'")) return t;
+  return `${quoteSheetTitle(sheetPart)}!${cellPart}`;
+}
+
 function normalizeRange(range, { logFix = () => {} } = {}) {
   const t = String(range ?? "").trim();
-  if (!t) return "Sheet1!A:ZZ";
+  if (!t) return "";
   if (t.includes("!")) return t;
   // Sheet/tab name ends with a digit, then only column letters (no row digits): Sheet1ZZ → Sheet1!A:ZZ
   const gluedCols = t.match(/^(.+\d)([A-Z]{1,3})$/);
@@ -72,8 +94,20 @@ function normalizeRange(range, { logFix = () => {} } = {}) {
   // Unadorned A1:B2 is valid for the API (first sheet)
   if (/^[A-Za-z]{1,3}\d/.test(t)) return t;
   throw new Error(
-    `Invalid --range "${t}". Use A1 notation with an exclamation mark, e.g. Sheet1!A:ZZ or Sheet1!A1:F200 (not Sheet1ZZ).`,
+    `Invalid --range "${t}". Use A1 notation with an exclamation mark, e.g. 'My Tab'!A:ZZ or Sheet1!A1:F200 (not Sheet1ZZ).`,
   );
+}
+
+async function fetchSheetTitles(spreadsheetId, apiKey) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title&key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Sheets metadata ${res.status}: ${body.slice(0, 400)}`);
+  }
+  const data = await res.json();
+  const sheets = data.sheets ?? [];
+  return sheets.map((s) => s?.properties?.title).filter(Boolean);
 }
 
 /** Minimal CSV line parser (handles quoted fields with commas). */
@@ -148,6 +182,18 @@ async function fetchViaSheetsApi(spreadsheetId, range, apiKey) {
     } catch {
       /* ignore */
     }
+    let tabHint = "";
+    if (/parse range|Unable to parse range/i.test(String(hint))) {
+      try {
+        const titles = await fetchSheetTitles(spreadsheetId, apiKey);
+        if (titles.length) {
+          tabHint = `\nTab titles in this spreadsheet: ${titles.map((t) => JSON.stringify(t)).join(", ")}\n` +
+            "Use --range \"'EXACT_TAB_NAME'!A:ZZ\" (single quotes around the tab name in your shell), or omit --range to use the first tab.";
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     const keyHint =
       /not valid|invalid.*api key/i.test(String(hint)) ?
         "\nIf the key does not start with AIza, you may be using an OAuth client secret — create an **API key** instead."
@@ -155,7 +201,8 @@ async function fetchViaSheetsApi(spreadsheetId, range, apiKey) {
     throw new Error(
       `Sheets API ${res.status}: ${hint}\n` +
         "Check: range uses SheetName!A1:B2; API key has Sheets API enabled; spreadsheet is shared (e.g. link viewer) or key is allowed to read it." +
-        keyHint,
+        keyHint +
+        tabHint,
     );
   }
   const data = await res.json();
@@ -186,19 +233,45 @@ async function main() {
   if (!spreadsheetId) {
     console.error(
       "Missing spreadsheet id. Use --id SHEET_ID or GOOGLE_SPREADSHEET_ID.\n" +
-        "Example: node scripts/tools/download-google-sheet-to-json.mjs --id 1abc... --range 'Sheet1!A:ZZ'",
+        "Example: node scripts/tools/download-google-sheet-to-json.mjs --id 1abc... --range \"'My Tab'!A:ZZ\"",
     );
     process.exit(1);
   }
 
   const apiKey = arg("api-key") || process.env.GOOGLE_SHEETS_API_KEY || "";
+
+  if (hasFlag("list-sheets")) {
+    if (!apiKey) {
+      console.error("GOOGLE_SHEETS_API_KEY or --api-key is required for --list-sheets.");
+      process.exit(1);
+    }
+    assertNotOAuthClientSecret(apiKey);
+    const titles = await fetchSheetTitles(spreadsheetId, apiKey);
+    process.stdout.write(JSON.stringify(titles, null, 2) + "\n");
+    return;
+  }
+
   let range;
   try {
-    range = normalizeRange(arg("range") || process.env.GOOGLE_SHEETS_RANGE || "Sheet1!A:ZZ", {
-      logFix(from, to) {
-        console.error(`Note: normalized range "${from}" → "${to}" (add ! and column letters in A1 notation).`);
-      },
-    });
+    const fromArg = arg("range") || process.env.GOOGLE_SHEETS_RANGE;
+    if (!fromArg?.trim()) {
+      if (!apiKey || hasFlag("csv")) {
+        range = "";
+      } else {
+        assertNotOAuthClientSecret(apiKey);
+        const titles = await fetchSheetTitles(spreadsheetId, apiKey);
+        if (!titles.length) throw new Error("Spreadsheet has no tabs.");
+        range = `${quoteSheetTitle(titles[0])}!A:ZZ`;
+        console.error(`Note: using first tab as range: ${range}`);
+      }
+    } else {
+      range = normalizeRange(fromArg, {
+        logFix(from, to) {
+          console.error(`Note: normalized range "${from}" → "${to}" (add ! and column letters in A1 notation).`);
+        },
+      });
+    }
+    if (range && !hasFlag("csv")) range = quoteSheetInA1Range(range);
   } catch (e) {
     console.error(e.message);
     process.exit(1);
@@ -214,6 +287,10 @@ async function main() {
     rows = await fetchViaPublicCsv(spreadsheetId, gid);
   } else if (apiKey) {
     assertNotOAuthClientSecret(apiKey);
+    if (!range) {
+      console.error("Provide --range, or omit it (uses first tab) when using an API key.");
+      process.exit(1);
+    }
     rows = await fetchViaSheetsApi(spreadsheetId, range, apiKey);
   } else {
     rows = await fetchViaPublicCsv(spreadsheetId, gid);

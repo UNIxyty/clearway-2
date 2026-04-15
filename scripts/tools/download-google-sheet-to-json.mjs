@@ -14,7 +14,10 @@
  * Usage:
  *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "Sheet1!A:ZZ"
  *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --gid 0 --csv
- *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "A:Z" --header-row --out data/sheet.json
+ *   node scripts/tools/download-google-sheet-to-json.mjs --id SPREADSHEET_ID --range "Sheet1!A:ZZ" --out data/sheet.json
+ *
+ * Range must be A1 notation: "Sheet1!A:ZZ" or "Sheet1!A1:F100". A lone "Sheet1ZZ"
+ * (missing !) is invalid; the script may rewrite SheetName+digits+COLS to Name!A:COLS.
  *
  * Env:
  *   GOOGLE_SHEETS_API_KEY
@@ -35,6 +38,29 @@ function arg(name, fallback = null) {
 
 function hasFlag(name) {
   return process.argv.includes(`--${name}`);
+}
+
+/**
+ * Google ranges need "SheetName!A1:B2" or "SheetName!A:ZZ".
+ * Common typo: "Sheet1ZZ" (no !) — treat as sheet "Sheet1" + last columns "ZZ" → "Sheet1!A:ZZ".
+ */
+function normalizeRange(range, { logFix = () => {} } = {}) {
+  const t = String(range ?? "").trim();
+  if (!t) return "Sheet1!A:ZZ";
+  if (t.includes("!")) return t;
+  // Sheet/tab name ends with a digit, then only column letters (no row digits): Sheet1ZZ → Sheet1!A:ZZ
+  const gluedCols = t.match(/^(.+\d)([A-Z]{1,3})$/);
+  if (gluedCols) {
+    const [, sheet, cols] = gluedCols;
+    const fixed = `${sheet}!A:${cols}`;
+    logFix(t, fixed);
+    return fixed;
+  }
+  // Unadorned A1:B2 is valid for the API (first sheet)
+  if (/^[A-Za-z]{1,3}\d/.test(t)) return t;
+  throw new Error(
+    `Invalid --range "${t}". Use A1 notation with an exclamation mark, e.g. Sheet1!A:ZZ or Sheet1!A1:F200 (not Sheet1ZZ).`,
+  );
 }
 
 /** Minimal CSV line parser (handles quoted fields with commas). */
@@ -102,7 +128,17 @@ async function fetchViaSheetsApi(spreadsheetId, range, apiKey) {
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Sheets API ${res.status}: ${body.slice(0, 500)}`);
+    let hint = body.slice(0, 500);
+    try {
+      const j = JSON.parse(body);
+      if (j?.error?.message) hint = j.error.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `Sheets API ${res.status}: ${hint}\n` +
+        "Check: range uses SheetName!A1:B2; API key has Sheets API enabled; spreadsheet is shared (e.g. link viewer) or key is allowed to read it.",
+    );
   }
   const data = await res.json();
   const values = data.values;
@@ -118,6 +154,12 @@ async function fetchViaPublicCsv(spreadsheetId, gid) {
     throw new Error(`CSV export ${res.status}: ${body.slice(0, 300)}`);
   }
   const text = await res.text();
+  if (text.includes("<html") || text.includes("Sign in") || text.includes("accounts.google")) {
+    throw new Error(
+      "CSV export returned a login/HTML page (sheet is not publicly exportable).\n" +
+        "Set GOOGLE_SHEETS_API_KEY and use the Sheets API, or File → Share → Anyone with the link (Viewer), then retry.",
+    );
+  }
   return parseCsv(text);
 }
 
@@ -132,7 +174,17 @@ async function main() {
   }
 
   const apiKey = arg("api-key") || process.env.GOOGLE_SHEETS_API_KEY || "";
-  const range = arg("range") || process.env.GOOGLE_SHEETS_RANGE || "Sheet1!A:ZZ";
+  let range;
+  try {
+    range = normalizeRange(arg("range") || process.env.GOOGLE_SHEETS_RANGE || "Sheet1!A:ZZ", {
+      logFix(from, to) {
+        console.error(`Note: normalized range "${from}" → "${to}" (add ! and column letters in A1 notation).`);
+      },
+    });
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
   const gid = arg("gid") || process.env.GOOGLE_SHEETS_GID || "0";
   const forceCsv = hasFlag("csv");
   const headerRow = !hasFlag("no-header-row");

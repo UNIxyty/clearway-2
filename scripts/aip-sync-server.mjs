@@ -12,7 +12,7 @@ import { createServer } from "http";
 import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync, copyFileSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -31,6 +31,8 @@ const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, "data", "ead-country-icaos.json");
+const USA_AIP_BY_STATE_PATH = join(PROJECT_ROOT, "data", "usa-aip-icaos-by-state.json");
+const USA_AIP_DIR = join(PROJECT_ROOT, "usa-aip");
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
 
 function loadSpainLeGenAliasIcaos() {
@@ -50,6 +52,28 @@ function loadSpainLeGenAliasIcaos() {
 }
 
 const SPAIN_LE_GEN_ALIAS_ICAOS = loadSpainLeGenAliasIcaos();
+
+function loadUsaIcaos() {
+  try {
+    if (!existsSync(USA_AIP_BY_STATE_PATH)) return new Set();
+    const raw = readFileSync(USA_AIP_BY_STATE_PATH, "utf8");
+    const data = JSON.parse(raw);
+    const byState = data?.by_state && typeof data.by_state === "object" ? data.by_state : {};
+    const out = new Set();
+    for (const list of Object.values(byState)) {
+      if (!Array.isArray(list)) continue;
+      for (const row of list) {
+        const icao = String(row?.["Airport Code"] || "").trim().toUpperCase();
+        if (/^[A-Z0-9]{4}$/.test(icao)) out.add(icao);
+      }
+    }
+    return out;
+  } catch {
+    return new Set();
+  }
+}
+
+const USA_ICAOS = loadUsaIcaos();
 const SCRAPER_COUNTRY_SPECS = [
   {
     country: "Bahrain",
@@ -400,6 +424,16 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 }
 
 async function runDownload(icao) {
+  if (isUsaIcao(icao)) {
+    const sourcePdf = join(USA_AIP_DIR, `${icao}_ad2.pdf`);
+    if (!existsSync(sourcePdf)) {
+      throw new Error(`USA static AD2 PDF not found for ${icao}: ${sourcePdf}`);
+    }
+    mkdirSync(EAD_AIP_DIR, { recursive: true });
+    const targetPdf = join(EAD_AIP_DIR, `USA_AD_2_${icao}_static.pdf`);
+    copyFileSync(sourcePdf, targetPdf);
+    return;
+  }
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     const args = [scraper.script, "--download-ad2", resolveScraperDownloadIcao(icao)];
@@ -641,6 +675,11 @@ function isRwandaIcao(icao) {
   return /^[A-Z0-9]{4}$/.test(upper) && upper.slice(0, 2) === RWANDA_ICAO_PREFIX;
 }
 
+function isUsaIcao(icao) {
+  const upper = String(icao || "").trim().toUpperCase();
+  return /^[A-Z0-9]{4}$/.test(upper) && USA_ICAOS.has(upper);
+}
+
 function isBahrainIcao(icao) {
   return isScraperIcao(icao);
 }
@@ -722,6 +761,21 @@ async function runRwandaGenDownload() {
 }
 
 async function runGenDownloadForIcao(icao, prefix) {
+  if (isUsaIcao(icao)) {
+    const sourceGen = join(USA_AIP_DIR, "GEN1.2.pdf");
+    if (!existsSync(sourceGen)) {
+      throw new Error(`USA static GEN 1.2 PDF not found: ${sourceGen}`);
+    }
+    mkdirSync(EAD_GEN_DIR, { recursive: true });
+    const normalized = String(prefix || "").trim().toUpperCase() || "US";
+    // Keep requested prefix (legacy callers may pass KA for K*** ICAOs)
+    // and also save a canonical US alias.
+    copyFileSync(sourceGen, join(EAD_GEN_DIR, `${normalized}-GEN-1.2.pdf`));
+    if (normalized !== "US") {
+      copyFileSync(sourceGen, join(EAD_GEN_DIR, "US-GEN-1.2.pdf"));
+    }
+    return;
+  }
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     const args = [scraper.script, "--download-gen12"];

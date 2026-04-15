@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Country Scraper Tracker</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b1020;
+      --panel: #11182d;
+      --panel-2: #16203a;
+      --text: #e8edf8;
+      --muted: #a6b0c8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --line: #2a3555;
+      --chip: #253354;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --panel-2: #f2f5ff;
+        --text: #0f172a;
+        --muted: #475569;
+        --ok: #16a34a;
+        --warn: #d97706;
+        --bad: #dc2626;
+        --line: #dde3f1;
+        --chip: #e8eefc;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1500px;
+      margin: 20px auto;
+      padding: 0 16px 28px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button, select, input[type="search"] {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    button {
+      cursor: pointer;
+      background: var(--chip);
+      font-weight: 600;
+    }
+    button:hover { filter: brightness(1.05); }
+    .toolbar {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+      font-size: 12px;
+    }
+    .chip {
+      background: var(--chip);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+    .table-wrap {
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1280px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      z-index: 1;
+    }
+    td.country {
+      font-weight: 600;
+      min-width: 220px;
+    }
+    td.notes {
+      min-width: 300px;
+    }
+    input.note {
+      width: 100%;
+    }
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      margin-left: 8px;
+      color: var(--muted);
+    }
+    .progress {
+      min-width: 120px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+    .status-not_started { color: var(--muted); }
+    .status-in_progress { color: var(--warn); }
+    .status-done { color: var(--ok); }
+    .status-blocked { color: var(--bad); }
+    .footer {
+      padding: 10px 16px 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <h1>Country Scraper Progress Tracker</h1>
+          <p class="sub">Track status/checkpoints per country. Auto-saves in browser localStorage.</p>
+        </div>
+        <div class="controls">
+          <button id="exportBtn" type="button">Export JSON</button>
+          <button id="importBtn" type="button">Import JSON</button>
+          <button id="resetBtn" type="button">Reset</button>
+          <input id="fileInput" class="hidden" type="file" accept="application/json" />
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <input id="searchInput" type="search" placeholder="Search country..." />
+        <select id="filterStatus">
+          <option value="all">All overall statuses</option>
+          <option value="not_started">Not started</option>
+          <option value="in_progress">In progress</option>
+          <option value="blocked">Blocked</option>
+          <option value="done">Done</option>
+        </select>
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Country</th>
+              <th>Overall status</th>
+              <th>AIP downloading</th>
+              <th>Pages extracting</th>
+              <th>PDF cropped</th>
+              <th>Result extracting</th>
+              <th>Progress</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="footer" id="lastSaved">Not saved yet</div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "country-scraper-tracker-v1";
+    const CHECKPOINTS = ["aipDownloading", "pagesExtracting", "pdfCropped", "resultExtracting"];
+    const STATUS_OPTIONS = [
+      { value: "not_started", label: "Not started" },
+      { value: "in_progress", label: "In progress" },
+      { value: "blocked", label: "Blocked" },
+      { value: "done", label: "Done" }
+    ];
+
+    const COUNTRIES = [
+      "Afghanistan",
+      "Algeria",
+      "Andorra",
+      "Angola",
+      "Antigua and Barbuda",
+      "Argentina",
+      "Australia",
+      "Bangladesh",
+      "Brunei",
+      "Canada",
+      "Djibouti",
+      "Dominica",
+      "East Timor (Timor-Leste)",
+      "Egypt",
+      "Ethiopia",
+      "Haiti",
+      "Iran",
+      "Luxembourg",
+      "Macau",
+      "Myanmar (Burma)",
+      "Oman",
+      "Papua New Guinea",
+      "Saint Vincent and the Grenadines",
+      "Seychelles",
+      "Singapore",
+      "South Africa",
+      "South Sudan",
+      "Sudan",
+      "Trinidad and Tobago"
+    ];
+
+    const PREBUILT = new Set(["Myanmar (Burma)"]);
+
+    const defaultRow = (country) => ({
+      country,
+      overall: PREBUILT.has(country) ? "done" : "not_started",
+      aipDownloading: PREBUILT.has(country) ? "done" : "not_started",
+      pagesExtracting: PREBUILT.has(country) ? "done" : "not_started",
+      pdfCropped: PREBUILT.has(country) ? "done" : "not_started",
+      resultExtracting: PREBUILT.has(country) ? "done" : "not_started",
+      notes: PREBUILT.has(country) ? "Already built scraper in repo." : ""
+    });
+
+    let model = COUNTRIES.map(defaultRow);
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (!Array.isArray(saved.rows)) return;
+        const byCountry = new Map(saved.rows.map((r) => [r.country, r]));
+        model = COUNTRIES.map((country) => ({ ...defaultRow(country), ...(byCountry.get(country) || {}) }));
+        if (saved.lastSaved) updateSavedLabel(saved.lastSaved);
+      } catch (err) {
+        console.error("Failed to load tracker:", err);
+      }
+    }
+
+    function save() {
+      const now = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows: model, lastSaved: now }, null, 2));
+      updateSavedLabel(now);
+    }
+
+    function updateSavedLabel(isoDate) {
+      const el = document.getElementById("lastSaved");
+      const d = new Date(isoDate);
+      el.textContent = `Last saved: ${d.toLocaleString()}`;
+    }
+
+    function statusSelect(value) {
+      return `
+        <select data-kind="status" class="status-${value}">
+          ${STATUS_OPTIONS.map((s) => `<option value="${s.value}" ${s.value === value ? "selected" : ""}>${s.label}</option>`).join("")}
+        </select>
+      `;
+    }
+
+    function ratio(row) {
+      const done = CHECKPOINTS.filter((k) => row[k] === "done").length;
+      return `${done}/4`;
+    }
+
+    function renderStats(filteredRows) {
+      const total = filteredRows.length;
+      const done = filteredRows.filter((r) => r.overall === "done").length;
+      const inProgress = filteredRows.filter((r) => r.overall === "in_progress").length;
+      const blocked = filteredRows.filter((r) => r.overall === "blocked").length;
+      const el = document.getElementById("stats");
+      el.innerHTML = `
+        <span class="chip">Visible: ${total}</span>
+        <span class="chip">Done: ${done}</span>
+        <span class="chip">In progress: ${inProgress}</span>
+        <span class="chip">Blocked: ${blocked}</span>
+      `;
+    }
+
+    function render() {
+      const search = document.getElementById("searchInput").value.trim().toLowerCase();
+      const filterStatus = document.getElementById("filterStatus").value;
+      const tbody = document.getElementById("tbody");
+
+      const filtered = model.filter((r) => {
+        const okSearch = !search || r.country.toLowerCase().includes(search);
+        const okStatus = filterStatus === "all" || r.overall === filterStatus;
+        return okSearch && okStatus;
+      });
+
+      tbody.innerHTML = filtered.map((row) => `
+        <tr data-country="${row.country}">
+          <td class="country">
+            ${row.country}
+            ${PREBUILT.has(row.country) ? '<span class="badge">already built</span>' : ""}
+          </td>
+          <td>${statusSelect(row.overall)}</td>
+          <td>${statusSelect(row.aipDownloading)}</td>
+          <td>${statusSelect(row.pagesExtracting)}</td>
+          <td>${statusSelect(row.pdfCropped)}</td>
+          <td>${statusSelect(row.resultExtracting)}</td>
+          <td class="progress">${ratio(row)}</td>
+          <td class="notes">
+            <input class="note" data-kind="notes" type="text" value="${escapeHtml(row.notes || "")}" placeholder="Optional notes..." />
+          </td>
+        </tr>
+      `).join("");
+
+      renderStats(filtered);
+      wireRows();
+    }
+
+    function wireRows() {
+      const rows = document.querySelectorAll("#tbody tr");
+      rows.forEach((tr) => {
+        const country = tr.dataset.country;
+        const row = model.find((r) => r.country === country);
+        if (!row) return;
+        const selects = tr.querySelectorAll("select");
+        selects.forEach((sel, idx) => {
+          const keys = ["overall", ...CHECKPOINTS];
+          const key = keys[idx];
+          sel.addEventListener("change", () => {
+            row[key] = sel.value;
+            sel.className = `status-${sel.value}`;
+            save();
+            render();
+          });
+        });
+        const note = tr.querySelector('input[data-kind="notes"]');
+        note.addEventListener("change", () => {
+          row.notes = note.value.trim();
+          save();
+        });
+      });
+    }
+
+    function escapeHtml(input) {
+      return String(input || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function downloadJson() {
+      const payload = JSON.stringify({ rows: model, exportedAt: new Date().toISOString() }, null, 2);
+      const blob = new Blob([payload], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "country-scraper-tracker.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result || "{}"));
+          if (!Array.isArray(data.rows)) throw new Error("Invalid JSON format.");
+          const map = new Map(data.rows.map((r) => [r.country, r]));
+          model = COUNTRIES.map((country) => ({ ...defaultRow(country), ...(map.get(country) || {}) }));
+          save();
+          render();
+        } catch (err) {
+          alert(`Import failed: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById("searchInput").addEventListener("input", render);
+    document.getElementById("filterStatus").addEventListener("change", render);
+    document.getElementById("exportBtn").addEventListener("click", downloadJson);
+    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importJson(file);
+      e.target.value = "";
+    });
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("Reset all statuses and notes for this tracker?")) return;
+      model = COUNTRIES.map(defaultRow);
+      save();
+      render();
+    });
+
+    load();
+    render();
+    save();
+  </script>
+</body>
+</html>

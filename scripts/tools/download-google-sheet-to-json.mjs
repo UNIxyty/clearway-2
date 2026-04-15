@@ -4,8 +4,8 @@
  *
  * Modes:
  * 1) Sheets API v4 (recommended): needs GOOGLE_SHEETS_API_KEY or --api-key
- *    Enable "Google Sheets API" in Google Cloud Console, create an API key,
- *    restrict it to Sheets API. The spreadsheet must be readable by that key
+ *    Use Credentials → Create credentials → API key (often starts with AIza), not OAuth client secret (GOCSPX-...).
+ *    Enable Google Sheets API; restrict the key to Sheets API. The spreadsheet must be readable by that key
  *    (e.g. "Anyone with the link" viewer, or share with a service account if you use SA elsewhere).
  *
  * 2) Public CSV export (no API key): works only if the sheet is published /
@@ -38,6 +38,19 @@ function arg(name, fallback = null) {
 
 function hasFlag(name) {
   return process.argv.includes(`--${name}`);
+}
+
+/** OAuth client secrets are not valid for ?key= on the Sheets API. */
+function assertNotOAuthClientSecret(key) {
+  const k = String(key).trim();
+  if (/^GOCSPX-/i.test(k) || /^GOC-/i.test(k)) {
+    throw new Error(
+      "GOOGLE_SHEETS_API_KEY looks like an OAuth 2.0 client secret (e.g. GOCSPX-...), not an API key.\n" +
+        "Google Cloud Console → APIs & Services → Credentials → Create credentials → **API key**.\n" +
+        "Enable **Google Sheets API** on that project. Sheet API keys usually start with **AIza**.\n" +
+        "If that value was exposed, delete/rotate the OAuth client secret in Credentials.",
+    );
+  }
 }
 
 /**
@@ -135,9 +148,14 @@ async function fetchViaSheetsApi(spreadsheetId, range, apiKey) {
     } catch {
       /* ignore */
     }
+    const keyHint =
+      /not valid|invalid.*api key/i.test(String(hint)) ?
+        "\nIf the key does not start with AIza, you may be using an OAuth client secret — create an **API key** instead."
+      : "";
     throw new Error(
       `Sheets API ${res.status}: ${hint}\n` +
-        "Check: range uses SheetName!A1:B2; API key has Sheets API enabled; spreadsheet is shared (e.g. link viewer) or key is allowed to read it.",
+        "Check: range uses SheetName!A1:B2; API key has Sheets API enabled; spreadsheet is shared (e.g. link viewer) or key is allowed to read it." +
+        keyHint,
     );
   }
   const data = await res.json();
@@ -195,6 +213,7 @@ async function main() {
   if (forceCsv) {
     rows = await fetchViaPublicCsv(spreadsheetId, gid);
   } else if (apiKey) {
+    assertNotOAuthClientSecret(apiKey);
     rows = await fetchViaSheetsApi(spreadsheetId, range, apiKey);
   } else {
     rows = await fetchViaPublicCsv(spreadsheetId, gid);

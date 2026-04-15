@@ -74,6 +74,25 @@ function loadUsaIcaos() {
 }
 
 const USA_ICAOS = loadUsaIcaos();
+
+function getS3Bucket() {
+  return process.env.AWS_S3_BUCKET || process.env.AWS_NOTAMS_BUCKET || "";
+}
+
+async function fetchS3ObjectBytes(key) {
+  const bucket = getS3Bucket();
+  if (!bucket) return null;
+  const region = process.env.AWS_REGION || "us-east-1";
+  try {
+    const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = new S3Client({ region });
+    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const bytes = await res.Body?.transformToByteArray();
+    return bytes ? Buffer.from(bytes) : null;
+  } catch {
+    return null;
+  }
+}
 const SCRAPER_COUNTRY_SPECS = [
   {
     country: "Bahrain",
@@ -426,12 +445,22 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
 async function runDownload(icao) {
   if (isUsaIcao(icao)) {
     const sourcePdf = join(USA_AIP_DIR, `${icao}_ad2.pdf`);
-    if (!existsSync(sourcePdf)) {
-      throw new Error(`USA static AD2 PDF not found for ${icao}: ${sourcePdf}`);
-    }
     mkdirSync(EAD_AIP_DIR, { recursive: true });
     const targetPdf = join(EAD_AIP_DIR, `USA_AD_2_${icao}_static.pdf`);
-    copyFileSync(sourcePdf, targetPdf);
+    if (existsSync(sourcePdf)) {
+      copyFileSync(sourcePdf, targetPdf);
+      return;
+    }
+    const s3Bytes = await fetchS3ObjectBytes(`aip/usa-pdf/${icao}.pdf`);
+    if (!s3Bytes) {
+      throw new Error(
+        `USA static AD2 PDF not found for ${icao}: ${sourcePdf} (and missing in S3 key aip/usa-pdf/${icao}.pdf)`,
+      );
+    }
+    if (s3Bytes.length < 32 || !s3Bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+      throw new Error(`USA AD2 PDF in S3 is invalid for ${icao} (key aip/usa-pdf/${icao}.pdf)`);
+    }
+    writeFileSync(targetPdf, s3Bytes);
     return;
   }
   const scraper = getScraperSpecByIcao(icao);
@@ -763,16 +792,27 @@ async function runRwandaGenDownload() {
 async function runGenDownloadForIcao(icao, prefix) {
   if (isUsaIcao(icao)) {
     const sourceGen = join(USA_AIP_DIR, "GEN1.2.pdf");
-    if (!existsSync(sourceGen)) {
-      throw new Error(`USA static GEN 1.2 PDF not found: ${sourceGen}`);
-    }
     mkdirSync(EAD_GEN_DIR, { recursive: true });
     const normalized = String(prefix || "").trim().toUpperCase() || "US";
+    let genBytes = null;
+    if (existsSync(sourceGen)) {
+      genBytes = readFileSync(sourceGen);
+    } else {
+      genBytes = await fetchS3ObjectBytes("aip/usa-gen-pdf/GEN-1.2.pdf");
+      if (!genBytes) {
+        throw new Error(
+          `USA static GEN 1.2 PDF not found: ${sourceGen} (and missing in S3 key aip/usa-gen-pdf/GEN-1.2.pdf)`,
+        );
+      }
+    }
+    if (genBytes.length < 32 || !genBytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+      throw new Error("USA static GEN 1.2 PDF is invalid (local or S3)");
+    }
     // Keep requested prefix (legacy callers may pass KA for K*** ICAOs)
     // and also save a canonical US alias.
-    copyFileSync(sourceGen, join(EAD_GEN_DIR, `${normalized}-GEN-1.2.pdf`));
+    writeFileSync(join(EAD_GEN_DIR, `${normalized}-GEN-1.2.pdf`), genBytes);
     if (normalized !== "US") {
-      copyFileSync(sourceGen, join(EAD_GEN_DIR, "US-GEN-1.2.pdf"));
+      writeFileSync(join(EAD_GEN_DIR, "US-GEN-1.2.pdf"), genBytes);
     }
     return;
   }

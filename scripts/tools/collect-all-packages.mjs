@@ -99,6 +99,7 @@ function normalizeCountry(v) {
 }
 
 const WEB_AIP_BY_COUNTRY = {
+  algeria: "https://www.sia-enna.dz/aeronautical-information-publication.html",
   bahrain: "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",
   belarus: "https://www.ban.by/ru/sbornik-aip/amdt",
   bhutan: "https://www.doat.gov.bt/aip/",

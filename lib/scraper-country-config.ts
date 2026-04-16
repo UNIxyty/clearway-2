@@ -9,6 +9,11 @@ export type ScraperCountryConfig = {
 
 export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
+    country: "Algeria",
+    prefixes: ["DA"],
+    webAipUrl: "https://www.sia-enna.dz/aeronautical-information-publication.html",
+  },
+  {
     country: "Bahrain",
     prefixes: ["OB"],
     webAipUrl: "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",

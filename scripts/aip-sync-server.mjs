@@ -95,6 +95,13 @@ async function fetchS3ObjectBytes(key) {
 }
 const SCRAPER_COUNTRY_SPECS = [
   {
+    country: "Algeria",
+    prefixes: ["DA"],
+    script: "scripts/web-table-scrapers/algeria-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "algeria-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "algeria-aip", "GEN"),
+  },
+  {
     country: "Bahrain",
     prefixes: ["OB"],
     script: "scripts/web-table-scrapers/bahrain-eaip-interactive.mjs",

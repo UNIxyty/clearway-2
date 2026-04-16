@@ -7,6 +7,7 @@ This file is a visual marker in the file tree so connected scraper files are eas
 
 Connected scripts
 -----------------
+- [x] `algeria-aip-interactive.mjs`
 - [x] `bahrain-eaip-interactive.mjs`
 - [x] `belarus-eaip-interactive.mjs`
 - [x] `bhutan-aip-interactive.mjs`

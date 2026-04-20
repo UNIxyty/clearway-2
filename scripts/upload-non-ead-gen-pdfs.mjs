@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Upload non-EAD GEN 1.2 PDFs from the `edited/` folder to S3.
+ * Copy non-EAD GEN 1.2 PDFs from the `edited/` folder to local storage.
  *
- * S3 key pattern: aip/non-ead-gen-pdf/{PREFIX}-GEN-1.2.pdf
+ * Storage key pattern: aip/non-ead-gen-pdf/{PREFIX}-GEN-1.2.pdf
  *
  * Usage:
- *   AWS_S3_BUCKET=myapp-notams-prod node scripts/upload-non-ead-gen-pdfs.mjs
+ *   node scripts/upload-non-ead-gen-pdfs.mjs
  *   node scripts/upload-non-ead-gen-pdfs.mjs --dry-run   # list what would be uploaded
  *
- * Reads AWS credentials from env or ~/.aws/credentials.
  */
 
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { saveFile } from "../lib/storage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -97,13 +97,6 @@ const S3_PREFIX = "aip/non-ead-gen-pdf";
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const bucket = process.env.AWS_S3_BUCKET;
-  const region = process.env.AWS_REGION || "us-east-1";
-
-  if (!bucket && !dryRun) {
-    console.error("Set AWS_S3_BUCKET (or use --dry-run)");
-    process.exit(1);
-  }
 
   if (!existsSync(EDITED_DIR)) {
     console.error(`Directory not found: ${EDITED_DIR}`);
@@ -113,12 +106,6 @@ async function main() {
   const files = readdirSync(EDITED_DIR).filter((f) => f.endsWith(".pdf"));
   const uploaded = new Set();
   let count = 0;
-
-  let client;
-  if (!dryRun) {
-    const { S3Client } = await import("@aws-sdk/client-s3");
-    client = new S3Client({ region });
-  }
 
   for (const file of files) {
     const prefix = FILE_TO_PREFIX[file];
@@ -135,19 +122,11 @@ async function main() {
     const localPath = join(EDITED_DIR, file);
 
     if (dryRun) {
-      console.log(`  [DRY] ${file} → s3://${bucket || "BUCKET"}/${key}`);
+      console.log(`  [DRY] ${file} → /storage/${key}`);
     } else {
       const body = readFileSync(localPath);
-      const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: body,
-          ContentType: "application/pdf",
-        })
-      );
-      console.log(`  ✓ ${file} → s3://${bucket}/${key} (${(body.length / 1024).toFixed(0)} KB)`);
+      await saveFile(key, body);
+      console.log(`  ✓ ${file} → /storage/${key} (${(body.length / 1024).toFixed(0)} KB)`);
     }
     uploaded.add(prefix);
     count++;

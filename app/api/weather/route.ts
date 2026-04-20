@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { readFile as readStoredFile } from "@/lib/storage";
+import { logError } from "@/lib/utils/logger";
 
-const WEATHER_BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
-const WEATHER_PREFIX = process.env.WEATHER_S3_PREFIX || "weather";
+const WEATHER_PREFIX = "weather";
 const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 /** Dedicated weather sync host (second tmux / second port). Falls back to NOTAM_SYNC_URL. */
@@ -17,13 +17,10 @@ type WeatherPayload = {
   updatedAt: string | null;
 };
 
-async function getFromS3(icao: string): Promise<WeatherPayload | null> {
-  if (!WEATHER_BUCKET) return null;
+async function getFromStorage(icao: string): Promise<WeatherPayload | null> {
   try {
-    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
     const key = `${WEATHER_PREFIX}/${icao}.json`;
-    const res = await client.send(new GetObjectCommand({ Bucket: WEATHER_BUCKET, Key: key }));
-    const body = await res.Body?.transformToString();
+    const body = (await readStoredFile(key))?.toString("utf8");
     if (!body) return null;
     const data = JSON.parse(body) as { icao?: string; weather?: string; updatedAt?: string };
     return {
@@ -32,10 +29,7 @@ async function getFromS3(icao: string): Promise<WeatherPayload | null> {
       updatedAt: data.updatedAt ?? null,
     };
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-      console.error("S3 weather read failed:", e);
-    }
+    logError("WEATHER-API", "Local weather read failed", e);
     return null;
   }
 }
@@ -117,8 +111,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const fromS3 = await getFromS3(icao);
-  if (fromS3) return NextResponse.json(fromS3);
+  const fromStorage = await getFromStorage(icao);
+  if (fromStorage) return NextResponse.json(fromStorage);
   return NextResponse.json({ icao, weather: "", updatedAt: null });
 }
 

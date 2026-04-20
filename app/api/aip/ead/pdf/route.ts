@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
+import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PDF_PREFIX = "aip/ead-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -13,21 +12,6 @@ function badIcaoResponse() {
 }
 
 function configErrorResponse() {
-  if (!BUCKET) {
-    return NextResponse.json(
-      { error: "PDF storage not configured", detail: "Set AWS_S3_BUCKET (or AWS_NOTAMS_BUCKET) in Vercel." },
-      { status: 503 }
-    );
-  }
-  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-    return NextResponse.json(
-      {
-        error: "S3 credentials not configured",
-        detail: "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Vercel (same as for NOTAMs). IAM user must have s3:GetObject on your bucket, including aip/ead-pdf/*.",
-      },
-      { status: 503 }
-    );
-  }
   return null;
 }
 
@@ -67,18 +51,13 @@ export async function HEAD(request: NextRequest) {
     return new NextResponse(null, { status: 503 });
   }
 
-  const region = process.env.AWS_REGION || "us-east-1";
   try {
-    const client = new S3Client({ region });
     const key = `${AIP_EAD_PDF_PREFIX}/${icao}.pdf`;
-    await client.send(new HeadObjectCommand({ Bucket: BUCKET!, Key: key }));
+    const exists = await storageObjectExists(key);
+    if (!exists) return new NextResponse(null, { status: 404 });
     return new NextResponse(null, { status: 200 });
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string; message?: string };
-    if (err?.name === "NotFound" || err?.name === "NoSuchKey" || err?.Code === "NoSuchKey" || err?.Code === "404") {
-      return new NextResponse(null, { status: 404 });
-    }
-    console.error("S3 AIP PDF head failed:", e);
+    console.error("AIP PDF head failed:", e);
     return new NextResponse(null, { status: 502 });
   }
 }
@@ -93,28 +72,18 @@ export async function GET(request: NextRequest) {
   const cfg = configErrorResponse();
   if (cfg) return cfg;
 
-  const region = process.env.AWS_REGION || "us-east-1";
   const inline = useInlineDisposition(request);
   const filename = buildPdfDownloadFilename("AD2", icao);
 
   try {
-    const client = new S3Client({ region });
     const key = `${AIP_EAD_PDF_PREFIX}/${icao}.pdf`;
-    let res;
-    try {
-      res = await client.send(new GetObjectCommand({ Bucket: BUCKET!, Key: key }));
-    } catch (e: unknown) {
-      const err = e as { name?: string; Code?: string };
-      const missing = err?.name === "NoSuchKey" || err?.Code === "NoSuchKey";
-      if (!missing) throw e;
-      // Auto-heal: missing PDF triggers PDF-only sync, then retry S3 once.
+    let bytes = await readPdfFromStorage(key);
+    if (!bytes) {
+      // Auto-heal: missing PDF triggers PDF-only sync, then retry once.
       await triggerPdfOnlySync(icao);
-      res = await client.send(new GetObjectCommand({ Bucket: BUCKET!, Key: key }));
+      bytes = await readPdfFromStorage(key);
     }
-    const body = res.Body;
-    if (!body) return new NextResponse(null, { status: 404 });
-
-    const bytes = await body.transformToByteArray();
+    if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);
     copy.set(bytes);
     const disposition = inline
@@ -129,28 +98,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string; message?: string };
-    if (err?.name === "NoSuchKey" || err?.Code === "NoSuchKey") {
-      return NextResponse.json(
-        {
-          error: "PDF not found",
-          detail:
-            "PDF is unavailable after auto-sync attempt. Check AIP_SYNC_URL/SYNC_SECRET and scraper server logs.",
-        },
-        { status: 404 }
-      );
-    }
-    const msg = err?.message ?? String(e);
-    const isAccessDenied =
-      err?.name === "AccessDenied" ||
-      err?.Code === "AccessDenied" ||
-      /access denied|credentials/i.test(msg);
-    const hint = isAccessDenied
-      ? " Ensure the IAM user has s3:GetObject on this bucket for keys under aip/ead-pdf/*."
-      : "";
-    console.error("S3 AIP PDF read failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("AIP PDF read failed:", e);
     return NextResponse.json(
-      { error: "Failed to load PDF", detail: msg + hint },
+      { error: "Failed to load PDF", detail: msg },
       { status: 502 }
     );
   }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { createClient } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { saveFile } from "../lib/storage.mjs";
 import {
   asecnaAd2AirportBasename,
   createAsecnaFetch,
@@ -12,8 +12,6 @@ import {
 
 const ROOT = process.cwd();
 const ASECNA_JSON = join(ROOT, "data", "asecna-airports.json");
-const BUCKET = process.env.AWS_S3_BUCKET || process.env.AWS_NOTAMS_BUCKET;
-const REGION = process.env.AWS_REGION || "us-east-1";
 const POLL_MS = Number(process.env.ASECNA_WORKER_POLL_MS || "5000");
 
 function sleep(ms) {
@@ -41,13 +39,11 @@ async function main() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRole) throw new Error("Missing Supabase env");
-  if (!BUCKET) throw new Error("Missing AWS_S3_BUCKET/AWS_NOTAMS_BUCKET");
 
   const db = loadAsecnaDb();
   const supabase = createClient(supabaseUrl, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const s3 = new S3Client({ region: REGION });
   const http = createAsecnaFetch("WORKER");
   const menuDirUrl = `${new URL(db.menuUrl).origin}/html/eAIP/`;
 
@@ -91,15 +87,8 @@ async function main() {
         if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
         const bytes = new Uint8Array(await res.arrayBuffer());
         const s3Key = `aip/asecna-pdf/${icao}.pdf`;
-        await s3.send(
-          new PutObjectCommand({
-            Bucket: BUCKET,
-            Key: s3Key,
-            Body: bytes,
-            ContentType: "application/pdf",
-          }),
-        );
-        const pdfUrlPublic = `s3://${BUCKET}/${s3Key}`;
+        await saveFile(s3Key, bytes);
+        const pdfUrlPublic = `/files/${s3Key}`;
         await supabase
           .from("asecna_jobs")
           .update({

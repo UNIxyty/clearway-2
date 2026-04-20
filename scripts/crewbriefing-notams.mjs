@@ -1,16 +1,17 @@
 /**
- * CrewBriefing NOTAM scraper for sync server + S3.
- * Login → Extra WX → NOTAM page → search ICAO → extract ResultTable → parse → upload S3.
+ * CrewBriefing NOTAM scraper for sync server + local storage.
+ * Login → Extra WX → NOTAM page → search ICAO → extract ResultTable → parse → save JSON.
  * Same JSON shape as FAA scraper: { location, number, class, startDateUtc, endDateUtc, condition }.
  *
  * Env: CREWBRIEFING_USER, CREWBRIEFING_PASSWORD (required on server).
- *      AWS_S3_BUCKET, AWS_S3_PREFIX, AWS_REGION for upload.
+ *      STORAGE_ROOT/CACHE_ROOT for local storage layer.
  *      NOTAM_PROGRESS_FILE for sync server progress.
  *
  * Usage: node scripts/crewbriefing-notams.mjs [--json] <ICAO>
  */
 
 import { appendFileSync } from 'fs';
+import { saveFile } from "../lib/storage.mjs";
 
 const LOGIN_URL = 'https://www.crewbriefing.com/LoginSSL.aspx';
 const NOTAMS_URL = 'https://www.crewbriefing.com/Cb_Extra/2.5.19/NOTAM/Notams.aspx';
@@ -167,25 +168,14 @@ async function main() {
   progress('Parsing NOTAMs');
   const notams = parseNotamText(notamText || '', icao);
 
-  if (process.env.AWS_S3_BUCKET && notams.length >= 0) {
-    progress('Uploading to S3');
+  if (notams.length >= 0) {
+    progress('Saving NOTAMs to storage');
     try {
-      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
-      const bucket = process.env.AWS_S3_BUCKET;
-      const prefix = process.env.AWS_S3_PREFIX || 'notams';
-      const key = `${prefix}/${icao}.json`;
-      const client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: JSON.stringify({ icao, notams, updatedAt: new Date().toISOString() }),
-          ContentType: 'application/json',
-        })
-      );
-      if (!jsonMode) console.error('Uploaded to s3://' + bucket + '/' + key);
+      const key = `notam/${icao}.json`;
+      await saveFile(key, JSON.stringify({ icao, notams, updatedAt: new Date().toISOString() }));
+      if (!jsonMode) console.error('Saved to /storage/' + key);
     } catch (e) {
-      if (!jsonMode) console.error('S3 upload failed:', e.message);
+      if (!jsonMode) console.error('Storage write failed:', e?.message || String(e));
     }
   }
 

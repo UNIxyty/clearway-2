@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
+import { readJsonFromStorage, readPdfFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const PDF_PREFIX = "aip/usa-pdf";
 const JSON_PREFIX = "aip/usa";
 
@@ -26,10 +25,6 @@ type ExtractedAirportRow = {
   "AD2.12 Runway Number": string;
   "AD2.12 Runway Dimensions": string;
 };
-
-function s3() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
 
 function clip(text: string, maxChars = 18000): string {
   const trimmed = String(text || "").trim();
@@ -66,58 +61,23 @@ function normalizeExtracted(parsed: Partial<ExtractedAirportRow>, icao: string):
 }
 
 async function getPdfBytes(icao: string): Promise<Uint8Array | null> {
-  if (!BUCKET) return null;
-  try {
-    const res = await s3().send(
-      new GetObjectCommand({ Bucket: BUCKET, Key: `${PDF_PREFIX}/${icao}.pdf` }),
-    );
-    const bytes = await res.Body?.transformToByteArray();
-    return bytes ? new Uint8Array(bytes) : null;
-  } catch {
-    return null;
-  }
+  return readPdfFromStorage(`${PDF_PREFIX}/${icao}.pdf`);
 }
 
 async function hasPdf(icao: string): Promise<boolean> {
-  if (!BUCKET) return false;
-  try {
-    await s3().send(
-      new HeadObjectCommand({ Bucket: BUCKET, Key: `${PDF_PREFIX}/${icao}.pdf` }),
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return storageObjectExists(`${PDF_PREFIX}/${icao}.pdf`);
 }
 
 async function getCachedJson(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
-  if (!BUCKET) return null;
-  try {
-    const res = await s3().send(
-      new GetObjectCommand({ Bucket: BUCKET, Key: `${JSON_PREFIX}/${icao}.json` }),
-    );
-    const body = await res.Body?.transformToString();
-    if (!body) return null;
-    const data = JSON.parse(body) as { airports?: unknown[]; updatedAt?: string | null };
-    return {
-      airports: Array.isArray(data.airports) ? data.airports : [],
-      updatedAt: data.updatedAt ?? null,
-    };
-  } catch {
-    return null;
-  }
+  const data = await readJsonFromStorage<{ airports?: unknown[]; updatedAt?: string | null }>(
+    `${JSON_PREFIX}/${icao}.json`,
+  );
+  if (!data) return null;
+  return { airports: Array.isArray(data.airports) ? data.airports : [], updatedAt: data.updatedAt ?? null };
 }
 
 async function putCachedJson(icao: string, payload: { airports: unknown[]; updatedAt: string }) {
-  if (!BUCKET) return;
-  await s3().send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: `${JSON_PREFIX}/${icao}.json`,
-      Body: JSON.stringify(payload),
-      ContentType: "application/json",
-    }),
-  );
+  await writeJsonToStorage(`${JSON_PREFIX}/${icao}.json`, payload);
 }
 
 async function aiExtractAirport(icao: string, text: string, signal?: AbortSignal): Promise<ExtractedAirportRow> {
@@ -194,22 +154,18 @@ export async function GET(request: NextRequest) {
   }
 
   if (!sync) {
-    const fromS3 = await getCachedJson(icao);
-    if (fromS3 && fromS3.airports.length > 0) {
-      return NextResponse.json({ airports: fromS3.airports, updatedAt: fromS3.updatedAt });
+    const fromStorage = await getCachedJson(icao);
+    if (fromStorage && fromStorage.airports.length > 0) {
+      return NextResponse.json({ airports: fromStorage.airports, updatedAt: fromStorage.updatedAt });
     }
     return NextResponse.json({ airports: [], updatedAt: null });
-  }
-
-  if (!BUCKET) {
-    return NextResponse.json({ error: "S3 not configured", detail: "Set AWS_S3_BUCKET (or AWS_NOTAMS_BUCKET)." }, { status: 503 });
   }
 
   if (!extract) {
     const exists = await hasPdf(icao);
     if (!exists) {
       return NextResponse.json(
-        { error: "USA AD2 PDF not found in S3", detail: `Upload ${icao}.pdf to s3://${BUCKET}/${PDF_PREFIX}/` },
+        { error: "USA AD2 PDF not found", detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/` },
         { status: 404 },
       );
     }
@@ -222,7 +178,7 @@ export async function GET(request: NextRequest) {
     const bytes = await getPdfBytes(icao);
     if (!bytes) {
       return NextResponse.json(
-        { error: "USA AD2 PDF not found in S3", detail: `Upload ${icao}.pdf to s3://${BUCKET}/${PDF_PREFIX}/` },
+        { error: "USA AD2 PDF not found", detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/` },
         { status: 404 },
       );
     }
@@ -246,12 +202,12 @@ export async function GET(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
       };
       try {
-        send({ step: "Loading USA AD 2 PDF from S3…" });
+        send({ step: "Loading USA AD 2 PDF from storage…" });
         const bytes = await getPdfBytes(icao);
         if (!bytes) {
           send({
-            error: "USA AD2 PDF not found in S3",
-            detail: `Upload ${icao}.pdf to s3://${BUCKET}/${PDF_PREFIX}/`,
+            error: "USA AD2 PDF not found",
+            detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/`,
           });
           return;
         }

@@ -1,17 +1,18 @@
 /**
- * CrewBriefing OPMET weather scraper for sync server + S3.
+ * CrewBriefing OPMET weather scraper for sync server + local storage.
  * Login -> Extra WX -> OPMET tab -> search ICAO -> extract weather text.
  *
  * Env: CREWBRIEFING_USER, CREWBRIEFING_PASSWORD
  *      Or dedicated weather account: CREWBRIEFING_WEATHER_USER, CREWBRIEFING_WEATHER_PASSWORD
  *      (second CrewBriefing user on same IP for parallel NOTAM vs weather sync servers)
- *      AWS_S3_BUCKET, AWS_REGION, WEATHER_S3_PREFIX (optional, default "weather")
+ *      STORAGE_ROOT/CACHE_ROOT for local storage layer.
  *      WEATHER_PROGRESS_FILE (optional progress file for SSE streaming)
  *
  * Usage: node scripts/crewbriefing-weather.mjs [--json] <ICAO>
  */
 
 import { appendFileSync } from "fs";
+import { saveFile } from "../lib/storage.mjs";
 
 const LOGIN_URL = "https://www.crewbriefing.com/LoginSSL.aspx";
 const EXTRA_WX_URL = "https://www.crewbriefing.com/Cb_Extra/2.5.19/NOTAM/Notams.aspx";
@@ -109,24 +110,19 @@ async function main() {
     updatedAt: new Date().toISOString(),
   };
 
+  progress("Saving weather to storage");
+  try {
+    const key = `weather/${icao}.json`;
+    await saveFile(key, JSON.stringify(payload));
+  } catch (e) {
+    if (!jsonMode) console.error("Weather storage write failed:", e instanceof Error ? e.message : String(e));
+  }
   if (process.env.AWS_S3_BUCKET) {
-    progress("Uploading weather to S3");
+    progress("S3 env found but ignored in local mode");
     try {
-      const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-      const bucket = process.env.AWS_S3_BUCKET;
-      const prefix = process.env.WEATHER_S3_PREFIX || "weather";
-      const key = `${prefix}/${icao}.json`;
-      const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: JSON.stringify(payload),
-          ContentType: "application/json",
-        }),
-      );
+      // no-op to preserve backward-compatible logs when legacy env remains set
     } catch (e) {
-      if (!jsonMode) console.error("Weather S3 upload failed:", e instanceof Error ? e.message : String(e));
+      if (!jsonMode) console.error("Ignored legacy AWS env warning:", e instanceof Error ? e.message : String(e));
     }
   }
 

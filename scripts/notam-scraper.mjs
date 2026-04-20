@@ -12,6 +12,7 @@
 
 import { join } from 'path';
 import { existsSync, appendFileSync } from 'fs';
+import { saveFile } from "../lib/storage.mjs";
 
 const NOTAM_SEARCH_URL = 'https://notams.aim.faa.gov/notamSearch/nsapp.html#/';
 const DEFAULT_ICAO = 'KJFK';
@@ -289,25 +290,14 @@ async function main() {
     console.log(JSON.stringify(notamsOutput));
   }
 
-  if (process.env.AWS_S3_BUCKET && notamsOutput.length >= 0) {
-    progress("Uploading to S3");
+  if (notamsOutput.length >= 0) {
+    progress("Saving NOTAMs to storage");
     try {
-      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
-      const bucket = process.env.AWS_S3_BUCKET;
-      const prefix = process.env.AWS_S3_PREFIX || 'notams';
-      const key = `${prefix}/${icao}.json`;
-      const client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: JSON.stringify({ icao, notams: notamsOutput, updatedAt: new Date().toISOString() }),
-          ContentType: 'application/json',
-        })
-      );
-      log('Uploaded to s3://' + bucket + '/' + key);
+      const key = `notam/${icao}.json`;
+      await saveFile(key, JSON.stringify({ icao, notams: notamsOutput, updatedAt: new Date().toISOString() }));
+      log('Saved to /storage/' + key);
     } catch (e) {
-      if (!jsonMode) console.error('S3 upload failed:', e.message);
+      if (!jsonMode) console.error('Storage write failed:', e?.message || String(e));
     }
   }
 }

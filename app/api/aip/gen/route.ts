@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
+import { readJsonFromStorage } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const GEN_PREFIX = "aip/gen";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-function s3Client() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
 
 export type GenPart = { raw: string; rewritten: string };
 export type GenPayload = {
@@ -33,15 +28,10 @@ function normPart(p: unknown): GenPart {
   return emptyPart();
 }
 
-async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
-  if (!BUCKET) return null;
+async function getGenFromStorage(prefix: string): Promise<GenPayload | null> {
   try {
-    const client = s3Client();
     const key = `${GEN_PREFIX}/${prefix}.json`;
-    const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    const body = await res.Body?.transformToString();
-    if (!body) return null;
-    const data = JSON.parse(body) as {
+    const data = await readJsonFromStorage<{
       raw?: string;
       rewritten?: string;
       general?: GenPart;
@@ -49,7 +39,8 @@ async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
       nonScheduled?: GenPart;
       privateFlights?: GenPart;
       updatedAt?: string;
-    };
+    }>(key);
+    if (!data) return null;
     // New format: general + nonScheduled + privateFlights
     if (data.general && typeof data.general === "object") {
       return {
@@ -70,10 +61,7 @@ async function getGenFromS3(prefix: string): Promise<GenPayload | null> {
       updatedAt: data.updatedAt ?? new Date().toISOString(),
     };
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-      console.error("S3 GEN read failed:", e);
-    }
+    console.error("GEN read failed:", e);
     return null;
   }
 }
@@ -90,7 +78,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const payload = await getGenFromS3(prefix);
+  const payload = await getGenFromStorage(prefix);
   if (!payload) {
     return NextResponse.json(
       { general: emptyPart(), nonScheduled: emptyPart(), privateFlights: emptyPart(), updatedAt: null },

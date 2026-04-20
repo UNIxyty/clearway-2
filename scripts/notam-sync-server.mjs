@@ -21,6 +21,8 @@ import { spawn } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, unlinkSync, existsSync } from "fs";
+import { readFile as readStorageFile } from "../lib/storage.mjs";
+import { logError, logInfo } from "../lib/utils/logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -107,17 +109,9 @@ async function runScraper(icao) {
 }
 
 async function readFromS3(icao) {
-  const bucket = process.env.AWS_S3_BUCKET;
-  const prefix = process.env.AWS_S3_PREFIX || "notams";
-  const region = process.env.AWS_REGION || "us-east-1";
-  if (!bucket) throw new Error("AWS_S3_BUCKET not set");
-  const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region });
-  const res = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: `${prefix}/${icao}.json` })
-  );
-  const body = await res.Body.transformToString();
-  return JSON.parse(body);
+  const bytes = await readStorageFile(`notam/${icao}.json`);
+  if (!bytes) throw new Error(`Missing local NOTAM payload for ${icao}`);
+  return JSON.parse(bytes.toString("utf8"));
 }
 
 async function runWeatherScraper(icao) {
@@ -143,17 +137,9 @@ async function runWeatherScraper(icao) {
 }
 
 async function readWeatherFromS3(icao) {
-  const bucket = process.env.AWS_S3_BUCKET;
-  const prefix = process.env.WEATHER_S3_PREFIX || "weather";
-  const region = process.env.AWS_REGION || "us-east-1";
-  if (!bucket) throw new Error("AWS_S3_BUCKET not set");
-  const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region });
-  const res = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: `${prefix}/${icao}.json` })
-  );
-  const body = await res.Body.transformToString();
-  return JSON.parse(body);
+  const bytes = await readStorageFile(`weather/${icao}.json`);
+  if (!bytes) throw new Error(`Missing local weather payload for ${icao}`);
+  return JSON.parse(bytes.toString("utf8"));
 }
 
 const server = createServer(async (req, res) => {
@@ -284,7 +270,7 @@ const server = createServer(async (req, res) => {
           res.end();
         })
         .catch((err) => {
-          send({ error: "S3 read failed", detail: err.message });
+          send({ error: "Storage read failed", detail: err.message });
           res.end();
         });
     });
@@ -312,23 +298,15 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null }));
     }
   } catch (err) {
-    console.error(isWeather ? "Weather sync failed for" : "Sync failed for", icao, err);
+    logError(isWeather ? "WEATHER-SYNC" : "NOTAM-SYNC", `Sync failed for ${icao}`, err);
     res.writeHead(502);
     res.end(JSON.stringify({ error: isWeather ? "Weather sync failed" : "Sync failed", detail: err.message }));
   }
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    "Sync server listening on port",
-    PORT,
-    "| mode:",
-    SYNC_SERVER_MODE,
-    "| NOTAM:",
-    ALLOW_NOTAM,
-    "| weather:",
-    ALLOW_WEATHER,
-    "| notam script:",
-    SCRAPER_SCRIPT
+  logInfo(
+    "SYNC-SERVER",
+    `Listening on ${PORT} mode=${SYNC_SERVER_MODE} allow_notam=${ALLOW_NOTAM} allow_weather=${ALLOW_WEATHER} script=${SCRAPER_SCRIPT}`,
   );
 });

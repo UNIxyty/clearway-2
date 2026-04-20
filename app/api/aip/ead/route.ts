@@ -1,31 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { readJsonFromStorage, removeFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const AIP_EAD_PREFIX = "aip/ead";
 const SYNC_TIMEOUT_MS = 600_000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
 
-function s3Client() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
-
-async function getFromS3(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
-  if (!BUCKET) return null;
+async function getFromStorage(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
   try {
-    const client = s3Client();
     const key = `${AIP_EAD_PREFIX}/${icao}.json`;
-    const res = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    const body = await res.Body?.transformToString();
-    if (!body) return null;
-    const data = JSON.parse(body) as { airports?: unknown[]; updatedAt?: string | null };
+    const data = await readJsonFromStorage<{ airports?: unknown[]; updatedAt?: string | null }>(key);
+    if (!data) return null;
     const updatedAt = data.updatedAt ?? null;
     if (updatedAt) {
       const age = Date.now() - new Date(updatedAt).getTime();
       if (age >= CACHE_TTL_MS) {
-        await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key })).catch((e) => console.error("S3 AIP EAD delete stale failed:", e));
+        await removeFromStorage(key).catch(() => {});
         return null;
       }
     }
@@ -33,30 +24,17 @@ async function getFromS3(icao: string): Promise<{ airports: unknown[]; updatedAt
       airports: Array.isArray(data.airports) ? data.airports : [],
       updatedAt,
     };
-  } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-      console.error("S3 AIP EAD read failed:", e);
-    }
+  } catch {
     return null;
   }
 }
 
-async function putToS3(icao: string, payload: { airports: unknown[]; updatedAt: string }): Promise<void> {
-  if (!BUCKET) return;
+async function putToStorage(icao: string, payload: { airports: unknown[]; updatedAt: string }): Promise<void> {
   try {
-    const client = s3Client();
     const key = `${AIP_EAD_PREFIX}/${icao}.json`;
-    await client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: key,
-        Body: JSON.stringify(payload),
-        ContentType: "application/json",
-      })
-    );
+    await writeJsonToStorage(key, payload);
   } catch (e) {
-    console.error("S3 AIP EAD write failed:", e);
+    console.error("Local AIP EAD write failed:", e);
   }
 }
 
@@ -71,9 +49,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (!sync) {
-    const fromS3 = await getFromS3(icao);
-    if (fromS3 && fromS3.airports.length > 0) {
-      return NextResponse.json({ airports: fromS3.airports, updatedAt: fromS3.updatedAt });
+    const fromStorage = await getFromStorage(icao);
+    if (fromStorage && fromStorage.airports.length > 0) {
+      return NextResponse.json({ airports: fromStorage.airports, updatedAt: fromStorage.updatedAt });
     }
     return NextResponse.json({ airports: [], updatedAt: null }, { status: 200 });
   }
@@ -82,7 +60,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "AIP sync not configured",
-        detail: "Set AIP_SYNC_URL in Vercel to your AIP EC2 sync server (e.g. http://EC2-IP:3002). See scripts/AIP-AWS-SETUP.md.",
+        detail: "Set AIP_SYNC_URL to your self-hosted AIP sync service.",
       },
       { status: 503 }
     );
@@ -130,7 +108,7 @@ export async function GET(request: NextRequest) {
     }
     const airports = Array.isArray(data.airports) ? data.airports : [];
     const updatedAt = new Date().toISOString();
-    await putToS3(icao, { airports, updatedAt });
+    await putToStorage(icao, { airports, updatedAt });
     return NextResponse.json({ airports, updatedAt });
   } catch (e) {
     if (request.signal.aborted) {

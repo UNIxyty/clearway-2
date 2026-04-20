@@ -2,15 +2,10 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync, statSync } from "fs";
 import { basename, join, relative } from "path";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const OUTPUT_DIR = process.env.TEST_RESULTS_DIR || "test-results";
 const RAW_DIR = join(OUTPUT_DIR, "raw");
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
-const REPORTS_BUCKET = process.env.AWS_S3_BUCKET || "";
-const REPORTS_PREFIX = process.env.E2E_REPORTS_S3_PREFIX || "e2e-reports";
-const PRESIGN_EXPIRES_SECONDS = Number(process.env.E2E_REPORT_URL_EXPIRES_IN || 259200); // 72h
+const FILES_BASE_URL = process.env.FILES_BASE_URL || "";
 
 function pickLatestRawFile() {
   if (!existsSync(RAW_DIR)) return null;
@@ -33,61 +28,28 @@ function airportPassed(airport) {
   return Boolean(c.pageLoad?.pass && c.aip?.pass);
 }
 
-function getS3Client() {
-  return new S3Client({ region: AWS_REGION });
-}
-
 function sanitize(value) {
   return String(value || "unknown").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
 async function uploadScreenshotAndGetUrl(client, filePath, reportStem, country, icao) {
-  const key = [
-    REPORTS_PREFIX.replace(/\/$/, ""),
-    "screenshots",
-    sanitize(reportStem),
-    sanitize(country),
-    `${sanitize(icao)}.png`,
-  ].join("/");
-
-  const body = readFileSync(filePath);
-  await client.send(
-    new PutObjectCommand({
-      Bucket: REPORTS_BUCKET,
-      Key: key,
-      Body: body,
-      ContentType: "image/png",
-    }),
-  );
-
-  const url = await getSignedUrl(
-    client,
-    new GetObjectCommand({
-      Bucket: REPORTS_BUCKET,
-      Key: key,
-      ResponseContentType: "image/png",
-      ResponseContentDisposition: `attachment; filename="${sanitize(icao)}.png"`,
-    }),
-    { expiresIn: PRESIGN_EXPIRES_SECONDS },
-  );
-
+  const key = ["aip", "screenshots", sanitize(reportStem), sanitize(country), `${sanitize(icao)}.png`].join("/");
+  const url = FILES_BASE_URL ? `${FILES_BASE_URL.replace(/\/$/, "")}/files/${key}` : "";
   return { key, url };
 }
 
 async function buildScreenshotUrlMap(data, reportStem) {
   const screenshotUrls = new Map();
-  if (!REPORTS_BUCKET) return screenshotUrls;
-
-  const client = getS3Client();
+  if (!FILES_BASE_URL) return screenshotUrls;
   for (const country of data.countries || []) {
     for (const airport of country.airports || []) {
       const shotPath = airport?.checks?.screenshot?.path;
       const icao = String(airport?.icao || "unknown");
       if (!shotPath || !existsSync(shotPath)) continue;
       try {
-        const { key, url } = await uploadScreenshotAndGetUrl(client, shotPath, reportStem, country.country, icao);
+        const { key, url } = await uploadScreenshotAndGetUrl(null, shotPath, reportStem, country.country, icao);
         screenshotUrls.set(shotPath, url);
-        console.log(`Uploaded screenshot to s3://${REPORTS_BUCKET}/${key}`);
+        console.log(`Mapped screenshot URL for /files/${key}`);
       } catch (error) {
         console.warn(`Failed to upload screenshot for ${icao}: ${error instanceof Error ? error.message : String(error)}`);
       }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
+import { readJsonFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
+import { saveFile } from "@/lib/storage";
 import {
   asecnaAd2AirportBasename,
   createAsecnaFetch,
@@ -9,17 +10,11 @@ import {
   resolveAsecnaHtmlUrl,
 } from "@/scripts/asecna/asecna-eaip-http.mjs";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
-const REGION = process.env.AWS_REGION || "us-east-1";
 const JSON_PREFIX = "aip/asecna";
 const PDF_PREFIX = "aip/asecna-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 600_000;
-
-function s3() {
-  return new S3Client({ region: REGION });
-}
 
 function rwandaHtmlToPdfUrl(htmlUrl: string): string {
   let out = htmlUrl.replace(/#.*$/, "");
@@ -30,34 +25,15 @@ function rwandaHtmlToPdfUrl(htmlUrl: string): string {
 }
 
 async function saveJson(icao: string, payload: { updatedAt: string }) {
-  if (!BUCKET) return;
-  await s3().send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: `${JSON_PREFIX}/${icao}.json`,
-      Body: JSON.stringify(payload),
-      ContentType: "application/json",
-    }),
-  );
+  await writeJsonToStorage(`${JSON_PREFIX}/${icao}.json`, payload);
 }
 
 async function readJson(icao: string): Promise<{ updatedAt: string | null } | null> {
-  if (!BUCKET) return null;
-  try {
-    const res = await s3().send(
-      new GetObjectCommand({ Bucket: BUCKET, Key: `${JSON_PREFIX}/${icao}.json` }),
-    );
-    const body = await res.Body?.transformToString();
-    if (!body) return null;
-    const json = JSON.parse(body) as { updatedAt?: string };
-    return { updatedAt: json.updatedAt ?? null };
-  } catch {
-    return null;
-  }
+  const json = await readJsonFromStorage<{ updatedAt?: string }>(`${JSON_PREFIX}/${icao}.json`);
+  return json ? { updatedAt: json.updatedAt ?? null } : null;
 }
 
-async function downloadAsecnaPdfToS3(icao: string, countryCode: string) {
-  if (!BUCKET) throw new Error("S3 bucket not configured");
+async function downloadAsecnaPdfToStorage(icao: string, countryCode: string) {
   const airport = getAsecnaAirportByIcao(icao);
   if (!airport) throw new Error("ICAO not found in ASECNA metadata");
   const data = getAsecnaData();
@@ -75,14 +51,7 @@ async function downloadAsecnaPdfToS3(icao: string, countryCode: string) {
   const res = await http.fetchAsecna(pdfUrl, {}, { strictTls });
   if (!res.ok) throw new Error(`ASECNA PDF fetch failed: ${res.status} ${res.statusText}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
-  await s3().send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: `${PDF_PREFIX}/${icao}.pdf`,
-      Body: bytes,
-      ContentType: "application/pdf",
-    }),
-  );
+  await saveFile(`${PDF_PREFIX}/${icao}.pdf`, bytes);
 }
 
 export async function GET(request: NextRequest) {
@@ -102,13 +71,12 @@ export async function GET(request: NextRequest) {
   }
 
   // For AI extract flow, delegate to the existing sync-server pipeline.
-  // The EC2 /sync route now supports ASECNA ICAOs via scripts/ead-download-aip-pdf.mjs.
   if (extract) {
     if (!AIP_SYNC_URL) {
       return NextResponse.json(
         {
           error: "AIP sync not configured",
-          detail: "Set AIP_SYNC_URL to your EC2 sync server for extraction flow.",
+          detail: "Set AIP_SYNC_URL to your self-hosted AIP sync service for extraction flow.",
         },
         { status: 503 },
       );
@@ -166,7 +134,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!stream) {
-    await downloadAsecnaPdfToS3(icao, airport.countryCode);
+    await downloadAsecnaPdfToStorage(icao, airport.countryCode);
     const updatedAt = new Date().toISOString();
     await saveJson(icao, { updatedAt });
     return NextResponse.json({ done: true, airports: [], updatedAt, pdfReady: true });
@@ -180,10 +148,10 @@ export async function GET(request: NextRequest) {
       };
       try {
         send({ step: "Resolving ASECNA AD 2 source…" });
-        await downloadAsecnaPdfToS3(icao, airport.countryCode);
+        await downloadAsecnaPdfToStorage(icao, airport.countryCode);
         const updatedAt = new Date().toISOString();
         await saveJson(icao, { updatedAt });
-        send({ step: "ASECNA AD 2 PDF uploaded to S3." });
+        send({ step: "ASECNA AD 2 PDF saved to storage." });
         send({ done: true, airports: [], updatedAt, pdfReady: true });
       } catch (err) {
         send({ error: "ASECNA sync failed", detail: err instanceof Error ? err.message : String(err) });

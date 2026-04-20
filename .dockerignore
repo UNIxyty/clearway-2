@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.cursor
+downloads
+test-results
+*.log
+Dockerfile*
+docker-compose*.yml

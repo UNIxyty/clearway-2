@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
+import { readPdfFromStorage } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 300_000;
-
-function s3() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
 
 async function triggerGenSync(icao: string): Promise<void> {
   if (!AIP_SYNC_URL) return;
@@ -36,30 +31,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
   }
 
-  if (!BUCKET) {
-    return NextResponse.json(
-      { error: "PDF storage not configured", detail: "Set AWS_S3_BUCKET (or AWS_NOTAMS_BUCKET) in Vercel." },
-      { status: 503 },
-    );
-  }
-
   const key = `${GEN_PDF_PREFIX}/${icao}-GEN-1.2.pdf`;
   const filename = buildPdfDownloadFilename("GEN12", icao);
   try {
-    let res;
-    try {
-      res = await s3().send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    } catch (e: unknown) {
-      const err = e as { name?: string; Code?: string };
-      const missing = err?.name === "NoSuchKey" || err?.Code === "NoSuchKey";
-      if (!missing) throw e;
+    let bytes = await readPdfFromStorage(key);
+    if (!bytes) {
       await triggerGenSync(icao);
-      res = await s3().send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+      bytes = await readPdfFromStorage(key);
     }
-
-    const body = res.Body;
-    if (!body) return new NextResponse(null, { status: 404 });
-    const bytes = await body.transformToByteArray();
+    if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);
     copy.set(bytes);
     return new NextResponse(copy, {
@@ -70,14 +50,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string; message?: string };
-    if (err?.name === "NoSuchKey" || err?.Code === "NoSuchKey") {
-      return NextResponse.json(
-        { error: "PDF not found", detail: "Sync scraper GEN first to download the PDF." },
-        { status: 404 },
-      );
-    }
-    const msg = err?.message ?? String(e);
+    const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: "Failed to load PDF", detail: msg }, { status: 502 });
   }
 }

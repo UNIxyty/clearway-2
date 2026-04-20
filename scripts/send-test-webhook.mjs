@@ -2,15 +2,10 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join, basename } from "path";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const OUTPUT_DIR = process.env.TEST_RESULTS_DIR || "test-results";
 const WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || process.env.WEBHOOK_URL || "";
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
-const REPORTS_BUCKET = process.env.AWS_S3_BUCKET || "myapp-notams-prod";
-const REPORTS_PREFIX = process.env.E2E_REPORTS_S3_PREFIX || "e2e-reports";
-const PRESIGN_EXPIRES_SECONDS = Number(process.env.E2E_REPORT_URL_EXPIRES_IN || 259200); // 72h
+const FILES_BASE_URL = process.env.FILES_BASE_URL || "";
 
 function latestFile(dir, ext) {
   if (!existsSync(dir)) return null;
@@ -27,47 +22,11 @@ function parseArg(name) {
   return arg ? arg.slice(full.length) : "";
 }
 
-function getS3Client() {
-  return new S3Client({ region: AWS_REGION });
-}
-
-async function uploadReportToS3(reportPath) {
-  if (!existsSync(reportPath)) {
-    throw new Error(`Report file not found: ${reportPath}`);
-  }
-  const key = `${REPORTS_PREFIX.replace(/\/$/, "")}/${basename(reportPath)}`;
-  const body = readFileSync(reportPath, "utf8");
-  const client = getS3Client();
-  await client.send(new PutObjectCommand({
-    Bucket: REPORTS_BUCKET,
-    Key: key,
-    Body: body,
-    ContentType: "text/markdown; charset=utf-8",
-  }));
-  return key;
-}
-
-async function getPresignedReportUrl(key) {
-  const client = getS3Client();
-  return getSignedUrl(
-    client,
-    new GetObjectCommand({
-      Bucket: REPORTS_BUCKET,
-      Key: key,
-      ResponseContentType: "text/markdown; charset=utf-8",
-    }),
-    { expiresIn: PRESIGN_EXPIRES_SECONDS }
-  );
-}
-
 async function getReportUrl(reportPath) {
   const explicit = parseArg("report-url") || process.env.REPORT_URL || "";
   if (explicit) return explicit;
-  if (!REPORTS_BUCKET) return "";
-  const key = await uploadReportToS3(reportPath);
-  const url = await getPresignedReportUrl(key);
-  console.log(`Uploaded report to s3://${REPORTS_BUCKET}/${key}`);
-  return url;
+  if (!FILES_BASE_URL) return "";
+  return `${FILES_BASE_URL.replace(/\/$/, "")}/reports/${basename(reportPath)}`;
 }
 
 function readSummary(rawJsonPath) {

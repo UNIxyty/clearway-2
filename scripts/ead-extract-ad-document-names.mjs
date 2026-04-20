@@ -22,6 +22,7 @@ import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { execFileSync } from "child_process";
+import { saveFile } from "../lib/storage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -444,47 +445,14 @@ function writeJson(path, value) {
 }
 
 async function uploadResultToS3(localPath) {
-  const bucket = process.env.AWS_S3_BUCKET;
-  if (!bucket) {
-    log("AWS_S3_BUCKET not set; skipping extractor JSON upload.");
-    return null;
-  }
-  const region = process.env.AWS_REGION || "us-east-1";
   const key =
-    process.env.EAD_AD_NAMES_S3_KEY ||
-    join(process.env.EAD_AD_NAMES_S3_PREFIX || "ead-extract", basename(localPath)).replace(/\\/g, "/");
+    process.env.EAD_AD_NAMES_STORAGE_KEY ||
+    `aip/ead-extract/${basename(localPath)}`.replace(/\\/g, "/");
 
   const body = readFileSync(localPath);
-  const { S3Client, PutObjectCommand, GetObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region });
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: "application/json",
-    }),
-  );
-  log(`Uploaded extractor output to s3://${bucket}/${key}`);
-
-  const shouldDownloadLocal = !/^(0|false|no)$/i.test(process.env.EAD_AD_NAMES_DOWNLOAD_LOCAL || "1");
-  if (shouldDownloadLocal) {
-    const defaultDownloadPath = localPath.endsWith(".json")
-      ? localPath.replace(/\.json$/i, ".from-s3.json")
-      : `${localPath}.from-s3.json`;
-    const downloadPath = join(process.cwd(), process.env.EAD_AD_NAMES_DOWNLOAD_PATH || defaultDownloadPath);
-    const getRes = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    const bytes = await getRes.Body?.transformToByteArray();
-    if (bytes) {
-      mkdirSync(dirname(downloadPath), { recursive: true });
-      writeFileSync(downloadPath, Buffer.from(bytes));
-      log(`Downloaded uploaded JSON back to local: ${downloadPath}`);
-    } else {
-      log("Download-back warning: empty S3 object body.");
-    }
-  }
-
-  return { bucket, key };
+  await saveFile(key, body);
+  log(`Saved extractor output to /storage/${key}`);
+  return { key };
 }
 
 async function main() {
@@ -740,7 +708,7 @@ async function main() {
   log(`Wrote raw run JSON: ${rawPath}`);
 
   await uploadResultToS3(outputPath).catch((error) => {
-    log(`S3 upload warning: ${error instanceof Error ? error.message : String(error)}`);
+    log(`Storage upload warning: ${error instanceof Error ? error.message : String(error)}`);
   });
 
   // Generate markdown report

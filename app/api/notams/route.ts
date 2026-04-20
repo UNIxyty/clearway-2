@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { join } from "path";
 import { existsSync } from "fs";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { readFile as readStoredFile } from "@/lib/storage";
+import { logError } from "@/lib/utils/logger";
 
 const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "crewbriefing").toLowerCase();
 const SCRIPT_PATH = join(
@@ -12,8 +13,7 @@ const SCRIPT_PATH = join(
 );
 const RUN_TIMEOUT_MS = 90_000;
 const SYNC_TIMEOUT_MS = 120_000;
-const NOTAMS_BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
-const NOTAMS_PREFIX = process.env.AWS_NOTAMS_PREFIX || "notams";
+const NOTAMS_PREFIX = "notam";
 const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, ""); // base URL of EC2 sync server
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 
@@ -26,15 +26,11 @@ export type NotamItem = {
   condition: string;
 };
 
-async function getFromS3(icao: string): Promise<{ icao: string; notams: NotamItem[]; updatedAt: string | null } | null> {
-  if (!NOTAMS_BUCKET) return null;
+async function getFromStorage(icao: string): Promise<{ icao: string; notams: NotamItem[]; updatedAt: string | null } | null> {
   try {
-    const client = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
     const key = `${NOTAMS_PREFIX}/${icao}.json`;
-    const res = await client.send(
-      new GetObjectCommand({ Bucket: NOTAMS_BUCKET, Key: key })
-    );
-    const body = await res.Body?.transformToString();
+    const bytes = await readStoredFile(key);
+    const body = bytes?.toString("utf8");
     if (!body) return null;
     const data = JSON.parse(body) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
     return {
@@ -43,10 +39,7 @@ async function getFromS3(icao: string): Promise<{ icao: string; notams: NotamIte
       updatedAt: data.updatedAt ?? null,
     };
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-      console.error("S3 NOTAM read failed:", e);
-    }
+    logError("NOTAM-API", "Local NOTAM read failed", e);
     return null;
   }
 }
@@ -64,13 +57,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // When sync=1 we must run the scraper on EC2; do not return stale S3 cache
+  // When sync=1 we must run the scraper on sync server; do not return stale cache
   if (sync) {
     if (!NOTAM_SYNC_URL) {
       return NextResponse.json(
         {
           error: "Sync not configured",
-          detail: "Set NOTAM_SYNC_URL in Vercel to your EC2 sync server (e.g. http://EC2-IP:3001). See scripts/NOTAM-AWS-SETUP.md Step 5b.",
+          detail: "Set NOTAM_SYNC_URL to your self-hosted NOTAM sync service (e.g. http://notam-sync:3001).",
         },
         { status: 503 }
       );
@@ -86,7 +79,7 @@ export async function GET(request: NextRequest) {
       const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
       clearTimeout(timeoutId);
       request.signal.removeEventListener("abort", onAbort);
-      // Stream mode: forward SSE from EC2 to client (no buffering)
+      // Stream mode: forward SSE from sync service to client (no buffering)
       if (stream && res.ok && res.body) {
         return new Response(res.body, {
           headers: {
@@ -106,11 +99,11 @@ export async function GET(request: NextRequest) {
         });
       }
       const errBody = await res.text();
-      console.error("NOTAM sync failed:", res.status, errBody);
+      logError("NOTAM-API", `NOTAM sync failed with status ${res.status}: ${errBody.slice(0, 200)}`);
       return NextResponse.json(
         {
           error: "Sync failed",
-          detail: `EC2 sync server returned ${res.status}. Ensure the sync server is running on EC2 and the scraper completes. ${errBody.slice(0, 200)}`,
+          detail: `Sync server returned ${res.status}. Ensure notam-sync container is running and scraper completes. ${errBody.slice(0, 200)}`,
         },
         { status: 502 }
       );
@@ -119,23 +112,23 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("NOTAM sync request failed:", e);
+      logError("NOTAM-API", "NOTAM sync request failed", e);
       return NextResponse.json(
         {
           error: "Sync server unreachable",
-          detail: `Cannot reach EC2 sync server at NOTAM_SYNC_URL. Check: (1) Sync server is running on EC2 (node scripts/notam-sync-server.mjs). (2) EC2 security group allows inbound port 3001. (3) NOTAM_SYNC_URL is correct (http://EC2-PUBLIC-IP:3001). ${msg}`,
+          detail: `Cannot reach sync server at NOTAM_SYNC_URL. Check: (1) notam-sync container is running. (2) service network/port is reachable. (3) NOTAM_SYNC_URL is correct. ${msg}`,
         },
         { status: 502 }
       );
     }
   }
 
-  const fromS3 = await getFromS3(icao);
-  if (fromS3) {
+  const fromStorage = await getFromStorage(icao);
+  if (fromStorage) {
     return NextResponse.json({
-      icao: fromS3.icao,
-      notams: fromS3.notams,
-      updatedAt: fromS3.updatedAt,
+      icao: fromStorage.icao,
+      notams: fromStorage.notams,
+      updatedAt: fromStorage.updatedAt,
     });
   }
 

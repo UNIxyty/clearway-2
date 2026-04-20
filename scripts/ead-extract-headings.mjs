@@ -28,6 +28,7 @@ import { join, dirname } from "path";
 const pathDirname = dirname;
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
+import { saveFile } from "../lib/storage.mjs";
 
 const __dirname = pathDirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -117,27 +118,12 @@ async function dismissIdleDialog(page) {
 }
 
 async function uploadResultToS3(localPath) {
-  const bucket = process.env.AWS_S3_BUCKET;
-  if (!bucket) {
-    log("AWS_S3_BUCKET not set; skipping S3 upload.");
-    return;
-  }
-  const region = process.env.AWS_REGION || "us-east-1";
   const key =
-    process.env.EAD_EXTRACT_HEADINGS_S3_KEY ||
-    join(process.env.EAD_EXTRACT_HEADINGS_S3_PREFIX || "ead-extract", "ead_extract_headings.json").replace(/\\/g, "/");
+    process.env.EAD_EXTRACT_HEADINGS_STORAGE_KEY ||
+    "aip/ead-extract/ead_extract_headings.json";
   const body = readFileSync(localPath);
-  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const client = new S3Client({ region });
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: "application/json",
-    }),
-  );
-  log(`Uploaded to s3://${bucket}/${key}`);
+  await saveFile(key, body);
+  log(`Saved extraction output to /storage/${key}`);
 }
 
 async function main() {

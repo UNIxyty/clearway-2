@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { isUsaAipIcao } from "@/lib/usa-aip";
+import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const PDF_PREFIX = "aip/usa-pdf";
-
-function s3() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
 
 function useInline(request: NextRequest): boolean {
   const p = request.nextUrl.searchParams;
@@ -18,15 +13,11 @@ function useInline(request: NextRequest): boolean {
 
 export async function HEAD(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
-  if (!/^[A-Z0-9]{4}$/.test(icao) || !isUsaAipIcao(icao) || !BUCKET) {
+  if (!/^[A-Z0-9]{4}$/.test(icao) || !isUsaAipIcao(icao)) {
     return new NextResponse(null, { status: 400 });
   }
-  try {
-    await s3().send(new HeadObjectCommand({ Bucket: BUCKET, Key: `${PDF_PREFIX}/${icao}.pdf` }));
-    return new NextResponse(null, { status: 200 });
-  } catch {
-    return new NextResponse(null, { status: 404 });
-  }
+  const exists = await storageObjectExists(`${PDF_PREFIX}/${icao}.pdf`);
+  return new NextResponse(null, { status: exists ? 200 : 404 });
 }
 
 export async function GET(request: NextRequest) {
@@ -37,19 +28,13 @@ export async function GET(request: NextRequest) {
   if (!isUsaAipIcao(icao)) {
     return NextResponse.json({ error: "ICAO is not mapped to USA AIP static PDFs" }, { status: 404 });
   }
-  if (!BUCKET) {
-    return NextResponse.json({ error: "PDF storage not configured" }, { status: 503 });
-  }
-
   const inline = useInline(request);
   const key = `${PDF_PREFIX}/${icao}.pdf`;
   const filename = buildPdfDownloadFilename("AD2", icao);
 
   try {
-    const res = await s3().send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    const body = res.Body;
-    if (!body) return new NextResponse(null, { status: 404 });
-    const bytes = await body.transformToByteArray();
+    const bytes = await readPdfFromStorage(key);
+    if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);
     copy.set(bytes);
     return new NextResponse(copy, {

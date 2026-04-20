@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { readJsonFromStorage, readPdfFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 
-const BUCKET = process.env.AWS_NOTAMS_BUCKET || process.env.AWS_S3_BUCKET;
 const PDF_PREFIX = "aip/non-ead-gen-pdf";
 const JSON_PREFIX = "aip/non-ead-gen";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
-
-function s3() {
-  return new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
-}
 
 type GenPart = { raw: string; rewritten: string };
 type GenPayload = {
@@ -103,14 +98,15 @@ async function rewriteWithAI(rawText: string, model: string, signal?: AbortSigna
   return (data.choices?.[0]?.message?.content ?? "").trim();
 }
 
-async function getCachedJson(client: S3Client, prefix: string): Promise<GenPayload | null> {
+async function getCachedJson(prefix: string): Promise<GenPayload | null> {
   try {
-    const res = await client.send(
-      new GetObjectCommand({ Bucket: BUCKET!, Key: `${JSON_PREFIX}/${prefix}.json` })
-    );
-    const body = await res.Body?.transformToString();
-    if (!body) return null;
-    const data = JSON.parse(body);
+    const data = await readJsonFromStorage<{
+      general?: unknown;
+      nonScheduled?: unknown;
+      privateFlights?: unknown;
+      updatedAt?: string;
+    }>(`${JSON_PREFIX}/${prefix}.json`);
+    if (!data) return null;
     if (data.general && typeof data.general === "object") {
       return {
         general: normPart(data.general),
@@ -121,20 +117,14 @@ async function getCachedJson(client: S3Client, prefix: string): Promise<GenPaylo
     }
     return null;
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name !== "NoSuchKey" && err?.Code !== "NoSuchKey") {
-      console.error("S3 non-EAD GEN cache read failed:", e);
-    }
+    console.error("non-EAD GEN cache read failed:", e);
     return null;
   }
 }
 
-async function getPdfText(client: S3Client, prefix: string): Promise<string | null> {
+async function getPdfText(prefix: string): Promise<string | null> {
   try {
-    const res = await client.send(
-      new GetObjectCommand({ Bucket: BUCKET!, Key: `${PDF_PREFIX}/${prefix}-GEN-1.2.pdf` })
-    );
-    const bytes = await res.Body?.transformToByteArray();
+    const bytes = await readPdfFromStorage(`${PDF_PREFIX}/${prefix}-GEN-1.2.pdf`);
     if (!bytes) return null;
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: Buffer.from(bytes) });
@@ -144,22 +134,13 @@ async function getPdfText(client: S3Client, prefix: string): Promise<string | nu
       ? result.text
       : (result?.pages && result.pages.map((p) => p.text).join("\n")) || null;
   } catch (e: unknown) {
-    const err = e as { name?: string; Code?: string };
-    if (err?.name === "NoSuchKey" || err?.Code === "NoSuchKey") return null;
-    console.error("S3 non-EAD GEN PDF read failed:", e);
+    console.error("non-EAD GEN PDF read failed:", e);
     return null;
   }
 }
 
-async function saveJsonToS3(client: S3Client, prefix: string, payload: GenPayload) {
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET!,
-      Key: `${JSON_PREFIX}/${prefix}.json`,
-      Body: JSON.stringify(payload),
-      ContentType: "application/json",
-    })
-  );
+async function saveJsonToStorage(prefix: string, payload: GenPayload) {
+  await writeJsonToStorage(`${JSON_PREFIX}/${prefix}.json`, payload);
 }
 
 export async function GET(request: NextRequest) {
@@ -175,21 +156,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!BUCKET) {
-    return NextResponse.json(
-      { error: "S3 not configured", detail: "Set AWS_S3_BUCKET in environment." },
-      { status: 503 }
-    );
-  }
-
-  const client = s3();
-
-  const cached = await getCachedJson(client, prefix);
+  const cached = await getCachedJson(prefix);
   if (cached) {
     return NextResponse.json(cached);
   }
 
-  const pdfText = await getPdfText(client, prefix);
+  const pdfText = await getPdfText(prefix);
   if (!pdfText) {
     return NextResponse.json({
       general: emptyPart(),
@@ -220,7 +192,7 @@ export async function GET(request: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    await saveJsonToS3(client, prefix, payload);
+    await saveJsonToStorage(prefix, payload);
 
     return NextResponse.json(payload);
   } catch (e) {

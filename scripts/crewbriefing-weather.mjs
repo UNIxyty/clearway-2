@@ -44,6 +44,24 @@ async function findSearchInput(page, timeoutMs = 12000) {
   return null;
 }
 
+async function openExtraWxSurface(page, context, timeoutMs = 12000) {
+  const extraWxLink = page.getByRole("link", { name: /Extra\s*WX/i }).first();
+  if (!(await extraWxLink.count())) return page;
+
+  const popupPromise = context.waitForEvent("page", { timeout: timeoutMs }).catch(() => null);
+  const navPromise = page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: timeoutMs }).catch(() => null);
+  await extraWxLink.click({ timeout: timeoutMs }).catch(() => {});
+
+  const popup = await popupPromise;
+  if (popup) {
+    await popup.waitForLoadState("domcontentloaded").catch(() => {});
+    return popup;
+  }
+
+  await navPromise;
+  return page;
+}
+
 function progress(msg) {
   const line = "PROGRESS:" + msg + "\n";
   if (process.env.WEATHER_PROGRESS_FILE) {
@@ -111,10 +129,7 @@ async function main() {
     let opmetTab = workPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
     if (!(await opmetTab.count())) {
       progress("Direct weather page missing OPMET tab, retrying via Extra WX popup");
-      const [extraPage] = await Promise.all([
-        context.waitForEvent("page", { timeout: 12000 }),
-        page.click('a:has-text("Extra WX")'),
-      ]);
+      const extraPage = await openExtraWxSurface(page, context, 12000);
       await extraPage.waitForLoadState("domcontentloaded");
       await extraPage.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
       workPage = extraPage;

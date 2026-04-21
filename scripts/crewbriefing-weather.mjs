@@ -1,66 +1,20 @@
 /**
- * CrewBriefing OPMET weather scraper for sync server + local storage.
- * Login -> Extra WX -> OPMET tab -> search ICAO -> extract weather text.
+ * SkyLink METAR weather fetcher for sync server + local storage.
+ * Replaces CrewBriefing browser scraping with API-based retrieval.
  *
- * Env: CREWBRIEFING_USER, CREWBRIEFING_PASSWORD
- *      Or dedicated weather account: CREWBRIEFING_WEATHER_USER, CREWBRIEFING_WEATHER_PASSWORD
- *      (second CrewBriefing user on same IP for parallel NOTAM vs weather sync servers)
- *      STORAGE_ROOT/CACHE_ROOT for local storage layer.
- *      WEATHER_PROGRESS_FILE (optional progress file for SSE streaming)
+ * Env:
+ *  - SKYLINK_API_KEY (required)
+ *  - SKYLINK_API_HOST (optional, default skylink-api.p.rapidapi.com)
+ *  - SKYLINK_API_BASE_URL (optional, default https://skylink-api.p.rapidapi.com)
+ *  - WEATHER_PROGRESS_FILE (optional SSE progress sink)
  *
  * Usage: node scripts/crewbriefing-weather.mjs [--json] <ICAO>
  */
 
-import { appendFileSync, existsSync } from "fs";
+import { appendFileSync } from "fs";
 import { saveFile } from "../lib/storage.mjs";
 
-const LOGIN_URL = "https://www.crewbriefing.com/loginssl.aspx";
-const EXTRA_WX_URL = "https://www.crewbriefing.com/Cb_Extra/2.5.19/NOTAM/Notams.aspx";
-
 let jsonMode = false;
-
-function resolveChromiumExecutablePath() {
-  if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
-  const candidates = ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"];
-  return candidates.find((p) => existsSync(p)) || null;
-}
-
-async function findSearchInput(page, timeoutMs = 12000) {
-  const selectors = [
-    'input[name*="ICAO" i]',
-    'input[id*="ICAO" i]',
-    'input[name*="airport" i]',
-    'input[id*="airport" i]',
-    'input[type="text"]',
-  ];
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    for (const sel of selectors) {
-      const locator = page.locator(sel).first();
-      if (await locator.count()) return locator;
-    }
-    await page.waitForTimeout(300);
-  }
-  return null;
-}
-
-async function openExtraWxSurface(page, context, timeoutMs = 12000) {
-  const extraWxLink = page.getByRole("link", { name: /Extra\s*WX/i }).first();
-  if (!(await extraWxLink.count())) return page;
-
-  const popupPromise = context.waitForEvent("page", { timeout: timeoutMs }).catch(() => null);
-  const navPromise = page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: timeoutMs }).catch(() => null);
-  await extraWxLink.click({ timeout: timeoutMs }).catch(() => {});
-
-  const popup = await popupPromise;
-  if (popup) {
-    await popup.waitForLoadState("domcontentloaded").catch(() => {});
-    return popup;
-  }
-
-  await navPromise;
-  return page;
-}
 
 function progress(msg) {
   const line = "PROGRESS:" + msg + "\n";
@@ -72,6 +26,62 @@ function progress(msg) {
   if (jsonMode) console.error(line.trim());
 }
 
+function extractWeatherText(payload, icao) {
+  if (!payload) return "";
+  if (typeof payload === "string") return payload.trim();
+
+  const candidates = [
+    payload.raw,
+    payload.metar,
+    payload.weather,
+    payload?.data?.raw,
+    payload?.data?.metar,
+    payload?.data?.weather,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+
+  // Keep response human-readable for current UI by rendering one-line JSON when no raw field exists.
+  return JSON.stringify(payload);
+}
+
+async function fetchSkylinkWeather(icao) {
+  const apiKey = process.env.SKYLINK_API_KEY || process.env.RAPIDAPI_KEY || "";
+  if (!apiKey) {
+    throw new Error("SKYLINK_API_KEY (or RAPIDAPI_KEY) is required.");
+  }
+  const host = process.env.SKYLINK_API_HOST || "skylink-api.p.rapidapi.com";
+  const baseUrl = (process.env.SKYLINK_API_BASE_URL || "https://skylink-api.p.rapidapi.com").replace(/\/$/, "");
+  const candidates = [
+    `${baseUrl}/weather/metar/${encodeURIComponent(icao)}?parsed=false`,
+    `${baseUrl}/weather/metar/${encodeURIComponent(icao.toLowerCase())}?parsed=false`,
+  ];
+
+  let lastError = "unknown error";
+  for (const url of candidates) {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": apiKey,
+        "x-rapidapi-host": host,
+        Accept: "application/json",
+      },
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      lastError = `HTTP ${res.status} @ ${url}: ${text.slice(0, 300)}`;
+      continue;
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text, icao };
+    }
+  }
+  throw new Error(`SkyLink weather request failed: ${lastError}`);
+}
+
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== "--json");
   jsonMode = process.argv.includes("--json");
@@ -81,82 +91,9 @@ async function main() {
     process.exit(1);
   }
 
-  const user =
-    process.env.CREWBRIEFING_WEATHER_USER || process.env.CREWBRIEFING_USER || "";
-  const password =
-    process.env.CREWBRIEFING_WEATHER_PASSWORD || process.env.CREWBRIEFING_PASSWORD || "";
-  if (!user || !password) {
-    console.error(
-      "Set CREWBRIEFING_WEATHER_USER/PASSWORD (weather-only server) or CREWBRIEFING_USER/PASSWORD."
-    );
-    process.exit(1);
-  }
-
-  progress("Initializing browser");
-  const { chromium } = await import("playwright");
-  const useHeaded = process.env.USE_HEADED === "1" || process.env.DISPLAY;
-  const executablePath = resolveChromiumExecutablePath();
-  const launchOptions = {
-    headless: !useHeaded,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  };
-  if (executablePath) launchOptions.executablePath = executablePath;
-  else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
-  const browser = await chromium.launch(launchOptions).catch(() => {
-    progress("Primary browser launch failed, retrying with Playwright defaults");
-    return chromium.launch({ headless: !useHeaded, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
-  });
-
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  });
-  const page = await context.newPage();
-
-  let weatherText = "";
-  try {
-    progress("Logging in");
-    await page.goto(LOGIN_URL, { waitUntil: "networkidle", timeout: 30000 });
-    await page.fill('input[type="text"]', user);
-    await page.fill('input[type="password"]', password);
-    await page.click('input[type="submit"], button[type="submit"], input[value="Login"]');
-    await page.waitForURL(/Main\.aspx/, { timeout: 15000 });
-
-    progress("Opening OPMET tab");
-    await page.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
-
-    let workPage = page;
-    let opmetTab = workPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
-    if (!(await opmetTab.count())) {
-      progress("Direct weather page missing OPMET tab, retrying via Extra WX popup");
-      const extraPage = await openExtraWxSurface(page, context, 12000);
-      await extraPage.waitForLoadState("domcontentloaded");
-      await extraPage.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
-      workPage = extraPage;
-      opmetTab = workPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
-    }
-    await opmetTab.click({ timeout: 10000 });
-    await workPage.waitForTimeout(1200);
-
-    progress("Searching weather for " + icao);
-    const searchInput = await findSearchInput(workPage, 12000);
-    if (!searchInput) {
-      throw new Error("Could not locate CrewBriefing ICAO search field on OPMET page.");
-    }
-    await searchInput.fill(icao);
-    await workPage.click('input[type="submit"], input[value="View"], input[value="Search"], button:has-text("View"), button:has-text("Search")');
-    await workPage.waitForTimeout(3500);
-
-    weatherText = (
-      await workPage.evaluate(() => {
-        const target = document.querySelector("#ResultTable td");
-        return (target?.textContent || "").trim();
-      })
-    ) || "";
-  } finally {
-    await browser.close();
-  }
-
+  progress(`Fetching METAR from SkyLink API for ${icao}`);
+  const response = await fetchSkylinkWeather(icao);
+  const weatherText = extractWeatherText(response, icao);
   const payload = {
     icao,
     weather: weatherText,
@@ -164,27 +101,12 @@ async function main() {
   };
 
   progress("Saving weather to storage");
-  try {
-    const key = `weather/${icao}.json`;
-    await saveFile(key, JSON.stringify(payload));
-  } catch (e) {
-    if (!jsonMode) console.error("Weather storage write failed:", e instanceof Error ? e.message : String(e));
-  }
-  if (process.env.AWS_S3_BUCKET) {
-    progress("S3 env found but ignored in local mode");
-    try {
-      // no-op to preserve backward-compatible logs when legacy env remains set
-    } catch (e) {
-      if (!jsonMode) console.error("Ignored legacy AWS env warning:", e instanceof Error ? e.message : String(e));
-    }
-  }
+  const key = `weather/${icao}.json`;
+  await saveFile(key, JSON.stringify(payload));
 
   progress("Done");
-  if (jsonMode) {
-    console.log(JSON.stringify(payload));
-  } else {
-    console.log(weatherText);
-  }
+  if (jsonMode) console.log(JSON.stringify(payload));
+  else console.log(weatherText);
 }
 
 main().catch((err) => {

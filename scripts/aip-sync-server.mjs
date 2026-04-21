@@ -466,7 +466,7 @@ async function runDownload(icao) {
     const targetPdf = join(EAD_AIP_DIR, `USA_AD_2_${icao}_static.pdf`);
     if (existsSync(sourcePdf)) {
       copyFileSync(sourcePdf, targetPdf);
-      return;
+      return targetPdf;
     }
     const s3Bytes = await fetchS3ObjectBytes(`aip/usa-pdf/${icao}.pdf`);
     if (!s3Bytes) {
@@ -478,29 +478,40 @@ async function runDownload(icao) {
       throw new Error(`USA AD2 PDF in S3 is invalid for ${icao} (key aip/usa-pdf/${icao}.pdf)`);
     }
     writeFileSync(targetPdf, s3Bytes);
-    return;
+    return targetPdf;
   }
   const scraper = getScraperSpecByIcao(icao);
   if (scraper) {
     const args = [scraper.script, "--download-ad2", resolveScraperDownloadIcao(icao)];
     if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka" || scraper.country === "Venezuela") args.push("--insecure");
     await run("node", args, process.env);
-    return;
+    const pdfPath = findDownloadedPdf(icao);
+    if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+    return pdfPath;
   }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
-    return;
+    const pdfPath = findDownloadedPdf(icao);
+    if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+    return pdfPath;
   }
   if (isRwandaIcao(icao)) {
     // Rwanda uses ASECNA HTTP flow in ead-download-aip-pdf.mjs, no browser required.
     await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
-    return;
+    const pdfPath = findDownloadedPdf(icao);
+    if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+    return pdfPath;
   }
   if (useXvfb()) {
     await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
-    return;
+    const pdfPath = findDownloadedPdf(icao);
+    if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+    return pdfPath;
   }
   await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
+  const pdfPath = findDownloadedPdf(icao);
+  if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+  return pdfPath;
 }
 
 function mapMetaToAirportRow(meta, icao) {
@@ -528,8 +539,8 @@ function mapMetaToAirportRow(meta, icao) {
   };
 }
 
-async function runExtract(icao, progress = null) {
-  const pdfPath = findDownloadedPdf(icao);
+async function runExtract(icao, downloadedPdfPath = null, progress = null) {
+  const pdfPath = downloadedPdfPath || findDownloadedPdf(icao);
   if (!pdfPath) {
     throw new Error(`Downloaded PDF not found for ${icao}`);
   }
@@ -646,8 +657,8 @@ function findDownloadedPdf(icao) {
   return join(EAD_AIP_DIR, files[0]);
 }
 
-async function uploadPdfToS3(icao, namespace = "ead") {
-  const pdfPath = findDownloadedPdf(icao);
+async function uploadPdfToS3(icao, namespace = "ead", downloadedPdfPath = null) {
+  const pdfPath = downloadedPdfPath || findDownloadedPdf(icao);
   if (!pdfPath) {
     throw new Error(`Downloaded PDF not found for ${icao}`);
   }
@@ -1007,15 +1018,15 @@ const server = createServer(async (req, res) => {
     send({ step: AIP_STEPS[0] });
     if (shouldExtract) await deleteOldFromS3(icao, aipNamespace);
     send({ step: AIP_STEPS[1] });
-    await runDownload(icao);
-    const uploadedPdfKey = await uploadPdfToS3(icao, aipNamespace);
+    const downloadedPdfPath = await runDownload(icao);
+    const uploadedPdfKey = await uploadPdfToS3(icao, aipNamespace, downloadedPdfPath);
     send({ step: AIP_STEPS[2] });
     send({ step: `PDF saved: ${uploadedPdfKey}` });
     send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
     let data = null;
     if (shouldExtract) {
       send({ step: AIP_STEPS[3] });
-      await runExtract(icao, (line) => {
+      await runExtract(icao, downloadedPdfPath, (line) => {
         const cleaned = line.replace(/^[-•]\s*/, "").trim();
         if (!cleaned) return;
         send({ step: cleaned });

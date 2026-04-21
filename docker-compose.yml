@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     image: clearway-selfhosted:latest
     command: npm run start
+    env_file:
+      - .env
     ports:
       - "127.0.0.1:3000:3000"
     environment:
@@ -21,6 +23,8 @@ services:
   notam-sync:
     image: clearway-selfhosted:latest
     command: node scripts/notam-sync-server.mjs
+    env_file:
+      - .env
     environment:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
@@ -32,6 +36,8 @@ services:
   weather-sync:
     image: clearway-selfhosted:latest
     command: sh -c "SYNC_SERVER_MODE=weather node scripts/notam-sync-server.mjs"
+    env_file:
+      - .env
     environment:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
@@ -43,6 +49,8 @@ services:
   aip-sync:
     image: clearway-selfhosted:latest
     command: node scripts/aip-sync-server.mjs
+    env_file:
+      - .env
     environment:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache

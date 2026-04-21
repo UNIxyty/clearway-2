@@ -15,5 +15,13 @@ ENV NODE_ENV=production
 ENV STORAGE_ROOT=/storage
 ENV CACHE_ROOT=/cache
 COPY --from=builder /app ./
+RUN apk add --no-cache \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    chromium \
+ && npx playwright install chromium
 EXPOSE 3000
 CMD ["npm", "run", "start"]

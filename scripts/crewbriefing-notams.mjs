@@ -101,6 +101,25 @@ function resolveChromiumExecutablePath() {
   return candidates.find((p) => existsSync(p)) || null;
 }
 
+async function findSearchInput(page, timeoutMs = 12000) {
+  const selectors = [
+    'input[name*="ICAO" i]',
+    'input[id*="ICAO" i]',
+    'input[name*="airport" i]',
+    'input[id*="airport" i]',
+    'input[type="text"]',
+  ];
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const sel of selectors) {
+      const locator = page.locator(sel).first();
+      if (await locator.count()) return locator;
+    }
+    await page.waitForTimeout(300);
+  }
+  return null;
+}
+
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== '--json');
   jsonMode = process.argv.includes('--json');
@@ -151,12 +170,27 @@ async function main() {
     await page.goto(NOTAMS_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
     progress('Searching for ' + icao);
-    const searchInput = page.locator('input[type="text"]').first();
+    let workPage = page;
+    let searchInput = await findSearchInput(workPage, 8000);
+    if (!searchInput) {
+      progress('Direct NOTAM page had no textbox, retrying via Extra WX popup');
+      const [extraPage] = await Promise.all([
+        context.waitForEvent('page', { timeout: 12000 }),
+        page.click('a:has-text("Extra WX")'),
+      ]);
+      await extraPage.waitForLoadState('domcontentloaded');
+      await extraPage.goto(NOTAMS_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      workPage = extraPage;
+      searchInput = await findSearchInput(workPage, 12000);
+      if (!searchInput) {
+        throw new Error('Could not locate CrewBriefing ICAO search field on NOTAM page.');
+      }
+    }
     await searchInput.fill(icao);
-    await page.click('input[type="submit"], input[value="View"]');
-    await page.waitForTimeout(4000);
+    await workPage.click('input[type="submit"], input[value="View"], button:has-text("View"), button:has-text("Search")');
+    await workPage.waitForTimeout(4000);
 
-    notamText = await page.evaluate(() => {
+    notamText = await workPage.evaluate(() => {
       const table = document.getElementById('ResultTable');
       if (!table) return null;
       const cells = table.querySelectorAll('td');

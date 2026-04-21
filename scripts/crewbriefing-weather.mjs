@@ -25,6 +25,25 @@ function resolveChromiumExecutablePath() {
   return candidates.find((p) => existsSync(p)) || null;
 }
 
+async function findSearchInput(page, timeoutMs = 12000) {
+  const selectors = [
+    'input[name*="ICAO" i]',
+    'input[id*="ICAO" i]',
+    'input[name*="airport" i]',
+    'input[id*="airport" i]',
+    'input[type="text"]',
+  ];
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const sel of selectors) {
+      const locator = page.locator(sel).first();
+      if (await locator.count()) return locator;
+    }
+    await page.waitForTimeout(300);
+  }
+  return null;
+}
+
 function progress(msg) {
   const line = "PROGRESS:" + msg + "\n";
   if (process.env.WEATHER_PROGRESS_FILE) {
@@ -87,18 +106,34 @@ async function main() {
 
     progress("Opening OPMET tab");
     await page.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
-    const opmetTab = page.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
+
+    let workPage = page;
+    let opmetTab = workPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
+    if (!(await opmetTab.count())) {
+      progress("Direct weather page missing OPMET tab, retrying via Extra WX popup");
+      const [extraPage] = await Promise.all([
+        context.waitForEvent("page", { timeout: 12000 }),
+        page.click('a:has-text("Extra WX")'),
+      ]);
+      await extraPage.waitForLoadState("domcontentloaded");
+      await extraPage.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
+      workPage = extraPage;
+      opmetTab = workPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
+    }
     await opmetTab.click({ timeout: 10000 });
-    await page.waitForTimeout(1200);
+    await workPage.waitForTimeout(1200);
 
     progress("Searching weather for " + icao);
-    const searchInput = page.locator('input[type="text"]').first();
+    const searchInput = await findSearchInput(workPage, 12000);
+    if (!searchInput) {
+      throw new Error("Could not locate CrewBriefing ICAO search field on OPMET page.");
+    }
     await searchInput.fill(icao);
-    await page.click('input[type="submit"], input[value="View"], input[value="Search"]');
-    await page.waitForTimeout(3500);
+    await workPage.click('input[type="submit"], input[value="View"], input[value="Search"], button:has-text("View"), button:has-text("Search")');
+    await workPage.waitForTimeout(3500);
 
     weatherText = (
-      await page.evaluate(() => {
+      await workPage.evaluate(() => {
         const target = document.querySelector("#ResultTable td");
         return (target?.textContent || "").trim();
       })

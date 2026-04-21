@@ -17,7 +17,7 @@
  */
 
 import { createServer } from "http";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, unlinkSync, existsSync } from "fs";
@@ -41,6 +41,7 @@ const WEATHER_SCRIPT = "scripts/crewbriefing-weather.mjs";
 const SYNC_SERVER_MODE = (process.env.SYNC_SERVER_MODE || "all").toLowerCase();
 const ALLOW_NOTAM = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "notam";
 const ALLOW_WEATHER = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "weather";
+let hasXvfbRunBinary = null;
 
 /** Map weather-specific CrewBriefing env into CREWBRIEFING_USER/PASSWORD for the child process. */
 function envForWeatherScraper(base = process.env) {
@@ -61,6 +62,14 @@ function requireAuth(req) {
 function useXvfb() {
   if (process.env.SYNC_USE_XVFB === "0" || process.env.SYNC_USE_XVFB === "false") return false;
   if (process.platform === "darwin") return false;
+  if (hasXvfbRunBinary === null) {
+    const probe = spawnSync("xvfb-run", ["--help"], { stdio: "ignore" });
+    hasXvfbRunBinary = !probe.error;
+    if (!hasXvfbRunBinary) {
+      logInfo("SYNC-SERVER", "xvfb-run not found; falling back to headless node execution.");
+    }
+  }
+  if (!hasXvfbRunBinary) return false;
   return true;
 }
 

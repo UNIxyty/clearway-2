@@ -9,7 +9,7 @@
  */
 
 import { createServer } from "http";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync, copyFileSync } from "fs";
@@ -76,6 +76,21 @@ function loadUsaIcaos() {
 }
 
 const USA_ICAOS = loadUsaIcaos();
+let hasXvfbRunBinary = null;
+
+function useXvfb() {
+  if (process.env.SYNC_USE_XVFB === "0" || process.env.SYNC_USE_XVFB === "false") return false;
+  if (process.platform === "darwin") return false;
+  if (hasXvfbRunBinary === null) {
+    const probe = spawnSync("xvfb-run", ["--help"], { stdio: "ignore" });
+    hasXvfbRunBinary = !probe.error;
+    if (!hasXvfbRunBinary) {
+      logInfo("AIP-SYNC", "xvfb-run not found; falling back to headless node execution.");
+    }
+  }
+  if (!hasXvfbRunBinary) return false;
+  return true;
+}
 
 async function fetchS3ObjectBytes(key) {
   // Backward-compatible function name: now reads from local storage.
@@ -479,7 +494,11 @@ async function runDownload(icao) {
     await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
     return;
   }
-  await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
+  if (useXvfb()) {
+    await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
+    return;
+  }
+  await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
 }
 
 function mapMetaToAirportRow(meta, icao) {
@@ -651,7 +670,11 @@ async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
 }
 
 async function runGenDownload(prefix) {
-  await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", GEN_SCRIPT, prefix]);
+  if (useXvfb()) {
+    await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", GEN_SCRIPT, prefix]);
+    return;
+  }
+  await run("node", [GEN_SCRIPT, prefix], process.env);
 }
 
 function isRussiaIcao(icao) {

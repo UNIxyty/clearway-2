@@ -13,7 +13,7 @@
 import { appendFileSync, existsSync } from 'fs';
 import { saveFile } from "../lib/storage.mjs";
 
-const LOGIN_URL = 'https://www.crewbriefing.com/LoginSSL.aspx';
+const LOGIN_URL = 'https://www.crewbriefing.com/loginssl.aspx';
 const NOTAMS_URL = 'https://www.crewbriefing.com/Cb_Extra/2.5.19/NOTAM/Notams.aspx';
 
 function progress(msg) {

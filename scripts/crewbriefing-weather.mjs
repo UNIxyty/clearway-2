@@ -85,27 +85,20 @@ async function main() {
     await page.click('input[type="submit"], button[type="submit"], input[value="Login"]');
     await page.waitForURL(/Main\.aspx/, { timeout: 15000 });
 
-    progress("Opening Extra WX");
-    const [extraPage] = await Promise.all([
-      context.waitForEvent("page"),
-      page.click('a:has-text("Extra WX")'),
-    ]);
-    await extraPage.waitForLoadState("networkidle");
-
     progress("Opening OPMET tab");
-    await extraPage.goto(EXTRA_WX_URL, { waitUntil: "networkidle", timeout: 15000 });
-    const opmetTab = extraPage.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
+    await page.goto(EXTRA_WX_URL, { waitUntil: "domcontentloaded", timeout: 20000 });
+    const opmetTab = page.locator("table.TabMenuItem", { hasText: "OPMET" }).first();
     await opmetTab.click({ timeout: 10000 });
-    await extraPage.waitForTimeout(1200);
+    await page.waitForTimeout(1200);
 
     progress("Searching weather for " + icao);
-    const searchInput = extraPage.locator('input[type="text"]').first();
+    const searchInput = page.locator('input[type="text"]').first();
     await searchInput.fill(icao);
-    await extraPage.click('input[type="submit"], input[value="View"], input[value="Search"]');
-    await extraPage.waitForTimeout(3500);
+    await page.click('input[type="submit"], input[value="View"], input[value="Search"]');
+    await page.waitForTimeout(3500);
 
     weatherText = (
-      await extraPage.evaluate(() => {
+      await page.evaluate(() => {
         const target = document.querySelector("#ResultTable td");
         return (target?.textContent || "").trim();
       })

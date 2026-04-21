@@ -9,7 +9,7 @@
  */
 
 import { join, dirname } from 'path';
-import { mkdirSync, existsSync, readFileSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import {
   asecnaAd2AirportBasename,
@@ -125,6 +125,16 @@ function resolveCountryLabelForIcao(icao) {
 
 function log(msg) {
   console.log('[EAD]', msg);
+}
+
+function filenameFromUrl(u, fallback = 'ead-ad2.pdf') {
+  try {
+    const parsed = new URL(u);
+    const name = decodeURIComponent(parsed.pathname.split('/').pop() || '').trim();
+    return name || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function resolveChromiumExecutablePath() {
@@ -456,13 +466,27 @@ async function main() {
     const fullUrl = href.startsWith('http') ? href : new URL(href, BASE).href;
     log('Downloading PDF: ' + fullUrl);
 
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 20000 }),
-      pdfLink.click(),
-    ]);
-    const filename = download.suggestedFilename();
-    const savePath = join(outDir, filename);
-    await download.saveAs(savePath);
+    let savePath = join(outDir, filenameFromUrl(fullUrl, `${icao}_AD2.pdf`));
+    try {
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 20000 }),
+        pdfLink.click(),
+      ]);
+      const filename = download.suggestedFilename();
+      savePath = join(outDir, filename);
+      await download.saveAs(savePath);
+    } catch (downloadErr) {
+      log('Playwright download event timed out; trying authenticated direct fetch fallback');
+      const resp = await context.request.get(fullUrl, { timeout: 30000 });
+      if (!resp.ok()) {
+        throw new Error(`Fallback PDF fetch failed (${resp.status()}): ${fullUrl}`);
+      }
+      const bytes = Buffer.from(await resp.body());
+      if (bytes.length < 32 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        throw new Error(`Fallback PDF fetch did not return a valid PDF: ${fullUrl}`);
+      }
+      writeFileSync(savePath, bytes);
+    }
     log('Saved: ' + savePath);
 
     console.log(savePath);

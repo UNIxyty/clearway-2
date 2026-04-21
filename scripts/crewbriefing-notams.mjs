@@ -147,23 +147,16 @@ async function main() {
     await page.click('input[type="submit"], button[type="submit"], input[value="Login"]');
     await page.waitForURL(/Main\.aspx/, { timeout: 15000 });
 
-    progress('Opening Extra WX / NOTAMs');
-    const [extraPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page.click('a:has-text("Extra WX")'),
-    ]);
-    await extraPage.waitForLoadState('networkidle');
-
     progress('Going to NOTAM page');
-    await extraPage.goto(NOTAMS_URL, { waitUntil: 'networkidle', timeout: 15000 });
+    await page.goto(NOTAMS_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
     progress('Searching for ' + icao);
-    const searchInput = extraPage.locator('input[type="text"]').first();
+    const searchInput = page.locator('input[type="text"]').first();
     await searchInput.fill(icao);
-    await extraPage.click('input[type="submit"], input[value="View"]');
-    await extraPage.waitForTimeout(4000);
+    await page.click('input[type="submit"], input[value="View"]');
+    await page.waitForTimeout(4000);
 
-    notamText = await extraPage.evaluate(() => {
+    notamText = await page.evaluate(() => {
       const table = document.getElementById('ResultTable');
       if (!table) return null;
       const cells = table.querySelectorAll('td');
@@ -197,7 +190,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(err);
   process.exit(1);
 });

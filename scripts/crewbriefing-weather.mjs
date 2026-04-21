@@ -11,13 +11,19 @@
  * Usage: node scripts/crewbriefing-weather.mjs [--json] <ICAO>
  */
 
-import { appendFileSync } from "fs";
+import { appendFileSync, existsSync } from "fs";
 import { saveFile } from "../lib/storage.mjs";
 
 const LOGIN_URL = "https://www.crewbriefing.com/LoginSSL.aspx";
 const EXTRA_WX_URL = "https://www.crewbriefing.com/Cb_Extra/2.5.19/NOTAM/Notams.aspx";
 
 let jsonMode = false;
+
+function resolveChromiumExecutablePath() {
+  if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
+  const candidates = ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"];
+  return candidates.find((p) => existsSync(p)) || null;
+}
 
 function progress(msg) {
   const line = "PROGRESS:" + msg + "\n";
@@ -52,13 +58,17 @@ async function main() {
   progress("Initializing browser");
   const { chromium } = await import("playwright");
   const useHeaded = process.env.USE_HEADED === "1" || process.env.DISPLAY;
-  const browser = await chromium
-    .launch({
-      headless: !useHeaded,
-      channel: process.env.CHROME_CHANNEL || undefined,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    })
-    .catch(() => chromium.launch({ headless: !useHeaded, args: ["--no-sandbox", "--disable-setuid-sandbox"] }));
+  const executablePath = resolveChromiumExecutablePath();
+  const launchOptions = {
+    headless: !useHeaded,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  };
+  if (executablePath) launchOptions.executablePath = executablePath;
+  else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
+  const browser = await chromium.launch(launchOptions).catch(() => {
+    progress("Primary browser launch failed, retrying with Playwright defaults");
+    return chromium.launch({ headless: !useHeaded, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+  });
 
   const context = await browser.newContext({
     userAgent:

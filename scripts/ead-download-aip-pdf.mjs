@@ -127,6 +127,12 @@ function log(msg) {
   console.log('[EAD]', msg);
 }
 
+function resolveChromiumExecutablePath() {
+  if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
+  const candidates = ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'];
+  return candidates.find((p) => existsSync(p)) || null;
+}
+
 function loadAsecnaAirportCountryCodeMap() {
   try {
     if (!existsSync(ASECNA_JSON_PATH)) return { map: new Map(), menuUrl: null, menuBasename: null };
@@ -250,10 +256,19 @@ async function main() {
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);
 
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch({
+  const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  };
+  const executablePath = resolveChromiumExecutablePath();
+  if (executablePath) launchOptions.executablePath = executablePath;
+  else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
+  const browser = await chromium.launch(launchOptions).catch(() =>
+    chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+  );
   const context = await browser.newContext({
     acceptDownloads: true,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

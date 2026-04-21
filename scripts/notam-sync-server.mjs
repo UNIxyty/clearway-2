@@ -75,7 +75,7 @@ function useXvfb() {
 
 function buildScraperEnv(forWeather) {
   const src = forWeather ? envForWeatherScraper(process.env) : process.env;
-  const base = { ...src, CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chrome" };
+  const base = { ...src, CHROME_CHANNEL: process.env.CHROME_CHANNEL || "chromium" };
   const defaultHeaded = useXvfb() ? "1" : "0";
   return { ...base, USE_HEADED: process.env.USE_HEADED ?? defaultHeaded };
 }

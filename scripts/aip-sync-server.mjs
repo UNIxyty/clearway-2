@@ -418,7 +418,9 @@ function syncFailurePayload(err) {
 
 function run(cmd, args, env = process.env, onStdoutLine = null) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
+    const mergedEnv = { ...process.env, ...env };
+    if (!mergedEnv.CHROME_CHANNEL) mergedEnv.CHROME_CHANNEL = "chromium";
+    const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: mergedEnv, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     const emitLines = (text) => {

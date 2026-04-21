@@ -24,22 +24,40 @@ if (!apiKey) {
 
 const host = process.env.SKYLINK_API_HOST || "skylink-api.p.rapidapi.com";
 const baseUrl = (process.env.SKYLINK_API_BASE_URL || "https://skylink-api.p.rapidapi.com").replace(/\/$/, "");
-const url = `${baseUrl}/v3/notams/${encodeURIComponent(icao)}`;
+const endpointCandidates = [
+  `${baseUrl}/v3/notams/${encodeURIComponent(icao)}`,
+  `${baseUrl}/notams/${encodeURIComponent(icao)}`,
+  `${baseUrl}/notams/${encodeURIComponent(icao.toLowerCase())}`,
+];
 
 async function main() {
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "x-rapidapi-key": apiKey,
-      "x-rapidapi-host": host,
-      Accept: "application/json",
-    },
-  });
+  let text = "";
+  let successUrl = "";
+  let lastStatus = 0;
+  let lastBody = "";
+  for (const url of endpointCandidates) {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": apiKey,
+        "x-rapidapi-host": host,
+        Accept: "application/json",
+      },
+    });
+    text = await res.text();
+    if (res.ok) {
+      successUrl = url;
+      break;
+    }
+    lastStatus = res.status;
+    lastBody = text;
+  }
 
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(`SkyLink request failed: HTTP ${res.status}`);
-    console.error(text.slice(0, 1000));
+  if (!successUrl) {
+    console.error(`SkyLink request failed for all known endpoints. Last HTTP: ${lastStatus}`);
+    console.error(lastBody.slice(0, 1000));
+    console.error("Tried endpoints:");
+    for (const u of endpointCandidates) console.error(`- ${u}`);
     process.exit(1);
   }
 
@@ -53,6 +71,7 @@ async function main() {
   }
 
   const notams = Array.isArray(data.notams) ? data.notams : [];
+  console.log(`Endpoint: ${successUrl}`);
   console.log(`ICAO: ${data.icao || icao}`);
   console.log(`Total NOTAMs: ${data.total_count ?? notams.length}`);
   console.log("");

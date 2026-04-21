@@ -45,5 +45,15 @@ export async function saveFile(key: string, buffer: Uint8Array | Buffer | string
   await ensureDir(stagingDir);
   const tempPath = path.join(stagingDir, `${randomUUID()}.tmp`);
   await writeFile(tempPath, buffer);
-  await rename(tempPath, finalPath);
+  try {
+    await rename(tempPath, finalPath);
+  } catch (error) {
+    // Cross-device rename can fail when /cache and /storage are different mounts.
+    if ((error as NodeJS.ErrnoException)?.code !== "EXDEV") {
+      throw error;
+    }
+    const bytes = await fsReadFile(tempPath);
+    await writeFile(finalPath, bytes);
+    await rm(tempPath, { force: true });
+  }
 }

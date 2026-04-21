@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SkyLink NOTAM Viewer</title>
+    <title>SkyLink NOTAM + Weather Viewer</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -99,9 +99,9 @@
   <body>
     <div class="wrap">
       <div class="card">
-        <h1>SkyLink NOTAM Viewer</h1>
+        <h1>SkyLink NOTAM + Weather Viewer</h1>
         <p class="hint">
-          Shows full NOTAM list for an ICAO using RapidAPI headers.
+          Shows full NOTAM list and METAR weather for an ICAO using RapidAPI headers.
         </p>
         <div class="row">
           <div class="field">
@@ -118,9 +118,14 @@
           </div>
         </div>
         <div style="margin-top: 12px">
-          <button id="loadBtn">Load NOTAMs</button>
+          <button id="loadBtn">Load NOTAMs + Weather</button>
         </div>
         <div id="status"></div>
+      </div>
+
+      <div class="card hidden" id="weatherCard">
+        <h2 id="weatherSummary" style="margin-top: 0"></h2>
+        <pre id="weatherRaw" class="mono" style="white-space: pre-wrap; margin: 0"></pre>
       </div>
 
       <div class="card hidden" id="resultCard">
@@ -147,11 +152,18 @@
         `https://skylink-api.p.rapidapi.com/notams/${encodeURIComponent(icao)}`,
         `https://skylink-api.p.rapidapi.com/notams/${encodeURIComponent(icao.toLowerCase())}`,
       ];
+      const weatherEndpointVariants = (icao) => [
+        `https://skylink-api.p.rapidapi.com/weather/metar/${encodeURIComponent(icao)}?parsed=false`,
+        `https://skylink-api.p.rapidapi.com/weather/metar/${encodeURIComponent(icao.toLowerCase())}?parsed=false`,
+      ];
 
       const statusEl = document.getElementById("status");
       const rowsEl = document.getElementById("rows");
       const summaryEl = document.getElementById("summary");
       const resultCard = document.getElementById("resultCard");
+      const weatherCard = document.getElementById("weatherCard");
+      const weatherSummaryEl = document.getElementById("weatherSummary");
+      const weatherRawEl = document.getElementById("weatherRaw");
       const btn = document.getElementById("loadBtn");
 
       function setStatus(msg) {
@@ -198,6 +210,24 @@
         return json;
       }
 
+      async function fetchJson(url, apiKey, host) {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "x-rapidapi-key": apiKey,
+            "x-rapidapi-host": host,
+            Accept: "application/json",
+          },
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error(`Non-JSON response: ${text.slice(0, 300)}`);
+        }
+      }
+
       btn.addEventListener("click", async () => {
         const icao = normalizeIcao(document.getElementById("icao").value);
         const apiKey = document.getElementById("apiKey").value.trim();
@@ -214,25 +244,59 @@
 
         btn.disabled = true;
         resultCard.classList.add("hidden");
+        weatherCard.classList.add("hidden");
         setStatus("Loading...");
 
         let lastError = "Unknown error";
+        let notamLoadedFrom = "";
+        let notamData = null;
         for (const url of endpointVariants(icao)) {
           try {
-            const data = await fetchNotams(url, apiKey, host);
-            const notams = Array.isArray(data.notams) ? data.notams : [];
-            summaryEl.textContent = `${data.icao || icao} — ${data.total_count ?? notams.length} NOTAM(s)`;
-            renderRows(notams);
-            resultCard.classList.remove("hidden");
-            setStatus(`Loaded from: ${url}`);
-            btn.disabled = false;
-            return;
+            notamData = await fetchNotams(url, apiKey, host);
+            notamLoadedFrom = url;
+            break;
           } catch (e) {
             lastError = `${url}\n${e.message || String(e)}`;
           }
         }
 
-        setStatus(`Failed:\n${lastError}`);
+        if (!notamData) {
+          setStatus(`NOTAM failed:\n${lastError}`);
+          btn.disabled = false;
+          return;
+        }
+
+        const notams = Array.isArray(notamData.notams) ? notamData.notams : [];
+        summaryEl.textContent = `${notamData.icao || icao} — ${notamData.total_count ?? notams.length} NOTAM(s)`;
+        renderRows(notams);
+        resultCard.classList.remove("hidden");
+
+        let weatherError = "";
+        let weatherLoadedFrom = "";
+        let weatherData = null;
+        for (const url of weatherEndpointVariants(icao)) {
+          try {
+            weatherData = await fetchJson(url, apiKey, host);
+            weatherLoadedFrom = url;
+            break;
+          } catch (e) {
+            weatherError = `${url}\n${e.message || String(e)}`;
+          }
+        }
+
+        if (weatherData) {
+          weatherSummaryEl.textContent = `${weatherData.icao || icao} — METAR`;
+          const metar = weatherData.raw || weatherData.metar || weatherData.data || weatherData;
+          weatherRawEl.textContent = typeof metar === "string" ? metar : JSON.stringify(metar, null, 2);
+          weatherCard.classList.remove("hidden");
+          setStatus(`Loaded NOTAM: ${notamLoadedFrom}\nLoaded weather: ${weatherLoadedFrom}`);
+        } else {
+          weatherSummaryEl.textContent = `${icao} — METAR`;
+          weatherRawEl.textContent = `Weather load failed:\n${weatherError}`;
+          weatherCard.classList.remove("hidden");
+          setStatus(`Loaded NOTAM: ${notamLoadedFrom}\nWeather failed.`);
+        }
+
         btn.disabled = false;
       });
     </script>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SkyLink NOTAM Viewer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0b1020;
+        color: #e6ebff;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #111936;
+        border: 1px solid #2b396e;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-size: 24px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+        opacity: 0.85;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #38508f;
+        padding: 10px 12px;
+        background: #0f1733;
+        color: #e6ebff;
+      }
+      .field {
+        min-width: 240px;
+        flex: 1;
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        background: #4f7cff;
+        color: white;
+        font-weight: 600;
+      }
+      #status {
+        margin-top: 10px;
+        font-size: 14px;
+        white-space: pre-wrap;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #26386d;
+        padding: 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: #b6c7ff;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+      .hidden {
+        display: none;
+      }
+      .hint {
+        font-size: 12px;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>SkyLink NOTAM Viewer</h1>
+        <p class="hint">
+          Shows full NOTAM list for an ICAO using RapidAPI headers.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label for="icao">ICAO</label>
+            <input id="icao" value="EVRA" maxlength="4" />
+          </div>
+          <div class="field">
+            <label for="apiKey">RapidAPI Key</label>
+            <input id="apiKey" type="password" placeholder="Paste x-rapidapi-key" />
+          </div>
+          <div class="field">
+            <label for="host">RapidAPI Host</label>
+            <input id="host" value="skylink-api.p.rapidapi.com" />
+          </div>
+        </div>
+        <div style="margin-top: 12px">
+          <button id="loadBtn">Load NOTAMs</button>
+        </div>
+        <div id="status"></div>
+      </div>
+
+      <div class="card hidden" id="resultCard">
+        <h2 id="summary" style="margin-top: 0"></h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Effective</th>
+              <th>Expiration</th>
+              <th>Body</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const endpointVariants = (icao) => [
+        `https://skylink-api.p.rapidapi.com/v3/notams/${encodeURIComponent(icao)}`,
+        `https://skylink-api.p.rapidapi.com/notams/${encodeURIComponent(icao)}`,
+        `https://skylink-api.p.rapidapi.com/notams/${encodeURIComponent(icao.toLowerCase())}`,
+      ];
+
+      const statusEl = document.getElementById("status");
+      const rowsEl = document.getElementById("rows");
+      const summaryEl = document.getElementById("summary");
+      const resultCard = document.getElementById("resultCard");
+      const btn = document.getElementById("loadBtn");
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      function normalizeIcao(raw) {
+        return String(raw || "").trim().toUpperCase();
+      }
+
+      function renderRows(notams) {
+        rowsEl.innerHTML = "";
+        for (const n of notams) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="mono">${n.notam_id || ""}</td>
+            <td>${n.type || ""}</td>
+            <td class="mono">${n.location || ""}</td>
+            <td class="mono">${n.effective || ""}</td>
+            <td class="mono">${n.expiration || ""}</td>
+            <td>${(n.body || "").replace(/</g, "&lt;")}</td>
+          `;
+          rowsEl.appendChild(tr);
+        }
+      }
+
+      async function fetchNotams(url, apiKey, host) {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "x-rapidapi-key": apiKey,
+            "x-rapidapi-host": host,
+            Accept: "application/json",
+          },
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error(`Non-JSON response: ${text.slice(0, 300)}`);
+        }
+        return json;
+      }
+
+      btn.addEventListener("click", async () => {
+        const icao = normalizeIcao(document.getElementById("icao").value);
+        const apiKey = document.getElementById("apiKey").value.trim();
+        const host = document.getElementById("host").value.trim();
+
+        if (!/^[A-Z0-9]{4}$/.test(icao)) {
+          setStatus("Enter valid 4-letter ICAO.");
+          return;
+        }
+        if (!apiKey) {
+          setStatus("Enter RapidAPI key.");
+          return;
+        }
+
+        btn.disabled = true;
+        resultCard.classList.add("hidden");
+        setStatus("Loading...");
+
+        let lastError = "Unknown error";
+        for (const url of endpointVariants(icao)) {
+          try {
+            const data = await fetchNotams(url, apiKey, host);
+            const notams = Array.isArray(data.notams) ? data.notams : [];
+            summaryEl.textContent = `${data.icao || icao} — ${data.total_count ?? notams.length} NOTAM(s)`;
+            renderRows(notams);
+            resultCard.classList.remove("hidden");
+            setStatus(`Loaded from: ${url}`);
+            btn.disabled = false;
+            return;
+          } catch (e) {
+            lastError = `${url}\n${e.message || String(e)}`;
+          }
+        }
+
+        setStatus(`Failed:\n${lastError}`);
+        btn.disabled = false;
+      });
+    </script>
+  </body>
+  </html>
+

@@ -29,6 +29,8 @@ services:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
       NODE_ENV: production
+      NOTAM_SCRAPER: skylink
+      SYNC_SECRET: ${NOTAM_SYNC_SECRET}
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
@@ -42,6 +44,7 @@ services:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
       NODE_ENV: production
+      SYNC_SECRET: ${WEATHER_SYNC_SECRET}
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
@@ -55,6 +58,7 @@ services:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
       NODE_ENV: production
+      SYNC_SECRET: ${NOTAM_SYNC_SECRET}
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage

@@ -3,7 +3,7 @@
  * NOTAM sync server – run on EC2/self-hosted. Receives sync requests and runs the NOTAM/Weather sync scripts,
  * then returns the result from local storage. Used by the portal so "sync" triggers live refresh.
  *
- * Usage: AWS_S3_BUCKET=your-bucket SYNC_SECRET=your-secret node scripts/notam-sync-server.mjs
+ * Usage: SYNC_SECRET=your-secret node scripts/notam-sync-server.mjs
  * Port: 3001 (or NOTAM_SYNC_PORT)
  *
  * Split NOTAM vs weather:
@@ -27,8 +27,10 @@ const PORT = Number(process.env.NOTAM_SYNC_PORT) || 3001;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 120_000;
 
-// skylink = API-based NOTAM sync (default); faa = FAA browser scraper fallback
-const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
+// skylink = API-based NOTAM sync (default); faa = FAA browser scraper fallback.
+// Accept "crewbriefing" as a legacy alias and map it to "skylink".
+const notamScraperRaw = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
+const NOTAM_SCRAPER = notamScraperRaw === "crewbriefing" ? "skylink" : notamScraperRaw;
 const SCRAPER_SCRIPT =
   NOTAM_SCRAPER === "faa"
     ? "scripts/notam-scraper.mjs"
@@ -309,6 +311,9 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
+  if (notamScraperRaw === "crewbriefing") {
+    logInfo("SYNC-SERVER", "NOTAM_SCRAPER=crewbriefing is deprecated; using SkyLink script.");
+  }
   logInfo(
     "SYNC-SERVER",
     `Listening on ${PORT} mode=${SYNC_SERVER_MODE} allow_notam=${ALLOW_NOTAM} allow_weather=${ALLOW_WEATHER} script=${SCRAPER_SCRIPT}`,

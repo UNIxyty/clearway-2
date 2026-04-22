@@ -5,7 +5,7 @@
 - `**GET /sync**` — NOTAM scrape  
 - `**GET /sync/weather**` — weather scrape
 
-Use `**SYNC_SERVER_MODE**` to run **only** NOTAM or **only** weather on different ports (two processes / two tmux — two CrewBriefing users on one IP).
+Use `**SYNC_SERVER_MODE**` to run **only** NOTAM or **only** weather on different ports (two processes / two tmux).
 
 
 | `SYNC_SERVER_MODE` | Routes                    |
@@ -15,7 +15,7 @@ Use `**SYNC_SERVER_MODE**` to run **only** NOTAM or **only** weather on differen
 | `weather`          | `/sync/weather` only      |
 
 
-Weather login: set `**CREWBRIEFING_WEATHER_USER`** / `**CREWBRIEFING_WEATHER_PASSWORD**` on the weather process if different from NOTAM; otherwise it falls back to `**CREWBRIEFING_USER**` / `**CREWBRIEFING_PASSWORD**`.
+SkyLink API credentials are shared by NOTAM and weather sync. Set `**SKYLINK_API_KEY**` on each process (or in shared env).
 
 ---
 
@@ -64,10 +64,7 @@ If `**WEATHER_SYNC_SECRET**` is unset, weather uses `**NOTAM_SYNC_SECRET**`.
 export SYNC_SERVER_MODE=notam
 export NOTAM_SYNC_PORT=3001
 export SYNC_SECRET=your-secret
-export AWS_S3_BUCKET=...
-export AWS_REGION=us-east-1
-export CREWBRIEFING_USER=notam_user
-export CREWBRIEFING_PASSWORD=...
+export SKYLINK_API_KEY=...
 npm run sync:notam
 ```
 
@@ -81,10 +78,7 @@ Log should show `NOTAM: true` and `weather: false`.
 export SYNC_SERVER_MODE=weather
 export NOTAM_SYNC_PORT=3003
 export SYNC_SECRET=your-secret   # same or different; match WEATHER_SYNC_SECRET in Vercel
-export AWS_S3_BUCKET=...
-export AWS_REGION=us-east-1
-export CREWBRIEFING_WEATHER_USER=weather_user
-export CREWBRIEFING_WEATHER_PASSWORD=...
+export SKYLINK_API_KEY=...
 npm run sync:weather
 ```
 

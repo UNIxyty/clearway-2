@@ -48,7 +48,7 @@ WEATHER_SYNC_URL=http://weather-sync:3001
 AIP_SYNC_URL=http://aip-sync:3002
 ```
 
-Keep existing app-specific credentials (EAD, CrewBriefing, Supabase, OpenAI/OpenRouter) as needed.
+Keep existing app-specific credentials (EAD, SkyLink API, Supabase, OpenAI/OpenRouter) as needed.
 
 ## Local compose run
 

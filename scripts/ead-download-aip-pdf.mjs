@@ -137,6 +137,51 @@ function filenameFromUrl(u, fallback = 'ead-ad2.pdf') {
   }
 }
 
+function normalizePdfFilename(name, icao, fallback = `${icao}_AD2.pdf`) {
+  const raw = String(name || '').trim();
+  let normalized = raw || fallback;
+  if (normalized.toLowerCase() === 'redirect') normalized = fallback;
+  if (!normalized.toLowerCase().endsWith('.pdf')) normalized = `${normalized}.pdf`;
+  if (!normalized.toUpperCase().includes(icao)) normalized = `${icao}_${normalized}`;
+  return normalized.replace(/[^A-Za-z0-9._-]+/g, '_');
+}
+
+async function fetchPdfBytesWithSession(context, page, fullUrl) {
+  const attempts = [];
+  attempts.push(fullUrl);
+  try {
+    const parsed = new URL(fullUrl);
+    if (parsed.pathname.includes('/aip/redirect')) {
+      const rawLink = parsed.searchParams.get('link');
+      if (rawLink) attempts.push(new URL(rawLink, BASE).href);
+    }
+  } catch {}
+
+  for (const url of attempts) {
+    try {
+      const resp = await context.request.get(url, { timeout: 30000 });
+      if (!resp.ok()) continue;
+      const bytes = Buffer.from(await resp.body());
+      if (bytes.length >= 32 && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        return bytes;
+      }
+    } catch {}
+  }
+
+  // Last fallback: navigate page directly to URL under same browser session.
+  try {
+    const nav = await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (nav && nav.ok()) {
+      const bytes = Buffer.from(await nav.body());
+      if (bytes.length >= 32 && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        return bytes;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
 function resolveChromiumExecutablePath() {
   if (process.env.CHROME_EXECUTABLE_PATH) return process.env.CHROME_EXECUTABLE_PATH;
   const candidates = ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'];
@@ -204,6 +249,18 @@ function jsfId(id) {
   return `[id="${id}"]`;
 }
 
+function isRecoverableAuthError(errorMessage, currentUrl = "") {
+  const msg = String(errorMessage || "").toLowerCase();
+  const url = String(currentUrl || "").toLowerCase();
+  return (
+    msg.includes("access denied") ||
+    msg.includes("session_expired") ||
+    msg.includes("login") ||
+    url.includes("session_expired.faces") ||
+    url.includes("/login/")
+  );
+}
+
 async function main() {
   const icao = (process.argv[2] || 'EVAD').toUpperCase().trim();
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
@@ -266,161 +323,151 @@ async function main() {
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);
 
   const { chromium } = await import('playwright');
-  const launchOptions = {
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  };
-  const executablePath = resolveChromiumExecutablePath();
-  if (executablePath) launchOptions.executablePath = executablePath;
-  else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
-  const browser = await chromium.launch(launchOptions).catch(() =>
-    chromium.launch({
+  const maxAuthAttempts = Math.max(1, Number(process.env.EAD_AUTH_RETRY_ATTEMPTS || 2));
+  let finalError = null;
+
+  for (let attempt = 1; attempt <= maxAuthAttempts; attempt += 1) {
+    const launchOptions = {
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
-  );
-  const context = await browser.newContext({
-    acceptDownloads: true,
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
-  const page = await context.newPage();
-
-  try {
-    // —— Login ——
-    log('Opening login page');
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.getByLabel(/user name/i).fill(user);
-    await page.getByLabel(/password/i).fill(password);
-    await page.locator('input[type="submit"][value="Login"]').click();
-    await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 15000 });
-
-    // —— Accept terms ——
-    const termsBtn = page.locator('#acceptTCButton');
-    await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    if (await termsBtn.isVisible()) {
-      log('Accepting terms and conditions');
-      await termsBtn.click();
-      await page.waitForTimeout(200);
-    }
-
-    // —— AIP Library —— try direct URL first (avoids menu link); fallback: click "AIP Library"
-    log('Opening AIP Library');
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
-    await page.waitForTimeout(400);
-    let wentToAip = false;
-    try {
-      await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-      wentToAip = page.url().includes('aip_overview');
-    } catch (_) {}
-    if (!wentToAip) {
-      const aipLink = page
-        .getByRole('link', { name: /aip\s*library/i })
-        .or(page.locator('a').filter({ hasText: /aip\s*library/i }))
-        .first();
-      await aipLink.click({ timeout: 60000 });
-      await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
-    }
-    await page.waitForTimeout(600);
-
-    const bodyText = await page.locator('body').textContent().catch(() => '');
-    if (/Access denied|IB-101/i.test(bodyText)) {
-      throw new Error(
-        'EAD returned "Access denied" (often when running from a datacenter/cloud IP like EC2). Run the download script from your PC or a non-datacenter network instead, then copy data/ead-aip/*.pdf to the server for extract. See scripts/AIP-AWS-SETUP.md.'
-      );
-    }
-
-    // —— Authority (country) —— JSF may render select after AJAX; id can be mainForm:... or j_idtX:... on server
-    log('Selecting country: ' + countryLabel);
-    const authoritySelect = page
-      .locator(jsfId('mainForm:selectAuthorityCode_input'))
-      .or(page.locator('select[id$="selectAuthorityCode_input"]'))
-      .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
-      .first();
-    await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
-    let resolvedCountryLabel = countryLabel;
-    const optionTexts = (await authoritySelect.locator('option').allTextContents())
-      .map((text) => text.trim())
-      .filter(Boolean);
-    if (!optionTexts.includes(countryLabel)) {
-      const byPrefix = optionTexts.find((text) => new RegExp(`\\(${prefix}\\)\\s*$`, 'i').test(text));
-      if (byPrefix) {
-        resolvedCountryLabel = byPrefix;
-        log(`Country label fallback used: "${countryLabel}" -> "${resolvedCountryLabel}"`);
-      }
-    }
-    await authoritySelect.selectOption({ label: resolvedCountryLabel });
-    await page.waitForTimeout(300);
-
-    // —— Language: English —— (hidden select; set value and trigger change)
-    await page.evaluate((id) => {
-      const el = document.querySelector(`[id="${id}"]`);
-      if (el && el.tagName === 'SELECT') {
-        const opt = [...el.options].find((o) => o.textContent.trim() === 'English');
-        if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
-      }
-    }, 'mainForm:selectLanguage_input');
-    await page.waitForTimeout(400);
-
-    // —— AIP Part: AD ——
-    await page.evaluate((id) => {
-      const el = document.querySelector(`[id="${id}"]`);
-      if (el && el.tagName === 'SELECT') {
-        const opt = [...el.options].find((o) => o.textContent.trim() === 'AD');
-        if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
-      }
-    }, 'mainForm:selectAipPart_input');
-    await page.waitForTimeout(400);
-
-    // —— Advanced Search + ICAO ——
-    log('Opening Advanced Search and entering ICAO');
-    await page.getByText('Advanced Search').first().click();
-    await page.waitForTimeout(350);
-    await page.locator(jsfId('mainForm:documentHeader')).fill(icao);
-
-    // —— Search ——
-    await page.getByRole('button', { name: 'Search' }).click();
-    await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
-    await page.waitForTimeout(400);
-
-    // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
-    // Paginate through results if not found on the first page (up to MAX_PAGES).
-    const MAX_PAGES = 10;
-    const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
-    const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
-    const docHeadingCol = 4;
-    const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
-    const isAd2Row = (s) => {
-      const n = headingNorm(s);
-      return n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao));
     };
+    const executablePath = resolveChromiumExecutablePath();
+    if (executablePath) launchOptions.executablePath = executablePath;
+    else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
+    const browser = await chromium.launch(launchOptions).catch(() =>
+      chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      })
+    );
+    const context = await browser.newContext({
+      acceptDownloads: true,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
+    try {
+      // —— Login ——
+      log(`Opening login page (attempt ${attempt}/${maxAuthAttempts})`);
+      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.getByLabel(/user name/i).fill(user);
+      await page.getByLabel(/password/i).fill(password);
+      await page.locator('input[type="submit"][value="Login"]').click();
+      await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 15000 });
 
-    async function scanCurrentPage() {
-      const rows = page.locator('#mainForm\\:searchResults_data tr');
-      const rowCount = await rows.count();
-      let found = null;
-      let fallback = null;
-      for (let i = 0; i < rowCount; i++) {
-        const cells = rows.nth(i).locator('td');
-        const cellCount = await cells.count();
-        if (cellCount <= docHeadingCol) continue;
-        const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
-        if (!isAd2Row(docHeading)) continue;
-        const link = rows.nth(i).locator('a.wrap-data').first();
-        if ((await link.count()) === 0) continue;
-        const linkText = await link.textContent().catch(() => '') || '';
-        if (variationRe.test(linkText)) {
-          if (!fallback) fallback = link;
-          continue;
-        }
-        found = link;
-        break;
+      // —— Accept terms ——
+      const termsBtn = page.locator('#acceptTCButton');
+      await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+      if (await termsBtn.isVisible()) {
+        log('Accepting terms and conditions');
+        await termsBtn.click();
+        await page.waitForTimeout(200);
       }
-      if (!found) {
+
+      // —— AIP Library —— try direct URL first (avoids menu link); fallback: click "AIP Library"
+      log('Opening AIP Library');
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await page.waitForTimeout(400);
+      let wentToAip = false;
+      try {
+        await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        wentToAip = page.url().includes('aip_overview');
+      } catch (_) {}
+      if (!wentToAip) {
+        const aipLink = page
+          .getByRole('link', { name: /aip\s*library/i })
+          .or(page.locator('a').filter({ hasText: /aip\s*library/i }))
+          .first();
+        await aipLink.click({ timeout: 60000 });
+        await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
+      }
+      await page.waitForTimeout(600);
+
+      const bodyText = await page.locator('body').textContent().catch(() => '');
+      if (/Access denied|IB-101/i.test(bodyText)) {
+        throw new Error(
+          'EAD returned "Access denied" (often when running from a datacenter/cloud IP like EC2). Run the download script from your PC or a non-datacenter network instead, then copy data/ead-aip/*.pdf to the server for extract. See scripts/AIP-AWS-SETUP.md.'
+        );
+      }
+
+      // —— Authority (country) —— JSF may render select after AJAX; id can be mainForm:... or j_idtX:... on server
+      log('Selecting country: ' + countryLabel);
+      const authoritySelect = page
+        .locator(jsfId('mainForm:selectAuthorityCode_input'))
+        .or(page.locator('select[id$="selectAuthorityCode_input"]'))
+        .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
+        .first();
+      await authoritySelect.waitFor({ state: 'visible', timeout: 45000 });
+      let resolvedCountryLabel = countryLabel;
+      const optionTexts = (await authoritySelect.locator('option').allTextContents())
+        .map((text) => text.trim())
+        .filter(Boolean);
+      if (!optionTexts.includes(countryLabel)) {
+        const byPrefix = optionTexts.find((text) => new RegExp(`\\(${prefix}\\)\\s*$`, 'i').test(text));
+        if (byPrefix) {
+          resolvedCountryLabel = byPrefix;
+          log(`Country label fallback used: "${countryLabel}" -> "${resolvedCountryLabel}"`);
+        }
+      }
+      await authoritySelect.selectOption({ label: resolvedCountryLabel });
+      await page.waitForTimeout(300);
+
+      // —— Language: English —— (hidden select; set value and trigger change)
+      await page.evaluate((id) => {
+        const el = document.querySelector(`[id="${id}"]`);
+        if (el && el.tagName === 'SELECT') {
+          const opt = [...el.options].find((o) => o.textContent.trim() === 'English');
+          if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+        }
+      }, 'mainForm:selectLanguage_input');
+      await page.waitForTimeout(400);
+
+      // —— AIP Part: AD ——
+      await page.evaluate((id) => {
+        const el = document.querySelector(`[id="${id}"]`);
+        if (el && el.tagName === 'SELECT') {
+          const opt = [...el.options].find((o) => o.textContent.trim() === 'AD');
+          if (opt) { el.value = opt.value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+        }
+      }, 'mainForm:selectAipPart_input');
+      await page.waitForTimeout(400);
+
+      // —— Advanced Search + ICAO ——
+      log('Opening Advanced Search and entering ICAO');
+      await page.getByText('Advanced Search').first().click();
+      await page.waitForTimeout(350);
+      await page.locator(jsfId('mainForm:documentHeader')).fill(icao);
+
+      // —— Search ——
+      await page.getByRole('button', { name: 'Search' }).click();
+      await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
+      await page.waitForTimeout(400);
+
+      // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
+      // Paginate through results if not found on the first page (up to MAX_PAGES).
+      const MAX_PAGES = 10;
+      const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
+      const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
+      const docHeadingCol = 4;
+      const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
+      const isAd2Row = (s) => {
+        const n = headingNorm(s);
+        return n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao));
+      };
+
+      async function scanCurrentPage() {
+        const rows = page.locator('#mainForm\\:searchResults_data tr');
+        const rowCount = await rows.count();
+        let found = null;
+        let fallback = null;
         for (let i = 0; i < rowCount; i++) {
+          const cells = rows.nth(i).locator('td');
+          const cellCount = await cells.count();
+          if (cellCount <= docHeadingCol) continue;
+          const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
+          if (!isAd2Row(docHeading)) continue;
           const link = rows.nth(i).locator('a.wrap-data').first();
           if ((await link.count()) === 0) continue;
           const linkText = await link.textContent().catch(() => '') || '';
-          if (!ad2LinkRe.test(linkText)) continue;
           if (variationRe.test(linkText)) {
             if (!fallback) fallback = link;
             continue;
@@ -428,81 +475,107 @@ async function main() {
           found = link;
           break;
         }
+        if (!found) {
+          for (let i = 0; i < rowCount; i++) {
+            const link = rows.nth(i).locator('a.wrap-data').first();
+            if ((await link.count()) === 0) continue;
+            const linkText = await link.textContent().catch(() => '') || '';
+            if (!ad2LinkRe.test(linkText)) continue;
+            if (variationRe.test(linkText)) {
+              if (!fallback) fallback = link;
+              continue;
+            }
+            found = link;
+            break;
+          }
+        }
+        return { found, fallback };
       }
-      return { found, fallback };
-    }
 
-    const table = page.locator('#mainForm\\:searchResults_data');
-    await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-
-    let pdfLink = null;
-    let fallbackLink = null;
-
-    for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
-      const { found, fallback } = await scanCurrentPage();
-      if (found) { pdfLink = found; break; }
-      if (fallback && !fallbackLink) fallbackLink = fallback;
-
-      const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
-      if ((await nextBtn.count()) === 0) break;
-      log(`AD 2 ${icao} not on page ${pageNum + 1}, going to next page…`);
-      await nextBtn.click();
-      await page.waitForTimeout(800);
+      const table = page.locator('#mainForm\\:searchResults_data');
       await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    }
 
-    if (!pdfLink || (await pdfLink.count()) === 0) {
-      if (fallbackLink) {
-        pdfLink = fallbackLink;
-        log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
+      let pdfLink = null;
+      let fallbackLink = null;
+
+      for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
+        const { found, fallback } = await scanCurrentPage();
+        if (found) { pdfLink = found; break; }
+        if (fallback && !fallbackLink) fallbackLink = fallback;
+
+        const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
+        if ((await nextBtn.count()) === 0) break;
+        log(`AD 2 ${icao} not on page ${pageNum + 1}, going to next page…`);
+        await nextBtn.click();
+        await page.waitForTimeout(800);
+        await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+      }
+
+      if (!pdfLink || (await pdfLink.count()) === 0) {
+        if (fallbackLink) {
+          pdfLink = fallbackLink;
+          log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
+        } else {
+          throw new Error(`AD 2 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
+        }
       } else {
-        throw new Error(`AD 2 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
+        log('Using base AIP file (no variation number).');
       }
-    } else {
-      log('Using base AIP file (no variation number).');
+
+      const href = await pdfLink.getAttribute('href');
+      const fullUrl = href.startsWith('http') ? href : new URL(href, BASE).href;
+      log('Downloading PDF: ' + fullUrl);
+
+      let savePath = join(outDir, normalizePdfFilename(filenameFromUrl(fullUrl, `${icao}_AD2.pdf`), icao));
+      try {
+        const [download] = await Promise.all([
+          page.waitForEvent('download', { timeout: 20000 }),
+          pdfLink.click(),
+        ]);
+        const filename = normalizePdfFilename(download.suggestedFilename(), icao);
+        savePath = join(outDir, filename);
+        await download.saveAs(savePath);
+        const bytes = readFileSync(savePath);
+        if (bytes.length < 32 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+          throw new Error(`Download did not return a valid PDF: ${filename}`);
+        }
+      } catch (downloadErr) {
+        log('Playwright download event timed out; trying authenticated direct fetch fallback');
+        const bytes = await fetchPdfBytesWithSession(context, page, fullUrl);
+        if (!bytes) {
+          throw new Error(`Fallback PDF fetch failed or returned non-PDF: ${fullUrl}`);
+        }
+        writeFileSync(savePath, bytes);
+      }
+      log('Saved: ' + savePath);
+      console.log(savePath);
+      await browser.close();
+      return;
+    } catch (err) {
+      finalError = err;
+      const currentUrl = await page.url().catch(() => "");
+      const errMsg = err?.message || String(err);
+      const recoverable = isRecoverableAuthError(errMsg, currentUrl);
+      log(`Error on attempt ${attempt}/${maxAuthAttempts}: ${errMsg}`);
+      if (process.env.DEBUG) console.error(err);
+      try {
+        const debugPath = join(outDir, `ead-aip-debug-attempt-${attempt}.png`);
+        await page.screenshot({ path: debugPath, fullPage: true });
+        log('Screenshot saved to ' + debugPath + ' – check what the page looks like after login.');
+        log('Page URL was: ' + currentUrl);
+      } catch (_) {}
+      await browser.close();
+      if (recoverable && attempt < maxAuthAttempts) {
+        log("Detected authentication/session issue. Re-logging and retrying...");
+        continue;
+      }
+      break;
     }
-
-    const href = await pdfLink.getAttribute('href');
-    const fullUrl = href.startsWith('http') ? href : new URL(href, BASE).href;
-    log('Downloading PDF: ' + fullUrl);
-
-    let savePath = join(outDir, filenameFromUrl(fullUrl, `${icao}_AD2.pdf`));
-    try {
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 20000 }),
-        pdfLink.click(),
-      ]);
-      const filename = download.suggestedFilename();
-      savePath = join(outDir, filename);
-      await download.saveAs(savePath);
-    } catch (downloadErr) {
-      log('Playwright download event timed out; trying authenticated direct fetch fallback');
-      const resp = await context.request.get(fullUrl, { timeout: 30000 });
-      if (!resp.ok()) {
-        throw new Error(`Fallback PDF fetch failed (${resp.status()}): ${fullUrl}`);
-      }
-      const bytes = Buffer.from(await resp.body());
-      if (bytes.length < 32 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
-        throw new Error(`Fallback PDF fetch did not return a valid PDF: ${fullUrl}`);
-      }
-      writeFileSync(savePath, bytes);
-    }
-    log('Saved: ' + savePath);
-
-    console.log(savePath);
-  } catch (err) {
-    log('Error: ' + err.message);
-    if (process.env.DEBUG) console.error(err);
-    try {
-      const debugPath = join(outDir, 'ead-aip-debug.png');
-      await page.screenshot({ path: debugPath, fullPage: true });
-      log('Screenshot saved to ' + debugPath + ' – check what the page looks like after login.');
-      log('Page URL was: ' + (await page.url()));
-    } catch (_) {}
-    process.exit(1);
-  } finally {
-    await browser.close();
   }
+
+  const msg = finalError?.message || String(finalError || "Unknown EAD download error");
+  log('Error: ' + msg);
+  process.exit(1);
 }
 
 main();

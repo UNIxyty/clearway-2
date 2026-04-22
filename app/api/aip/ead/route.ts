@@ -6,6 +6,9 @@ const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const AIP_EAD_PREFIX = "aip/ead";
 const SYNC_TIMEOUT_MS = 600_000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
+const FAST_CACHE_MAX_AGE_MS = Number(process.env.AIP_FAST_CACHE_MAX_AGE_MS || 6 * 60 * 60 * 1000); // 6h
+
+const refreshInFlight = new Map<string, Promise<void>>();
 
 async function getFromStorage(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
   try {
@@ -38,11 +41,69 @@ async function putToStorage(icao: string, payload: { airports: unknown[]; update
   }
 }
 
+function ageMs(updatedAt: string | null): number | null {
+  if (!updatedAt) return null;
+  const ts = new Date(updatedAt).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return Date.now() - ts;
+}
+
+async function fetchFromSyncServer(icao: string, extract: boolean, stream = false): Promise<Response> {
+  if (!AIP_SYNC_URL) {
+    throw new Error("AIP sync not configured");
+  }
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&extract=${extract ? "1" : "0"}`;
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  try {
+    return await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchSyncJson(icao: string, extract: boolean): Promise<{ airports: unknown[] }> {
+  const res = await fetchFromSyncServer(icao, extract, false);
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    detail?: string;
+    code?: number;
+    airports?: unknown[];
+  };
+  if (!res.ok) {
+    const err = new Error(data.detail || data.error || `Sync failed with HTTP ${res.status}`);
+    (err as Error & { code?: number; status?: number }).code = data.code;
+    (err as Error & { code?: number; status?: number }).status = res.status;
+    throw err;
+  }
+  return { airports: Array.isArray(data.airports) ? data.airports : [] };
+}
+
+function scheduleBackgroundRefresh(icao: string, extract: boolean): boolean {
+  const key = `${icao}:${extract ? "1" : "0"}`;
+  if (refreshInFlight.has(key)) return false;
+  const task = (async () => {
+    try {
+      const data = await fetchSyncJson(icao, extract);
+      await putToStorage(icao, { airports: data.airports, updatedAt: new Date().toISOString() });
+    } catch (e) {
+      console.error(`AIP EAD background refresh failed for ${icao}:`, e);
+    } finally {
+      refreshInFlight.delete(key);
+    }
+  })();
+  refreshInFlight.set(key, task);
+  return true;
+}
+
 export async function GET(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = request.nextUrl.searchParams.get("sync") === "1" || request.nextUrl.searchParams.get("sync") === "true";
   const stream = request.nextUrl.searchParams.get("stream") === "1" || request.nextUrl.searchParams.get("stream") === "true";
   const extract = !(request.nextUrl.searchParams.get("extract") === "0" || request.nextUrl.searchParams.get("extract") === "false");
+  const force = request.nextUrl.searchParams.get("force") === "1" || request.nextUrl.searchParams.get("force") === "true";
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
@@ -50,7 +111,7 @@ export async function GET(request: NextRequest) {
 
   if (!sync) {
     const fromStorage = await getFromStorage(icao);
-    if (fromStorage && fromStorage.airports.length > 0) {
+    if (fromStorage) {
       return NextResponse.json({ airports: fromStorage.airports, updatedAt: fromStorage.updatedAt });
     }
     return NextResponse.json({ airports: [], updatedAt: null }, { status: 200 });
@@ -66,18 +127,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&extract=${extract ? "1" : "0"}`;
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+  if (!stream && !force) {
+    const fromStorage = await getFromStorage(icao);
+    if (fromStorage) {
+      const age = ageMs(fromStorage.updatedAt);
+      const stale = age === null || age > FAST_CACHE_MAX_AGE_MS;
+      const refreshStarted = stale ? scheduleBackgroundRefresh(icao, extract) : false;
+      return NextResponse.json({
+        airports: fromStorage.airports,
+        updatedAt: fromStorage.updatedAt,
+        cache: {
+          served: true,
+          stale,
+          ageMs: age,
+          refreshStarted,
+        },
+      });
+    }
+  }
 
   try {
-    const controller = new AbortController();
-    const onAbort = () => controller.abort();
-    request.signal.addEventListener("abort", onAbort, { once: true });
-    const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
-    const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
-    clearTimeout(timeout);
-    request.signal.removeEventListener("abort", onAbort);
+    const res = await fetchFromSyncServer(icao, extract, stream);
     if (stream && res.ok && res.body) {
       return new Response(res.body, {
         headers: {
@@ -88,28 +158,19 @@ export async function GET(request: NextRequest) {
         },
       });
     }
-    const data = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      detail?: string;
-      code?: number;
-      airports?: unknown[];
-      done?: boolean;
-    };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; code?: number; airports?: unknown[] };
     if (!res.ok) {
       const code = typeof data.code === "number" ? data.code : undefined;
       let status = 502;
       if (res.status === 401) status = 401;
       else if (res.status === 402 || code === 402) status = 402;
       else if (res.status >= 400 && res.status < 600) status = res.status;
-      return NextResponse.json(
-        { error: data.error ?? "Sync failed", detail: data.detail, ...(code !== undefined ? { code } : {}) },
-        { status }
-      );
+      return NextResponse.json({ error: data.error ?? "Sync failed", detail: data.detail, ...(code !== undefined ? { code } : {}) }, { status });
     }
     const airports = Array.isArray(data.airports) ? data.airports : [];
     const updatedAt = new Date().toISOString();
     await putToStorage(icao, { airports, updatedAt });
-    return NextResponse.json({ airports, updatedAt });
+    return NextResponse.json({ airports, updatedAt, cache: { served: false } });
   } catch (e) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });

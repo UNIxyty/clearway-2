@@ -584,6 +584,8 @@ function AIPPortalPageInner() {
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
   const [aipPdfSlowIcao, setAipPdfSlowIcao] = useState<string | null>(null);
+  const [aipSyncStartedAt, setAipSyncStartedAt] = useState<number | null>(null);
+  const [aipSyncElapsedSec, setAipSyncElapsedSec] = useState(0);
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
   const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
   const [aipViewMode, setAipViewMode] = useState<"ai" | "pdf">("ai");
@@ -1080,6 +1082,17 @@ function AIPPortalPageInner() {
   // Fetch synced AIP (EAD + Russia). Default flow is PDF-first (extract=0).
   // AI extraction runs only when explicitly requested (extract=1).
   useEffect(() => {
+    if (!aipSyncStartedAt) {
+      setAipSyncElapsedSec(0);
+      return;
+    }
+    const tick = () => setAipSyncElapsedSec(Math.max(0, Math.floor((Date.now() - aipSyncStartedAt) / 1000)));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [aipSyncStartedAt]);
+
+  useEffect(() => {
     const icao = viewingAirport?.icao ?? null;
     if (!icao || !supportsSyncedAipIcao(icao)) return;
     if (aipEadInFlightRef.current.has(icao)) return;
@@ -1101,12 +1114,18 @@ function AIPPortalPageInner() {
 
     if (hasCacheEntry && !syncRequested && !shouldPdfSync) return;
     const doSync = shouldExtractSync || shouldPdfSync;
+    const useStream = shouldExtractSync;
     let slowPdfTimer: number | null = null;
     aipEadInFlightRef.current.add(icao);
     setAipEadLoadingIcao(icao);
     if (doSync) {
       setAipEadSyncingIcao(icao);
-      setAipEadSyncSteps([]);
+      setAipSyncStartedAt(Date.now());
+      setAipEadSyncSteps([
+        shouldExtractSync
+          ? "Connecting to AIP sync server (live stream)…"
+          : "Checking cache and PDF status…",
+      ]);
       if (shouldPdfSync) {
         setAipPdfSlowIcao((prev) => (prev === icao ? prev : null));
         slowPdfTimer = window.setTimeout(() => {
@@ -1125,7 +1144,7 @@ function AIPPortalPageInner() {
     }
 
     const syncParams = doSync
-      ? `&sync=1&stream=1&extract=${shouldExtractSync ? "1" : "0"}`
+      ? `&sync=1${useStream ? "&stream=1" : ""}&extract=${shouldExtractSync ? "1" : "0"}`
       : "";
     const aipApiBase = isAsecnaIcao(icao)
       ? "/api/aip/asecna"
@@ -1138,7 +1157,7 @@ function AIPPortalPageInner() {
     const controller = beginRequest(`aip-${icao}`);
     fetch(url, { cache: "no-store", signal: controller.signal })
       .then(async (res) => {
-        if (doSync && res.ok && res.body) {
+        if (doSync && useStream && res.ok && res.body) {
           const reader = res.body.getReader();
           const dec = new TextDecoder();
           let buf = "";
@@ -1211,6 +1230,8 @@ function AIPPortalPageInner() {
           detail?: string;
           code?: number;
           airports?: unknown[];
+          updatedAt?: string | null;
+          cache?: { served?: boolean; stale?: boolean; ageMs?: number | null; refreshStarted?: boolean };
         };
         if (!res.ok) {
           const msg = formatAipSyncError(data);
@@ -1220,7 +1241,7 @@ function AIPPortalPageInner() {
           return;
         }
         const list = (data.airports ?? []) as ExtractedAirportRow[];
-        const updatedAt = new Date().toISOString();
+        const updatedAt = data.updatedAt ?? new Date().toISOString();
         const match = pickExtractedAirportRow(list, icao);
         const fallbackCountry = isAsecnaIcao(icao)
           ? (viewingAirport?.country || "ASECNA")
@@ -1233,6 +1254,17 @@ function AIPPortalPageInner() {
         setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
         setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
+        if (doSync && !useStream && data.cache?.served) {
+          const ageSec = typeof data.cache.ageMs === "number" ? Math.max(0, Math.round(data.cache.ageMs / 1000)) : null;
+          const live = data.cache.stale && data.cache.refreshStarted
+            ? " Background refresh started."
+            : data.cache.stale
+              ? " Cached data may be stale."
+              : "";
+          const msg = `Served cached AIP${ageSec !== null ? ` (${ageSec}s old).` : "."}${live}`;
+          setAipEadSyncSteps((prev) => [...prev, msg]);
+          updateStage(icao, "aip", "running", msg);
+        }
         if (shouldExtractSync) {
           updateStage(icao, "aip", "done", "AIP retrieved");
           sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
@@ -1255,6 +1287,7 @@ function AIPPortalPageInner() {
         aipEadInFlightRef.current.delete(icao);
         setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+        setAipSyncStartedAt(null);
         setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
         setAipEadSyncSteps([]);
       });
@@ -2999,6 +3032,9 @@ function AIPPortalPageInner() {
                                 : "Fetching AIP PDF…"}
                             </span>
                           </div>
+                          <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-muted-foreground"}`}>
+                            Live status · elapsed {aipSyncElapsedSec}s
+                          </p>
                           {aipPdfSlowIcao === viewingAirport.icao && (
                             <p className="text-xs text-amber-800">
                               Source is still responding. Sync is running; large files can take extra time.
@@ -3021,7 +3057,7 @@ function AIPPortalPageInner() {
                             <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-muted-foreground"}`}>
                               {aipEadSyncRequestedIcao === viewingAirport.icao
                                 ? "Starting extraction… can take 1–2 min."
-                                : "Starting PDF fetch…"}
+                                : "Checking cache first, then fetching live PDF if needed…"}
                             </span>
                           )}
                         </div>

@@ -5,11 +5,11 @@ import { existsSync } from "fs";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 
-const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "crewbriefing").toLowerCase();
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
 const SCRIPT_PATH = join(
   process.cwd(),
   "scripts",
-  NOTAM_SCRAPER === "faa" ? "notam-scraper.mjs" : "crewbriefing-notams.mjs"
+  NOTAM_SCRAPER === "faa" ? "notam-scraper.mjs" : "skylink-notams.mjs"
 );
 const RUN_TIMEOUT_MS = 90_000;
 const SYNC_TIMEOUT_MS = 120_000;
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
 
   if (!existsSync(SCRIPT_PATH)) {
     return NextResponse.json(
-      { error: "NOTAM scraper script not found.", detail: "Run NOTAMs locally: npm run notam " + icao },
+      { error: "NOTAM sync script not found.", detail: "Run NOTAM test locally: node scripts/skylink-notams.mjs --json " + icao },
       { status: 503 }
     );
   }

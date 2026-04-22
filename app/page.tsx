@@ -1892,7 +1892,7 @@ function AIPPortalPageInner() {
                     <div className="space-y-2 py-2">
                       <p className="text-sm text-destructive font-medium">NOTAMs unavailable</p>
                       <p className="text-xs text-muted-foreground break-words">{notamsError}</p>
-                      <p className="text-xs text-muted-foreground">Run locally: <code className="bg-muted px-1 rounded">npm run notam {viewingAirport?.icao}</code> to fetch NOTAMs and check Chrome/Playwright.</p>
+                      <p className="text-xs text-muted-foreground">Run locally: <code className="bg-muted px-1 rounded">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
                     </div>
                   )}
                   {!notamsLoading && !notamsError && notams && notams.length === 0 && (
@@ -2811,6 +2811,7 @@ function AIPPortalPageInner() {
                         className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
                           const isUsa = isUsaAipIcao(viewingAirport.icao);
+                          const isRussia = isRussiaIcao(viewingAirport.icao);
                           const webAip =
                             viewingAirport.webAipUrl ||
                             getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
@@ -2818,7 +2819,7 @@ function AIPPortalPageInner() {
                             getEadWebAipUrlForAirport(viewingAirport) ||
                             (isUsa ? USA_WEB_AIP_URL : null);
                           if (webAip) {
-                            if (isUsa) {
+                            if (isUsa || isRussia) {
                               window.open(webAip, "_blank", "noopener,noreferrer");
                               return;
                             }

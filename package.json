@@ -19,6 +19,7 @@
     "test:e2e:webhook:test": "node scripts/test-webhook.mjs",
     "test:e2e:webhook:send": "node scripts/send-test-webhook.mjs",
     "test:notam:skylink": "node scripts/test-skylink-notam.mjs",
+    "check:sync-services": "node scripts/check-sync-services.mjs",
     "test:auth": "node --test tests/auth-email-flow-utils.test.mjs",
     "test:ai-prompts": "node --test tests/ai-prompts-english.test.mjs",
     "test:auth-and-prompts": "node --test tests/auth-email-flow-utils.test.mjs tests/ai-prompts-english.test.mjs",

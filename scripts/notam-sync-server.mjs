@@ -1,19 +1,16 @@
 #!/usr/bin/env node
 /**
- * NOTAM sync server – run on EC2. Receives sync requests and runs the NOTAM scraper,
- * then returns the result (from S3). Used by the portal so "sync" triggers a live scrape.
+ * NOTAM sync server – run on EC2/self-hosted. Receives sync requests and runs the NOTAM/Weather sync scripts,
+ * then returns the result from local storage. Used by the portal so "sync" triggers live refresh.
  *
  * Usage: AWS_S3_BUCKET=your-bucket SYNC_SECRET=your-secret node scripts/notam-sync-server.mjs
  * Port: 3001 (or NOTAM_SYNC_PORT)
  *
- * Split NOTAM vs weather (two CrewBriefing users on one IP — two tmux sessions):
+ * Split NOTAM vs weather:
  *   SYNC_SERVER_MODE=notam   → only GET /sync  (NOTAM)
  *   SYNC_SERVER_MODE=weather → only GET /sync/weather
  *   SYNC_SERVER_MODE=all     → both (default)
- * Weather scraper uses CREWBRIEFING_WEATHER_* if set, else CREWBRIEFING_*.
- *
- * macOS / local: no xvfb-run — runs `node` directly with USE_HEADED=0 (headless) unless USE_HEADED=1.
- * Linux EC2: uses xvfb-run unless SYNC_USE_XVFB=0.
+ * Sync scripts currently use SkyLink API sources. FAA browser scraper remains as optional fallback.
  */
 
 import { createServer } from "http";
@@ -30,24 +27,22 @@ const PORT = Number(process.env.NOTAM_SYNC_PORT) || 3001;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 120_000;
 
-// crewbriefing = CrewBriefing NOTAMs (default); faa = FAA NOTAM scraper
-const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "crewbriefing").toLowerCase();
+// skylink = API-based NOTAM sync (default); faa = FAA browser scraper fallback
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
 const SCRAPER_SCRIPT =
   NOTAM_SCRAPER === "faa"
     ? "scripts/notam-scraper.mjs"
-    : "scripts/crewbriefing-notams.mjs";
-const WEATHER_SCRIPT = "scripts/crewbriefing-weather.mjs";
+    : "scripts/skylink-notams.mjs";
+const WEATHER_SCRIPT = "scripts/skylink-weather.mjs";
 
 const SYNC_SERVER_MODE = (process.env.SYNC_SERVER_MODE || "all").toLowerCase();
 const ALLOW_NOTAM = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "notam";
 const ALLOW_WEATHER = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "weather";
 let hasXvfbRunBinary = null;
 
-/** Map weather-specific CrewBriefing env into CREWBRIEFING_USER/PASSWORD for the child process. */
+/** Pass through environment for weather sync child process. */
 function envForWeatherScraper(base = process.env) {
-  const user = base.CREWBRIEFING_WEATHER_USER || base.CREWBRIEFING_USER || "";
-  const password = base.CREWBRIEFING_WEATHER_PASSWORD || base.CREWBRIEFING_PASSWORD || "";
-  return { ...base, CREWBRIEFING_USER: user, CREWBRIEFING_PASSWORD: password };
+  return { ...base };
 }
 
 function requireAuth(req) {

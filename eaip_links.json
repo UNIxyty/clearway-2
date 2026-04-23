@@ -1,0 +1,242 @@
+[
+  {
+    "country": "Albania",
+    "icao": "LA",
+    "link": "https://www.albcontrol.al/aip/",
+    "status": "done"
+  },
+  {
+    "country": "Armenia",
+    "icao": "UD",
+    "link": "https://armats.am/activities/ais/eaip",
+    "status": "done"
+  },
+  {
+    "country": "Austria",
+    "icao": "LO",
+    "link": "https://eaip.austrocontrol.at/",
+    "status": "done"
+  },
+  {
+    "country": "Azerbaijan",
+    "icao": "UB",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Belgium",
+    "icao": "EB",
+    "link": "https://ops.skeyes.be/htmlAIP/",
+    "status": "correct"
+  },
+  {
+    "country": "Bosnia",
+    "icao": "LQ",
+    "link": "https://eaip.bhansa.gov.ba/",
+    "status": "correct"
+  },
+  {
+    "country": "Bulgaria",
+    "icao": "LB",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Croatia",
+    "icao": "LD",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Cyprus",
+    "icao": "LC",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Czech Republic",
+    "icao": "LK",
+    "link": "https://aim.rlp.cz/",
+    "status": "correct"
+  },
+  {
+    "country": "Denmark",
+    "icao": "EK",
+    "link": "https://aim.naviair.dk/",
+    "status": "correct"
+  },
+  {
+    "country": "Estonia",
+    "icao": "EE",
+    "link": "https://aim.eans.ee/et/eaip",
+    "status": "correct"
+  },
+  {
+    "country": "Finland",
+    "icao": "EF",
+    "link": "https://ais.fi/eaip/",
+    "status": "correct"
+  },
+  {
+    "country": "France",
+    "icao": "LF",
+    "link": "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html",
+    "status": "correct"
+  },
+  {
+    "country": "Georgia",
+    "icao": "UG",
+    "link": "https://airnav.ge/eaip/history-en-GB.html",
+    "status": "correct"
+  },
+  {
+    "country": "Germany",
+    "icao": "ED",
+    "link": "https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html",
+    "status": "correct"
+  },
+  {
+    "country": "Greece",
+    "icao": "LG",
+    "link": "https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications",
+    "status": "correct"
+  },
+  {
+    "country": "Hungary",
+    "icao": "LH",
+    "link": "https://ais-en.hungarocontrol.hu/aip/aip-archive/",
+    "status": "correct"
+  },
+  {
+    "country": "Iceland",
+    "icao": "BI",
+    "link": "https://eaip.isavia.is/",
+    "status": "correct"
+  },
+  {
+    "country": "Ireland",
+    "icao": "EI",
+    "link": "https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package#Part_III_-_Aerodromes_(AD)",
+    "status": "correct"
+  },
+  {
+    "country": "Italy",
+    "icao": "LI",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Kazakhstan",
+    "icao": "UA",
+    "link": "https://www.ans.kz/en/ais/eaip",
+    "status": "correct"
+  },
+  {
+    "country": "Latvia",
+    "icao": "EV",
+    "link": "https://ais.lgs.lv/aiseaip",
+    "status": "correct"
+  },
+  {
+    "country": "Lithuania",
+    "icao": "EY",
+    "link": "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html",
+    "status": "correct"
+  },
+  {
+    "country": "Malta",
+    "icao": "LM",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Moldova",
+    "icao": "LU",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Netherlands",
+    "icao": "EH",
+    "link": "https://eaip.lvnl.nl/web/eaip/default.html",
+    "status": "correct"
+  },
+  {
+    "country": "Norway",
+    "icao": "EN",
+    "link": "https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html",
+    "status": "correct"
+  },
+  {
+    "country": "Poland",
+    "icao": "EP",
+    "link": "https://www.ais.pansa.pl/en/publications/aip-poland/",
+    "status": "correct"
+  },
+  {
+    "country": "Portugal",
+    "icao": "LP",
+    "link": "https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html",
+    "status": "correct"
+  },
+  {
+    "country": "Romania",
+    "icao": "LR",
+    "link": "https://www.aisro.ro/",
+    "status": "correct"
+  },
+  {
+    "country": "Serbia",
+    "icao": "LY",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Slovakia",
+    "icao": "LZ",
+    "link": "https://aim.lps.sk/web/index.php?fn=200&lng=en&sess=rqBc1HuJxz891d9R5BfbUNRh83mTpGFzJADGIIGH",
+    "status": "correct"
+  },
+  {
+    "country": "Slovenia",
+    "icao": "LJ",
+    "link": "https://aim.sloveniacontrol.si/aim/products/aip/",
+    "status": "correct"
+  },
+  {
+    "country": "Spain",
+    "icao": "LE",
+    "link": "https://aip.enaire.es/AIP/AIP-en.html",
+    "status": "correct"
+  },
+  {
+    "country": "Sweden",
+    "icao": "ES",
+    "link": "https://aro.lfv.se/content/eaip/default_offline.html",
+    "status": "correct"
+  },
+  {
+    "country": "Switzerland",
+    "icao": "LS",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Turkey",
+    "icao": "LT",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "Ukraine",
+    "icao": "UK",
+    "link": "EAD",
+    "status": "correct"
+  },
+  {
+    "country": "United Kingdom",
+    "icao": "EG",
+    "link": "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/",
+    "status": "correct"
+  }
+]

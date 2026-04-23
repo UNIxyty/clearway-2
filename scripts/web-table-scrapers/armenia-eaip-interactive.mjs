@@ -26,6 +26,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "armenia-eaip", "AD2");
 const ENTRY_URL = "https://armats.am/activities/ais/eaip";
 const UA = "Mozilla/5.0 (compatible; clearway-armenia-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
+const log = (...args) => console.error("[ARMENIA]", ...args);
 
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
@@ -48,6 +49,7 @@ function parseCompactDateToIso(compact) {
 }
 
 async function fetchText(url) {
+  log("Fetching HTML:", url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -112,14 +114,17 @@ function parseAd2Entries(aipPdfHtml, aipPdfUrl) {
 }
 
 async function downloadPdf(url, outFile) {
+  log("Downloading PDF:", url);
   const res = await fetch(url, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
   writeFileSync(outFile, bytes);
+  log("Saved PDF:", outFile);
 }
 
 async function resolveContext() {
+  log("Resolving current issue from:", ENTRY_URL);
   const entryHtml = await fetchText(ENTRY_URL);
   const issuePath = parseCurrentIssueLink(entryHtml);
   if (!issuePath) throw new Error("Could not resolve currently effective Armenia issue link.");
@@ -132,6 +137,10 @@ async function resolveContext() {
   if (!aipPdfHref) throw new Error("Armenia menu does not contain AIP PDF listing link.");
   const aipPdfUrl = new URL(aipPdfHref, menuUrl).href;
   const aipPdfHtml = await fetchText(aipPdfUrl);
+  log("Resolved issue URL:", issueUrl);
+  log("Resolved menu URL:", menuUrl);
+  log("Resolved AIP PDF listing URL:", aipPdfUrl);
+  if (effectiveDate) log("Effective date:", effectiveDate);
   return { effectiveDate, aipPdfUrl, aipPdfHtml };
 }
 
@@ -139,9 +148,12 @@ async function main() {
   const ctx = await resolveContext();
   const genEntries = parseGenEntries(ctx.aipPdfHtml, ctx.aipPdfUrl);
   const ad2Entries = parseAd2Entries(ctx.aipPdfHtml, ctx.aipPdfUrl);
+  log("GEN entries found:", genEntries.length);
+  log("AD2 entries found:", ad2Entries.length);
   const dateTag = ctx.effectiveDate || "unknown-date";
 
   if (collectMode()) {
+    log("Collect mode complete. ICAOs:", ad2Entries.length);
     printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ad2Entries.map((x) => x.icao) });
     return;
   }
@@ -187,6 +199,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[ARMENIA] failed:", err?.message || err);
+  log("failed:", err?.message || err);
   process.exit(1);
 });

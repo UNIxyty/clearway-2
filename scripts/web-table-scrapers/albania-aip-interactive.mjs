@@ -30,6 +30,7 @@ const ENTRY_URL = "https://www.albcontrol.al/aip/";
 const UA = "Mozilla/5.0 (compatible; clearway-albania-aip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
 const execFileAsync = promisify(execFile);
+const log = (...args) => console.error("[ALBANIA]", ...args);
 
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
@@ -52,6 +53,7 @@ function parseDateTextToIso(raw) {
 }
 
 async function fetchText(url) {
+  log("Fetching HTML:", url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -123,14 +125,17 @@ function pdfCandidatesFromHtmlUrl(htmlUrl) {
 }
 
 async function downloadPdfWithFallback(htmlUrl, outFile) {
+  log("Resolving PDF from HTML:", htmlUrl);
   let lastErr = null;
   for (const u of pdfCandidatesFromHtmlUrl(htmlUrl)) {
     try {
+      log("Trying direct PDF candidate:", u);
       const res = await fetch(u, { headers: { "User-Agent": UA } });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const bytes = Buffer.from(await res.arrayBuffer());
       if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("not a PDF");
       writeFileSync(outFile, bytes);
+      log("Saved PDF:", outFile);
       return;
     } catch (e) {
       lastErr = e;
@@ -145,6 +150,7 @@ async function extractPdfFromZip(zipUrl, preferredBasenames, outFile) {
   const res = await fetch(zipUrl, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`ZIP fetch failed: ${res.status} ${res.statusText}`);
   writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()));
+  log("Downloaded ZIP fallback:", zipUrl);
   try {
     const { stdout: listStdout } = await execFileAsync("unzip", ["-Z1", zipPath], { maxBuffer: 32 * 1024 * 1024 });
     const names = String(listStdout || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
@@ -186,6 +192,8 @@ async function extractPdfFromZip(zipUrl, preferredBasenames, outFile) {
       throw new Error(`Extracted entry is not PDF: ${chosen}`);
     }
     writeFileSync(outFile, bytes);
+    log("Extracted PDF from ZIP entry:", chosen);
+    log("Saved PDF:", outFile);
     return chosen;
   } catch (e) {
     throw new Error(`ZIP fallback failed: ${e?.message || e}`);
@@ -193,6 +201,7 @@ async function extractPdfFromZip(zipUrl, preferredBasenames, outFile) {
 }
 
 async function resolveContext() {
+  log("Resolving current issue from:", ENTRY_URL);
   const rootHtml = await fetchText(ENTRY_URL);
   const current = parseCurrentIssue(rootHtml);
   if (!current.issueUrl) throw new Error("Could not resolve current Albania issue URL.");
@@ -200,6 +209,9 @@ async function resolveContext() {
   const indexHtml = await fetchText(issueUrl);
   const menuUrl = parseMenuUrl(indexHtml, issueUrl);
   const menuHtml = await fetchText(menuUrl);
+  log("Resolved issue URL:", issueUrl);
+  log("Resolved menu URL:", menuUrl);
+  if (current.effectiveDate) log("Effective date:", current.effectiveDate);
   return { effectiveDate: current.effectiveDate, menuUrl, menuHtml, zipUrl: current.zipUrl ? new URL(current.zipUrl, ENTRY_URL).href : "" };
 }
 
@@ -207,6 +219,7 @@ async function main() {
   if (collectMode()) {
     const ctx = await resolveContext();
     const ad2 = parseAd2Entries(ctx.menuHtml, ctx.menuUrl).map((x) => x.icao);
+    log("Collect mode complete. ICAOs:", ad2.length);
     printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ad2 });
     return;
   }
@@ -214,6 +227,8 @@ async function main() {
   const ctx = await resolveContext();
   const genEntries = parseGenEntries(ctx.menuHtml, ctx.menuUrl);
   const ad2Entries = parseAd2Entries(ctx.menuHtml, ctx.menuUrl);
+  log("GEN entries found:", genEntries.length);
+  log("AD2 entries found:", ad2Entries.length);
   const dateTag = ctx.effectiveDate || "unknown-date";
 
   if (downloadGen12) {
@@ -285,6 +300,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[ALBANIA] failed:", err?.message || err);
+  log("failed:", err?.message || err);
   process.exit(1);
 });

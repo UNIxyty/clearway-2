@@ -26,6 +26,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "austria-eaip", "AD2");
 const ENTRY_URL = "https://eaip.austrocontrol.at/";
 const UA = "Mozilla/5.0 (compatible; clearway-austria-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
+const log = (...args) => console.error("[AUSTRIA]", ...args);
 
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
@@ -48,6 +49,7 @@ function parseDateTextToIso(raw) {
 }
 
 async function fetchText(url) {
+  log("Fetching HTML:", url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -105,14 +107,17 @@ function parseAd2Entries(ad2Html, ad2Url) {
 }
 
 async function downloadPdf(url, outFile) {
+  log("Downloading PDF:", url);
   const res = await fetch(url, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
   writeFileSync(outFile, bytes);
+  log("Saved PDF:", outFile);
 }
 
 async function resolveContext() {
+  log("Resolving current issue from:", ENTRY_URL);
   const rootHtml = await fetchText(ENTRY_URL);
   const cur = parseCurrentIssue(rootHtml);
   if (!cur.issueUrl) throw new Error("Could not resolve current Austria issue URL.");
@@ -121,6 +126,10 @@ async function resolveContext() {
   const ad2Url = new URL("ad_2.htm", issueUrl).href;
   const genHtml = await fetchText(genUrl);
   const ad2Html = await fetchText(ad2Url);
+  log("Resolved issue URL:", issueUrl);
+  log("GEN page URL:", genUrl);
+  log("AD2 page URL:", ad2Url);
+  if (cur.effectiveDate) log("Effective date:", cur.effectiveDate);
   return { effectiveDate: cur.effectiveDate, genUrl, ad2Url, genHtml, ad2Html };
 }
 
@@ -128,9 +137,12 @@ async function main() {
   const ctx = await resolveContext();
   const genEntries = parseGenEntries(ctx.genHtml, ctx.genUrl);
   const ad2Entries = parseAd2Entries(ctx.ad2Html, ctx.ad2Url);
+  log("GEN entries found:", genEntries.length);
+  log("AD2 entries found:", ad2Entries.length);
   const dateTag = ctx.effectiveDate || "unknown-date";
 
   if (collectMode()) {
+    log("Collect mode complete. ICAOs:", ad2Entries.length);
     printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ad2Entries.map((x) => x.icao) });
     return;
   }
@@ -176,6 +188,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[AUSTRIA] failed:", err?.message || err);
+  log("failed:", err?.message || err);
   process.exit(1);
 });

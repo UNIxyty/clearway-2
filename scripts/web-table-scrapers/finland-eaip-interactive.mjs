@@ -12,6 +12,7 @@ import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { chromium } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -122,9 +123,27 @@ function parseAd2Entries(menuHtml, menuUrl) {
 async function resolveAdPrimaryPdf(adHtmlUrl, icao) {
   const page = await fetchText(adHtmlUrl);
   const links = [...String(page || "").matchAll(/href=["']([^"']+\.pdf[^"']*)["']/gi)].map((m) => m[1]);
-  if (!links.length) throw new Error(`No PDF links found for AD2 page: ${adHtmlUrl}`);
+  if (!links.length) return null;
   const preferred = links.find((href) => new RegExp(`EF_AD_2_${icao}_`, "i").test(href)) || links[0];
   return new URL(preferred, adHtmlUrl).href;
+}
+
+async function renderHtmlAsPdf(pageUrl, outFile) {
+  log("Rendering AD2 HTML to PDF fallback:", pageUrl);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: FETCH_TIMEOUT_MS });
+    await page.pdf({
+      path: outFile,
+      format: "A4",
+      printBackground: true,
+      margin: { top: "10mm", right: "8mm", bottom: "10mm", left: "8mm" },
+    });
+    log("Saved PDF (rendered fallback):", outFile);
+  } finally {
+    await browser.close();
+  }
 }
 
 function gen12PdfUrl(issueRoot) {
@@ -172,9 +191,11 @@ async function main() {
   if (downloadAd2Icao) {
     const row = ctx.ad2Entries.find((x) => x.icao === downloadAd2Icao);
     if (!row) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
-    const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
     mkdirSync(OUT_AD2, { recursive: true });
-    await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`), row.htmlUrl);
+    const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
+    const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
+    if (pdfUrl) await downloadPdf(pdfUrl, outFile, row.htmlUrl);
+    else await renderHtmlAsPdf(row.htmlUrl, outFile);
     return;
   }
 
@@ -198,9 +219,11 @@ async function main() {
           ? ctx.ad2Entries[n - 1]
           : ctx.ad2Entries.find((x) => x.icao === raw);
       if (!row) throw new Error("Invalid selection.");
-      const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
       mkdirSync(OUT_AD2, { recursive: true });
-      await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`), row.htmlUrl);
+      const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
+      const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
+      if (pdfUrl) await downloadPdf(pdfUrl, outFile, row.htmlUrl);
+      else await renderHtmlAsPdf(row.htmlUrl, outFile);
     }
   } finally {
     rl.close();

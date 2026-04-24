@@ -24,6 +24,9 @@ const OUT_GEN = join(PROJECT_ROOT, "downloads", "hungary-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "hungary-eaip", "AD2");
 const ENTRY_URL = "https://ais-en.hungarocontrol.hu/aip/aip-archive/";
 const UA = "Mozilla/5.0 (compatible; clearway-hungary-eaip/1.0)";
+const FETCH_TIMEOUT_MS = 45_000;
+const DOWNLOAD_TIMEOUT_MS = 240_000;
+const MAX_RETRIES = 3;
 const log = (...args) => console.error("[HUNGARY]", ...args);
 
 const downloadAd2Icao = (() => {
@@ -32,17 +35,78 @@ const downloadAd2Icao = (() => {
 })();
 const downloadGen12 = process.argv.includes("--download-gen12");
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchText(url) {
   log("Fetching HTML:", url);
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return await res.text();
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= MAX_RETRIES) break;
+      log(`Fetch failed (attempt ${attempt}/${MAX_RETRIES}):`, err?.message || err);
+      await sleep(800 * attempt);
+    }
+  }
+  throw lastErr || new Error(`Failed to fetch ${url}`);
 }
 
 async function downloadFile(url, dest) {
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      log(`Downloading ZIP (attempt ${attempt}/${MAX_RETRIES}):`, url);
+      const res = await fetchWithTimeout(url, DOWNLOAD_TIMEOUT_MS);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const total = Number(res.headers.get("content-length") || 0);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Response body stream unavailable");
+      const chunks = [];
+      let loaded = 0;
+      let nextLogAt = 5 * 1024 * 1024;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(Buffer.from(value));
+          loaded += value.length;
+          if (loaded >= nextLogAt) {
+            if (total > 0) {
+              const pct = ((loaded / total) * 100).toFixed(1);
+              log(`ZIP progress: ${pct}% (${Math.round(loaded / 1024 / 1024)}MB/${Math.round(total / 1024 / 1024)}MB)`);
+            } else {
+              log(`ZIP progress: ${Math.round(loaded / 1024 / 1024)}MB downloaded`);
+            }
+            nextLogAt += 5 * 1024 * 1024;
+          }
+        }
+      }
+      writeFileSync(dest, Buffer.concat(chunks));
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= MAX_RETRIES) break;
+      log(`ZIP download failed (attempt ${attempt}/${MAX_RETRIES}):`, err?.message || err);
+      await sleep(1_000 * attempt);
+    }
+  }
+  throw lastErr || new Error(`Failed to download ${url}`);
 }
 
 function parseZipUrls(html) {
@@ -68,6 +132,7 @@ async function listZipEntries(zipUrl) {
   const zipFile = join(tmp, "eaip.zip");
   try {
     await downloadFile(zipUrl, zipFile);
+    log("Listing ZIP entries...");
     const { stdout } = await execFileAsync("unzip", ["-Z1", zipFile], { maxBuffer: 16 * 1024 * 1024 });
     return String(stdout || "")
       .split(/\r?\n/)
@@ -104,6 +169,7 @@ async function extractPdfFromZip(zipUrl, candidates, outFile) {
       }
     }
     if (!selected) throw new Error(`ZIP entry not found. Candidates: ${candidates.join(", ")}`);
+    log("Extracting ZIP entry:", selected);
     const { stdout } = await execFileAsync("unzip", ["-p", zipFile, selected], {
       encoding: "buffer",
       maxBuffer: 128 * 1024 * 1024,
@@ -132,29 +198,43 @@ async function resolveContext() {
   return { zipUrl, effectiveDate, ad2Icaos };
 }
 
+async function resolveZipMeta() {
+  const html = await fetchText(ENTRY_URL);
+  const zipUrls = parseZipUrls(html);
+  if (!zipUrls.length) throw new Error("Could not resolve Hungary eAIP ZIP URL.");
+  const zipUrl = zipUrls[0];
+  const effectiveDate = parseEffectiveDate(zipUrl);
+  log("Resolved ZIP URL:", zipUrl);
+  if (effectiveDate) log("Effective date:", effectiveDate);
+  return { zipUrl, effectiveDate };
+}
+
 async function main() {
-  const ctx = await resolveContext();
-  const dateTag = ctx.effectiveDate || "unknown-date";
-
-  if (collectMode()) {
-    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Icaos });
-    return;
-  }
-
   if (downloadGen12) {
+    const ctx = await resolveZipMeta();
+    const dateTag = ctx.effectiveDate || "unknown-date";
     mkdirSync(OUT_GEN, { recursive: true });
     await extractPdfFromZip(ctx.zipUrl, ["LH_GEN_1_2_en.pdf"], join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
     return;
   }
 
   if (downloadAd2Icao) {
-    if (!ctx.ad2Icaos.includes(downloadAd2Icao)) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
+    const ctx = await resolveZipMeta();
+    const dateTag = ctx.effectiveDate || "unknown-date";
     mkdirSync(OUT_AD2, { recursive: true });
     await extractPdfFromZip(
       ctx.zipUrl,
       [`LH_AD_2_${downloadAd2Icao}_en.pdf`],
       join(OUT_AD2, `${dateTag}_${downloadAd2Icao}_AD2.pdf`),
     );
+    return;
+  }
+
+  const ctx = await resolveContext();
+  const dateTag = ctx.effectiveDate || "unknown-date";
+
+  if (collectMode()) {
+    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Icaos });
     return;
   }
 

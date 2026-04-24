@@ -20,6 +20,8 @@ const OUT_GEN = join(PROJECT_ROOT, "downloads", "sweden-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "sweden-eaip", "AD2");
 const ENTRY_URL = "https://aro.lfv.se/content/eaip/default_offline.html";
 const UA = "Mozilla/5.0 (compatible; clearway-sweden-eaip/1.0)";
+const FETCH_TIMEOUT_MS = 45_000;
+const MAX_RETRIES = 3;
 const log = (...args) => console.error("[SWEDEN]", ...args);
 
 const downloadAd2Icao = (() => {
@@ -28,21 +30,60 @@ const downloadAd2Icao = (() => {
 })();
 const downloadGen12 = process.argv.includes("--download-gen12");
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(url, extraHeaders = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { headers: { "User-Agent": UA, ...extraHeaders }, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchText(url) {
   log("Fetching HTML:", url);
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return await res.text();
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.text();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        log(`Retrying fetch (${attempt}/${MAX_RETRIES - 1}):`, url);
+        await sleep(400 * attempt);
+      }
+    }
+  }
+  throw lastErr || new Error(`Failed to fetch ${url}`);
 }
 
 async function downloadPdf(url, outFile, referer = "") {
   log("Downloading PDF:", url);
-  const res = await fetch(url, { headers: { "User-Agent": UA, ...(referer ? { Referer: referer } : {}) } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const bytes = Buffer.from(await res.arrayBuffer());
-  if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
-  writeFileSync(outFile, bytes);
-  log("Saved PDF:", outFile);
+  let lastErr = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, referer ? { Referer: referer } : {});
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const bytes = Buffer.from(await res.arrayBuffer());
+      if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
+      writeFileSync(outFile, bytes);
+      log("Saved PDF:", outFile);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        log(`Retrying download (${attempt}/${MAX_RETRIES - 1}):`, url);
+        await sleep(500 * attempt);
+      }
+    }
+  }
+  throw lastErr || new Error(`Failed to download ${url}`);
 }
 
 function parseIssueIndexUrl(entryHtml) {
@@ -123,7 +164,9 @@ async function resolveContext() {
   const issueIndexUrl = parseIssueIndexUrl(entryHtml);
   const issueRootUrl = new URL("./", issueIndexUrl).href;
   const datasourceJs = await fetchText(new URL("v2/js/datasource.js", issueRootUrl).href);
+  log("Parsing datasource...");
   const datasource = parseDatasource(datasourceJs);
+  log("Building AD2 index from datasource...");
   const parsed = parseFromDatasource(datasource, issueRootUrl);
   const effectiveDate = parseEffectiveDate(issueIndexUrl);
 

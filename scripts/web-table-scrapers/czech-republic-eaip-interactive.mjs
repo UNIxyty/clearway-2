@@ -3,7 +3,7 @@
  * Interactive Czech Republic eAIP downloader.
  *
  * Source:
- * - https://aim.rlp.cz/
+ * - https://aim.rlp.cz/ais_data/www_main_control/frm_en_aip.htm
  */
 
 import readline from "node:readline/promises";
@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "czech-republic-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "czech-republic-eaip", "AD2");
-const ENTRY_URL = "https://aim.rlp.cz/eaip/html/index-en-GB.html";
+const ENTRY_URL = "https://aim.rlp.cz/ais_data/aip/control/aip_obsah_en.htm";
 const UA = "Mozilla/5.0 (compatible; clearway-czech-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
 const log = (...args) => console.error("[CZECH]", ...args);
@@ -51,84 +51,51 @@ async function downloadPdf(url, outFile) {
   log("Saved PDF:", outFile);
 }
 
-function parseMenuUrl(indexHtml, indexUrl) {
-  const frameSetHref =
-    String(indexHtml || "").match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1] ||
-    "toc-frameset-en-GB.html";
-  return new URL(frameSetHref, indexUrl).href;
-}
-
-function parseNavFrameUrl(frameSetHtml, frameSetUrl) {
-  const menuHref =
-    String(frameSetHtml || "").match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i)?.[1] ||
-    String(frameSetHtml || "").match(/<frame[^>]*src=["']([^"']*menu[^"']+\.html)["']/i)?.[1];
-  if (!menuHref) throw new Error("Could not resolve Czech menu frame URL.");
-  return new URL(menuHref, frameSetUrl).href;
-}
-
 function stripHtml(v) {
   return String(v || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function parseGenEntries(menuHtml, menuUrl) {
+function parseGenEntries(indexHtml, indexUrl) {
   const bySection = new Map();
-  for (const m of String(menuHtml || "").matchAll(/href=["']([^"']*LK-GEN-([0-9.]+)-en-GB\.html(?:#[^"']*)?)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    const section = `GEN-${m[2]}`;
+  for (const m of String(indexHtml || "").matchAll(/href=["']([^"']*\/aip\/data\/valid\/[^"']+\.pdf)["'][^>]*>\s*(GEN\s*[0-9.]+)\s*<\/a>/gi)) {
+    const section = String(m[2] || "").replace(/\s+/g, "").toUpperCase().replace(/^GEN/, "GEN-");
     if (bySection.has(section)) continue;
     bySection.set(section, {
       section,
-      label: stripHtml(m[3]) || section,
-      htmlUrl: new URL(m[1], menuUrl).href,
+      label: section,
+      pdfUrl: new URL(m[1], indexUrl).href,
     });
   }
   return [...bySection.values()].sort((a, b) => a.section.localeCompare(b.section, undefined, { numeric: true }));
 }
 
-function parseAd2Entries(menuHtml, menuUrl) {
+function parseAd2Entries(indexHtml, indexUrl) {
   const byIcao = new Map();
-  for (const m of String(menuHtml || "").matchAll(/href=["']([^"']*LK-AD-2\.([A-Z0-9]{4})-en-GB\.html(?:#[^"']*)?)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    const icao = m[2].toUpperCase();
+  for (const m of String(indexHtml || "").matchAll(/<span>\s*([A-Z0-9]{4})\s*<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>[\s\S]*?<a[^>]*href=["']([^"']*\/aip\/data\/valid\/[^"']*text[^"']*\.pdf)["']/gi)) {
+    const icao = m[1].toUpperCase();
     if (byIcao.has(icao)) continue;
     byIcao.set(icao, {
       icao,
-      label: stripHtml(m[3]) || icao,
-      htmlUrl: new URL(m[1], menuUrl).href,
+      label: stripHtml(m[2]) || icao,
+      pdfUrl: new URL(m[3], indexUrl).href,
     });
   }
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
 }
 
 function parseEffectiveDate(indexHtml) {
-  const m = String(indexHtml || "").match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  const m = String(indexHtml || "").match(/AIRAC\s+effective(?:\s+date)?\s*[:\-]?\s*(\d{1,2})\.(\d{1,2})\.(20\d{2})/i);
   if (!m) return null;
-  return `${m[1]}-${m[2]}-${m[3]}`;
-}
-
-function extractPrimaryPdfHref(pageHtml) {
-  return (
-    String(pageHtml || "").match(/href=["']([^"']*\/pdf\/[^"']+\.pdf)["']/i)?.[1] ||
-    String(pageHtml || "").match(/href=["']([^"']*\.pdf)["']/i)?.[1] ||
-    ""
-  );
+  return `${m[3]}-${String(m[2]).padStart(2, "0")}-${String(m[1]).padStart(2, "0")}`;
 }
 
 async function resolveContext() {
-  const indexHtml = await fetchText(ENTRY_URL);
-  const frameSetUrl = parseMenuUrl(indexHtml, ENTRY_URL);
-  const frameSetHtml = await fetchText(frameSetUrl);
-  const menuUrl = parseNavFrameUrl(frameSetHtml, frameSetUrl);
-  const menuHtml = await fetchText(menuUrl);
-  const effectiveDate = parseEffectiveDate(indexHtml);
+  const menuHtml = await fetchText(ENTRY_URL);
+  const effectiveDate = parseEffectiveDate(menuHtml);
+  const menuUrl = ENTRY_URL;
   log("Resolved menu URL:", menuUrl);
   if (effectiveDate) log("Effective date:", effectiveDate);
   return { effectiveDate, menuUrl, menuHtml };
-}
-
-async function resolveDirectPdfFromHtml(htmlUrl) {
-  const pageHtml = await fetchText(htmlUrl);
-  const href = extractPrimaryPdfHref(pageHtml);
-  if (!href) throw new Error(`No PDF link found in page: ${htmlUrl}`);
-  return new URL(href, htmlUrl).href;
 }
 
 async function main() {
@@ -147,18 +114,16 @@ async function main() {
   if (downloadGen12) {
     const row = genEntries.find((x) => x.section === "GEN-1.2") ?? genEntries[0];
     if (!row) throw new Error("GEN entries not found.");
-    const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
     mkdirSync(OUT_GEN, { recursive: true });
-    await downloadPdf(pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
+    await downloadPdf(row.pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
     return;
   }
 
   if (downloadAd2Icao) {
     const row = ad2Entries.find((x) => x.icao === downloadAd2Icao);
     if (!row) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
-    const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
     mkdirSync(OUT_AD2, { recursive: true });
-    await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
+    await downloadPdf(row.pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
     return;
   }
 
@@ -169,9 +134,8 @@ async function main() {
     if (mode === "1") {
       const row = genEntries.find((x) => x.section === "GEN-1.2") ?? genEntries[0];
       if (!row) throw new Error("GEN entries not found.");
-      const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
       mkdirSync(OUT_GEN, { recursive: true });
-      await downloadPdf(pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
+      await downloadPdf(row.pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
       return;
     }
     if (mode === "2") {
@@ -180,9 +144,8 @@ async function main() {
       const n = Number.parseInt(raw, 10);
       const row = String(n) === raw && n >= 1 && n <= ad2Entries.length ? ad2Entries[n - 1] : ad2Entries.find((x) => x.icao === raw);
       if (!row) throw new Error("Invalid selection.");
-      const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
       mkdirSync(OUT_AD2, { recursive: true });
-      await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
+      await downloadPdf(row.pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
     }
   } finally {
     rl.close();

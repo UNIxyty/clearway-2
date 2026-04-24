@@ -29,7 +29,6 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "albania-aip", "AD2");
 const ENTRY_URL = "https://www.albcontrol.al/aip/";
 const UA = "Mozilla/5.0 (compatible; clearway-albania-aip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
-const PDF_FETCH_TIMEOUT_MS = 12_000;
 const execFileAsync = promisify(execFile);
 const log = (...args) => console.error("[ALBANIA]", ...args);
 
@@ -112,48 +111,6 @@ function parseAd2Entries(menuHtml, menuUrl) {
   }
   for (const v of byIcao.values()) out.push(v);
   return out.sort((a, b) => a.icao.localeCompare(b.icao));
-}
-
-function pdfCandidatesFromHtmlUrl(htmlUrl) {
-  const clean = String(htmlUrl || "").replace(/#.*$/, "");
-  const candidates = [
-    clean.replace("/html/eAIP/", "/pdf/").replace(".html", ".pdf"),
-    clean.replace("/html/", "/pdf/").replace(".html", ".pdf"),
-    clean.replace("-en-GB", "").replace("/html/eAIP/", "/pdf/").replace(".html", ".pdf"),
-    clean.replace("-en-GB", "").replace("/html/", "/pdf/").replace(".html", ".pdf"),
-  ];
-  return [...new Set(candidates)];
-}
-
-async function downloadPdfWithFallback(htmlUrl, outFile) {
-  log("Resolving PDF from HTML:", htmlUrl);
-  let lastErr = null;
-  for (const u of pdfCandidatesFromHtmlUrl(htmlUrl)) {
-    try {
-      log("Trying direct PDF candidate:", u);
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), PDF_FETCH_TIMEOUT_MS);
-      let res;
-      try {
-        res = await fetch(u, {
-          signal: controller.signal,
-          headers: { "User-Agent": UA },
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const bytes = Buffer.from(await res.arrayBuffer());
-      if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("not a PDF");
-      writeFileSync(outFile, bytes);
-      log("Saved PDF:", outFile);
-      return;
-    } catch (e) {
-      log("Direct candidate failed:", u, "-", e?.message || e);
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error("Direct PDF URL not found.");
 }
 
 async function extractPdfFromZip(zipUrl, preferredBasenames, outFile) {
@@ -258,11 +215,7 @@ async function main() {
     if (!row) throw new Error("GEN entries not found.");
     mkdirSync(OUT_GEN, { recursive: true });
     const outFile = join(OUT_GEN, `${dateTag}_${row.section}.pdf`);
-    try {
-      await downloadPdfWithFallback(row.htmlUrl, outFile);
-    } catch {
-      await extractPdfFromZip(ctx.zipUrl, ["LA_GEN_1_2_en.pdf", "LA-GEN-1.2-en-GB.pdf", "LA-GEN-1.2.pdf"], outFile);
-    }
+    await extractPdfFromZip(ctx.zipUrl, ["LA_GEN_1_2_en.pdf", "LA-GEN-1.2-en-GB.pdf", "LA-GEN-1.2.pdf"], outFile);
     return;
   }
 
@@ -271,15 +224,11 @@ async function main() {
     if (!row) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
     mkdirSync(OUT_AD2, { recursive: true });
     const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
-    try {
-      await downloadPdfWithFallback(row.htmlUrl, outFile);
-    } catch {
-      await extractPdfFromZip(
-        ctx.zipUrl,
-        [`LA_AD_2_${row.icao}_en.pdf`, `LA-AD-2.${row.icao}-en-GB.pdf`, `LA-AD-2.${row.icao}.pdf`],
-        outFile,
-      );
-    }
+    await extractPdfFromZip(
+      ctx.zipUrl,
+      [`LA_AD_2_${row.icao}_en.pdf`, `LA-AD-2.${row.icao}-en-GB.pdf`, `LA-AD-2.${row.icao}.pdf`],
+      outFile,
+    );
     return;
   }
 
@@ -291,11 +240,7 @@ async function main() {
       const row = genEntries.find((x) => /\bGEN-1\.2\b/i.test(x.section)) ?? genEntries[0];
       mkdirSync(OUT_GEN, { recursive: true });
       const outFile = join(OUT_GEN, `${dateTag}_${row.section}.pdf`);
-      try {
-        await downloadPdfWithFallback(row.htmlUrl, outFile);
-      } catch {
-        await extractPdfFromZip(ctx.zipUrl, ["LA_GEN_1_2_en.pdf", "LA-GEN-1.2-en-GB.pdf", "LA-GEN-1.2.pdf"], outFile);
-      }
+      await extractPdfFromZip(ctx.zipUrl, ["LA_GEN_1_2_en.pdf", "LA-GEN-1.2-en-GB.pdf", "LA-GEN-1.2.pdf"], outFile);
       return;
     }
     if (mode === "2") {
@@ -306,15 +251,11 @@ async function main() {
       if (!row) throw new Error("Invalid selection.");
       mkdirSync(OUT_AD2, { recursive: true });
       const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
-      try {
-        await downloadPdfWithFallback(row.htmlUrl, outFile);
-      } catch {
-        await extractPdfFromZip(
-          ctx.zipUrl,
-          [`LA_AD_2_${row.icao}_en.pdf`, `LA-AD-2.${row.icao}-en-GB.pdf`, `LA-AD-2.${row.icao}.pdf`],
-          outFile,
-        );
-      }
+      await extractPdfFromZip(
+        ctx.zipUrl,
+        [`LA_AD_2_${row.icao}_en.pdf`, `LA-AD-2.${row.icao}-en-GB.pdf`, `LA-AD-2.${row.icao}.pdf`],
+        outFile,
+      );
     }
   } finally {
     rl.close();

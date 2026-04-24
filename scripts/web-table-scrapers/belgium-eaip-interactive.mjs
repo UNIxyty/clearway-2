@@ -18,7 +18,7 @@ const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "belgium-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "belgium-eaip", "AD2");
 const ENTRY_URL = "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html";
-const UA = "Mozilla/5.0 (compatible; clearway-belgium-eaip/1.0)";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const FETCH_TIMEOUT_MS = 30_000;
 const log = (...args) => console.error("[BELGIUM]", ...args);
 
@@ -33,8 +33,22 @@ async function fetchText(url) {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     log("Fetching HTML:", url);
-    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": UA,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://www.google.com/",
+        "Upgrade-Insecure-Requests": "1",
+      },
+    });
+    if (!res.ok) {
+      if (res.status === 403) {
+        throw new Error("403 Forbidden (source host blocks this server IP/headers; try running from another network).");
+      }
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
     return await res.text();
   } finally {
     clearTimeout(timer);
@@ -43,19 +57,19 @@ async function fetchText(url) {
 
 async function downloadPdf(url, outFile) {
   log("Downloading PDF:", url);
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": UA,
+      Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: "https://www.google.com/",
+    },
+  });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
   writeFileSync(outFile, bytes);
   log("Saved PDF:", outFile);
-}
-
-function parseFrameSetUrl(indexHtml, indexUrl) {
-  const href =
-    String(indexHtml || "").match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1] ||
-    "toc-frameset-en-GB.html";
-  return new URL(href, indexUrl).href;
 }
 
 function parseMenuUrl(frameSetHtml, frameSetUrl) {
@@ -110,26 +124,39 @@ function parseAd2Entries(menuHtml, menuUrl) {
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
 }
 
-function extractPrimaryPdfHref(pageHtml) {
-  return (
-    String(pageHtml || "").match(/href=["']([^"']*\/pdf\/[^"']+\.pdf)["']/i)?.[1] ||
-    String(pageHtml || "").match(/href=["']([^"']*\.pdf)["']/i)?.[1] ||
-    ""
-  );
+function buildGenPdfUrl(section) {
+  const norm = String(section || "GEN-1.2")
+    .replace(/^GEN-/i, "")
+    .replace(/\./g, "_");
+  return new URL(`../pdf/EB_GEN_${norm}_en.pdf`, ENTRY_URL).href;
 }
 
-async function resolveDirectPdfFromHtml(htmlUrl) {
+function buildAd2PdfUrl(icao) {
+  return new URL(`../pdf/EB_AD_2_${String(icao || "").toUpperCase()}_en.pdf`, ENTRY_URL).href;
+}
+
+function extractPdfHrefs(pageHtml) {
+  return [...String(pageHtml || "").matchAll(/href=["']([^"']+\.pdf[^"']*)["']/gi)].map((m) => m[1]);
+}
+
+async function resolveDirectPdfFromHtml(htmlUrl, preferredPattern = null) {
   const pageHtml = await fetchText(htmlUrl);
-  const href = extractPrimaryPdfHref(pageHtml);
+  const hrefs = extractPdfHrefs(pageHtml);
+  let href = "";
+  if (preferredPattern) {
+    href = hrefs.find((x) => preferredPattern.test(x)) || "";
+  }
+  if (!href) {
+    href = hrefs.find((x) => /\/pdf\/|_AD_2_|_GEN_1_2_|-AD-2\.|-GEN-1\.2/i.test(x)) || "";
+  }
+  if (!href) href = hrefs[0] || "";
   if (!href) throw new Error(`No PDF link found in page: ${htmlUrl}`);
   return new URL(href, htmlUrl).href;
 }
 
 async function resolveContext() {
   const indexHtml = await fetchText(ENTRY_URL);
-  const frameSetUrl = parseFrameSetUrl(indexHtml, ENTRY_URL);
-  const frameSetHtml = await fetchText(frameSetUrl);
-  const menuUrl = parseMenuUrl(frameSetHtml, frameSetUrl);
+  const menuUrl = parseMenuUrl(indexHtml, ENTRY_URL);
   const menuHtml = await fetchText(menuUrl);
   const coverHtml = await fetchText(new URL("EB-cover-en-GB.html", ENTRY_URL).href);
   const effectiveDate = parseEffectiveDate(coverHtml);
@@ -154,7 +181,7 @@ async function main() {
   if (downloadGen12) {
     const row = genEntries.find((x) => x.section === "GEN-1.2") ?? genEntries[0];
     if (!row) throw new Error("GEN entries not found.");
-    const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
+    const pdfUrl = buildGenPdfUrl(row.section);
     mkdirSync(OUT_GEN, { recursive: true });
     await downloadPdf(pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
     return;
@@ -163,7 +190,7 @@ async function main() {
   if (downloadAd2Icao) {
     const row = ad2Entries.find((x) => x.icao === downloadAd2Icao);
     if (!row) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
-    const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
+    const pdfUrl = buildAd2PdfUrl(row.icao);
     mkdirSync(OUT_AD2, { recursive: true });
     await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
     return;
@@ -176,7 +203,7 @@ async function main() {
     if (mode === "1") {
       const row = genEntries.find((x) => x.section === "GEN-1.2") ?? genEntries[0];
       if (!row) throw new Error("GEN entries not found.");
-      const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
+      const pdfUrl = buildGenPdfUrl(row.section);
       mkdirSync(OUT_GEN, { recursive: true });
       await downloadPdf(pdfUrl, join(OUT_GEN, `${dateTag}_${row.section}.pdf`));
       return;
@@ -187,7 +214,7 @@ async function main() {
       const n = Number.parseInt(raw, 10);
       const row = String(n) === raw && n >= 1 && n <= ad2Entries.length ? ad2Entries[n - 1] : ad2Entries.find((x) => x.icao === raw);
       if (!row) throw new Error("Invalid selection.");
-      const pdfUrl = await resolveDirectPdfFromHtml(row.htmlUrl);
+      const pdfUrl = buildAd2PdfUrl(row.icao);
       mkdirSync(OUT_AD2, { recursive: true });
       await downloadPdf(pdfUrl, join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`));
     }

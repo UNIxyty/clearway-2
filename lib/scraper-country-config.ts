@@ -101,9 +101,19 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://aim.eans.ee/et/eaip",
   },
   {
+    country: "Georgia",
+    prefixes: ["UG"],
+    webAipUrl: "https://airnav.ge/eaip/history-en-GB.html",
+  },
+  {
     country: "Guatemala",
     prefixes: ["MG"],
     webAipUrl: "https://www.dgac.gob.gt/home/aip_e/",
+  },
+  {
+    country: "Hungary",
+    prefixes: ["LH"],
+    webAipUrl: "https://ais-en.hungarocontrol.hu/aip/aip-archive/",
   },
   {
     country: "Honduras",
@@ -136,6 +146,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Kosovo",
     prefixes: ["BK"],
     webAipUrl: "https://www.ashna-ks.org/eAIP/default.html",
+  },
+  {
+    country: "Kazakhstan",
+    prefixes: ["UA"],
+    webAipUrl: "https://www.ans.kz/en/ais/eaip",
   },
   {
     country: "Kuwait",
@@ -188,6 +203,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Panama",
     prefixes: ["MP"],
     webAipUrl: "https://www.aeronautica.gob.pa/ais-aip/",
+  },
+  {
+    country: "Poland",
+    prefixes: ["EP"],
+    webAipUrl: "https://www.ais.pansa.pl/en/publications/aip-poland/",
   },
   {
     country: "Qatar",

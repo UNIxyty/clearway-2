@@ -87,7 +87,7 @@
     "country": "Georgia",
     "icao": "UG",
     "link": "https://airnav.ge/eaip/history-en-GB.html",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Germany",
@@ -105,7 +105,7 @@
     "country": "Hungary",
     "icao": "LH",
     "link": "https://ais-en.hungarocontrol.hu/aip/aip-archive/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Iceland",
@@ -129,7 +129,7 @@
     "country": "Kazakhstan",
     "icao": "UA",
     "link": "https://www.ans.kz/en/ais/eaip",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Latvia",
@@ -171,7 +171,7 @@
     "country": "Poland",
     "icao": "EP",
     "link": "https://www.ais.pansa.pl/en/publications/aip-poland/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Portugal",

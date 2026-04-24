@@ -229,11 +229,25 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "estonia-eaip", "GEN"),
   },
   {
+    country: "Georgia",
+    prefixes: ["UG"],
+    script: "scripts/web-table-scrapers/georgia-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "georgia-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "georgia-eaip", "GEN"),
+  },
+  {
     country: "Guatemala",
     prefixes: ["MG"],
     script: "scripts/web-table-scrapers/guatemala-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "guatemala-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "guatemala-eaip", "GEN"),
+  },
+  {
+    country: "Hungary",
+    prefixes: ["LH"],
+    script: "scripts/web-table-scrapers/hungary-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "hungary-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "hungary-eaip", "GEN"),
   },
   {
     country: "Honduras",
@@ -276,6 +290,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/kosovo-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "kosovo-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "kosovo-eaip", "GEN"),
+  },
+  {
+    country: "Kazakhstan",
+    prefixes: ["UA"],
+    script: "scripts/web-table-scrapers/kazakhstan-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "kazakhstan-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "kazakhstan-eaip", "GEN"),
   },
   {
     country: "Kuwait",
@@ -347,6 +368,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/panama-aip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "panama-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "panama-aip", "GEN"),
+  },
+  {
+    country: "Poland",
+    prefixes: ["EP"],
+    script: "scripts/web-table-scrapers/poland-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "poland-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "poland-eaip", "GEN"),
   },
   {
     country: "Qatar",

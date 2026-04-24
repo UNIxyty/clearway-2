@@ -25,7 +25,9 @@ Connected scripts
 - [x] `ecuador-ifis3-interactive.mjs`
 - [x] `el-salvador-eaip-interactive.mjs`
 - [x] `estonia-eaip-interactive.mjs`
+- [x] `georgia-eaip-interactive.mjs`
 - [x] `guatemala-eaip-interactive.mjs`
+- [x] `hungary-eaip-interactive.mjs`
 - [x] `honduras-eaip-interactive.mjs`
 - [x] `hong-kong-eaip-interactive.mjs`
 - [x] `india-eaip-interactive.mjs`
@@ -33,6 +35,7 @@ Connected scripts
 - [x] `japan-aip-interactive.mjs`
 - [x] `korea-eaip-interactive.mjs`
 - [x] `kosovo-eaip-interactive.mjs`
+- [x] `kazakhstan-eaip-interactive.mjs`
 - [x] `kuwait-aip-interactive.mjs`
 - [x] `libya-aip-interactive.mjs`
 - [x] `malaysia-eaip-interactive.mjs`
@@ -43,6 +46,7 @@ Connected scripts
 - [x] `north-macedonia-eaip-interactive.mjs`
 - [x] `pakistan-eaip-interactive.mjs`
 - [x] `panama-aip-interactive.mjs`
+- [x] `poland-eaip-interactive.mjs`
 - [x] `qatar-eaip-interactive.mjs`
 - [x] `rwanda-aip-interactive.mjs`
 - [x] `saudi-arabia-eaip-interactive.mjs`

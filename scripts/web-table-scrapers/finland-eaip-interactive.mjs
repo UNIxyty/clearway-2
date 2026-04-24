@@ -122,35 +122,25 @@ function parseAd2Entries(menuHtml, menuUrl) {
 async function resolveAdPrimaryPdf(adHtmlUrl, icao) {
   const page = await fetchText(adHtmlUrl);
   const links = [...String(page || "").matchAll(/href=["']([^"']+\.pdf[^"']*)["']/gi)].map((m) => m[1]);
-  if (!links.length) return null;
+  if (!links.length) return deriveTextPdfFromHtmlUrl(adHtmlUrl);
   const preferred = links.find((href) => new RegExp(`EF_AD_2_${icao}_`, "i").test(href)) || links[0];
   return new URL(preferred, adHtmlUrl).href;
 }
 
-async function renderHtmlAsPdf(pageUrl, outFile) {
-  log("Rendering AD2 HTML to PDF fallback:", pageUrl);
-  let chromium;
-  try {
-    ({ chromium } = await import("playwright"));
-  } catch {
-    throw new Error(
-      "AD2 HTML-to-PDF fallback requires 'playwright'. Install it with: npm i playwright",
-    );
+function deriveTextPdfFromHtmlUrl(adHtmlUrl) {
+  const htmlNoAnchor = String(adHtmlUrl || "").replace(/#.*$/, "");
+  const slash = htmlNoAnchor.lastIndexOf("/");
+  if (slash < 0) throw new Error(`Cannot derive text PDF URL from: ${adHtmlUrl}`);
+  let path = htmlNoAnchor.slice(0, slash);
+  let name = htmlNoAnchor.slice(slash);
+  name = name.replace("-en-GB", "").replace("-fi-FI", "");
+  const marker = path.lastIndexOf("/eAIP");
+  if (marker >= 0) {
+    path = path.slice(0, marker) + path.slice(marker).replace("/eAIP", "/documents/PDF");
+  } else {
+    path = `${path}/documents/PDF`;
   }
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage();
-    await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: FETCH_TIMEOUT_MS });
-    await page.pdf({
-      path: outFile,
-      format: "A4",
-      printBackground: true,
-      margin: { top: "10mm", right: "8mm", bottom: "10mm", left: "8mm" },
-    });
-    log("Saved PDF (rendered fallback):", outFile);
-  } finally {
-    await browser.close();
-  }
+  return `${path}${name.replace(/\.html$/i, ".pdf")}`;
 }
 
 function gen12PdfUrl(issueRoot) {
@@ -201,8 +191,7 @@ async function main() {
     mkdirSync(OUT_AD2, { recursive: true });
     const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
     const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
-    if (pdfUrl) await downloadPdf(pdfUrl, outFile, row.htmlUrl);
-    else await renderHtmlAsPdf(row.htmlUrl, outFile);
+    await downloadPdf(pdfUrl, outFile, row.htmlUrl);
     return;
   }
 
@@ -229,8 +218,7 @@ async function main() {
       mkdirSync(OUT_AD2, { recursive: true });
       const outFile = join(OUT_AD2, `${dateTag}_${row.icao}_AD2.pdf`);
       const pdfUrl = await resolveAdPrimaryPdf(row.htmlUrl, row.icao);
-      if (pdfUrl) await downloadPdf(pdfUrl, outFile, row.htmlUrl);
-      else await renderHtmlAsPdf(row.htmlUrl, outFile);
+      await downloadPdf(pdfUrl, outFile, row.htmlUrl);
     }
   } finally {
     rl.close();

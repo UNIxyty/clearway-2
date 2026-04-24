@@ -121,6 +121,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://ais-en.hungarocontrol.hu/aip/aip-archive/",
   },
   {
+    country: "Iceland",
+    prefixes: ["BI"],
+    webAipUrl: "https://eaip.isavia.is/",
+  },
+  {
     country: "Honduras",
     prefixes: ["MH"],
     webAipUrl: "https://www.ahac.gob.hn/eAIP1/inicio.html",
@@ -161,6 +166,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Kazakhstan",
     prefixes: ["UA"],
     webAipUrl: "https://www.ans.kz/en/ais/eaip",
+  },
+  {
+    country: "Latvia",
+    prefixes: ["EV"],
+    webAipUrl: "https://ais.lgs.lv/aiseaip",
   },
   {
     country: "Kuwait",
@@ -253,6 +263,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Sri Lanka",
     prefixes: ["VC"],
     webAipUrl: "https://www.aimibsrilanka.lk/eaip/current/index.html",
+  },
+  {
+    country: "Sweden",
+    prefixes: ["ES"],
+    webAipUrl: "https://aro.lfv.se/content/eaip/default_offline.html",
   },
   {
     country: "Taiwan",

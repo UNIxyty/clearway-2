@@ -111,7 +111,7 @@
     "country": "Iceland",
     "icao": "BI",
     "link": "https://eaip.isavia.is/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Ireland",
@@ -135,7 +135,7 @@
     "country": "Latvia",
     "icao": "EV",
     "link": "https://ais.lgs.lv/aiseaip",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Lithuania",
@@ -213,7 +213,7 @@
     "country": "Sweden",
     "icao": "ES",
     "link": "https://aro.lfv.se/content/eaip/default_offline.html",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Switzerland",

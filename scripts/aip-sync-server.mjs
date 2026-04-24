@@ -257,6 +257,13 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "hungary-eaip", "GEN"),
   },
   {
+    country: "Iceland",
+    prefixes: ["BI"],
+    script: "scripts/web-table-scrapers/iceland-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "iceland-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "iceland-eaip", "GEN"),
+  },
+  {
     country: "Honduras",
     prefixes: ["MH"],
     script: "scripts/web-table-scrapers/honduras-eaip-interactive.mjs",
@@ -311,6 +318,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/kazakhstan-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "kazakhstan-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "kazakhstan-eaip", "GEN"),
+  },
+  {
+    country: "Latvia",
+    prefixes: ["EV"],
+    script: "scripts/web-table-scrapers/latvia-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "latvia-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "latvia-eaip", "GEN"),
   },
   {
     country: "Kuwait",
@@ -438,6 +452,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/sri-lanka-aip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "sri-lanka-aip", "GEN"),
+  },
+  {
+    country: "Sweden",
+    prefixes: ["ES"],
+    script: "scripts/web-table-scrapers/sweden-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "sweden-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "sweden-eaip", "GEN"),
   },
   {
     country: "Taiwan",

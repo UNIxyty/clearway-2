@@ -8,7 +8,11 @@ This file is a visual marker in the file tree so connected scraper files are eas
 Connected scripts
 -----------------
 - [x] `algeria-aip-interactive.mjs`
+- [x] `albania-aip-interactive.mjs`
+- [x] `armenia-eaip-interactive.mjs`
+- [x] `austria-eaip-interactive.mjs`
 - [x] `bahrain-eaip-interactive.mjs`
+- [x] `belgium-eaip-interactive.mjs`
 - [x] `belarus-eaip-interactive.mjs`
 - [x] `bhutan-aip-interactive.mjs`
 - [x] `bosnia-eaip-interactive.mjs`
@@ -16,8 +20,11 @@ Connected scripts
 - [x] `chile-aip-interactive.mjs`
 - [x] `costa-rica-eaip-interactive.mjs`
 - [x] `cuba-aip-interactive.mjs`
+- [x] `czech-republic-eaip-interactive.mjs`
+- [x] `denmark-eaip-interactive.mjs`
 - [x] `ecuador-ifis3-interactive.mjs`
 - [x] `el-salvador-eaip-interactive.mjs`
+- [x] `estonia-eaip-interactive.mjs`
 - [x] `guatemala-eaip-interactive.mjs`
 - [x] `honduras-eaip-interactive.mjs`
 - [x] `hong-kong-eaip-interactive.mjs`

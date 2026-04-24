@@ -29,6 +29,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "albania-aip", "AD2");
 const ENTRY_URL = "https://www.albcontrol.al/aip/";
 const UA = "Mozilla/5.0 (compatible; clearway-albania-aip/1.0)";
 const FETCH_TIMEOUT_MS = 30_000;
+const PDF_FETCH_TIMEOUT_MS = 12_000;
 const execFileAsync = promisify(execFile);
 const log = (...args) => console.error("[ALBANIA]", ...args);
 
@@ -130,7 +131,17 @@ async function downloadPdfWithFallback(htmlUrl, outFile) {
   for (const u of pdfCandidatesFromHtmlUrl(htmlUrl)) {
     try {
       log("Trying direct PDF candidate:", u);
-      const res = await fetch(u, { headers: { "User-Agent": UA } });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), PDF_FETCH_TIMEOUT_MS);
+      let res;
+      try {
+        res = await fetch(u, {
+          signal: controller.signal,
+          headers: { "User-Agent": UA },
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const bytes = Buffer.from(await res.arrayBuffer());
       if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("not a PDF");
@@ -138,6 +149,7 @@ async function downloadPdfWithFallback(htmlUrl, outFile) {
       log("Saved PDF:", outFile);
       return;
     } catch (e) {
+      log("Direct candidate failed:", u, "-", e?.message || e);
       lastErr = e;
     }
   }
@@ -147,7 +159,17 @@ async function downloadPdfWithFallback(htmlUrl, outFile) {
 async function extractPdfFromZip(zipUrl, preferredBasenames, outFile) {
   if (!zipUrl) throw new Error("No Albania eAIP ZIP URL found for fallback extraction.");
   const zipPath = join(tmpdir(), `clearway-albania-${Date.now()}.zip`);
-  const res = await fetch(zipUrl, { headers: { "User-Agent": UA } });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(zipUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": UA },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`ZIP fetch failed: ${res.status} ${res.statusText}`);
   writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()));
   log("Downloaded ZIP fallback:", zipUrl);

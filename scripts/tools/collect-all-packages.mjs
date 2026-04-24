@@ -100,7 +100,11 @@ function normalizeCountry(v) {
 
 const WEB_AIP_BY_COUNTRY = {
   algeria: "https://www.sia-enna.dz/aeronautical-information-publication.html",
+  albania: "https://www.albcontrol.al/aip/",
+  armenia: "https://armats.am/activities/ais/eaip",
+  austria: "https://eaip.austrocontrol.at/",
   bahrain: "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",
+  belgium: "https://ops.skeyes.be/htmlAIP/",
   belarus: "https://www.ban.by/ru/sbornik-aip/amdt",
   bhutan: "https://www.doat.gov.bt/aip/",
   bosnia: "https://eaip.bhansa.gov.ba",
@@ -108,8 +112,11 @@ const WEB_AIP_BY_COUNTRY = {
   chile: "https://aipchile.dgac.gob.cl/aip/vol1",
   "costa rica": "https://www.cocesna.org/aipca/AIPMR/inicio.html",
   cuba: "https://aismet.avianet.cu/html/aip.html",
+  "czech republic": "https://aim.rlp.cz/",
+  denmark: "https://aim.naviair.dk/",
   ecuador: "https://www.ais.aviacioncivil.gob.ec/ifis3/",
   "el salvador": "https://www.cocesna.org/aipca/AIPMS/history.html",
+  estonia: "https://aim.eans.ee/et/eaip",
   guatemala: "https://www.dgac.gob.gt/home/aip_e/",
   honduras: "https://www.cocesna.org/aipca/AIPMH/history.html",
   "hong kong": "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",

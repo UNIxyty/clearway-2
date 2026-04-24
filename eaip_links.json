@@ -27,7 +27,7 @@
     "country": "Belgium",
     "icao": "EB",
     "link": "https://ops.skeyes.be/htmlAIP/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Bosnia",
@@ -57,19 +57,19 @@
     "country": "Czech Republic",
     "icao": "LK",
     "link": "https://aim.rlp.cz/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Denmark",
     "icao": "EK",
     "link": "https://aim.naviair.dk/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Estonia",
     "icao": "EE",
     "link": "https://aim.eans.ee/et/eaip",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Finland",

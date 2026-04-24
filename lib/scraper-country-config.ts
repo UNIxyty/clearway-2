@@ -14,9 +14,29 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://www.sia-enna.dz/aeronautical-information-publication.html",
   },
   {
+    country: "Albania",
+    prefixes: ["LA"],
+    webAipUrl: "https://www.albcontrol.al/aip/",
+  },
+  {
+    country: "Armenia",
+    prefixes: ["UD"],
+    webAipUrl: "https://armats.am/activities/ais/eaip",
+  },
+  {
+    country: "Austria",
+    prefixes: ["LO"],
+    webAipUrl: "https://eaip.austrocontrol.at/",
+  },
+  {
     country: "Bahrain",
     prefixes: ["OB"],
     webAipUrl: "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",
+  },
+  {
+    country: "Belgium",
+    prefixes: ["EB"],
+    webAipUrl: "https://ops.skeyes.be/htmlAIP/",
   },
   {
     country: "Belarus",
@@ -56,6 +76,16 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://aismet.avianet.cu/html/aip.html",
   },
   {
+    country: "Czech Republic",
+    prefixes: ["LK"],
+    webAipUrl: "https://aim.rlp.cz/",
+  },
+  {
+    country: "Denmark",
+    prefixes: ["EK"],
+    webAipUrl: "https://aim.naviair.dk/",
+  },
+  {
     country: "Ecuador",
     prefixes: ["SE"],
     webAipUrl: "https://www.ais.aviacioncivil.gob.ec/ifis3/",
@@ -64,6 +94,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "El Salvador",
     prefixes: ["MS"],
     webAipUrl: "https://www.cocesna.org/aipca/AIPMS/history.html",
+  },
+  {
+    country: "Estonia",
+    prefixes: ["EE"],
+    webAipUrl: "https://aim.eans.ee/et/eaip",
   },
   {
     country: "Guatemala",

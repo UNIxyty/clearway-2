@@ -12,7 +12,6 @@ import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { chromium } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -130,6 +129,14 @@ async function resolveAdPrimaryPdf(adHtmlUrl, icao) {
 
 async function renderHtmlAsPdf(pageUrl, outFile) {
   log("Rendering AD2 HTML to PDF fallback:", pageUrl);
+  let chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    throw new Error(
+      "AD2 HTML-to-PDF fallback requires 'playwright'. Install it with: npm i playwright",
+    );
+  }
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();

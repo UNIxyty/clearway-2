@@ -75,7 +75,7 @@
     "country": "Finland",
     "icao": "EF",
     "link": "https://ais.fi/eaip/",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "France",
@@ -117,7 +117,7 @@
     "country": "Ireland",
     "icao": "EI",
     "link": "https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package#Part_III_-_Aerodromes_(AD)",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Italy",
@@ -177,7 +177,7 @@
     "country": "Portugal",
     "icao": "LP",
     "link": "https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Romania",
@@ -207,7 +207,7 @@
     "country": "Spain",
     "icao": "LE",
     "link": "https://aip.enaire.es/AIP/AIP-en.html",
-    "status": "correct"
+    "status": "done"
   },
   {
     "country": "Sweden",

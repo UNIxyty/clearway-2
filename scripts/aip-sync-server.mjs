@@ -229,6 +229,13 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "estonia-eaip", "GEN"),
   },
   {
+    country: "Finland",
+    prefixes: ["EF"],
+    script: "scripts/web-table-scrapers/finland-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "finland-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "finland-eaip", "GEN"),
+  },
+  {
     country: "Georgia",
     prefixes: ["UG"],
     script: "scripts/web-table-scrapers/georgia-eaip-interactive.mjs",
@@ -276,6 +283,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/israel-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "israel-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "israel-eaip", "GEN"),
+  },
+  {
+    country: "Ireland",
+    prefixes: ["EI"],
+    script: "scripts/web-table-scrapers/ireland-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "ireland-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "ireland-aip", "GEN"),
   },
   {
     country: "South Korea",
@@ -377,6 +391,13 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "poland-eaip", "GEN"),
   },
   {
+    country: "Portugal",
+    prefixes: ["LP"],
+    script: "scripts/web-table-scrapers/portugal-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "portugal-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "portugal-eaip", "GEN"),
+  },
+  {
     country: "Qatar",
     prefixes: ["OT"],
     script: "scripts/web-table-scrapers/qatar-eaip-interactive.mjs",
@@ -403,6 +424,13 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/somalia-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "somalia-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "somalia-eaip", "GEN"),
+  },
+  {
+    country: "Spain",
+    prefixes: ["LE"],
+    script: "scripts/web-table-scrapers/spain-aip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "spain-aip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "spain-aip", "GEN"),
   },
   {
     country: "Sri Lanka",

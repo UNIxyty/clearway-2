@@ -101,6 +101,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://aim.eans.ee/et/eaip",
   },
   {
+    country: "Finland",
+    prefixes: ["EF"],
+    webAipUrl: "https://ais.fi/eaip/",
+  },
+  {
     country: "Georgia",
     prefixes: ["UG"],
     webAipUrl: "https://airnav.ge/eaip/history-en-GB.html",
@@ -135,6 +140,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Israel",
     prefixes: ["LL"],
     webAipUrl: "https://e-aip.azurefd.net",
+  },
+  {
+    country: "Ireland",
+    prefixes: ["EI"],
+    webAipUrl: "https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package",
   },
   {
     country: "South Korea",
@@ -210,6 +220,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://www.ais.pansa.pl/en/publications/aip-poland/",
   },
   {
+    country: "Portugal",
+    prefixes: ["LP"],
+    webAipUrl: "https://aim.nav.pt/Html/IndexAeronauticalInformation",
+  },
+  {
     country: "Qatar",
     prefixes: ["OT"],
     webAipUrl: "https://www.caa.gov.qa/en/aeronautical-information-management",
@@ -228,6 +243,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Somalia",
     prefixes: ["HC"],
     webAipUrl: "https://aip.scaa.gov.so/history-en-GB.html",
+  },
+  {
+    country: "Spain",
+    prefixes: ["LE"],
+    webAipUrl: "https://aip.enaire.es/AIP/AIP-en.html",
   },
   {
     country: "Sri Lanka",

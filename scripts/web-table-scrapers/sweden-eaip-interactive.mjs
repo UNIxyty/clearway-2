@@ -19,11 +19,8 @@ const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "sweden-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "sweden-eaip", "AD2");
 const ENTRY_URL = "https://aro.lfv.se/content/eaip/default_offline.html";
-const CURRENT_ISSUE_INDEX_URL =
-  process.env.SWEDEN_EAIP_ISSUE_URL ||
-  "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%203-2026_2026_05_14/index-v2.html";
 const UA = "Mozilla/5.0 (compatible; clearway-sweden-eaip/1.0)";
-const FETCH_TIMEOUT_MS = 18_000;
+const FETCH_TIMEOUT_MS = 45_000;
 const MAX_RETRIES = 3;
 const log = (...args) => console.error("[SWEDEN]", ...args);
 
@@ -163,23 +160,10 @@ function parseFromDatasource(data, issueRootUrl) {
 }
 
 async function resolveContext() {
-  let issueIndexUrl = CURRENT_ISSUE_INDEX_URL;
-  let issueRootUrl = new URL("./", issueIndexUrl).href;
-  let datasourceUrl = new URL("v2/js/datasource.js", issueRootUrl).href;
-  let datasourceJs = "";
-
-  try {
-    log("Using current issue fast path:", issueIndexUrl);
-    datasourceJs = await fetchText(datasourceUrl);
-  } catch (err) {
-    log("Fast path failed, discovering issue from history:", err?.message || err);
-    const entryHtml = await fetchText(ENTRY_URL);
-    issueIndexUrl = parseIssueIndexUrl(entryHtml);
-    issueRootUrl = new URL("./", issueIndexUrl).href;
-    datasourceUrl = new URL("v2/js/datasource.js", issueRootUrl).href;
-    datasourceJs = await fetchText(datasourceUrl);
-  }
-
+  const entryHtml = await fetchText(ENTRY_URL);
+  const issueIndexUrl = parseIssueIndexUrl(entryHtml);
+  const issueRootUrl = new URL("./", issueIndexUrl).href;
+  const datasourceJs = await fetchText(new URL("v2/js/datasource.js", issueRootUrl).href);
   log("Parsing datasource...");
   const datasource = parseDatasource(datasourceJs);
   log("Building AD2 index from datasource...");

@@ -26,13 +26,31 @@ type ApiResult = Record<string, unknown> & {
   ad2Icaos?: string[];
 };
 
+const API_TIMEOUT_MS = 25_000;
+
 async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
-  const res = await fetch("/api/lithuania-hitl-vnc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return (await res.json()) as ApiResult;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/lithuania-hitl-vnc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    return (await res.json()) as ApiResult;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return {
+        ok: false,
+        error: "Request timed out",
+        detail: "Backend did not respond in 25s. Check that lithuania-browser container is running and ready.",
+      };
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export default function LithuaniaHitlAutoTestPage() {

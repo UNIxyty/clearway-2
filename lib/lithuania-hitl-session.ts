@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 
 const ENTRY_URL = "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html";
 const UA = "Mozilla/5.0 (compatible; clearway-lithuania-hitl-auto/1.0)";
@@ -25,6 +26,16 @@ function getStore(): SessionStore {
 
 async function importPlaywright(): Promise<any> {
   return await import("playwright");
+}
+
+function resolveChromiumExecutablePath(): string | undefined {
+  const envPath = String(process.env.PLAYWRIGHT_CHROMIUM_PATH || "").trim();
+  if (envPath && existsSync(envPath)) return envPath;
+  const candidates = ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/lib/chromium/chrome"];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return undefined;
 }
 
 function touch(session: LithuaniaSession) {
@@ -54,8 +65,10 @@ export async function cleanupStaleSessions(): Promise<void> {
 export async function createSession(): Promise<LithuaniaSession> {
   await cleanupStaleSessions();
   const playwright = await importPlaywright();
+  const executablePath = resolveChromiumExecutablePath();
   const browser = await playwright.chromium.launch({
     headless: true,
+    ...(executablePath ? { executablePath } : {}),
     args: ["--disable-dev-shm-usage", "--no-sandbox"],
   });
   const context = await browser.newContext({

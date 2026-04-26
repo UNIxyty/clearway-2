@@ -31,24 +31,24 @@ Status meanings:
 | Spain | LE | https://aip.enaire.es/AIP/AIP-en.html | done | Implemented in this workflow | spain-aip-interactive.mjs |
 | Sweden | ES | https://aro.lfv.se/content/eaip/default_offline.html | done | Implemented in this workflow | sweden-eaip-interactive.mjs |
 
-## Already created (1)
+## Already created (9)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
 | Bosnia | LQ | https://eaip.bhansa.gov.ba/ | correct | Scraper file already exists | bosnia-eaip-interactive.mjs |
+| Germany | ED | https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html | correct | Dedicated scraper added; source blocks unattended PDF extraction | germany-eaip-interactive.mjs |
+| Greece | LG | https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications | correct | Dedicated scraper added; source captcha blocks unattended extraction | greece-eaip-interactive.mjs |
+| Lithuania | EY | https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html | correct | Dedicated scraper added; anti-bot challenge blocks unattended extraction | lithuania-eaip-interactive.mjs |
+| Netherlands | EH | https://eaip.lvnl.nl/web/eaip/default.html | correct | Dedicated scraper added; anti-bot challenge blocks unattended extraction | netherlands-eaip-interactive.mjs |
+| Norway | EN | https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html | correct | Dedicated scraper added; uses fallback chart PDFs when text PDFs are unavailable | norway-eaip-interactive.mjs |
+| Romania | LR | https://www.aisro.ro/ | correct | Dedicated scraper added; no stable unattended PDF endpoint resolved yet | romania-eaip-interactive.mjs |
+| Slovenia | LJ | https://aim.sloveniacontrol.si/aim/products/aip/ | correct | Dedicated scraper added; transport/TLS access unstable in unattended mode | slovenia-eaip-interactive.mjs |
+| United Kingdom | EG | https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/ | correct | Dedicated scraper added; AD2 uses working graphics PDF fallback | united-kingdom-aip-interactive.mjs |
 
-## Awaiting (8)
+## Awaiting (0)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
-| Germany | ED | https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html | correct | No dedicated scraper yet | - |
-| Greece | LG | https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications | correct | No dedicated scraper yet | - |
-| Lithuania | EY | https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html | correct | No dedicated scraper yet | - |
-| Netherlands | EH | https://eaip.lvnl.nl/web/eaip/default.html | correct | No dedicated scraper yet | - |
-| Norway | EN | https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html | correct | No dedicated scraper yet | - |
-| Romania | LR | https://www.aisro.ro/ | correct | No dedicated scraper yet | - |
-| Slovenia | LJ | https://aim.sloveniacontrol.si/aim/products/aip/ | correct | No dedicated scraper yet | - |
-| United Kingdom | EG | https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/ | correct | No dedicated scraper yet | - |
 
 ## Skipped (11)
 

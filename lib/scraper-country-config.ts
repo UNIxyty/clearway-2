@@ -111,9 +111,19 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html",
   },
   {
+    country: "Germany",
+    prefixes: ["ED", "ET"],
+    webAipUrl: "https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html",
+  },
+  {
     country: "Georgia",
     prefixes: ["UG"],
     webAipUrl: "https://airnav.ge/eaip/history-en-GB.html",
+  },
+  {
+    country: "Greece",
+    prefixes: ["LG"],
+    webAipUrl: "https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications",
   },
   {
     country: "Guatemala",
@@ -178,6 +188,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://ais.lgs.lv/aiseaip",
   },
   {
+    country: "Lithuania",
+    prefixes: ["EY"],
+    webAipUrl: "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html",
+  },
+  {
     country: "Kuwait",
     prefixes: ["OK"],
     webAipUrl: "https://dgca.gov.kw/AIP",
@@ -220,6 +235,16 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://ais.m-nav.info/eAIP/Start.htm",
   },
   {
+    country: "Netherlands",
+    prefixes: ["EH"],
+    webAipUrl: "https://eaip.lvnl.nl/web/eaip/default.html",
+  },
+  {
+    country: "Norway",
+    prefixes: ["EN"],
+    webAipUrl: "https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html",
+  },
+  {
     country: "Pakistan",
     prefixes: ["OP"],
     webAipUrl: "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
@@ -245,6 +270,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://www.caa.gov.qa/en/aeronautical-information-management",
   },
   {
+    country: "Romania",
+    prefixes: ["LR"],
+    webAipUrl: "https://www.aisro.ro/",
+  },
+  {
     country: "Rwanda",
     prefixes: ["HR"],
     webAipUrl: "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html",
@@ -263,6 +293,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     country: "Slovakia",
     prefixes: ["LZ"],
     webAipUrl: "https://aim.lps.sk/web/index.php?fn=200&lng=en",
+  },
+  {
+    country: "Slovenia",
+    prefixes: ["LJ"],
+    webAipUrl: "https://aim.sloveniacontrol.si/aim/products/aip/",
   },
   {
     country: "Spain",
@@ -306,6 +341,12 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     aliases: ["UAE"],
     prefixes: ["OM"],
     webAipUrl: "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/AIP.aspx",
+  },
+  {
+    country: "United Kingdom",
+    aliases: ["UK", "Great Britain"],
+    prefixes: ["EG"],
+    webAipUrl: "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/",
   },
   {
     country: "Uzbekistan",

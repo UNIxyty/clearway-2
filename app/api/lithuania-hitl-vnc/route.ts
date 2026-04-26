@@ -15,6 +15,7 @@ const DEFAULT_LANG = "en-US,en;q=0.9";
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const WD_TIMEOUT_MS = 60_000;
 const SELENIUM_BASE = String(process.env.LITHUANIA_SELENIUM_URL || "http://lithuania-browser:4444/wd/hub").replace(/\/$/, "");
+const SELENIUM_ROOT = SELENIUM_BASE.replace(/\/wd\/hub$/i, "");
 
 type Mode = "collect" | "gen12" | "ad2";
 type Ad2Entry = { icao: string; label: string; htmlUrl: string };
@@ -32,7 +33,11 @@ function touchSession(id: string) {
 }
 
 async function deleteWdSession(sessionId: string) {
-  await fetch(`${SELENIUM_BASE}/session/${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => {});
+  const id = encodeURIComponent(sessionId);
+  await Promise.all([
+    fetch(`${SELENIUM_BASE}/session/${id}`, { method: "DELETE" }).catch(() => {}),
+    fetch(`${SELENIUM_ROOT}/session/${id}`, { method: "DELETE" }).catch(() => {}),
+  ]);
   getStore().delete(sessionId);
 }
 
@@ -44,11 +49,30 @@ async function cleanupStaleSessions() {
 }
 
 async function listWdSessions(): Promise<string[]> {
-  const out = await wdCall("/sessions");
+  const ids = new Set<string>();
+  const out = await wdCall("/sessions").catch(() => null);
   const rows = Array.isArray(out?.value) ? out.value : [];
-  return rows
+  rows
     .map((row: any) => String(row?.id || row?.sessionId || "").trim())
-    .filter((id: string) => Boolean(id));
+    .filter((id: string) => Boolean(id))
+    .forEach((id: string) => ids.add(id));
+
+  // Selenium Grid 4 exposes active node slots from /status; use it as a
+  // fallback because /wd/hub/sessions is not reliable across images/versions.
+  const status = await fetch(`${SELENIUM_ROOT}/status`)
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null);
+  const nodes = Array.isArray(status?.value?.nodes) ? status.value.nodes : [];
+  for (const node of nodes) {
+    const slots = Array.isArray(node?.slots) ? node.slots : [];
+    for (const slot of slots) {
+      const session = slot?.session;
+      const id = String(session?.sessionId || session?.id || "").trim();
+      if (id) ids.add(id);
+    }
+  }
+
+  return [...ids];
 }
 
 async function reapAllWdSessions() {
@@ -232,16 +256,35 @@ function parseIssueIndexUrl(historyHtml: string, historyUrl: string): { indexUrl
   return { indexUrl, effectiveDate };
 }
 
-function collectFrameSrcs(html: string, baseUrl: string): string[] {
+type FrameEntry = {
+  src: string;
+  name: string;
+  id: string;
+};
+
+function parseTagAttrs(tag: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const m of String(tag || "").matchAll(/\b([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(['"])(.*?)\2/g)) {
+    attrs[m[1].toLowerCase()] = m[3];
+  }
+  return attrs;
+}
+
+function collectFrameEntries(html: string, baseUrl: string): FrameEntry[] {
   const seen = new Set<string>();
-  const out: string[] = [];
-  for (const m of String(html || "").matchAll(/<(?:frame|iframe)\b[^>]*\bsrc=['"]([^'"]+)['"][^>]*>/gi)) {
-    const raw = String(m[1] || "").trim();
+  const out: FrameEntry[] = [];
+  for (const m of String(html || "").matchAll(/<(?:frame|iframe)\b[^>]*>/gi)) {
+    const attrs = parseTagAttrs(m[0]);
+    const raw = String(attrs.src || "").trim();
     if (!raw) continue;
     const abs = new URL(raw, baseUrl).href;
     if (seen.has(abs)) continue;
     seen.add(abs);
-    out.push(abs);
+    out.push({
+      src: abs,
+      name: String(attrs.name || "").toLowerCase(),
+      id: String(attrs.id || "").toLowerCase(),
+    });
   }
   return out;
 }
@@ -249,16 +292,16 @@ function collectFrameSrcs(html: string, baseUrl: string): string[] {
 function parseTocUrl(indexHtml: string, indexUrl: string): string {
   const html = String(indexHtml || "");
 
-  const strict = html.match(/<(?:frame|iframe)\b[^>]*\bname=['"]eAISNavigationBase['"][^>]*\bsrc=['"]([^'"]+)['"][^>]*>/i)?.[1];
-  if (strict) return new URL(strict, indexUrl).href;
-
-  const frames = collectFrameSrcs(html, indexUrl);
+  const frames = collectFrameEntries(html, indexUrl);
+  const nonCommandFrames = frames.filter((f) => !/commands/i.test(f.src) && !/commands/.test(f.name) && !/commands/.test(f.id));
   const ranked =
-    frames.find((u) => /(?:\/|_|-)toc(?:[-_.]|$)/i.test(u)) ||
-    frames.find((u) => /navigationbase|navigation/i.test(u)) ||
-    frames.find((u) => /frameset/i.test(u)) ||
-    frames[0];
-  if (ranked) return ranked;
+    frames.find((f) => f.name === "eaisnavigationbase".toLowerCase()) ||
+    frames.find((f) => f.id === "eaisnavigationbase".toLowerCase()) ||
+    nonCommandFrames.find((f) => /(?:\/|_|-)toc(?:[-_.]|$)/i.test(f.src)) ||
+    nonCommandFrames.find((f) => /navigationbase|navigation/i.test(f.src) || /navigationbase|navigation/i.test(f.name)) ||
+    nonCommandFrames.find((f) => /frameset/i.test(f.src)) ||
+    nonCommandFrames[0];
+  if (ranked) return ranked.src;
 
   // Some cycles expose the next TOC/frameset link directly, without frame tags.
   const direct = html.match(/href=['"]([^'"]*(?:toc|frameset)[^'"]*\.html[^'"]*)['"]/i)?.[1];
@@ -270,15 +313,15 @@ function parseTocUrl(indexHtml: string, indexUrl: string): string {
 function parseMenuUrl(tocHtml: string, tocUrl: string): string {
   const html = String(tocHtml || "");
 
-  const strict = html.match(/<(?:frame|iframe)\b[^>]*\bname=['"]eAISNavigation['"][^>]*\bsrc=['"]([^'"]+)['"][^>]*>/i)?.[1];
-  if (strict) return new URL(strict, tocUrl).href;
-
-  const frames = collectFrameSrcs(html, tocUrl);
+  const frames = collectFrameEntries(html, tocUrl);
+  const nonCommandFrames = frames.filter((f) => !/commands/i.test(f.src) && !/commands/.test(f.name) && !/commands/.test(f.id));
   const ranked =
-    frames.find((u) => /(?:\/|_|-)menu(?:[-_.]|$)/i.test(u)) ||
-    frames.find((u) => /navigation/i.test(u)) ||
-    frames[0];
-  if (ranked) return ranked;
+    frames.find((f) => f.name === "eaisnavigation".toLowerCase()) ||
+    frames.find((f) => f.id === "eaisnavigation".toLowerCase()) ||
+    nonCommandFrames.find((f) => /(?:\/|_|-)menu(?:[-_.]|$)/i.test(f.src)) ||
+    nonCommandFrames.find((f) => /navigation/i.test(f.src) || /navigation/i.test(f.name)) ||
+    nonCommandFrames[0];
+  if (ranked) return ranked.src;
 
   // When TOC HTML is already the menu content (no nested frame), reuse it.
   if (/EY-AD-2\.[A-Z0-9]{4}/i.test(html) || /EY-GEN-1\.2/i.test(html)) return tocUrl;
@@ -399,6 +442,12 @@ export async function POST(request: NextRequest) {
 
     const sessionId = String(body.sessionId || "").trim();
     if (!sessionId) return NextResponse.json({ ok: false, error: "sessionId is required" }, { status: 400 });
+
+    if (action === "close") {
+      await deleteWdSession(sessionId);
+      return NextResponse.json({ ok: true });
+    }
+
     if (!getStore().has(sessionId)) return NextResponse.json({ ok: false, error: "Session not found or expired" }, { status: 404 });
     touchSession(sessionId);
 
@@ -421,11 +470,6 @@ export async function POST(request: NextRequest) {
       }
       const result = await runLithuaniaScrape(sessionId, cookie, browserMeta.userAgent, browserMeta.language, mode, icao);
       return NextResponse.json(result);
-    }
-
-    if (action === "close") {
-      await deleteWdSession(sessionId);
-      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ ok: false, error: `Unsupported action: ${action}` }, { status: 400 });

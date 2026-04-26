@@ -92,7 +92,17 @@ async function createWdSession(): Promise<string> {
     capabilities: {
       alwaysMatch: {
         browserName: "chrome",
-        "goog:chromeOptions": { args: ["--no-sandbox", "--disable-dev-shm-usage"] },
+        "goog:chromeOptions": {
+          args: [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-blink-features=AutomationControlled",
+            "--window-size=1366,900",
+            "--lang=en-US,en;q=0.9",
+          ],
+          excludeSwitches: ["enable-automation"],
+          useAutomationExtension: false,
+        },
       },
     },
   };

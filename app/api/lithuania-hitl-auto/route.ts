@@ -11,6 +11,7 @@ const PROJECT_ROOT = process.cwd();
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "lithuania-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "lithuania-eaip", "AD2");
 const UA = "Mozilla/5.0 (compatible; clearway-lithuania-hitl-auto/1.0)";
+const SNAPSHOT_TIMEOUT_MS = 12_000;
 
 type Mode = "collect" | "gen12" | "ad2";
 
@@ -242,7 +243,12 @@ export async function POST(request: NextRequest) {
     if (!session) return NextResponse.json({ ok: false, error: "Session not found or expired" }, { status: 404 });
 
     if (action === "snapshot") {
-      const snap = await makeSnapshot(session);
+      const snap = await Promise.race([
+        makeSnapshot(session),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Snapshot timed out after ${SNAPSHOT_TIMEOUT_MS}ms`)), SNAPSHOT_TIMEOUT_MS),
+        ),
+      ]);
       return NextResponse.json({ ok: true, ...snap });
     }
 

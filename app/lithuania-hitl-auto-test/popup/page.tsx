@@ -18,13 +18,20 @@ type Snapshot = {
   recommendedPopup?: { width: number; height: number } | null;
 };
 
-async function callApi(payload: Record<string, unknown>): Promise<Snapshot> {
-  const res = await fetch("/api/lithuania-hitl-auto", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return (await res.json()) as Snapshot;
+async function callApi(payload: Record<string, unknown>, timeoutMs = 10000): Promise<Snapshot> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error("Request timeout")), timeoutMs);
+  try {
+    const res = await fetch("/api/lithuania-hitl-auto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    return (await res.json()) as Snapshot;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function LithuaniaHitlPopupPageInner() {
@@ -35,6 +42,7 @@ function LithuaniaHitlPopupPageInner() {
   const [lastError, setLastError] = useState("");
   const imgRef = useRef<HTMLImageElement | null>(null);
   const resizedOnceRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   const imageSrc = useMemo(() => {
     if (!snapshot?.imageBase64) return "";
@@ -43,9 +51,11 @@ function LithuaniaHitlPopupPageInner() {
 
   async function refresh() {
     if (!sessionId) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     try {
-      const data = await callApi({ action: "snapshot", sessionId });
+      const data = await callApi({ action: "snapshot", sessionId }, 12000);
       setSnapshot(data);
       setLastError(data.ok ? "" : data.error || data.detail || "Failed to fetch snapshot");
 
@@ -65,6 +75,7 @@ function LithuaniaHitlPopupPageInner() {
       setLastError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   }
 
@@ -92,7 +103,7 @@ function LithuaniaHitlPopupPageInner() {
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 1500);
+    const t = setInterval(refresh, 3000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);

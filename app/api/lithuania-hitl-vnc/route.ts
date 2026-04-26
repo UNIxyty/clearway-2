@@ -131,6 +131,17 @@ async function wdGetTitle(sessionId: string): Promise<string> {
   return String(out?.value || "");
 }
 
+async function wdGetSource(sessionId: string): Promise<string> {
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/source`);
+  touchSession(sessionId);
+  return String(out?.value || "");
+}
+
+async function wdFetchHtml(sessionId: string, url: string): Promise<string> {
+  await wdNavigate(sessionId, url);
+  return await wdGetSource(sessionId);
+}
+
 async function wdGetCookies(sessionId: string): Promise<string> {
   const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/cookie`);
   touchSession(sessionId);
@@ -193,17 +204,6 @@ function buildHeaders(cookie: string, userAgent: string, language: string, refer
   const clean = String(cookie || "").trim();
   if (clean) headers.Cookie = clean;
   return headers;
-}
-
-async function fetchText(url: string, cookie: string, userAgent: string, language: string, referer = ""): Promise<string> {
-  const headers = buildHeaders(cookie, userAgent, language, referer);
-  const res = await fetch(url, { headers });
-  if (res.status === 403) {
-    const t = await res.text().catch(() => "__HTTP403_FORBIDDEN__");
-    return t || "__HTTP403_FORBIDDEN__";
-  }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return await res.text();
 }
 
 async function downloadPdf(url: string, cookie: string, userAgent: string, language: string, outFile: string, referer = "") {
@@ -300,25 +300,32 @@ function parsePdfLinks(pageHtml: string, pageUrl: string): string[] {
   return [...String(pageHtml || "").matchAll(/href=['"]([^'"]+\.pdf[^'"]*)['"]/gi)].map((m) => new URL(m[1], pageUrl).href);
 }
 
-async function resolveContext(cookie: string, userAgent: string, language: string) {
-  const entryHtml = await fetchText(ENTRY_URL, cookie, userAgent, language);
+async function resolveContext(sessionId: string) {
+  const entryHtml = await wdFetchHtml(sessionId, ENTRY_URL);
   if (isVerificationPage(entryHtml)) return { needsVerification: true as const };
   const { indexUrl, effectiveDate } = parseIssueIndexUrl(entryHtml, ENTRY_URL);
-  const indexHtml = await fetchText(indexUrl, cookie, userAgent, language, ENTRY_URL);
+  const indexHtml = await wdFetchHtml(sessionId, indexUrl);
   if (isVerificationPage(indexHtml)) return { needsVerification: true as const };
   const tocUrl = parseTocUrl(indexHtml, indexUrl);
-  const tocHtml = await fetchText(tocUrl, cookie, userAgent, language, indexUrl);
+  const tocHtml = await wdFetchHtml(sessionId, tocUrl);
   if (isVerificationPage(tocHtml)) return { needsVerification: true as const };
   const menuUrl = parseMenuUrl(tocHtml, tocUrl);
-  const menuHtml = await fetchText(menuUrl, cookie, userAgent, language, tocUrl);
+  const menuHtml = await wdFetchHtml(sessionId, menuUrl);
   if (isVerificationPage(menuHtml)) return { needsVerification: true as const };
   const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
   const genHtmlUrl = new URL("eAIP/EY-GEN-1.2-en-US.html", new URL("html/", new URL("../", indexUrl))).href;
   return { needsVerification: false as const, effectiveDate, genHtmlUrl, ad2Entries };
 }
 
-async function runLithuaniaScrape(cookie: string, userAgent: string, language: string, mode: Mode, icao: string) {
-  const ctx = await resolveContext(cookie, userAgent, language);
+async function runLithuaniaScrape(
+  sessionId: string,
+  cookie: string,
+  userAgent: string,
+  language: string,
+  mode: Mode,
+  icao: string,
+) {
+  const ctx = await resolveContext(sessionId);
   if (ctx.needsVerification) {
     return { ok: false, needsHumanVerification: true, message: "Lithuania source still requires verification in noVNC browser.", verifyUrl: ENTRY_URL };
   }
@@ -326,7 +333,7 @@ async function runLithuaniaScrape(cookie: string, userAgent: string, language: s
     return { ok: true, effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Entries.map((x) => x.icao) };
   }
   if (mode === "gen12") {
-    const genHtml = await fetchText(ctx.genHtmlUrl, cookie, userAgent, language, ENTRY_URL);
+    const genHtml = await wdFetchHtml(sessionId, ctx.genHtmlUrl);
     if (isVerificationPage(genHtml)) {
       return { ok: false, needsHumanVerification: true, message: "Verification expired during GEN fetch. Re-verify and retry.", verifyUrl: ENTRY_URL };
     }
@@ -349,7 +356,7 @@ async function runLithuaniaScrape(cookie: string, userAgent: string, language: s
   if (!/^[A-Z0-9]{4}$/.test(wantedIcao)) return { ok: false, error: "Provide a valid ICAO for AD2 mode." };
   const row = ctx.ad2Entries.find((x) => x.icao === wantedIcao);
   if (!row) return { ok: false, error: `ICAO not found in Lithuania AD2 menu: ${wantedIcao}` };
-  const adHtml = await fetchText(row.htmlUrl, cookie, userAgent, language, ENTRY_URL);
+  const adHtml = await wdFetchHtml(sessionId, row.htmlUrl);
   if (isVerificationPage(adHtml)) {
     return { ok: false, needsHumanVerification: true, message: "Verification expired during AD2 fetch. Re-verify and retry.", verifyUrl: ENTRY_URL };
   }
@@ -412,7 +419,7 @@ export async function POST(request: NextRequest) {
           verifyUrl: ENTRY_URL,
         });
       }
-      const result = await runLithuaniaScrape(cookie, browserMeta.userAgent, browserMeta.language, mode, icao);
+      const result = await runLithuaniaScrape(sessionId, cookie, browserMeta.userAgent, browserMeta.language, mode, icao);
       return NextResponse.json(result);
     }
 

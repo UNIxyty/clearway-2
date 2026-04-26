@@ -14,7 +14,7 @@ type ApiResult = Record<string, unknown> & {
   message?: string;
   detail?: string;
   sessionId?: string;
-  popupPath?: string;
+  popupUrl?: string;
   verifyUrl?: string;
   url?: string;
   title?: string;
@@ -27,7 +27,7 @@ type ApiResult = Record<string, unknown> & {
 };
 
 async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
-  const res = await fetch("/api/lithuania-hitl-auto", {
+  const res = await fetch("/api/lithuania-hitl-vnc", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -37,6 +37,7 @@ async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
 
 export default function LithuaniaHitlAutoTestPage() {
   const [sessionId, setSessionId] = useState("");
+  const [popupUrl, setPopupUrl] = useState("");
   const [loading, setLoading] = useState<"" | "start" | "status" | "collect" | "gen12" | "ad2">("");
   const [icao, setIcao] = useState("EYVI");
   const [status, setStatus] = useState<ApiResult | null>(null);
@@ -73,10 +74,11 @@ export default function LithuaniaHitlAutoTestPage() {
         return;
       }
       setSessionId(String(data.sessionId));
+      setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
       setResult({ ok: true, message: "Session started. Open popup and solve captcha." });
-      if (data.popupPath) {
-        window.open(String(data.popupPath), "lithuania_hitl_auto_popup", "popup=yes,width=520,height=760,resizable=yes");
+      if (data.popupUrl) {
+        window.open(String(data.popupUrl), "lithuania_hitl_auto_popup", "popup=yes,width=560,height=760,resizable=yes");
       }
     } catch (err) {
       setResult({
@@ -128,6 +130,7 @@ export default function LithuaniaHitlAutoTestPage() {
     if (!hasSession) return;
     await callApi({ action: "close", sessionId }).catch(() => {});
     setSessionId("");
+    setPopupUrl("");
     setStatus(null);
     setResult({ ok: true, message: "Session closed." });
   }
@@ -144,7 +147,7 @@ export default function LithuaniaHitlAutoTestPage() {
           <CardHeader>
             <CardTitle>Lithuania HITL auto test</CardTitle>
             <CardDescription>
-              Test-only automatic human-in-the-loop flow using a backend Playwright session (no cookie copy/paste).
+              Test-only automatic human-in-the-loop flow using backend Selenium + noVNC (real browser session, no cookie copy/paste).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -163,16 +166,11 @@ export default function LithuaniaHitlAutoTestPage() {
                 <>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      window.open(
-                        `/lithuania-hitl-auto-test/popup?sessionId=${encodeURIComponent(sessionId)}`,
-                        "lithuania_hitl_auto_popup",
-                        "popup=yes,width=520,height=760,resizable=yes",
-                      )
-                    }
+                    onClick={() => popupUrl && window.open(popupUrl, "lithuania_hitl_auto_popup", "popup=yes,width=560,height=760,resizable=yes")}
+                    disabled={!popupUrl}
                   >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    Re-open popup
+                    Re-open noVNC window
                   </Button>
                   <Button variant="ghost" onClick={closeSessionNow}>
                     Close session

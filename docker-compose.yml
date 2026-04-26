@@ -16,9 +16,22 @@ services:
       NOTAM_SYNC_URL: http://notam-sync:3001
       WEATHER_SYNC_URL: http://weather-sync:3001
       AIP_SYNC_URL: http://aip-sync:3002
+      LITHUANIA_SELENIUM_URL: http://lithuania-browser:4444/wd/hub
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
+    depends_on:
+      - lithuania-browser
+
+  lithuania-browser:
+    image: selenium/standalone-chromium:latest
+    shm_size: "2gb"
+    ports:
+      - "6080:7900"
+    environment:
+      SE_NODE_MAX_SESSIONS: 1
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+      SE_NODE_SESSION_TIMEOUT: 900
 
   notam-sync:
     image: clearway-selfhosted:latest

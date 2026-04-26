@@ -118,7 +118,11 @@ async function downloadGen12Pdf(ctx, outFile) {
   const linked = parsePdfLinks(genHtml, ctx.genHtmlUrl);
   const guessed = [new URL("../../pdf/EN-GEN-1.2.pdf", ctx.genHtmlUrl).href];
   const candidates = Array.from(new Set([...guessed, ...linked]));
-  await downloadFirstWorkingPdf(candidates, outFile, ctx.genHtmlUrl);
+  try {
+    await downloadFirstWorkingPdf(candidates, outFile, ctx.genHtmlUrl);
+  } catch {
+    throw new Error("Norway GEN 1.2 text PDF is currently unavailable from source (404 on EN-GEN-1.2.pdf).");
+  }
 }
 
 async function downloadAd2Pdf(row, outFile) {

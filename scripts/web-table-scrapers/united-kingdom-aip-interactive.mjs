@@ -27,15 +27,25 @@ const downloadAd2Icao = (() => {
 })();
 const downloadGen12 = process.argv.includes("--download-gen12");
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error("Request timeout")), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchText(url) {
   log("Fetching HTML:", url);
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  const res = await fetchWithTimeout(url, { headers: { "User-Agent": UA } }, 30000);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return await res.text();
 }
 
 async function tryDownloadPdf(url, outFile, referer = "") {
-  const res = await fetch(url, { headers: { "User-Agent": UA, ...(referer ? { Referer: referer } : {}) } });
+  const res = await fetchWithTimeout(url, { headers: { "User-Agent": UA, ...(referer ? { Referer: referer } : {}) } }, 180000);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
@@ -90,6 +100,9 @@ async function downloadFirstWorkingPdf(candidates, outFile, referer) {
   for (const url of candidates) {
     try {
       log("Trying PDF:", url);
+      if (/\/PDF_AIP\//i.test(url)) {
+        log("Using full AIP fallback PDF (this can take 30-90 seconds)...");
+      }
       await tryDownloadPdf(url, outFile, referer);
       log("Saved PDF:", outFile);
       return;

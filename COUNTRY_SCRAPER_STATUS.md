@@ -41,7 +41,7 @@ Status meanings:
 | Lithuania | EY | https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html | correct | Dedicated scraper added; anti-bot challenge blocks unattended extraction | lithuania-eaip-interactive.mjs |
 | Netherlands | EH | https://eaip.lvnl.nl/web/eaip/default.html | correct | Dedicated scraper added; anti-bot challenge blocks unattended extraction | netherlands-eaip-interactive.mjs |
 | Norway | EN | https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html | correct | Dedicated scraper added; uses fallback chart PDFs when text PDFs are unavailable | norway-eaip-interactive.mjs |
-| Romania | LR | https://www.aisro.ro/ | correct | Dedicated scraper added; no stable unattended PDF endpoint resolved yet | romania-eaip-interactive.mjs |
+| Romania | LR | https://www.aisro.ro/ | correct | Dedicated scraper added; parses current eAIP TOC and downloads GEN/AD2 PDFs | romania-eaip-interactive.mjs |
 | Slovenia | LJ | https://aim.sloveniacontrol.si/aim/products/aip/ | correct | Dedicated scraper added; transport/TLS access unstable in unattended mode | slovenia-eaip-interactive.mjs |
 | United Kingdom | EG | https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/ | correct | Dedicated scraper added; AD2 uses working graphics PDF fallback | united-kingdom-aip-interactive.mjs |
 

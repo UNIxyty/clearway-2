@@ -9,6 +9,7 @@ type Snapshot = {
   error?: string;
   detail?: string;
   imageBase64?: string;
+  imageMime?: string;
   viewport?: { width: number; height: number };
   url?: string;
   title?: string;
@@ -16,6 +17,7 @@ type Snapshot = {
   challengeOnly?: boolean;
   challengeBox?: { x: number; y: number; width: number; height: number } | null;
   recommendedPopup?: { width: number; height: number } | null;
+  snapshotError?: string;
 };
 
 async function callApi(payload: Record<string, unknown>, timeoutMs = 25000): Promise<Snapshot> {
@@ -46,8 +48,8 @@ function LithuaniaHitlPopupPageInner() {
 
   const imageSrc = useMemo(() => {
     if (!snapshot?.imageBase64) return "";
-    return `data:image/jpeg;base64,${snapshot.imageBase64}`;
-  }, [snapshot?.imageBase64]);
+    return `data:image/${snapshot.imageMime || "jpeg"};base64,${snapshot.imageBase64}`;
+  }, [snapshot?.imageBase64, snapshot?.imageMime]);
 
   async function refresh() {
     if (!sessionId) return;
@@ -57,7 +59,7 @@ function LithuaniaHitlPopupPageInner() {
     try {
       const data = await callApi({ action: "snapshot", sessionId }, 25000);
       setSnapshot(data);
-      setLastError(data.ok ? "" : data.error || data.detail || "Failed to fetch snapshot");
+      setLastError(data.ok ? data.snapshotError || "" : data.error || data.detail || "Failed to fetch snapshot");
 
       if (
         data.ok &&

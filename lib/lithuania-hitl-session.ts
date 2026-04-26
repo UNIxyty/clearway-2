@@ -168,6 +168,7 @@ export async function getChallengeInfo(page: any): Promise<{
 
 export async function makeSnapshot(session: LithuaniaSession): Promise<{
   imageBase64: string;
+  imageMime: string;
   viewport: { width: number; height: number };
   url: string;
   title: string;
@@ -175,16 +176,52 @@ export async function makeSnapshot(session: LithuaniaSession): Promise<{
   challengeOnly: boolean;
   challengeBox: Box | null;
   recommendedPopup: { width: number; height: number } | null;
+  snapshotError?: string;
 }> {
   touch(session);
+  if (!session.page || session.page.isClosed?.()) {
+    session.page = await session.context.newPage();
+    await session.page.goto(ENTRY_URL, { waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {});
+  }
   const page = session.page;
-  const challenge = await getChallengeInfo(page);
-  const png = await page.screenshot({ type: "jpeg", quality: 65, fullPage: false });
+  const challenge = await getChallengeInfo(page).catch(() => ({
+    url: String(page?.url?.() || ""),
+    title: "",
+    challengeDetected: false,
+    challengeOnly: false,
+    challengeBox: null,
+    recommendedPopup: null,
+  }));
+  const screenshotWithTimeout = async () =>
+    await Promise.race([
+      page.screenshot({ type: "jpeg", quality: 65, fullPage: false }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Screenshot timeout")), 5_000)),
+    ]);
+
+  let jpeg: Buffer | null = null;
+  let snapshotError = "";
+  try {
+    jpeg = Buffer.from(await screenshotWithTimeout());
+  } catch (err1) {
+    snapshotError = err1 instanceof Error ? err1.message : String(err1);
+    try {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 12_000 });
+      jpeg = Buffer.from(await screenshotWithTimeout());
+      snapshotError = "";
+    } catch (err2) {
+      snapshotError = err2 instanceof Error ? err2.message : String(err2);
+    }
+  }
+
+  // 1x1 transparent GIF fallback to keep popup responsive.
+  const fallbackGif = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
   const vp = page.viewportSize?.() || { width: 1280, height: 900 };
   return {
-    imageBase64: Buffer.from(png).toString("base64"),
+    imageBase64: jpeg ? Buffer.from(jpeg).toString("base64") : fallbackGif,
+    imageMime: jpeg ? "jpeg" : "gif",
     viewport: { width: vp.width, height: vp.height },
     ...challenge,
+    ...(snapshotError ? { snapshotError } : {}),
   };
 }
 

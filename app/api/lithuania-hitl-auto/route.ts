@@ -23,6 +23,7 @@ type Ad2Entry = {
 function isVerificationPage(html: string): boolean {
   const body = String(html || "").toLowerCase();
   return (
+    body.includes("__http403_forbidden__") ||
     body.includes("just a moment") ||
     body.includes("cf-challenge") ||
     body.includes("cf-browser-verification") ||
@@ -34,8 +35,16 @@ async function sessionFetchText(session: any, url: string, referer = ""): Promis
   const headers: HeadersInit = { "User-Agent": UA };
   if (referer) headers.Referer = referer;
   const res = await session.context.request.get(url, { headers, timeout: 90_000 });
-  if (!res.ok()) throw new Error(`${res.status()} ${res.statusText()}`);
-  return await res.text();
+  const text = await res.text();
+  if (res.status() === 403) {
+    // Treat Cloudflare forbidden responses as "needs verification" instead of hard failure.
+    if (text && isVerificationPage(text)) return text;
+    return "__HTTP403_FORBIDDEN__";
+  }
+  if (!res.ok()) {
+    throw new Error(`${res.status()} ${res.statusText()}`);
+  }
+  return text;
 }
 
 async function sessionDownloadPdf(session: any, url: string, outFile: string, referer = "") {

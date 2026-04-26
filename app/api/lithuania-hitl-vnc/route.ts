@@ -9,7 +9,9 @@ const ENTRY_URL = "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html"
 const PROJECT_ROOT = process.cwd();
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "lithuania-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "lithuania-eaip", "AD2");
-const UA = "Mozilla/5.0 (compatible; clearway-lithuania-hitl-vnc/1.0)";
+const DEFAULT_UA =
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
+const DEFAULT_LANG = "en-US,en;q=0.9";
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const WD_TIMEOUT_MS = 60_000;
 const SELENIUM_BASE = String(process.env.LITHUANIA_SELENIUM_URL || "http://lithuania-browser:4444/wd/hub").replace(/\/$/, "");
@@ -139,6 +141,23 @@ async function wdGetCookies(sessionId: string): Promise<string> {
     .join("; ");
 }
 
+async function wdGetBrowserMeta(sessionId: string): Promise<{ userAgent: string; language: string }> {
+  const script = `
+    return {
+      userAgent: String(navigator.userAgent || ''),
+      language: String(navigator.language || '')
+    };
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  const ua = String(out?.value?.userAgent || "").trim();
+  const lang = String(out?.value?.language || "").trim();
+  return {
+    userAgent: ua || DEFAULT_UA,
+    language: lang || "en-US",
+  };
+}
+
 async function wdChallengeStatus(sessionId: string): Promise<{ challengeDetected: boolean; challengeOnly: boolean }> {
   const script = `
     const t = String(document.title || '').toLowerCase();
@@ -165,16 +184,19 @@ function buildNoVncUrl(request: NextRequest): string {
   return `http://${host}:6080/vnc.html?autoconnect=1&resize=scale`;
 }
 
-function buildHeaders(cookie: string, referer = "") {
-  const headers: HeadersInit = { "User-Agent": UA };
+function buildHeaders(cookie: string, userAgent: string, language: string, referer = "") {
+  const headers: HeadersInit = {
+    "User-Agent": userAgent || DEFAULT_UA,
+    "Accept-Language": language ? `${language},en;q=0.9` : DEFAULT_LANG,
+  };
   if (referer) headers.Referer = referer;
   const clean = String(cookie || "").trim();
   if (clean) headers.Cookie = clean;
   return headers;
 }
 
-async function fetchText(url: string, cookie: string, referer = ""): Promise<string> {
-  const headers = buildHeaders(cookie, referer);
+async function fetchText(url: string, cookie: string, userAgent: string, language: string, referer = ""): Promise<string> {
+  const headers = buildHeaders(cookie, userAgent, language, referer);
   const res = await fetch(url, { headers });
   if (res.status === 403) {
     const t = await res.text().catch(() => "__HTTP403_FORBIDDEN__");
@@ -184,8 +206,8 @@ async function fetchText(url: string, cookie: string, referer = ""): Promise<str
   return await res.text();
 }
 
-async function downloadPdf(url: string, cookie: string, outFile: string, referer = "") {
-  const headers = buildHeaders(cookie, referer);
+async function downloadPdf(url: string, cookie: string, userAgent: string, language: string, outFile: string, referer = "") {
+  const headers = buildHeaders(cookie, userAgent, language, referer);
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
@@ -236,25 +258,25 @@ function parsePdfLinks(pageHtml: string, pageUrl: string): string[] {
   return [...String(pageHtml || "").matchAll(/href=['"]([^'"]+\.pdf[^'"]*)['"]/gi)].map((m) => new URL(m[1], pageUrl).href);
 }
 
-async function resolveContext(cookie: string) {
-  const entryHtml = await fetchText(ENTRY_URL, cookie);
+async function resolveContext(cookie: string, userAgent: string, language: string) {
+  const entryHtml = await fetchText(ENTRY_URL, cookie, userAgent, language);
   if (isVerificationPage(entryHtml)) return { needsVerification: true as const };
   const { indexUrl, effectiveDate } = parseIssueIndexUrl(entryHtml, ENTRY_URL);
-  const indexHtml = await fetchText(indexUrl, cookie, ENTRY_URL);
+  const indexHtml = await fetchText(indexUrl, cookie, userAgent, language, ENTRY_URL);
   if (isVerificationPage(indexHtml)) return { needsVerification: true as const };
   const tocUrl = parseTocUrl(indexHtml, indexUrl);
-  const tocHtml = await fetchText(tocUrl, cookie, indexUrl);
+  const tocHtml = await fetchText(tocUrl, cookie, userAgent, language, indexUrl);
   if (isVerificationPage(tocHtml)) return { needsVerification: true as const };
   const menuUrl = parseMenuUrl(tocHtml, tocUrl);
-  const menuHtml = await fetchText(menuUrl, cookie, tocUrl);
+  const menuHtml = await fetchText(menuUrl, cookie, userAgent, language, tocUrl);
   if (isVerificationPage(menuHtml)) return { needsVerification: true as const };
   const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
   const genHtmlUrl = new URL("eAIP/EY-GEN-1.2-en-US.html", new URL("html/", new URL("../", indexUrl))).href;
   return { needsVerification: false as const, effectiveDate, genHtmlUrl, ad2Entries };
 }
 
-async function runLithuaniaScrape(cookie: string, mode: Mode, icao: string) {
-  const ctx = await resolveContext(cookie);
+async function runLithuaniaScrape(cookie: string, userAgent: string, language: string, mode: Mode, icao: string) {
+  const ctx = await resolveContext(cookie, userAgent, language);
   if (ctx.needsVerification) {
     return { ok: false, needsHumanVerification: true, message: "Lithuania source still requires verification in noVNC browser.", verifyUrl: ENTRY_URL };
   }
@@ -262,7 +284,7 @@ async function runLithuaniaScrape(cookie: string, mode: Mode, icao: string) {
     return { ok: true, effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Entries.map((x) => x.icao) };
   }
   if (mode === "gen12") {
-    const genHtml = await fetchText(ctx.genHtmlUrl, cookie, ENTRY_URL);
+    const genHtml = await fetchText(ctx.genHtmlUrl, cookie, userAgent, language, ENTRY_URL);
     if (isVerificationPage(genHtml)) {
       return { ok: false, needsHumanVerification: true, message: "Verification expired during GEN fetch. Re-verify and retry.", verifyUrl: ENTRY_URL };
     }
@@ -273,7 +295,7 @@ async function runLithuaniaScrape(cookie: string, mode: Mode, icao: string) {
     let lastError = "";
     for (const url of candidates) {
       try {
-        await downloadPdf(url, cookie, outFile, ctx.genHtmlUrl);
+        await downloadPdf(url, cookie, userAgent, language, outFile, ctx.genHtmlUrl);
         return { ok: true, file: outFile, sourceUrl: url };
       } catch (err) {
         lastError = err instanceof Error ? err.message : String(err);
@@ -285,7 +307,7 @@ async function runLithuaniaScrape(cookie: string, mode: Mode, icao: string) {
   if (!/^[A-Z0-9]{4}$/.test(wantedIcao)) return { ok: false, error: "Provide a valid ICAO for AD2 mode." };
   const row = ctx.ad2Entries.find((x) => x.icao === wantedIcao);
   if (!row) return { ok: false, error: `ICAO not found in Lithuania AD2 menu: ${wantedIcao}` };
-  const adHtml = await fetchText(row.htmlUrl, cookie, ENTRY_URL);
+  const adHtml = await fetchText(row.htmlUrl, cookie, userAgent, language, ENTRY_URL);
   if (isVerificationPage(adHtml)) {
     return { ok: false, needsHumanVerification: true, message: "Verification expired during AD2 fetch. Re-verify and retry.", verifyUrl: ENTRY_URL };
   }
@@ -296,7 +318,7 @@ async function runLithuaniaScrape(cookie: string, mode: Mode, icao: string) {
   let lastError = "";
   for (const url of candidates) {
     try {
-      await downloadPdf(url, cookie, outFile, row.htmlUrl);
+      await downloadPdf(url, cookie, userAgent, language, outFile, row.htmlUrl);
       return { ok: true, file: outFile, sourceUrl: url, icao: row.icao };
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
@@ -339,7 +361,7 @@ export async function POST(request: NextRequest) {
     if (action === "scrape") {
       const mode = String(body.mode || "collect") as Mode;
       const icao = String(body.icao || "").trim().toUpperCase();
-      const cookie = await wdGetCookies(sessionId);
+      const [cookie, browserMeta] = await Promise.all([wdGetCookies(sessionId), wdGetBrowserMeta(sessionId)]);
       if (!cookie) {
         return NextResponse.json({
           ok: false,
@@ -348,7 +370,7 @@ export async function POST(request: NextRequest) {
           verifyUrl: ENTRY_URL,
         });
       }
-      const result = await runLithuaniaScrape(cookie, mode, icao);
+      const result = await runLithuaniaScrape(cookie, browserMeta.userAgent, browserMeta.language, mode, icao);
       return NextResponse.json(result);
     }
 

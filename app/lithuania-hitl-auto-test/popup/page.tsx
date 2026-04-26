@@ -18,7 +18,7 @@ type Snapshot = {
   recommendedPopup?: { width: number; height: number } | null;
 };
 
-async function callApi(payload: Record<string, unknown>, timeoutMs = 10000): Promise<Snapshot> {
+async function callApi(payload: Record<string, unknown>, timeoutMs = 25000): Promise<Snapshot> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error("Request timeout")), timeoutMs);
   try {
@@ -55,7 +55,7 @@ function LithuaniaHitlPopupPageInner() {
     inFlightRef.current = true;
     setLoading(true);
     try {
-      const data = await callApi({ action: "snapshot", sessionId }, 12000);
+      const data = await callApi({ action: "snapshot", sessionId }, 25000);
       setSnapshot(data);
       setLastError(data.ok ? "" : data.error || data.detail || "Failed to fetch snapshot");
 

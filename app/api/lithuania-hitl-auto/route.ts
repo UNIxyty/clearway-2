@@ -33,27 +33,39 @@ function isVerificationPage(html: string): boolean {
 }
 
 async function sessionFetchText(session: any, url: string, referer = ""): Promise<string> {
-  const headers: HeadersInit = { "User-Agent": UA };
-  if (referer) headers.Referer = referer;
-  const res = await session.context.request.get(url, { headers, timeout: 90_000 });
-  const text = await res.text();
-  if (res.status() === 403) {
+  const page = session.page;
+  const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+  const text = await page.content();
+  const status = Number(response?.status?.() ?? 200);
+  if (status === 403) {
     // Treat Cloudflare forbidden responses as "needs verification" instead of hard failure.
     if (text && isVerificationPage(text)) return text;
     return "__HTTP403_FORBIDDEN__";
   }
-  if (!res.ok()) {
-    throw new Error(`${res.status()} ${res.statusText()}`);
+  if (status >= 400) {
+    const statusText = String(response?.statusText?.() || "HTTP error");
+    throw new Error(`${status} ${statusText}`);
   }
   return text;
 }
 
 async function sessionDownloadPdf(session: any, url: string, outFile: string, referer = "") {
-  const headers: HeadersInit = { "User-Agent": UA };
-  if (referer) headers.Referer = referer;
-  const res = await session.context.request.get(url, { headers, timeout: 120_000 });
-  if (!res.ok()) throw new Error(`${res.status()} ${res.statusText()}`);
-  const bytes = Buffer.from(await res.body());
+  const page = session.page;
+  const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  const status = Number(response?.status?.() ?? 0);
+  if (status >= 400) {
+    const statusText = String(response?.statusText?.() || "HTTP error");
+    throw new Error(`${status} ${statusText}`);
+  }
+  let bytes = response ? Buffer.from(await response.body()) : Buffer.from([]);
+  if (!bytes.length || !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    // Fallback for viewer/navigation edge-cases where goto body is not raw PDF bytes.
+    const headers: HeadersInit = { "User-Agent": UA };
+    if (referer) headers.Referer = referer;
+    const res = await session.context.request.get(url, { headers, timeout: 120_000 });
+    if (!res.ok()) throw new Error(`${res.status()} ${res.statusText()}`);
+    bytes = Buffer.from(await res.body());
+  }
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
   writeFileSync(outFile, bytes);
 }

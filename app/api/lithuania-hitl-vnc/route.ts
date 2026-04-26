@@ -232,16 +232,58 @@ function parseIssueIndexUrl(historyHtml: string, historyUrl: string): { indexUrl
   return { indexUrl, effectiveDate };
 }
 
+function collectFrameSrcs(html: string, baseUrl: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of String(html || "").matchAll(/<(?:frame|iframe)\b[^>]*\bsrc=['"]([^'"]+)['"][^>]*>/gi)) {
+    const raw = String(m[1] || "").trim();
+    if (!raw) continue;
+    const abs = new URL(raw, baseUrl).href;
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    out.push(abs);
+  }
+  return out;
+}
+
 function parseTocUrl(indexHtml: string, indexUrl: string): string {
-  const src = String(indexHtml || "").match(/<frame[^>]*name=['"]eAISNavigationBase['"][^>]*src=['"]([^'"]+)['"]/i)?.[1] || "";
-  if (!src) throw new Error("Could not resolve Lithuania TOC URL.");
-  return new URL(src, indexUrl).href;
+  const html = String(indexHtml || "");
+
+  const strict = html.match(/<(?:frame|iframe)\b[^>]*\bname=['"]eAISNavigationBase['"][^>]*\bsrc=['"]([^'"]+)['"][^>]*>/i)?.[1];
+  if (strict) return new URL(strict, indexUrl).href;
+
+  const frames = collectFrameSrcs(html, indexUrl);
+  const ranked =
+    frames.find((u) => /(?:\/|_|-)toc(?:[-_.]|$)/i.test(u)) ||
+    frames.find((u) => /navigationbase|navigation/i.test(u)) ||
+    frames.find((u) => /frameset/i.test(u)) ||
+    frames[0];
+  if (ranked) return ranked;
+
+  // Some cycles expose the next TOC/frameset link directly, without frame tags.
+  const direct = html.match(/href=['"]([^'"]*(?:toc|frameset)[^'"]*\.html[^'"]*)['"]/i)?.[1];
+  if (direct) return new URL(direct, indexUrl).href;
+
+  throw new Error("Could not resolve Lithuania TOC URL.");
 }
 
 function parseMenuUrl(tocHtml: string, tocUrl: string): string {
-  const src = String(tocHtml || "").match(/<frame[^>]*name=['"]eAISNavigation['"][^>]*src=['"]([^'"]+)['"]/i)?.[1] || "";
-  if (!src) throw new Error("Could not resolve Lithuania menu URL.");
-  return new URL(src, tocUrl).href;
+  const html = String(tocHtml || "");
+
+  const strict = html.match(/<(?:frame|iframe)\b[^>]*\bname=['"]eAISNavigation['"][^>]*\bsrc=['"]([^'"]+)['"][^>]*>/i)?.[1];
+  if (strict) return new URL(strict, tocUrl).href;
+
+  const frames = collectFrameSrcs(html, tocUrl);
+  const ranked =
+    frames.find((u) => /(?:\/|_|-)menu(?:[-_.]|$)/i.test(u)) ||
+    frames.find((u) => /navigation/i.test(u)) ||
+    frames[0];
+  if (ranked) return ranked;
+
+  // When TOC HTML is already the menu content (no nested frame), reuse it.
+  if (/EY-AD-2\.[A-Z0-9]{4}/i.test(html) || /EY-GEN-1\.2/i.test(html)) return tocUrl;
+
+  throw new Error("Could not resolve Lithuania menu URL.");
 }
 
 function parseAd2Entries(menuHtml: string, menuUrl: string): Ad2Entry[] {

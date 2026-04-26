@@ -255,6 +255,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://aip.scaa.gov.so/history-en-GB.html",
   },
   {
+    country: "Slovakia",
+    prefixes: ["LZ"],
+    webAipUrl: "https://aim.lps.sk/web/index.php?fn=200&lng=en",
+  },
+  {
     country: "Spain",
     prefixes: ["LE"],
     webAipUrl: "https://aip.enaire.es/AIP/AIP-en.html",

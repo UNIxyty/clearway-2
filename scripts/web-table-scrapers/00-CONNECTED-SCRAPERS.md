@@ -55,6 +55,7 @@ Connected scripts
 - [x] `qatar-eaip-interactive.mjs`
 - [x] `rwanda-aip-interactive.mjs`
 - [x] `saudi-arabia-eaip-interactive.mjs`
+- [x] `slovakia-eaip-interactive.mjs`
 - [x] `somalia-eaip-interactive.mjs`
 - [x] `spain-aip-interactive.mjs`
 - [x] `sri-lanka-aip-interactive.mjs`

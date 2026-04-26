@@ -6,7 +6,7 @@ Status meanings:
 - `awaiting`: non-EAD country without dedicated scraper yet
 - `skipped`: intentionally skipped (currently EAD/Login/Unavailable)
 
-## Created (18)
+## Created (19)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
@@ -26,6 +26,7 @@ Status meanings:
 | Latvia | EV | https://ais.lgs.lv/aiseaip | done | Implemented in this workflow | latvia-eaip-interactive.mjs |
 | Poland | EP | https://www.ais.pansa.pl/en/publications/aip-poland/ | done | Implemented in this workflow | poland-eaip-interactive.mjs |
 | Portugal | LP | https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html | done | Implemented in this workflow | portugal-eaip-interactive.mjs |
+| Slovakia | LZ | https://aim.lps.sk/web/index.php?fn=200&lng=en&sess=rqBc1HuJxz891d9R5BfbUNRh83mTpGFzJADGIIGH | done | Implemented in this workflow | slovakia-eaip-interactive.mjs |
 | Spain | LE | https://aip.enaire.es/AIP/AIP-en.html | done | Implemented in this workflow | spain-aip-interactive.mjs |
 | Sweden | ES | https://aro.lfv.se/content/eaip/default_offline.html | done | Implemented in this workflow | sweden-eaip-interactive.mjs |
 
@@ -35,7 +36,7 @@ Status meanings:
 |---|---|---|---|---|---|
 | Bosnia | LQ | https://eaip.bhansa.gov.ba/ | correct | Scraper file already exists | bosnia-eaip-interactive.mjs |
 
-## Awaiting (10)
+## Awaiting (9)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
@@ -46,7 +47,6 @@ Status meanings:
 | Netherlands | EH | https://eaip.lvnl.nl/web/eaip/default.html | correct | No dedicated scraper yet | - |
 | Norway | EN | https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html | correct | No dedicated scraper yet | - |
 | Romania | LR | https://www.aisro.ro/ | correct | No dedicated scraper yet | - |
-| Slovakia | LZ | https://aim.lps.sk/web/index.php?fn=200&lng=en&sess=rqBc1HuJxz891d9R5BfbUNRh83mTpGFzJADGIIGH | correct | No dedicated scraper yet | - |
 | Slovenia | LJ | https://aim.sloveniacontrol.si/aim/products/aip/ | correct | No dedicated scraper yet | - |
 | United Kingdom | EG | https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/ | correct | No dedicated scraper yet | - |
 

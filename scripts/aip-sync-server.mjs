@@ -440,6 +440,13 @@ const SCRAPER_COUNTRY_SPECS = [
     genDir: join(PROJECT_ROOT, "downloads", "somalia-eaip", "GEN"),
   },
   {
+    country: "Slovakia",
+    prefixes: ["LZ"],
+    script: "scripts/web-table-scrapers/slovakia-eaip-interactive.mjs",
+    ad2Dir: join(PROJECT_ROOT, "downloads", "slovakia-eaip", "AD2"),
+    genDir: join(PROJECT_ROOT, "downloads", "slovakia-eaip", "GEN"),
+  },
+  {
     country: "Spain",
     prefixes: ["LE"],
     script: "scripts/web-table-scrapers/spain-aip-interactive.mjs",

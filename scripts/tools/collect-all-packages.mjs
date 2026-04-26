@@ -146,6 +146,7 @@ const WEB_AIP_BY_COUNTRY = {
   qatar: "https://www.caa.gov.qa/en/aeronautical-information-management",
   rwanda: "https://aim.asecna.aero/html/eAIP/eAIP_Rwanda/index-en-GB.html",
   "saudi arabia": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+  slovakia: "https://aim.lps.sk/web/index.php?fn=200&lng=en",
   somalia: "https://aip.scaa.gov.so/history-en-GB.html",
   spain: "https://aip.enaire.es/AIP/AIP-en.html",
   "sri lanka": "https://airport.lk/aasl/AIM/AIP/Eurocontrol/SRI%20LANKA/2025-04-17-DOUBLE%20AIRAC/html/index-en-EN.html",

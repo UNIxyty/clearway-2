@@ -6,7 +6,7 @@ Status meanings:
 - `awaiting`: non-EAD country without dedicated scraper yet
 - `skipped`: intentionally skipped (currently EAD/Login/Unavailable)
 
-## Created (19)
+## Created (20)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
@@ -18,6 +18,7 @@ Status meanings:
 | Denmark | EK | https://aim.naviair.dk/ | done | Implemented in this workflow | denmark-eaip-interactive.mjs |
 | Estonia | EE | https://aim.eans.ee/et/eaip | done | Implemented in this workflow | estonia-eaip-interactive.mjs |
 | Finland | EF | https://ais.fi/eaip/ | done | Implemented in this workflow | finland-eaip-interactive.mjs |
+| France | LF | https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html | done | Implemented in this workflow | france-eaip-interactive.mjs |
 | Georgia | UG | https://airnav.ge/eaip/history-en-GB.html | done | Implemented in this workflow | georgia-eaip-interactive.mjs |
 | Hungary | LH | https://ais-en.hungarocontrol.hu/aip/aip-archive/ | done | Implemented in this workflow | hungary-eaip-interactive.mjs |
 | Iceland | BI | https://eaip.isavia.is/ | done | Implemented in this workflow | iceland-eaip-interactive.mjs |
@@ -36,11 +37,10 @@ Status meanings:
 |---|---|---|---|---|---|
 | Bosnia | LQ | https://eaip.bhansa.gov.ba/ | correct | Scraper file already exists | bosnia-eaip-interactive.mjs |
 
-## Awaiting (9)
+## Awaiting (8)
 
 | Country | ICAO | Link | Status in JSON | Reason | Script |
 |---|---|---|---|---|---|
-| France | LF | https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html | correct | No dedicated scraper yet | - |
 | Germany | ED | https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html | correct | No dedicated scraper yet | - |
 | Greece | LG | https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications | correct | No dedicated scraper yet | - |
 | Lithuania | EY | https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html | correct | No dedicated scraper yet | - |

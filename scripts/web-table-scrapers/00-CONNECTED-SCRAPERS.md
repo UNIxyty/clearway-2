@@ -26,6 +26,7 @@ Connected scripts
 - [x] `el-salvador-eaip-interactive.mjs`
 - [x] `estonia-eaip-interactive.mjs`
 - [x] `finland-eaip-interactive.mjs`
+- [x] `france-eaip-interactive.mjs`
 - [x] `georgia-eaip-interactive.mjs`
 - [x] `guatemala-eaip-interactive.mjs`
 - [x] `hungary-eaip-interactive.mjs`

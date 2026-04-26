@@ -118,6 +118,7 @@ const WEB_AIP_BY_COUNTRY = {
   "el salvador": "https://www.cocesna.org/aipca/AIPMS/history.html",
   estonia: "https://aim.eans.ee/et/eaip",
   finland: "https://ais.fi/eaip/",
+  france: "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html",
   georgia: "https://airnav.ge/eaip/history-en-GB.html",
   guatemala: "https://www.dgac.gob.gt/home/aip_e/",
   hungary: "https://ais-en.hungarocontrol.hu/aip/aip-archive/",

@@ -106,6 +106,11 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
     webAipUrl: "https://ais.fi/eaip/",
   },
   {
+    country: "France",
+    prefixes: ["LF"],
+    webAipUrl: "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html",
+  },
+  {
     country: "Georgia",
     prefixes: ["UG"],
     webAipUrl: "https://airnav.ge/eaip/history-en-GB.html",

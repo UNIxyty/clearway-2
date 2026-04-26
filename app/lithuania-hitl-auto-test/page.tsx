@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 type ApiResult = Record<string, unknown> & {
   ok?: boolean;
   error?: string;
+  message?: string;
   detail?: string;
   sessionId?: string;
   popupPath?: string;
@@ -19,6 +20,10 @@ type ApiResult = Record<string, unknown> & {
   title?: string;
   challengeDetected?: boolean;
   challengeOnly?: boolean;
+  needsHumanVerification?: boolean;
+  file?: string;
+  effectiveDate?: string;
+  ad2Icaos?: string[];
 };
 
 async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
@@ -215,14 +220,14 @@ export default function LithuaniaHitlAutoTestPage() {
                 }`}
               >
                 {!result.ok && <p className="font-medium">{result.error || "Failed"}</p>}
-                {"message" in result && result.message && <p>{String(result.message)}</p>}
-                {"detail" in result && result.detail && <p className="text-muted-foreground">{String(result.detail)}</p>}
-                {"needsHumanVerification" in result && result.needsHumanVerification && (
+                {result.message && <p>{result.message}</p>}
+                {result.detail && <p className="text-muted-foreground">{result.detail}</p>}
+                {result.needsHumanVerification && (
                   <p className="text-muted-foreground">Solve challenge in popup, then retry.</p>
                 )}
-                {"file" in result && result.file && <p>Saved: {String(result.file)}</p>}
-                {"effectiveDate" in result && result.effectiveDate && <p>Effective date: {String(result.effectiveDate)}</p>}
-                {"ad2Icaos" in result && Array.isArray(result.ad2Icaos) && <p>AD2 ICAOs: {result.ad2Icaos.length}</p>}
+                {result.file && <p>Saved: {result.file}</p>}
+                {result.effectiveDate && <p>Effective date: {result.effectiveDate}</p>}
+                {Array.isArray(result.ad2Icaos) && <p>AD2 ICAOs: {result.ad2Icaos.length}</p>}
               </div>
             )}
           </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -27,7 +27,7 @@ async function callApi(payload: Record<string, unknown>): Promise<Snapshot> {
   return (await res.json()) as Snapshot;
 }
 
-export default function LithuaniaHitlPopupPage() {
+function LithuaniaHitlPopupPageInner() {
   const params = useSearchParams();
   const sessionId = String(params.get("sessionId") || "");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -142,6 +142,14 @@ export default function LithuaniaHitlPopupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LithuaniaHitlPopupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen p-4 text-sm text-muted-foreground">Loading popup session...</div>}>
+      <LithuaniaHitlPopupPageInner />
+    </Suspense>
   );
 }
 

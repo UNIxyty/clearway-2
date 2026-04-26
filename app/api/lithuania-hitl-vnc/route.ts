@@ -41,6 +41,22 @@ async function cleanupStaleSessions() {
   }
 }
 
+async function listWdSessions(): Promise<string[]> {
+  const out = await wdCall("/sessions");
+  const rows = Array.isArray(out?.value) ? out.value : [];
+  return rows
+    .map((row: any) => String(row?.id || row?.sessionId || "").trim())
+    .filter((id: string) => Boolean(id));
+}
+
+async function reapAllWdSessions() {
+  const ids = await listWdSessions().catch(() => []);
+  for (const id of ids) {
+    await deleteWdSession(id);
+  }
+  getStore().clear();
+}
+
 function isVerificationPage(html: string): boolean {
   const body = String(html || "").toLowerCase();
   return (
@@ -133,9 +149,10 @@ async function wdChallengeStatus(sessionId: string): Promise<{ challengeDetected
 function buildNoVncUrl(request: NextRequest): string {
   const explicit = String(process.env.LITHUANIA_NOVNC_URL || "").trim();
   if (explicit) return explicit;
-  const proto = String(request.headers.get("x-forwarded-proto") || "http");
   const host = String(request.headers.get("host") || "localhost:3000").replace(/:\d+$/, "");
-  return `${proto}://${host}:6080/?autoconnect=1&resize=scale`;
+  // noVNC standalone endpoint on port 6080 is typically served over plain HTTP.
+  // Using https here causes browser connection failures on many deployments.
+  return `http://${host}:6080/vnc.html?autoconnect=1&resize=scale`;
 }
 
 function buildHeaders(cookie: string, referer = "") {
@@ -285,6 +302,9 @@ export async function POST(request: NextRequest) {
     const action = String(body.action || "").trim();
 
     if (action === "start") {
+      // Selenium node is single-session; clear any stale remote sessions first
+      // to avoid long queueing/hangs when previous sessions were not closed cleanly.
+      await reapAllWdSessions();
       const sessionId = await createWdSession();
       await wdNavigate(sessionId, ENTRY_URL);
       getStore().set(sessionId, { sessionId, createdAt: Date.now(), lastUsedAt: Date.now() });

@@ -1,19 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftIcon, ExternalLinkIcon, MonitorIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-type ViewerPageProps = {
-  searchParams?: {
-    src?: string | string[];
-    sessionId?: string | string[];
-  };
-};
-
-function firstParam(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) return value[0] ?? "";
-  return value ?? "";
-}
+import { useSearchParams } from "next/navigation";
 
 function isAllowedUrl(value: string): boolean {
   if (!value) return false;
@@ -25,10 +17,66 @@ function isAllowedUrl(value: string): boolean {
   }
 }
 
-export default function LithuaniaHitlViewerPage({ searchParams }: ViewerPageProps) {
-  const noVncUrl = firstParam(searchParams?.src);
-  const sessionId = firstParam(searchParams?.sessionId);
+type StatusPayload = {
+  ok?: boolean;
+  challengeDetected?: boolean;
+};
+
+async function fetchStatus(sessionId: string): Promise<StatusPayload | null> {
+  try {
+    const res = await fetch("/api/lithuania-hitl-vnc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "status", sessionId }),
+    });
+    return (await res.json()) as StatusPayload;
+  } catch {
+    return null;
+  }
+}
+
+export default function LithuaniaHitlViewerPage() {
+  const searchParams = useSearchParams();
+  const noVncUrl = searchParams.get("src") || "";
+  const sessionId = searchParams.get("sessionId") || "";
   const hasValidViewer = isAllowedUrl(noVncUrl);
+  const [autoCloseNotice, setAutoCloseNotice] = useState("");
+  const challengeSeenRef = useRef(false);
+  const clearStreakRef = useRef(0);
+  const closedRef = useRef(false);
+
+  const shouldPoll = useMemo(() => hasValidViewer && Boolean(sessionId), [hasValidViewer, sessionId]);
+
+  useEffect(() => {
+    if (!shouldPoll) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      if (cancelled || closedRef.current) return;
+      const data = await fetchStatus(sessionId);
+      if (!data) return;
+
+      const challengeDetected = Boolean(data.challengeDetected);
+      if (challengeDetected) {
+        challengeSeenRef.current = true;
+        clearStreakRef.current = 0;
+        return;
+      }
+      clearStreakRef.current += 1;
+      const shouldClose = challengeSeenRef.current || clearStreakRef.current >= 3;
+      if (!shouldClose) return;
+
+      closedRef.current = true;
+      setAutoCloseNotice("Captcha cleared. Closing this viewer...");
+      window.setTimeout(() => {
+        if (!window.closed) window.close();
+      }, 450);
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [sessionId, shouldPoll]);
 
   return (
     <div className="min-h-dvh bg-background px-4 py-6 md:px-6">
@@ -59,6 +107,11 @@ export default function LithuaniaHitlViewerPage({ searchParams }: ViewerPageProp
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {autoCloseNotice && (
+              <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-900 dark:text-green-200">
+                {autoCloseNotice}
+              </div>
+            )}
             <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground md:grid-cols-2">
               <p>
                 Session: <span className="font-mono text-xs tabular-nums">{sessionId || "not provided"}</span>

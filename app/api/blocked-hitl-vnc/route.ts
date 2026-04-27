@@ -364,7 +364,45 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-async function wdExtractRenderedAnchorsHtml(sessionId: string): Promise<string> {
+async function wdExpandNetherlandsNavigation(sessionId: string) {
+  const script = `
+    const norm = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const wanted = [
+      /Part\\s*1\\s*GENERAL|GENERAL\\s*\\(GEN\\)|\\bGEN\\b/i,
+      /GEN\\s*1\\s*NATIONAL|GEN\\s*1/i,
+      /Part\\s*3\\s*AERODROMES|AERODROMES\\s*\\(AD\\)|\\bAD\\b/i,
+      /AD\\s*2\\s*AERODROMES|AD\\s*2/i,
+    ];
+    const clickMatches = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return 0;
+      }
+      let count = 0;
+      for (const re of wanted) {
+        const elements = Array.from(doc.querySelectorAll('a, button, span, div, li'))
+          .filter((el) => re.test(norm(el.textContent)) || re.test(String(el.getAttribute('title') || '')));
+        for (const el of elements.slice(0, 8)) {
+          try {
+            el.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+            el.click();
+            count += 1;
+          } catch {}
+        }
+      }
+      for (const frame of Array.from(win.frames || [])) count += clickMatches(frame);
+      return count;
+    };
+    return clickMatches(window);
+  `;
+  await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] }).catch(() => null);
+  touchSession(sessionId);
+  await sleep(750);
+}
+
+async function wdExtractRenderedNavigationHtml(sessionId: string): Promise<string> {
   const script = `
     const out = [];
     const seen = new Set();
@@ -375,15 +413,19 @@ async function wdExtractRenderedAnchorsHtml(sessionId: string): Promise<string> 
       } catch {
         return;
       }
-      for (const a of Array.from(doc.querySelectorAll('a'))) {
-        const rawHref = String(a.getAttribute('href') || '');
-        const href = rawHref && !/^javascript:/i.test(rawHref) ? String(a.href || rawHref) : rawHref;
-        const text = String(a.textContent || a.getAttribute('title') || a.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
-        const onclick = String(a.getAttribute('onclick') || '');
-        const key = href + "\\n" + text + "\\n" + onclick;
+      const pageText = String(doc.body?.innerText || '').replace(/\\s+/g, ' ').trim();
+      if (pageText) out.push({ tag: 'body', href: '', text: pageText, onclick: '', attrs: '' });
+      for (const el of Array.from(doc.querySelectorAll('a, button, span, div, li'))) {
+        const rawHref = String(el.getAttribute('href') || '');
+        const href = rawHref && !/^javascript:/i.test(rawHref) ? String(el.href || rawHref) : rawHref;
+        const text = String(el.textContent || el.getAttribute('title') || el.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+        const onclick = String(el.getAttribute('onclick') || '');
+        const attrs = Array.from(el.attributes || []).map((attr) => attr.name + '=' + attr.value).join(' ');
+        if (!href && !text && !onclick && !attrs) continue;
+        const key = href + "\\n" + text + "\\n" + onclick + "\\n" + attrs;
         if (seen.has(key)) continue;
         seen.add(key);
-        out.push({ href, text, onclick });
+        out.push({ tag: el.tagName, href, text, onclick, attrs });
       }
       for (const frame of Array.from(win.frames || [])) collect(frame);
     };
@@ -396,8 +438,9 @@ async function wdExtractRenderedAnchorsHtml(sessionId: string): Promise<string> 
   return links
     .map((link: any) => {
       const href = escapeAttr(String(link?.href || ""));
-      const text = escapeHtml(`${String(link?.text || "")} ${String(link?.onclick || "")}`.trim());
-      return `<a href="${href}">${text}</a>`;
+      const text = escapeHtml(`${String(link?.text || "")} ${String(link?.onclick || "")} ${String(link?.attrs || "")}`.trim());
+      const tag = escapeHtml(String(link?.tag || "node").toLowerCase());
+      return `<${tag} href="${href}">${text}</${tag}>`;
     })
     .join("\n");
 }
@@ -679,11 +722,12 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   let menuHtml = "";
   const menuErrors: string[] = [];
 
-  const renderedAnchorsHtml = await wdExtractRenderedAnchorsHtml(sessionId);
-  const renderedIcaos = parseNetherlandsAd2Icaos(renderedAnchorsHtml);
-  if (renderedIcaos.length || /E[Hh]-GEN(?:[-_%20\s])*1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(renderedAnchorsHtml)) {
+  await wdExpandNetherlandsNavigation(sessionId);
+  const renderedNavigationHtml = await wdExtractRenderedNavigationHtml(sessionId);
+  const renderedIcaos = parseNetherlandsAd2Icaos(renderedNavigationHtml);
+  if (renderedIcaos.length || /E[Hh]-GEN(?:[-_%20\s])*1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(renderedNavigationHtml)) {
     menuUrl = packageEntryUrl;
-    menuHtml = renderedAnchorsHtml;
+    menuHtml = renderedNavigationHtml;
   }
 
   if (!menuHtml) {

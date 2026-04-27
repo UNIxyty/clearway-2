@@ -83,3 +83,22 @@ test("Netherlands navigation parses rendered single-page package links", () => {
     "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-AD%202.EHAM-en-GB.html",
   );
 });
+
+test("Netherlands navigation parses expanded rendered tree text", () => {
+  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
+  const renderedTree = `
+    <span>Part 1 GENERAL (GEN)</span>
+    <span>GEN 1 NATIONAL REGULATIONS AND REQUIREMENTS</span>
+    <span>GEN 1.2 Entry, transit and departure of aircraft</span>
+    <span>Part 3 AERODROMES (AD)</span>
+    <span>AD 2 AERODROMES</span>
+    <span>AD 2 EHAM AMSTERDAM/Schiphol</span>
+    <span>AD 2 EHRD ROTTERDAM/The Hague</span>
+  `;
+
+  assert.equal(
+    parseNetherlandsGen12HtmlUrl(renderedTree, packageUrl),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
+  );
+  assert.deepEqual(parseNetherlandsAd2Icaos(renderedTree), ["EHAM", "EHRD"]);
+});

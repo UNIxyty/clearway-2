@@ -34,8 +34,16 @@ async function fetchText(url) {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
+    const text = await res.text();
+    if (!res.ok) {
+      if (res.status === 403 && /cf-challenge|just a moment|verify you are human/i.test(text)) {
+        throw new Error(
+          "Cloudflare challenge detected for Netherlands. Use the HITL noVNC flow (same as Lithuania/Greece) to solve verification first.",
+        );
+      }
+      throw new Error(`${res.status} ${res.statusText}`);
+    }
+    return text;
   } finally {
     clearTimeout(timer);
   }
@@ -74,6 +82,22 @@ function ad2HtmlUrl(icao) {
   return `https://eaip.lvnl.nl/web/eaip/html/eAIP/EH-AD-2.${icao}-en-GB.html`;
 }
 
+function parseMenuUrl(entryHtml) {
+  const src =
+    String(entryHtml || "").match(/<(?:frame|iframe)\b[^>]*\bsrc=["']([^"']*menu[^"']*)["']/i)?.[1] ||
+    String(entryHtml || "").match(/href=["']([^"']*EH-menu[^"']*\.html[^"']*)["']/i)?.[1];
+  if (!src) return MENU_URL;
+  return new URL(src, ENTRY_URL).href;
+}
+
+function parseGen12HtmlUrl(menuHtml, menuUrl) {
+  const href =
+    String(menuHtml || "").match(/href=["']([^"']*EH-GEN-1\.2[^"']*\.html[^"']*)["']/i)?.[1] ||
+    String(menuHtml || "").match(/href=["']([^"']*GEN[^"']*1\.2[^"']*\.html[^"']*)["']/i)?.[1];
+  if (!href) return GEN12_HTML_URL;
+  return new URL(href, menuUrl).href;
+}
+
 async function renderHtmlToPdf(htmlUrl, outFile) {
   let chromium;
   try {
@@ -103,11 +127,13 @@ async function renderHtmlToPdf(htmlUrl, outFile) {
 
 async function resolveContext() {
   const entryHtml = await fetchText(ENTRY_URL);
-  const menuHtml = await fetchText(MENU_URL);
+  const menuUrl = parseMenuUrl(entryHtml);
+  const menuHtml = await fetchText(menuUrl);
   const effectiveDate = parseEffectiveDate(entryHtml);
   const ad2Icaos = parseAd2Icaos(menuHtml);
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands menu.");
-  return { effectiveDate, ad2Icaos };
+  const gen12HtmlUrl = parseGen12HtmlUrl(menuHtml, menuUrl);
+  return { effectiveDate, ad2Icaos, gen12HtmlUrl };
 }
 
 async function main() {
@@ -120,7 +146,7 @@ async function main() {
 
   if (downloadGen12) {
     mkdirSync(OUT_GEN, { recursive: true });
-    await renderHtmlToPdf(GEN12_HTML_URL, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
+    await renderHtmlToPdf(ctx.gen12HtmlUrl, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
     return;
   }
 
@@ -138,7 +164,7 @@ async function main() {
     if (mode === "0") return;
     if (mode === "1") {
       mkdirSync(OUT_GEN, { recursive: true });
-      await renderHtmlToPdf(GEN12_HTML_URL, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
+      await renderHtmlToPdf(ctx.gen12HtmlUrl, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
       return;
     }
     if (mode === "2") {

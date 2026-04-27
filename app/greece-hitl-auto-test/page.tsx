@@ -25,33 +25,21 @@ type ApiResult = Record<string, unknown> & {
   effectiveDate?: string;
   ad2Icaos?: string[];
 };
+
 type ScrapeMode = "collect" | "gen12" | "ad2";
 type StartSessionResult = { ok: true; sessionId: string; popupUrl: string } | { ok: false };
-type HitlTarget = {
-  key: string;
-  country: string;
-  icaoPrefix: string;
-  apiPath: string;
-  note: string;
-};
 
+const API_PATH = "/api/blocked-hitl-vnc";
 const API_TIMEOUT_MS = 25_000;
-const HITL_TARGETS: HitlTarget[] = [
-  { key: "lithuania", country: "Lithuania", icaoPrefix: "EY", apiPath: "/api/lithuania-hitl-vnc", note: "Live now" },
-  { key: "greece", country: "Greece", icaoPrefix: "LG", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "germany", country: "Germany", icaoPrefix: "ED", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "netherlands", country: "Netherlands", icaoPrefix: "EH", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "slovenia", country: "Slovenia", icaoPrefix: "LJ", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-];
 
-async function callApi(apiPath: string, payload: Record<string, unknown>): Promise<ApiResult> {
+async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
-    const res = await fetch(apiPath, {
+    const res = await fetch(API_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ country: "greece", ...payload }),
       signal: controller.signal,
     });
     return (await res.json()) as ApiResult;
@@ -60,7 +48,7 @@ async function callApi(apiPath: string, payload: Record<string, unknown>): Promi
       return {
         ok: false,
         error: "Request timed out",
-        detail: "Backend did not respond in 25s. Check that the browser container is running and ready.",
+        detail: "Backend did not respond in 25s. Check browser container health and retry.",
       };
     }
     throw err;
@@ -75,15 +63,14 @@ function buildViewerUrl(popupUrl: string, sessionId: string, closeOnClear = true
     sessionId,
     closeOnClear: closeOnClear ? "1" : "0",
   });
-  return `/lithuania-hitl-auto-test/viewer?${params.toString()}`;
+  return `/greece-hitl-auto-test/viewer?${params.toString()}`;
 }
 
-export default function LithuaniaHitlAutoTestPage() {
-  const [targetKey, setTargetKey] = useState("lithuania");
+export default function GreeceHitlAutoTestPage() {
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
   const [loading, setLoading] = useState<"" | "start" | "status" | ScrapeMode>("");
-  const [icao, setIcao] = useState("EYVI");
+  const [icao, setIcao] = useState("LGAV");
   const [status, setStatus] = useState<ApiResult | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
   const viewerWindowRef = useRef<Window | null>(null);
@@ -91,8 +78,6 @@ export default function LithuaniaHitlAutoTestPage() {
   const viewerAutoClosedRef = useRef(false);
   const autoModeRef = useRef<ScrapeMode | "">("");
   const autoScrapeInFlightRef = useRef(false);
-  const selectedTarget = HITL_TARGETS.find((x) => x.key === targetKey) || HITL_TARGETS[0];
-  const apiPath = selectedTarget.apiPath;
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -105,7 +90,7 @@ export default function LithuaniaHitlAutoTestPage() {
   function openViewerWindow(url: string, currentSessionId: string, closeOnClear = true) {
     const win = window.open(
       buildViewerUrl(url, currentSessionId, closeOnClear),
-      "lithuania_hitl_auto_viewer",
+      "greece_hitl_auto_viewer",
       "popup=yes,width=1040,height=820,resizable=yes",
     );
     if (win) {
@@ -118,9 +103,8 @@ export default function LithuaniaHitlAutoTestPage() {
     setLoading(mode);
     setResult(null);
     try {
-      const data = await callApi(apiPath, {
+      const data = await callApi({
         action: "scrape",
-        country: selectedTarget.key,
         sessionId,
         mode,
         icao: icao.trim().toUpperCase(),
@@ -149,7 +133,7 @@ export default function LithuaniaHitlAutoTestPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (hasSession) {
       timer = setInterval(async () => {
-        const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId }).catch(() => null);
+        const data = await callApi({ action: "status", sessionId }).catch(() => null);
         if (!data) return;
         setStatus(data);
 
@@ -191,13 +175,13 @@ export default function LithuaniaHitlAutoTestPage() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [apiPath, hasSession, selectedTarget.key, sessionId]);
+  }, [hasSession, sessionId]);
 
   async function startSession(openForAuto = false): Promise<StartSessionResult> {
     setLoading("start");
     setResult(null);
     try {
-      const data = await callApi(apiPath, { action: "start", country: selectedTarget.key });
+      const data = await callApi({ action: "start" });
       if (!data.ok || !data.sessionId) {
         setResult(data);
         return { ok: false };
@@ -207,7 +191,7 @@ export default function LithuaniaHitlAutoTestPage() {
       viewerAutoClosedRef.current = false;
       setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
-      setResult({ ok: true, message: `${selectedTarget.country} session started. Open viewer and solve captcha.` });
+      setResult({ ok: true, message: "Greece session started. Open viewer and solve captcha." });
       if (data.popupUrl) {
         openViewerWindow(String(data.popupUrl), String(data.sessionId), !openForAuto);
       }
@@ -228,7 +212,7 @@ export default function LithuaniaHitlAutoTestPage() {
     if (!hasSession) return;
     setLoading("status");
     try {
-      const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId });
+      const data = await callApi({ action: "status", sessionId });
       setStatus(data);
       setResult(data.ok ? null : data);
     } finally {
@@ -262,7 +246,7 @@ export default function LithuaniaHitlAutoTestPage() {
 
   async function closeSessionNow() {
     if (!hasSession) return;
-    await callApi(apiPath, { action: "close", country: selectedTarget.key, sessionId }).catch(() => {});
+    await callApi({ action: "close", sessionId }).catch(() => {});
     if (viewerWindowRef.current && !viewerWindowRef.current.closed) {
       viewerWindowRef.current.close();
     }
@@ -277,21 +261,6 @@ export default function LithuaniaHitlAutoTestPage() {
     setResult({ ok: true, message: "Session closed." });
   }
 
-  async function switchTarget(nextKey: string) {
-    if (nextKey === targetKey) return;
-    if (hasSession) {
-      await closeSessionNow();
-    } else {
-      setResult(null);
-      setStatus(null);
-    }
-    setTargetKey(nextKey);
-    const next = HITL_TARGETS.find((x) => x.key === nextKey);
-    if (next) {
-      setIcao(`${next.icaoPrefix}XX`);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -299,41 +268,15 @@ export default function LithuaniaHitlAutoTestPage() {
           <ArrowLeftIcon className="h-4 w-4" />
           Back to portal
         </Link>
-        <Link
-          href="/greece-hitl-auto-test"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ExternalLinkIcon className="h-4 w-4" />
-          Open dedicated Greece HITL page
-        </Link>
 
         <Card>
           <CardHeader>
-            <CardTitle>Blocked/Captcha HITL auto test</CardTitle>
+            <CardTitle>Greece HITL auto test</CardTitle>
             <CardDescription>
-              Test-only Selenium + noVNC flow for blocked countries. Select a country button, then run solve-and-scrape.
+              Lithuania-style Selenium + noVNC workflow for Greece captcha solve, then auto run collect/GEN/AD2.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2 rounded border p-3">
-              <p className="text-sm font-medium">Blocked/Captcha country buttons (test hub)</p>
-              <div className="flex flex-wrap gap-2">
-                {HITL_TARGETS.map((target) => (
-                  <Button
-                    key={target.key}
-                    size="sm"
-                    variant={target.key === targetKey ? "default" : "outline"}
-                    onClick={() => switchTarget(target.key)}
-                  >
-                    {target.country} ({target.icaoPrefix})
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Selected: {selectedTarget.country} ({selectedTarget.icaoPrefix}) - {selectedTarget.note}
-              </p>
-            </div>
-
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => startSession(false)} disabled={loading === "start"}>
                 {loading === "start" ? (
@@ -420,4 +363,3 @@ export default function LithuaniaHitlAutoTestPage() {
     </div>
   );
 }
-

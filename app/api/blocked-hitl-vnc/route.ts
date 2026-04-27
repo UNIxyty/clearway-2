@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
@@ -11,6 +13,7 @@ const DEFAULT_UA =
 const DEFAULT_LANG = "en-US,en;q=0.9";
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const WD_TIMEOUT_MS = 60_000;
+const SCRIPT_TIMEOUT_MS = 8 * 60 * 1000;
 const SELENIUM_BASE = String(process.env.BLOCKED_SELENIUM_URL || process.env.LITHUANIA_SELENIUM_URL || "http://lithuania-browser:4444/wd/hub").replace(/\/$/, "");
 const SELENIUM_ROOT = SELENIUM_BASE.replace(/\/wd\/hub$/i, "");
 
@@ -25,6 +28,7 @@ type CountryConfig = {
 };
 type SessionRecord = { sessionId: string; countryKey: CountryKey; createdAt: number; lastUsedAt: number };
 type PdfEntry = { url: string; text: string; sourceUrl: string };
+type CollectOutput = { effectiveDate?: string | null; ad2Icaos?: string[] };
 
 const COUNTRIES: Record<CountryKey, CountryConfig> = {
   greece: {
@@ -273,6 +277,99 @@ async function downloadPdf(url: string, cookie: string, userAgent: string, langu
   writeFileSync(outFile, bytes);
 }
 
+async function runNodeScript(scriptPath: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return await new Promise((resolve, reject) => {
+    const child = spawn("node", [scriptPath, ...args], { cwd: PROJECT_ROOT, env: process.env });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`Timeout running ${scriptPath}`));
+    }, SCRIPT_TIMEOUT_MS);
+
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        reject(new Error((stderr || stdout || `${scriptPath} exited ${code}`).trim()));
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+function parseCollectOutput(stdout: string): CollectOutput {
+  const body = String(stdout || "").trim();
+  if (!body) return {};
+  const start = body.lastIndexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start < 0 || end < 0 || end <= start) return {};
+  try {
+    const parsed = JSON.parse(body.slice(start, end + 1)) as CollectOutput;
+    return {
+      effectiveDate: parsed.effectiveDate || null,
+      ad2Icaos: Array.isArray(parsed.ad2Icaos) ? parsed.ad2Icaos.map((x) => String(x).toUpperCase()) : [],
+    };
+  } catch {
+    return {};
+  }
+}
+
+function latestPdfFile(dir: string, includeToken = ""): string {
+  if (!existsSync(dir)) return "";
+  const token = String(includeToken || "").toUpperCase();
+  const files = readdirSync(dir)
+    .filter((name) => name.toLowerCase().endsWith(".pdf"))
+    .filter((name) => (token ? name.toUpperCase().includes(token) : true))
+    .sort((a, b) => statSync(join(dir, b)).mtimeMs - statSync(join(dir, a)).mtimeMs);
+  return files[0] ? join(dir, files[0]) : "";
+}
+
+async function runGreeceScriptFlow(mode: Mode, icao: string, postCaptchaHtml: string) {
+  const scriptPath = join(PROJECT_ROOT, "scripts", "web-table-scrapers", "greece-eaip-interactive.mjs");
+  const tempPath = join(tmpdir(), `clearway-greece-post-captcha-${Date.now()}.html`);
+  writeFileSync(tempPath, postCaptchaHtml, "utf8");
+  try {
+    if (mode === "collect") {
+      const out = await runNodeScript(scriptPath, ["--collect", "--post-captcha-html", tempPath]);
+      const parsed = parseCollectOutput(out.stdout);
+      return {
+        ok: true,
+        effectiveDate: parsed.effectiveDate || null,
+        ad2Icaos: parsed.ad2Icaos || [],
+      };
+    }
+
+    if (mode === "gen12") {
+      await runNodeScript(scriptPath, ["--download-gen12", "--post-captcha-html", tempPath]);
+      const file = latestPdfFile(join(PROJECT_ROOT, "downloads", "greece-eaip", "GEN"), "GEN-1.2");
+      if (!file) throw new Error("Greece GEN 1.2 download finished but output file was not found.");
+      return { ok: true, file };
+    }
+
+    const wantedIcao = String(icao || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(wantedIcao)) return { ok: false, error: "Provide a valid ICAO for AD2 mode." };
+    await runNodeScript(scriptPath, ["--download-ad2", wantedIcao, "--post-captcha-html", tempPath]);
+    const file = latestPdfFile(join(PROJECT_ROOT, "downloads", "greece-eaip", "AD2"), wantedIcao);
+    if (!file) throw new Error(`Greece AD2 download finished but output file for ${wantedIcao} was not found.`);
+    return { ok: true, file, icao: wantedIcao };
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {}
+  }
+}
+
 function parseTagAttrs(tag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   for (const m of String(tag || "").matchAll(/\b([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(['"])(.*?)\2/g)) {
@@ -411,6 +508,19 @@ async function runBlockedScrape(
   mode: Mode,
   icao: string,
 ) {
+  if (cfg.key === "greece") {
+    const html = await wdGetSource(sessionId);
+    if (isVerificationPage(html)) {
+      return {
+        ok: false,
+        needsHumanVerification: true,
+        message: "Greece source still requires verification in noVNC viewer.",
+        verifyUrl: cfg.entryUrl,
+      };
+    }
+    return await runGreeceScriptFlow(mode, icao, html);
+  }
+
   const ctx = await crawlContext(sessionId, cfg);
   if (ctx.needsVerification) {
     return { ok: false, needsHumanVerification: true, message: `${cfg.country} source still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };

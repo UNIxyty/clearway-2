@@ -206,13 +206,19 @@ async function main() {
       return;
     }
     if (mode === "2") {
-      const raw = (await rl.question("ICAO (e.g. EDDF): ")).trim().toUpperCase();
-      if (!/^[A-Z0-9]{4}$/.test(raw)) throw new Error("Invalid ICAO.");
-      const ad2 = await crawlAd2Chapters(ctx.adRootUrl, raw);
-      if (!ad2.targetHash) throw new Error(`AD2 ICAO not found: ${raw}`);
+      const ad2 = await crawlAd2Chapters(ctx.adRootUrl);
+      const ad2Icaos = [...ad2.map.keys()].sort();
+      if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found.");
+      ad2Icaos.forEach((code, i) => console.error(`${String(i + 1).padStart(3)}. ${code}`));
+      const raw = (await rl.question("\nAirport number or ICAO (e.g. EDDF): ")).trim().toUpperCase();
+      const n = Number.parseInt(raw, 10);
+      const icao = String(n) === raw && n >= 1 && n <= ad2Icaos.length ? ad2Icaos[n - 1] : raw;
+      if (!/^[A-Z0-9]{4}$/.test(icao)) throw new Error("Invalid ICAO.");
+      const target = await crawlAd2Chapters(ctx.adRootUrl, icao);
+      if (!target.targetHash) throw new Error(`AD2 ICAO not found: ${icao}`);
       mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, `${dateTag}_${raw}_AD2.pdf`);
-      const url = printUrl("AD", ad2.targetHash, `AD 2 ${raw}`);
+      const outFile = join(OUT_AD2, `${dateTag}_${icao}_AD2.pdf`);
+      const url = printUrl("AD", target.targetHash, `AD 2 ${icao}`);
       log("Trying PDF:", url);
       await downloadPdf(url, outFile);
       return;

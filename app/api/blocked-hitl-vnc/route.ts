@@ -491,8 +491,16 @@ async function wdClickNetherlandsNavItem(sessionId: string, terms: string[]): Pr
 }
 
 function isNetherlandsErrorPage(html: string): boolean {
+  return /(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)/i.test(String(html || ""));
+}
+
+function isNetherlandsAd2Content(html: string, icao: string): boolean {
   const body = String(html || "");
-  return /(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)/i.test(body) && !/AMSTERDAM|SCHIPHOL|AERODROME DATA|AD\s*2\./i.test(body);
+  const wantedIcao = String(icao || "").trim().toUpperCase();
+  return (
+    new RegExp(`\\b${wantedIcao}\\b`, "i").test(body) &&
+    /AERODROME DATA|AD\s*2\.1|AD\s*2\s+[A-Z0-9]{4}|AMSTERDAM|SCHIPHOL/i.test(body)
+  );
 }
 
 async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string): Promise<string> {
@@ -505,7 +513,7 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
   if (clicked) {
     await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
     const clickedHtml = await wdGetSource(sessionId);
-    if (!isVerificationPage(clickedHtml) && !isNetherlandsErrorPage(clickedHtml) && new RegExp(`\\b${wantedIcao}\\b`, "i").test(clickedHtml)) {
+    if (!isVerificationPage(clickedHtml) && !isNetherlandsErrorPage(clickedHtml) && isNetherlandsAd2Content(clickedHtml, wantedIcao)) {
       return await wdGetCurrentUrl(sessionId);
     }
   }
@@ -523,7 +531,7 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
     await wdNavigate(sessionId, candidate);
     const html = await wdGetSource(sessionId);
     if (isVerificationPage(html)) throw new Error(`${ctx.packageEntryUrl} still requires verification in noVNC viewer.`);
-    if (!isNetherlandsErrorPage(html) && new RegExp(`\\b${wantedIcao}\\b`, "i").test(html)) {
+    if (!isNetherlandsErrorPage(html) && isNetherlandsAd2Content(html, wantedIcao)) {
       return candidate;
     }
   }

@@ -11,7 +11,6 @@ import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -143,6 +142,14 @@ async function downloadFromCandidates(candidates, outFile) {
 }
 
 async function renderHtmlToPdf(htmlUrl, outFile) {
+  let chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    throw new Error(
+      "Playwright is required for HTML-to-PDF fallback. Install it with `npm i playwright` and run `npx playwright install chromium`.",
+    );
+  }
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({

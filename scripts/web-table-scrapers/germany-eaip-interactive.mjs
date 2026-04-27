@@ -18,6 +18,7 @@ const OUT_GEN = join(PROJECT_ROOT, "downloads", "germany-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "germany-eaip", "AD2");
 const ENTRY_URL = "https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html";
 const ROOT_URL = "https://aip.dfs.de/BasicIFR/";
+const PRINT_ROOT = "https://aip.dfs.de/basicIFR/print/";
 const UA = "Mozilla/5.0 (compatible; clearway-germany-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 45_000;
 const log = (...args) => console.error("[GERMANY]", ...args);
@@ -59,33 +60,30 @@ function cycleToIso(cycle) {
   return `${m[1]}-${mm}-${m[3]}`;
 }
 
-function parseIcaosFromHtml(html) {
-  const set = new Set();
-  for (const m of String(html || "").matchAll(/\b(E[DT][A-Z0-9]{2})\b/g)) {
-    set.add(String(m[1]).toUpperCase());
-  }
-  return [...set].sort();
+function normalizeText(value) {
+  return String(value || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function buildGenCandidates(airacRoot) {
-  return [
-    new URL("pdf/GEN1-2_en.pdf", airacRoot).href,
-    new URL("pdf/GEN1-2.pdf", airacRoot).href,
-    new URL("pdf/GEN_1_2_en.pdf", airacRoot).href,
-  ];
+function parseAnchors(html) {
+  return [...String(html || "").matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+    .map((m) => ({ href: String(m[1] || "").trim(), text: normalizeText(m[2]) }))
+    .filter((x) => x.href);
 }
 
-function buildAd2Candidates(airacRoot, icao) {
-  const up = String(icao || "").toUpperCase();
-  return [
-    new URL(`pdf/${up}_AD2_en.pdf`, airacRoot).href,
-    new URL(`pdf/${up}_AD_2_en.pdf`, airacRoot).href,
-    new URL(`pdf/${up}_AD2.pdf`, airacRoot).href,
-  ];
+function chapterHashFromHref(href) {
+  const m = String(href || "").match(/^([a-f0-9]{32})\.html$/i);
+  return m?.[1] || "";
+}
+
+function printUrl(section, chapterHash, title) {
+  return `${PRINT_ROOT}${encodeURIComponent(section)}/${encodeURIComponent(chapterHash)}/${encodeURIComponent(title)}`;
 }
 
 async function downloadPdf(url, outFile) {
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  const res = await fetch(url, { headers: { "User-Agent": UA }, redirect: "follow" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
@@ -93,18 +91,66 @@ async function downloadPdf(url, outFile) {
   log("Saved PDF:", outFile);
 }
 
-async function downloadFromCandidates(candidates, outFile) {
-  let lastErr = null;
-  for (const url of candidates) {
+async function resolveSectionRoots(airacRoot) {
+  const rootHtml = await fetchText(new URL("chapter/279afdc243b210751d2f9f2401e5e4db.html", airacRoot).href);
+  const links = parseAnchors(rootHtml);
+  const genHref = links.find((x) => /\bGEN\b/i.test(x.text) && chapterHashFromHref(x.href))?.href || "";
+  const adHref = links.find((x) => /\bAD\b/i.test(x.text) && chapterHashFromHref(x.href))?.href || "";
+  const genHash = chapterHashFromHref(genHref);
+  const adHash = chapterHashFromHref(adHref);
+  if (!genHash || !adHash) throw new Error("Could not resolve Germany GEN/AD roots.");
+  return {
+    genRootUrl: new URL(`chapter/${genHash}.html`, airacRoot).href,
+    adRootUrl: new URL(`chapter/${adHash}.html`, airacRoot).href,
+  };
+}
+
+async function resolveGen12PrintUrl(genRootUrl) {
+  const genRootHtml = await fetchText(genRootUrl);
+  const gen1Hash =
+    chapterHashFromHref(parseAnchors(genRootHtml).find((x) => /\bGEN\s*1\b/i.test(x.text))?.href || "");
+  if (!gen1Hash) throw new Error("Could not resolve Germany GEN 1 chapter.");
+
+  const gen1Html = await fetchText(new URL(`${gen1Hash}.html`, new URL("./", genRootUrl)).href);
+  const gen12Hash =
+    chapterHashFromHref(parseAnchors(gen1Html).find((x) => /\bGEN\s*1\.2\b/i.test(x.text))?.href || "");
+  if (!gen12Hash) throw new Error("Could not resolve Germany GEN 1.2 chapter.");
+
+  return printUrl("GEN", gen12Hash, "GEN 1.2");
+}
+
+async function crawlAd2Chapters(adRootUrl, targetIcao = "") {
+  const wanted = String(targetIcao || "").toUpperCase();
+  const chapterBase = new URL("./", adRootUrl).href;
+  const queue = [new URL(adRootUrl).pathname.split("/").pop() || ""];
+  const seen = new Set();
+  const map = new Map();
+
+  while (queue.length) {
+    const rel = queue.shift();
+    const hash = chapterHashFromHref(rel);
+    if (!hash || seen.has(hash)) continue;
+    seen.add(hash);
+
+    let html = "";
     try {
-      log("Trying PDF:", url);
-      await downloadPdf(url, outFile);
-      return url;
-    } catch (err) {
-      lastErr = err;
+      html = await fetchText(new URL(`${hash}.html`, chapterBase).href);
+    } catch {
+      continue;
+    }
+    for (const m of html.matchAll(/\bAD\s*2\s*([A-Z0-9]{4})\b/gi)) {
+      const icao = String(m[1]).toUpperCase();
+      if (!map.has(icao)) map.set(icao, hash);
+      if (wanted && icao === wanted) {
+        return { targetHash: hash, map };
+      }
+    }
+    for (const a of parseAnchors(html)) {
+      const nextHash = chapterHashFromHref(a.href);
+      if (nextHash && !seen.has(nextHash)) queue.push(`${nextHash}.html`);
     }
   }
-  throw lastErr || new Error("All PDF candidates failed.");
+  return { targetHash: wanted ? map.get(wanted) || "" : "", map };
 }
 
 async function resolveContext() {
@@ -113,30 +159,37 @@ async function resolveContext() {
   const cycle = parseCycleFromUrlOrHtml(ENTRY_URL, `${entryHtml}\n${rootHtml}`);
   const airacRoot = new URL(`${cycle}/`, ROOT_URL).href;
   const effectiveDate = cycleToIso(cycle);
-  const ad2Icaos = parseIcaosFromHtml(`${entryHtml}\n${rootHtml}`);
-  return { cycle, airacRoot, effectiveDate, ad2Icaos };
+  const roots = await resolveSectionRoots(airacRoot);
+  return { cycle, airacRoot, effectiveDate, ...roots };
 }
 
 async function main() {
   const ctx = await resolveContext();
   const dateTag = ctx.effectiveDate || ctx.cycle || "unknown-date";
   if (collectMode()) {
-    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Icaos });
+    const ad2 = await crawlAd2Chapters(ctx.adRootUrl);
+    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: [...ad2.map.keys()].sort() });
     return;
   }
 
   if (downloadGen12) {
     mkdirSync(OUT_GEN, { recursive: true });
     const outFile = join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`);
-    await downloadFromCandidates(buildGenCandidates(ctx.airacRoot), outFile);
+    const url = await resolveGen12PrintUrl(ctx.genRootUrl);
+    log("Trying PDF:", url);
+    await downloadPdf(url, outFile);
     return;
   }
 
   if (downloadAd2Icao) {
     if (!/^[A-Z0-9]{4}$/.test(downloadAd2Icao)) throw new Error("Provide a valid ICAO for --download-ad2.");
+    const ad2 = await crawlAd2Chapters(ctx.adRootUrl, downloadAd2Icao);
+    if (!ad2.targetHash) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
     mkdirSync(OUT_AD2, { recursive: true });
     const outFile = join(OUT_AD2, `${dateTag}_${downloadAd2Icao}_AD2.pdf`);
-    await downloadFromCandidates(buildAd2Candidates(ctx.airacRoot, downloadAd2Icao), outFile);
+    const url = printUrl("AD", ad2.targetHash, `AD 2 ${downloadAd2Icao}`);
+    log("Trying PDF:", url);
+    await downloadPdf(url, outFile);
     return;
   }
 
@@ -147,15 +200,21 @@ async function main() {
     if (mode === "1") {
       mkdirSync(OUT_GEN, { recursive: true });
       const outFile = join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`);
-      await downloadFromCandidates(buildGenCandidates(ctx.airacRoot), outFile);
+      const url = await resolveGen12PrintUrl(ctx.genRootUrl);
+      log("Trying PDF:", url);
+      await downloadPdf(url, outFile);
       return;
     }
     if (mode === "2") {
       const raw = (await rl.question("ICAO (e.g. EDDF): ")).trim().toUpperCase();
       if (!/^[A-Z0-9]{4}$/.test(raw)) throw new Error("Invalid ICAO.");
+      const ad2 = await crawlAd2Chapters(ctx.adRootUrl, raw);
+      if (!ad2.targetHash) throw new Error(`AD2 ICAO not found: ${raw}`);
       mkdirSync(OUT_AD2, { recursive: true });
       const outFile = join(OUT_AD2, `${dateTag}_${raw}_AD2.pdf`);
-      await downloadFromCandidates(buildAd2Candidates(ctx.airacRoot, raw), outFile);
+      const url = printUrl("AD", ad2.targetHash, `AD 2 ${raw}`);
+      log("Trying PDF:", url);
+      await downloadPdf(url, outFile);
       return;
     }
   } finally {

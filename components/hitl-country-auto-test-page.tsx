@@ -25,33 +25,32 @@ type ApiResult = Record<string, unknown> & {
   effectiveDate?: string;
   ad2Icaos?: string[];
 };
+
 type ScrapeMode = "collect" | "gen12" | "ad2";
 type StartSessionResult = { ok: true; sessionId: string; popupUrl: string } | { ok: false };
-type HitlTarget = {
-  key: string;
-  country: string;
-  icaoPrefix: string;
-  apiPath: string;
-  note: string;
+
+type HitlCountryAutoTestPageProps = {
+  countryKey: "greece" | "netherlands";
+  countryName: string;
+  defaultIcao: string;
+  pageHref: string;
+  viewerHref: string;
+  windowName: string;
+  title: string;
+  description: string;
 };
 
+const API_PATH = "/api/blocked-hitl-vnc";
 const API_TIMEOUT_MS = 25_000;
-const HITL_TARGETS: HitlTarget[] = [
-  { key: "lithuania", country: "Lithuania", icaoPrefix: "EY", apiPath: "/api/lithuania-hitl-vnc", note: "Live now" },
-  { key: "greece", country: "Greece", icaoPrefix: "LG", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "germany", country: "Germany", icaoPrefix: "ED", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "netherlands", country: "Netherlands", icaoPrefix: "EH", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-  { key: "slovenia", country: "Slovenia", icaoPrefix: "LJ", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
-];
 
-async function callApi(apiPath: string, payload: Record<string, unknown>): Promise<ApiResult> {
+async function callApi(countryKey: string, payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
-    const res = await fetch(apiPath, {
+    const res = await fetch(API_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ country: countryKey, ...payload }),
       signal: controller.signal,
     });
     return (await res.json()) as ApiResult;
@@ -60,7 +59,7 @@ async function callApi(apiPath: string, payload: Record<string, unknown>): Promi
       return {
         ok: false,
         error: "Request timed out",
-        detail: "Backend did not respond in 25s. Check that the browser container is running and ready.",
+        detail: "Backend did not respond in 25s. Check browser container health and retry.",
       };
     }
     throw err;
@@ -69,21 +68,29 @@ async function callApi(apiPath: string, payload: Record<string, unknown>): Promi
   }
 }
 
-function buildViewerUrl(popupUrl: string, sessionId: string, closeOnClear = true): string {
+function buildViewerUrl(viewerHref: string, popupUrl: string, sessionId: string, closeOnClear = true): string {
   const params = new URLSearchParams({
     src: popupUrl,
     sessionId,
     closeOnClear: closeOnClear ? "1" : "0",
   });
-  return `/lithuania-hitl-auto-test/viewer?${params.toString()}`;
+  return `${viewerHref}?${params.toString()}`;
 }
 
-export default function LithuaniaHitlAutoTestPage() {
-  const [targetKey, setTargetKey] = useState("lithuania");
+export function HitlCountryAutoTestPage({
+  countryKey,
+  countryName,
+  defaultIcao,
+  pageHref,
+  viewerHref,
+  windowName,
+  title,
+  description,
+}: HitlCountryAutoTestPageProps) {
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
   const [loading, setLoading] = useState<"" | "start" | "status" | ScrapeMode>("");
-  const [icao, setIcao] = useState("EYVI");
+  const [icao, setIcao] = useState(defaultIcao);
   const [status, setStatus] = useState<ApiResult | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
   const viewerWindowRef = useRef<Window | null>(null);
@@ -91,8 +98,6 @@ export default function LithuaniaHitlAutoTestPage() {
   const viewerAutoClosedRef = useRef(false);
   const autoModeRef = useRef<ScrapeMode | "">("");
   const autoScrapeInFlightRef = useRef(false);
-  const selectedTarget = HITL_TARGETS.find((x) => x.key === targetKey) || HITL_TARGETS[0];
-  const apiPath = selectedTarget.apiPath;
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -104,8 +109,8 @@ export default function LithuaniaHitlAutoTestPage() {
 
   function openViewerWindow(url: string, currentSessionId: string, closeOnClear = true) {
     const win = window.open(
-      buildViewerUrl(url, currentSessionId, closeOnClear),
-      "lithuania_hitl_auto_viewer",
+      buildViewerUrl(viewerHref, url, currentSessionId, closeOnClear),
+      windowName,
       "popup=yes,width=1040,height=820,resizable=yes",
     );
     if (win) {
@@ -118,9 +123,8 @@ export default function LithuaniaHitlAutoTestPage() {
     setLoading(mode);
     setResult(null);
     try {
-      const data = await callApi(apiPath, {
+      const data = await callApi(countryKey, {
         action: "scrape",
-        country: selectedTarget.key,
         sessionId,
         mode,
         icao: icao.trim().toUpperCase(),
@@ -149,7 +153,7 @@ export default function LithuaniaHitlAutoTestPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (hasSession) {
       timer = setInterval(async () => {
-        const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId }).catch(() => null);
+        const data = await callApi(countryKey, { action: "status", sessionId }).catch(() => null);
         if (!data) return;
         setStatus(data);
 
@@ -191,13 +195,13 @@ export default function LithuaniaHitlAutoTestPage() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [apiPath, hasSession, selectedTarget.key, sessionId]);
+  }, [countryKey, hasSession, sessionId]);
 
   async function startSession(openForAuto = false): Promise<StartSessionResult> {
     setLoading("start");
     setResult(null);
     try {
-      const data = await callApi(apiPath, { action: "start", country: selectedTarget.key });
+      const data = await callApi(countryKey, { action: "start" });
       if (!data.ok || !data.sessionId) {
         setResult(data);
         return { ok: false };
@@ -207,7 +211,7 @@ export default function LithuaniaHitlAutoTestPage() {
       viewerAutoClosedRef.current = false;
       setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
-      setResult({ ok: true, message: `${selectedTarget.country} session started. Open viewer and solve captcha.` });
+      setResult({ ok: true, message: `${countryName} session started. Open viewer and solve captcha.` });
       if (data.popupUrl) {
         openViewerWindow(String(data.popupUrl), String(data.sessionId), !openForAuto);
       }
@@ -228,7 +232,7 @@ export default function LithuaniaHitlAutoTestPage() {
     if (!hasSession) return;
     setLoading("status");
     try {
-      const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId });
+      const data = await callApi(countryKey, { action: "status", sessionId });
       setStatus(data);
       setResult(data.ok ? null : data);
     } finally {
@@ -262,7 +266,7 @@ export default function LithuaniaHitlAutoTestPage() {
 
   async function closeSessionNow() {
     if (!hasSession) return;
-    await callApi(apiPath, { action: "close", country: selectedTarget.key, sessionId }).catch(() => {});
+    await callApi(countryKey, { action: "close", sessionId }).catch(() => {});
     if (viewerWindowRef.current && !viewerWindowRef.current.closed) {
       viewerWindowRef.current.close();
     }
@@ -277,75 +281,25 @@ export default function LithuaniaHitlAutoTestPage() {
     setResult({ ok: true, message: "Session closed." });
   }
 
-  async function switchTarget(nextKey: string) {
-    if (nextKey === targetKey) return;
-    if (hasSession) {
-      await closeSessionNow();
-    } else {
-      setResult(null);
-      setStatus(null);
-    }
-    setTargetKey(nextKey);
-    const next = HITL_TARGETS.find((x) => x.key === nextKey);
-    if (next) {
-      setIcao(`${next.icaoPrefix}XX`);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeftIcon className="h-4 w-4" />
+          <ArrowLeftIcon className="size-4" aria-hidden="true" />
           Back to portal
-        </Link>
-        <Link
-          href="/greece-hitl-auto-test"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ExternalLinkIcon className="h-4 w-4" />
-          Open dedicated Greece HITL page
-        </Link>
-        <Link
-          href="/netherlands-hitl-auto-test"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ExternalLinkIcon className="h-4 w-4" />
-          Open dedicated Netherlands HITL page
         </Link>
 
         <Card>
           <CardHeader>
-            <CardTitle>Blocked/Captcha HITL auto test</CardTitle>
-            <CardDescription>
-              Test-only Selenium + noVNC flow for blocked countries. Select a country button, then run solve-and-scrape.
-            </CardDescription>
+            <CardTitle className="text-balance">{title}</CardTitle>
+            <CardDescription className="text-pretty">{description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2 rounded border p-3">
-              <p className="text-sm font-medium">Blocked/Captcha country buttons (test hub)</p>
-              <div className="flex flex-wrap gap-2">
-                {HITL_TARGETS.map((target) => (
-                  <Button
-                    key={target.key}
-                    size="sm"
-                    variant={target.key === targetKey ? "default" : "outline"}
-                    onClick={() => switchTarget(target.key)}
-                  >
-                    {target.country} ({target.icaoPrefix})
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Selected: {selectedTarget.country} ({selectedTarget.icaoPrefix}) - {selectedTarget.note}
-              </p>
-            </div>
-
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => startSession(false)} disabled={loading === "start"}>
                 {loading === "start" ? (
                   <>
-                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden="true" />
                     Starting...
                   </>
                 ) : (
@@ -362,7 +316,7 @@ export default function LithuaniaHitlAutoTestPage() {
                     }
                     disabled={!popupUrl}
                   >
-                    <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                    <ExternalLinkIcon className="mr-2 size-4" aria-hidden="true" />
                     Re-open viewer
                   </Button>
                   <Button variant="ghost" onClick={closeSessionNow}>
@@ -374,7 +328,7 @@ export default function LithuaniaHitlAutoTestPage() {
 
             <div className="rounded border p-3 text-sm">
               <p className="font-medium">Session ID</p>
-              <p className="font-mono text-xs text-muted-foreground break-all">{sessionId || "none"}</p>
+              <p className="break-all font-mono text-xs text-muted-foreground tabular-nums">{sessionId || "none"}</p>
               <p className="mt-2 text-muted-foreground">{statusLine}</p>
               {hasSession && (
                 <Button size="sm" variant="secondary" className="mt-2" onClick={runStatus} disabled={loading === "status"}>
@@ -384,9 +338,9 @@ export default function LithuaniaHitlAutoTestPage() {
             </div>
 
             <div className="space-y-2 rounded border p-3">
-              <Label htmlFor="icao">ICAO (for AD2 mode)</Label>
+              <Label htmlFor={`${countryKey}-icao`}>ICAO (for AD2 mode)</Label>
               <Input
-                id="icao"
+                id={`${countryKey}-icao`}
                 value={icao}
                 onChange={(e) => setIcao(e.target.value.toUpperCase().slice(0, 4))}
                 className="w-24 font-mono"
@@ -409,6 +363,7 @@ export default function LithuaniaHitlAutoTestPage() {
                 className={`rounded border p-3 text-sm ${
                   result.ok ? "border-green-500/50 bg-green-500/5" : "border-destructive/50 bg-destructive/5"
                 }`}
+                aria-live="polite"
               >
                 {!result.ok && <p className="font-medium">{result.error || "Failed"}</p>}
                 {result.message && <p>{result.message}</p>}
@@ -423,8 +378,24 @@ export default function LithuaniaHitlAutoTestPage() {
             )}
           </CardContent>
         </Card>
+
+        <Link href="/lithuania-hitl-auto-test" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ExternalLinkIcon className="size-4" aria-hidden="true" />
+          Open blocked-country test hub
+        </Link>
+        {pageHref !== "/greece-hitl-auto-test" && (
+          <Link href="/greece-hitl-auto-test" className="ml-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ExternalLinkIcon className="size-4" aria-hidden="true" />
+            Open Greece HITL page
+          </Link>
+        )}
+        {pageHref !== "/netherlands-hitl-auto-test" && (
+          <Link href="/netherlands-hitl-auto-test" className="ml-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ExternalLinkIcon className="size-4" aria-hidden="true" />
+            Open Netherlands HITL page
+          </Link>
+        )}
       </div>
     </div>
   );
 }
-

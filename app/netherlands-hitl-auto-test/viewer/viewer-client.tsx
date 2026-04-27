@@ -1,17 +1,21 @@
 import { HitlCountryViewerClient } from "@/components/hitl-country-viewer-client";
 
-type GreeceHitlViewerClientProps = {
+type NetherlandsHitlViewerClientProps = {
   noVncUrl: string;
   sessionId: string;
   closeOnClear: boolean;
 };
 
-export default function GreeceHitlViewerClient({ noVncUrl, sessionId, closeOnClear }: GreeceHitlViewerClientProps) {
+export default function NetherlandsHitlViewerClient({
+  noVncUrl,
+  sessionId,
+  closeOnClear,
+}: NetherlandsHitlViewerClientProps) {
   return (
     <HitlCountryViewerClient
-      countryKey="greece"
-      countryName="Greece"
-      backHref="/greece-hitl-auto-test"
+      countryKey="netherlands"
+      countryName="Netherlands"
+      backHref="/netherlands-hitl-auto-test"
       noVncUrl={noVncUrl}
       sessionId={sessionId}
       closeOnClear={closeOnClear}

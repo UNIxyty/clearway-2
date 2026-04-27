@@ -64,3 +64,22 @@ test("Netherlands navigation parses GEN 1.2 and AD2 URLs from menu HTML", () => 
     "https://eaip.lvnl.nl/web/eaip/html/eAIP/EH-AD-2.EHAM-en-GB.html",
   );
 });
+
+test("Netherlands navigation parses rendered single-page package links", () => {
+  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
+  const renderedNav = `
+    <a href="eH-GEN%201.2-en-GB.html">GEN 1.2 Entry, transit and departure of aircraft</a>
+    <a href="eH-AD%202.EHAM-en-GB.html">EHAM AMSTERDAM/Schiphol</a>
+    <a href="eH-AD%202.EHRD-en-GB.html">EHRD ROTTERDAM/The Hague</a>
+  `;
+
+  assert.equal(
+    parseNetherlandsGen12HtmlUrl(renderedNav, packageUrl),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
+  );
+  assert.deepEqual(parseNetherlandsAd2Icaos(renderedNav), ["EHAM", "EHRD"]);
+  assert.equal(
+    resolveNetherlandsAd2HtmlUrl(renderedNav, packageUrl, "EHAM"),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-AD%202.EHAM-en-GB.html",
+  );
+});

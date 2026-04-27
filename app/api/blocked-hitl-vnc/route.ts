@@ -349,6 +349,59 @@ async function wdClickNetherlandsCurrentPackage(sessionId: string): Promise<{ cl
   };
 }
 
+function escapeAttr(value: string): string {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeHtml(value: string): string {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function wdExtractRenderedAnchorsHtml(sessionId: string): Promise<string> {
+  const script = `
+    const out = [];
+    const seen = new Set();
+    const collect = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return;
+      }
+      for (const a of Array.from(doc.querySelectorAll('a'))) {
+        const rawHref = String(a.getAttribute('href') || '');
+        const href = rawHref && !/^javascript:/i.test(rawHref) ? String(a.href || rawHref) : rawHref;
+        const text = String(a.textContent || a.getAttribute('title') || a.getAttribute('aria-label') || '').replace(/\\s+/g, ' ').trim();
+        const onclick = String(a.getAttribute('onclick') || '');
+        const key = href + "\\n" + text + "\\n" + onclick;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ href, text, onclick });
+      }
+      for (const frame of Array.from(win.frames || [])) collect(frame);
+    };
+    collect(window);
+    return out;
+  `;
+  const result = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  const links = Array.isArray(result?.value) ? result.value : [];
+  return links
+    .map((link: any) => {
+      const href = escapeAttr(String(link?.href || ""));
+      const text = escapeHtml(`${String(link?.text || "")} ${String(link?.onclick || "")}`.trim());
+      return `<a href="${href}">${text}</a>`;
+    })
+    .join("\n");
+}
+
 function buildNoVncUrl(request: NextRequest): string {
   const explicit = String(process.env.BLOCKED_NOVNC_URL || process.env.LITHUANIA_NOVNC_URL || "").trim();
   if (explicit) return explicit;
@@ -625,21 +678,31 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   let menuUrl = "";
   let menuHtml = "";
   const menuErrors: string[] = [];
-  for (const candidate of buildNetherlandsMenuCandidates(packageEntryHtml, packageEntryUrl)) {
-    try {
-      const html = await wdFetchHtml(sessionId, candidate);
-      if (isVerificationPage(html)) return { needsVerification: true };
-      const icaos = parseNetherlandsAd2Icaos(html);
-      if (icaos.length || /EH-GEN-1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(html)) {
-        menuUrl = candidate;
-        menuHtml = html;
-        break;
+
+  const renderedAnchorsHtml = await wdExtractRenderedAnchorsHtml(sessionId);
+  const renderedIcaos = parseNetherlandsAd2Icaos(renderedAnchorsHtml);
+  if (renderedIcaos.length || /E[Hh]-GEN(?:[-_%20\s])*1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(renderedAnchorsHtml)) {
+    menuUrl = packageEntryUrl;
+    menuHtml = renderedAnchorsHtml;
+  }
+
+  if (!menuHtml) {
+    for (const candidate of buildNetherlandsMenuCandidates(packageEntryHtml, packageEntryUrl)) {
+      try {
+        const html = await wdFetchHtml(sessionId, candidate);
+        if (isVerificationPage(html)) return { needsVerification: true };
+        const icaos = parseNetherlandsAd2Icaos(html);
+        if (icaos.length || /E[Hh]-GEN(?:[-_%20\s])*1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(html)) {
+          menuUrl = candidate;
+          menuHtml = html;
+          break;
+        }
+        menuErrors.push(`${candidate}: no GEN/AD links`);
+      } catch (err) {
+        menuErrors.push(`${candidate}: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        await wdNavigate(sessionId, packageEntryUrl).catch(() => {});
       }
-      menuErrors.push(`${candidate}: no GEN/AD links`);
-    } catch (err) {
-      menuErrors.push(`${candidate}: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      await wdNavigate(sessionId, packageEntryUrl).catch(() => {});
     }
   }
   if (!menuHtml || !menuUrl) {

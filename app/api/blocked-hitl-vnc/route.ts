@@ -12,6 +12,7 @@ import {
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
   parseNetherlandsGen12HtmlUrl,
+  parseNetherlandsNativePdfUrl,
   parseNetherlandsPackageDate,
   parseNetherlandsMenuUrl,
   resolveNetherlandsAd2HtmlUrl,
@@ -503,6 +504,108 @@ function isNetherlandsAd2Content(html: string, icao: string): boolean {
   );
 }
 
+async function wdFindNetherlandsNativePdfUrl(sessionId: string): Promise<string> {
+  const pageUrl = await wdGetCurrentUrl(sessionId);
+  const pageHtml = await wdGetSource(sessionId);
+  const parsed = parseNetherlandsNativePdfUrl(pageHtml, pageUrl);
+  if (parsed) return parsed;
+
+  const script = `
+    const urls = [];
+    const collect = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return;
+      }
+      const add = (value) => {
+        const raw = String(value || '').trim();
+        if (!/\\.pdf(?:[?#]|$)/i.test(raw)) return;
+        try {
+          urls.push(new URL(raw, doc.baseURI || location.href).href);
+        } catch {}
+      };
+      for (const el of Array.from(doc.querySelectorAll('a, button, img, input, [onclick], [data-href], [data-url]'))) {
+        for (const attr of Array.from(el.attributes || [])) {
+          add(attr.value);
+          for (const m of String(attr.value || '').matchAll(/["']([^"']+\\.pdf(?:[?#][^"']*)?)["']/gi)) add(m[1]);
+        }
+      }
+      for (const frame of Array.from(win.frames || [])) collect(frame);
+    };
+    collect(window);
+    return urls[0] || '';
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  return String(out?.value || "").trim();
+}
+
+async function wdClickNetherlandsPdfButton(sessionId: string): Promise<string> {
+  const beforeUrl = await wdGetCurrentUrl(sessionId);
+  const beforeHtml = await wdGetSource(sessionId);
+  const script = `
+    const norm = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const matches = (el) => {
+      const blob = norm([
+        el.textContent,
+        el.getAttribute?.('title'),
+        el.getAttribute?.('aria-label'),
+        el.getAttribute?.('alt'),
+        el.getAttribute?.('href'),
+        el.getAttribute?.('src'),
+        el.getAttribute?.('onclick'),
+        el.className,
+        el.id,
+      ].filter(Boolean).join(' '));
+      return /\\.pdf(?:[?#]|$)|\\bpdf\\b|print/i.test(blob);
+    };
+    const clickIn = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return false;
+      }
+      for (const el of Array.from(doc.querySelectorAll('a, button, input, img, [onclick], [role="button"]'))) {
+        if (!matches(el)) continue;
+        const target = el.closest?.('a,button,[role="button"]') || el;
+        try {
+          target.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+          target.click();
+          return true;
+        } catch {}
+      }
+      for (const frame of Array.from(win.frames || [])) {
+        if (clickIn(frame)) return true;
+      }
+      return false;
+    };
+    return clickIn(window);
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  if (!out?.value) return "";
+  await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
+  const afterUrl = await wdGetCurrentUrl(sessionId);
+  return /\.pdf(?:[?#]|$)/i.test(afterUrl) ? afterUrl : await wdFindNetherlandsNativePdfUrl(sessionId);
+}
+
+async function downloadNetherlandsNativePdf(sessionId: string, outFile: string): Promise<string> {
+  let pdfUrl = await wdFindNetherlandsNativePdfUrl(sessionId);
+  if (!pdfUrl) pdfUrl = await wdClickNetherlandsPdfButton(sessionId);
+  if (!pdfUrl) throw new Error("Could not find the Netherlands native PDF button/link on the opened HTML page.");
+
+  const [{ userAgent, language }, cookie, referer] = await Promise.all([
+    wdGetBrowserMeta(sessionId),
+    wdGetCookies(sessionId),
+    wdGetCurrentUrl(sessionId),
+  ]);
+  await downloadPdf(pdfUrl, cookie, userAgent, language, outFile, referer);
+  return pdfUrl;
+}
+
 async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string): Promise<string> {
   const wantedIcao = String(icao || "").trim().toUpperCase();
   await wdNavigate(sessionId, ctx.packageEntryUrl);
@@ -888,9 +991,12 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
     if (isVerificationPage(html)) {
       return { ok: false, needsHumanVerification: true, message: `${cfg.country} GEN page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
     }
-    await wdPrintPdf(sessionId, outFile);
+    if (isNetherlandsErrorPage(html)) {
+      throw new Error(`Netherlands GEN 1.2 page returned an error: ${ctx.gen12HtmlUrl}`);
+    }
+    const pdfUrl = await downloadNetherlandsNativePdf(sessionId, outFile);
     await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
-    return { ok: true, file: outFile, sourceUrl: ctx.gen12HtmlUrl };
+    return { ok: true, file: outFile, sourceUrl: pdfUrl };
   }
 
   const wantedIcao = String(icao || "").trim().toUpperCase();
@@ -908,9 +1014,9 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   if (isNetherlandsErrorPage(html)) {
     throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
-  await wdPrintPdf(sessionId, outFile);
+  const pdfUrl = await downloadNetherlandsNativePdf(sessionId, outFile);
   await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
-  return { ok: true, file: outFile, sourceUrl: ad2Url, icao: wantedIcao };
+  return { ok: true, file: outFile, sourceUrl: pdfUrl, icao: wantedIcao };
 }
 
 function parseTagAttrs(tag: string): Record<string, string> {

@@ -8,6 +8,7 @@ import {
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
   parseNetherlandsMenuUrl,
+  parseNetherlandsNativePdfUrl,
   parseNetherlandsPackageDate,
   resolveNetherlandsAd2HtmlUrl,
 } from "../lib/netherlands-eaip-navigation.mjs";
@@ -119,5 +120,18 @@ test("Netherlands navigation parses effective date from package URL", () => {
   assert.equal(
     parseNetherlandsPackageDate("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html"),
     "2026-04-16",
+  );
+});
+
+test("Netherlands navigation resolves native PDF button links", () => {
+  const pageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-AD%202.EHAM-en-GB.html";
+
+  assert.equal(
+    parseNetherlandsNativePdfUrl('<a class="pdf" href="pdf/eH-AD 2.EHAM-en-GB.pdf">PDF</a>', pageUrl),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/eH-AD%202.EHAM-en-GB.pdf",
+  );
+  assert.equal(
+    parseNetherlandsNativePdfUrl(`<button onclick="window.open('pdf/eH-GEN 1.2-en-GB.pdf')">PDF</button>`, pageUrl),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/eH-GEN%201.2-en-GB.pdf",
   );
 });

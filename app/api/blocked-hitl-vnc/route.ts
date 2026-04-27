@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
   parseNetherlandsAd2Icaos,
@@ -951,7 +952,7 @@ export async function POST(request: NextRequest) {
       const mode = String(body.mode || "collect") as Mode;
       const icao = String(body.icao || "").trim().toUpperCase();
       const [cookie, browserMeta] = await Promise.all([wdGetCookies(sessionId), wdGetBrowserMeta(sessionId)]);
-      if (!cookie) {
+      if (!cookie && shouldRequireBrowserCookie(cfg.key)) {
         return NextResponse.json({
           ok: false,
           needsHumanVerification: true,

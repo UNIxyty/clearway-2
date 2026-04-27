@@ -509,7 +509,7 @@ function isNetherlandsAd2Page(html: string, url: string, icao: string): boolean 
   const wantedIcao = String(icao || "").trim().toUpperCase();
   if (isNetherlandsErrorPage(html)) return false;
   if (isNetherlandsAd2Content(html, wantedIcao)) return true;
-  return new RegExp(`\\b${wantedIcao}\\b`, "i").test(decodeURIComponent(String(url || ""))) && String(html || "").length > 500;
+  return new RegExp(`/EH-AD\\s*2\\s+${wantedIcao}\\s+1-en-GB\\.html`, "i").test(decodeURIComponent(String(url || ""))) && String(html || "").length > 500;
 }
 
 async function wdFindNetherlandsNativePdfUrl(sessionId: string): Promise<string> {
@@ -639,8 +639,8 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
   }
 
   const candidates = [
-    resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao),
     new URL(`eAIP/EH-AD%202%20${wantedIcao}%201-en-GB.html#AD-2-${wantedIcao}-1`, ctx.packageEntryUrl).href,
+    resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao),
     new URL(`html/eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
     new URL(`html/eAIP/EH-AD-2.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
     new URL(`eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,

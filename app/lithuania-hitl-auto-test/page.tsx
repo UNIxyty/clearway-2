@@ -31,24 +31,24 @@ type HitlTarget = {
   key: string;
   country: string;
   icaoPrefix: string;
-  enabled: boolean;
+  apiPath: string;
   note: string;
 };
 
 const API_TIMEOUT_MS = 25_000;
 const HITL_TARGETS: HitlTarget[] = [
-  { key: "lithuania", country: "Lithuania", icaoPrefix: "EY", enabled: true, note: "Live now" },
-  { key: "greece", country: "Greece", icaoPrefix: "LG", enabled: false, note: "Queued next" },
-  { key: "germany", country: "Germany", icaoPrefix: "ED", enabled: false, note: "Queued next" },
-  { key: "netherlands", country: "Netherlands", icaoPrefix: "EH", enabled: false, note: "Queued next" },
-  { key: "slovenia", country: "Slovenia", icaoPrefix: "LJ", enabled: false, note: "Queued next" },
+  { key: "lithuania", country: "Lithuania", icaoPrefix: "EY", apiPath: "/api/lithuania-hitl-vnc", note: "Live now" },
+  { key: "greece", country: "Greece", icaoPrefix: "LG", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
+  { key: "germany", country: "Germany", icaoPrefix: "ED", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
+  { key: "netherlands", country: "Netherlands", icaoPrefix: "EH", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
+  { key: "slovenia", country: "Slovenia", icaoPrefix: "LJ", apiPath: "/api/blocked-hitl-vnc", note: "Live now" },
 ];
 
-async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
+async function callApi(apiPath: string, payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/lithuania-hitl-vnc", {
+    const res = await fetch(apiPath, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -60,7 +60,7 @@ async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
       return {
         ok: false,
         error: "Request timed out",
-        detail: "Backend did not respond in 25s. Check that lithuania-browser container is running and ready.",
+        detail: "Backend did not respond in 25s. Check that the browser container is running and ready.",
       };
     }
     throw err;
@@ -92,7 +92,7 @@ export default function LithuaniaHitlAutoTestPage() {
   const autoModeRef = useRef<ScrapeMode | "">("");
   const autoScrapeInFlightRef = useRef(false);
   const selectedTarget = HITL_TARGETS.find((x) => x.key === targetKey) || HITL_TARGETS[0];
-  const isTargetEnabled = selectedTarget.enabled;
+  const apiPath = selectedTarget.apiPath;
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -118,8 +118,9 @@ export default function LithuaniaHitlAutoTestPage() {
     setLoading(mode);
     setResult(null);
     try {
-      const data = await callApi({
+      const data = await callApi(apiPath, {
         action: "scrape",
+        country: selectedTarget.key,
         sessionId,
         mode,
         icao: icao.trim().toUpperCase(),
@@ -148,7 +149,7 @@ export default function LithuaniaHitlAutoTestPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (hasSession) {
       timer = setInterval(async () => {
-        const data = await callApi({ action: "status", sessionId }).catch(() => null);
+        const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId }).catch(() => null);
         if (!data) return;
         setStatus(data);
 
@@ -190,21 +191,13 @@ export default function LithuaniaHitlAutoTestPage() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [hasSession, sessionId]);
+  }, [apiPath, hasSession, selectedTarget.key, sessionId]);
 
   async function startSession(openForAuto = false): Promise<StartSessionResult> {
-    if (!isTargetEnabled) {
-      setResult({
-        ok: false,
-        error: `${selectedTarget.country} HITL not wired yet`,
-        detail: "This button is staged in the test UI. Backend route will be connected next.",
-      });
-      return { ok: false };
-    }
     setLoading("start");
     setResult(null);
     try {
-      const data = await callApi({ action: "start" });
+      const data = await callApi(apiPath, { action: "start", country: selectedTarget.key });
       if (!data.ok || !data.sessionId) {
         setResult(data);
         return { ok: false };
@@ -214,7 +207,7 @@ export default function LithuaniaHitlAutoTestPage() {
       viewerAutoClosedRef.current = false;
       setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
-      setResult({ ok: true, message: "Session started. Open viewer and solve captcha." });
+      setResult({ ok: true, message: `${selectedTarget.country} session started. Open viewer and solve captcha.` });
       if (data.popupUrl) {
         openViewerWindow(String(data.popupUrl), String(data.sessionId), !openForAuto);
       }
@@ -235,7 +228,7 @@ export default function LithuaniaHitlAutoTestPage() {
     if (!hasSession) return;
     setLoading("status");
     try {
-      const data = await callApi({ action: "status", sessionId });
+      const data = await callApi(apiPath, { action: "status", country: selectedTarget.key, sessionId });
       setStatus(data);
       setResult(data.ok ? null : data);
     } finally {
@@ -244,14 +237,6 @@ export default function LithuaniaHitlAutoTestPage() {
   }
 
   async function runScrape(mode: ScrapeMode) {
-    if (!isTargetEnabled) {
-      setResult({
-        ok: false,
-        error: `${selectedTarget.country} HITL not wired yet`,
-        detail: "Country button is ready in test page; backend flow will be connected next.",
-      });
-      return;
-    }
     autoModeRef.current = mode;
     autoScrapeInFlightRef.current = false;
     if (!hasSession) {
@@ -277,7 +262,7 @@ export default function LithuaniaHitlAutoTestPage() {
 
   async function closeSessionNow() {
     if (!hasSession) return;
-    await callApi({ action: "close", sessionId }).catch(() => {});
+    await callApi(apiPath, { action: "close", country: selectedTarget.key, sessionId }).catch(() => {});
     if (viewerWindowRef.current && !viewerWindowRef.current.closed) {
       viewerWindowRef.current.close();
     }
@@ -301,6 +286,10 @@ export default function LithuaniaHitlAutoTestPage() {
       setStatus(null);
     }
     setTargetKey(nextKey);
+    const next = HITL_TARGETS.find((x) => x.key === nextKey);
+    if (next) {
+      setIcao(`${next.icaoPrefix}XX`);
+    }
   }
 
   return (
@@ -329,7 +318,7 @@ export default function LithuaniaHitlAutoTestPage() {
                     variant={target.key === targetKey ? "default" : "outline"}
                     onClick={() => switchTarget(target.key)}
                   >
-                    {target.country} ({target.icaoPrefix}){target.enabled ? "" : " · staged"}
+                    {target.country} ({target.icaoPrefix})
                   </Button>
                 ))}
               </div>

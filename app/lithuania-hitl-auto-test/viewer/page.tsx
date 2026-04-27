@@ -4,6 +4,7 @@ type ViewerPageProps = {
   searchParams?: {
     src?: string | string[];
     sessionId?: string | string[];
+    closeOnClear?: string | string[];
   };
 };
 
@@ -17,6 +18,7 @@ export default function LithuaniaHitlViewerPage({ searchParams }: ViewerPageProp
     <LithuaniaHitlViewerClient
       noVncUrl={firstParam(searchParams?.src)}
       sessionId={firstParam(searchParams?.sessionId)}
+      closeOnClear={firstParam(searchParams?.closeOnClear) !== "0"}
     />
   );
 }

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 type ViewerClientProps = {
   noVncUrl: string;
   sessionId: string;
+  closeOnClear: boolean;
 };
 
 type StatusPayload = {
@@ -39,14 +40,17 @@ async function fetchStatus(sessionId: string): Promise<StatusPayload | null> {
   }
 }
 
-export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId }: ViewerClientProps) {
+export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOnClear }: ViewerClientProps) {
   const hasValidViewer = isAllowedUrl(noVncUrl);
   const [autoCloseNotice, setAutoCloseNotice] = useState("");
   const challengeSeenRef = useRef(false);
   const clearStreakRef = useRef(0);
   const closedRef = useRef(false);
 
-  const shouldPoll = useMemo(() => hasValidViewer && Boolean(sessionId), [hasValidViewer, sessionId]);
+  const shouldPoll = useMemo(
+    () => closeOnClear && hasValidViewer && Boolean(sessionId),
+    [closeOnClear, hasValidViewer, sessionId],
+  );
 
   useEffect(() => {
     if (!shouldPoll) return;

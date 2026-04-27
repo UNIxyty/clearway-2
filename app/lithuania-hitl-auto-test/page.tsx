@@ -25,6 +25,8 @@ type ApiResult = Record<string, unknown> & {
   effectiveDate?: string;
   ad2Icaos?: string[];
 };
+type ScrapeMode = "collect" | "gen12" | "ad2";
+type StartSessionResult = { ok: true; sessionId: string; popupUrl: string } | { ok: false };
 
 const API_TIMEOUT_MS = 25_000;
 
@@ -53,10 +55,11 @@ async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
   }
 }
 
-function buildViewerUrl(popupUrl: string, sessionId: string): string {
+function buildViewerUrl(popupUrl: string, sessionId: string, closeOnClear = true): string {
   const params = new URLSearchParams({
     src: popupUrl,
     sessionId,
+    closeOnClear: closeOnClear ? "1" : "0",
   });
   return `/lithuania-hitl-auto-test/viewer?${params.toString()}`;
 }
@@ -64,13 +67,15 @@ function buildViewerUrl(popupUrl: string, sessionId: string): string {
 export default function LithuaniaHitlAutoTestPage() {
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
-  const [loading, setLoading] = useState<"" | "start" | "status" | "collect" | "gen12" | "ad2">("");
+  const [loading, setLoading] = useState<"" | "start" | "status" | ScrapeMode>("");
   const [icao, setIcao] = useState("EYVI");
   const [status, setStatus] = useState<ApiResult | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
   const viewerWindowRef = useRef<Window | null>(null);
   const sawChallengeRef = useRef(false);
   const viewerAutoClosedRef = useRef(false);
+  const autoModeRef = useRef<ScrapeMode | "">("");
+  const autoScrapeInFlightRef = useRef(false);
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -80,15 +85,45 @@ export default function LithuaniaHitlAutoTestPage() {
     return `${challenge}${status.url ? ` | ${status.url}` : ""}`;
   }, [status]);
 
-  function openViewerWindow(url: string, currentSessionId: string) {
+  function openViewerWindow(url: string, currentSessionId: string, closeOnClear = true) {
     const win = window.open(
-      buildViewerUrl(url, currentSessionId),
+      buildViewerUrl(url, currentSessionId, closeOnClear),
       "lithuania_hitl_auto_viewer",
       "popup=yes,width=1040,height=820,resizable=yes",
     );
     if (win) {
       viewerWindowRef.current = win;
       viewerAutoClosedRef.current = false;
+    }
+  }
+
+  async function executeScrape(mode: ScrapeMode) {
+    setLoading(mode);
+    setResult(null);
+    try {
+      const data = await callApi({
+        action: "scrape",
+        sessionId,
+        mode,
+        icao: icao.trim().toUpperCase(),
+      });
+      setResult(data);
+      if (data.ok && viewerWindowRef.current && !viewerWindowRef.current.closed) {
+        viewerWindowRef.current.close();
+        viewerWindowRef.current = null;
+        setResult({
+          ...data,
+          message: `${data.message ? `${data.message} ` : ""}Scrape succeeded. Viewer closed automatically.`,
+        });
+      }
+    } catch (err) {
+      setResult({
+        ok: false,
+        error: "Scrape request failed",
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setLoading("");
     }
   }
 
@@ -105,7 +140,21 @@ export default function LithuaniaHitlAutoTestPage() {
 
         const viewerWindow = viewerWindowRef.current;
         const viewerOpen = Boolean(viewerWindow && !viewerWindow.closed);
+        const mode = autoModeRef.current;
+        if (mode && !challengeDetected && !autoScrapeInFlightRef.current) {
+          autoScrapeInFlightRef.current = true;
+          autoModeRef.current = "";
+          setResult({
+            ok: true,
+            message: `Captcha solved. Running ${mode.toUpperCase()} scrape automatically...`,
+          });
+          await executeScrape(mode);
+          autoScrapeInFlightRef.current = false;
+          return;
+        }
+
         if (
+          !autoModeRef.current &&
           viewerOpen &&
           sawChallengeRef.current &&
           !challengeDetected &&
@@ -126,14 +175,14 @@ export default function LithuaniaHitlAutoTestPage() {
     };
   }, [hasSession, sessionId]);
 
-  async function startSession() {
+  async function startSession(openForAuto = false): Promise<StartSessionResult> {
     setLoading("start");
     setResult(null);
     try {
       const data = await callApi({ action: "start" });
       if (!data.ok || !data.sessionId) {
         setResult(data);
-        return;
+        return { ok: false };
       }
       setSessionId(String(data.sessionId));
       sawChallengeRef.current = false;
@@ -142,14 +191,16 @@ export default function LithuaniaHitlAutoTestPage() {
       setStatus(null);
       setResult({ ok: true, message: "Session started. Open viewer and solve captcha." });
       if (data.popupUrl) {
-        openViewerWindow(String(data.popupUrl), String(data.sessionId));
+        openViewerWindow(String(data.popupUrl), String(data.sessionId), !openForAuto);
       }
+      return { ok: true, sessionId: String(data.sessionId), popupUrl: String(data.popupUrl || "") };
     } catch (err) {
       setResult({
         ok: false,
         error: "Failed to start session",
         detail: err instanceof Error ? err.message : String(err),
       });
+      return { ok: false };
     } finally {
       setLoading("");
     }
@@ -167,27 +218,28 @@ export default function LithuaniaHitlAutoTestPage() {
     }
   }
 
-  async function runScrape(mode: "collect" | "gen12" | "ad2") {
-    if (!hasSession) return;
-    setLoading(mode);
-    setResult(null);
-    try {
-      const data = await callApi({
-        action: "scrape",
-        sessionId,
-        mode,
-        icao: icao.trim().toUpperCase(),
-      });
-      setResult(data);
-    } catch (err) {
+  async function runScrape(mode: ScrapeMode) {
+    autoModeRef.current = mode;
+    autoScrapeInFlightRef.current = false;
+    if (!hasSession) {
+      const started = await startSession(true);
+      if (!started.ok) {
+        autoModeRef.current = "";
+        return;
+      }
       setResult({
-        ok: false,
-        error: "Scrape request failed",
-        detail: err instanceof Error ? err.message : String(err),
+        ok: true,
+        message: `Session ready. Solve captcha in viewer and ${mode.toUpperCase()} scrape will start automatically.`,
       });
-    } finally {
-      setLoading("");
+      return;
     }
+    if (popupUrl) {
+      openViewerWindow(popupUrl, sessionId, false);
+    }
+    setResult({
+      ok: true,
+      message: `Solve captcha in viewer. ${mode.toUpperCase()} scrape will start automatically right after challenge clears.`,
+    });
   }
 
   async function closeSessionNow() {
@@ -199,6 +251,8 @@ export default function LithuaniaHitlAutoTestPage() {
     viewerWindowRef.current = null;
     sawChallengeRef.current = false;
     viewerAutoClosedRef.current = false;
+    autoModeRef.current = "";
+    autoScrapeInFlightRef.current = false;
     setSessionId("");
     setPopupUrl("");
     setStatus(null);
@@ -222,7 +276,7 @@ export default function LithuaniaHitlAutoTestPage() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex flex-wrap gap-2">
-              <Button onClick={startSession} disabled={loading === "start"}>
+              <Button onClick={() => startSession(false)} disabled={loading === "start"}>
                 {loading === "start" ? (
                   <>
                     <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
@@ -243,7 +297,7 @@ export default function LithuaniaHitlAutoTestPage() {
                     disabled={!popupUrl}
                   >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    Re-open styled viewer
+                    Re-open viewer
                   </Button>
                   <Button variant="ghost" onClick={closeSessionNow}>
                     Close session
@@ -272,14 +326,14 @@ export default function LithuaniaHitlAutoTestPage() {
                 className="w-24 font-mono"
               />
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => runScrape("collect")} disabled={!hasSession || Boolean(loading)}>
-                  {loading === "collect" ? "Collecting..." : "Collect"}
+                <Button onClick={() => runScrape("collect")} disabled={Boolean(loading)}>
+                  {loading === "collect" ? "Collecting..." : "Auto collect (solve + run)"}
                 </Button>
-                <Button variant="secondary" onClick={() => runScrape("gen12")} disabled={!hasSession || Boolean(loading)}>
-                  {loading === "gen12" ? "Downloading GEN..." : "Download GEN 1.2"}
+                <Button variant="secondary" onClick={() => runScrape("gen12")} disabled={Boolean(loading)}>
+                  {loading === "gen12" ? "Downloading GEN..." : "Auto GEN 1.2 (solve + download)"}
                 </Button>
-                <Button variant="outline" onClick={() => runScrape("ad2")} disabled={!hasSession || Boolean(loading)}>
-                  {loading === "ad2" ? "Downloading AD2..." : "Download AD2"}
+                <Button variant="outline" onClick={() => runScrape("ad2")} disabled={Boolean(loading)}>
+                  {loading === "ad2" ? "Downloading AD2..." : "Auto AD2 (solve + download)"}
                 </Button>
               </div>
             </div>

@@ -53,6 +53,14 @@ async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
   }
 }
 
+function buildViewerUrl(popupUrl: string, sessionId: string): string {
+  const params = new URLSearchParams({
+    src: popupUrl,
+    sessionId,
+  });
+  return `/lithuania-hitl-auto-test/viewer?${params.toString()}`;
+}
+
 export default function LithuaniaHitlAutoTestPage() {
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
@@ -94,9 +102,13 @@ export default function LithuaniaHitlAutoTestPage() {
       setSessionId(String(data.sessionId));
       setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
-      setResult({ ok: true, message: "Session started. Open popup and solve captcha." });
+      setResult({ ok: true, message: "Session started. Open viewer and solve captcha." });
       if (data.popupUrl) {
-        window.open(String(data.popupUrl), "lithuania_hitl_auto_popup", "popup=yes,width=560,height=760,resizable=yes");
+        window.open(
+          buildViewerUrl(String(data.popupUrl), String(data.sessionId)),
+          "lithuania_hitl_auto_viewer",
+          "popup=yes,width=1040,height=820,resizable=yes",
+        );
       }
     } catch (err) {
       setResult({
@@ -177,18 +189,25 @@ export default function LithuaniaHitlAutoTestPage() {
                     Starting...
                   </>
                 ) : (
-                  "Start session + open popup"
+                  "Start session + open viewer"
                 )}
               </Button>
               {hasSession && (
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => popupUrl && window.open(popupUrl, "lithuania_hitl_auto_popup", "popup=yes,width=560,height=760,resizable=yes")}
+                    onClick={() =>
+                      popupUrl &&
+                      window.open(
+                        buildViewerUrl(popupUrl, sessionId),
+                        "lithuania_hitl_auto_viewer",
+                        "popup=yes,width=1040,height=820,resizable=yes",
+                      )
+                    }
                     disabled={!popupUrl}
                   >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    Re-open noVNC window
+                    Re-open styled viewer
                   </Button>
                   <Button variant="ghost" onClick={closeSessionNow}>
                     Close session
@@ -239,7 +258,7 @@ export default function LithuaniaHitlAutoTestPage() {
                 {result.message && <p>{result.message}</p>}
                 {result.detail && <p className="text-muted-foreground">{result.detail}</p>}
                 {result.needsHumanVerification && (
-                  <p className="text-muted-foreground">Solve challenge in popup, then retry.</p>
+                  <p className="text-muted-foreground">Solve challenge in viewer, then retry.</p>
                 )}
                 {result.file && <p>Saved: {result.file}</p>}
                 {result.effectiveDate && <p>Effective date: {result.effectiveDate}</p>}

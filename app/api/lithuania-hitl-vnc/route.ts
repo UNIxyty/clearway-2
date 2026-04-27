@@ -331,11 +331,43 @@ function parseMenuUrl(tocHtml: string, tocUrl: string): string {
 
 function parseAd2Entries(menuHtml: string, menuUrl: string): Ad2Entry[] {
   const byIcao = new Map<string, Ad2Entry>();
-  for (const m of String(menuHtml || "").matchAll(/href=['"]([^'"]*EY-AD-2\.([A-Z0-9]{4})-[^'"]*\.html#[^'"]*)['"]/gi)) {
-    const icao = m[2].toUpperCase();
+  const html = String(menuHtml || "");
+
+  for (const m of html.matchAll(/<a\b[^>]*\bhref=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = String(m[1] || "").trim();
+    const labelText = String(m[2] || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const combined = `${href} ${labelText}`;
+    if (!/EY[-_.]?AD[-_.]?2/i.test(combined)) continue;
+
+    const icao =
+      combined.match(/\bEY[-_.]?AD[-_.]?2[-_.]([A-Z0-9]{4})\b/i)?.[1]?.toUpperCase() ||
+      combined.match(/\b(EY[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase();
+    if (!icao) continue;
     if (byIcao.has(icao)) continue;
-    byIcao.set(icao, { icao, label: icao, htmlUrl: new URL(m[1], menuUrl).href });
+    byIcao.set(icao, {
+      icao,
+      label: labelText || icao,
+      htmlUrl: new URL(href, menuUrl).href,
+    });
   }
+
+  // Fallback for script-generated menus where anchor text is missing or malformed.
+  for (const m of html.matchAll(/href=['"]([^'"]*(?:EY[-_.]?AD[-_.]?2[-_.][A-Z0-9]{4}|EY[A-Z0-9]{2})[^'"]*\.html[^'"]*)['"]/gi)) {
+    const href = String(m[1] || "").trim();
+    const icao =
+      href.match(/\bEY[-_.]?AD[-_.]?2[-_.]([A-Z0-9]{4})\b/i)?.[1]?.toUpperCase() ||
+      href.match(/\b(EY[A-Z0-9]{2})\b/i)?.[1]?.toUpperCase();
+    if (!icao || byIcao.has(icao)) continue;
+    byIcao.set(icao, {
+      icao,
+      label: icao,
+      htmlUrl: new URL(href, menuUrl).href,
+    });
+  }
+
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
 }
 

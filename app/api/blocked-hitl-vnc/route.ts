@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -241,9 +242,8 @@ async function wdChallengeStatus(sessionId: string): Promise<{ challengeDetected
     const bodyText = String(document.body?.innerText || '').toLowerCase();
     const lines = String(document.body?.innerText || '').split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
     const hasCfIframe = Boolean(document.querySelector("iframe[src*='challenges.cloudflare.com']"));
-    const recaptchaToken = String(document.querySelector("textarea[name='g-recaptcha-response']")?.value || '').trim();
     const hasRecaptcha = Boolean(document.querySelector(".g-recaptcha, iframe[src*='recaptcha'], textarea[name='g-recaptcha-response']"));
-    const challengeDetected = (hasRecaptcha && !recaptchaToken) || hasCfIframe || t.includes('just a moment') || bodyText.includes('verify you are human') || bodyText.includes('checking your browser');
+    const challengeDetected = hasRecaptcha || hasCfIframe || t.includes('just a moment') || bodyText.includes('verify you are human') || bodyText.includes('checking your browser');
     return { challengeDetected, challengeOnly: challengeDetected && lines.length <= 14 };
   `;
   const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
@@ -274,8 +274,20 @@ async function wdAdvanceGreeceCaptchaIfReady(sessionId: string): Promise<"submit
   const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
   touchSession(sessionId);
   const value = String(out?.value || "");
-  if (value === "submitted") await sleep(2500);
   return value === "submitted" || value === "waiting" ? value : "not-captcha";
+}
+
+async function wdWaitForGreeceContentAfterSubmit(sessionId: string): Promise<{ currentUrl: string; html: string }> {
+  const deadline = Date.now() + 20_000;
+  let lastUrl = "";
+  let lastHtml = "";
+  while (Date.now() < deadline) {
+    lastUrl = await wdGetCurrentUrl(sessionId);
+    lastHtml = await wdGetSource(sessionId);
+    if (!isVerificationPage(lastHtml)) return { currentUrl: lastUrl, html: lastHtml };
+    await sleep(750);
+  }
+  throw new Error(`Greece reCAPTCHA was submitted, but the content page did not load yet. Last URL: ${lastUrl || "unknown"}`);
 }
 
 function buildNoVncUrl(request: NextRequest): string {
@@ -433,25 +445,39 @@ async function wdBuildGreeceAipHtmlBundle(sessionId: string): Promise<string> {
     throw new Error("Greece reCAPTCHA is not solved yet. Check the box in noVNC first.");
   }
 
-  let currentUrl = await wdGetCurrentUrl(sessionId);
-  let html = await wdGetSource(sessionId);
+  let currentUrl = "";
+  let html = "";
+  if (captchaState === "submitted") {
+    const ready = await wdWaitForGreeceContentAfterSubmit(sessionId);
+    currentUrl = ready.currentUrl;
+    html = ready.html;
+  } else {
+    currentUrl = await wdGetCurrentUrl(sessionId);
+    html = await wdGetSource(sessionId);
+  }
   if (isVerificationPage(html)) {
     throw new Error("Greece source still requires verification in noVNC viewer.");
   }
 
-  if (!/\/cd\/ais\/index\.html/i.test(currentUrl)) {
+  const currentAipIndexUrl = resolveGreeceAipIndexUrl(currentUrl);
+  if (currentAipIndexUrl) {
+    if (!shouldUseGreeceAipIndex(currentUrl)) {
+      await wdNavigate(sessionId, currentAipIndexUrl);
+      currentUrl = await wdGetCurrentUrl(sessionId);
+      html = await wdGetSource(sessionId);
+    }
+  } else {
     if (!/\/cd\/start\/index\.html/i.test(currentUrl)) {
       const browseUrl = await wdResolveGreeceBrowseUrl(sessionId);
       if (!browseUrl) throw new Error("Could not find Greece AIP Browse button after captcha.");
       await wdNavigate(sessionId, browseUrl);
-      await sleep(2000);
-      currentUrl = await wdGetCurrentUrl(sessionId);
-      html = await wdGetSource(sessionId);
+      const ready = await wdWaitForGreeceContentAfterSubmit(sessionId);
+      currentUrl = ready.currentUrl;
+      html = ready.html;
     }
 
     const aipUrl = findHrefByText(html, currentUrl, /^AIP$/i) || new URL("../ais/index.html", currentUrl).href;
     await wdNavigate(sessionId, aipUrl);
-    await sleep(1500);
     currentUrl = await wdGetCurrentUrl(sessionId);
     html = await wdGetSource(sessionId);
   }
@@ -464,8 +490,14 @@ async function wdBuildGreeceAipHtmlBundle(sessionId: string): Promise<string> {
     frames.find((frame) => /content|mainframe/i.test(frame.text) || /\/mainframe\.htm$/i.test(frame.url))?.url ||
     new URL("mainframe.htm", currentUrl).href;
 
-  const sideHtml = await wdFetchHtml(sessionId, sideUrl);
-  const mainHtml = await wdFetchHtml(sessionId, mainFrameUrl).catch(() => "");
+  let sideHtml = "";
+  let mainHtml = "";
+  try {
+    sideHtml = await wdFetchHtml(sessionId, sideUrl);
+    mainHtml = await wdFetchHtml(sessionId, mainFrameUrl).catch(() => "");
+  } finally {
+    await wdNavigate(sessionId, currentUrl).catch(() => {});
+  }
   return [
     `<!-- CLEARWAY_BASE_URL:${sideUrl} -->`,
     `<!-- CLEARWAY_AIP_INDEX_URL:${currentUrl} -->`,

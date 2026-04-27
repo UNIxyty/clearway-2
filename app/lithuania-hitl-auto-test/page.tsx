@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftIcon, ExternalLinkIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +68,9 @@ export default function LithuaniaHitlAutoTestPage() {
   const [icao, setIcao] = useState("EYVI");
   const [status, setStatus] = useState<ApiResult | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
+  const viewerWindowRef = useRef<Window | null>(null);
+  const sawChallengeRef = useRef(false);
+  const viewerAutoClosedRef = useRef(false);
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -77,12 +80,45 @@ export default function LithuaniaHitlAutoTestPage() {
     return `${challenge}${status.url ? ` | ${status.url}` : ""}`;
   }, [status]);
 
+  function openViewerWindow(url: string, currentSessionId: string) {
+    const win = window.open(
+      buildViewerUrl(url, currentSessionId),
+      "lithuania_hitl_auto_viewer",
+      "popup=yes,width=1040,height=820,resizable=yes",
+    );
+    if (win) {
+      viewerWindowRef.current = win;
+      viewerAutoClosedRef.current = false;
+    }
+  }
+
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     if (hasSession) {
       timer = setInterval(async () => {
         const data = await callApi({ action: "status", sessionId }).catch(() => null);
-        if (data) setStatus(data);
+        if (!data) return;
+        setStatus(data);
+
+        const challengeDetected = Boolean(data.challengeDetected);
+        if (challengeDetected) sawChallengeRef.current = true;
+
+        const viewerWindow = viewerWindowRef.current;
+        const viewerOpen = Boolean(viewerWindow && !viewerWindow.closed);
+        if (
+          viewerOpen &&
+          sawChallengeRef.current &&
+          !challengeDetected &&
+          !viewerAutoClosedRef.current
+        ) {
+          viewerWindow?.close();
+          viewerWindowRef.current = null;
+          viewerAutoClosedRef.current = true;
+          setResult((prev) => {
+            if (prev?.ok === false) return prev;
+            return { ok: true, message: "Captcha cleared. Viewer closed automatically." };
+          });
+        }
       }, 2500);
     }
     return () => {
@@ -100,15 +136,13 @@ export default function LithuaniaHitlAutoTestPage() {
         return;
       }
       setSessionId(String(data.sessionId));
+      sawChallengeRef.current = false;
+      viewerAutoClosedRef.current = false;
       setPopupUrl(String(data.popupUrl || ""));
       setStatus(null);
       setResult({ ok: true, message: "Session started. Open viewer and solve captcha." });
       if (data.popupUrl) {
-        window.open(
-          buildViewerUrl(String(data.popupUrl), String(data.sessionId)),
-          "lithuania_hitl_auto_viewer",
-          "popup=yes,width=1040,height=820,resizable=yes",
-        );
+        openViewerWindow(String(data.popupUrl), String(data.sessionId));
       }
     } catch (err) {
       setResult({
@@ -159,6 +193,12 @@ export default function LithuaniaHitlAutoTestPage() {
   async function closeSessionNow() {
     if (!hasSession) return;
     await callApi({ action: "close", sessionId }).catch(() => {});
+    if (viewerWindowRef.current && !viewerWindowRef.current.closed) {
+      viewerWindowRef.current.close();
+    }
+    viewerWindowRef.current = null;
+    sawChallengeRef.current = false;
+    viewerAutoClosedRef.current = false;
     setSessionId("");
     setPopupUrl("");
     setStatus(null);
@@ -198,11 +238,7 @@ export default function LithuaniaHitlAutoTestPage() {
                     variant="outline"
                     onClick={() =>
                       popupUrl &&
-                      window.open(
-                        buildViewerUrl(popupUrl, sessionId),
-                        "lithuania_hitl_auto_viewer",
-                        "popup=yes,width=1040,height=820,resizable=yes",
-                      )
+                      openViewerWindow(popupUrl, sessionId)
                     }
                     disabled={!popupUrl}
                   >

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
+  buildNetherlandsMenuCandidates,
   parseNetherlandsAd2Icaos,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
@@ -616,17 +617,34 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
 
   if (isVerificationPage(packageEntryHtml)) return { needsVerification: true };
   if (!/<(?:frame|iframe)\b/i.test(packageEntryHtml) && !/EH-menu-en-GB\.html/i.test(packageEntryHtml)) {
-    throw new Error("Could not open the Netherlands effective-date eAIP package from the history table.");
+    if (!/eAIP\s*-\s*THE NETHERLANDS|THE NETHERLANDS LVNL|AIRAC AMDT/i.test(packageEntryHtml)) {
+      throw new Error("Could not open the Netherlands effective-date eAIP package from the history table.");
+    }
   }
 
-  const menuUrl = parseNetherlandsMenuUrl(packageEntryHtml, packageEntryUrl);
+  let menuUrl = "";
   let menuHtml = "";
-  try {
-    menuHtml = await wdFetchHtml(sessionId, menuUrl);
-  } finally {
-    await wdNavigate(sessionId, packageEntryUrl).catch(() => {});
+  const menuErrors: string[] = [];
+  for (const candidate of buildNetherlandsMenuCandidates(packageEntryHtml, packageEntryUrl)) {
+    try {
+      const html = await wdFetchHtml(sessionId, candidate);
+      if (isVerificationPage(html)) return { needsVerification: true };
+      const icaos = parseNetherlandsAd2Icaos(html);
+      if (icaos.length || /EH-GEN-1\.2|GEN[^<]{0,20}1\.2|Part\s+3\s+AERODROMES|AD\s+2\s+AERODROMES/i.test(html)) {
+        menuUrl = candidate;
+        menuHtml = html;
+        break;
+      }
+      menuErrors.push(`${candidate}: no GEN/AD links`);
+    } catch (err) {
+      menuErrors.push(`${candidate}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      await wdNavigate(sessionId, packageEntryUrl).catch(() => {});
+    }
   }
-  if (isVerificationPage(menuHtml)) return { needsVerification: true };
+  if (!menuHtml || !menuUrl) {
+    throw new Error(`No Netherlands eAIP menu page with GEN/AD links found. Tried: ${menuErrors.slice(0, 5).join(" | ")}`);
+  }
 
   const ad2Icaos = parseNetherlandsAd2Icaos(menuHtml);
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");

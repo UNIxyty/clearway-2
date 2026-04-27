@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildNetherlandsMenuCandidates,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
@@ -35,6 +36,15 @@ test("Netherlands navigation resolves the active effective-date package from his
 test("Netherlands navigation resolves menu frame from entry HTML", () => {
   const html = '<frameset><frame name="menu" src="html/eAIP/EH-menu-en-GB.html"></frameset>';
   assert.equal(parseNetherlandsMenuUrl(html, ENTRY_URL), MENU_URL);
+});
+
+test("Netherlands navigation builds package-root menu candidates", () => {
+  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
+  const candidates = buildNetherlandsMenuCandidates("<html></html>", packageUrl);
+
+  assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/html/eAIP/EH-menu-en-GB.html"));
+  assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/html/eAIP/Menu-en-GB.html"));
+  assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/menu.html"));
 });
 
 test("Netherlands navigation parses GEN 1.2 and AD2 URLs from menu HTML", () => {

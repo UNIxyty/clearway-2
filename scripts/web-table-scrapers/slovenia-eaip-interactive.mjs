@@ -19,16 +19,24 @@ const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "slovenia-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "slovenia-eaip", "AD2");
 const ENTRY_URL = "https://aim.sloveniacontrol.si/aim/products/aip/";
+const AD2_PAGE_PATH = "/aim/products/aip/part-3-aerodromes-ad/ad-2-aerodromes/";
+const GEN1_PAGE_PATH = "/aim/products/aip/part-1-general-gen/gen-1-national-regulations-and-requirements/";
 const UA = "Mozilla/5.0 (compatible; clearway-slovenia-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 45_000;
 const log = (...args) => console.error("[SLOVENIA]", ...args);
 const execFileAsync = promisify(execFile);
 
+const useInsecure = process.argv.includes("--insecure");
 const downloadAd2Icao = (() => {
   const i = process.argv.indexOf("--download-ad2");
   return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
 })();
 const downloadGen12 = process.argv.includes("--download-gen12");
+
+if (useInsecure) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  log("TLS verification disabled (--insecure)");
+}
 
 function normalizeText(value) {
   return String(value || "")
@@ -41,6 +49,28 @@ function normalizeHref(href) {
   return String(href || "").replace(/\\/g, "/");
 }
 
+function parseDotDate(value) {
+  const m = String(value || "").match(/\b(\d{2})\.(\d{2})\.(20\d{2})\b/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+async function runCurl(url, { insecure = false, binary = false } = {}) {
+  const args = ["-L", "-sS", "--max-time", String(Math.ceil(FETCH_TIMEOUT_MS / 1000)), "-A", UA];
+  if (insecure) args.unshift("-k");
+  args.push(url);
+  const { stdout } = await execFileAsync("curl", args, {
+    maxBuffer: 24 * 1024 * 1024,
+    encoding: binary ? "buffer" : "utf8",
+  });
+  return stdout;
+}
+
+function shouldRetryInsecure(err) {
+  const msg = String(err?.stderr || err?.message || "");
+  return /SSL certificate problem|unable to get local issuer certificate|certificate/i.test(msg);
+}
+
 async function fetchText(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -49,20 +79,39 @@ async function fetchText(url) {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return await res.text();
   } catch (err) {
-    // Some hosts fail TLS handshakes with Node fetch in specific server stacks.
-    // Fallback to curl keeps scraper behavior consistent in those environments.
     try {
-      const { stdout } = await execFileAsync(
-        "curl",
-        ["-L", "-sS", "--max-time", String(Math.ceil(FETCH_TIMEOUT_MS / 1000)), "-A", UA, url],
-        { maxBuffer: 16 * 1024 * 1024 },
-      );
-      const html = String(stdout || "");
-      if (!html.trim()) throw err;
-      return html;
-    } catch {
-      throw err;
+      const out = await runCurl(url, { insecure: useInsecure, binary: false });
+      if (String(out || "").trim()) return String(out);
+    } catch (curlErr) {
+      if (useInsecure || shouldRetryInsecure(curlErr)) {
+        const out = await runCurl(url, { insecure: true, binary: false });
+        if (String(out || "").trim()) return String(out);
+      }
     }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchBytes(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": UA } });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    try {
+      const out = await runCurl(url, { insecure: useInsecure, binary: true });
+      return Buffer.isBuffer(out) ? out : Buffer.from(out || "", "utf8");
+    } catch (curlErr) {
+      if (useInsecure || shouldRetryInsecure(curlErr)) {
+        const out = await runCurl(url, { insecure: true, binary: true });
+        return Buffer.isBuffer(out) ? out : Buffer.from(out || "", "utf8");
+      }
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -81,136 +130,29 @@ function parseEntryIssue(entryHtml) {
   };
 }
 
-function parseNavigationUrls(issueHtml, issueUrl) {
-  const navBase = String(issueHtml || "").match(/<frame[^>]*name=["']eAISNavigationBase["'][^>]*src=["']([^"']+)["']/i)?.[1];
-  if (!navBase) return { tocUrl: issueUrl, menuUrl: issueUrl };
-  const tocUrl = new URL(normalizeHref(navBase), issueUrl).href;
-  return { tocUrl, menuUrl: tocUrl };
-}
-
-function parseMenuUrl(tocHtml, tocUrl) {
-  const nav = String(tocHtml || "").match(/<frame[^>]*name=["']eAISNavigation["'][^>]*src=["']([^"']+)["']/i)?.[1];
-  if (!nav) return tocUrl;
-  return new URL(normalizeHref(nav), tocUrl).href;
-}
-
-function parseGenHtmlUrl(menuHtml, menuUrl) {
-  const m =
-    String(menuHtml || "").match(/href=["']([^"']*LJ-GEN-1\.2[^"']*\.html[^"']*)["']/i) ||
-    String(menuHtml || "").match(/href=["']([^"']*GEN[^"']*1\.2[^"']*\.html[^"']*)["']/i) ||
-    String(menuHtml || "").match(/href=["']([^"']*gen[^"']*1[^"']*2[^"']*)["'][^>]*>[^<]*GEN\s*1\.?2/i);
+function parseGen12PdfUrl(html, baseUrl) {
+  const m = String(html || "").match(/href=["']([^"']*LJ_GEN_1_2_en\.pdf[^"']*)["']/i);
   if (!m?.[1]) return null;
-  return new URL(normalizeHref(m[1]), menuUrl).href;
+  return new URL(normalizeHref(m[1]), baseUrl).href;
 }
 
-function parseAd2Entries(menuHtml, menuUrl) {
+function parseAd2EntriesFromPdfLinks(html, baseUrl) {
   const byIcao = new Map();
-  for (const m of String(menuHtml || "").matchAll(/href=["']([^"']*LJ-AD-2\.([A-Z0-9]{4})[^"']*\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+  for (const m of String(html || "").matchAll(/href=["']([^"']*LJ_AD_2_([A-Z0-9]{4})_en\.pdf[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const icao = String(m[2] || "").toUpperCase();
     if (!icao || byIcao.has(icao)) continue;
     byIcao.set(icao, {
       icao,
       label: normalizeText(m[3]) || icao,
-      htmlUrl: new URL(normalizeHref(m[1]), menuUrl).href,
+      htmlUrl: new URL(normalizeHref(m[1]), baseUrl).href,
     });
-  }
-  if (!byIcao.size) {
-    for (const m of String(menuHtml || "").matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-      const href = normalizeHref(m[1]);
-      const label = normalizeText(m[2]);
-      const icao = String(label.match(/\b(LJ[A-Z0-9]{2})\b/i)?.[1] || href.match(/\b(LJ[A-Z0-9]{2})\b/i)?.[1] || "").toUpperCase();
-      if (!icao || byIcao.has(icao)) continue;
-      byIcao.set(icao, {
-        icao,
-        label: label || icao,
-        htmlUrl: new URL(href, menuUrl).href,
-      });
-    }
-  }
-  if (!byIcao.size) {
-    for (const m of String(menuHtml || "").matchAll(/\b(LJ[A-Z0-9]{2})\b/g)) {
-      const code = String(m[1]).toUpperCase();
-      if (byIcao.has(code)) continue;
-      byIcao.set(code, {
-        icao: code,
-        label: code,
-        htmlUrl: "",
-      });
-    }
-  }
-  return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
-}
-
-function extractAnchors(html, baseUrl) {
-  const out = [];
-  for (const m of String(html || "").matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    const href = normalizeHref(m[1]);
-    if (!href) continue;
-    try {
-      out.push({
-        url: new URL(href, baseUrl).href,
-        label: normalizeText(m[2]),
-      });
-    } catch {
-      continue;
-    }
-  }
-  return out;
-}
-
-async function crawlWordpressSection(seedUrl, pathPrefix, maxPages = 36) {
-  const origin = new URL(seedUrl).origin;
-  const queue = [seedUrl];
-  const seen = new Set();
-  const pages = [];
-  while (queue.length && pages.length < maxPages) {
-    const url = String(queue.shift() || "");
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    let html = "";
-    try {
-      html = await fetchText(url);
-    } catch {
-      continue;
-    }
-    pages.push({ url, html });
-    for (const a of extractAnchors(html, url)) {
-      if (!a.url.startsWith(origin)) continue;
-      if (!a.url.includes(pathPrefix)) continue;
-      if (!seen.has(a.url)) queue.push(a.url);
-    }
-  }
-  return pages;
-}
-
-async function discoverGen12HtmlUrl(menuUrl) {
-  const root = new URL("/aim/products/aip/part-1-general-gen/", menuUrl).href;
-  const pages = await crawlWordpressSection(root, "/aim/products/aip/part-1-general-gen/");
-  for (const page of pages) {
-    if (/gen-1-2/i.test(page.url)) return page.url;
-    const text = normalizeText(page.html);
-    if (/\bGEN\s*1\.2\b/i.test(text)) return page.url;
-  }
-  return null;
-}
-
-async function discoverAd2Entries(menuUrl) {
-  const root = new URL("/aim/products/aip/part-3-aerodromes-ad/ad-2-aerodromes/", menuUrl).href;
-  const pages = await crawlWordpressSection(root, "/aim/products/aip/part-3-aerodromes-ad/");
-  const byIcao = new Map();
-  for (const page of pages) {
-    const text = normalizeText(page.html);
-    for (const m of text.matchAll(/\b(LJ[A-Z0-9]{2})\b/g)) {
-      const icao = String(m[1]).toUpperCase();
-      if (byIcao.has(icao)) continue;
-      byIcao.set(icao, { icao, label: icao, htmlUrl: page.url });
-    }
   }
   return [...byIcao.values()].sort((a, b) => a.icao.localeCompare(b.icao));
 }
 
 function htmlToPdfCandidates(htmlUrl) {
   const clean = String(htmlUrl || "").replace(/#.*$/, "");
+  if (/\.pdf(\?|$)/i.test(clean)) return [clean];
   const out = [
     clean.replace(/\/eAIP\//i, "/pdf/").replace(/\.html?$/i, ".pdf"),
     clean.replace(/\/html\/eAIP\//i, "/pdf/").replace(/\.html?$/i, ".pdf"),
@@ -220,10 +162,10 @@ function htmlToPdfCandidates(htmlUrl) {
 }
 
 async function downloadPdf(url, outFile) {
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const bytes = Buffer.from(await res.arrayBuffer());
-  if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Downloaded payload is not a PDF");
+  const bytes = await fetchBytes(url);
+  if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error("Downloaded payload is not a PDF");
+  }
   writeFileSync(outFile, bytes);
 }
 
@@ -267,12 +209,12 @@ async function renderHtmlToPdf(htmlUrl, outFile) {
   }
 }
 
-async function savePdf(htmlUrl, outFile) {
-  const candidates = htmlToPdfCandidates(htmlUrl);
+async function savePdf(htmlOrPdfUrl, outFile) {
+  const candidates = htmlToPdfCandidates(htmlOrPdfUrl);
   try {
     await downloadFromCandidates(candidates, outFile);
   } catch {
-    await renderHtmlToPdf(htmlUrl, outFile);
+    await renderHtmlToPdf(htmlOrPdfUrl, outFile);
   }
 }
 
@@ -280,24 +222,26 @@ async function resolveContext() {
   const entryHtml = await fetchText(ENTRY_URL);
   const issue = parseEntryIssue(entryHtml);
   const issueHtml = await fetchText(issue.issueUrl);
-  const nav = parseNavigationUrls(issueHtml, issue.issueUrl);
-  const tocHtml = await fetchText(nav.tocUrl);
-  const menuUrl = parseMenuUrl(tocHtml, nav.tocUrl);
-  const menuHtml = await fetchText(menuUrl);
-  let genHtmlUrl = parseGenHtmlUrl(menuHtml, menuUrl);
-  let ad2Entries = parseAd2Entries(menuHtml, menuUrl);
-  if (!genHtmlUrl) {
-    genHtmlUrl = await discoverGen12HtmlUrl(menuUrl);
-  }
-  if (!ad2Entries.length) {
-    ad2Entries = await discoverAd2Entries(menuUrl);
-  }
-  if (!ad2Entries.length) throw new Error("No AD2 ICAOs found in Slovenia menu.");
-  const dotDate = String(entryHtml || "").match(/\b(\d{2})\.(\d{2})\.(20\d{2})\b/);
-  const effectiveDate = issue.effectiveDate || (dotDate ? `${dotDate[3]}-${dotDate[2]}-${dotDate[1]}` : null);
+
+  const ad2PageUrl = new URL(AD2_PAGE_PATH, issue.issueUrl).href;
+  const gen1PageUrl = new URL(GEN1_PAGE_PATH, issue.issueUrl).href;
+  const ad2Html = await fetchText(ad2PageUrl);
+  const gen1Html = await fetchText(gen1PageUrl);
+
+  let genHtmlUrl = parseGen12PdfUrl(issueHtml, issue.issueUrl);
+  if (!genHtmlUrl) genHtmlUrl = parseGen12PdfUrl(entryHtml, ENTRY_URL);
+  if (!genHtmlUrl) genHtmlUrl = parseGen12PdfUrl(gen1Html, gen1PageUrl);
+
+  let ad2Entries = parseAd2EntriesFromPdfLinks(issueHtml, issue.issueUrl);
+  if (!ad2Entries.length) ad2Entries = parseAd2EntriesFromPdfLinks(entryHtml, ENTRY_URL);
+  if (!ad2Entries.length) ad2Entries = parseAd2EntriesFromPdfLinks(ad2Html, ad2PageUrl);
+
+  if (!ad2Entries.length) throw new Error("No AD2 ICAOs found in Slovenia source pages.");
+
+  const effectiveDate = issue.effectiveDate || parseDotDate(issueHtml) || parseDotDate(entryHtml);
   return {
     effectiveDate,
-    menuUrl,
+    menuUrl: issue.issueUrl,
     genHtmlUrl,
     ad2Entries,
   };
@@ -312,7 +256,7 @@ async function main() {
   }
 
   if (downloadGen12) {
-    if (!ctx.genHtmlUrl) throw new Error("GEN 1.2 HTML URL not found in Slovenia menu.");
+    if (!ctx.genHtmlUrl) throw new Error("GEN 1.2 PDF URL not found in Slovenia source pages.");
     mkdirSync(OUT_GEN, { recursive: true });
     await savePdf(ctx.genHtmlUrl, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
     return;
@@ -331,7 +275,7 @@ async function main() {
     const mode = (await rl.question("Download:\n  [1] GEN 1.2\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();
     if (mode === "0") return;
     if (mode === "1") {
-      if (!ctx.genHtmlUrl) throw new Error("GEN 1.2 HTML URL not found in Slovenia menu.");
+      if (!ctx.genHtmlUrl) throw new Error("GEN 1.2 PDF URL not found in Slovenia source pages.");
       mkdirSync(OUT_GEN, { recursive: true });
       await savePdf(ctx.genHtmlUrl, join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`));
       return;
@@ -357,4 +301,3 @@ main().catch((err) => {
   log("failed:", err?.message || err);
   process.exit(1);
 });
-

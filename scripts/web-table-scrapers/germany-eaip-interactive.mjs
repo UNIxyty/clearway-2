@@ -21,6 +21,7 @@ const ROOT_URL = "https://aip.dfs.de/BasicIFR/";
 const PRINT_ROOT = "https://aip.dfs.de/basicIFR/print/";
 const UA = "Mozilla/5.0 (compatible; clearway-germany-eaip/1.0)";
 const FETCH_TIMEOUT_MS = 45_000;
+const AIRPORT_FETCH_CONCURRENCY = 10;
 const log = (...args) => console.error("[GERMANY]", ...args);
 
 const downloadAd2Icao = (() => {
@@ -119,38 +120,70 @@ async function resolveGen12PrintUrl(genRootUrl) {
   return printUrl("GEN", gen12Hash, "GEN 1.2");
 }
 
-async function crawlAd2Chapters(adRootUrl, targetIcao = "") {
-  const wanted = String(targetIcao || "").toUpperCase();
-  const chapterBase = new URL("./", adRootUrl).href;
-  const queue = [new URL(adRootUrl).pathname.split("/").pop() || ""];
+function parseAd2AirportHashes(adRootHtml) {
+  const out = [];
   const seen = new Set();
-  const map = new Map();
-
-  while (queue.length) {
-    const rel = queue.shift();
-    const hash = chapterHashFromHref(rel);
+  for (const a of parseAnchors(adRootHtml)) {
+    const hash = chapterHashFromHref(a.href);
     if (!hash || seen.has(hash)) continue;
+    const label = String(a.text || "");
+    if (/^\s*(AIP|AD(\s*\d)?|MIL-AD)/i.test(label)) continue;
+    if (!/[A-Za-z]/.test(label)) continue;
     seen.add(hash);
+    out.push(hash);
+  }
+  return out;
+}
 
-    let html = "";
+function parseAd2RootHash(adRootHtml) {
+  const ad2Href =
+    parseAnchors(adRootHtml).find((x) => /\bAD\s*2\b/i.test(x.text) && chapterHashFromHref(x.href))?.href || "";
+  return chapterHashFromHref(ad2Href);
+}
+
+function parseGermanIcaosFromChapter(html) {
+  const text = String(html || "").replace(/<[^>]+>/g, " ");
+  return [...new Set([...text.matchAll(/\b((?:ED|ET)[A-Z0-9]{2})\b/g)].map((m) => String(m[1]).toUpperCase()))];
+}
+
+async function mapWithConcurrency(items, limit, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const idx = next++;
+      out[idx] = await worker(items[idx], idx);
+    }
+  });
+  await Promise.all(runners);
+  return out;
+}
+
+async function buildAd2Map(adRootUrl) {
+  const chapterBase = new URL("./", adRootUrl).href;
+  const adRootHtml = await fetchText(adRootUrl);
+  const ad2RootHash = parseAd2RootHash(adRootHtml);
+  if (!ad2RootHash) return new Map();
+  const ad2RootHtml = await fetchText(new URL(`${ad2RootHash}.html`, chapterBase).href);
+  const hashes = parseAd2AirportHashes(ad2RootHtml);
+  if (!hashes.length) return new Map();
+
+  const results = await mapWithConcurrency(hashes, AIRPORT_FETCH_CONCURRENCY, async (hash) => {
     try {
-      html = await fetchText(new URL(`${hash}.html`, chapterBase).href);
+      const html = await fetchText(new URL(`${hash}.html`, chapterBase).href);
+      return { hash, icaos: parseGermanIcaosFromChapter(html) };
     } catch {
-      continue;
+      return { hash, icaos: [] };
     }
-    for (const m of html.matchAll(/\bAD\s*2\s*([A-Z0-9]{4})\b/gi)) {
-      const icao = String(m[1]).toUpperCase();
-      if (!map.has(icao)) map.set(icao, hash);
-      if (wanted && icao === wanted) {
-        return { targetHash: hash, map };
-      }
-    }
-    for (const a of parseAnchors(html)) {
-      const nextHash = chapterHashFromHref(a.href);
-      if (nextHash && !seen.has(nextHash)) queue.push(`${nextHash}.html`);
+  });
+
+  const map = new Map();
+  for (const row of results) {
+    for (const icao of row.icaos) {
+      if (!map.has(icao)) map.set(icao, row.hash);
     }
   }
-  return { targetHash: wanted ? map.get(wanted) || "" : "", map };
+  return map;
 }
 
 async function resolveContext() {
@@ -167,8 +200,8 @@ async function main() {
   const ctx = await resolveContext();
   const dateTag = ctx.effectiveDate || ctx.cycle || "unknown-date";
   if (collectMode()) {
-    const ad2 = await crawlAd2Chapters(ctx.adRootUrl);
-    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: [...ad2.map.keys()].sort() });
+    const ad2Map = await buildAd2Map(ctx.adRootUrl);
+    printCollectJson({ effectiveDate: ctx.effectiveDate, ad2Icaos: [...ad2Map.keys()].sort() });
     return;
   }
 
@@ -183,11 +216,12 @@ async function main() {
 
   if (downloadAd2Icao) {
     if (!/^[A-Z0-9]{4}$/.test(downloadAd2Icao)) throw new Error("Provide a valid ICAO for --download-ad2.");
-    const ad2 = await crawlAd2Chapters(ctx.adRootUrl, downloadAd2Icao);
-    if (!ad2.targetHash) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
+    const ad2Map = await buildAd2Map(ctx.adRootUrl);
+    const targetHash = ad2Map.get(downloadAd2Icao) || "";
+    if (!targetHash) throw new Error(`AD2 ICAO not found: ${downloadAd2Icao}`);
     mkdirSync(OUT_AD2, { recursive: true });
     const outFile = join(OUT_AD2, `${dateTag}_${downloadAd2Icao}_AD2.pdf`);
-    const url = printUrl("AD", ad2.targetHash, `AD 2 ${downloadAd2Icao}`);
+    const url = printUrl("AD", targetHash, `AD 2 ${downloadAd2Icao}`);
     log("Trying PDF:", url);
     await downloadPdf(url, outFile);
     return;
@@ -206,19 +240,19 @@ async function main() {
       return;
     }
     if (mode === "2") {
-      const ad2 = await crawlAd2Chapters(ctx.adRootUrl);
-      const ad2Icaos = [...ad2.map.keys()].sort();
+      const ad2Map = await buildAd2Map(ctx.adRootUrl);
+      const ad2Icaos = [...ad2Map.keys()].sort();
       if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found.");
       ad2Icaos.forEach((code, i) => console.error(`${String(i + 1).padStart(3)}. ${code}`));
       const raw = (await rl.question("\nAirport number or ICAO (e.g. EDDF): ")).trim().toUpperCase();
       const n = Number.parseInt(raw, 10);
       const icao = String(n) === raw && n >= 1 && n <= ad2Icaos.length ? ad2Icaos[n - 1] : raw;
       if (!/^[A-Z0-9]{4}$/.test(icao)) throw new Error("Invalid ICAO.");
-      const target = await crawlAd2Chapters(ctx.adRootUrl, icao);
-      if (!target.targetHash) throw new Error(`AD2 ICAO not found: ${icao}`);
+      const targetHash = ad2Map.get(icao) || "";
+      if (!targetHash) throw new Error(`AD2 ICAO not found: ${icao}`);
       mkdirSync(OUT_AD2, { recursive: true });
       const outFile = join(OUT_AD2, `${dateTag}_${icao}_AD2.pdf`);
-      const url = printUrl("AD", target.targetHash, `AD 2 ${icao}`);
+      const url = printUrl("AD", targetHash, `AD 2 ${icao}`);
       log("Trying PDF:", url);
       await downloadPdf(url, outFile);
       return;

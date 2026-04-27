@@ -505,6 +505,13 @@ function isNetherlandsAd2Content(html: string, icao: string): boolean {
   );
 }
 
+function isNetherlandsAd2Page(html: string, url: string, icao: string): boolean {
+  const wantedIcao = String(icao || "").trim().toUpperCase();
+  if (isNetherlandsErrorPage(html)) return false;
+  if (isNetherlandsAd2Content(html, wantedIcao)) return true;
+  return new RegExp(`\\b${wantedIcao}\\b`, "i").test(decodeURIComponent(String(url || ""))) && String(html || "").length > 500;
+}
+
 async function wdFindNetherlandsNativePdfUrl(sessionId: string): Promise<string> {
   const pageUrl = await wdGetCurrentUrl(sessionId);
   const pageHtml = await wdGetSource(sessionId);
@@ -625,8 +632,9 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
   if (clicked) {
     await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
     const clickedHtml = await wdGetSource(sessionId);
-    if (!isVerificationPage(clickedHtml) && !isNetherlandsErrorPage(clickedHtml) && isNetherlandsAd2Content(clickedHtml, wantedIcao)) {
-      return await wdGetCurrentUrl(sessionId);
+    const clickedUrl = await wdGetCurrentUrl(sessionId);
+    if (!isVerificationPage(clickedHtml) && isNetherlandsAd2Page(clickedHtml, clickedUrl, wantedIcao)) {
+      return clickedUrl;
     }
   }
 
@@ -638,18 +646,20 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
     new URL(`eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
   ];
   const seen = new Set<string>();
+  const errors: string[] = [];
   for (const candidate of candidates) {
     if (!candidate || seen.has(candidate)) continue;
     seen.add(candidate);
     await wdNavigate(sessionId, candidate);
     const html = await wdGetSource(sessionId);
     if (isVerificationPage(html)) throw new Error(`${ctx.packageEntryUrl} still requires verification in noVNC viewer.`);
-    if (!isNetherlandsErrorPage(html) && isNetherlandsAd2Content(html, wantedIcao)) {
+    if (isNetherlandsAd2Page(html, candidate, wantedIcao)) {
       return candidate;
     }
+    errors.push(`${candidate}: ${isNetherlandsErrorPage(html) ? "error page" : "not AD2 content"}`);
   }
 
-  throw new Error(`Could not open a real Netherlands AD2 page for ${wantedIcao}; candidate URLs returned an error page.`);
+  throw new Error(`Could not open a real Netherlands AD2 page for ${wantedIcao}. Tried: ${errors.slice(0, 6).join(" | ")}`);
 }
 
 function buildNoVncUrl(request: NextRequest): string {

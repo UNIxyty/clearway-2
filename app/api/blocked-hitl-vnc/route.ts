@@ -4,6 +4,13 @@ import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
+import {
+  parseNetherlandsAd2Icaos,
+  parseNetherlandsEffectiveDate,
+  parseNetherlandsGen12HtmlUrl,
+  parseNetherlandsMenuUrl,
+  resolveNetherlandsAd2HtmlUrl,
+} from "@/lib/netherlands-eaip-navigation.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +37,13 @@ type CountryConfig = {
 type SessionRecord = { sessionId: string; countryKey: CountryKey; createdAt: number; lastUsedAt: number };
 type PdfEntry = { url: string; text: string; sourceUrl: string };
 type CollectOutput = { effectiveDate?: string | null; ad2Icaos?: string[] };
+type NetherlandsContext = {
+  effectiveDate: string | null;
+  ad2Icaos: string[];
+  menuHtml: string;
+  menuUrl: string;
+  gen12HtmlUrl: string;
+};
 
 const COUNTRIES: Record<CountryKey, CountryConfig> = {
   greece: {
@@ -317,6 +331,23 @@ async function downloadPdf(url: string, cookie: string, userAgent: string, langu
   writeFileSync(outFile, bytes);
 }
 
+async function wdPrintPdf(sessionId: string, outFile: string) {
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/print`, "POST", {
+    orientation: "portrait",
+    scale: 0.9,
+    page: { width: 21.0, height: 29.7 },
+    margin: { top: 0.8, bottom: 0.8, left: 0.8, right: 0.8 },
+    background: true,
+    shrinkToFit: true,
+  });
+  touchSession(sessionId);
+  const pdfBase64 = String(out?.value || "");
+  if (!pdfBase64) throw new Error("Selenium did not return PDF data.");
+  const bytes = Buffer.from(pdfBase64, "base64");
+  if (!bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Selenium print output is not a PDF.");
+  writeFileSync(outFile, bytes);
+}
+
 async function runNodeScript(scriptPath: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return await new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], { cwd: PROJECT_ROOT, env: process.env });
@@ -507,6 +538,87 @@ async function wdBuildGreeceAipHtmlBundle(sessionId: string): Promise<string> {
   ].join("\n");
 }
 
+async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig): Promise<NetherlandsContext | { needsVerification: true }> {
+  let entryUrl = await wdGetCurrentUrl(sessionId);
+  let entryHtml = await wdGetSource(sessionId);
+
+  if (!entryUrl.startsWith(new URL(cfg.entryUrl).origin) || /\/html\/eAIP\//i.test(entryUrl)) {
+    await wdNavigate(sessionId, cfg.entryUrl);
+    entryUrl = await wdGetCurrentUrl(sessionId);
+    entryHtml = await wdGetSource(sessionId);
+  }
+
+  if (isVerificationPage(entryHtml)) return { needsVerification: true };
+
+  const menuUrl = parseNetherlandsMenuUrl(entryHtml, entryUrl);
+  let menuHtml = "";
+  try {
+    menuHtml = await wdFetchHtml(sessionId, menuUrl);
+  } finally {
+    await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+  }
+  if (isVerificationPage(menuHtml)) return { needsVerification: true };
+
+  const ad2Icaos = parseNetherlandsAd2Icaos(menuHtml);
+  if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");
+
+  return {
+    effectiveDate: parseNetherlandsEffectiveDate(`${entryHtml}\n${menuHtml}`),
+    ad2Icaos,
+    menuHtml,
+    menuUrl,
+    gen12HtmlUrl: parseNetherlandsGen12HtmlUrl(menuHtml, menuUrl),
+  };
+}
+
+async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string, mode: Mode, icao: string) {
+  const ctx = await wdBuildNetherlandsContext(sessionId, cfg);
+  if ("needsVerification" in ctx) {
+    return {
+      ok: false,
+      needsHumanVerification: true,
+      message: `${cfg.country} source still requires verification in noVNC viewer.`,
+      verifyUrl: cfg.entryUrl,
+    };
+  }
+
+  if (mode === "collect") {
+    return { ok: true, effectiveDate: ctx.effectiveDate, ad2Icaos: ctx.ad2Icaos };
+  }
+
+  const dateTag = ctx.effectiveDate || "unknown-date";
+  if (mode === "gen12") {
+    const outGen = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "GEN");
+    mkdirSync(outGen, { recursive: true });
+    const outFile = join(outGen, `${dateTag}_GEN-1.2.pdf`);
+    await wdNavigate(sessionId, ctx.gen12HtmlUrl);
+    const html = await wdGetSource(sessionId);
+    if (isVerificationPage(html)) {
+      return { ok: false, needsHumanVerification: true, message: `${cfg.country} GEN page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
+    }
+    await wdPrintPdf(sessionId, outFile);
+    await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+    return { ok: true, file: outFile, sourceUrl: ctx.gen12HtmlUrl };
+  }
+
+  const wantedIcao = String(icao || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(wantedIcao)) return { ok: false, error: "Provide a valid ICAO for AD2 mode." };
+  if (!ctx.ad2Icaos.includes(wantedIcao)) throw new Error(`AD2 ICAO not found for Netherlands: ${wantedIcao}`);
+
+  const outAd2 = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "AD2");
+  mkdirSync(outAd2, { recursive: true });
+  const outFile = join(outAd2, `${dateTag}_${wantedIcao}_AD2.pdf`);
+  const ad2Url = resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao);
+  await wdNavigate(sessionId, ad2Url);
+  const html = await wdGetSource(sessionId);
+  if (isVerificationPage(html)) {
+    return { ok: false, needsHumanVerification: true, message: `${cfg.country} AD2 page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
+  }
+  await wdPrintPdf(sessionId, outFile);
+  await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+  return { ok: true, file: outFile, sourceUrl: ad2Url, icao: wantedIcao };
+}
+
 function parseTagAttrs(tag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   for (const m of String(tag || "").matchAll(/\b([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(['"])(.*?)\2/g)) {
@@ -658,6 +770,10 @@ async function runBlockedScrape(
       };
     }
     return await runGreeceScriptFlow(mode, icao, html);
+  }
+
+  if (cfg.key === "netherlands") {
+    return await runNetherlandsSeleniumFlow(cfg, sessionId, mode, icao);
   }
 
   const ctx = await crawlContext(sessionId, cfg);

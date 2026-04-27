@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildNetherlandsNativePdfCandidates,
   buildNetherlandsMenuCandidates,
   NETHERLANDS_FALLBACK_AD2_ICAOS,
   parseNetherlandsCurrentPackageUrl,
@@ -134,4 +135,13 @@ test("Netherlands navigation resolves native PDF button links", () => {
     parseNetherlandsNativePdfUrl(`<button onclick="window.open('pdf/eH-GEN 1.2-en-GB.pdf')">PDF</button>`, pageUrl),
     "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/eH-GEN%201.2-en-GB.pdf",
   );
+});
+
+test("Netherlands navigation builds native PDF candidates from section HTML URLs", () => {
+  const candidates = buildNetherlandsNativePdfCandidates(
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eAIP/EH-AD%202%20EHAM%201-en-GB.html#AD-2-EHAM-1",
+  );
+
+  assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/EH-AD%202%20EHAM%201-en-GB.pdf"));
+  assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/EH-AD-2-EHAM-1-en-GB.pdf"));
 });

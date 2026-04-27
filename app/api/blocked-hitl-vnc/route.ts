@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
+  buildNetherlandsNativePdfCandidates,
   buildNetherlandsMenuCandidates,
   NETHERLANDS_FALLBACK_AD2_ICAOS,
   parseNetherlandsAd2Icaos,
@@ -593,17 +594,25 @@ async function wdClickNetherlandsPdfButton(sessionId: string): Promise<string> {
 }
 
 async function downloadNetherlandsNativePdf(sessionId: string, outFile: string): Promise<string> {
-  let pdfUrl = await wdFindNetherlandsNativePdfUrl(sessionId);
-  if (!pdfUrl) pdfUrl = await wdClickNetherlandsPdfButton(sessionId);
-  if (!pdfUrl) throw new Error("Could not find the Netherlands native PDF button/link on the opened HTML page.");
-
   const [{ userAgent, language }, cookie, referer] = await Promise.all([
     wdGetBrowserMeta(sessionId),
     wdGetCookies(sessionId),
     wdGetCurrentUrl(sessionId),
   ]);
-  await downloadPdf(pdfUrl, cookie, userAgent, language, outFile, referer);
-  return pdfUrl;
+  let pdfUrl = await wdFindNetherlandsNativePdfUrl(sessionId);
+  if (!pdfUrl) pdfUrl = await wdClickNetherlandsPdfButton(sessionId);
+  const candidates = buildNetherlandsNativePdfCandidates(referer, pdfUrl);
+  const errors: string[] = [];
+  for (const candidate of candidates) {
+    try {
+      await downloadPdf(candidate, cookie, userAgent, language, outFile, referer);
+      return candidate;
+    } catch (err) {
+      errors.push(`${candidate}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  throw new Error(`Could not download the Netherlands native PDF from the opened HTML page. Tried: ${errors.slice(0, 4).join(" | ") || "no PDF URL candidates"}`);
 }
 
 async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string): Promise<string> {
@@ -623,6 +632,7 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
 
   const candidates = [
     resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao),
+    new URL(`eAIP/EH-AD%202%20${wantedIcao}%201-en-GB.html#AD-2-${wantedIcao}-1`, ctx.packageEntryUrl).href,
     new URL(`html/eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
     new URL(`html/eAIP/EH-AD-2.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
     new URL(`eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,

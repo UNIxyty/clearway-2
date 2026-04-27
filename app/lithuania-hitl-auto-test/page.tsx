@@ -27,8 +27,22 @@ type ApiResult = Record<string, unknown> & {
 };
 type ScrapeMode = "collect" | "gen12" | "ad2";
 type StartSessionResult = { ok: true; sessionId: string; popupUrl: string } | { ok: false };
+type HitlTarget = {
+  key: string;
+  country: string;
+  icaoPrefix: string;
+  enabled: boolean;
+  note: string;
+};
 
 const API_TIMEOUT_MS = 25_000;
+const HITL_TARGETS: HitlTarget[] = [
+  { key: "lithuania", country: "Lithuania", icaoPrefix: "EY", enabled: true, note: "Live now" },
+  { key: "greece", country: "Greece", icaoPrefix: "LG", enabled: false, note: "Queued next" },
+  { key: "germany", country: "Germany", icaoPrefix: "ED", enabled: false, note: "Queued next" },
+  { key: "netherlands", country: "Netherlands", icaoPrefix: "EH", enabled: false, note: "Queued next" },
+  { key: "slovenia", country: "Slovenia", icaoPrefix: "LJ", enabled: false, note: "Queued next" },
+];
 
 async function callApi(payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
@@ -65,6 +79,7 @@ function buildViewerUrl(popupUrl: string, sessionId: string, closeOnClear = true
 }
 
 export default function LithuaniaHitlAutoTestPage() {
+  const [targetKey, setTargetKey] = useState("lithuania");
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
   const [loading, setLoading] = useState<"" | "start" | "status" | ScrapeMode>("");
@@ -76,6 +91,8 @@ export default function LithuaniaHitlAutoTestPage() {
   const viewerAutoClosedRef = useRef(false);
   const autoModeRef = useRef<ScrapeMode | "">("");
   const autoScrapeInFlightRef = useRef(false);
+  const selectedTarget = HITL_TARGETS.find((x) => x.key === targetKey) || HITL_TARGETS[0];
+  const isTargetEnabled = selectedTarget.enabled;
 
   const hasSession = Boolean(sessionId.trim());
   const statusLine = useMemo(() => {
@@ -176,6 +193,14 @@ export default function LithuaniaHitlAutoTestPage() {
   }, [hasSession, sessionId]);
 
   async function startSession(openForAuto = false): Promise<StartSessionResult> {
+    if (!isTargetEnabled) {
+      setResult({
+        ok: false,
+        error: `${selectedTarget.country} HITL not wired yet`,
+        detail: "This button is staged in the test UI. Backend route will be connected next.",
+      });
+      return { ok: false };
+    }
     setLoading("start");
     setResult(null);
     try {
@@ -219,6 +244,14 @@ export default function LithuaniaHitlAutoTestPage() {
   }
 
   async function runScrape(mode: ScrapeMode) {
+    if (!isTargetEnabled) {
+      setResult({
+        ok: false,
+        error: `${selectedTarget.country} HITL not wired yet`,
+        detail: "Country button is ready in test page; backend flow will be connected next.",
+      });
+      return;
+    }
     autoModeRef.current = mode;
     autoScrapeInFlightRef.current = false;
     if (!hasSession) {
@@ -259,6 +292,17 @@ export default function LithuaniaHitlAutoTestPage() {
     setResult({ ok: true, message: "Session closed." });
   }
 
+  async function switchTarget(nextKey: string) {
+    if (nextKey === targetKey) return;
+    if (hasSession) {
+      await closeSessionNow();
+    } else {
+      setResult(null);
+      setStatus(null);
+    }
+    setTargetKey(nextKey);
+  }
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -269,12 +313,31 @@ export default function LithuaniaHitlAutoTestPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Lithuania HITL auto test</CardTitle>
+            <CardTitle>Blocked/Captcha HITL auto test</CardTitle>
             <CardDescription>
-              Test-only automatic human-in-the-loop flow using backend Selenium + noVNC (real browser session, no cookie copy/paste).
+              Test-only Selenium + noVNC flow for blocked countries. Select a country button, then run solve-and-scrape.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="space-y-2 rounded border p-3">
+              <p className="text-sm font-medium">Blocked/Captcha country buttons (test hub)</p>
+              <div className="flex flex-wrap gap-2">
+                {HITL_TARGETS.map((target) => (
+                  <Button
+                    key={target.key}
+                    size="sm"
+                    variant={target.key === targetKey ? "default" : "outline"}
+                    onClick={() => switchTarget(target.key)}
+                  >
+                    {target.country} ({target.icaoPrefix}){target.enabled ? "" : " · staged"}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selected: {selectedTarget.country} ({selectedTarget.icaoPrefix}) - {selectedTarget.note}
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => startSession(false)} disabled={loading === "start"}>
                 {loading === "start" ? (

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
   parseNetherlandsAd2Icaos,
+  parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
   parseNetherlandsGen12HtmlUrl,
   parseNetherlandsMenuUrl,
@@ -40,6 +41,7 @@ type CollectOutput = { effectiveDate?: string | null; ad2Icaos?: string[] };
 type NetherlandsContext = {
   effectiveDate: string | null;
   ad2Icaos: string[];
+  packageEntryUrl: string;
   menuHtml: string;
   menuUrl: string;
   gen12HtmlUrl: string;
@@ -304,6 +306,47 @@ async function wdWaitForGreeceContentAfterSubmit(sessionId: string): Promise<{ c
   throw new Error(`Greece reCAPTCHA was submitted, but the content page did not load yet. Last URL: ${lastUrl || "unknown"}`);
 }
 
+async function wdWaitForUrlOrSourceChange(sessionId: string, previousUrl: string, previousHtml: string): Promise<{ currentUrl: string; html: string }> {
+  const deadline = Date.now() + 20_000;
+  let currentUrl = "";
+  let html = "";
+  while (Date.now() < deadline) {
+    currentUrl = await wdGetCurrentUrl(sessionId);
+    html = await wdGetSource(sessionId);
+    if (currentUrl !== previousUrl || html !== previousHtml) return { currentUrl, html };
+    await sleep(750);
+  }
+  return { currentUrl, html };
+}
+
+async function wdClickNetherlandsCurrentPackage(sessionId: string): Promise<{ clicked: boolean; url: string }> {
+  const script = `
+    const norm = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const rows = Array.from(document.querySelectorAll('table.HISTORY tbody tr, table[class*="HISTORY"] tbody tr, tr'));
+    for (const row of rows) {
+      const text = norm(row.textContent);
+      const dateCell = Array.from(row.querySelectorAll('td')).find((cell) => {
+        const style = String(cell.getAttribute('style') || '').toLowerCase();
+        return /\\b\\d{1,2}\\s+[a-z]{3}\\s+20\\d{2}\\b/i.test(norm(cell.textContent)) &&
+          (style.includes('#adff2f') || style.includes('greenyellow') || row.className.includes('odd-row'));
+      });
+      if (!dateCell) continue;
+      const anchor = row.querySelector('a[href*="html/eAIP"], a[href*="eAIP"], a[href*="index"], a[href]');
+      if (anchor && anchor.href) return { clicked: false, url: anchor.href };
+      const target = dateCell || row;
+      target.click();
+      return { clicked: true, url: '' };
+    }
+    return { clicked: false, url: '' };
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  return {
+    clicked: Boolean(out?.value?.clicked),
+    url: String(out?.value?.url || ""),
+  };
+}
+
 function buildNoVncUrl(request: NextRequest): string {
   const explicit = String(process.env.BLOCKED_NOVNC_URL || process.env.LITHUANIA_NOVNC_URL || "").trim();
   if (explicit) return explicit;
@@ -542,7 +585,7 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   let entryUrl = await wdGetCurrentUrl(sessionId);
   let entryHtml = await wdGetSource(sessionId);
 
-  if (!entryUrl.startsWith(new URL(cfg.entryUrl).origin) || /\/html\/eAIP\//i.test(entryUrl)) {
+  if (!entryUrl.startsWith(new URL(cfg.entryUrl).origin) || /\/html\/eAIP\/EH-/i.test(entryUrl)) {
     await wdNavigate(sessionId, cfg.entryUrl);
     entryUrl = await wdGetCurrentUrl(sessionId);
     entryHtml = await wdGetSource(sessionId);
@@ -550,12 +593,37 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
 
   if (isVerificationPage(entryHtml)) return { needsVerification: true };
 
-  const menuUrl = parseNetherlandsMenuUrl(entryHtml, entryUrl);
+  let packageEntryUrl = entryUrl;
+  let packageEntryHtml = entryHtml;
+  const currentPackage = parseNetherlandsCurrentPackageUrl(entryHtml, entryUrl);
+  if (currentPackage) {
+    await wdNavigate(sessionId, currentPackage.url);
+    packageEntryUrl = await wdGetCurrentUrl(sessionId);
+    packageEntryHtml = await wdGetSource(sessionId);
+  } else if (!/<(?:frame|iframe)\b/i.test(entryHtml) && !/EH-menu-en-GB\.html/i.test(entryHtml)) {
+    const clickResult = await wdClickNetherlandsCurrentPackage(sessionId);
+    if (!clickResult.clicked && clickResult.url) {
+      await wdNavigate(sessionId, clickResult.url);
+      packageEntryUrl = await wdGetCurrentUrl(sessionId);
+      packageEntryHtml = await wdGetSource(sessionId);
+    } else if (clickResult.clicked) {
+      const ready = await wdWaitForUrlOrSourceChange(sessionId, entryUrl, entryHtml);
+      packageEntryUrl = ready.currentUrl;
+      packageEntryHtml = ready.html;
+    }
+  }
+
+  if (isVerificationPage(packageEntryHtml)) return { needsVerification: true };
+  if (!/<(?:frame|iframe)\b/i.test(packageEntryHtml) && !/EH-menu-en-GB\.html/i.test(packageEntryHtml)) {
+    throw new Error("Could not open the Netherlands effective-date eAIP package from the history table.");
+  }
+
+  const menuUrl = parseNetherlandsMenuUrl(packageEntryHtml, packageEntryUrl);
   let menuHtml = "";
   try {
     menuHtml = await wdFetchHtml(sessionId, menuUrl);
   } finally {
-    await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+    await wdNavigate(sessionId, packageEntryUrl).catch(() => {});
   }
   if (isVerificationPage(menuHtml)) return { needsVerification: true };
 
@@ -563,8 +631,9 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");
 
   return {
-    effectiveDate: parseNetherlandsEffectiveDate(`${entryHtml}\n${menuHtml}`),
+    effectiveDate: currentPackage?.effectiveDate || parseNetherlandsEffectiveDate(`${entryHtml}\n${packageEntryHtml}\n${menuHtml}`),
     ad2Icaos,
+    packageEntryUrl,
     menuHtml,
     menuUrl,
     gen12HtmlUrl: parseNetherlandsGen12HtmlUrl(menuHtml, menuUrl),
@@ -597,7 +666,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
       return { ok: false, needsHumanVerification: true, message: `${cfg.country} GEN page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
     }
     await wdPrintPdf(sessionId, outFile);
-    await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+    await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
     return { ok: true, file: outFile, sourceUrl: ctx.gen12HtmlUrl };
   }
 
@@ -615,7 +684,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
     return { ok: false, needsHumanVerification: true, message: `${cfg.country} AD2 page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
   }
   await wdPrintPdf(sessionId, outFile);
-  await wdNavigate(sessionId, cfg.entryUrl).catch(() => {});
+  await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
   return { ok: true, file: outFile, sourceUrl: ad2Url, icao: wantedIcao };
 }
 

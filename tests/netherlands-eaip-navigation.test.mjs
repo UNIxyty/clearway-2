@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  parseNetherlandsCurrentPackageUrl,
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
   parseNetherlandsMenuUrl,
@@ -10,6 +11,26 @@ import {
 
 const ENTRY_URL = "https://eaip.lvnl.nl/web/eaip/default.html";
 const MENU_URL = "https://eaip.lvnl.nl/web/eaip/html/eAIP/EH-menu-en-GB.html";
+
+test("Netherlands navigation resolves the active effective-date package from history table", () => {
+  const historyHtml = `
+    <table class="HISTORY">
+      <tbody>
+        <tr class="odd-row">
+          <td style="background-color:#ADFF2F;text-transform:uppercase;">16 APR 2026</td>
+          <td><a href="2026-04-16/html/eAIP/index.html">HTML</a></td>
+        </tr>
+        <tr><td>20 MAR 2026</td><td><a href="2026-03-20/html/eAIP/index.html">HTML</a></td></tr>
+      </tbody>
+    </table>
+  `;
+
+  assert.equal(
+    parseNetherlandsCurrentPackageUrl(historyHtml, ENTRY_URL)?.url,
+    "https://eaip.lvnl.nl/web/eaip/2026-04-16/html/eAIP/index.html",
+  );
+  assert.equal(parseNetherlandsCurrentPackageUrl(historyHtml, ENTRY_URL)?.effectiveDate, "2026-04-16");
+});
 
 test("Netherlands navigation resolves menu frame from entry HTML", () => {
   const html = '<frameset><frame name="menu" src="html/eAIP/EH-menu-en-GB.html"></frameset>';

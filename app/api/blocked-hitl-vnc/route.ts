@@ -130,6 +130,8 @@ function isVerificationPage(html: string): boolean {
     body.includes("just a moment") ||
     body.includes("cf-challenge") ||
     body.includes("cf-browser-verification") ||
+    body.includes("g-recaptcha") ||
+    body.includes("user check") ||
     body.includes("captcha") ||
     body.includes("verify you are human")
   );
@@ -239,7 +241,9 @@ async function wdChallengeStatus(sessionId: string): Promise<{ challengeDetected
     const bodyText = String(document.body?.innerText || '').toLowerCase();
     const lines = String(document.body?.innerText || '').split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
     const hasCfIframe = Boolean(document.querySelector("iframe[src*='challenges.cloudflare.com']"));
-    const challengeDetected = hasCfIframe || t.includes('just a moment') || bodyText.includes('verify you are human') || bodyText.includes('checking your browser');
+    const recaptchaToken = String(document.querySelector("textarea[name='g-recaptcha-response']")?.value || '').trim();
+    const hasRecaptcha = Boolean(document.querySelector(".g-recaptcha, iframe[src*='recaptcha'], textarea[name='g-recaptcha-response']"));
+    const challengeDetected = (hasRecaptcha && !recaptchaToken) || hasCfIframe || t.includes('just a moment') || bodyText.includes('verify you are human') || bodyText.includes('checking your browser');
     return { challengeDetected, challengeOnly: challengeDetected && lines.length <= 14 };
   `;
   const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
@@ -248,6 +252,30 @@ async function wdChallengeStatus(sessionId: string): Promise<{ challengeDetected
     challengeDetected: Boolean(out?.value?.challengeDetected),
     challengeOnly: Boolean(out?.value?.challengeOnly),
   };
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function wdAdvanceGreeceCaptchaIfReady(sessionId: string): Promise<"submitted" | "waiting" | "not-captcha"> {
+  const script = `
+    const hasForm = Boolean(document.querySelector("#aisgr_recaptcha_form, .g-recaptcha, textarea[name='g-recaptcha-response']"));
+    if (!hasForm) return "not-captcha";
+    const token = String(document.querySelector("textarea[name='g-recaptcha-response']")?.value || '').trim();
+    if (!token) return "waiting";
+    const btn = document.querySelector("#submit_btn");
+    if (btn) {
+      btn.click();
+      return "submitted";
+    }
+    return "waiting";
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  const value = String(out?.value || "");
+  if (value === "submitted") await sleep(2500);
+  return value === "submitted" || value === "waiting" ? value : "not-captcha";
 }
 
 function buildNoVncUrl(request: NextRequest): string {
@@ -368,6 +396,83 @@ async function runGreeceScriptFlow(mode: Mode, icao: string, postCaptchaHtml: st
       unlinkSync(tempPath);
     } catch {}
   }
+}
+
+function findHrefByText(html: string, baseUrl: string, textPattern: RegExp): string {
+  for (const link of extractAnchors(html, baseUrl)) {
+    if (textPattern.test(link.text)) return link.url;
+  }
+  return "";
+}
+
+async function wdResolveGreeceBrowseUrl(sessionId: string): Promise<string> {
+  const script = `
+    const norm = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const pub = document.querySelector('#publications') || document;
+    const acc = Array.from(pub.querySelectorAll('button.accordion1, button'))
+      .find((button) => /Aeronautical Information Publications|\\bAIP\\b/i.test(norm(button.textContent)));
+    if (acc && !String(acc.className || '').includes('active')) acc.click();
+
+    const buttons = Array.from(pub.querySelectorAll('button, a'))
+      .filter((el) => /browse/i.test(norm(el.textContent)));
+    for (const el of buttons) {
+      const anchor = el.tagName.toLowerCase() === 'a' ? el : el.closest('a');
+      if (anchor && anchor.href) return anchor.href;
+      if (el.dataset?.href) return new URL(el.dataset.href, location.href).href;
+    }
+    return '';
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  return String(out?.value || "").trim();
+}
+
+async function wdBuildGreeceAipHtmlBundle(sessionId: string): Promise<string> {
+  const captchaState = await wdAdvanceGreeceCaptchaIfReady(sessionId);
+  if (captchaState === "waiting") {
+    throw new Error("Greece reCAPTCHA is not solved yet. Check the box in noVNC first.");
+  }
+
+  let currentUrl = await wdGetCurrentUrl(sessionId);
+  let html = await wdGetSource(sessionId);
+  if (isVerificationPage(html)) {
+    throw new Error("Greece source still requires verification in noVNC viewer.");
+  }
+
+  if (!/\/cd\/ais\/index\.html/i.test(currentUrl)) {
+    if (!/\/cd\/start\/index\.html/i.test(currentUrl)) {
+      const browseUrl = await wdResolveGreeceBrowseUrl(sessionId);
+      if (!browseUrl) throw new Error("Could not find Greece AIP Browse button after captcha.");
+      await wdNavigate(sessionId, browseUrl);
+      await sleep(2000);
+      currentUrl = await wdGetCurrentUrl(sessionId);
+      html = await wdGetSource(sessionId);
+    }
+
+    const aipUrl = findHrefByText(html, currentUrl, /^AIP$/i) || new URL("../ais/index.html", currentUrl).href;
+    await wdNavigate(sessionId, aipUrl);
+    await sleep(1500);
+    currentUrl = await wdGetCurrentUrl(sessionId);
+    html = await wdGetSource(sessionId);
+  }
+
+  const frames = extractFrameLinks(html, currentUrl);
+  const sideUrl =
+    frames.find((frame) => /navigationbase|side/i.test(frame.text) || /\/side\.htm$/i.test(frame.url))?.url ||
+    new URL("side.htm", currentUrl).href;
+  const mainFrameUrl =
+    frames.find((frame) => /content|mainframe/i.test(frame.text) || /\/mainframe\.htm$/i.test(frame.url))?.url ||
+    new URL("mainframe.htm", currentUrl).href;
+
+  const sideHtml = await wdFetchHtml(sessionId, sideUrl);
+  const mainHtml = await wdFetchHtml(sessionId, mainFrameUrl).catch(() => "");
+  return [
+    `<!-- CLEARWAY_BASE_URL:${sideUrl} -->`,
+    `<!-- CLEARWAY_AIP_INDEX_URL:${currentUrl} -->`,
+    html,
+    sideHtml,
+    mainHtml,
+  ].join("\n");
 }
 
 function parseTagAttrs(tag: string): Record<string, string> {
@@ -509,12 +614,14 @@ async function runBlockedScrape(
   icao: string,
 ) {
   if (cfg.key === "greece") {
-    const html = await wdGetSource(sessionId);
-    if (isVerificationPage(html)) {
+    let html = "";
+    try {
+      html = await wdBuildGreeceAipHtmlBundle(sessionId);
+    } catch (err) {
       return {
         ok: false,
         needsHumanVerification: true,
-        message: "Greece source still requires verification in noVNC viewer.",
+        message: err instanceof Error ? err.message : "Greece source still requires verification in noVNC viewer.",
         verifyUrl: cfg.entryUrl,
       };
     }
@@ -616,6 +723,9 @@ export async function POST(request: NextRequest) {
     touchSession(sessionId);
 
     if (action === "status") {
+      if (cfg.key === "greece") {
+        await wdAdvanceGreeceCaptchaIfReady(sessionId).catch(() => "waiting");
+      }
       const [url, title, challenge] = await Promise.all([wdGetCurrentUrl(sessionId), wdGetTitle(sessionId), wdChallengeStatus(sessionId)]);
       return NextResponse.json({ ok: true, country: cfg.key, sessionId, url, title, ...challenge });
     }

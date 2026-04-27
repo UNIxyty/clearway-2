@@ -47,6 +47,14 @@ function normalizeText(value) {
 function parseEffectiveDate(blob) {
   const iso = isoDateFromText(blob);
   if (iso) return iso;
+  const wef = String(blob || "").match(/wef[_-](\d{1,2})([A-Za-z]{3})(20\d{2})/i);
+  if (wef) {
+    const mm = {
+      jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+      jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+    }[String(wef[2]).slice(0, 3).toLowerCase()];
+    if (mm) return `${wef[3]}-${mm}-${String(wef[1]).padStart(2, "0")}`;
+  }
   const m = String(blob || "").match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})\b/);
   if (!m) return null;
   const mm = {
@@ -60,7 +68,6 @@ function parseEffectiveDate(blob) {
 function parsePostCaptchaDom(html, baseUrl) {
   const normalized = normalizeText(html);
   const ad2Icaos = [...new Set([...normalized.matchAll(/\b(LG[A-Z0-9]{2})\b/g)].map((m) => String(m[1]).toUpperCase()))].sort();
-  const effectiveDate = parseEffectiveDate(normalized);
   const links = [];
   for (const m of String(html || "").matchAll(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href = String(m[1] || "").trim();
@@ -72,6 +79,7 @@ function parsePostCaptchaDom(html, baseUrl) {
       continue;
     }
   }
+  const effectiveDate = parseEffectiveDate(`${html}\n${normalized}\n${links.map((x) => x.url).join("\n")}`);
   const pdfLinks = links.filter((x) => /\.pdf(?:$|[?#])/i.test(x.url));
   const genCandidates = pdfLinks.filter((x) => /gen[^a-z0-9]*1[^a-z0-9]*2/i.test(`${x.url} ${x.text}`));
   return { effectiveDate, ad2Icaos, pdfLinks, genCandidates };
@@ -81,7 +89,11 @@ function readPostCaptchaHtml() {
   if (!postCaptchaHtmlPath) return null;
   try {
     const html = readFileSync(postCaptchaHtmlPath, "utf8");
-    return parsePostCaptchaDom(html, ENTRY_URL);
+    const baseUrl =
+      String(html).match(/CLEARWAY_BASE_URL:([^\s<]+)/)?.[1] ||
+      String(html).match(/<base\b[^>]*href=["']([^"']+)["']/i)?.[1] ||
+      ENTRY_URL;
+    return parsePostCaptchaDom(html, baseUrl);
   } catch (err) {
     throw new Error(`Could not read post-captcha HTML file: ${postCaptchaHtmlPath}. ${err?.message || err}`);
   }

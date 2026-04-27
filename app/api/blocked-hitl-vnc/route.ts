@@ -755,7 +755,7 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   }
 
   const ad2Icaos = parseNetherlandsAd2Icaos(menuHtml);
-  if (!ad2Icaos.length && /AIRAC%20AMDT|AIRAC AMDT/i.test(packageEntryUrl)) {
+  if (!ad2Icaos.length) {
     ad2Icaos.push(...NETHERLANDS_FALLBACK_AD2_ICAOS);
   }
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");

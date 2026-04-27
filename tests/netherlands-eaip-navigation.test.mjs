@@ -8,6 +8,7 @@ import {
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
   parseNetherlandsMenuUrl,
+  parseNetherlandsPackageDate,
   resolveNetherlandsAd2HtmlUrl,
 } from "../lib/netherlands-eaip-navigation.mjs";
 
@@ -111,5 +112,12 @@ test("Netherlands navigation falls back to package-relative GEN URL", () => {
   assert.equal(
     parseNetherlandsGen12HtmlUrl("<html></html>", packageUrl),
     "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
+  );
+});
+
+test("Netherlands navigation parses effective date from package URL", () => {
+  assert.equal(
+    parseNetherlandsPackageDate("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html"),
+    "2026-04-16",
   );
 });

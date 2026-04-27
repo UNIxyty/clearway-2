@@ -12,6 +12,7 @@ import {
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
   parseNetherlandsGen12HtmlUrl,
+  parseNetherlandsPackageDate,
   parseNetherlandsMenuUrl,
   resolveNetherlandsAd2HtmlUrl,
 } from "@/lib/netherlands-eaip-navigation.mjs";
@@ -761,7 +762,7 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");
 
   return {
-    effectiveDate: currentPackage?.effectiveDate || parseNetherlandsEffectiveDate(`${entryHtml}\n${packageEntryHtml}\n${menuHtml}`),
+    effectiveDate: currentPackage?.effectiveDate || parseNetherlandsPackageDate(packageEntryUrl) || parseNetherlandsEffectiveDate(`${entryHtml}\n${packageEntryHtml}\n${menuHtml}`),
     ad2Icaos,
     packageEntryUrl,
     menuHtml,

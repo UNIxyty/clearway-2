@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildNetherlandsMenuCandidates,
+  NETHERLANDS_FALLBACK_AD2_ICAOS,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
@@ -101,4 +102,14 @@ test("Netherlands navigation parses expanded rendered tree text", () => {
     "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
   );
   assert.deepEqual(parseNetherlandsAd2Icaos(renderedTree), ["EHAM", "EHRD"]);
+});
+
+test("Netherlands navigation falls back to package-relative GEN URL", () => {
+  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
+
+  assert.ok(NETHERLANDS_FALLBACK_AD2_ICAOS.includes("EHAM"));
+  assert.equal(
+    parseNetherlandsGen12HtmlUrl("<html></html>", packageUrl),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
+  );
 });

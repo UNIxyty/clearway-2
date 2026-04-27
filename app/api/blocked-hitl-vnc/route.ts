@@ -7,6 +7,7 @@ import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
   buildNetherlandsMenuCandidates,
+  NETHERLANDS_FALLBACK_AD2_ICAOS,
   parseNetherlandsAd2Icaos,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
@@ -754,6 +755,9 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   }
 
   const ad2Icaos = parseNetherlandsAd2Icaos(menuHtml);
+  if (!ad2Icaos.length && /AIRAC%20AMDT|AIRAC AMDT/i.test(packageEntryUrl)) {
+    ad2Icaos.push(...NETHERLANDS_FALLBACK_AD2_ICAOS);
+  }
   if (!ad2Icaos.length) throw new Error("No AD2 ICAOs found in Netherlands unlocked menu.");
 
   return {

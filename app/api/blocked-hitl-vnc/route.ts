@@ -447,6 +447,90 @@ async function wdExtractRenderedNavigationHtml(sessionId: string): Promise<strin
     .join("\n");
 }
 
+async function wdClickNetherlandsNavItem(sessionId: string, terms: string[]): Promise<boolean> {
+  const script = `
+    const terms = arguments[0].map((value) => String(value || '').toUpperCase());
+    const norm = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const matches = (el) => {
+      const text = norm([
+        el.textContent,
+        el.getAttribute?.('title'),
+        el.getAttribute?.('aria-label'),
+        el.getAttribute?.('href'),
+        el.getAttribute?.('onclick'),
+      ].filter(Boolean).join(' ')).toUpperCase();
+      return terms.every((term) => text.includes(term));
+    };
+    const clickIn = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return false;
+      }
+      const selectors = ['a', 'button', '[role="treeitem"]', 'span', 'div', 'li'];
+      for (const el of Array.from(doc.querySelectorAll(selectors.join(',')))) {
+        if (!matches(el)) continue;
+        const target = el.closest?.('a,button,[role="treeitem"],li,div') || el;
+        try {
+          target.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+          target.click();
+          return true;
+        } catch {}
+      }
+      for (const frame of Array.from(win.frames || [])) {
+        if (clickIn(frame)) return true;
+      }
+      return false;
+    };
+    return clickIn(window);
+  `;
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [terms] });
+  touchSession(sessionId);
+  return Boolean(out?.value);
+}
+
+function isNetherlandsErrorPage(html: string): boolean {
+  const body = String(html || "");
+  return /(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)/i.test(body) && !/AMSTERDAM|SCHIPHOL|AERODROME DATA|AD\s*2\./i.test(body);
+}
+
+async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string): Promise<string> {
+  const wantedIcao = String(icao || "").trim().toUpperCase();
+  await wdNavigate(sessionId, ctx.packageEntryUrl);
+  const beforeUrl = await wdGetCurrentUrl(sessionId);
+  const beforeHtml = await wdGetSource(sessionId);
+  await wdExpandNetherlandsNavigation(sessionId);
+  const clicked = await wdClickNetherlandsNavItem(sessionId, ["AD 2", wantedIcao]);
+  if (clicked) {
+    await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
+    const clickedHtml = await wdGetSource(sessionId);
+    if (!isVerificationPage(clickedHtml) && !isNetherlandsErrorPage(clickedHtml) && new RegExp(`\\b${wantedIcao}\\b`, "i").test(clickedHtml)) {
+      return await wdGetCurrentUrl(sessionId);
+    }
+  }
+
+  const candidates = [
+    resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao),
+    new URL(`html/eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
+    new URL(`html/eAIP/EH-AD-2.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
+    new URL(`eAIP/eH-AD%202.${wantedIcao}-en-GB.html`, ctx.packageEntryUrl).href,
+  ];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate || seen.has(candidate)) continue;
+    seen.add(candidate);
+    await wdNavigate(sessionId, candidate);
+    const html = await wdGetSource(sessionId);
+    if (isVerificationPage(html)) throw new Error(`${ctx.packageEntryUrl} still requires verification in noVNC viewer.`);
+    if (!isNetherlandsErrorPage(html) && new RegExp(`\\b${wantedIcao}\\b`, "i").test(html)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Could not open a real Netherlands AD2 page for ${wantedIcao}; candidate URLs returned an error page.`);
+}
+
 function buildNoVncUrl(request: NextRequest): string {
   const explicit = String(process.env.BLOCKED_NOVNC_URL || process.env.LITHUANIA_NOVNC_URL || "").trim();
   if (explicit) return explicit;
@@ -808,11 +892,13 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   const outAd2 = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "AD2");
   mkdirSync(outAd2, { recursive: true });
   const outFile = join(outAd2, `${dateTag}_${wantedIcao}_AD2.pdf`);
-  const ad2Url = resolveNetherlandsAd2HtmlUrl(ctx.menuHtml, ctx.menuUrl, wantedIcao);
-  await wdNavigate(sessionId, ad2Url);
+  const ad2Url = await wdOpenNetherlandsAd2Page(sessionId, ctx, wantedIcao);
   const html = await wdGetSource(sessionId);
   if (isVerificationPage(html)) {
     return { ok: false, needsHumanVerification: true, message: `${cfg.country} AD2 page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
+  }
+  if (isNetherlandsErrorPage(html)) {
+    throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
   await wdPrintPdf(sessionId, outFile);
   await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});

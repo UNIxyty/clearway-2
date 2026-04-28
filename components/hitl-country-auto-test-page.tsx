@@ -27,6 +27,7 @@ type ApiResult = Record<string, unknown> & {
 };
 
 type ScrapeMode = "collect" | "gen12" | "ad2";
+type RenderTechnique = "native" | "html" | "snapshot";
 type StartSessionResult = { ok: true; sessionId: string; popupUrl: string } | { ok: false };
 
 type HitlCountryAutoTestPageProps = {
@@ -41,7 +42,7 @@ type HitlCountryAutoTestPageProps = {
 };
 
 const API_PATH = "/api/blocked-hitl-vnc";
-const API_TIMEOUT_MS = 25_000;
+const API_TIMEOUT_MS = 120_000;
 
 async function callApi(countryKey: string, payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
@@ -59,7 +60,7 @@ async function callApi(countryKey: string, payload: Record<string, unknown>): Pr
       return {
         ok: false,
         error: "Request timed out",
-        detail: "Backend did not respond in 25s. Check browser container health and retry.",
+        detail: "Backend did not respond in 120s. Check browser container health and retry.",
       };
     }
     throw err;
@@ -89,7 +90,7 @@ export function HitlCountryAutoTestPage({
 }: HitlCountryAutoTestPageProps) {
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
-  const [loading, setLoading] = useState<"" | "start" | "status" | ScrapeMode>("");
+  const [loading, setLoading] = useState("");
   const [icao, setIcao] = useState(defaultIcao);
   const [status, setStatus] = useState<ApiResult | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
@@ -97,6 +98,7 @@ export function HitlCountryAutoTestPage({
   const sawChallengeRef = useRef(false);
   const viewerAutoClosedRef = useRef(false);
   const autoModeRef = useRef<ScrapeMode | "">("");
+  const autoTechniqueRef = useRef<RenderTechnique>("native");
   const autoScrapeInFlightRef = useRef(false);
 
   const hasSession = Boolean(sessionId.trim());
@@ -119,14 +121,22 @@ export function HitlCountryAutoTestPage({
     }
   }
 
-  async function executeScrape(mode: ScrapeMode) {
-    setLoading(mode);
+  function scrapeLabel(mode: ScrapeMode, technique: RenderTechnique) {
+    const base = mode === "gen12" ? "GEN 1.2" : mode.toUpperCase();
+    if (technique === "html") return `${base} HTML render`;
+    if (technique === "snapshot") return `${base} snapshot`;
+    return base;
+  }
+
+  async function executeScrape(mode: ScrapeMode, technique: RenderTechnique = "native") {
+    setLoading(`${mode}:${technique}`);
     setResult(null);
     try {
       const data = await callApi(countryKey, {
         action: "scrape",
         sessionId,
         mode,
+        technique,
         icao: icao.trim().toUpperCase(),
       });
       setResult(data);
@@ -163,14 +173,15 @@ export function HitlCountryAutoTestPage({
         const viewerWindow = viewerWindowRef.current;
         const viewerOpen = Boolean(viewerWindow && !viewerWindow.closed);
         const mode = autoModeRef.current;
+        const technique = autoTechniqueRef.current;
         if (mode && !challengeDetected && !autoScrapeInFlightRef.current) {
           autoScrapeInFlightRef.current = true;
           autoModeRef.current = "";
           setResult({
             ok: true,
-            message: `Captcha solved. Running ${mode.toUpperCase()} scrape automatically...`,
+            message: `Captcha solved. Running ${scrapeLabel(mode, technique)} scrape automatically...`,
           });
-          await executeScrape(mode);
+          await executeScrape(mode, technique);
           autoScrapeInFlightRef.current = false;
           return;
         }
@@ -240,8 +251,9 @@ export function HitlCountryAutoTestPage({
     }
   }
 
-  async function runScrape(mode: ScrapeMode) {
+  async function runScrape(mode: ScrapeMode, technique: RenderTechnique = "native") {
     autoModeRef.current = mode;
+    autoTechniqueRef.current = technique;
     autoScrapeInFlightRef.current = false;
     if (!hasSession) {
       const started = await startSession(true);
@@ -251,7 +263,7 @@ export function HitlCountryAutoTestPage({
       }
       setResult({
         ok: true,
-        message: `Session ready. Solve captcha in viewer and ${mode.toUpperCase()} scrape will start automatically.`,
+        message: `Session ready. Solve captcha in viewer and ${scrapeLabel(mode, technique)} scrape will start automatically.`,
       });
       return;
     }
@@ -260,7 +272,7 @@ export function HitlCountryAutoTestPage({
     }
     setResult({
       ok: true,
-      message: `Solve captcha in viewer. ${mode.toUpperCase()} scrape will start automatically right after challenge clears.`,
+      message: `Solve captcha in viewer. ${scrapeLabel(mode, technique)} scrape will start automatically right after challenge clears.`,
     });
   }
 
@@ -274,6 +286,7 @@ export function HitlCountryAutoTestPage({
     sawChallengeRef.current = false;
     viewerAutoClosedRef.current = false;
     autoModeRef.current = "";
+    autoTechniqueRef.current = "native";
     autoScrapeInFlightRef.current = false;
     setSessionId("");
     setPopupUrl("");
@@ -347,15 +360,34 @@ export function HitlCountryAutoTestPage({
               />
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => runScrape("collect")} disabled={Boolean(loading)}>
-                  {loading === "collect" ? "Collecting..." : "Auto collect (solve + run)"}
+                  {loading === "collect:native" ? "Collecting..." : "Auto collect (solve + run)"}
                 </Button>
                 <Button variant="secondary" onClick={() => runScrape("gen12")} disabled={Boolean(loading)}>
-                  {loading === "gen12" ? "Downloading GEN..." : "Auto GEN 1.2 (solve + download)"}
+                  {loading === "gen12:native" ? "Downloading GEN..." : "Auto GEN 1.2 (native PDF)"}
                 </Button>
                 <Button variant="outline" onClick={() => runScrape("ad2")} disabled={Boolean(loading)}>
-                  {loading === "ad2" ? "Downloading AD2..." : "Auto AD2 (solve + download)"}
+                  {loading === "ad2:native" ? "Downloading AD2..." : "Auto AD2 (native PDF)"}
                 </Button>
               </div>
+              {countryKey === "netherlands" && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-medium text-muted-foreground">Fallback PDF techniques</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => runScrape("gen12", "html")} disabled={Boolean(loading)}>
+                      {loading === "gen12:html" ? "Rendering GEN..." : "GEN 1.2 HTML render"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => runScrape("gen12", "snapshot")} disabled={Boolean(loading)}>
+                      {loading === "gen12:snapshot" ? "Snapshotting GEN..." : "GEN 1.2 snapshot PDF"}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => runScrape("ad2", "html")} disabled={Boolean(loading)}>
+                      {loading === "ad2:html" ? "Rendering AD2..." : "AD2 HTML render"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => runScrape("ad2", "snapshot")} disabled={Boolean(loading)}>
+                      {loading === "ad2:snapshot" ? "Snapshotting AD2..." : "AD2 snapshot PDF"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {result && (

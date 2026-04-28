@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PDFDocument } from "pdf-lib";
 import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
@@ -33,6 +34,7 @@ const SELENIUM_BASE = String(process.env.BLOCKED_SELENIUM_URL || process.env.LIT
 const SELENIUM_ROOT = SELENIUM_BASE.replace(/\/wd\/hub$/i, "");
 
 type Mode = "collect" | "gen12" | "ad2";
+type RenderTechnique = "native" | "html" | "snapshot";
 type CountryKey = "greece" | "germany" | "netherlands" | "slovenia";
 type CountryConfig = {
   key: CountryKey;
@@ -708,6 +710,56 @@ async function wdPrintPdf(sessionId: string, outFile: string) {
   writeFileSync(outFile, bytes);
 }
 
+async function wdScreenshot(sessionId: string): Promise<Buffer> {
+  const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/screenshot`);
+  touchSession(sessionId);
+  const pngBase64 = String(out?.value || "");
+  if (!pngBase64) throw new Error("Selenium did not return screenshot data.");
+  return Buffer.from(pngBase64, "base64");
+}
+
+async function wdSnapshotPdf(sessionId: string, outFile: string) {
+  const metricsScript = `
+    return {
+      width: Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0, 1),
+      height: Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0, 1),
+      scrollHeight: Math.max(
+        document.body?.scrollHeight || 0,
+        document.documentElement?.scrollHeight || 0,
+        document.body?.offsetHeight || 0,
+        document.documentElement?.offsetHeight || 0,
+        window.innerHeight || 0,
+        1
+      )
+    };
+  `;
+  const metricsOut = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script: metricsScript, args: [] });
+  touchSession(sessionId);
+  const metrics = metricsOut?.value || {};
+  const viewportHeight = Math.max(1, Number(metrics.height || 900));
+  const scrollHeight = Math.max(viewportHeight, Number(metrics.scrollHeight || viewportHeight));
+  const positions: number[] = [];
+  for (let y = 0; y < scrollHeight; y += viewportHeight) positions.push(y);
+  const last = Math.max(0, scrollHeight - viewportHeight);
+  if (!positions.includes(last)) positions.push(last);
+
+  const pdf = await PDFDocument.create();
+  for (const y of positions) {
+    await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", {
+      script: "window.scrollTo(0, arguments[0]); return window.scrollY;",
+      args: [y],
+    });
+    touchSession(sessionId);
+    await sleep(300);
+    const pngBytes = await wdScreenshot(sessionId);
+    const png = await pdf.embedPng(pngBytes);
+    const page = pdf.addPage([png.width, png.height]);
+    page.drawImage(png, { x: 0, y: 0, width: png.width, height: png.height });
+  }
+  const pdfBytes = await pdf.save();
+  writeFileSync(outFile, Buffer.from(pdfBytes));
+}
+
 async function runNodeScript(scriptPath: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return await new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], { cwd: PROJECT_ROOT, env: process.env });
@@ -988,7 +1040,19 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   };
 }
 
-async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string, mode: Mode, icao: string) {
+async function finishNetherlandsPagePdf(sessionId: string, outFile: string, technique: RenderTechnique): Promise<string> {
+  if (technique === "html") {
+    await wdPrintPdf(sessionId, outFile);
+    return await wdGetCurrentUrl(sessionId);
+  }
+  if (technique === "snapshot") {
+    await wdSnapshotPdf(sessionId, outFile);
+    return await wdGetCurrentUrl(sessionId);
+  }
+  return await downloadNetherlandsNativePdf(sessionId, outFile);
+}
+
+async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string, mode: Mode, icao: string, technique: RenderTechnique = "native") {
   const ctx = await wdBuildNetherlandsContext(sessionId, cfg);
   if ("needsVerification" in ctx) {
     return {
@@ -1016,7 +1080,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
     if (isNetherlandsErrorPage(html)) {
       throw new Error(`Netherlands GEN 1.2 page returned an error: ${ctx.gen12HtmlUrl}`);
     }
-    const pdfUrl = await downloadNetherlandsNativePdf(sessionId, outFile);
+    const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique);
     await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
     return { ok: true, file: outFile, sourceUrl: pdfUrl };
   }
@@ -1036,7 +1100,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   if (isNetherlandsErrorPage(html)) {
     throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
-  const pdfUrl = await downloadNetherlandsNativePdf(sessionId, outFile);
+  const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique);
   await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
   return { ok: true, file: outFile, sourceUrl: pdfUrl, icao: wantedIcao };
 }
@@ -1178,6 +1242,7 @@ async function runBlockedScrape(
   language: string,
   mode: Mode,
   icao: string,
+  technique: RenderTechnique = "native",
 ) {
   if (cfg.key === "greece") {
     let html = "";
@@ -1195,7 +1260,7 @@ async function runBlockedScrape(
   }
 
   if (cfg.key === "netherlands") {
-    return await runNetherlandsSeleniumFlow(cfg, sessionId, mode, icao);
+    return await runNetherlandsSeleniumFlow(cfg, sessionId, mode, icao, technique);
   }
 
   const ctx = await crawlContext(sessionId, cfg);
@@ -1302,6 +1367,8 @@ export async function POST(request: NextRequest) {
 
     if (action === "scrape") {
       const mode = String(body.mode || "collect") as Mode;
+      const techniqueRaw = String(body.technique || "native").trim().toLowerCase();
+      const technique: RenderTechnique = techniqueRaw === "html" || techniqueRaw === "snapshot" ? techniqueRaw : "native";
       const icao = String(body.icao || "").trim().toUpperCase();
       const [cookie, browserMeta] = await Promise.all([wdGetCookies(sessionId), wdGetBrowserMeta(sessionId)]);
       if (!cookie && shouldRequireBrowserCookie(cfg.key)) {
@@ -1312,7 +1379,7 @@ export async function POST(request: NextRequest) {
           verifyUrl: cfg.entryUrl,
         });
       }
-      const result = await runBlockedScrape(cfg, sessionId, cookie, browserMeta.userAgent, browserMeta.language, mode, icao);
+      const result = await runBlockedScrape(cfg, sessionId, cookie, browserMeta.userAgent, browserMeta.language, mode, icao, technique);
       return NextResponse.json(result);
     }
 

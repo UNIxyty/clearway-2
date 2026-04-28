@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  buildNetherlandsAd2HtmlUrl,
+  buildNetherlandsGen12HtmlUrl,
   buildNetherlandsNativePdfCandidates,
   buildNetherlandsMenuCandidates,
   NETHERLANDS_FALLBACK_AD2_ICAOS,
+  NETHERLANDS_REQUIRED_AD2_ICAOS,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsAd2Icaos,
   parseNetherlandsGen12HtmlUrl,
@@ -16,6 +19,7 @@ import {
 
 const ENTRY_URL = "https://eaip.lvnl.nl/web/eaip/default.html";
 const MENU_URL = "https://eaip.lvnl.nl/web/eaip/html/eAIP/EH-menu-en-GB.html";
+const PACKAGE_URL = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
 
 test("Netherlands navigation resolves the active effective-date package from history table", () => {
   const historyHtml = `
@@ -108,12 +112,51 @@ test("Netherlands navigation parses expanded rendered tree text", () => {
 });
 
 test("Netherlands navigation falls back to package-relative GEN URL", () => {
-  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
-
   assert.ok(NETHERLANDS_FALLBACK_AD2_ICAOS.includes("EHAM"));
   assert.equal(
-    parseNetherlandsGen12HtmlUrl("<html></html>", packageUrl),
+    parseNetherlandsGen12HtmlUrl("<html></html>", PACKAGE_URL),
     "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eH-GEN%201.2-en-GB.html",
+  );
+});
+
+test("Netherlands navigation exposes the complete required AD2 airport list", () => {
+  assert.deepEqual(NETHERLANDS_REQUIRED_AD2_ICAOS, [
+    "EHAL",
+    "EHAM",
+    "EHBD",
+    "EHBK",
+    "EHDR",
+    "EHEH",
+    "EHGG",
+    "EHHO",
+    "EHHV",
+    "EHKD",
+    "EHLE",
+    "EHMM",
+    "EHMZ",
+    "EHOW",
+    "EHRD",
+    "EHSE",
+    "EHST",
+    "EHTE",
+    "EHTL",
+    "EHTW",
+    "EHTX",
+  ]);
+});
+
+test("Netherlands navigation builds direct HITL HTML page URLs", () => {
+  assert.equal(
+    buildNetherlandsGen12HtmlUrl(PACKAGE_URL),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eAIP/EH-GEN%201.2-en-GB.html",
+  );
+  assert.equal(
+    buildNetherlandsAd2HtmlUrl(PACKAGE_URL, "EHAM"),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eAIP/EH-AD%202%20EHAM%201-en-GB.html",
+  );
+  assert.equal(
+    buildNetherlandsAd2HtmlUrl("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/html/eAIP/index.html", "EHTX"),
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/eAIP/EH-AD%202%20EHTX%201-en-GB.html",
   );
 });
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ApiResult = Record<string, unknown> & {
   ok?: boolean;
@@ -43,6 +44,29 @@ type HitlCountryAutoTestPageProps = {
 
 const API_PATH = "/api/blocked-hitl-vnc";
 const API_TIMEOUT_MS = 120_000;
+const NETHERLANDS_AD2_ICAOS = [
+  "EHAL",
+  "EHAM",
+  "EHBD",
+  "EHBK",
+  "EHDR",
+  "EHEH",
+  "EHGG",
+  "EHHO",
+  "EHHV",
+  "EHKD",
+  "EHLE",
+  "EHMM",
+  "EHMZ",
+  "EHOW",
+  "EHRD",
+  "EHSE",
+  "EHST",
+  "EHTE",
+  "EHTL",
+  "EHTW",
+  "EHTX",
+];
 
 async function callApi(countryKey: string, payload: Record<string, unknown>): Promise<ApiResult> {
   const controller = new AbortController();
@@ -352,42 +376,38 @@ export function HitlCountryAutoTestPage({
 
             <div className="space-y-2 rounded border p-3">
               <Label htmlFor={`${countryKey}-icao`}>ICAO (for AD2 mode)</Label>
-              <Input
-                id={`${countryKey}-icao`}
-                value={icao}
-                onChange={(e) => setIcao(e.target.value.toUpperCase().slice(0, 4))}
-                className="w-24 font-mono"
-              />
+              {countryKey === "netherlands" ? (
+                <Select value={icao} onValueChange={setIcao}>
+                  <SelectTrigger id={`${countryKey}-icao`} className="w-40 font-mono">
+                    <SelectValue placeholder="Choose ICAO" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NETHERLANDS_AD2_ICAOS.map((code) => (
+                      <SelectItem key={code} value={code} className="font-mono">
+                        {code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id={`${countryKey}-icao`}
+                  value={icao}
+                  onChange={(e) => setIcao(e.target.value.toUpperCase().slice(0, 4))}
+                  className="w-24 font-mono"
+                />
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => runScrape("collect")} disabled={Boolean(loading)}>
                   {loading === "collect:native" ? "Collecting..." : "Auto collect (solve + run)"}
                 </Button>
                 <Button variant="secondary" onClick={() => runScrape("gen12")} disabled={Boolean(loading)}>
-                  {loading === "gen12:native" ? "Downloading GEN..." : "Auto GEN 1.2 (native PDF)"}
+                  {loading === "gen12:native" ? "Downloading GEN..." : "Auto GEN 1.2"}
                 </Button>
                 <Button variant="outline" onClick={() => runScrape("ad2")} disabled={Boolean(loading)}>
-                  {loading === "ad2:native" ? "Downloading AD2..." : "Auto AD2 (native PDF)"}
+                  {loading === "ad2:native" ? "Downloading AD2..." : "Auto AD2 full AIP"}
                 </Button>
               </div>
-              {countryKey === "netherlands" && (
-                <div className="space-y-2 pt-2">
-                  <p className="text-xs font-medium text-muted-foreground">Fallback PDF techniques</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => runScrape("gen12", "html")} disabled={Boolean(loading)}>
-                      {loading === "gen12:html" ? "Rendering GEN..." : "GEN 1.2 HTML render"}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => runScrape("gen12", "snapshot")} disabled={Boolean(loading)}>
-                      {loading === "gen12:snapshot" ? "Snapshotting GEN..." : "GEN 1.2 snapshot PDF"}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => runScrape("ad2", "html")} disabled={Boolean(loading)}>
-                      {loading === "ad2:html" ? "Rendering AD2..." : "AD2 HTML render"}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => runScrape("ad2", "snapshot")} disabled={Boolean(loading)}>
-                      {loading === "ad2:snapshot" ? "Snapshotting AD2..." : "AD2 snapshot PDF"}
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {result && (

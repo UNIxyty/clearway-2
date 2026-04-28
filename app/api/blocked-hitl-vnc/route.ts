@@ -7,9 +7,12 @@ import { PDFDocument } from "pdf-lib";
 import { shouldRequireBrowserCookie } from "@/lib/blocked-hitl-cookie-policy.mjs";
 import { resolveGreeceAipIndexUrl, shouldUseGreeceAipIndex } from "@/lib/greece-hitl-navigation.mjs";
 import {
+  buildNetherlandsAd2HtmlUrl,
+  buildNetherlandsGen12HtmlUrl,
   buildNetherlandsNativePdfCandidates,
   buildNetherlandsMenuCandidates,
   NETHERLANDS_FALLBACK_AD2_ICAOS,
+  NETHERLANDS_REQUIRED_AD2_ICAOS,
   parseNetherlandsAd2Icaos,
   parseNetherlandsCurrentPackageUrl,
   parseNetherlandsEffectiveDate,
@@ -762,6 +765,27 @@ async function wdPrintPdf(sessionId: string, outFile: string) {
   writeFileSync(outFile, bytes);
 }
 
+async function wdPrepareAipPrintLayout(sessionId: string) {
+  const script = `
+    [
+      'header', 'nav', 'footer', 'iframe',
+      '#header', '#nav', '#sidebar', '#navigation',
+      '.header', '.nav', '.navbar', '.sidebar',
+      '.menu', '.toc', '.breadcrumb', '#toc'
+    ].forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        el.style.display = 'none';
+      });
+    });
+    document.body.style.margin = '0';
+    document.body.style.padding = '12px';
+    document.body.style.width = '100%';
+    return true;
+  `;
+  await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+}
+
 async function wdScreenshot(sessionId: string): Promise<Buffer> {
   const out = await wdCall(`/session/${encodeURIComponent(sessionId)}/screenshot`);
   touchSession(sessionId);
@@ -1076,7 +1100,7 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
     throw new Error(`No Netherlands eAIP menu page with GEN/AD links found. Tried: ${menuErrors.slice(0, 5).join(" | ")}`);
   }
 
-  const ad2Icaos = parseNetherlandsAd2Icaos(menuHtml);
+  const ad2Icaos = [...new Set([...NETHERLANDS_REQUIRED_AD2_ICAOS, ...parseNetherlandsAd2Icaos(menuHtml)])];
   if (!ad2Icaos.length) {
     ad2Icaos.push(...NETHERLANDS_FALLBACK_AD2_ICAOS);
   }
@@ -1090,6 +1114,12 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
     menuUrl,
     gen12HtmlUrl: parseNetherlandsGen12HtmlUrl(menuHtml, menuUrl),
   };
+}
+
+async function finishNetherlandsRenderedAipPdf(sessionId: string, outFile: string): Promise<string> {
+  await wdPrepareAipPrintLayout(sessionId);
+  await wdPrintPdf(sessionId, outFile);
+  return await wdGetCurrentUrl(sessionId);
 }
 
 async function finishNetherlandsPagePdf(sessionId: string, outFile: string, technique: RenderTechnique, mode: Mode, icao = ""): Promise<string> {
@@ -1128,15 +1158,16 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
     const outGen = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "GEN");
     mkdirSync(outGen, { recursive: true });
     const outFile = join(outGen, `${dateTag}_GEN-1.2.pdf`);
-    await wdNavigate(sessionId, ctx.gen12HtmlUrl);
+    const genUrl = buildNetherlandsGen12HtmlUrl(ctx.packageEntryUrl) || ctx.gen12HtmlUrl;
+    await wdNavigate(sessionId, genUrl);
     const html = await wdGetSource(sessionId);
     if (isVerificationPage(html)) {
       return { ok: false, needsHumanVerification: true, message: `${cfg.country} GEN page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
     }
     if (isNetherlandsErrorPage(html)) {
-      throw new Error(`Netherlands GEN 1.2 page returned an error: ${ctx.gen12HtmlUrl}`);
+      throw new Error(`Netherlands GEN 1.2 page returned an error: ${genUrl}`);
     }
-    const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique, mode);
+    const pdfUrl = await finishNetherlandsRenderedAipPdf(sessionId, outFile);
     await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
     return { ok: true, file: outFile, sourceUrl: pdfUrl };
   }
@@ -1148,7 +1179,8 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   const outAd2 = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "AD2");
   mkdirSync(outAd2, { recursive: true });
   const outFile = join(outAd2, `${dateTag}_${wantedIcao}_AD2.pdf`);
-  const ad2Url = await wdOpenNetherlandsAd2Page(sessionId, ctx, wantedIcao, technique === "html" || technique === "snapshot");
+  const ad2Url = buildNetherlandsAd2HtmlUrl(ctx.packageEntryUrl, wantedIcao);
+  await wdNavigate(sessionId, ad2Url);
   const html = await wdGetSource(sessionId);
   if (isVerificationPage(html)) {
     return { ok: false, needsHumanVerification: true, message: `${cfg.country} AD2 page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };
@@ -1156,7 +1188,10 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   if (isNetherlandsErrorPage(html)) {
     throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
-  const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique, mode, wantedIcao);
+  if (!isNetherlandsAd2Content(html, wantedIcao)) {
+    throw new Error(`Netherlands AD2 page did not contain expected AD2 content for ${wantedIcao}: ${ad2Url}`);
+  }
+  const pdfUrl = await finishNetherlandsRenderedAipPdf(sessionId, outFile);
   await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
   return { ok: true, file: outFile, sourceUrl: pdfUrl, icao: wantedIcao };
 }

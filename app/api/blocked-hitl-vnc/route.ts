@@ -624,6 +624,49 @@ async function downloadNetherlandsNativePdf(sessionId: string, outFile: string):
   throw new Error(`Could not download the Netherlands native PDF from the opened HTML page. Tried: ${errors.slice(0, 4).join(" | ") || "no PDF URL candidates"}`);
 }
 
+async function wdResolveNetherlandsContentFrameUrl(sessionId: string, mode: Mode, icao = ""): Promise<string> {
+  const script = `
+    const out = [];
+    const collect = (win) => {
+      let doc;
+      try {
+        doc = win.document;
+      } catch {
+        return;
+      }
+      out.push({
+        url: String(win.location?.href || doc.URL || ''),
+        title: String(doc.title || ''),
+        text: String(doc.body?.innerText || '').replace(/\\s+/g, ' ').slice(0, 12000),
+      });
+      for (const frame of Array.from(win.frames || [])) collect(frame);
+    };
+    collect(window);
+    return out;
+  `;
+  const result = await wdCall(`/session/${encodeURIComponent(sessionId)}/execute/sync`, "POST", { script, args: [] });
+  touchSession(sessionId);
+  type FrameInfo = { url: string; text: string; title: string };
+  const frames = Array.isArray(result?.value) ? result.value : [];
+  const currentUrl = await wdGetCurrentUrl(sessionId);
+  const targetIcao = String(icao || "").trim().toUpperCase();
+  const isShell = (url: string) => /(?:^|\/)(?:index|default|menu|history)[^/]*\.html(?:[?#]|$)/i.test(decodeURIComponent(url));
+  const candidates: FrameInfo[] = frames
+    .map((frame: any) => ({
+      url: String(frame?.url || ""),
+      text: String(frame?.text || ""),
+      title: String(frame?.title || ""),
+    }))
+    .filter((frame: FrameInfo) => frame.url && frame.url !== currentUrl && !isShell(frame.url));
+
+  const matched = candidates.find((frame: FrameInfo) => {
+    const blob = `${decodeURIComponent(frame.url)} ${frame.title} ${frame.text}`;
+    if (mode === "gen12") return /GEN\s*1\.2/i.test(blob);
+    return targetIcao ? new RegExp(`\\b${targetIcao}\\b`, "i").test(blob) : false;
+  });
+  return matched?.url || "";
+}
+
 async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string, acceptRenderedPage = false): Promise<string> {
   const wantedIcao = String(icao || "").trim().toUpperCase();
   await wdNavigate(sessionId, ctx.packageEntryUrl);
@@ -1049,12 +1092,16 @@ async function wdBuildNetherlandsContext(sessionId: string, cfg: CountryConfig):
   };
 }
 
-async function finishNetherlandsPagePdf(sessionId: string, outFile: string, technique: RenderTechnique): Promise<string> {
+async function finishNetherlandsPagePdf(sessionId: string, outFile: string, technique: RenderTechnique, mode: Mode, icao = ""): Promise<string> {
   if (technique === "html") {
+    const contentUrl = await wdResolveNetherlandsContentFrameUrl(sessionId, mode, icao);
+    if (contentUrl) await wdNavigate(sessionId, contentUrl);
     await wdPrintPdf(sessionId, outFile);
     return await wdGetCurrentUrl(sessionId);
   }
   if (technique === "snapshot") {
+    const contentUrl = await wdResolveNetherlandsContentFrameUrl(sessionId, mode, icao);
+    if (contentUrl) await wdNavigate(sessionId, contentUrl);
     await wdSnapshotPdf(sessionId, outFile);
     return await wdGetCurrentUrl(sessionId);
   }
@@ -1089,7 +1136,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
     if (isNetherlandsErrorPage(html)) {
       throw new Error(`Netherlands GEN 1.2 page returned an error: ${ctx.gen12HtmlUrl}`);
     }
-    const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique);
+    const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique, mode);
     await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
     return { ok: true, file: outFile, sourceUrl: pdfUrl };
   }
@@ -1109,7 +1156,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   if (isNetherlandsErrorPage(html)) {
     throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
-  const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique);
+  const pdfUrl = await finishNetherlandsPagePdf(sessionId, outFile, technique, mode, wantedIcao);
   await wdNavigate(sessionId, ctx.packageEntryUrl).catch(() => {});
   return { ok: true, file: outFile, sourceUrl: pdfUrl, icao: wantedIcao };
 }

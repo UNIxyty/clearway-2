@@ -624,7 +624,7 @@ async function downloadNetherlandsNativePdf(sessionId: string, outFile: string):
   throw new Error(`Could not download the Netherlands native PDF from the opened HTML page. Tried: ${errors.slice(0, 4).join(" | ") || "no PDF URL candidates"}`);
 }
 
-async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string): Promise<string> {
+async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsContext, icao: string, acceptRenderedPage = false): Promise<string> {
   const wantedIcao = String(icao || "").trim().toUpperCase();
   await wdNavigate(sessionId, ctx.packageEntryUrl);
   const beforeUrl = await wdGetCurrentUrl(sessionId);
@@ -635,9 +635,18 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
     await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
     const clickedHtml = await wdGetSource(sessionId);
     const clickedUrl = await wdGetCurrentUrl(sessionId);
-    if (!isVerificationPage(clickedHtml) && isNetherlandsAd2Page(clickedHtml, clickedUrl, wantedIcao)) {
+    const pageChanged = clickedUrl !== beforeUrl || clickedHtml !== beforeHtml;
+    if (
+      !isVerificationPage(clickedHtml) &&
+      !isNetherlandsErrorPage(clickedHtml) &&
+      ((acceptRenderedPage && pageChanged) || isNetherlandsAd2Page(clickedHtml, clickedUrl, wantedIcao))
+    ) {
       return clickedUrl;
     }
+  }
+
+  if (acceptRenderedPage) {
+    throw new Error(`Could not open Netherlands AD2 page for ${wantedIcao} through the rendered navigation tree.`);
   }
 
   const candidates = [
@@ -1092,7 +1101,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   const outAd2 = join(PROJECT_ROOT, "downloads", cfg.outDirSlug, "AD2");
   mkdirSync(outAd2, { recursive: true });
   const outFile = join(outAd2, `${dateTag}_${wantedIcao}_AD2.pdf`);
-  const ad2Url = await wdOpenNetherlandsAd2Page(sessionId, ctx, wantedIcao);
+  const ad2Url = await wdOpenNetherlandsAd2Page(sessionId, ctx, wantedIcao, technique === "html" || technique === "snapshot");
   const html = await wdGetSource(sessionId);
   if (isVerificationPage(html)) {
     return { ok: false, needsHumanVerification: true, message: `${cfg.country} AD2 page still requires verification in noVNC viewer.`, verifyUrl: cfg.entryUrl };

@@ -498,7 +498,11 @@ async function wdClickNetherlandsNavItem(sessionId: string, terms: string[]): Pr
 }
 
 function isNetherlandsErrorPage(html: string): boolean {
-  return /(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)/i.test(String(html || ""));
+  const body = normalizeText(String(html || ""));
+  return (
+    /\b(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)\b/i.test(body.slice(0, 800)) ||
+    /\b(?:404|not\s+found|file\s+not\s+found|page\s+not\s+found)\b[^.]{0,80}\b(?:error|page)\b/i.test(body)
+  );
 }
 
 function isNetherlandsAd2Content(html: string, icao: string): boolean {

@@ -145,3 +145,18 @@ test("Netherlands navigation builds native PDF candidates from section HTML URLs
   assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/EH-AD%202%20EHAM%201-en-GB.pdf"));
   assert.ok(candidates.includes("https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/EH-AD-2-EHAM-1-en-GB.pdf"));
 });
+
+test("Netherlands navigation uses AIRAC package root AD2 pages", () => {
+  const packageUrl = "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/index.html";
+  const ad2Url = resolveNetherlandsAd2HtmlUrl("", packageUrl, "EHAM");
+
+  assert.equal(
+    ad2Url,
+    "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/EH-AD%202.EHAM-en-GB.html",
+  );
+  assert.ok(
+    buildNetherlandsNativePdfCandidates(ad2Url).includes(
+      "https://eaip.lvnl.nl/web/eaip/AIRAC%20AMDT%2004-2026_2026_04_16/pdf/EH-AD%202.EHAM-en-GB.pdf",
+    ),
+  );
+});

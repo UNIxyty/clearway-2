@@ -1188,7 +1188,7 @@ async function runNetherlandsSeleniumFlow(cfg: CountryConfig, sessionId: string,
   if (isNetherlandsErrorPage(html)) {
     throw new Error(`Netherlands AD2 page returned an error for ${wantedIcao}: ${ad2Url}`);
   }
-  if (!isNetherlandsAd2Content(html, wantedIcao)) {
+  if (!isNetherlandsAd2Page(html, ad2Url, wantedIcao)) {
     throw new Error(`Netherlands AD2 page did not contain expected AD2 content for ${wantedIcao}: ${ad2Url}`);
   }
   const pdfUrl = await finishNetherlandsRenderedAipPdf(sessionId, outFile);

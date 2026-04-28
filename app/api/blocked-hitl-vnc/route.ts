@@ -630,16 +630,16 @@ async function wdOpenNetherlandsAd2Page(sessionId: string, ctx: NetherlandsConte
   const beforeUrl = await wdGetCurrentUrl(sessionId);
   const beforeHtml = await wdGetSource(sessionId);
   await wdExpandNetherlandsNavigation(sessionId);
-  const clicked = await wdClickNetherlandsNavItem(sessionId, ["AD 2", wantedIcao]);
+  const clicked = await wdClickNetherlandsNavItem(sessionId, ["AD 2", wantedIcao]) ||
+    (acceptRenderedPage ? await wdClickNetherlandsNavItem(sessionId, [wantedIcao]) : false);
   if (clicked) {
     await wdWaitForUrlOrSourceChange(sessionId, beforeUrl, beforeHtml).catch(() => null);
     const clickedHtml = await wdGetSource(sessionId);
     const clickedUrl = await wdGetCurrentUrl(sessionId);
-    const pageChanged = clickedUrl !== beforeUrl || clickedHtml !== beforeHtml;
     if (
       !isVerificationPage(clickedHtml) &&
       !isNetherlandsErrorPage(clickedHtml) &&
-      ((acceptRenderedPage && pageChanged) || isNetherlandsAd2Page(clickedHtml, clickedUrl, wantedIcao))
+      (acceptRenderedPage || isNetherlandsAd2Page(clickedHtml, clickedUrl, wantedIcao))
     ) {
       return clickedUrl;
     }

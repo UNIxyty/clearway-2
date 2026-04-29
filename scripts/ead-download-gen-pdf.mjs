@@ -268,83 +268,114 @@ async function main() {
     await page.waitForTimeout(350);
     const docHeader = page.locator(jsfId('mainForm:documentHeader')).or(page.locator('input[id$="documentHeader"]'));
     await docHeader.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    await docHeader.fill('1.2');
+    await docHeader.fill('GEN 1.2');
     await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'Search' }).click();
     // Wait for results table instead of fixed long delay
     await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
     await page.waitForTimeout(400);
 
-    // —— Results: find row with Document Heading "GEN 1.2" and English (_en) ——
+    // —— Results: find and rank GEN 1.2 candidates; avoid AD/chart artifacts ——
     // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading
     const table = page.locator('#mainForm\\:searchResults_data');
     await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
-    const rows = page.locator('#mainForm\\:searchResults_data tr');
-    const rowCount = await rows.count();
+    const docHeadingCol = 4;
     const gen12Re = /GEN\s*1\.2/i;
     const enRe = /_en\.pdf$/i;
-    const docHeadingCol = 4;
-    let pdfLink = null;
-    for (let i = 0; i < rowCount; i++) {
-      const cells = rows.nth(i).locator('td');
-      const cellCount = await cells.count();
-      if (cellCount <= docHeadingCol) continue;
-      const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
-      if (!gen12Re.test(docHeading)) continue;
-      const link = rows.nth(i).locator('a.wrap-data').first();
-      if ((await link.count()) === 0) continue;
-      const linkText = (await link.textContent().catch(() => '')) || '';
-      if (!enRe.test(linkText)) continue;
-      pdfLink = link;
-      break;
+    const badNameRe = /\bAD[_\-\s]?(2|3|4)\b|AERODROME\s*CHART|CHART\b|SID\b|STAR\b/i;
+    const preferredNameRe = new RegExp(`(^|_)${prefix}_GEN[_\\-. ]?1[_\\-. ]?2`, 'i');
+
+    async function collectCandidates() {
+      const out = [];
+      const rows = page.locator('#mainForm\\:searchResults_data tr');
+      const rowCount = await rows.count();
+      for (let i = 0; i < rowCount; i++) {
+        const cells = rows.nth(i).locator('td');
+        const cellCount = await cells.count();
+        if (cellCount <= docHeadingCol) continue;
+        const docHeading = (await cells.nth(docHeadingCol).textContent().catch(() => '')) || '';
+        const link = rows.nth(i).locator('a.wrap-data').first();
+        if ((await link.count()) === 0) continue;
+        const linkText = ((await link.textContent().catch(() => '')) || '').trim();
+        const href = await link.getAttribute('href');
+        if (!href) continue;
+        out.push({ docHeading, linkText, href });
+      }
+      return out;
     }
 
-    if (!pdfLink || (await pdfLink.count()) === 0) {
-      // Fallback: search empty and find GEN 1.2 in any row
+    function scoreCandidate(row) {
+      const heading = String(row.docHeading || '');
+      const name = String(row.linkText || '');
+      let score = 0;
+      if (gen12Re.test(heading)) score += 120;
+      if (/^GEN\s*1\.2\s*$/i.test(heading.trim())) score += 80;
+      if (enRe.test(name)) score += 30;
+      if (preferredNameRe.test(name)) score += 60;
+      if (/GEN[_\-. ]?1[_\-. ]?2/i.test(name)) score += 30;
+      if (badNameRe.test(name) || badNameRe.test(heading)) score -= 300;
+      return score;
+    }
+
+    let candidates = (await collectCandidates()).filter((row) => gen12Re.test(row.docHeading) && enRe.test(row.linkText));
+    if (!candidates.length) {
+      // Fallback: broader search if filtered query returned nothing.
       await docHeader.fill('');
       await page.getByRole('button', { name: 'Search' }).click();
       await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
       await page.waitForTimeout(400);
-      const rows2 = page.locator('#mainForm\\:searchResults_data tr');
-      const count2 = await rows2.count();
-      for (let i = 0; i < count2; i++) {
-        const cells = rows2.nth(i).locator('td');
-        if ((await cells.count()) <= docHeadingCol) continue;
-        const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
-        if (!gen12Re.test(docHeading)) continue;
-        const link = rows2.nth(i).locator('a.wrap-data').first();
-        const linkText = (await link.textContent().catch(() => '')) || '';
-        if (!enRe.test(linkText)) continue;
-        pdfLink = link;
-        break;
-      }
+      candidates = (await collectCandidates()).filter((row) => gen12Re.test(row.docHeading) && enRe.test(row.linkText));
     }
 
-    if (!pdfLink || (await pdfLink.count()) === 0) {
+    candidates.sort((a, b) => scoreCandidate(b) - scoreCandidate(a));
+    if (!candidates.length) {
       throw new Error('No GEN 1.2 (en) document found for ' + countryLabel);
     }
 
-    const href = await pdfLink.getAttribute('href');
-    const fullUrl = href.startsWith('http') ? href : new URL(href, BASE).href;
-    log('Downloading PDF: ' + fullUrl);
-
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 20000 }),
-      pdfLink.click(),
-    ]);
     const savePath = join(outDir, `${prefix}-GEN-1.2.pdf`);
-    await download.saveAs(savePath);
+    let extractedText = '';
+    let selectedCandidate = null;
+    for (const candidate of candidates) {
+      const fullUrl = candidate.href.startsWith('http') ? candidate.href : new URL(candidate.href, BASE).href;
+      log(`Trying GEN candidate: ${candidate.linkText} | ${candidate.docHeading}`);
+      const res = await context.request.get(fullUrl, { timeout: 30000 });
+      if (!res.ok) {
+        log(`Skip candidate (HTTP ${res.status()}): ${candidate.linkText}`);
+        continue;
+      }
+      const bytes = Buffer.from(await res.body());
+      if (bytes.length < 32 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        log(`Skip candidate (not PDF): ${candidate.linkText}`);
+        continue;
+      }
+      writeFileSync(savePath, bytes);
+      const text = await extractPdfText(savePath);
+      const up = String(text || '').toUpperCase();
+      const looksLikeGen = /GEN\s*1\.2/.test(up) || /ENTRY[, ]+TRANSIT[, ]+AND[, ]+DEPARTURE/.test(up);
+      const looksLikeChart = /\bAD\s*4\b|\bAERODROME\s+CHART\b|\bSID\b|\bSTAR\b/.test(up);
+      if (!looksLikeGen || looksLikeChart) {
+        log(`Reject candidate (likely chart/non-GEN): ${candidate.linkText}`);
+        continue;
+      }
+      extractedText = text;
+      selectedCandidate = candidate;
+      break;
+    }
+
+    if (!selectedCandidate) {
+      throw new Error(`GEN 1.2 candidates found for ${countryLabel}, but all were rejected as non-GEN/chart artifacts.`);
+    }
+    log(`Selected GEN candidate: ${selectedCandidate.linkText}`);
     log('Saved: ' + savePath);
 
     // —— Extract and show content ——
-    const text = await extractPdfText(savePath);
     const txtPath = join(outDir, `${prefix}-GEN-1.2.txt`);
-    if (text) {
-      writeFileSync(txtPath, text, 'utf8');
+    if (extractedText) {
+      writeFileSync(txtPath, extractedText, 'utf8');
       log('Text saved: ' + txtPath);
       console.log('--- GEN 1.2 content ---');
-      console.log(text);
+      console.log(extractedText);
       console.log('--- end ---');
     }
 

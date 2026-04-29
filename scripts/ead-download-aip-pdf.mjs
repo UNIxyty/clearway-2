@@ -447,49 +447,48 @@ async function main() {
       const MAX_PAGES = 10;
       const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
       const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
+      const chartRe = /\bAD[_\-\s]?4\b|AERODROME\s*CHART|CHART\b/i;
       const docHeadingCol = 4;
       const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
       const isAd2Row = (s) => {
         const n = headingNorm(s);
-        return n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao));
+        return (n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao))) && !chartRe.test(n);
       };
 
       async function scanCurrentPage() {
         const rows = page.locator('#mainForm\\:searchResults_data tr');
         const rowCount = await rows.count();
-        let found = null;
+        const candidates = [];
         let fallback = null;
         for (let i = 0; i < rowCount; i++) {
           const cells = rows.nth(i).locator('td');
           const cellCount = await cells.count();
           if (cellCount <= docHeadingCol) continue;
           const docHeading = await cells.nth(docHeadingCol).textContent().catch(() => '');
-          if (!isAd2Row(docHeading)) continue;
           const link = rows.nth(i).locator('a.wrap-data').first();
           if ((await link.count()) === 0) continue;
           const linkText = await link.textContent().catch(() => '') || '';
+          const heading = headingNorm(docHeading);
+          const looksAd2 = isAd2Row(heading);
+          const looksAd2ByName = ad2LinkRe.test(linkText);
+          if (!looksAd2 && !looksAd2ByName) continue;
+          if (chartRe.test(linkText) || chartRe.test(heading)) continue;
+
+          let score = 0;
+          if (looksAd2) score += 120;
+          if (looksAd2ByName) score += 60;
+          if (!variationRe.test(linkText)) score += 30;
+          if (variationRe.test(linkText)) score -= 5;
+
+          candidates.push({ link, linkText, heading, score });
           if (variationRe.test(linkText)) {
             if (!fallback) fallback = link;
-            continue;
-          }
-          found = link;
-          break;
-        }
-        if (!found) {
-          for (let i = 0; i < rowCount; i++) {
-            const link = rows.nth(i).locator('a.wrap-data').first();
-            if ((await link.count()) === 0) continue;
-            const linkText = await link.textContent().catch(() => '') || '';
-            if (!ad2LinkRe.test(linkText)) continue;
-            if (variationRe.test(linkText)) {
-              if (!fallback) fallback = link;
-              continue;
-            }
-            found = link;
-            break;
           }
         }
-        return { found, fallback };
+        candidates.sort((a, b) => b.score - a.score);
+        const best = candidates.find((c) => !variationRe.test(c.linkText)) || null;
+        if (best) log(`Selected AD2 candidate on page: ${best.linkText} | ${best.heading}`);
+        return { found: best ? best.link : null, fallback };
       }
 
       const table = page.locator('#mainForm\\:searchResults_data');

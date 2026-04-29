@@ -46,12 +46,14 @@ const JAPAN_WEB_AIP_URL = "https://nagodede.github.io/aip/japan/";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-type ScraperMeta = {
+export type ScraperMeta = {
   effectiveDate: string | null;
   ad2Icaos: string[];
   webAipUrl: string;
   country: string;
 };
+
+export type ScraperMetaResolver = () => Promise<ScraperMeta>;
 
 const NON_ICAO = new Set(["EAIP", "AIPM", "AD2A", "GEN1", "GEN2", "AMDT", "SUPP", "AIRA", "HTML", "PDFS", "NONE", "NULL"]);
 
@@ -116,6 +118,17 @@ function parseDate(value: unknown): Date | null {
   const d = new Date(String(value));
   if (Number.isNaN(d.valueOf())) return null;
   return d;
+}
+
+export function normalizeScraperCountryName(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .replace(/[./_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 async function fetchText(url: string): Promise<string> {
@@ -1972,4 +1985,86 @@ export async function getJapanMeta(): Promise<ScraperMeta> {
   } catch {
     return japanCache?.value ?? { country: "Japan", effectiveDate: null, ad2Icaos: [], webAipUrl: JAPAN_WEB_AIP_URL };
   }
+}
+
+function registerMetaResolver(
+  out: Record<string, ScraperMetaResolver>,
+  aliases: string[],
+  resolver: ScraperMetaResolver,
+): void {
+  for (const alias of aliases) {
+    out[normalizeScraperCountryName(alias)] = resolver;
+  }
+}
+
+const SCRAPER_META_BY_COUNTRY_INTERNAL: Record<string, ScraperMetaResolver> = {};
+
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Belarus"], getBelarusMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Bhutan"], getBhutanMeta);
+registerMetaResolver(
+  SCRAPER_META_BY_COUNTRY_INTERNAL,
+  ["Bosnia and Herzegovina", "Bosnia", "Bosnia/Herzeg", "Bosnia/Herzeg."],
+  getBosniaMeta,
+);
+registerMetaResolver(
+  SCRAPER_META_BY_COUNTRY_INTERNAL,
+  ["Republic of Cabo Verde", "Cabo Verde", "Cape Verde"],
+  getCaboVerdeMeta,
+);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Chile"], getChileMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Costa Rica"], getCostaRicaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Cuba"], getCubaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Ecuador"], getEcuadorMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["El Salvador"], getElSalvadorMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Guatemala"], getGuatemalaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Honduras"], getHondurasMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Hong Kong", "Hongkong"], getHongKongMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["India"], getIndiaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Israel"], getIsraelMeta);
+registerMetaResolver(
+  SCRAPER_META_BY_COUNTRY_INTERNAL,
+  ["South Korea", "Korea", "Republic of Korea"],
+  getSouthKoreaMeta,
+);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Kosovo"], getKosovoMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Kuwait"], getKuwaitMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Libya"], getLibyaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Malaysia"], getMalaysiaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Maldives"], getMaldivesMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Mongolia"], getMongoliaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Myanmar"], getMyanmarMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Nepal"], getNepalMeta);
+registerMetaResolver(
+  SCRAPER_META_BY_COUNTRY_INTERNAL,
+  ["North Macedonia", "Republic of North Macedonia", "Macedonia"],
+  getNorthMacedoniaMeta,
+);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Pakistan"], getPakistanMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Panama"], getPanamaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Qatar"], getQatarMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Rwanda"], getRwandaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Saudi Arabia"], getSaudiArabiaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Somalia"], getSomaliaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Sri Lanka"], getSriLankaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Taiwan"], getTaiwanMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Tajikistan"], getTajikistanMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Thailand"], getThailandMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Turkmenistan"], getTurkmenistanMeta);
+registerMetaResolver(
+  SCRAPER_META_BY_COUNTRY_INTERNAL,
+  ["United Arab Emirates", "UAE"],
+  getUaeMeta,
+);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Uzbekistan"], getUzbekistanMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Venezuela"], getVenezuelaMeta);
+registerMetaResolver(SCRAPER_META_BY_COUNTRY_INTERNAL, ["Japan"], getJapanMeta);
+
+export const SCRAPER_META_BY_COUNTRY = SCRAPER_META_BY_COUNTRY_INTERNAL;
+
+export function getScraperMetaResolverByCountry(country: string): ScraperMetaResolver | null {
+  return SCRAPER_META_BY_COUNTRY[normalizeScraperCountryName(country)] ?? null;
+}
+
+export function listScraperMetaResolvers(): ScraperMetaResolver[] {
+  return Array.from(new Set(Object.values(SCRAPER_META_BY_COUNTRY)));
 }

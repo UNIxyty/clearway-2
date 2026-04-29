@@ -11,47 +11,7 @@ import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
-import {
-  getBelarusMeta,
-  getBhutanMeta,
-  getBosniaMeta,
-  getCaboVerdeMeta,
-  getChileMeta,
-  getCostaRicaMeta,
-  getCubaMeta,
-  getEcuadorMeta,
-  getElSalvadorMeta,
-  getGuatemalaMeta,
-  getHondurasMeta,
-  getHongKongMeta,
-  getIndiaMeta,
-  getIsraelMeta,
-  getSouthKoreaMeta,
-  getKosovoMeta,
-  getKuwaitMeta,
-  getLibyaMeta,
-  getMalaysiaMeta,
-  getMaldivesMeta,
-  getMongoliaMeta,
-  getMyanmarMeta,
-  getNepalMeta,
-  getNorthMacedoniaMeta,
-  getPakistanMeta,
-  getPanamaMeta,
-  getQatarMeta,
-  getRwandaMeta,
-  getSaudiArabiaMeta,
-  getSomaliaMeta,
-  getSriLankaMeta,
-  getTaiwanMeta,
-  getTajikistanMeta,
-  getThailandMeta,
-  getTurkmenistanMeta,
-  getUaeMeta,
-  getUzbekistanMeta,
-  getVenezuelaMeta,
-  getJapanMeta,
-} from "@/lib/scraper-batch-meta";
+import { listScraperMetaResolvers } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
@@ -150,7 +110,16 @@ type DbAirportRow = {
   web_aip_url?: string | null;
 };
 
+type IndexedAirport = AIPAirport & { searchTextUpper: string };
+
 const coordsMap = airportCoords as Record<string, { lat: number; lon: number }>;
+
+function withSearchIndex(list: AIPAirport[]): IndexedAirport[] {
+  return list.map((a) => ({
+    ...a,
+    searchTextUpper: `${a.icao} ${a.name} ${a.country}`.toUpperCase(),
+  }));
+}
 
 function flattenAIP(): AIPAirport[] {
   const countries = aipData as AIPCountry[];
@@ -358,48 +327,8 @@ async function flattenBahrain(): Promise<AIPAirport[]> {
 }
 
 async function flattenScraperCountryMeta(): Promise<AIPAirport[]> {
-  const [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, turkmenistan, uae, uzbekistan, venezuela, japan] = await Promise.all([
-    getBelarusMeta(),
-    getBhutanMeta(),
-    getBosniaMeta(),
-    getCaboVerdeMeta(),
-    getChileMeta(),
-    getCostaRicaMeta(),
-    getCubaMeta(),
-    getEcuadorMeta(),
-    getElSalvadorMeta(),
-    getGuatemalaMeta(),
-    getHondurasMeta(),
-    getHongKongMeta(),
-    getIndiaMeta(),
-    getIsraelMeta(),
-    getSouthKoreaMeta(),
-    getKosovoMeta(),
-    getKuwaitMeta(),
-    getLibyaMeta(),
-    getMalaysiaMeta(),
-    getMaldivesMeta(),
-    getMongoliaMeta(),
-    getMyanmarMeta(),
-    getNepalMeta(),
-    getNorthMacedoniaMeta(),
-    getPakistanMeta(),
-    getPanamaMeta(),
-    getQatarMeta(),
-    getRwandaMeta(),
-    getSaudiArabiaMeta(),
-    getSomaliaMeta(),
-    getSriLankaMeta(),
-    getTaiwanMeta(),
-    getTajikistanMeta(),
-    getThailandMeta(),
-    getTurkmenistanMeta(),
-    getUaeMeta(),
-    getUzbekistanMeta(),
-    getVenezuelaMeta(),
-    getJapanMeta(),
-  ]);
-  const metas = [belarus, bhutan, bosnia, caboVerde, chile, costaRica, cuba, ecuador, elSalvador, guatemala, honduras, hongKong, india, israel, southKorea, kosovo, kuwait, libya, malaysia, maldives, mongolia, myanmar, nepal, northMacedonia, pakistan, panama, qatar, rwanda, saudiArabia, somalia, sriLanka, taiwan, tajikistan, thailand, turkmenistan, uae, uzbekistan, venezuela, japan];
+  const resolvers = listScraperMetaResolvers();
+  const metas = await Promise.all(resolvers.map((resolve) => resolve()));
   const out: AIPAirport[] = [];
   for (const meta of metas) {
     for (const icao of meta.ad2Icaos) {
@@ -459,10 +388,21 @@ function buildBaseList(): AIPAirport[] {
   return mergeByIcao(aip, eadGeneratedList, asecnaList, russiaList);
 }
 
-let cachedList: AIPAirport[] = buildBaseList();
+const EAD_ICAO_MAP = (() => {
+  const data = getEadCountryIcaos();
+  const out = new Map<string, { country: string; name: string }>();
+  for (const [country, airports] of Object.entries(data)) {
+    for (const airport of airports) {
+      out.set(airport.icao.toUpperCase(), { country, name: airport.name || "EAD UNDEFINED" });
+    }
+  }
+  return out;
+})();
+
+let cachedList: IndexedAirport[] = withSearchIndex(buildBaseList());
 let dynamicRefreshInFlight: Promise<void> | null = null;
 let dynamicRefreshedAt = 0;
-const DYNAMIC_REFRESH_TTL_MS = 10 * 60 * 1000;
+const DYNAMIC_REFRESH_TTL_MS = 30 * 60 * 1000;
 
 async function refreshDynamicList(): Promise<void> {
   const now = Date.now();
@@ -475,7 +415,7 @@ async function refreshDynamicList(): Promise<void> {
         flattenBahrain(),
         flattenScraperCountryMeta(),
       ]);
-      cachedList = mergeByIcao(buildBaseList(), bahrainList, scraperBatchList);
+      cachedList = withSearchIndex(mergeByIcao(scraperBatchList, bahrainList, buildBaseList()));
       dynamicRefreshedAt = Date.now();
     } catch {
       // Keep search fast even when external scraper metadata sources are slow/down.
@@ -584,15 +524,6 @@ async function searchVisibleAirportsFromDb(q: string, userId: string | null): Pr
     .filter((a): a is AIPAirport => Boolean(a));
 }
 
-function getAllEadIcaos(): Set<string> {
-  const data = getEadCountryIcaos();
-  const set = new Set<string>();
-  for (const list of Object.values(data)) {
-    if (Array.isArray(list)) for (const airport of list) set.add(airport.icao.toUpperCase());
-  }
-  return set;
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() || "";
@@ -607,12 +538,7 @@ export async function GET(request: NextRequest) {
 
   // Fast path: return cached/static list immediately and refresh scraper metadata in background.
   void refreshDynamicList();
-  const baseResults = cachedList.filter(
-    (a) =>
-      a.icao.toUpperCase().includes(qUpper) ||
-      a.name.toUpperCase().includes(qUpper) ||
-      a.country.toUpperCase().includes(qUpper)
-  );
+  const baseResults = cachedList.filter((a) => a.searchTextUpper.includes(qUpper));
 
   const userId = await getCurrentUserId();
   const dbResults = await searchVisibleAirportsFromDb(q, userId);
@@ -624,30 +550,16 @@ export async function GET(request: NextRequest) {
 
   // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
   if (qUpper.length === 4) {
-    const eadData = getEadCountryIcaos();
-    let found = false;
-    let foundName = "";
-    let foundCountry = "";
-    
-    for (const [country, airports] of Object.entries(eadData)) {
-      const match = airports.find(a => a.icao.toUpperCase() === qUpper);
-      if (match) {
-        found = true;
-        foundName = match.name || "EAD UNDEFINED";
-        foundCountry = country;
-        break;
-      }
-    }
-    
-    if (found && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+    const eadMatch = EAD_ICAO_MAP.get(qUpper);
+    if (eadMatch && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
       results = [
         ...results,
         {
-          country: foundCountry || "EAD (EU AIP)",
+          country: eadMatch.country || "EAD (EU AIP)",
           gen1_2: "",
           gen1_2_point_4: "",
           icao: qUpper,
-          name: foundName || "EAD UNDEFINED",
+          name: eadMatch.name || "EAD UNDEFINED",
           publicationDate: "",
           trafficPermitted: "",
           trafficRemarks: "",
@@ -665,7 +577,7 @@ export async function GET(request: NextRequest) {
           fireFighting: "",
           runwayNumber: "",
           runwayDimensions: "",
-          webAipUrl: getEadWebAipUrlByIcaoOrCountry(qUpper, foundCountry) ?? undefined,
+          webAipUrl: getEadWebAipUrlByIcaoOrCountry(qUpper, eadMatch.country) ?? undefined,
         } as AIPAirport,
       ];
     }

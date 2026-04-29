@@ -61,9 +61,14 @@ begin
     execute 'create index if not exists idx_airports_icao on public.airports (icao)';
     execute 'create index if not exists idx_airports_visible on public.airports (visible)';
     execute 'create index if not exists idx_airports_country_state_visible on public.airports (country, state, visible)';
+    execute 'create extension if not exists pg_trgm';
+    execute 'create index if not exists idx_airports_name_trgm on public.airports using gin (lower(name) gin_trgm_ops)';
+    execute 'create index if not exists idx_airports_country_trgm on public.airports using gin (lower(country) gin_trgm_ops)';
+    execute 'create index if not exists idx_airports_icao_trgm on public.airports using gin (lower(icao) gin_trgm_ops)';
   end if;
 end $$;
 create index if not exists idx_deleted_airports_icao_deleted_at on public.deleted_airports (icao, deleted_at desc);
+create index if not exists idx_deleted_airports_user_active_icao on public.deleted_airports (deleted_by, icao) where restored_at is null;
 
 -- 5) Normalize existing rows so portal starts with all rows visible.
 do $$

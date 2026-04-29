@@ -12,47 +12,7 @@ import { getAsecnaAirportsSet, getAsecnaAirportByIcao, isAsecnaCountry } from "@
 import { getBahrainMeta } from "@/lib/bahrain-scraper";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
-import {
-  getBelarusMeta,
-  getBhutanMeta,
-  getBosniaMeta,
-  getCaboVerdeMeta,
-  getChileMeta,
-  getCostaRicaMeta,
-  getCubaMeta,
-  getEcuadorMeta,
-  getElSalvadorMeta,
-  getGuatemalaMeta,
-  getHondurasMeta,
-  getHongKongMeta,
-  getIndiaMeta,
-  getIsraelMeta,
-  getSouthKoreaMeta,
-  getKosovoMeta,
-  getKuwaitMeta,
-  getLibyaMeta,
-  getMalaysiaMeta,
-  getMaldivesMeta,
-  getMongoliaMeta,
-  getMyanmarMeta,
-  getNepalMeta,
-  getNorthMacedoniaMeta,
-  getPakistanMeta,
-  getPanamaMeta,
-  getQatarMeta,
-  getRwandaMeta,
-  getSaudiArabiaMeta,
-  getSomaliaMeta,
-  getSriLankaMeta,
-  getTaiwanMeta,
-  getTajikistanMeta,
-  getThailandMeta,
-  getTurkmenistanMeta,
-  getUaeMeta,
-  getUzbekistanMeta,
-  getVenezuelaMeta,
-  getJapanMeta,
-} from "@/lib/scraper-batch-meta";
+import { getScraperMetaResolverByCountry } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 
 export const dynamic = "force-dynamic";
@@ -619,91 +579,8 @@ async function flattenBahrainCountry(countryName: string): Promise<AIPAirport[]>
 }
 
 async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirport[]> {
-  const normalized = String(countryName || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[./_-]+/g, " ")
-    .replace(/\s+/g, " ");
-  const meta =
-    normalized.includes("belarus")
-      ? await getBelarusMeta()
-      : normalized.includes("bhutan")
-        ? await getBhutanMeta()
-        : normalized.includes("bosnia")
-          ? await getBosniaMeta()
-          : normalized.includes("cabo verde") || normalized.includes("cape verde")
-            ? await getCaboVerdeMeta()
-            : normalized.includes("chile")
-              ? await getChileMeta()
-              : normalized.includes("costa rica")
-                ? await getCostaRicaMeta()
-                : normalized.includes("cuba")
-                  ? await getCubaMeta()
-                    : normalized.includes("ecuador")
-                      ? await getEcuadorMeta()
-                      : normalized.includes("el salvador")
-                        ? await getElSalvadorMeta()
-                        : normalized.includes("guatemala")
-                          ? await getGuatemalaMeta()
-                          : normalized.includes("honduras")
-                            ? await getHondurasMeta()
-                            : normalized.includes("hong kong") || normalized.includes("hongkong")
-                              ? await getHongKongMeta()
-                              : normalized.includes("india")
-                                ? await getIndiaMeta()
-                                : normalized.includes("israel")
-                                  ? await getIsraelMeta()
-                                  : normalized.includes("south korea") || normalized.includes("korea")
-                                    ? await getSouthKoreaMeta()
-                                    : normalized.includes("kosovo")
-                                      ? await getKosovoMeta()
-                                      : normalized.includes("kuwait")
-                                        ? await getKuwaitMeta()
-                                        : normalized.includes("libya")
-                                          ? await getLibyaMeta()
-                                          : normalized.includes("malaysia")
-                                            ? await getMalaysiaMeta()
-                                            : normalized.includes("maldives")
-                                              ? await getMaldivesMeta()
-                                              : normalized.includes("mongolia")
-                                                ? await getMongoliaMeta()
-                                                : normalized.includes("myanmar")
-                                                  ? await getMyanmarMeta()
-                                                  : normalized.includes("nepal")
-                                                    ? await getNepalMeta()
-                                                    : normalized.includes("north macedonia") || normalized.includes("macedonia")
-                                                      ? await getNorthMacedoniaMeta()
-                                                      : normalized.includes("pakistan")
-                                                        ? await getPakistanMeta()
-                                                        : normalized.includes("panama")
-                                                          ? await getPanamaMeta()
-                                                          : normalized.includes("qatar")
-                                                            ? await getQatarMeta()
-                                                            : normalized.includes("rwanda")
-                                                              ? await getRwandaMeta()
-                                                              : normalized.includes("saudi arabia")
-                                                                ? await getSaudiArabiaMeta()
-                                                                : normalized.includes("somalia")
-                                                                  ? await getSomaliaMeta()
-                                                                  : normalized.includes("sri lanka")
-                                                                    ? await getSriLankaMeta()
-                                                                    : normalized.includes("taiwan")
-                                                                      ? await getTaiwanMeta()
-                                                                      : normalized.includes("tajikistan")
-                                                                        ? await getTajikistanMeta()
-                                                                        : normalized.includes("thailand")
-                                                                          ? await getThailandMeta()
-                                                                          : normalized.includes("turkmenistan")
-                                                                            ? await getTurkmenistanMeta()
-                                                                            : normalized.includes("united arab emirates") || normalized === "uae"
-                                                                              ? await getUaeMeta()
-                                                                              : normalized.includes("uzbekistan")
-                                                                                ? await getUzbekistanMeta()
-                                                                                : normalized.includes("venezuela")
-                                                                                  ? await getVenezuelaMeta()
-                                                                                  : normalized.includes("japan")
-                                                                                    ? await getJapanMeta()
-                                                                                    : null;
+  const resolver = getScraperMetaResolverByCountry(countryName);
+  const meta = resolver ? await resolver() : null;
   if (!meta) return [];
   return meta.ad2Icaos.map((icao) => {
     const coord = coordsMap[icao];
@@ -743,6 +620,7 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
+  const baseCountry = country ? normalizeCountryLabel(country) : null;
   const state = searchParams.get("state")?.trim() || null;
   const userId = await getCurrentUserId();
   const hiddenAirportIcaos = await getHiddenAirportIcaosForUser(userId);
@@ -760,9 +638,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (country === "United States of America" && state) {
+  if (baseCountry === "United States of America" && state) {
     const list = applyHiddenAirportFilter(flattenUSAByState(state), hiddenAirportIcaos);
     return NextResponse.json({ results: list });
+  }
+
+  if (baseCountry === "Bahrain") {
+    return NextResponse.json(
+      { results: applyHiddenAirportFilter(await flattenBahrainCountry(baseCountry), hiddenAirportIcaos) },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
+  }
+
+  if (baseCountry && isScraperCountryName(baseCountry)) {
+    const scraperList = applyHiddenAirportFilter(await flattenScraperBatchCountry(baseCountry), hiddenAirportIcaos);
+    if (scraperList.length > 0) {
+      return NextResponse.json(
+        { results: scraperList },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
+    }
   }
 
   const eadData = getEadCountryIcaos();
@@ -774,28 +669,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (country === "Russia") {
+  if (baseCountry === "Russia") {
     const list = applyHiddenAirportFilter(flattenRussia(), hiddenAirportIcaos);
     return NextResponse.json({ results: list });
   }
 
-  if (country && isAsecnaCountry(country)) {
+  if (baseCountry && isAsecnaCountry(baseCountry)) {
     return NextResponse.json(
-      { results: applyHiddenAirportFilter(flattenAsecnaCountry(country), hiddenAirportIcaos) },
+      { results: applyHiddenAirportFilter(flattenAsecnaCountry(baseCountry), hiddenAirportIcaos) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
-  if (country === "Bahrain") {
+  if (baseCountry && isScraperCountryName(baseCountry)) {
     return NextResponse.json(
-      { results: applyHiddenAirportFilter(await flattenBahrainCountry(country), hiddenAirportIcaos) },
-      { headers: { "Cache-Control": "no-store, max-age=0" } }
-    );
-  }
-
-  if (country && isScraperCountryName(country) && country !== "Bahrain") {
-    return NextResponse.json(
-      { results: applyHiddenAirportFilter(await flattenScraperBatchCountry(country), hiddenAirportIcaos) },
+      { results: applyHiddenAirportFilter(await flattenScraperBatchCountry(baseCountry), hiddenAirportIcaos) },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }

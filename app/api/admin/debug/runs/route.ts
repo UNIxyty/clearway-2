@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
     concurrency?: number;
     steps?: string[];
   };
-  const baseUrl = new URL(request.url).origin;
+  // Use an internal loopback base URL for server-side debug steps.
+  // This avoids TLS/proxy issues when the incoming request origin is external.
+  const baseUrl = process.env.DEBUG_RUNNER_BASE_URL || "http://127.0.0.1:3000";
   const run = await startDebugRun({
     quantity: body.quantity,
     randomSample: body.randomSample,

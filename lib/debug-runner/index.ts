@@ -164,6 +164,15 @@ async function sendTelegramSummary(run: DebugRun) {
 async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {
   const icao = card.icao;
   const endpoints = stepKeyForAirport(icao);
+  const requestOrThrow = async (url: string): Promise<Response> => {
+    try {
+      return await fetch(url, { cache: "no-store" });
+    } catch (err) {
+      const cause = err instanceof Error ? (err.cause ? ` | cause: ${String(err.cause)}` : "") : "";
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`fetch failed for ${url}: ${msg}${cause}`);
+    }
+  };
   const setStep = (step: StepName, state: StepState, detail: string) => {
     card.steps[step] = state;
     card.stepDetails[step] = detail;
@@ -188,22 +197,22 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
   };
 
   await doStep("aip", async () => {
-    const res = await fetch(`${run.baseUrl}${endpoints.aipBase}?icao=${encodeURIComponent(icao)}&sync=1&extract=0`, { cache: "no-store" });
+    const res = await requestOrThrow(`${run.baseUrl}${endpoints.aipBase}?icao=${encodeURIComponent(icao)}&sync=1&extract=0`);
     if (!res.ok) throw new Error(`AIP HTTP ${res.status}`);
   }, 40_000);
 
   await doStep("notam", async () => {
-    const res = await fetch(`${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}&sync=1`, { cache: "no-store" });
+    const res = await requestOrThrow(`${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}&sync=1`);
     if (!res.ok) throw new Error(`NOTAM HTTP ${res.status}`);
   });
 
   await doStep("weather", async () => {
-    const res = await fetch(`${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}&sync=1`, { cache: "no-store" });
+    const res = await requestOrThrow(`${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}&sync=1`);
     if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
   });
 
   await doStep("pdf", async () => {
-    const res = await fetch(`${run.baseUrl}${endpoints.pdfUrl}`, { cache: "no-store" });
+    const res = await requestOrThrow(`${run.baseUrl}${endpoints.pdfUrl}`);
     if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength < 5 || String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
@@ -222,10 +231,10 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
 
   await doStep("gen", async () => {
     if (endpoints.genPdfUrl.includes("/api/aip/gen/pdf")) {
-      const sync = await fetch(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
+      const sync = await requestOrThrow(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`);
       if (!sync.ok) throw new Error(`GEN sync HTTP ${sync.status}`);
     }
-    const pdf = await fetch(`${run.baseUrl}${endpoints.genPdfUrl}`, { cache: "no-store" });
+    const pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
     if (!pdf.ok) throw new Error(`GEN PDF HTTP ${pdf.status}`);
   });
 }

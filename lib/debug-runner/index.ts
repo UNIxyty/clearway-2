@@ -1,0 +1,350 @@
+import { EventEmitter } from "events";
+import { randomUUID } from "crypto";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { saveFile } from "@/lib/storage";
+import { isUsaAipIcao } from "@/lib/usa-aip";
+import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
+import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
+
+type StepName = "aip" | "notam" | "weather" | "pdf" | "gen";
+type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skipped";
+type RunState = "running" | "completed" | "stopped";
+const ALL_STEPS: StepName[] = ["aip", "notam", "weather", "pdf", "gen"];
+const ASECNA_SET = getAsecnaAirportsSet();
+
+export type DebugRunOptions = {
+  quantity: number;
+  randomSample: boolean;
+  countries: string[];
+  concurrency: number;
+  steps: StepName[];
+};
+
+type AirportCandidate = {
+  icao: string;
+  country: string;
+  name: string;
+};
+
+export type AirportDebugCard = {
+  icao: string;
+  country: string;
+  name: string;
+  steps: Record<StepName, StepState>;
+  stepDetails: Record<StepName, string>;
+  logs: string[];
+};
+
+export type DebugRun = {
+  id: string;
+  status: RunState;
+  startedAt: string;
+  endedAt: string | null;
+  options: DebugRunOptions;
+  totals: {
+    airports: number;
+    failed: number;
+    timeout: number;
+  };
+  events: Array<{ at: string; level: "info" | "error"; message: string; airport?: string }>;
+  airports: AirportDebugCard[];
+  stopRequested: boolean;
+  emitter: EventEmitter;
+  baseUrl: string;
+};
+
+const RUNS = new Map<string, DebugRun>();
+
+function sample<T>(rows: T[], qty: number, random: boolean): T[] {
+  const copy = [...rows];
+  if (random) copy.sort(() => Math.random() - 0.5);
+  return copy.slice(0, qty);
+}
+
+function sanitizePathPart(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "unknown";
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+function logEvent(run: DebugRun, event: { level: "info" | "error"; message: string; airport?: string }) {
+  const full = { at: new Date().toISOString(), ...event };
+  run.events.push(full);
+  if (run.events.length > 2500) run.events.shift();
+  run.emitter.emit("event", full);
+}
+
+function stepKeyForAirport(icao: string): { aipBase: string; pdfUrl: string; genPdfUrl: string } {
+  const scraper = getScraperCountryByIcao(icao);
+  if (isUsaAipIcao(icao)) {
+    return {
+      aipBase: "/api/aip/usa",
+      pdfUrl: `/api/aip/usa/pdf?icao=${encodeURIComponent(icao)}`,
+      genPdfUrl: `/api/aip/usa/gen/pdf?icao=${encodeURIComponent(icao)}`,
+    };
+  }
+  if (ASECNA_SET.has(icao.toUpperCase())) {
+    return {
+      aipBase: "/api/aip/asecna",
+      pdfUrl: `/api/aip/asecna/pdf?icao=${encodeURIComponent(icao)}`,
+      genPdfUrl: `/api/aip/asecna/gen/pdf?icao=${encodeURIComponent(icao)}`,
+    };
+  }
+  if (scraper) {
+    return {
+      aipBase: "/api/aip/scraper",
+      pdfUrl: `/api/aip/scraper/pdf?icao=${encodeURIComponent(icao)}`,
+      genPdfUrl: `/api/aip/scraper/gen/pdf?icao=${encodeURIComponent(icao)}`,
+    };
+  }
+  return {
+    aipBase: "/api/aip/ead",
+    pdfUrl: `/api/aip/ead/pdf?icao=${encodeURIComponent(icao)}`,
+    genPdfUrl: `/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`,
+  };
+}
+
+async function listAirportCandidates(options: DebugRunOptions): Promise<AirportCandidate[]> {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  let query = service.from("airports").select("icao,country,name").limit(3000);
+  if (options.countries.length > 0) query = query.in("country", options.countries);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const rows = (data ?? [])
+    .map((r) => ({
+      icao: String((r as { icao?: string }).icao || "").toUpperCase(),
+      country: String((r as { country?: string }).country || "Unknown"),
+      name: String((r as { name?: string }).name || "Unknown"),
+    }))
+    .filter((r) => /^[A-Z0-9]{4}$/.test(r.icao));
+  return sample(rows, options.quantity, options.randomSample);
+}
+
+async function sendTelegramSummary(run: DebugRun) {
+  const token = process.env.TELEGRAM_BOT_TOKEN || "";
+  const chatId = process.env.TELEGRAM_CHAT_ID || "";
+  if (!token || !chatId) {
+    logEvent(run, { level: "info", message: "Telegram summary skipped (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)." });
+    return;
+  }
+  const failed = run.airports.filter((a) => Object.values(a.steps).some((s) => s === "failed")).length;
+  const timedOut = run.airports.filter((a) => Object.values(a.steps).some((s) => s === "timeout")).length;
+  const body =
+    `Debug run ${run.id}\n` +
+    `Airports: ${run.totals.airports}\n` +
+    `Failed: ${failed}\n` +
+    `Timeout: ${timedOut}\n` +
+    `Link: ${run.baseUrl}/admin/debug?run=${encodeURIComponent(run.id)}`;
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: body }),
+  });
+  logEvent(run, { level: "info", message: "Telegram summary sent." });
+}
+
+async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {
+  const icao = card.icao;
+  const endpoints = stepKeyForAirport(icao);
+  const setStep = (step: StepName, state: StepState, detail: string) => {
+    card.steps[step] = state;
+    card.stepDetails[step] = detail;
+    card.logs.push(`${new Date().toISOString()} [${step}] ${detail}`);
+    logEvent(run, { level: state === "failed" || state === "timeout" ? "error" : "info", message: detail, airport: icao });
+  };
+
+  const doStep = async (step: StepName, fn: () => Promise<void>, timeoutMs = 90_000) => {
+    if (!run.options.steps.includes(step)) {
+      setStep(step, "skipped", "Step skipped by options.");
+      return;
+    }
+    setStep(step, "running", "Started.");
+    try {
+      await withTimeout(fn(), timeoutMs);
+      setStep(step, "passed", "Completed.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/timeout/i.test(msg)) setStep(step, "timeout", msg);
+      else setStep(step, "failed", msg);
+    }
+  };
+
+  await doStep("aip", async () => {
+    const res = await fetch(`${run.baseUrl}${endpoints.aipBase}?icao=${encodeURIComponent(icao)}&sync=1&extract=0`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`AIP HTTP ${res.status}`);
+  }, 40_000);
+
+  await doStep("notam", async () => {
+    const res = await fetch(`${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}&sync=1`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`NOTAM HTTP ${res.status}`);
+  });
+
+  await doStep("weather", async () => {
+    const res = await fetch(`${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}&sync=1`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
+  });
+
+  await doStep("pdf", async () => {
+    const res = await fetch(`${run.baseUrl}${endpoints.pdfUrl}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength < 5 || String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
+      throw new Error("Downloaded bytes are not a PDF");
+    }
+    const countryKey = sanitizePathPart(card.country);
+    if (!artifactCountries.has(countryKey)) {
+      artifactCountries.add(countryKey);
+      const key = `aip/debug-runs/${run.id}/${countryKey}/${icao}.pdf`;
+      await saveFile(key, bytes);
+      setStep("pdf", "running", `Saved artifact ${key}`);
+    } else {
+      setStep("pdf", "running", "Artifact skipped: country already has one PDF.");
+    }
+  });
+
+  await doStep("gen", async () => {
+    if (endpoints.genPdfUrl.includes("/api/aip/gen/pdf")) {
+      const sync = await fetch(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
+      if (!sync.ok) throw new Error(`GEN sync HTTP ${sync.status}`);
+    }
+    const pdf = await fetch(`${run.baseUrl}${endpoints.genPdfUrl}`, { cache: "no-store" });
+    if (!pdf.ok) throw new Error(`GEN PDF HTTP ${pdf.status}`);
+  });
+}
+
+async function executeRun(run: DebugRun) {
+  const candidates = await listAirportCandidates(run.options);
+  run.airports = candidates.map((row) => ({
+    icao: row.icao,
+    country: row.country,
+    name: row.name,
+    steps: {
+      aip: "pending",
+      notam: "pending",
+      weather: "pending",
+      pdf: "pending",
+      gen: "pending",
+    },
+    stepDetails: {
+      aip: "",
+      notam: "",
+      weather: "",
+      pdf: "",
+      gen: "",
+    },
+    logs: [],
+  }));
+  run.totals.airports = run.airports.length;
+  logEvent(run, { level: "info", message: `Run started for ${run.airports.length} airport(s).` });
+
+  const artifactCountries = new Set<string>();
+  let nextIndex = 0;
+  const worker = async () => {
+    while (!run.stopRequested) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= run.airports.length) return;
+      await runAirport(run, run.airports[current], artifactCountries);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.max(1, run.options.concurrency) }).map(() => worker()),
+  );
+
+  run.status = run.stopRequested ? "stopped" : "completed";
+  run.endedAt = new Date().toISOString();
+  run.totals.failed = run.airports.filter((a) => Object.values(a.steps).includes("failed")).length;
+  run.totals.timeout = run.airports.filter((a) => Object.values(a.steps).includes("timeout")).length;
+  logEvent(run, { level: "info", message: `Run ${run.status}.` });
+  await sendTelegramSummary(run).catch((err) => {
+    logEvent(run, { level: "error", message: `Telegram summary failed: ${String((err as Error).message || err)}` });
+  });
+  run.emitter.emit("done");
+}
+
+export function listDebugRuns() {
+  return Array.from(RUNS.values())
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .map((run) => ({
+      id: run.id,
+      status: run.status,
+      startedAt: run.startedAt,
+      endedAt: run.endedAt,
+      totals: run.totals,
+      options: run.options,
+    }));
+}
+
+export function getDebugRun(id: string): DebugRun | null {
+  return RUNS.get(id) ?? null;
+}
+
+export function stopDebugRun(id: string): boolean {
+  const run = RUNS.get(id);
+  if (!run) return false;
+  run.stopRequested = true;
+  return true;
+}
+
+export function subscribeDebugRun(id: string, onEvent: (event: unknown) => void) {
+  const run = RUNS.get(id);
+  if (!run) return null;
+  const handler = (event: unknown) => onEvent(event);
+  run.emitter.on("event", handler);
+  return () => run.emitter.off("event", handler);
+}
+
+export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUrl: string) {
+  const options: DebugRunOptions = {
+    quantity: Math.max(1, Math.min(500, Number(rawOptions.quantity ?? 25))),
+    randomSample: Boolean(rawOptions.randomSample ?? true),
+    countries: Array.isArray(rawOptions.countries) ? rawOptions.countries.slice(0, 50) : [],
+    concurrency: Math.max(1, Math.min(8, Number(rawOptions.concurrency ?? 3))),
+    steps: Array.isArray(rawOptions.steps) && rawOptions.steps.length > 0
+      ? rawOptions.steps.filter((s): s is StepName => ALL_STEPS.includes(s as StepName))
+      : ALL_STEPS,
+  };
+
+  const run: DebugRun = {
+    id: randomUUID(),
+    status: "running",
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    options,
+    totals: { airports: 0, failed: 0, timeout: 0 },
+    events: [],
+    airports: [],
+    stopRequested: false,
+    emitter: new EventEmitter(),
+    baseUrl,
+  };
+  RUNS.set(run.id, run);
+
+  executeRun(run).catch((err) => {
+    run.status = "completed";
+    run.endedAt = new Date().toISOString();
+    logEvent(run, { level: "error", message: `Run crashed: ${String((err as Error).message || err)}` });
+    run.emitter.emit("done");
+  });
+
+  return run;
+}

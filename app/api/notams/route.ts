@@ -9,7 +9,11 @@ const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
 const SCRIPT_PATH = join(
   process.cwd(),
   "scripts",
-  NOTAM_SCRAPER === "faa" ? "notam-scraper.mjs" : "skylink-notams.mjs"
+  NOTAM_SCRAPER === "faa"
+    ? "notam-scraper.mjs"
+    : NOTAM_SCRAPER === "crewbriefing"
+      ? "crewbriefing-opmet-notams.mjs"
+      : "skylink-notams.mjs"
 );
 const RUN_TIMEOUT_MS = 90_000;
 const SYNC_TIMEOUT_MS = 120_000;
@@ -140,9 +144,11 @@ export async function GET(request: NextRequest) {
   }
 
   return new Promise<NextResponse>((resolve) => {
+    const args = [SCRIPT_PATH, "--json", icao];
+    if (NOTAM_SCRAPER === "crewbriefing") args.push("--mode", "notam");
     const child = spawn(
       process.execPath,
-      [SCRIPT_PATH, "--json", icao],
+      args,
       {
         cwd: process.cwd(),
         stdio: ["ignore", "pipe", "pipe"],
@@ -197,7 +203,14 @@ export async function GET(request: NextRequest) {
       }
       try {
         const lastLine = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-        const notams: NotamItem[] = JSON.parse(lastLine);
+        const parsed = JSON.parse(lastLine) as
+          | NotamItem[]
+          | { notams?: NotamItem[] };
+        const notams: NotamItem[] = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.notams)
+            ? parsed.notams
+            : [];
         resolve(NextResponse.json({ icao, notams, updatedAt: null }));
       } catch {
         resolve(

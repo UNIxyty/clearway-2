@@ -42,7 +42,7 @@ services:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
       NODE_ENV: production
-      NOTAM_SCRAPER: skylink
+      NOTAM_SCRAPER: crewbriefing
       SYNC_SECRET: ${NOTAM_SYNC_SECRET}
     volumes:
       - /mnt/ssd-cache:/cache
@@ -57,6 +57,7 @@ services:
       STORAGE_ROOT: /storage
       CACHE_ROOT: /cache
       NODE_ENV: production
+      NOTAM_SCRAPER: crewbriefing
       SYNC_SECRET: ${WEATHER_SYNC_SECRET}
     volumes:
       - /mnt/ssd-cache:/cache

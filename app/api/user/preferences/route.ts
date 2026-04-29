@@ -4,9 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 const PREF_SELECT =
-  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, is_admin, created_at, updated_at";
+  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, is_admin, created_at, updated_at";
 const PREF_POST_SELECT =
-  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, updated_at";
+  "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, updated_at";
 
 export async function GET() {
   try {
@@ -97,6 +97,7 @@ export async function POST(request: Request) {
       notify_notam?: boolean;
       notify_aip?: boolean;
       notify_gen?: boolean;
+      captcha_consent_dismissed?: boolean;
     };
 
     const admin = createSupabaseServiceRoleClient();
@@ -112,6 +113,9 @@ export async function POST(request: Request) {
     if (typeof body.notify_notam === "boolean") updates.notify_notam = body.notify_notam;
     if (typeof body.notify_aip === "boolean") updates.notify_aip = body.notify_aip;
     if (typeof body.notify_gen === "boolean") updates.notify_gen = body.notify_gen;
+    if (typeof body.captcha_consent_dismissed === "boolean") {
+      updates.captcha_consent_dismissed = body.captcha_consent_dismissed;
+    }
 
     const db = admin ?? supabase;
     const { data, error } = await db

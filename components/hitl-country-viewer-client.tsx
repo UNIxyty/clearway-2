@@ -110,8 +110,9 @@ export function HitlCountryViewerClient({
               <div>
                 <CardTitle className="text-balance">{countryName} verification viewer</CardTitle>
                 <CardDescription className="text-pretty">
-                  Complete captcha and verification directly inside the portal-style noVNC panel, then return to the
-                  {` ${countryName} `}HITL page to run collect/GEN/AD2.
+                  Complete captcha and verification in this noVNC panel, then return to
+                  {` ${countryName} `}HITL page to run collect/GEN/AD2. If you used "Don&apos;t show again", this
+                  viewer still opens automatically whenever a challenge is needed.
                 </CardDescription>
               </div>
               <Button asChild variant="outline" disabled={!hasValidViewer}>

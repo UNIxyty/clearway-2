@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
+import { useCaptchaConsent } from "@/lib/captcha-consent";
 
 type ApiResult = Record<string, unknown> & {
   ok?: boolean;
@@ -112,6 +114,13 @@ export function HitlCountryAutoTestPage({
   title,
   description,
 }: HitlCountryAutoTestPageProps) {
+  const {
+    dialog: captchaConsentDialog,
+    requestConsentForCountry,
+    continueNow: continueCaptchaConsent,
+    dontShowAgain: dontShowCaptchaConsentAgain,
+    close: closeCaptchaConsentDialog,
+  } = useCaptchaConsent();
   const [sessionId, setSessionId] = useState("");
   const [popupUrl, setPopupUrl] = useState("");
   const [loading, setLoading] = useState("");
@@ -233,6 +242,11 @@ export function HitlCountryAutoTestPage({
   }, [countryKey, hasSession, sessionId]);
 
   async function startSession(openForAuto = false): Promise<StartSessionResult> {
+    const allow = await requestConsentForCountry(countryName);
+    if (!allow) {
+      setResult({ ok: false, error: "Captcha consent cancelled" });
+      return { ok: false };
+    }
     setLoading("start");
     setResult(null);
     try {
@@ -431,23 +445,14 @@ export function HitlCountryAutoTestPage({
           </CardContent>
         </Card>
 
-        <Link href="/lithuania-hitl-auto-test" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ExternalLinkIcon className="size-4" aria-hidden="true" />
-          Open blocked-country test hub
-        </Link>
-        {pageHref !== "/greece-hitl-auto-test" && (
-          <Link href="/greece-hitl-auto-test" className="ml-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ExternalLinkIcon className="size-4" aria-hidden="true" />
-            Open Greece HITL page
-          </Link>
-        )}
-        {pageHref !== "/netherlands-hitl-auto-test" && (
-          <Link href="/netherlands-hitl-auto-test" className="ml-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ExternalLinkIcon className="size-4" aria-hidden="true" />
-            Open Netherlands HITL page
-          </Link>
-        )}
       </div>
+      <CaptchaConsentDialog
+        open={captchaConsentDialog.open}
+        country={captchaConsentDialog.country || countryName}
+        onContinue={continueCaptchaConsent}
+        onDontShowAgain={dontShowCaptchaConsentAgain}
+        onClose={closeCaptchaConsentDialog}
+      />
     </div>
   );
 }

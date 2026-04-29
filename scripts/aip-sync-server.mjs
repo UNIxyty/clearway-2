@@ -1090,18 +1090,18 @@ async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
 
 // AIP-only sync steps (sent when stream=1)
 const AIP_STEPS = [
-  "Deleting old from S3…",
-  "Downloading AIP PDF…",
-  "PDF uploaded to S3…",
-  "Extracting with unified AIP parser…",
-  "Uploading to S3…",
+  "Starting scrape run",
+  "Opening source page and downloading AIP PDF",
+  "PDF downloaded and stored",
+  "Extracting airport metadata from PDF",
+  "Uploading extracted airport data",
 ];
 
 // GEN-only sync steps (sent when /sync/gen stream=1) – PDF only, no AI rewrite.
 const GEN_STEPS = [
-  "Downloading GEN PDF…",
-  "GEN PDF uploaded to S3…",
-  "GEN PDF ready.",
+  "Starting GEN 1.2 scrape",
+  "Opening source page and downloading GEN PDF",
+  "GEN PDF ready",
 ];
 
 const server = createServer(async (req, res) => {

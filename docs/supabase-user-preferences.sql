@@ -34,3 +34,7 @@ create trigger user_preferences_updated_at
   before update on public.user_preferences
   for each row
   execute function public.update_user_preferences_updated_at();
+
+-- Captcha consent preference for scraper/HITL countries.
+alter table public.user_preferences
+  add column if not exists captcha_consent_dismissed boolean not null default false;

@@ -82,8 +82,6 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/maintenance") ||
-    pathname.startsWith("/rus-aip-test") ||
-    pathname.startsWith("/aip-meta-compare") ||
     pathname.startsWith("/api")
   ) {
     return NextResponse.next();

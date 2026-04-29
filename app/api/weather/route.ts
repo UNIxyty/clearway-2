@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { spawn } from "child_process";
+import { existsSync } from "fs";
+import { join } from "path";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 
@@ -10,6 +13,15 @@ const WEATHER_SYNC_URL =
   process.env.WEATHER_SYNC_URL?.replace(/\/$/, "") || NOTAM_SYNC_URL;
 const WEATHER_SYNC_SECRET = process.env.WEATHER_SYNC_SECRET ?? NOTAM_SYNC_SECRET;
 const SYNC_TIMEOUT_MS = 120_000;
+const RUN_TIMEOUT_MS = 90_000;
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
+const LOCAL_WEATHER_SCRIPT = join(
+  process.cwd(),
+  "scripts",
+  NOTAM_SCRAPER === "crewbriefing"
+    ? "crewbriefing-opmet-notams.mjs"
+    : "skylink-weather.mjs",
+);
 
 type WeatherPayload = {
   icao: string;
@@ -113,6 +125,65 @@ export async function GET(request: NextRequest) {
 
   const fromStorage = await getFromStorage(icao);
   if (fromStorage) return NextResponse.json(fromStorage);
-  return NextResponse.json({ icao, weather: "", updatedAt: null });
+  if (!existsSync(LOCAL_WEATHER_SCRIPT)) {
+    return NextResponse.json({ icao, weather: "", updatedAt: null });
+  }
+
+  return new Promise<NextResponse>((resolve) => {
+    const args = [LOCAL_WEATHER_SCRIPT, "--json", icao];
+    if (NOTAM_SCRAPER === "crewbriefing") args.push("--mode", "weather");
+    const child = spawn(process.execPath, args, {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve(NextResponse.json({ error: "Weather search timed out. Try again." }, { status: 504 }));
+    }, RUN_TIMEOUT_MS);
+
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      resolve(NextResponse.json({ error: "Failed to run weather scraper.", detail: err.message }, { status: 500 }));
+    });
+
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code !== 0 && !stdout) {
+        resolve(
+          NextResponse.json(
+            { error: "Weather scraper failed.", detail: stderr.slice(-500) || `Exit code ${code}` },
+            { status: 502 },
+          ),
+        );
+        return;
+      }
+      try {
+        const lastLine = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
+        const parsed = JSON.parse(lastLine) as { weather?: string; updatedAt?: string };
+        resolve(
+          NextResponse.json({
+            icao,
+            weather: parsed.weather ?? "",
+            updatedAt: parsed.updatedAt ?? null,
+          }),
+        );
+      } catch {
+        resolve(NextResponse.json({ icao, weather: "", updatedAt: null }));
+      }
+    });
+  });
 }
 

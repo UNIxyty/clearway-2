@@ -27,15 +27,18 @@ const PORT = Number(process.env.NOTAM_SYNC_PORT) || 3001;
 const SYNC_SECRET = process.env.SYNC_SECRET || "";
 const RUN_TIMEOUT_MS = 120_000;
 
-// skylink = API-based NOTAM sync (default); faa = FAA browser scraper fallback.
-// Accept "crewbriefing" as a legacy alias and map it to "skylink".
-const notamScraperRaw = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
-const NOTAM_SCRAPER = notamScraperRaw === "crewbriefing" ? "skylink" : notamScraperRaw;
+// skylink = API-based sync (default), faa = FAA fallback, crewbriefing = browser scrape.
+const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
 const SCRAPER_SCRIPT =
   NOTAM_SCRAPER === "faa"
     ? "scripts/notam-scraper.mjs"
-    : "scripts/skylink-notams.mjs";
-const WEATHER_SCRIPT = "scripts/skylink-weather.mjs";
+    : NOTAM_SCRAPER === "crewbriefing"
+      ? "scripts/crewbriefing-opmet-notams.mjs"
+      : "scripts/skylink-notams.mjs";
+const WEATHER_SCRIPT =
+  NOTAM_SCRAPER === "crewbriefing"
+    ? "scripts/crewbriefing-opmet-notams.mjs"
+    : "scripts/skylink-weather.mjs";
 
 const SYNC_SERVER_MODE = (process.env.SYNC_SERVER_MODE || "all").toLowerCase();
 const ALLOW_NOTAM = SYNC_SERVER_MODE === "all" || SYNC_SERVER_MODE === "notam";
@@ -77,15 +80,24 @@ function buildScraperEnv(forWeather) {
   return { ...base, USE_HEADED: process.env.USE_HEADED ?? defaultHeaded };
 }
 
-function spawnScraperChild(scriptRel, icao, env) {
+function buildScriptArgs(scriptRel, icao, mode) {
+  const args = [scriptRel, "--json", icao];
+  if (scriptRel === "scripts/crewbriefing-opmet-notams.mjs") {
+    args.push("--mode", mode);
+  }
+  return args;
+}
+
+function spawnScraperChild(scriptRel, icao, env, mode) {
+  const scriptArgs = buildScriptArgs(scriptRel, icao, mode);
   if (useXvfb()) {
     return spawn(
       "xvfb-run",
-      ["-a", "-s", "-screen 0 1920x1080x24", "node", scriptRel, "--json", icao],
+      ["-a", "-s", "-screen 0 1920x1080x24", "node", ...scriptArgs],
       { cwd: PROJECT_ROOT, env, stdio: ["ignore", "pipe", "pipe"] }
     );
   }
-  return spawn("node", [scriptRel, "--json", icao], {
+  return spawn("node", scriptArgs, {
     cwd: PROJECT_ROOT,
     env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -95,7 +107,7 @@ function spawnScraperChild(scriptRel, icao, env) {
 async function runScraper(icao) {
   const env = buildScraperEnv(false);
   return new Promise((resolve, reject) => {
-    const child = spawnScraperChild(SCRAPER_SCRIPT, icao, env);
+    const child = spawnScraperChild(SCRAPER_SCRIPT, icao, env, "notam");
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
@@ -123,7 +135,7 @@ async function readFromS3(icao) {
 async function runWeatherScraper(icao) {
   const env = buildScraperEnv(true);
   return new Promise((resolve, reject) => {
-    const child = spawnScraperChild(WEATHER_SCRIPT, icao, env);
+    const child = spawnScraperChild(WEATHER_SCRIPT, icao, env, "weather");
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
@@ -196,7 +208,7 @@ const server = createServer(async (req, res) => {
     const send = (obj) => res.write("data: " + JSON.stringify(obj) + "\n\n");
 
     // Send first step immediately
-    send({ step: isWeather ? "Starting weather scraper…" : "Starting scraper…" });
+    send({ step: isWeather ? "Starting weather scrape…" : "Starting NOTAM scrape…" });
 
     const progressFile = join(PROJECT_ROOT, "scripts", `${isWeather ? ".weather-progress" : ".notam-progress"}-${icao}-${Date.now()}`);
     const env = {
@@ -204,7 +216,7 @@ const server = createServer(async (req, res) => {
       ...(isWeather ? { WEATHER_PROGRESS_FILE: progressFile } : { NOTAM_PROGRESS_FILE: progressFile }),
     };
     const scriptRel = isWeather ? WEATHER_SCRIPT : SCRAPER_SCRIPT;
-    const child = spawnScraperChild(scriptRel, icao, env);
+    const child = spawnScraperChild(scriptRel, icao, env, isWeather ? "weather" : "notam");
     let lastProgressSize = 0;
     const pollProgress = () => {
       try {
@@ -311,11 +323,8 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  if (notamScraperRaw === "crewbriefing") {
-    logInfo("SYNC-SERVER", "NOTAM_SCRAPER=crewbriefing is deprecated; using SkyLink script.");
-  }
   logInfo(
     "SYNC-SERVER",
-    `Listening on ${PORT} mode=${SYNC_SERVER_MODE} allow_notam=${ALLOW_NOTAM} allow_weather=${ALLOW_WEATHER} script=${SCRAPER_SCRIPT}`,
+    `Listening on ${PORT} mode=${SYNC_SERVER_MODE} scraper=${NOTAM_SCRAPER} allow_notam=${ALLOW_NOTAM} allow_weather=${ALLOW_WEATHER} script=${SCRAPER_SCRIPT}`,
   );
 });

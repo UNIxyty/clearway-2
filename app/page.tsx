@@ -24,6 +24,8 @@ import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } 
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
+import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
+import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { USA_WEB_AIP_URL, isUsaAipIcao } from "@/lib/usa-aip";
@@ -604,6 +606,14 @@ function AIPPortalPageInner() {
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
+  const {
+    dismissed: captchaConsentDismissed,
+    dialog: captchaConsentDialog,
+    requestConsentForIcao,
+    continueNow: continueCaptchaConsent,
+    dontShowAgain: dontShowCaptchaConsentAgain,
+    close: closeCaptchaConsentDialog,
+  } = useCaptchaConsent();
   const selectedAirport = useMemo(() => {
     if (!results?.length || !selectedIcao) return null;
     return results.find((a) => a.icao === selectedIcao) ?? null;
@@ -874,7 +884,9 @@ function AIPPortalPageInner() {
     setWeatherSyncRequestedIcao(icao);
   }, []);
 
-  const requestSyncAipEad = useCallback((icao: string) => {
+  const requestSyncAipEad = useCallback(async (icao: string) => {
+    const allow = await requestConsentForIcao(icao);
+    if (!allow) return;
     setAipViewMode("ai");
     const cachedAirport = aipEadCache[icao]?.airport;
     if (cachedAirport) {
@@ -882,7 +894,7 @@ function AIPPortalPageInner() {
       return;
     }
     setAipEadSyncRequestedIcao(icao);
-  }, [aipEadCache]);
+  }, [aipEadCache, requestConsentForIcao]);
 
   const deleteAirportFromPortal = useCallback(async (airport: AIPAirport) => {
     const icao = airport.icao.toUpperCase();
@@ -912,6 +924,9 @@ function AIPPortalPageInner() {
   }, []);
 
   const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false, forceScraper = false) => {
+    const allow = await requestConsentForIcao(icao);
+    if (!allow) return;
+
     if (isUsaAipIcao(icao)) {
       setGenPdfDownloadError(null);
       setGenPdfDownloading(true);
@@ -1077,7 +1092,7 @@ function AIPPortalPageInner() {
       setGenPdfDownloading(false);
       setGenSyncingPrefix(null);
     }
-  }, [genPdfExistsOnServer]);
+  }, [genPdfExistsOnServer, requestConsentForIcao]);
 
   // Fetch synced AIP (EAD + Russia). Default flow is PDF-first (extract=0).
   // AI extraction runs only when explicitly requested (extract=1).
@@ -1111,6 +1126,9 @@ function AIPPortalPageInner() {
       !syncRequested &&
       !aipPdfReady[icao] &&
       aipPdfExistsOnServer[icao] !== true;
+
+    const needsCaptchaConsent = Boolean(getCaptchaCountryByIcao(icao));
+    if (needsCaptchaConsent && !captchaConsentDismissed && !syncRequested) return;
 
     if (hasCacheEntry && !syncRequested && !shouldPdfSync) return;
     const doSync = shouldExtractSync || shouldPdfSync;
@@ -1303,6 +1321,7 @@ function AIPPortalPageInner() {
     beginRequest,
     finishRequest,
     isAbortError,
+    captchaConsentDismissed,
   ]);
 
   // Probe S3 for EAD PDF (enables download/viewer as soon as the file exists, without waiting for AI extract).
@@ -3186,6 +3205,14 @@ function AIPPortalPageInner() {
                 </div>
               </div>
             )}
+
+            <CaptchaConsentDialog
+              open={captchaConsentDialog.open}
+              country={captchaConsentDialog.country}
+              onContinue={continueCaptchaConsent}
+              onDontShowAgain={dontShowCaptchaConsentAgain}
+              onClose={closeCaptchaConsentDialog}
+            />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

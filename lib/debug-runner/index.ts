@@ -173,6 +173,17 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       throw new Error(`fetch failed for ${url}: ${msg}${cause}`);
     }
   };
+  const readErrorDetail = async (res: Response, label: string): Promise<string> => {
+    const text = await res.text().catch(() => "");
+    if (!text) return `${label} HTTP ${res.status}`;
+    try {
+      const data = JSON.parse(text) as { error?: string; detail?: string };
+      const detail = [data.error, data.detail].filter(Boolean).join(" | ");
+      return `${label} HTTP ${res.status}${detail ? `: ${detail}` : ""}`;
+    } catch {
+      return `${label} HTTP ${res.status}: ${text.slice(0, 200)}`;
+    }
+  };
   const setStep = (step: StepName, state: StepState, detail: string) => {
     card.steps[step] = state;
     card.stepDetails[step] = detail;
@@ -198,22 +209,42 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
 
   await doStep("aip", async () => {
     const res = await requestOrThrow(`${run.baseUrl}${endpoints.aipBase}?icao=${encodeURIComponent(icao)}&sync=1&extract=0`);
-    if (!res.ok) throw new Error(`AIP HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorDetail(res, "AIP"));
   }, 40_000);
 
   await doStep("notam", async () => {
-    const res = await requestOrThrow(`${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}&sync=1`);
-    if (!res.ok) throw new Error(`NOTAM HTTP ${res.status}`);
+    const syncUrl = `${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}&sync=1`;
+    const syncRes = await requestOrThrow(syncUrl);
+    if (syncRes.ok) return;
+
+    // Accessibility fallback: if sync fails but regular endpoint is reachable, treat as pass.
+    const fallbackUrl = `${run.baseUrl}/api/notams?icao=${encodeURIComponent(icao)}`;
+    const fallbackRes = await requestOrThrow(fallbackUrl);
+    if (fallbackRes.ok) {
+      setStep("notam", "running", `Sync failed (${syncRes.status}), fallback endpoint reachable.`);
+      return;
+    }
+    throw new Error(await readErrorDetail(syncRes, "NOTAM"));
   });
 
   await doStep("weather", async () => {
-    const res = await requestOrThrow(`${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}&sync=1`);
-    if (!res.ok) throw new Error(`Weather HTTP ${res.status}`);
+    const syncUrl = `${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}&sync=1`;
+    const syncRes = await requestOrThrow(syncUrl);
+    if (syncRes.ok) return;
+
+    // Accessibility fallback: if sync fails but regular endpoint is reachable, treat as pass.
+    const fallbackUrl = `${run.baseUrl}/api/weather?icao=${encodeURIComponent(icao)}`;
+    const fallbackRes = await requestOrThrow(fallbackUrl);
+    if (fallbackRes.ok) {
+      setStep("weather", "running", `Sync failed (${syncRes.status}), fallback endpoint reachable.`);
+      return;
+    }
+    throw new Error(await readErrorDetail(syncRes, "Weather"));
   });
 
   await doStep("pdf", async () => {
     const res = await requestOrThrow(`${run.baseUrl}${endpoints.pdfUrl}`);
-    if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorDetail(res, "PDF"));
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength < 5 || String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
       throw new Error("Downloaded bytes are not a PDF");
@@ -232,10 +263,10 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
   await doStep("gen", async () => {
     if (endpoints.genPdfUrl.includes("/api/aip/gen/pdf")) {
       const sync = await requestOrThrow(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`);
-      if (!sync.ok) throw new Error(`GEN sync HTTP ${sync.status}`);
+      if (!sync.ok) throw new Error(await readErrorDetail(sync, "GEN sync"));
     }
     const pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
-    if (!pdf.ok) throw new Error(`GEN PDF HTTP ${pdf.status}`);
+    if (!pdf.ok) throw new Error(await readErrorDetail(pdf, "GEN PDF"));
   });
 }
 

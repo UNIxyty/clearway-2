@@ -120,7 +120,12 @@ async function runScraper(icao) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      if (code !== 0) reject(new Error(`Scraper exited ${code}: ${stderr.slice(-500)}`));
+      if (code !== 0) {
+        const trimmed = stderr.trim();
+        const prefix = trimmed.slice(0, 600);
+        const suffix = trimmed.slice(-900);
+        reject(new Error(`Scraper exited ${code}: ${prefix}${trimmed.length > 1500 ? " ... " : ""}${suffix}`));
+      }
       else resolve();
     });
   });
@@ -148,7 +153,12 @@ async function runWeatherScraper(icao) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      if (code !== 0) reject(new Error(`Weather scraper exited ${code}: ${stderr.slice(-500)}`));
+      if (code !== 0) {
+        const trimmed = stderr.trim();
+        const prefix = trimmed.slice(0, 600);
+        const suffix = trimmed.slice(-900);
+        reject(new Error(`Weather scraper exited ${code}: ${prefix}${trimmed.length > 1500 ? " ... " : ""}${suffix}`));
+      }
       else resolve();
     });
   });

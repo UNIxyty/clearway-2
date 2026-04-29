@@ -283,11 +283,56 @@ async function runScraper(options) {
   const { chromium } = await import("playwright");
   const headed = options.headed || process.env.CREWBRIEFING_HEADED === "1" || process.env.USE_HEADED === "1";
   progress("Opening CrewBriefing login", options.mode || "both");
-  const browser = await chromium.launch({
-    headless: !headed,
-    channel: process.env.CHROME_CHANNEL || "chrome",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  }).catch(() => chromium.launch({ headless: !headed, args: ["--no-sandbox", "--disable-setuid-sandbox"] }));
+
+  const commonArgs = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+  ];
+
+  const launchAttempts = [
+    {
+      label: "channel launch",
+      options: {
+        headless: !headed,
+        channel: process.env.CHROME_CHANNEL || "chromium",
+        args: commonArgs,
+      },
+    },
+    {
+      label: "bundled launch",
+      options: {
+        headless: !headed,
+        args: commonArgs,
+      },
+    },
+    {
+      label: "system chromium launch",
+      options: {
+        headless: !headed,
+        executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium-browser",
+        args: commonArgs,
+      },
+    },
+  ];
+
+  let browser = null;
+  let lastLaunchError = "";
+  for (const attempt of launchAttempts) {
+    try {
+      browser = await chromium.launch(attempt.options);
+      progress(`Browser started via ${attempt.label}`, options.mode || "both");
+      break;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lastLaunchError = `${attempt.label}: ${msg}`;
+      progress(`Browser launch failed (${attempt.label})`, options.mode || "both");
+    }
+  }
+  if (!browser) {
+    throw new Error(`CrewBriefing browser launch failed. ${lastLaunchError}`);
+  }
 
   try {
     const context = await browser.newContext({

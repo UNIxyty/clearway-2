@@ -5,6 +5,7 @@ import { existsSync } from "fs";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
 const SCRIPT_PATH = join(
@@ -50,8 +51,10 @@ async function getFromStorage(icao: string): Promise<{ icao: string; notams: Not
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuthenticatedUser();
-  if ("error" in auth) return auth.error;
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requireAuthenticatedUser();
+    if ("error" in auth) return auth.error;
+  }
 
   const { searchParams } = new URL(request.url);
   const icao = searchParams.get("icao")?.trim().toUpperCase() ?? "";

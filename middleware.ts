@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -8,6 +9,11 @@ export async function middleware(request: NextRequest) {
 
   // Bypass auth checks on isolated test environments.
   if (disableAuthForTesting) {
+    return NextResponse.next();
+  }
+
+  // Internal server-to-server debug runner traffic can bypass user session auth.
+  if (pathname.startsWith("/api") && hasInternalDebugAccess(request)) {
     return NextResponse.next();
   }
 

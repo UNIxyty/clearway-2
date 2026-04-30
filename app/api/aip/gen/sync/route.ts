@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 300_000;
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuthenticatedUser();
-  if ("error" in auth) return auth.error;
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requireAuthenticatedUser();
+    if ("error" in auth) return auth.error;
+  }
 
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const stream = request.nextUrl.searchParams.get("stream") === "1" || request.nextUrl.searchParams.get("stream") === "true";

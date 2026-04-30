@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, removeFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -32,8 +33,10 @@ async function putToStorage(icao: string, payload: { airports: unknown[]; update
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuthenticatedUser();
-  if ("error" in auth) return auth.error;
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requireAuthenticatedUser();
+    if ("error" in auth) return auth.error;
+  }
 
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = request.nextUrl.searchParams.get("sync") === "1" || request.nextUrl.searchParams.get("sync") === "true";

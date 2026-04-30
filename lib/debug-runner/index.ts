@@ -5,6 +5,7 @@ import { saveFile } from "@/lib/storage";
 import { isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
+import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
 
 type StepName = "aip" | "notam" | "weather" | "pdf" | "gen";
 type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skipped";
@@ -164,9 +165,13 @@ async function sendTelegramSummary(run: DebugRun) {
 async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {
   const icao = card.icao;
   const endpoints = stepKeyForAirport(icao);
+  const authHeaders = internalDebugAuthHeaders();
   const requestOrThrow = async (url: string): Promise<Response> => {
     try {
-      return await fetch(url, { cache: "no-store" });
+      return await fetch(url, {
+        cache: "no-store",
+        headers: authHeaders,
+      });
     } catch (err) {
       const cause = err instanceof Error ? (err.cause ? ` | cause: ${String(err.cause)}` : "") : "";
       const msg = err instanceof Error ? err.message : String(err);

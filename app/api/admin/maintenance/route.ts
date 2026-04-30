@@ -54,7 +54,7 @@ async function authAdmin() {
 export async function GET() {
   try {
     const auth = await authAdmin();
-    if (auth.error) return auth.error;
+    if ("error" in auth) return auth.error;
     const { supabase } = auth;
 
     const { data, error } = await supabase
@@ -76,7 +76,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const auth = await authAdmin();
-    if (auth.error) return auth.error;
+    if ("error" in auth) return auth.error;
     const { supabase, user } = auth;
 
     const body = (await request.json().catch(() => ({}))) as {

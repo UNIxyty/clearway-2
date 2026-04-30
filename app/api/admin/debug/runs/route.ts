@@ -4,13 +4,13 @@ import { listDebugRuns, startDebugRun } from "@/lib/debug-runner";
 
 export async function GET() {
   const auth = await requireAdmin();
-  if (auth.error) return auth.error;
+  if ("error" in auth) return auth.error;
   return NextResponse.json({ runs: listDebugRuns() });
 }
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin();
-  if (auth.error) return auth.error;
+  if ("error" in auth) return auth.error;
 
   const body = (await request.json().catch(() => ({}))) as {
     quantity?: number;

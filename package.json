@@ -48,7 +48,9 @@
     "usa:aip:upload": "node scripts/upload-usa-aip-pdfs-to-s3.mjs",
     "usa:aip:upload:dry": "node scripts/upload-usa-aip-pdfs-to-s3.mjs --dry-run",
     "usa:airports:replace": "node scripts/tools/replace-usa-airports-in-supabase.mjs",
-    "usa:airports:replace:dry": "node scripts/tools/replace-usa-airports-in-supabase.mjs --dry-run"
+    "usa:airports:replace:dry": "node scripts/tools/replace-usa-airports-in-supabase.mjs --dry-run",
+    "airports:collect:ad2": "node scripts/collect-all-ad2-icaos.mjs",
+    "airports:collect:ad2:dry": "node scripts/collect-all-ad2-icaos.mjs --dry-run"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.16",

@@ -6,7 +6,7 @@ type Params = { params: { id: string } };
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const auth = await requireAdmin();
-  if (auth.error) return auth.error;
+  if ("error" in auth) return auth.error;
   const run = getDebugRun(params.id);
   if (!run) return new Response(JSON.stringify({ error: "Run not found" }), { status: 404 });
 

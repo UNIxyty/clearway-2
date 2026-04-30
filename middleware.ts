@@ -4,23 +4,10 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
-  const hostname = (request.nextUrl.hostname || "").toLowerCase();
-  const isLocalPortalHost =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1" ||
-    hostname.endsWith(".local");
-  const isVercelDeployment = Boolean(process.env.VERCEL);
   const isPublicAsset = /\.[^/]+$/.test(pathname);
 
   // Bypass auth checks on isolated test environments.
   if (disableAuthForTesting) {
-    return NextResponse.next();
-  }
-
-  // Local-only bypass requested: remove login when running the portal locally,
-  // while keeping auth on hosted deployments (including Vercel).
-  if (isLocalPortalHost && !isVercelDeployment) {
     return NextResponse.next();
   }
 
@@ -81,8 +68,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/maintenance") ||
-    pathname.startsWith("/api")
+    pathname.startsWith("/maintenance")
   ) {
     return NextResponse.next();
   }

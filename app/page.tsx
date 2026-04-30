@@ -405,6 +405,17 @@ function AIPResultCard({
       <CardHeader className="pb-2 px-4 sm:px-6">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-sm sm:text-base flex items-center gap-2 shrink-0">
+            {flagUrl ? (
+              <img
+                src={flagUrl}
+                alt=""
+                width={22}
+                height={16}
+                className="rounded-sm shrink-0 object-cover border border-border/60"
+              />
+            ) : (
+              <GlobeIcon className="size-4 text-muted-foreground shrink-0" />
+            )}
             <span className="font-mono text-primary">{airport.icao}</span>
           </CardTitle>
         </div>
@@ -1739,7 +1750,9 @@ function AIPPortalPageInner() {
         return next;
       });
       if (newResults.length > 0) {
-        setSelectedIcao(newResults[0].icao);
+        const firstIcao = newResults[0].icao;
+        setSelectedIcao(firstIcao);
+        void requestSyncAipEad(firstIcao);
       }
       updateStage(qUpper, "airport", "done", "Airport loaded");
       sendNotification("search_end", "Search completed", `${qUpper} ready`, notifPrefs);
@@ -1785,7 +1798,7 @@ function AIPPortalPageInner() {
       setLoading(false);
       setHasSearched(true);
     }
-  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground]);
+  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground, requestSyncAipEad]);
 
   const stopSearch = useCallback(() => {
     stopAllRequests();
@@ -2495,7 +2508,9 @@ function AIPPortalPageInner() {
                                   const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
                                   setResults(byIcao);
                                   const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
-                                  setSelectedIcao(withCoords?.icao ?? browseSelection[0].icao);
+                                  const nextIcao = withCoords?.icao ?? browseSelection[0].icao;
+                                  setSelectedIcao(nextIcao);
+                                  void requestSyncAipEad(nextIcao);
                                   setSelectedCountry(browseSelectedCountry);
                                   setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);
@@ -2626,7 +2641,7 @@ function AIPPortalPageInner() {
                               }}
                               className="flex items-center gap-2 px-4 py-3 text-sm font-mono font-semibold text-foreground min-w-0"
                             >
-                              {flagUrl && (
+                              {flagUrl ? (
                                 <img
                                   src={flagUrl}
                                   alt=""
@@ -2634,6 +2649,8 @@ function AIPPortalPageInner() {
                                   height={21}
                                   className="rounded shrink-0 object-cover border border-border/60"
                                 />
+                              ) : (
+                                <GlobeIcon className="size-4 text-muted-foreground shrink-0" />
                               )}
                               {airport.icao}
                             </button>

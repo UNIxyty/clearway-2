@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
+import { requireAuthenticatedUser } from "@/lib/admin-auth";
 
 const WEATHER_PREFIX = "weather";
 const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, "");
@@ -47,6 +48,9 @@ async function getFromStorage(icao: string): Promise<WeatherPayload | null> {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAuthenticatedUser();
+  if ("error" in auth) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const icao = searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = searchParams.get("sync") === "1" || searchParams.get("sync") === "true";

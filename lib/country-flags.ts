@@ -131,6 +131,22 @@ export const COUNTRY_TO_ISO: Record<string, string> = {
 };
 
 const FLAG_CDN = "https://flagcdn.com";
+const COUNTRY_ALIASES: Record<string, string> = {
+  "bosnia and herzegovina": "ba",
+  "bosnia herzegovina": "ba",
+  "bosnia/herzeg": "ba",
+  "bosnia/herzeg.": "ba",
+  "republic of cabo verde": "cv",
+  "cabo verde": "cv",
+  "cape verde": "cv",
+  "north macedonia": "mk",
+  "republic of north macedonia": "mk",
+  "united kingdom": "gb",
+  "great britain": "gb",
+  "uk": "gb",
+  "uae": "ae",
+  "hongkong": "hk",
+};
 const ICAO_PREFIX_TO_ISO: Record<string, string> = {
   LA: "al",
   UD: "am",
@@ -187,42 +203,54 @@ function normalize(s: string): string {
   return s.trim().normalize("NFC");
 }
 
-export function getCountryFlagUrl(countryName: string): string | null {
+function normalizeLookupKey(value: string): string {
+  return normalize(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "")
+    .replace(/[_/]+/g, " ")
+    .replace(/[^a-zA-Z0-9()]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+const COUNTRY_TO_ISO_NORMALIZED: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const [country, iso] of Object.entries(COUNTRY_TO_ISO)) {
+    const key = normalizeLookupKey(country);
+    if (key && !out[key]) out[key] = iso;
+    const base = key.replace(/\s*\([a-z0-9]{2}\)\s*$/, "").trim();
+    if (base && !out[base]) out[base] = iso;
+  }
+  for (const [alias, iso] of Object.entries(COUNTRY_ALIASES)) {
+    const key = normalizeLookupKey(alias);
+    if (key && !out[key]) out[key] = iso;
+  }
+  return out;
+})();
+
+function resolveCountryIso(countryName: string): string | null {
   const name = normalize(countryName);
-  const asciiName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'");
-  let code: string | undefined = COUNTRY_TO_ISO[name];
-  if (!code) {
-    const key = Object.keys(COUNTRY_TO_ISO).find((k) => normalize(k) === name);
-    code = key ? COUNTRY_TO_ISO[key] : undefined;
-  }
-  if (!code) {
-    const key = Object.keys(COUNTRY_TO_ISO).find(
-      (k) =>
-        normalize(k).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'") ===
-        asciiName,
-    );
-    code = key ? COUNTRY_TO_ISO[key] : undefined;
-  }
-  if (!code) {
-    const base = name.replace(/\s*\([A-Z0-9]{2}\)\s*$/, "");
-    code = COUNTRY_TO_ISO[base];
-  }
-  if (!code) {
-    const m = name.match(/\(([A-Z0-9]{2})\)\s*$/);
-    if (m) code = ICAO_PREFIX_TO_ISO[m[1].toUpperCase()];
-  }
-  if (!code) return null;
-  return `${FLAG_CDN}/w40/${code}.png`;
+  const direct = COUNTRY_TO_ISO[name];
+  if (direct) return direct;
+
+  const normalizedKey = normalizeLookupKey(name);
+  if (COUNTRY_TO_ISO_NORMALIZED[normalizedKey]) return COUNTRY_TO_ISO_NORMALIZED[normalizedKey];
+
+  const withoutSuffix = normalizedKey.replace(/\s*\([a-z0-9]{2}\)\s*$/, "").trim();
+  if (COUNTRY_TO_ISO_NORMALIZED[withoutSuffix]) return COUNTRY_TO_ISO_NORMALIZED[withoutSuffix];
+
+  const m = name.match(/\(([A-Z0-9]{2})\)\s*$/);
+  if (m) return ICAO_PREFIX_TO_ISO[m[1].toUpperCase()] ?? null;
+  return null;
+}
+
+export function getCountryFlagUrl(countryName: string): string | null {
+  const code = resolveCountryIso(countryName);
+  return code ? `${FLAG_CDN}/w40/${code}.png` : null;
 }
 
 export function getCountryIso(countryName: string): string | null {
-  const name = normalize(countryName);
-  if (COUNTRY_TO_ISO[name]) return COUNTRY_TO_ISO[name];
-  const asciiName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'");
-  const key = Object.keys(COUNTRY_TO_ISO).find(
-    (k) =>
-      normalize(k).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’]/g, "'") ===
-      asciiName,
-  );
-  return key ? COUNTRY_TO_ISO[key] : null;
+  return resolveCountryIso(countryName);
 }

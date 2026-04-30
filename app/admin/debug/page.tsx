@@ -25,6 +25,14 @@ type RunDetail = RunSummary & {
   }>;
 };
 
+function stepStatusClass(state: string) {
+  if (state === "passed") return "text-emerald-700 dark:text-emerald-400";
+  if (state === "pending" || state === "running") return "text-amber-700 dark:text-amber-400";
+  if (state === "failed" || state === "timeout") return "text-red-700 dark:text-red-400";
+  if (state === "skipped") return "text-muted-foreground";
+  return "text-foreground";
+}
+
 export default function AdminDebugPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
@@ -217,12 +225,18 @@ export default function AdminDebugPage() {
             {group.airports.map((airport) => (
               <div key={airport.icao} className="rounded border p-2 text-xs">
                 <div className="font-mono text-sm">{airport.icao} — {airport.name}</div>
-                <div className="mt-1">AIP: {airport.steps.aip} | NOTAM: {airport.steps.notam} | WX: {airport.steps.weather} | PDF: {airport.steps.pdf} | GEN: {airport.steps.gen}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className={stepStatusClass(airport.steps.aip)}>AIP: {airport.steps.aip}</span>
+                  <span className={stepStatusClass(airport.steps.notam)}>NOTAM: {airport.steps.notam}</span>
+                  <span className={stepStatusClass(airport.steps.weather)}>WX: {airport.steps.weather}</span>
+                  <span className={stepStatusClass(airport.steps.pdf)}>PDF: {airport.steps.pdf}</span>
+                  <span className={stepStatusClass(airport.steps.gen)}>GEN: {airport.steps.gen}</span>
+                </div>
                 {(["aip", "notam", "weather", "pdf", "gen"] as const).map((step) => {
                   const state = airport.steps[step];
                   if (state !== "failed" && state !== "timeout") return null;
                   return (
-                    <div key={`${airport.icao}-${step}`} className="mt-1 rounded border border-red-300 bg-red-50 px-2 py-1 text-red-800">
+                    <div key={`${airport.icao}-${step}`} className={`mt-1 rounded border border-red-300 bg-red-50 px-2 py-1 dark:border-red-900/70 dark:bg-red-950/40 ${stepStatusClass(state)}`}>
                       {step.toUpperCase()} {state}: {airport.stepDetails?.[step] || "No detail"}
                     </div>
                   );

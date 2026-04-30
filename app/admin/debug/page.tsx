@@ -40,6 +40,17 @@ function stepStatusClass(state: string) {
 const FINAL_STEP_STATES = new Set(["passed", "failed", "timeout", "skipped"]);
 const DEFAULT_DEBUG_STEPS = ["aip", "notam", "weather", "pdf", "gen"];
 
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "unknown";
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 export default function AdminDebugPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
@@ -111,17 +122,43 @@ export default function AdminDebugPage() {
     const run = selectedRun;
     const steps = run?.options?.steps?.length ? run.options.steps : DEFAULT_DEBUG_STEPS;
     const total = (run?.airports.length || 0) * steps.length;
-    if (!run || total === 0) return { completed: 0, total: 0, percent: 0 };
+    if (!run || total === 0) {
+      return {
+        completed: 0,
+        total: 0,
+        percent: 0,
+        elapsedLabel: "0s",
+        remainingLabel: "Estimating...",
+        etaLabel: "",
+      };
+    }
     let completed = 0;
     for (const airport of run.airports) {
       for (const step of steps) {
         if (FINAL_STEP_STATES.has(airport.steps[step])) completed += 1;
       }
     }
+    const startMs = new Date(run.startedAt).getTime();
+    const endMs = run.endedAt ? new Date(run.endedAt).getTime() : Date.now();
+    const elapsedMs = Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.max(0, endMs - startMs) : 0;
+    const remainingChecks = Math.max(0, total - completed);
+    const averageMsPerCheck = completed > 0 ? elapsedMs / completed : 0;
+    const remainingMs = averageMsPerCheck > 0 ? remainingChecks * averageMsPerCheck : null;
+    const etaDate = remainingMs != null && !run.endedAt ? new Date(Date.now() + remainingMs) : null;
     return {
       completed,
       total,
       percent: Math.round((completed / total) * 100),
+      elapsedLabel: formatDuration(elapsedMs),
+      remainingLabel:
+        remainingChecks === 0
+          ? "Done"
+          : remainingMs == null
+            ? "Estimating after first completed check..."
+            : `About ${formatDuration(remainingMs)} left`,
+      etaLabel: etaDate
+        ? `ETA ${etaDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        : "",
     };
   }, [selectedRun]);
 
@@ -288,6 +325,12 @@ export default function AdminDebugPage() {
               <span>{progress.percent}% complete</span>
               <span className="tabular-nums">
                 Failed: {selectedRun.totals.failed} | Timeout: {selectedRun.totals.timeout}
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+              <span>Elapsed: {progress.elapsedLabel}</span>
+              <span className="tabular-nums">
+                {progress.remainingLabel}{progress.etaLabel ? ` | ${progress.etaLabel}` : ""}
               </span>
             </div>
           </CardContent>

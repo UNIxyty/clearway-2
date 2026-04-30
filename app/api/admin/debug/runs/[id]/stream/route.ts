@@ -11,26 +11,54 @@ export async function GET(_request: NextRequest, { params }: Params) {
   if (!run) return new Response(JSON.stringify({ error: "Run not found" }), { status: 404 });
 
   const encoder = new TextEncoder();
+  let cleanupStream = () => {};
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+      let unsub: (() => void) | null = null;
+      let heartbeat: ReturnType<typeof setInterval> | null = null;
+      let done = () => {};
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = null;
+        unsub?.();
+        unsub = null;
+        run.emitter.off("done", done);
+      };
+      cleanupStream = cleanup;
+      const send = (payload: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(payload));
+        } catch {
+          cleanup();
+        }
+      };
+      done = () => {
+        cleanup();
+        try {
+          controller.close();
+        } catch {}
+      };
+
       for (const event of run.events) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        send(`data: ${JSON.stringify(event)}\n\n`);
       }
-      const unsub = subscribeDebugRun(params.id, (event) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      unsub = subscribeDebugRun(params.id, (event) => {
+        send(`data: ${JSON.stringify(event)}\n\n`);
       });
       if (!unsub) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ level: "error", message: "Run not found" })}\n\n`));
+        send(`data: ${JSON.stringify({ level: "error", message: "Run not found" })}\n\n`);
       }
-      const heartbeat = setInterval(() => {
-        controller.enqueue(encoder.encode(`event: ping\ndata: {}\n\n`));
+      heartbeat = setInterval(() => {
+        send("event: ping\ndata: {}\n\n");
       }, 15000);
-      const done = () => {
-        clearInterval(heartbeat);
-        unsub?.();
-        controller.close();
-      };
       run.emitter.once("done", done);
+    },
+    cancel() {
+      cleanupStream();
     },
   });
 

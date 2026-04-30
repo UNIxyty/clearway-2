@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 type StreamEvent = {
   at?: string;
@@ -32,8 +34,17 @@ function AdminDebugRawPageClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-lg font-semibold">Debug Raw Stream</h1>
-      <p className="text-sm text-muted-foreground mb-3">Run: <span className="font-mono">{run || "(missing run id)"}</span></p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Debug Raw Stream</h1>
+          <p className="text-sm text-muted-foreground">Run: <span className="font-mono">{run || "(missing run id)"}</span></p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href={run ? `/admin/debug?run=${encodeURIComponent(run)}` : "/admin/debug"}>
+            Back to Debug Runner
+          </Link>
+        </Button>
+      </div>
       <pre className="rounded border bg-black p-3 text-xs text-green-300 min-h-[70vh] overflow-auto whitespace-pre-wrap">{content}</pre>
     </div>
   );

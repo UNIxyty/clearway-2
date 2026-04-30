@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type RunSummary = {
@@ -15,6 +16,9 @@ type RunSummary = {
 };
 
 type RunDetail = RunSummary & {
+  options?: {
+    steps?: string[];
+  };
   airports: Array<{
     icao: string;
     country: string;
@@ -32,6 +36,9 @@ function stepStatusClass(state: string) {
   if (state === "skipped") return "text-muted-foreground";
   return "text-foreground";
 }
+
+const FINAL_STEP_STATES = new Set(["passed", "failed", "timeout", "skipped"]);
+const DEFAULT_DEBUG_STEPS = ["aip", "notam", "weather", "pdf", "gen"];
 
 export default function AdminDebugPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -99,6 +106,23 @@ export default function AdminDebugPage() {
       map.set(airport.country, list);
     }
     return Array.from(map.entries()).map(([country, airports]) => ({ country, airports }));
+  }, [selectedRun]);
+  const progress = useMemo(() => {
+    const run = selectedRun;
+    const steps = run?.options?.steps?.length ? run.options.steps : DEFAULT_DEBUG_STEPS;
+    const total = (run?.airports.length || 0) * steps.length;
+    if (!run || total === 0) return { completed: 0, total: 0, percent: 0 };
+    let completed = 0;
+    for (const airport of run.airports) {
+      for (const step of steps) {
+        if (FINAL_STEP_STATES.has(airport.steps[step])) completed += 1;
+      }
+    }
+    return {
+      completed,
+      total,
+      percent: Math.round((completed / total) * 100),
+    };
   }, [selectedRun]);
 
   if (isAdmin === false) {
@@ -249,6 +273,26 @@ export default function AdminDebugPage() {
           ))}
         </CardContent>
       </Card>
+
+      {selectedRun ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Progress</CardTitle>
+            <CardDescription>
+              {progress.completed} of {progress.total} selected checks finished across {selectedRun.airports.length} airport(s).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Progress value={progress.percent} aria-label="Debug run progress" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{progress.percent}% complete</span>
+              <span className="tabular-nums">
+                Failed: {selectedRun.totals.failed} | Timeout: {selectedRun.totals.timeout}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {grouped.map((group) => (
         <Card key={group.country}>

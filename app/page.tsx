@@ -280,6 +280,10 @@ function formatAipSyncError(data: { error?: string; detail?: string; code?: numb
   if (data.code === 402) {
     return `Error 402 — Insufficient API credits. ${data.detail ?? "Add credits at https://openrouter.ai/settings/credits"}`;
   }
+  const detail = String(data.detail || "");
+  if (/captcha-protected/i.test(detail) || /\[greece\]|\[netherlands\]|\[lithuania\]/i.test(detail)) {
+    return "Captcha verification required. Click Continue to open Web AIP popup, complete captcha, then retry sync.";
+  }
   const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
   return base;
 }
@@ -617,6 +621,7 @@ function AIPPortalPageInner() {
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
+  const [pendingCaptchaIcao, setPendingCaptchaIcao] = useState<string | null>(null);
   const {
     dismissed: captchaConsentDismissed,
     dialog: captchaConsentDialog,
@@ -896,16 +901,49 @@ function AIPPortalPageInner() {
   }, []);
 
   const requestSyncAipEad = useCallback(async (icao: string) => {
+    const captchaCountry = getCaptchaCountryByIcao(icao);
+    if (captchaCountry && !captchaConsentDismissed) {
+      setPendingCaptchaIcao(icao);
+    }
     const allow = await requestConsentForIcao(icao);
-    if (!allow) return;
+    if (!allow) {
+      setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
+      return;
+    }
     setAipViewMode("ai");
     const cachedAirport = aipEadCache[icao]?.airport;
     if (cachedAirport) {
       setAipEadSyncRequestedIcao(null);
       return;
     }
+    setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
     setAipEadSyncRequestedIcao(icao);
-  }, [aipEadCache, requestConsentForIcao]);
+  }, [aipEadCache, requestConsentForIcao, captchaConsentDismissed]);
+
+  const openCaptchaWebAipPopup = useCallback((icao: string | null) => {
+    if (!icao) return;
+    const cfg = getScraperCountryByIcao(icao);
+    const webAipUrl = getScraperWebAipUrlByCountryOrIcao(cfg?.country || "", icao);
+    if (!webAipUrl) return;
+    window.open(webAipUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const handleCaptchaConsentContinue = useCallback(() => {
+    openCaptchaWebAipPopup(pendingCaptchaIcao);
+    setPendingCaptchaIcao(null);
+    continueCaptchaConsent();
+  }, [continueCaptchaConsent, openCaptchaWebAipPopup, pendingCaptchaIcao]);
+
+  const handleCaptchaConsentDontShowAgain = useCallback(() => {
+    openCaptchaWebAipPopup(pendingCaptchaIcao);
+    setPendingCaptchaIcao(null);
+    void dontShowCaptchaConsentAgain();
+  }, [dontShowCaptchaConsentAgain, openCaptchaWebAipPopup, pendingCaptchaIcao]);
+
+  const handleCaptchaConsentClose = useCallback(() => {
+    setPendingCaptchaIcao(null);
+    closeCaptchaConsentDialog();
+  }, [closeCaptchaConsentDialog]);
 
   const deleteAirportFromPortal = useCallback(async (airport: AIPAirport) => {
     const icao = airport.icao.toUpperCase();
@@ -3226,9 +3264,9 @@ function AIPPortalPageInner() {
             <CaptchaConsentDialog
               open={captchaConsentDialog.open}
               country={captchaConsentDialog.country}
-              onContinue={continueCaptchaConsent}
-              onDontShowAgain={dontShowCaptchaConsentAgain}
-              onClose={closeCaptchaConsentDialog}
+              onContinue={handleCaptchaConsentContinue}
+              onDontShowAgain={handleCaptchaConsentDontShowAgain}
+              onClose={handleCaptchaConsentClose}
             />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">

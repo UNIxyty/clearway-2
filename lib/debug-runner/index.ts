@@ -124,17 +124,41 @@ function stepKeyForAirport(icao: string): { aipBase: string; pdfUrl: string; gen
 async function listAirportCandidates(options: DebugRunOptions): Promise<AirportCandidate[]> {
   const service = createSupabaseServiceRoleClient();
   if (!service) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  let query = service.from("airports").select("icao,country,name").limit(3000);
-  if (options.countries.length > 0) query = query.in("country", options.countries);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const rows = (data ?? [])
+  const PAGE_SIZE = 1000;
+  const MAX_ROWS = 10_000;
+  const allRows: Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }> = [];
+  let offset = 0;
+
+  while (allRows.length < MAX_ROWS) {
+    let query = service
+      .from("airports")
+      .select("icao,country,name,updated_at")
+      .eq("visible", true)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (options.countries.length > 0) query = query.in("country", options.countries);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+
+    allRows.push(...(data as Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }>));
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  const rows = allRows
     .map((r) => ({
-      icao: String((r as { icao?: string }).icao || "").toUpperCase(),
-      country: String((r as { country?: string }).country || "Unknown"),
-      name: String((r as { name?: string }).name || "Unknown"),
+      icao: String(r.icao || "").toUpperCase(),
+      country: String(r.country || "Unknown"),
+      name: String(r.name || "Unknown"),
+      updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0,
     }))
-    .filter((r) => /^[A-Z0-9]{4}$/.test(r.icao));
+    .filter((r) => /^[A-Z0-9]{4}$/.test(r.icao))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .map(({ icao, country, name }) => ({ icao, country, name }));
+
   return sample(rows, options.quantity, options.randomSample);
 }
 

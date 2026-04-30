@@ -12,11 +12,14 @@ type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skip
 type RunState = "running" | "completed" | "stopped";
 const ALL_STEPS: StepName[] = ["aip", "notam", "weather", "pdf", "gen"];
 const ASECNA_SET = getAsecnaAirportsSet();
+const CAPTCHA_COUNTRIES = new Set(["Greece", "Lithuania", "Netherlands"]);
 
 export type DebugRunOptions = {
   quantity: number;
+  allAirports: boolean;
   randomSample: boolean;
   countries: string[];
+  excludeCaptchaCountries: boolean;
   concurrency: number;
   steps: StepName[];
 };
@@ -156,9 +159,11 @@ async function listAirportCandidates(options: DebugRunOptions): Promise<AirportC
       updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0,
     }))
     .filter((r) => /^[A-Z0-9]{4}$/.test(r.icao))
+    .filter((r) => !options.excludeCaptchaCountries || !CAPTCHA_COUNTRIES.has(r.country))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map(({ icao, country, name }) => ({ icao, country, name }));
 
+  if (options.allAirports) return rows;
   return sample(rows, options.quantity, options.randomSample);
 }
 
@@ -395,8 +400,10 @@ export function subscribeDebugRun(id: string, onEvent: (event: unknown) => void)
 export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUrl: string) {
   const options: DebugRunOptions = {
     quantity: Math.max(1, Math.min(500, Number(rawOptions.quantity ?? 25))),
+    allAirports: Boolean(rawOptions.allAirports ?? false),
     randomSample: Boolean(rawOptions.randomSample ?? true),
     countries: Array.isArray(rawOptions.countries) ? rawOptions.countries.slice(0, 50) : [],
+    excludeCaptchaCountries: Boolean(rawOptions.excludeCaptchaCountries ?? false),
     concurrency: Math.max(1, Math.min(8, Number(rawOptions.concurrency ?? 3))),
     steps: Array.isArray(rawOptions.steps) && rawOptions.steps.length > 0
       ? rawOptions.steps.filter((s): s is StepName => ALL_STEPS.includes(s as StepName))

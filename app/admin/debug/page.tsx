@@ -39,8 +39,10 @@ export default function AdminDebugPage() {
   const [selectedRunId, setSelectedRunId] = useState("");
   const [selectedRun, setSelectedRun] = useState<RunDetail | null>(null);
   const [quantity, setQuantity] = useState("20");
+  const [allAirports, setAllAirports] = useState(false);
   const [concurrency, setConcurrency] = useState("3");
   const [randomSample, setRandomSample] = useState(true);
+  const [excludeCaptchaCountries, setExcludeCaptchaCountries] = useState(true);
   const [loading, setLoading] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedSteps, setSelectedSteps] = useState<Record<string, boolean>>({
@@ -113,15 +115,45 @@ export default function AdminDebugPage() {
         <CardContent className="flex flex-wrap items-end gap-3">
           <label className="text-sm">
             Quantity
-            <Input value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-28" />
+            <Input
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-28"
+              disabled={allAirports}
+              aria-describedby="debug-quantity-help"
+            />
+            <span id="debug-quantity-help" className="sr-only">
+              Quantity is ignored when test all airports is enabled.
+            </span>
           </label>
           <label className="text-sm">
             Concurrency
             <Input value={concurrency} onChange={(e) => setConcurrency(e.target.value)} className="w-28" />
           </label>
           <label className="text-sm flex items-center gap-2">
-            <input type="checkbox" checked={randomSample} onChange={(e) => setRandomSample(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={allAirports}
+              onChange={(e) => setAllAirports(e.target.checked)}
+            />
+            Test all airports
+          </label>
+          <label className="text-sm flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={randomSample}
+              onChange={(e) => setRandomSample(e.target.checked)}
+              disabled={allAirports}
+            />
             Random sample
+          </label>
+          <label className="text-sm flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={excludeCaptchaCountries}
+              onChange={(e) => setExcludeCaptchaCountries(e.target.checked)}
+            />
+            Exclude captcha countries
           </label>
           <label className="text-sm">
             Countries (comma separated)
@@ -161,9 +193,11 @@ export default function AdminDebugPage() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     quantity: Number(quantity),
+                    allAirports,
                     concurrency: Number(concurrency),
                     randomSample,
                     countries,
+                    excludeCaptchaCountries,
                     steps,
                   }),
                 });

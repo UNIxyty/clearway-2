@@ -14,8 +14,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as {
     quantity?: number;
+    allAirports?: boolean;
     randomSample?: boolean;
     countries?: string[];
+    excludeCaptchaCountries?: boolean;
     concurrency?: number;
     steps?: string[];
   };
@@ -24,8 +26,10 @@ export async function POST(request: NextRequest) {
   const baseUrl = process.env.DEBUG_RUNNER_BASE_URL || "http://127.0.0.1:3000";
   const run = await startDebugRun({
     quantity: body.quantity,
+    allAirports: body.allAirports,
     randomSample: body.randomSample,
     countries: body.countries,
+    excludeCaptchaCountries: body.excludeCaptchaCountries,
     concurrency: body.concurrency,
     steps: body.steps as Array<"aip" | "notam" | "weather" | "pdf" | "gen"> | undefined,
   }, baseUrl);

@@ -282,7 +282,7 @@ function formatAipSyncError(data: { error?: string; detail?: string; code?: numb
   }
   const detail = String(data.detail || "");
   if (/captcha-protected/i.test(detail) || /\[greece\]|\[netherlands\]|\[lithuania\]/i.test(detail)) {
-    return "Captcha verification required. Click Continue to open Web AIP popup, complete captcha, then retry sync.";
+    return "Captcha verification required. Click Continue to open noVNC popup, complete captcha, then retry sync.";
   }
   const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
   return base;
@@ -920,25 +920,55 @@ function AIPPortalPageInner() {
     setAipEadSyncRequestedIcao(icao);
   }, [aipEadCache, requestConsentForIcao, captchaConsentDismissed]);
 
-  const openCaptchaWebAipPopup = useCallback((icao: string | null) => {
+  const openCaptchaNoVncPopup = useCallback(async (icao: string | null) => {
     if (!icao) return;
-    const cfg = getScraperCountryByIcao(icao);
-    const webAipUrl = getScraperWebAipUrlByCountryOrIcao(cfg?.country || "", icao);
-    if (!webAipUrl) return;
-    window.open(webAipUrl, "_blank", "noopener,noreferrer");
+    const country = (getCaptchaCountryByIcao(icao) || "").toLowerCase();
+    if (!country) return;
+
+    const popup = window.open("about:blank", `captcha-${country}-${Date.now()}`, "popup=yes,width=1040,height=820,resizable=yes");
+    if (!popup) {
+      setError("Popup blocked. Allow popups for this site to continue captcha verification.");
+      return;
+    }
+
+    const endpoint =
+      country === "lithuania" ? "/api/lithuania-hitl-vnc" : "/api/blocked-hitl-vnc";
+    const payload =
+      country === "lithuania"
+        ? { action: "start" }
+        : { action: "start", country };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({} as { popupUrl?: string; error?: string; detail?: string }));
+      if (!res.ok || !data.popupUrl) {
+        popup.close();
+        const msg = data.error || data.detail || "Failed to start noVNC captcha session.";
+        setError(msg);
+        return;
+      }
+      popup.location.href = String(data.popupUrl);
+    } catch (err) {
+      popup.close();
+      setError(err instanceof Error ? err.message : "Failed to start noVNC captcha session.");
+    }
   }, []);
 
   const handleCaptchaConsentContinue = useCallback(() => {
-    openCaptchaWebAipPopup(pendingCaptchaIcao);
+    void openCaptchaNoVncPopup(pendingCaptchaIcao);
     setPendingCaptchaIcao(null);
     continueCaptchaConsent();
-  }, [continueCaptchaConsent, openCaptchaWebAipPopup, pendingCaptchaIcao]);
+  }, [continueCaptchaConsent, openCaptchaNoVncPopup, pendingCaptchaIcao]);
 
   const handleCaptchaConsentDontShowAgain = useCallback(() => {
-    openCaptchaWebAipPopup(pendingCaptchaIcao);
+    void openCaptchaNoVncPopup(pendingCaptchaIcao);
     setPendingCaptchaIcao(null);
     void dontShowCaptchaConsentAgain();
-  }, [dontShowCaptchaConsentAgain, openCaptchaWebAipPopup, pendingCaptchaIcao]);
+  }, [dontShowCaptchaConsentAgain, openCaptchaNoVncPopup, pendingCaptchaIcao]);
 
   const handleCaptchaConsentClose = useCallback(() => {
     setPendingCaptchaIcao(null);

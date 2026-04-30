@@ -213,6 +213,10 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       return `${label} HTTP ${res.status}: ${text.slice(0, 200)}`;
     }
   };
+  const isAsecnaGenNotAvailable = (res: Response, detail: string) =>
+    res.status === 404 &&
+    endpoints.genPdfUrl.includes("/api/aip/asecna/gen/pdf") &&
+    /GEN 1\.2 not available for this country in ASECNA menu/i.test(detail);
   const setStep = (step: StepName, state: StepState, detail: string) => {
     card.steps[step] = state;
     card.stepDetails[step] = detail;
@@ -220,15 +224,15 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
     logEvent(run, { level: state === "failed" || state === "timeout" ? "error" : "info", message: detail, airport: icao });
   };
 
-  const doStep = async (step: StepName, fn: () => Promise<void>, timeoutMs = 90_000) => {
+  const doStep = async (step: StepName, fn: () => Promise<string | void>, timeoutMs = 90_000) => {
     if (!run.options.steps.includes(step)) {
       setStep(step, "skipped", "Step skipped by options.");
       return;
     }
     setStep(step, "running", "Started.");
     try {
-      await withTimeout(fn(), timeoutMs);
-      setStep(step, "passed", "Completed.");
+      const detail = await withTimeout(fn(), timeoutMs);
+      setStep(step, "passed", detail || "Completed.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (/timeout/i.test(msg)) setStep(step, "timeout", msg);
@@ -295,7 +299,13 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       if (!sync.ok) throw new Error(await readErrorDetail(sync, "GEN sync"));
     }
     const pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
-    if (!pdf.ok) throw new Error(await readErrorDetail(pdf, "GEN PDF"));
+    if (!pdf.ok) {
+      const detail = await readErrorDetail(pdf, "GEN PDF");
+      if (isAsecnaGenNotAvailable(pdf, detail)) {
+        return "Endpoint successful; this ASECNA country does not publish a GEN 1.2 section in the menu.";
+      }
+      throw new Error(detail);
+    }
   });
 }
 

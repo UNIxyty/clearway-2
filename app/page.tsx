@@ -63,6 +63,27 @@ function isEditableElement(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+function getCaptchaViewerHref(country: string): string {
+  switch (country.toLowerCase()) {
+    case "lithuania":
+      return "/lithuania-hitl-auto-test/viewer";
+    case "netherlands":
+      return "/netherlands-hitl-auto-test/viewer";
+    case "greece":
+    default:
+      return "/greece-hitl-auto-test/viewer";
+  }
+}
+
+function buildCaptchaViewerUrl(country: string, popupUrl: string, sessionId: string): string {
+  const params = new URLSearchParams({
+    src: popupUrl,
+    sessionId,
+    closeOnClear: "1",
+  });
+  return `${getCaptchaViewerHref(country)}?${params.toString()}`;
+}
+
 type AIPAirport = {
   country: string;
   gen1_2: string;
@@ -626,7 +647,6 @@ function AIPPortalPageInner() {
     dismissed: captchaConsentDismissed,
     dialog: captchaConsentDialog,
     requestConsentForIcao,
-    continueNow: continueCaptchaConsent,
     dontShowAgain: dontShowCaptchaConsentAgain,
     close: closeCaptchaConsentDialog,
   } = useCaptchaConsent();
@@ -900,26 +920,6 @@ function AIPPortalPageInner() {
     setWeatherSyncRequestedIcao(icao);
   }, []);
 
-  const requestSyncAipEad = useCallback(async (icao: string) => {
-    const captchaCountry = getCaptchaCountryByIcao(icao);
-    if (captchaCountry && !captchaConsentDismissed) {
-      setPendingCaptchaIcao(icao);
-    }
-    const allow = await requestConsentForIcao(icao);
-    if (!allow) {
-      setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
-      return;
-    }
-    setAipViewMode("ai");
-    const cachedAirport = aipEadCache[icao]?.airport;
-    if (cachedAirport) {
-      setAipEadSyncRequestedIcao(null);
-      return;
-    }
-    setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
-    setAipEadSyncRequestedIcao(icao);
-  }, [aipEadCache, requestConsentForIcao, captchaConsentDismissed]);
-
   const openCaptchaNoVncPopup = useCallback(async (icao: string | null) => {
     if (!icao) return;
     const country = (getCaptchaCountryByIcao(icao) || "").toLowerCase();
@@ -944,31 +944,59 @@ function AIPPortalPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({} as { popupUrl?: string; error?: string; detail?: string }));
+      const data = await res.json().catch(
+        () => ({} as { popupUrl?: string; sessionId?: string; error?: string; detail?: string }),
+      );
       if (!res.ok || !data.popupUrl) {
         popup.close();
         const msg = data.error || data.detail || "Failed to start noVNC captcha session.";
         setError(msg);
         return;
       }
-      popup.location.href = String(data.popupUrl);
+      popup.location.href = buildCaptchaViewerUrl(country, String(data.popupUrl), String(data.sessionId || ""));
     } catch (err) {
       popup.close();
       setError(err instanceof Error ? err.message : "Failed to start noVNC captcha session.");
     }
   }, []);
 
+  const requestSyncAipEad = useCallback(async (icao: string) => {
+    const captchaCountry = getCaptchaCountryByIcao(icao);
+    if (captchaCountry && captchaConsentDismissed) {
+      void openCaptchaNoVncPopup(icao);
+      setAipEadSyncSteps(["Captcha verification required. Opened embedded noVNC viewer. Complete it, then run the country HITL scrape."]);
+      return;
+    }
+    if (captchaCountry) {
+      setPendingCaptchaIcao(icao);
+    }
+    const allow = await requestConsentForIcao(icao);
+    if (!allow) {
+      setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
+      return;
+    }
+    setAipViewMode("ai");
+    const cachedAirport = aipEadCache[icao]?.airport;
+    if (cachedAirport) {
+      setAipEadSyncRequestedIcao(null);
+      return;
+    }
+    setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
+    setAipEadSyncRequestedIcao(icao);
+  }, [aipEadCache, requestConsentForIcao, captchaConsentDismissed, openCaptchaNoVncPopup]);
+
   const handleCaptchaConsentContinue = useCallback(() => {
     void openCaptchaNoVncPopup(pendingCaptchaIcao);
     setPendingCaptchaIcao(null);
-    continueCaptchaConsent();
-  }, [continueCaptchaConsent, openCaptchaNoVncPopup, pendingCaptchaIcao]);
+    closeCaptchaConsentDialog();
+  }, [closeCaptchaConsentDialog, openCaptchaNoVncPopup, pendingCaptchaIcao]);
 
   const handleCaptchaConsentDontShowAgain = useCallback(() => {
     void openCaptchaNoVncPopup(pendingCaptchaIcao);
     setPendingCaptchaIcao(null);
     void dontShowCaptchaConsentAgain();
-  }, [dontShowCaptchaConsentAgain, openCaptchaNoVncPopup, pendingCaptchaIcao]);
+    closeCaptchaConsentDialog();
+  }, [closeCaptchaConsentDialog, dontShowCaptchaConsentAgain, openCaptchaNoVncPopup, pendingCaptchaIcao]);
 
   const handleCaptchaConsentClose = useCallback(() => {
     setPendingCaptchaIcao(null);
@@ -2799,6 +2827,14 @@ function AIPPortalPageInner() {
                       onClick={async () => {
                         if (!viewingAirport?.icao) return;
                         const icao = viewingAirport.icao;
+                        if (getCaptchaCountryByIcao(icao)) {
+                          setPdfDownloadError(null);
+                          setAipEadSyncSteps([
+                            "Captcha verification required. Opened embedded noVNC viewer. Complete it before downloading this AIP PDF.",
+                          ]);
+                          void openCaptchaNoVncPopup(icao);
+                          return;
+                        }
                         const pushPdfStep = (step: string) => {
                           setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
                         };

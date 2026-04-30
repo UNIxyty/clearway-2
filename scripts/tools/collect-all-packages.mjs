@@ -17,6 +17,17 @@ function hasFlag(flag) {
   return process.argv.includes(flag);
 }
 
+function requestedCountryFilter() {
+  const raw = argValue("--only-countries", "");
+  const set = new Set(
+    String(raw || "")
+      .split(",")
+      .map((v) => normalizeCountry(v))
+      .filter(Boolean),
+  );
+  return set;
+}
+
 function titleCaseFromSlug(slug) {
   return slug
     .replace(/[-_]+/g, " ")
@@ -322,10 +333,19 @@ async function main() {
   const outPath = argValue("--out", OUT_DEFAULT);
   const offline = hasFlag("--offline");
   const collectTimeoutMs = Number(argValue("--collect-timeout-ms", "90000")) || 90_000;
+  const onlyCountries = requestedCountryFilter();
   const rows = await fs.readdir(SCRAPERS_DIR);
-  const scraperFiles = rows.filter((f) => f.endsWith("-interactive.mjs")).sort((a, b) => a.localeCompare(b));
+  const scraperFiles = rows
+    .filter((f) => f.endsWith("-interactive.mjs"))
+    .filter((f) => {
+      if (onlyCountries.size === 0) return true;
+      const slug = f.replace(/-interactive\.mjs$/i, "");
+      const countryName = titleCaseFromSlug(slug.replace(/-(eaip|aip|ais|ifis3)$/i, ""));
+      return onlyCountries.has(normalizeCountry(countryName)) || onlyCountries.has(normalizeCountry(slug));
+    })
+    .sort((a, b) => a.localeCompare(b));
   console.log(
-    `[collect-all-packages] mode=${offline ? "offline" : "network"} timeoutMs=${collectTimeoutMs} countries=${scraperFiles.length}`,
+    `[collect-all-packages] mode=${offline ? "offline" : "network"} timeoutMs=${collectTimeoutMs} countries=${scraperFiles.length}${onlyCountries.size ? " filtered=yes" : ""}`,
   );
   const countries = [];
   for (const f of scraperFiles) {

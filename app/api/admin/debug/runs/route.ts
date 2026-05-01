@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { listDebugRuns, startDebugRun } from "@/lib/debug-runner";
+import { listDebugRuns, startDebugRun, listPersistedRunIds } from "@/lib/debug-runner";
 
 export async function GET() {
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
-  return NextResponse.json({ runs: listDebugRuns() });
+
+  const inMemory = listDebugRuns();
+  const inMemoryIds = new Set(inMemory.map((r) => r.id));
+
+  // Also include persisted run IDs (from Supabase) so runs survive server restart.
+  const persistedIds = await listPersistedRunIds(20);
+  const persistedOnly = persistedIds
+    .filter((id) => !inMemoryIds.has(id))
+    .map((id) => ({
+      id,
+      status: "completed" as const,
+      startedAt: "",
+      endedAt: null,
+      totals: { airports: 0, failed: 0, timeout: 0 },
+      persisted: true,
+    }));
+
+  return NextResponse.json({ runs: [...inMemory, ...persistedOnly] });
 }
 
 export async function POST(request: NextRequest) {

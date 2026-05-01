@@ -13,6 +13,8 @@ type RunSummary = {
   startedAt: string;
   endedAt: string | null;
   totals: { airports: number; failed: number; timeout: number };
+  /** True when the run lives only in Supabase (server restarted) */
+  persisted?: boolean;
 };
 
 type RunDetail = RunSummary & {
@@ -327,7 +329,7 @@ export default function AdminDebugPage() {
               {redebugLoading ? "Starting…" : `Redebug ${selectedRun.totals.failed + selectedRun.totals.timeout} failed airport(s)`}
             </Button>
           ) : null}
-          {selectedRunId && !selectedRun ? (
+          {selectedRunId && (!selectedRun || runs.find((r) => r.id === selectedRunId)?.persisted) ? (
             <Button
               variant="outline"
               disabled={redebugLoading || loading}
@@ -379,8 +381,14 @@ export default function AdminDebugPage() {
               className={`w-full rounded border p-2 text-left text-sm ${selectedRunId === run.id ? "border-primary" : "border-border"}`}
               onClick={() => setSelectedRunId(run.id)}
             >
-              <div className="font-mono">{run.id}</div>
-              <div>Status: {run.status} | Airports: {run.totals.airports} | Failed: {run.totals.failed} | Timeout: {run.totals.timeout}</div>
+              <div className="font-mono text-xs">{run.id}</div>
+              <div className="text-muted-foreground text-xs">
+                {run.persisted ? (
+                  <span className="text-amber-600 dark:text-amber-400">⚠ Persisted (server restarted) — click Redebug to replay failures</span>
+                ) : (
+                  <>Status: {run.status} | Airports: {run.totals.airports} | Failed: {run.totals.failed} | Timeout: {run.totals.timeout}</>
+                )}
+              </div>
             </button>
           ))}
         </CardContent>

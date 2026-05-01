@@ -6,7 +6,6 @@ import { isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
-import { isCaptchaProtectedCountry } from "@/lib/captcha-consent";
 
 type StepName = "aip" | "notam" | "weather" | "pdf" | "gen";
 type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skipped";
@@ -14,6 +13,10 @@ type RunState = "running" | "completed" | "stopped";
 const ALL_STEPS: StepName[] = ["aip", "notam", "weather", "pdf", "gen"];
 const ASECNA_SET = getAsecnaAirportsSet();
 const CAPTCHA_COUNTRIES = new Set(["Greece", "Lithuania", "Netherlands"]);
+
+function isCaptchaProtectedCountry(country: string): boolean {
+  return CAPTCHA_COUNTRIES.has(country);
+}
 
 export type DebugRunOptions = {
   quantity: number;

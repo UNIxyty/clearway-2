@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     excludeCaptchaCountries?: boolean;
     concurrency?: number;
     steps?: string[];
+    icaos?: string[];
   };
   // Use an internal loopback base URL for server-side debug steps.
   // This avoids TLS/proxy issues when the incoming request origin is external.
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     excludeCaptchaCountries: body.excludeCaptchaCountries,
     concurrency: body.concurrency,
     steps: body.steps as Array<"aip" | "notam" | "weather" | "pdf" | "gen"> | undefined,
+    icaos: body.icaos,
   }, baseUrl);
   return NextResponse.json({ ok: true, runId: run.id });
 }

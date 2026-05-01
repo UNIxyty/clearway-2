@@ -109,6 +109,25 @@ function jsfId(id) {
   return `[id="${id}"]`;
 }
 
+function isSessionExpiredPage(page) {
+  try {
+    const url = page.url();
+    return url.includes("session_expired.faces");
+  } catch {
+    return false;
+  }
+}
+
+async function dismissTermsIfPresent(page) {
+  try {
+    const btn = page.locator('#termsDialog_modal .ui-dialog-buttonset button, #acceptTCButton').first();
+    if (await btn.isVisible({ timeout: 2000 })) {
+      await btn.click();
+      await page.waitForTimeout(300);
+    }
+  } catch (_) {}
+}
+
 function resolveCountryLabel(arg) {
   const raw = (arg || 'ED').trim();
   const maybeIcao = raw.toUpperCase();
@@ -122,16 +141,34 @@ function resolveCountryLabel(arg) {
 
 async function extractPdfText(pdfPath) {
   try {
-    const { PDFParse } = await import('pdf-parse');
+    // Polyfill browser globals required by pdfjs-dist / pdf-parse in Node.js
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      globalThis.DOMMatrix = class DOMMatrix {
+        constructor() { this.a=1;this.b=0;this.c=0;this.d=1;this.e=0;this.f=0; }
+        transformPoint(p) { return p || { x:0, y:0 }; }
+      };
+    }
+    if (typeof globalThis.Path2D === 'undefined') globalThis.Path2D = class Path2D {};
+    if (typeof globalThis.ImageData === 'undefined') {
+      globalThis.ImageData = class ImageData {
+        constructor(w, h) { this.width=w||1; this.height=h||1; this.data=new Uint8ClampedArray(w*h*4); }
+      };
+    }
+
+    const pdfParse = (await import('pdf-parse')).default;
     const buf = readFileSync(pdfPath);
-    const parser = new PDFParse({ data: buf });
-    const result = await parser.getText();
-    await parser.destroy?.();
-    return typeof result?.text === 'string' ? result.text : (result?.pages && result.pages.map((p) => p.text).join('\n')) || '';
+    const result = await pdfParse(buf);
+    return typeof result?.text === 'string' ? result.text : '';
   } catch (e) {
     log('Could not extract PDF text: ' + e.message);
     return '';
   }
+}
+
+/** Returns true when the filename alone strongly identifies a GEN 1.2 document. */
+function filenameIsDefinitelyGen12(linkText) {
+  const name = String(linkText || '');
+  return /GEN[_\-. ]?1[_\-. ]?2/i.test(name) && !/\bAD[_\-\s]?(2|3|4)\b|\bCHART\b|\bSID\b|\bSTAR\b/i.test(name);
 }
 
 async function main() {
@@ -179,13 +216,7 @@ async function main() {
     await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 15000 });
 
     // —— Accept terms ——
-    const termsBtn = page.locator('#acceptTCButton');
-    await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    if (await termsBtn.isVisible()) {
-      log('Accepting terms and conditions');
-      await termsBtn.click();
-      await page.waitForTimeout(200);
-    }
+    await dismissTermsIfPresent(page);
 
     // —— AIP Library ——
     log('Opening AIP Library');
@@ -204,7 +235,12 @@ async function main() {
       await aipLink.click({ timeout: 60000 });
       await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
     }
+    await dismissTermsIfPresent(page);
     await page.waitForTimeout(600);
+
+    if (isSessionExpiredPage(page)) {
+      throw new Error('session_expired: EAD session expired after AIP Library navigation.');
+    }
 
     const bodyText = await page.locator('body').textContent().catch(() => '');
     if (/Access denied|IB-101/i.test(bodyText)) {
@@ -352,9 +388,18 @@ async function main() {
       writeFileSync(savePath, bytes);
       const text = await extractPdfText(savePath);
       const up = String(text || '').toUpperCase();
+      const textExtractFailed = !text || text.trim().length < 20;
       const looksLikeGen = /GEN\s*1\.2/.test(up) || /ENTRY[, ]+TRANSIT[, ]+AND[, ]+DEPARTURE/.test(up);
       const looksLikeChart = /\bAD\s*4\b|\bAERODROME\s+CHART\b|\bSID\b|\bSTAR\b/.test(up);
-      if (!looksLikeGen || looksLikeChart) {
+      // When text extraction fails (missing DOM APIs), trust the filename/heading instead.
+      if (textExtractFailed) {
+        if (filenameIsDefinitelyGen12(candidate.linkText) || /^GEN\s*1\.2\s*$/i.test((candidate.docHeading || '').trim())) {
+          log(`Text extraction failed but filename/heading confirms GEN 1.2: ${candidate.linkText}`);
+        } else {
+          log(`Reject candidate (text extraction failed, filename not clearly GEN 1.2): ${candidate.linkText}`);
+          continue;
+        }
+      } else if (!looksLikeGen || looksLikeChart) {
         log(`Reject candidate (likely chart/non-GEN): ${candidate.linkText}`);
         continue;
       }

@@ -6,6 +6,7 @@ import { isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
+import { isCaptchaProtectedCountry } from "@/lib/captcha-consent";
 
 type StepName = "aip" | "notam" | "weather" | "pdf" | "gen";
 type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skipped";
@@ -22,6 +23,8 @@ export type DebugRunOptions = {
   excludeCaptchaCountries: boolean;
   concurrency: number;
   steps: StepName[];
+  /** When set, skip the DB query and run only these specific ICAOs (used for redebug of failures). */
+  icaos?: string[];
 };
 
 type AirportCandidate = {
@@ -94,7 +97,7 @@ function logEvent(run: DebugRun, event: { level: "info" | "error"; message: stri
   run.emitter.emit("event", full);
 }
 
-function stepKeyForAirport(icao: string): { aipBase: string; pdfUrl: string; genPdfUrl: string } {
+function stepKeyForAirport(icao: string, country: string): { aipBase: string; pdfUrl: string; genPdfUrl: string } {
   const scraper = getScraperCountryByIcao(icao);
   if (isUsaAipIcao(icao)) {
     return {
@@ -108,6 +111,14 @@ function stepKeyForAirport(icao: string): { aipBase: string; pdfUrl: string; gen
       aipBase: "/api/aip/asecna",
       pdfUrl: `/api/aip/asecna/pdf?icao=${encodeURIComponent(icao)}`,
       genPdfUrl: `/api/aip/asecna/gen/pdf?icao=${encodeURIComponent(icao)}`,
+    };
+  }
+  // Captcha-protected countries are always served via EAD (no HITL scraper needed)
+  if (isCaptchaProtectedCountry(country)) {
+    return {
+      aipBase: "/api/aip/ead",
+      pdfUrl: `/api/aip/ead/pdf?icao=${encodeURIComponent(icao)}`,
+      genPdfUrl: `/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`,
     };
   }
   if (scraper) {
@@ -127,6 +138,27 @@ function stepKeyForAirport(icao: string): { aipBase: string; pdfUrl: string; gen
 async function listAirportCandidates(options: DebugRunOptions): Promise<AirportCandidate[]> {
   const service = createSupabaseServiceRoleClient();
   if (!service) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+
+  // When specific ICAOs are provided (e.g. for redebug), fetch just those rows.
+  if (options.icaos && options.icaos.length > 0) {
+    const validIcaos = options.icaos.map((i) => i.trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i));
+    const { data, error } = await service
+      .from("airports")
+      .select("icao,country,name")
+      .in("icao", validIcaos);
+    if (error) throw new Error(error.message);
+    const found = new Map((data ?? []).map((r) => [String(r.icao || "").toUpperCase(), r]));
+    // Preserve the requested order and fill unknowns with placeholder data.
+    return validIcaos.map((icao) => {
+      const r = found.get(icao);
+      return {
+        icao,
+        country: String(r?.country || "Unknown"),
+        name: String(r?.name || "Unknown"),
+      };
+    });
+  }
+
   const PAGE_SIZE = 1000;
   const MAX_ROWS = 10_000;
   const allRows: Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }> = [];
@@ -167,6 +199,44 @@ async function listAirportCandidates(options: DebugRunOptions): Promise<AirportC
   return sample(rows, options.quantity, options.randomSample);
 }
 
+async function persistRunFailures(run: DebugRun) {
+  try {
+    const service = createSupabaseServiceRoleClient();
+    if (!service) return;
+    const rows: Array<{
+      run_id: string; icao: string; country: string; name: string;
+      step: string; state: string; detail: string | null; created_at: string;
+    }> = [];
+    for (const airport of run.airports) {
+      for (const step of ALL_STEPS) {
+        const state = airport.steps[step];
+        if (state === "failed" || state === "timeout") {
+          rows.push({
+            run_id: run.id,
+            icao: airport.icao,
+            country: airport.country,
+            name: airport.name,
+            step,
+            state,
+            detail: airport.stepDetails[step] || null,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+    if (rows.length === 0) return;
+    const { error } = await service.from("debug_run_failures").upsert(rows, { onConflict: "run_id,icao,step" });
+    if (error) {
+      logEvent(run, { level: "error", message: `Failed to persist run failures: ${error.message}` });
+    } else {
+      logEvent(run, { level: "info", message: `Persisted ${rows.length} failure(s) to debug_run_failures.` });
+    }
+  } catch (err) {
+    // Table may not exist yet — fail silently so the run result is still usable.
+    logEvent(run, { level: "error", message: `Could not persist failures (table may not exist): ${String((err as Error).message || err)}` });
+  }
+}
+
 async function sendTelegramSummary(run: DebugRun) {
   const token = process.env.TELEGRAM_BOT_TOKEN || "";
   const chatId = process.env.TELEGRAM_CHAT_ID || "";
@@ -193,7 +263,7 @@ async function sendTelegramSummary(run: DebugRun) {
 
 async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {
   const icao = card.icao;
-  const endpoints = stepKeyForAirport(icao);
+  const endpoints = stepKeyForAirport(icao, card.country);
   const authHeaders = internalDebugAuthHeaders();
   const requestOrThrow = async (url: string): Promise<Response> => {
     try {
@@ -359,6 +429,7 @@ async function executeRun(run: DebugRun) {
   run.totals.failed = run.airports.filter((a) => Object.values(a.steps).includes("failed")).length;
   run.totals.timeout = run.airports.filter((a) => Object.values(a.steps).includes("timeout")).length;
   logEvent(run, { level: "info", message: `Run ${run.status}.` });
+  await persistRunFailures(run).catch(() => {});
   await sendTelegramSummary(run).catch((err) => {
     logEvent(run, { level: "error", message: `Telegram summary failed: ${String((err as Error).message || err)}` });
   });
@@ -389,6 +460,45 @@ export function stopDebugRun(id: string): boolean {
   return true;
 }
 
+/** Load persisted failures for a run from Supabase (survives server restart). */
+export async function loadPersistedRunFailures(runId: string): Promise<Array<{ icao: string; country: string; name: string; step: string; state: string; detail: string | null }>> {
+  try {
+    const service = createSupabaseServiceRoleClient();
+    if (!service) return [];
+    const { data, error } = await service
+      .from("debug_run_failures")
+      .select("icao,country,name,step,state,detail")
+      .eq("run_id", runId);
+    if (error) return [];
+    return (data ?? []) as Array<{ icao: string; country: string; name: string; step: string; state: string; detail: string | null }>;
+  } catch {
+    return [];
+  }
+}
+
+/** List the most recent persisted run IDs from Supabase (for recovery after restart). */
+export async function listPersistedRunIds(limit = 10): Promise<string[]> {
+  try {
+    const service = createSupabaseServiceRoleClient();
+    if (!service) return [];
+    const { data, error } = await service
+      .from("debug_run_failures")
+      .select("run_id,created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit * 50); // over-fetch since many rows per run
+    if (error || !data) return [];
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const row of data as Array<{ run_id: string }>) {
+      if (!seen.has(row.run_id)) { seen.add(row.run_id); ids.push(row.run_id); }
+      if (ids.length >= limit) break;
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
 export function subscribeDebugRun(id: string, onEvent: (event: unknown) => void) {
   const run = RUNS.get(id);
   if (!run) return null;
@@ -398,6 +508,9 @@ export function subscribeDebugRun(id: string, onEvent: (event: unknown) => void)
 }
 
 export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUrl: string) {
+  const icaos = Array.isArray(rawOptions.icaos) && rawOptions.icaos.length > 0
+    ? rawOptions.icaos.map((i) => String(i).trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i))
+    : undefined;
   const options: DebugRunOptions = {
     quantity: Math.max(1, Math.min(500, Number(rawOptions.quantity ?? 25))),
     allAirports: Boolean(rawOptions.allAirports ?? false),
@@ -408,6 +521,7 @@ export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUr
     steps: Array.isArray(rawOptions.steps) && rawOptions.steps.length > 0
       ? rawOptions.steps.filter((s): s is StepName => ALL_STEPS.includes(s as StepName))
       : ALL_STEPS,
+    icaos,
   };
 
   const run: DebugRun = {

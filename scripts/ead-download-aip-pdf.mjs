@@ -253,12 +253,31 @@ function isRecoverableAuthError(errorMessage, currentUrl = "") {
   const msg = String(errorMessage || "").toLowerCase();
   const url = String(currentUrl || "").toLowerCase();
   return (
-    msg.includes("access denied") ||
     msg.includes("session_expired") ||
     msg.includes("login") ||
+    msg.includes("session expired") ||
     url.includes("session_expired.faces") ||
     url.includes("/login/")
   );
+}
+
+function isSessionExpiredPage(page) {
+  try {
+    const url = page.url();
+    return url.includes("session_expired.faces");
+  } catch {
+    return false;
+  }
+}
+
+async function dismissTermsIfPresent(page) {
+  try {
+    const btn = page.locator('#termsDialog_modal .ui-dialog-buttonset button, #acceptTCButton').first();
+    if (await btn.isVisible({ timeout: 2000 })) {
+      await btn.click();
+      await page.waitForTimeout(300);
+    }
+  } catch (_) {}
 }
 
 async function main() {
@@ -355,13 +374,7 @@ async function main() {
       await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 15000 });
 
       // —— Accept terms ——
-      const termsBtn = page.locator('#acceptTCButton');
-      await termsBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-      if (await termsBtn.isVisible()) {
-        log('Accepting terms and conditions');
-        await termsBtn.click();
-        await page.waitForTimeout(200);
-      }
+      await dismissTermsIfPresent(page);
 
       // —— AIP Library —— try direct URL first (avoids menu link); fallback: click "AIP Library"
       log('Opening AIP Library');
@@ -380,7 +393,13 @@ async function main() {
         await aipLink.click({ timeout: 60000 });
         await page.waitForURL(/aip_overview\.faces/, { timeout: 20000 });
       }
+      // Dismiss any terms overlay that reappears after navigation
+      await dismissTermsIfPresent(page);
       await page.waitForTimeout(600);
+
+      if (isSessionExpiredPage(page)) {
+        throw new Error('session_expired: EAD session expired after AIP Library navigation.');
+      }
 
       const bodyText = await page.locator('body').textContent().catch(() => '');
       if (/Access denied|IB-101/i.test(bodyText)) {
@@ -552,7 +571,8 @@ async function main() {
       return;
     } catch (err) {
       finalError = err;
-      const currentUrl = await page.url().catch(() => "");
+      let currentUrl = "";
+      try { currentUrl = page.url(); } catch (_) {}
       const errMsg = err?.message || String(err);
       const recoverable = isRecoverableAuthError(errMsg, currentUrl);
       log(`Error on attempt ${attempt}/${maxAuthAttempts}: ${errMsg}`);

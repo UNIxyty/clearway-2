@@ -29,6 +29,15 @@ type RunDetail = RunSummary & {
   }>;
 };
 
+type PersistedFailure = {
+  icao: string;
+  country: string;
+  name: string;
+  step: string;
+  state: string;
+  detail: string | null;
+};
+
 function stepStatusClass(state: string) {
   if (state === "passed") return "text-emerald-700 dark:text-emerald-400";
   if (state === "pending" || state === "running") return "text-amber-700 dark:text-amber-400";
@@ -62,6 +71,7 @@ export default function AdminDebugPage() {
   const [randomSample, setRandomSample] = useState(true);
   const [excludeCaptchaCountries, setExcludeCaptchaCountries] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [redebugLoading, setRedebugLoading] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedSteps, setSelectedSteps] = useState<Record<string, boolean>>({
     aip: true,
@@ -282,6 +292,71 @@ export default function AdminDebugPage() {
               }}
             >
               Stop selected run
+            </Button>
+          ) : null}
+          {selectedRun && (selectedRun.totals.failed + selectedRun.totals.timeout) > 0 ? (
+            <Button
+              variant="destructive"
+              disabled={redebugLoading || loading}
+              onClick={async () => {
+                setRedebugLoading(true);
+                try {
+                  const failedIcaos = selectedRun.airports
+                    .filter((a) => Object.values(a.steps).some((s) => s === "failed" || s === "timeout"))
+                    .map((a) => a.icao);
+                  const steps = Object.entries(selectedSteps)
+                    .filter(([, enabled]) => enabled)
+                    .map(([step]) => step);
+                  const res = await fetch("/api/admin/debug/runs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      icaos: failedIcaos,
+                      concurrency: Number(concurrency),
+                      steps,
+                    }),
+                  });
+                  const data = await res.json();
+                  if (data.runId) setSelectedRunId(data.runId);
+                  await refreshRuns();
+                } finally {
+                  setRedebugLoading(false);
+                }
+              }}
+            >
+              {redebugLoading ? "Starting…" : `Redebug ${selectedRun.totals.failed + selectedRun.totals.timeout} failed airport(s)`}
+            </Button>
+          ) : null}
+          {selectedRunId && !selectedRun ? (
+            <Button
+              variant="outline"
+              disabled={redebugLoading || loading}
+              onClick={async () => {
+                setRedebugLoading(true);
+                try {
+                  const res = await fetch(`/api/admin/debug/runs/${encodeURIComponent(selectedRunId)}?failures=1`, { cache: "no-store" });
+                  if (!res.ok) return;
+                  const data = await res.json() as { failures?: PersistedFailure[] };
+                  const failures = data.failures ?? [];
+                  const uniqueIcaos = [...new Set(failures.map((f) => f.icao))];
+                  if (!uniqueIcaos.length) return;
+                  const steps = Object.entries(selectedSteps)
+                    .filter(([, enabled]) => enabled)
+                    .map(([step]) => step);
+                  const runRes = await fetch("/api/admin/debug/runs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ icaos: uniqueIcaos, concurrency: Number(concurrency), steps }),
+                  });
+                  const runData = await runRes.json();
+                  if (runData.runId) setSelectedRunId(runData.runId);
+                  await refreshRuns();
+                } finally {
+                  setRedebugLoading(false);
+                }
+              }}
+            >
+              {redebugLoading ? "Loading…" : "Redebug from saved failures"}
             </Button>
           ) : null}
           {selectedRunId ? (

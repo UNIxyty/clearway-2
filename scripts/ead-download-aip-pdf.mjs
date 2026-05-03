@@ -253,6 +253,8 @@ function isRecoverableAuthError(errorMessage, currentUrl = "") {
   const msg = String(errorMessage || "").toLowerCase();
   const url = String(currentUrl || "").toLowerCase();
   return (
+    msg.includes("access denied") ||
+    msg.includes("ib-101") ||
     msg.includes("session_expired") ||
     msg.includes("login") ||
     msg.includes("session expired") ||

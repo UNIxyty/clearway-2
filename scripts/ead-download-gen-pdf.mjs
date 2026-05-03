@@ -139,6 +139,20 @@ function resolveCountryLabel(arg) {
   return PREFIX_TO_COUNTRY[prefix] || `${prefix} (${prefix})`;
 }
 
+function isRecoverableAuthError(errorMessage, currentUrl = "") {
+  const msg = String(errorMessage || "").toLowerCase();
+  const url = String(currentUrl || "").toLowerCase();
+  return (
+    msg.includes("access denied") ||
+    msg.includes("ib-101") ||
+    msg.includes("session_expired") ||
+    msg.includes("login") ||
+    msg.includes("session expired") ||
+    url.includes("session_expired.faces") ||
+    url.includes("/login/")
+  );
+}
+
 async function extractPdfText(pdfPath) {
   try {
     // Polyfill browser globals required by pdfjs-dist / pdf-parse in Node.js
@@ -231,19 +245,23 @@ async function main() {
   log(`Downloading GEN 1.2 (en) for ${countryLabel}`);
 
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-  const context = await browser.newContext({
-    acceptDownloads: true,
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
-  const page = await context.newPage();
+  const maxAuthAttempts = Math.max(1, Number(process.env.EAD_AUTH_RETRY_ATTEMPTS || 2));
+  let finalError = null;
 
-  try {
+  for (let attempt = 1; attempt <= maxAuthAttempts; attempt += 1) {
+    const browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+    const context = await browser.newContext({
+      acceptDownloads: true,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
+
+    try {
     // —— Login ——
-    log('Opening login page');
+    log(`Opening login page (attempt ${attempt}/${maxAuthAttempts})`);
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.getByLabel(/user name/i).fill(user);
     await page.getByLabel(/password/i).fill(password);
@@ -465,20 +483,35 @@ async function main() {
       console.log('--- end ---');
     }
 
-    console.log(savePath);
-  } catch (err) {
-    log('Error: ' + err.message);
-    if (process.env.DEBUG) console.error(err);
-    try {
-      const debugPath = join(outDir, 'ead-gen-debug.png');
-      await page.screenshot({ path: debugPath, fullPage: true });
-      log('Screenshot: ' + debugPath);
-      log('Page URL: ' + (await page.url()));
-    } catch (_) {}
-    process.exit(1);
-  } finally {
-    await browser.close();
+      console.log(savePath);
+      await browser.close();
+      return;
+    } catch (err) {
+      finalError = err;
+      let currentUrl = "";
+      try { currentUrl = page.url(); } catch (_) {}
+      const errMsg = err?.message || String(err);
+      const recoverable = isRecoverableAuthError(errMsg, currentUrl);
+      log(`Error on attempt ${attempt}/${maxAuthAttempts}: ${errMsg}`);
+      if (process.env.DEBUG) console.error(err);
+      try {
+        const debugPath = join(outDir, `ead-gen-debug-attempt-${attempt}.png`);
+        await page.screenshot({ path: debugPath, fullPage: true });
+        log('Screenshot: ' + debugPath);
+        log('Page URL: ' + currentUrl);
+      } catch (_) {}
+      await browser.close();
+      if (recoverable && attempt < maxAuthAttempts) {
+        log("Detected authentication/session issue. Re-logging and retrying...");
+        continue;
+      }
+      break;
+    }
   }
+
+  const msg = finalError?.message || String(finalError || "Unknown EAD GEN error");
+  log('Error: ' + msg);
+  process.exit(1);
 }
 
 main();

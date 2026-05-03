@@ -6,7 +6,7 @@
  * the "Document Name" column value from every row.
  *
  * Requires: EAD_USER, EAD_PASSWORD or EAD_PASSWORD_ENC (env or .env).
- * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json] [--no-skip] [--retry-from-log <path>]
+ * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json] [--no-skip] [--retry-from-log <path>] [--only-countries "Denmark (EK),Estonia (EE)"]
  *
  * Output: JSON { "countries": { "Albania (LA)": ["LA_AD_2_LAKU_24 -5_EN.pdf", ...], ... } }
  */
@@ -174,6 +174,16 @@ function failedCountriesFromLog(logPath) {
   return [...failed];
 }
 
+function normalizeCountryName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[./_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 async function main() {
   const user = process.env.EAD_USER;
   let password = process.env.EAD_PASSWORD;
@@ -199,6 +209,12 @@ async function main() {
   const noSkip = process.argv.includes('--no-skip');
   const retryFromLogArg = process.argv.indexOf('--retry-from-log');
   const retryFromLogPath = retryFromLogArg !== -1 ? process.argv[retryFromLogArg + 1] : null;
+  const onlyCountriesArg = process.argv.indexOf('--only-countries');
+  const onlyCountriesRaw = onlyCountriesArg !== -1 ? (process.argv[onlyCountriesArg + 1] || '') : '';
+  const onlyCountries = onlyCountriesRaw
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
 
   const stopAfterArg = process.argv.indexOf('--stop-after');
   const stopAfter = stopAfterArg !== -1 ? process.argv[stopAfterArg + 1] : null;
@@ -229,6 +245,15 @@ async function main() {
     } else {
       log('No-skip mode enabled: running all ' + countryLabels.length + ' countries');
     }
+  }
+
+  if (onlyCountries.length > 0) {
+    const wanted = new Set(onlyCountries.map(normalizeCountryName));
+    countryLabels = countryLabels.filter((label) => {
+      const bare = label.replace(/\s*\([A-Z0-9]{2}\)\s*$/, '').trim();
+      return wanted.has(normalizeCountryName(label)) || wanted.has(normalizeCountryName(bare));
+    });
+    log('Only-countries mode, running ' + countryLabels.length + ': ' + countryLabels.join(', '));
   }
 
   const { chromium } = await import('playwright');

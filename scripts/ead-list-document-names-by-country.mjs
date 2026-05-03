@@ -6,7 +6,7 @@
  * the "Document Name" column value from every row.
  *
  * Requires: EAD_USER, EAD_PASSWORD or EAD_PASSWORD_ENC (env or .env).
- * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json] [--no-skip]
+ * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json] [--no-skip] [--retry-from-log <path>]
  *
  * Output: JSON { "countries": { "Albania (LA)": ["LA_AD_2_LAKU_24 -5_EN.pdf", ...], ... } }
  */
@@ -103,6 +103,77 @@ async function dismissIdleDialog(page) {
   } catch (_) {}
 }
 
+async function dismissTermsDialog(page) {
+  try {
+    const termsBtn = page.locator('#acceptTCButton').or(page.locator('#termsDialog_modal .ui-dialog-buttonset button')).first();
+    if (await termsBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await termsBtn.click({ timeout: 4000 }).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+  } catch (_) {}
+}
+
+async function loginAndOpenAip(page, user, password) {
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.getByLabel(/user name/i).fill(user);
+  await page.getByLabel(/password/i).fill(password);
+  await page.locator('input[type="submit"][value="Login"]').click();
+  await page.waitForURL(/cmscontent\.faces|eadbasic/, { timeout: 15000 });
+  await dismissTermsDialog(page);
+  await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+  await dismissTermsDialog(page);
+}
+
+async function ensureAuthoritySelect(page, countryLabel, user, password) {
+  const authoritySelect = page
+    .locator(jsfId('mainForm:selectAuthorityCode_input'))
+    .or(page.locator('select[id$="selectAuthorityCode_input"]'))
+    .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
+    .first();
+
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await dismissIdleDialog(page);
+      await dismissTermsDialog(page);
+      await authoritySelect.waitFor({ state: 'visible', timeout: 15000 });
+      return authoritySelect;
+    } catch (err) {
+      lastErr = err;
+      const currentUrl = page.url().toLowerCase();
+      log(`  Authority selector not ready (attempt ${attempt}/3), recovering page state...`);
+      if (currentUrl.includes('session_expired') || currentUrl.includes('/login/')) {
+        await loginAndOpenAip(page, user, password);
+      } else {
+        await page.goto(AIP_OVERVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+        await dismissTermsDialog(page);
+        await page.waitForTimeout(1000);
+      }
+    }
+  }
+  throw lastErr || new Error(`Country selector not ready for ${countryLabel}`);
+}
+
+function failedCountriesFromLog(logPath) {
+  if (!logPath || !existsSync(logPath)) return [];
+  const raw = readFileSync(logPath, 'utf8');
+  const lines = raw.split(/\r?\n/);
+  const failed = new Set();
+  let currentCountry = '';
+  for (const line of lines) {
+    const countryMatch = line.match(/\[EAD\]\s+Country:\s+(.+)$/);
+    if (countryMatch) {
+      currentCountry = countryMatch[1].trim();
+      continue;
+    }
+    if (!currentCountry) continue;
+    if (/\[EAD\]\s+Error:|\[EAD\]\s+Fatal:|\[EAD\]\s{2,}Error:/.test(line)) {
+      failed.add(currentCountry);
+    }
+  }
+  return [...failed];
+}
+
 async function main() {
   const user = process.env.EAD_USER;
   let password = process.env.EAD_PASSWORD;
@@ -126,6 +197,8 @@ async function main() {
   const onlyFailedArg = process.argv.indexOf('--only-failed');
   const onlyFailed = onlyFailedArg !== -1;
   const noSkip = process.argv.includes('--no-skip');
+  const retryFromLogArg = process.argv.indexOf('--retry-from-log');
+  const retryFromLogPath = retryFromLogArg !== -1 ? process.argv[retryFromLogArg + 1] : null;
 
   const stopAfterArg = process.argv.indexOf('--stop-after');
   const stopAfter = stopAfterArg !== -1 ? process.argv[stopAfterArg + 1] : null;
@@ -137,7 +210,11 @@ async function main() {
     const existing = JSON.parse(readFileSync(outputPath, 'utf8'));
     results = existing;
     results.scrapedAt = new Date().toISOString();
-    if (onlyFailed) {
+    if (retryFromLogPath) {
+      const failedCountries = failedCountriesFromLog(join(process.cwd(), retryFromLogPath));
+      countryLabels = countryLabels.filter((c) => failedCountries.includes(c));
+      log('Retry-from-log mode, running failed countries only (' + countryLabels.length + '): ' + countryLabels.join(', '));
+    } else if (onlyFailed) {
       const failedCountries = Object.entries(existing.countries)
         .filter(([_, docs]) => docs.length === 0)
         .map(([country, _]) => country);
@@ -206,12 +283,7 @@ async function main() {
         await dismissIdleDialog(page);
         
         // —— Authority (country) ——
-        const authoritySelect = page
-          .locator(jsfId('mainForm:selectAuthorityCode_input'))
-          .or(page.locator('select[id$="selectAuthorityCode_input"]'))
-          .or(page.locator('select').filter({ has: page.getByRole('option', { name: countryLabel }) }))
-          .first();
-        await authoritySelect.waitFor({ state: 'visible', timeout: 15000 });
+        const authoritySelect = await ensureAuthoritySelect(page, countryLabel, user, password);
         await authoritySelect.selectOption({ label: countryLabel }).catch(() => null);
         await page.waitForTimeout(1200);
 

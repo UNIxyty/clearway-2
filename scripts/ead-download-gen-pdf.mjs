@@ -171,6 +171,41 @@ function filenameIsDefinitelyGen12(linkText) {
   return /GEN[_\-. ]?1[_\-. ]?2/i.test(name) && !/\bAD[_\-\s]?(2|3|4)\b|\bCHART\b|\bSID\b|\bSTAR\b/i.test(name);
 }
 
+async function fetchPdfBytesWithSession(context, page, fullUrl) {
+  const attempts = [fullUrl];
+  try {
+    const parsed = new URL(fullUrl);
+    if (parsed.pathname.includes('/aip/redirect')) {
+      const rawLink = parsed.searchParams.get('link');
+      if (rawLink) attempts.push(new URL(rawLink, BASE).href);
+    }
+  } catch {}
+
+  for (const url of attempts) {
+    try {
+      const resp = await context.request.get(url, { timeout: 30000 });
+      if (!resp.ok()) continue;
+      const bytes = Buffer.from(await resp.body());
+      if (bytes.length >= 32 && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        return bytes;
+      }
+    } catch {}
+  }
+
+  // Try browser navigation under the same session cookies.
+  try {
+    const nav = await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (nav && nav.ok()) {
+      const bytes = Buffer.from(await nav.body());
+      if (bytes.length >= 32 && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        return bytes;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
 async function main() {
   const countryArg = process.argv[2] || 'ED';
   const countryLabel = resolveCountryLabel(countryArg);
@@ -380,10 +415,16 @@ async function main() {
         log(`Skip candidate (HTTP ${res.status()}): ${candidate.linkText}`);
         continue;
       }
-      const bytes = Buffer.from(await res.body());
+      let bytes = Buffer.from(await res.body());
       if (bytes.length < 32 || !bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
-        log(`Skip candidate (not PDF): ${candidate.linkText}`);
-        continue;
+        // Some EAD links return HTML redirect wrappers/session pages first.
+        // Retry with redirect/session-aware fetch before rejecting the candidate.
+        const recovered = await fetchPdfBytesWithSession(context, page, fullUrl);
+        if (!recovered) {
+          log(`Skip candidate (not PDF): ${candidate.linkText}`);
+          continue;
+        }
+        bytes = recovered;
       }
       writeFileSync(savePath, bytes);
       const text = await extractPdfText(savePath);

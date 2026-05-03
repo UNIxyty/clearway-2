@@ -72,6 +72,7 @@ export default function AdminDebugPage() {
   const [concurrency, setConcurrency] = useState("3");
   const [randomSample, setRandomSample] = useState(true);
   const [excludeCaptchaCountries, setExcludeCaptchaCountries] = useState(true);
+  const [eadOnlyMode, setEadOnlyMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [redebugLoading, setRedebugLoading] = useState(false);
   const [countryFilter, setCountryFilter] = useState("");
@@ -228,6 +229,14 @@ export default function AdminDebugPage() {
             />
             Exclude captcha countries
           </label>
+          <label className="text-sm flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={eadOnlyMode}
+              onChange={(e) => setEadOnlyMode(e.target.checked)}
+            />
+            EAD-only mode
+          </label>
           <label className="text-sm">
             Countries (comma separated)
             <Input
@@ -272,6 +281,7 @@ export default function AdminDebugPage() {
                     countries,
                     excludeCaptchaCountries,
                     steps,
+                    sourceMode: eadOnlyMode ? "ead-only" : "auto",
                   }),
                 });
                 const data = await res.json();
@@ -316,6 +326,7 @@ export default function AdminDebugPage() {
                       icaos: failedIcaos,
                       concurrency: Number(concurrency),
                       steps,
+                      sourceMode: eadOnlyMode ? "ead-only" : "auto",
                     }),
                   });
                   const data = await res.json();
@@ -348,7 +359,12 @@ export default function AdminDebugPage() {
                   const runRes = await fetch("/api/admin/debug/runs", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ icaos: uniqueIcaos, concurrency: Number(concurrency), steps }),
+                    body: JSON.stringify({
+                      icaos: uniqueIcaos,
+                      concurrency: Number(concurrency),
+                      steps,
+                      sourceMode: eadOnlyMode ? "ead-only" : "auto",
+                    }),
                   });
                   const runData = await runRes.json();
                   if (runData.runId) setSelectedRunId(runData.runId);

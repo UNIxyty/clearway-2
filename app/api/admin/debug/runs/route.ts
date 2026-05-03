@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { listDebugRuns, startDebugRun, listPersistedRunIds } from "@/lib/debug-runner";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
-export async function GET() {
-  const auth = await requireAdmin();
-  if ("error" in auth) return auth.error;
+export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requireAdmin();
+    if ("error" in auth) return auth.error;
+  }
 
   const inMemory = listDebugRuns();
   const inMemoryIds = new Set(inMemory.map((r) => r.id));
@@ -26,8 +29,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if ("error" in auth) return auth.error;
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requireAdmin();
+    if ("error" in auth) return auth.error;
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
     quantity?: number;
@@ -38,6 +43,7 @@ export async function POST(request: NextRequest) {
     concurrency?: number;
     steps?: string[];
     icaos?: string[];
+    sourceMode?: "auto" | "ead-only";
   };
   // Use an internal loopback base URL for server-side debug steps.
   // This avoids TLS/proxy issues when the incoming request origin is external.
@@ -51,6 +57,7 @@ export async function POST(request: NextRequest) {
     concurrency: body.concurrency,
     steps: body.steps as Array<"aip" | "notam" | "weather" | "pdf" | "gen"> | undefined,
     icaos: body.icaos,
+    sourceMode: body.sourceMode,
   }, baseUrl);
   return NextResponse.json({ ok: true, runId: run.id });
 }

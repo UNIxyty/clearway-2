@@ -6,6 +6,13 @@ import { isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
+import {
+  eadCountryNameFromLabel,
+  getEadCountryLabelForIcao,
+  isEadSupportedIcao,
+  listAllEadIcaos,
+  normalizeCountryName,
+} from "@/lib/ead-country-coverage";
 
 type StepName = "aip" | "notam" | "weather" | "pdf" | "gen";
 type StepState = "pending" | "running" | "passed" | "failed" | "timeout" | "skipped";
@@ -26,6 +33,7 @@ export type DebugRunOptions = {
   excludeCaptchaCountries: boolean;
   concurrency: number;
   steps: StepName[];
+  sourceMode: "auto" | "ead-only";
   /** When set, skip the DB query and run only these specific ICAOs (used for redebug of failures). */
   icaos?: string[];
 };
@@ -100,8 +108,14 @@ function logEvent(run: DebugRun, event: { level: "info" | "error"; message: stri
   run.emitter.emit("event", full);
 }
 
-function stepKeyForAirport(icao: string, country: string): { aipBase: string; pdfUrl: string; genPdfUrl: string } {
+function stepKeyForAirport(
+  icao: string,
+  country: string,
+  sourceMode: "auto" | "ead-only"
+): { aipBase: string; pdfUrl: string; genPdfUrl: string } {
   const scraper = getScraperCountryByIcao(icao);
+  const eadSupported = isEadSupportedIcao(icao);
+  const forceEad = sourceMode === "ead-only";
   if (isUsaAipIcao(icao)) {
     return {
       aipBase: "/api/aip/usa",
@@ -114,6 +128,13 @@ function stepKeyForAirport(icao: string, country: string): { aipBase: string; pd
       aipBase: "/api/aip/asecna",
       pdfUrl: `/api/aip/asecna/pdf?icao=${encodeURIComponent(icao)}`,
       genPdfUrl: `/api/aip/asecna/gen/pdf?icao=${encodeURIComponent(icao)}`,
+    };
+  }
+  if (forceEad || eadSupported) {
+    return {
+      aipBase: "/api/aip/ead",
+      pdfUrl: `/api/aip/ead/pdf?icao=${encodeURIComponent(icao)}`,
+      genPdfUrl: `/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`,
     };
   }
   // Captcha-protected countries are always served via EAD (no HITL scraper needed)
@@ -138,28 +159,50 @@ function stepKeyForAirport(icao: string, country: string): { aipBase: string; pd
   };
 }
 
+async function fetchAirportsByIcaos(service: NonNullable<ReturnType<typeof createSupabaseServiceRoleClient>>, icaos: string[]) {
+  const validIcaos = icaos.map((i) => i.trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i));
+  const { data, error } = await service
+    .from("airports")
+    .select("icao,country,name")
+    .in("icao", validIcaos);
+  if (error) throw new Error(error.message);
+  const found = new Map((data ?? []).map((r) => [String(r.icao || "").toUpperCase(), r]));
+  return validIcaos.map((icao) => {
+    const row = found.get(icao);
+    const eadLabel = getEadCountryLabelForIcao(icao);
+    return {
+      icao,
+      country: String(row?.country || (eadLabel ? eadCountryNameFromLabel(eadLabel) : "Unknown")),
+      name: String(row?.name || "Unknown"),
+    };
+  });
+}
+
 async function listAirportCandidates(options: DebugRunOptions): Promise<AirportCandidate[]> {
   const service = createSupabaseServiceRoleClient();
   if (!service) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
   // When specific ICAOs are provided (e.g. for redebug), fetch just those rows.
   if (options.icaos && options.icaos.length > 0) {
-    const validIcaos = options.icaos.map((i) => i.trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i));
-    const { data, error } = await service
-      .from("airports")
-      .select("icao,country,name")
-      .in("icao", validIcaos);
-    if (error) throw new Error(error.message);
-    const found = new Map((data ?? []).map((r) => [String(r.icao || "").toUpperCase(), r]));
-    // Preserve the requested order and fill unknowns with placeholder data.
-    return validIcaos.map((icao) => {
-      const r = found.get(icao);
-      return {
-        icao,
-        country: String(r?.country || "Unknown"),
-        name: String(r?.name || "Unknown"),
-      };
-    });
+    return fetchAirportsByIcaos(service, options.icaos);
+  }
+
+  // EAD-only mode ignores generic airport sampling and runs only airports listed in EAD coverage.
+  if (options.sourceMode === "ead-only") {
+    const allEadIcaos = listAllEadIcaos();
+    const normalizedFilters = options.countries.map(normalizeCountryName).filter(Boolean);
+    let filtered = allEadIcaos;
+    if (normalizedFilters.length > 0) {
+      filtered = filtered.filter((icao) => {
+        const label = getEadCountryLabelForIcao(icao) || "";
+        const countryName = eadCountryNameFromLabel(label);
+        const normalizedCountry = normalizeCountryName(countryName);
+        const normalizedLabel = normalizeCountryName(label);
+        return normalizedFilters.some((needle) => normalizedCountry.includes(needle) || normalizedLabel.includes(needle));
+      });
+    }
+    const baseRows = await fetchAirportsByIcaos(service, filtered);
+    return options.allAirports ? baseRows : sample(baseRows, options.quantity, options.randomSample);
   }
 
   const PAGE_SIZE = 1000;
@@ -266,7 +309,7 @@ async function sendTelegramSummary(run: DebugRun) {
 
 async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {
   const icao = card.icao;
-  const endpoints = stepKeyForAirport(icao, card.country);
+  const endpoints = stepKeyForAirport(icao, card.country, run.options.sourceMode);
   const authHeaders = internalDebugAuthHeaders();
   const requestOrThrow = async (url: string): Promise<Response> => {
     try {
@@ -514,6 +557,7 @@ export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUr
   const icaos = Array.isArray(rawOptions.icaos) && rawOptions.icaos.length > 0
     ? rawOptions.icaos.map((i) => String(i).trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i))
     : undefined;
+  const sourceMode: "auto" | "ead-only" = rawOptions.sourceMode === "ead-only" ? "ead-only" : "auto";
   const options: DebugRunOptions = {
     quantity: Math.max(1, Math.min(500, Number(rawOptions.quantity ?? 25))),
     allAirports: Boolean(rawOptions.allAirports ?? false),
@@ -524,6 +568,7 @@ export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUr
     steps: Array.isArray(rawOptions.steps) && rawOptions.steps.length > 0
       ? rawOptions.steps.filter((s): s is StepName => ALL_STEPS.includes(s as StepName))
       : ALL_STEPS,
+    sourceMode,
     icaos,
   };
 

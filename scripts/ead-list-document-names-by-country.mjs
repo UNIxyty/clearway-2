@@ -6,7 +6,7 @@
  * the "Document Name" column value from every row.
  *
  * Requires: EAD_USER, EAD_PASSWORD or EAD_PASSWORD_ENC (env or .env).
- * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json]
+ * Usage: xvfb-run -a node scripts/ead-list-document-names-by-country.mjs [--output data/ead-document-names-by-country.json] [--no-skip]
  *
  * Output: JSON { "countries": { "Albania (LA)": ["LA_AD_2_LAKU_24 -5_EN.pdf", ...], ... } }
  */
@@ -125,6 +125,7 @@ async function main() {
 
   const onlyFailedArg = process.argv.indexOf('--only-failed');
   const onlyFailed = onlyFailedArg !== -1;
+  const noSkip = process.argv.includes('--no-skip');
 
   const stopAfterArg = process.argv.indexOf('--stop-after');
   const stopAfter = stopAfterArg !== -1 ? process.argv[stopAfterArg + 1] : null;
@@ -142,12 +143,14 @@ async function main() {
         .map(([country, _]) => country);
       countryLabels = failedCountries;
       log('Running only failed countries (' + failedCountries.length + '): ' + failedCountries.join(', '));
-    } else {
+    } else if (!noSkip) {
       const toSkip = Object.entries(existing.countries)
         .filter(([_, docs]) => docs.length > 0)
         .map(([country, _]) => country);
       countryLabels = countryLabels.filter(c => !toSkip.includes(c));
       log('Skipping ' + toSkip.length + ' countries with data, running ' + countryLabels.length + ' remaining');
+    } else {
+      log('No-skip mode enabled: running all ' + countryLabels.length + ' countries');
     }
   }
 

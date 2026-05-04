@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: clearway-selfhosted:latest
-    command: npm run start
+    command: node server.js
     env_file:
       - .env
     ports:

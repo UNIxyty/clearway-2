@@ -656,7 +656,7 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
   });
 }
 
-async function runDownload(icao) {
+async function runDownload(icao, preferScraper = false) {
   if (isUsaIcao(icao)) {
     const sourcePdf = join(USA_AIP_DIR, `${icao}_ad2.pdf`);
     mkdirSync(EAD_AIP_DIR, { recursive: true });
@@ -677,36 +677,36 @@ async function runDownload(icao) {
     writeFileSync(targetPdf, s3Bytes);
     return targetPdf;
   }
-  const scraper = getScraperSpecByIcao(icao);
+  const scraper = preferScraper ? getScraperSpecByIcao(icao) : null;
   if (scraper) {
     const args = [scraper.script, "--download-ad2", resolveScraperDownloadIcao(icao)];
     if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka" || scraper.country === "Venezuela") args.push("--insecure");
     await run("node", args, process.env);
-    const pdfPath = findDownloadedPdf(icao);
+    const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
   }
   if (isRussiaIcao(icao)) {
     await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
-    const pdfPath = findDownloadedPdf(icao);
+    const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
   }
   if (isRwandaIcao(icao)) {
     // Rwanda uses ASECNA HTTP flow in ead-download-aip-pdf.mjs, no browser required.
     await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
-    const pdfPath = findDownloadedPdf(icao);
+    const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
   }
   if (useXvfb()) {
     await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
-    const pdfPath = findDownloadedPdf(icao);
+    const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
   }
   await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
-  const pdfPath = findDownloadedPdf(icao);
+  const pdfPath = findDownloadedPdf(icao, preferScraper);
   if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
   return pdfPath;
 }
@@ -788,8 +788,8 @@ async function deleteOldFromS3(icao, namespace = "ead") {
   }
 }
 
-function findDownloadedPdf(icao) {
-  const scraper = getScraperSpecByIcao(icao);
+function findDownloadedPdf(icao, preferScraper = false) {
+  const scraper = preferScraper ? getScraperSpecByIcao(icao) : null;
   if (scraper) {
     if (!existsSync(scraper.ad2Dir)) return null;
     const requested = String(icao || "").toUpperCase();
@@ -855,7 +855,7 @@ function findDownloadedPdf(icao) {
 }
 
 async function uploadPdfToS3(icao, namespace = "ead", downloadedPdfPath = null) {
-  const pdfPath = downloadedPdfPath || findDownloadedPdf(icao);
+  const pdfPath = downloadedPdfPath || findDownloadedPdf(icao, namespace === "scraper");
   if (!pdfPath) {
     throw new Error(`Downloaded PDF not found for ${icao}`);
   }
@@ -982,7 +982,7 @@ async function runRwandaGenDownload() {
   await downloadToFile(gen12PdfUrl, outPath);
 }
 
-async function runGenDownloadForIcao(icao, prefix) {
+async function runGenDownloadForIcao(icao, prefix, preferScraper = false) {
   if (isUsaIcao(icao)) {
     const sourceGen = join(USA_AIP_DIR, "GEN1.2.pdf");
     mkdirSync(EAD_GEN_DIR, { recursive: true });
@@ -1009,7 +1009,7 @@ async function runGenDownloadForIcao(icao, prefix) {
     }
     return;
   }
-  const scraper = getScraperSpecByIcao(icao);
+  const scraper = preferScraper ? getScraperSpecByIcao(icao) : null;
   if (scraper) {
     const args = [scraper.script, "--download-gen12"];
     if (scraper.country === "Nepal" || scraper.country === "Pakistan" || scraper.country === "Sri Lanka" || scraper.country === "Venezuela") args.push("--insecure");
@@ -1029,8 +1029,8 @@ async function runGenDownloadForIcao(icao, prefix) {
   await runGenDownload(normalizedPrefix);
 }
 
-function findDownloadedGenPdf(icao, prefix) {
-  const scraper = getScraperSpecByIcao(icao);
+function findDownloadedGenPdf(icao, prefix, preferScraper = false) {
+  const scraper = preferScraper ? getScraperSpecByIcao(icao) : null;
   if (scraper) {
     if (!existsSync(scraper.genDir)) return null;
     const files = readdirSync(scraper.genDir).filter((f) => f.endsWith(".pdf") && /GEN[-_. ]?1[._-]?2/i.test(f));
@@ -1075,7 +1075,7 @@ function findDownloadedGenPdf(icao, prefix) {
 }
 
 async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
-  const pdfPath = findDownloadedGenPdf(icao, prefix);
+  const pdfPath = findDownloadedGenPdf(icao, prefix, namespace === "scraper-gen-pdf");
   if (!pdfPath) {
     throw new Error(`Downloaded GEN PDF not found for ${icao || prefix}`);
   }
@@ -1124,7 +1124,7 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: "Unauthorized" }));
       return;
     }
-    const useScraperFlow = scraperRequested || isScraperIcao(icao);
+    const useScraperFlow = scraperRequested;
     const send = (obj) => {
       if (!stream) return;
       res.write("data: " + JSON.stringify(obj) + "\n\n");
@@ -1141,7 +1141,7 @@ const server = createServer(async (req, res) => {
       res.setHeader("Content-Type", "application/json");
     }
     try {
-      await runGenDownloadForIcao(icao, effectivePrefix);
+      await runGenDownloadForIcao(icao, effectivePrefix, useScraperFlow);
       const uploadedGenKey = await uploadGenPdfToS3(icao, effectivePrefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
       if (stream) {
         send({ step: GEN_STEPS[1] });
@@ -1210,12 +1210,12 @@ const server = createServer(async (req, res) => {
   }
 
   try {
-    const useScraperFlow = scraperRequested || isScraperIcao(icao);
+    const useScraperFlow = scraperRequested;
     const aipNamespace = useScraperFlow ? "scraper" : "ead";
     send({ step: AIP_STEPS[0] });
     if (shouldExtract) await deleteOldFromS3(icao, aipNamespace);
     send({ step: AIP_STEPS[1] });
-    const downloadedPdfPath = await runDownload(icao);
+    const downloadedPdfPath = await runDownload(icao, useScraperFlow);
     const uploadedPdfKey = await uploadPdfToS3(icao, aipNamespace, downloadedPdfPath);
     send({ step: AIP_STEPS[2] });
     send({ step: `PDF saved: ${uploadedPdfKey}` });

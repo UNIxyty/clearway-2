@@ -365,6 +365,66 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   },
 ];
 
+// Countries/prefixes that must always use EAD and never route through custom scrapers.
+const EAD_ONLY_PREFIXES = new Set([
+  "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF", "LF",
+  "UG", "ED", "ET", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "UA", "BK", "UC", "EV", "EY",
+  "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ", "LE", "ES", "LS",
+  "LT", "UK", "EG",
+]);
+
+const EAD_ONLY_COUNTRY_NAMES = new Set([
+  "albania",
+  "armenia",
+  "austria",
+  "azerbaijan",
+  "belgium",
+  "bosnia herzeg",
+  "bosnia herzegovina",
+  "bulgaria",
+  "croatia",
+  "cyprus",
+  "czech republic",
+  "denmark",
+  "estonia",
+  "faroe islands",
+  "finland",
+  "france",
+  "georgia",
+  "germany",
+  "greece",
+  "greenland",
+  "hungary",
+  "iceland",
+  "ireland",
+  "italy",
+  "jordan",
+  "kazakhstan",
+  "kfor sector",
+  "kyrgyzstan",
+  "latvia",
+  "lithuania",
+  "malta",
+  "moldova",
+  "netherlands",
+  "norway",
+  "philippines",
+  "poland",
+  "portugal",
+  "republic of north macedonia",
+  "north macedonia",
+  "romania",
+  "serbia and montenegro",
+  "slovakia",
+  "slovenia",
+  "spain",
+  "sweden",
+  "switzerland",
+  "turkey",
+  "ukraine",
+  "united kingdom",
+]);
+
 function normalizeCountry(value: string): string {
   return String(value || "")
     .normalize("NFD")
@@ -376,9 +436,26 @@ function normalizeCountry(value: string): string {
     .toLowerCase();
 }
 
+function isEadOnlyPrefix(prefix: string): boolean {
+  return EAD_ONLY_PREFIXES.has(prefix);
+}
+
+function isEadOnlyIcao(icao: string): boolean {
+  const up = String(icao || "").trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(up)) return false;
+  return isEadOnlyPrefix(up.slice(0, 2));
+}
+
+function isEadOnlyCountryName(country: string): boolean {
+  const target = normalizeCountry(country);
+  if (!target) return false;
+  return EAD_ONLY_COUNTRY_NAMES.has(target);
+}
+
 export function getScraperCountryByIcao(icao: string): ScraperCountryConfig | null {
   const up = String(icao || "").trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(up)) return null;
+  if (isEadOnlyIcao(up)) return null;
   for (const cfg of SCRAPER_COUNTRIES) {
     if ((cfg.extraIcaos || []).includes(up) && !(cfg.excludedIcaos || []).includes(up)) return cfg;
   }
@@ -389,6 +466,7 @@ export function getScraperCountryByIcao(icao: string): ScraperCountryConfig | nu
 export function isScraperCountryName(country: string): boolean {
   const target = normalizeCountry(country);
   if (!target) return false;
+  if (isEadOnlyCountryName(target)) return false;
   return SCRAPER_COUNTRIES.some((cfg) => {
     const names = [cfg.country, ...(cfg.aliases || [])].map(normalizeCountry);
     return names.includes(target);
@@ -400,6 +478,7 @@ export function getScraperWebAipUrlByCountryOrIcao(country: string | null | unde
   if (byIcao?.webAipUrl) return byIcao.webAipUrl;
   const target = normalizeCountry(String(country || ""));
   if (!target) return null;
+  if (isEadOnlyCountryName(target)) return null;
   const byCountry = SCRAPER_COUNTRIES.find((cfg) => {
     const names = [cfg.country, ...(cfg.aliases || [])].map(normalizeCountry);
     return names.includes(target);

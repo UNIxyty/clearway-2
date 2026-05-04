@@ -71,7 +71,6 @@ export default function AdminDebugPage() {
   const [allAirports, setAllAirports] = useState(false);
   const [concurrency, setConcurrency] = useState("3");
   const [randomSample, setRandomSample] = useState(true);
-  const [excludeCaptchaCountries, setExcludeCaptchaCountries] = useState(true);
   const [eadOnlyMode, setEadOnlyMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [redebugLoading, setRedebugLoading] = useState(false);
@@ -224,14 +223,6 @@ export default function AdminDebugPage() {
           <label className="text-sm flex items-center gap-2">
             <input
               type="checkbox"
-              checked={excludeCaptchaCountries}
-              onChange={(e) => setExcludeCaptchaCountries(e.target.checked)}
-            />
-            Exclude captcha countries
-          </label>
-          <label className="text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
               checked={eadOnlyMode}
               onChange={(e) => setEadOnlyMode(e.target.checked)}
             />
@@ -279,7 +270,8 @@ export default function AdminDebugPage() {
                     concurrency: Number(concurrency),
                     randomSample,
                     countries,
-                    excludeCaptchaCountries,
+                    // EAD countries should be included and routed via EAD (not excluded by legacy captcha toggle).
+                    excludeCaptchaCountries: false,
                     steps,
                     sourceMode: eadOnlyMode ? "ead-only" : "auto",
                   }),

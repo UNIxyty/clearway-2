@@ -604,6 +604,36 @@ export function getDebugRun(id: string): DebugRun | null {
   return RUNS.get(id) ?? null;
 }
 
+export function listRunningDebugCountries(): {
+  countries: string[];
+  hasGlobalRunningDebug: boolean;
+} {
+  const countries = new Set<string>();
+  let hasGlobalRunningDebug = false;
+  for (const run of RUNS.values()) {
+    if (run.status !== "running") continue;
+    if (run.airports.length > 0) {
+      for (const airport of run.airports) {
+        const country = String(airport.country || "").trim();
+        if (country) countries.add(country);
+      }
+      continue;
+    }
+    if (run.options.countries.length > 0) {
+      for (const country of run.options.countries) {
+        const value = String(country || "").trim();
+        if (value) countries.add(value);
+      }
+      continue;
+    }
+    if (run.options.allAirports) hasGlobalRunningDebug = true;
+  }
+  return {
+    countries: [...countries].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    hasGlobalRunningDebug,
+  };
+}
+
 export function stopDebugRun(id: string): boolean {
   const run = RUNS.get(id);
   if (!run) return false;

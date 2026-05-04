@@ -25,6 +25,7 @@ import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-wea
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
+import CountryServiceStatusBanner from "@/components/country-service-status-banner";
 import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
@@ -3334,6 +3335,8 @@ function AIPPortalPageInner() {
               onDontShowAgain={handleCaptchaConsentDontShowAgain}
               onClose={handleCaptchaConsentClose}
             />
+
+            <CountryServiceStatusBanner currentCountry={viewingAirport?.country || null} />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

@@ -172,6 +172,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, help: true });
   }
 
+  const steps = cmd.steps ?? DEFAULT_STEPS;
+  const icaos = cmd.icaos ?? [];
+
   try {
     const run = await startDebugRun(
       {
@@ -181,8 +184,8 @@ export async function POST(request: NextRequest) {
         countries: cmd.countries,
         excludeCaptchaCountries: false,
         concurrency: cmd.concurrency,
-        steps: cmd.steps,
-        icaos: cmd.icaos,
+        steps,
+        icaos,
         sourceMode: cmd.sourceMode,
       },
       process.env.DEBUG_RUNNER_BASE_URL || "http://127.0.0.1:3000"
@@ -193,9 +196,9 @@ export async function POST(request: NextRequest) {
       [
         `Started debug run: ${run.id}`,
         `source=${cmd.sourceMode}`,
-        `steps=${cmd.steps.join(",")}`,
+        `steps=${steps.join(",")}`,
         `concurrency=${cmd.concurrency}`,
-        cmd.icaos.length > 0 ? `icaos=${cmd.icaos.join(",")}` : `all=${cmd.allAirports ? "true" : "false"}, qty=${cmd.quantity}`,
+        icaos.length > 0 ? `icaos=${icaos.join(",")}` : `all=${cmd.allAirports ? "true" : "false"}, qty=${cmd.quantity}`,
       ].join("\n")
     );
 

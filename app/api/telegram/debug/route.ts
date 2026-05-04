@@ -3,7 +3,7 @@ import { startDebugRun } from "@/lib/debug-runner";
 
 type DebugStep = "aip" | "notam" | "weather" | "pdf" | "gen";
 type SourceMode = "auto" | "ead-only";
-type DebugScope = "single" | "all";
+type DebugScope = "single" | "all" | "country";
 
 type TelegramChat = {
   id?: number;
@@ -30,6 +30,7 @@ const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
 const DEFAULT_UI_ICAO = "EFJO";
+const COUNTRY_PRESETS = ["Finland", "Sweden", "Germany", "Greece", "Netherlands"] as const;
 
 type DebugUiState = {
   sourceMode: SourceMode;
@@ -38,6 +39,7 @@ type DebugUiState = {
   scope: DebugScope;
   quantity: number;
   icao: string;
+  country: string;
   lastRunId?: string;
 };
 
@@ -71,6 +73,7 @@ function defaultUiState(): DebugUiState {
     scope: "single",
     quantity: 50,
     icao: DEFAULT_UI_ICAO,
+    country: "Finland",
   };
 }
 
@@ -88,9 +91,10 @@ function isChatAllowed(chatId: string): boolean {
 }
 
 function stateSummary(state: DebugUiState): string {
-  const scopeLine =
-    state.scope === "single"
-      ? `single ICAO: ${state.icao}`
+  const scopeLine = state.scope === "single"
+    ? `single ICAO: ${state.icao}`
+    : state.scope === "country"
+      ? `one country: ${state.country} (all airports)`
       : `all airports, qty=${state.quantity}`;
   const lastRun = state.lastRunId ? `last run: ${state.lastRunId}` : "last run: none";
   return [
@@ -145,6 +149,10 @@ function menuKeyboard(state: DebugUiState) {
           callback_data: `${BOT_CALLBACK_PREFIX}scope:single`,
         },
         {
+          text: `${selected(state.scope === "country")}One country`,
+          callback_data: `${BOT_CALLBACK_PREFIX}scope:country`,
+        },
+        {
           text: `${selected(state.scope === "all")}All airports`,
           callback_data: `${BOT_CALLBACK_PREFIX}scope:all`,
         },
@@ -161,6 +169,32 @@ function menuKeyboard(state: DebugUiState) {
         {
           text: `${selected(state.icao === "EDDF")}ICAO EDDF`,
           callback_data: `${BOT_CALLBACK_PREFIX}icao:EDDF`,
+        },
+      ],
+      [
+        {
+          text: `${selected(state.country === COUNTRY_PRESETS[0])}Country ${COUNTRY_PRESETS[0]}`,
+          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[0]}`,
+        },
+        {
+          text: `${selected(state.country === COUNTRY_PRESETS[1])}Country ${COUNTRY_PRESETS[1]}`,
+          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[1]}`,
+        },
+      ],
+      [
+        {
+          text: `${selected(state.country === COUNTRY_PRESETS[2])}Country ${COUNTRY_PRESETS[2]}`,
+          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[2]}`,
+        },
+        {
+          text: `${selected(state.country === COUNTRY_PRESETS[3])}Country ${COUNTRY_PRESETS[3]}`,
+          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[3]}`,
+        },
+      ],
+      [
+        {
+          text: `${selected(state.country === COUNTRY_PRESETS[4])}Country ${COUNTRY_PRESETS[4]}`,
+          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[4]}`,
         },
       ],
       [
@@ -321,12 +355,13 @@ async function openMenu(chatId: string): Promise<void> {
 
 async function runWithState(chatId: string, state: DebugUiState): Promise<string> {
   const icaos = state.scope === "single" ? [state.icao] : [];
+  const countries = state.scope === "country" ? [state.country] : [];
   const run = await startDebugRun(
     {
       quantity: state.quantity,
-      allAirports: state.scope === "all",
+      allAirports: state.scope === "all" || state.scope === "country",
       randomSample: false,
-      countries: [],
+      countries,
       excludeCaptchaCountries: false,
       concurrency: state.concurrency,
       steps: state.steps,
@@ -357,7 +392,8 @@ function applyCallbackAction(state: DebugUiState, action: string): "run" | "help
     return "updated";
   }
   if (action.startsWith("scope:")) {
-    state.scope = action.slice(6) === "all" ? "all" : "single";
+    const scope = action.slice(6);
+    state.scope = scope === "all" ? "all" : scope === "country" ? "country" : "single";
     return "updated";
   }
   if (action.startsWith("icao:")) {
@@ -365,6 +401,14 @@ function applyCallbackAction(state: DebugUiState, action: string): "run" | "help
     if (/^[A-Z0-9]{4}$/.test(icao)) {
       state.icao = icao;
       state.scope = "single";
+      return "updated";
+    }
+  }
+  if (action.startsWith("country:")) {
+    const country = action.slice(8).trim();
+    if (country) {
+      state.country = country;
+      state.scope = "country";
       return "updated";
     }
   }

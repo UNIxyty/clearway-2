@@ -73,6 +73,13 @@ export type DebugRun = {
 
 const RUNS = new Map<string, DebugRun>();
 
+class SkipStepError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SkipStepError";
+  }
+}
+
 function sample<T>(rows: T[], qty: number, random: boolean): T[] {
   const copy = [...rows];
   if (random) copy.sort(() => Math.random() - 0.5);
@@ -187,22 +194,42 @@ async function listAirportCandidates(options: DebugRunOptions): Promise<AirportC
     return fetchAirportsByIcaos(service, options.icaos);
   }
 
-  // EAD-only mode ignores generic airport sampling and runs only airports listed in EAD coverage.
+  // EAD-only mode should still use latest Supabase airports, but route only EAD-supported ICAOs.
   if (options.sourceMode === "ead-only") {
-    const allEadIcaos = listAllEadIcaos();
-    const normalizedFilters = options.countries.map(normalizeCountryName).filter(Boolean);
-    let filtered = allEadIcaos;
-    if (normalizedFilters.length > 0) {
-      filtered = filtered.filter((icao) => {
-        const label = getEadCountryLabelForIcao(icao) || "";
-        const countryName = eadCountryNameFromLabel(label);
-        const normalizedCountry = normalizeCountryName(countryName);
-        const normalizedLabel = normalizeCountryName(label);
-        return normalizedFilters.some((needle) => normalizedCountry.includes(needle) || normalizedLabel.includes(needle));
-      });
+    const PAGE_SIZE = 1000;
+    const MAX_ROWS = 10_000;
+    const allRows: Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }> = [];
+    let offset = 0;
+    while (allRows.length < MAX_ROWS) {
+      let query = service
+        .from("airports")
+        .select("icao,country,name,updated_at")
+        .eq("visible", true)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (options.countries.length > 0) query = query.in("country", options.countries);
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) break;
+      allRows.push(...(data as Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }>));
+      if (data.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
     }
-    const baseRows = await fetchAirportsByIcaos(service, filtered);
-    return options.allAirports ? baseRows : sample(baseRows, options.quantity, options.randomSample);
+
+    const rows = allRows
+      .map((r) => ({
+        icao: String(r.icao || "").toUpperCase(),
+        country: String(r.country || "Unknown"),
+        name: String(r.name || "Unknown"),
+        updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0,
+      }))
+      .filter((r) => /^[A-Z0-9]{4}$/.test(r.icao))
+      .filter((r) => isEadSupportedIcao(r.icao))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map(({ icao, country, name }) => ({ icao, country, name }));
+
+    if (options.allAirports) return rows;
+    return sample(rows, options.quantity, options.randomSample);
   }
 
   const PAGE_SIZE = 1000;
@@ -355,6 +382,10 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       const detail = await withTimeout(fn(), timeoutMs);
       setStep(step, "passed", detail || "Completed.");
     } catch (err) {
+      if (err instanceof SkipStepError) {
+        setStep(step, "skipped", err.message || "Step not available for this airport.");
+        return;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       if (/timeout/i.test(msg)) setStep(step, "timeout", msg);
       else setStep(step, "failed", msg);
@@ -398,7 +429,13 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
 
   await doStep("pdf", async () => {
     const res = await requestOrThrow(`${run.baseUrl}${endpoints.pdfUrl}`);
-    if (!res.ok) throw new Error(await readErrorDetail(res, "PDF"));
+    if (!res.ok) {
+      const detail = await readErrorDetail(res, "PDF");
+      if (res.status === 404) {
+        throw new SkipStepError(`${detail} | PDF document not available for this airport in source.`);
+      }
+      throw new Error(detail);
+    }
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength < 5 || String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") {
       throw new Error("Downloaded bytes are not a PDF");
@@ -417,11 +454,20 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
   await doStep("gen", async () => {
     if (endpoints.genPdfUrl.includes("/api/aip/gen/pdf")) {
       const sync = await requestOrThrow(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`);
-      if (!sync.ok) throw new Error(await readErrorDetail(sync, "GEN sync"));
+      if (!sync.ok) {
+        const detail = await readErrorDetail(sync, "GEN sync");
+        if (sync.status === 404) {
+          throw new SkipStepError(`${detail} | GEN 1.2 source not available for this prefix.`);
+        }
+        throw new Error(detail);
+      }
     }
     const pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
     if (!pdf.ok) {
       const detail = await readErrorDetail(pdf, "GEN PDF");
+      if (pdf.status === 404) {
+        throw new SkipStepError(`${detail} | GEN 1.2 PDF not published for this airport/prefix.`);
+      }
       if (isAsecnaGenNotAvailable(pdf, detail)) {
         return "Endpoint successful; this ASECNA country does not publish a GEN 1.2 section in the menu.";
       }
@@ -558,13 +604,15 @@ export async function startDebugRun(rawOptions: Partial<DebugRunOptions>, baseUr
     ? rawOptions.icaos.map((i) => String(i).trim().toUpperCase()).filter((i) => /^[A-Z0-9]{4}$/.test(i))
     : undefined;
   const sourceMode: "auto" | "ead-only" = rawOptions.sourceMode === "ead-only" ? "ead-only" : "auto";
+  const requestedConcurrency = Math.max(1, Math.min(8, Number(rawOptions.concurrency ?? 3)));
   const options: DebugRunOptions = {
     quantity: Math.max(1, Math.min(500, Number(rawOptions.quantity ?? 25))),
     allAirports: Boolean(rawOptions.allAirports ?? false),
     randomSample: Boolean(rawOptions.randomSample ?? true),
     countries: Array.isArray(rawOptions.countries) ? rawOptions.countries.slice(0, 50) : [],
     excludeCaptchaCountries: Boolean(rawOptions.excludeCaptchaCountries ?? false),
-    concurrency: Math.max(1, Math.min(8, Number(rawOptions.concurrency ?? 3))),
+    // EAD blocks/invalidates sessions aggressively under parallel logins; force single worker in ead-only mode.
+    concurrency: sourceMode === "ead-only" ? 1 : requestedConcurrency,
     steps: Array.isArray(rawOptions.steps) && rawOptions.steps.length > 0
       ? rawOptions.steps.filter((s): s is StepName => ALL_STEPS.includes(s as StepName))
       : ALL_STEPS,

@@ -31,3 +31,6 @@ migrations/
 !data/asecna-airports.json
 !data/usa-aip-icaos-by-state.json
 !data/aip-data.json
+!data/airport-coords.json
+!data/rus-aip-international-airports.json
+!data/regions.json

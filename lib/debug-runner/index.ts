@@ -108,6 +108,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientStepError(step: StepName, message: string): boolean {
+  const msg = String(message || "").toLowerCase();
+  if (!msg) return false;
+  if (msg.includes("timeout after")) return true;
+  if (msg.includes("fetch failed for")) return true;
+  if (msg.includes("access denied") || msg.includes("session expired")) return true;
+  if (msg.includes("econnreset") || msg.includes("etimedout") || msg.includes("eai_again")) return true;
+  if (msg.includes("http 429")) return true;
+  if (/\bhttp 5\d{2}\b/.test(msg)) return true;
+  if ((step === "pdf" || step === "gen") && msg.includes("http 404")) return true;
+  if (msg.includes("missing after sync") || msg.includes("cache miss") || msg.includes("wrong prefix mapping")) return true;
+  return false;
+}
+
 function logEvent(run: DebugRun, event: { level: "info" | "error"; message: string; airport?: string }) {
   const full = { at: new Date().toISOString(), ...event };
   run.events.push(full);
@@ -378,17 +396,34 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       return;
     }
     setStep(step, "running", "Started.");
-    try {
-      const detail = await withTimeout(fn(), timeoutMs);
-      setStep(step, "passed", detail || "Completed.");
-    } catch (err) {
-      if (err instanceof SkipStepError) {
-        setStep(step, "skipped", err.message || "Step not available for this airport.");
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const detail = await withTimeout(fn(), timeoutMs);
+        const suffix = attempt > 1 ? ` (recovered on retry ${attempt})` : "";
+        setStep(step, "passed", `${detail || "Completed."}${suffix}`);
+        return;
+      } catch (err) {
+        if (err instanceof SkipStepError) {
+          setStep(step, "skipped", err.message || "Step not available for this airport.");
+          return;
+        }
+        const msg = err instanceof Error ? err.message : String(err);
+        const shouldRetry = attempt < maxAttempts && isTransientStepError(step, msg) && !run.stopRequested;
+        if (shouldRetry) {
+          const shortened = msg.length > 220 ? `${msg.slice(0, 220)}...` : msg;
+          setStep(
+            step,
+            "running",
+            `Attempt ${attempt}/${maxAttempts} transient failure: ${shortened} | retrying shortly...`
+          );
+          await sleep(step === "pdf" || step === "gen" ? 2000 : 1200);
+          continue;
+        }
+        if (/timeout/i.test(msg)) setStep(step, "timeout", msg);
+        else setStep(step, "failed", msg);
         return;
       }
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/timeout/i.test(msg)) setStep(step, "timeout", msg);
-      else setStep(step, "failed", msg);
     }
   };
 

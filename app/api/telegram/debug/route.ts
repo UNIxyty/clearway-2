@@ -4,6 +4,7 @@ import { startDebugRun } from "@/lib/debug-runner";
 type DebugStep = "aip" | "notam" | "weather" | "pdf" | "gen";
 type SourceMode = "auto" | "ead-only";
 type DebugScope = "single" | "all" | "country";
+type AwaitingInput = "icao" | "country" | null;
 
 type TelegramChat = {
   id?: number;
@@ -29,8 +30,6 @@ type TelegramUpdate = {
 const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
-const DEFAULT_UI_ICAO = "EFJO";
-const COUNTRY_PRESETS = ["Finland", "Sweden", "Germany", "Greece", "Netherlands"] as const;
 
 type DebugUiState = {
   sourceMode: SourceMode;
@@ -40,6 +39,7 @@ type DebugUiState = {
   quantity: number;
   icao: string;
   country: string;
+  awaitingInput: AwaitingInput;
   lastRunId?: string;
 };
 
@@ -72,8 +72,9 @@ function defaultUiState(): DebugUiState {
     steps: [...DEFAULT_STEPS],
     scope: "single",
     quantity: 50,
-    icao: DEFAULT_UI_ICAO,
-    country: "Finland",
+    icao: "",
+    country: "",
+    awaitingInput: null,
   };
 }
 
@@ -92,17 +93,24 @@ function isChatAllowed(chatId: string): boolean {
 
 function stateSummary(state: DebugUiState): string {
   const scopeLine = state.scope === "single"
-    ? `single ICAO: ${state.icao}`
+    ? `single ICAO: ${state.icao || "(not set)"}`
     : state.scope === "country"
-      ? `one country: ${state.country} (all airports)`
+      ? `one country: ${state.country || "(not set)"} (all airports)`
       : `all airports, qty=${state.quantity}`;
   const lastRun = state.lastRunId ? `last run: ${state.lastRunId}` : "last run: none";
+  const awaiting =
+    state.awaitingInput === "icao"
+      ? "awaiting input: send ICAO code (e.g. EFJO)"
+      : state.awaitingInput === "country"
+        ? "awaiting input: send country name (e.g. Finland)"
+        : "awaiting input: none";
   return [
     "Debug runner menu",
     `source: ${state.sourceMode}`,
     `concurrency: ${state.concurrency}`,
     `steps: ${state.steps.join(",")}`,
     `scope: ${scopeLine}`,
+    awaiting,
     lastRun,
     "",
     "Tip: You can still run text commands like /debug EFJO",
@@ -159,42 +167,18 @@ function menuKeyboard(state: DebugUiState) {
       ],
       [
         {
-          text: `${selected(state.icao === "EFJO")}ICAO EFJO`,
-          callback_data: `${BOT_CALLBACK_PREFIX}icao:EFJO`,
-        },
-        {
-          text: `${selected(state.icao === "EHAM")}ICAO EHAM`,
-          callback_data: `${BOT_CALLBACK_PREFIX}icao:EHAM`,
-        },
-        {
-          text: `${selected(state.icao === "EDDF")}ICAO EDDF`,
-          callback_data: `${BOT_CALLBACK_PREFIX}icao:EDDF`,
+          text: "Set ICAO",
+          callback_data: `${BOT_CALLBACK_PREFIX}input:icao`,
         },
       ],
       [
         {
-          text: `${selected(state.country === COUNTRY_PRESETS[0])}Country ${COUNTRY_PRESETS[0]}`,
-          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[0]}`,
+          text: "Set country",
+          callback_data: `${BOT_CALLBACK_PREFIX}input:country`,
         },
         {
-          text: `${selected(state.country === COUNTRY_PRESETS[1])}Country ${COUNTRY_PRESETS[1]}`,
-          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[1]}`,
-        },
-      ],
-      [
-        {
-          text: `${selected(state.country === COUNTRY_PRESETS[2])}Country ${COUNTRY_PRESETS[2]}`,
-          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[2]}`,
-        },
-        {
-          text: `${selected(state.country === COUNTRY_PRESETS[3])}Country ${COUNTRY_PRESETS[3]}`,
-          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[3]}`,
-        },
-      ],
-      [
-        {
-          text: `${selected(state.country === COUNTRY_PRESETS[4])}Country ${COUNTRY_PRESETS[4]}`,
-          callback_data: `${BOT_CALLBACK_PREFIX}country:${COUNTRY_PRESETS[4]}`,
+          text: "Clear input mode",
+          callback_data: `${BOT_CALLBACK_PREFIX}input:clear`,
         },
       ],
       [
@@ -354,6 +338,12 @@ async function openMenu(chatId: string): Promise<void> {
 }
 
 async function runWithState(chatId: string, state: DebugUiState): Promise<string> {
+  if (state.scope === "single" && !/^[A-Z0-9]{4}$/.test(state.icao)) {
+    throw new Error("Single ICAO scope requires a valid ICAO. Tap 'Set ICAO' and send one.");
+  }
+  if (state.scope === "country" && !state.country.trim()) {
+    throw new Error("Country scope requires a country name. Tap 'Set country' and send one.");
+  }
   const icaos = state.scope === "single" ? [state.icao] : [];
   const countries = state.scope === "country" ? [state.country] : [];
   const run = await startDebugRun(
@@ -370,6 +360,7 @@ async function runWithState(chatId: string, state: DebugUiState): Promise<string
     },
     process.env.DEBUG_RUNNER_BASE_URL || "http://127.0.0.1:3000"
   );
+  state.awaitingInput = null;
   state.lastRunId = run.id;
   return run.id;
 }
@@ -394,25 +385,59 @@ function applyCallbackAction(state: DebugUiState, action: string): "run" | "help
   if (action.startsWith("scope:")) {
     const scope = action.slice(6);
     state.scope = scope === "all" ? "all" : scope === "country" ? "country" : "single";
+    state.awaitingInput = null;
     return "updated";
   }
-  if (action.startsWith("icao:")) {
-    const icao = action.slice(5).toUpperCase();
-    if (/^[A-Z0-9]{4}$/.test(icao)) {
-      state.icao = icao;
-      state.scope = "single";
-      return "updated";
-    }
+  if (action === "input:icao") {
+    state.awaitingInput = "icao";
+    state.scope = "single";
+    return "updated";
   }
-  if (action.startsWith("country:")) {
-    const country = action.slice(8).trim();
-    if (country) {
-      state.country = country;
-      state.scope = "country";
-      return "updated";
-    }
+  if (action === "input:country") {
+    state.awaitingInput = "country";
+    state.scope = "country";
+    return "updated";
+  }
+  if (action === "input:clear") {
+    state.awaitingInput = null;
+    return "updated";
   }
   return "unknown";
+}
+
+async function applyAwaitingInput(
+  chatId: string,
+  text: string
+): Promise<{ consumed: boolean; response?: NextResponse }> {
+  const state = getOrCreateState(chatId);
+  if (!state.awaitingInput) return { consumed: false };
+  if (text.startsWith("/")) return { consumed: false };
+
+  if (state.awaitingInput === "icao") {
+    const icao = text.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(icao)) {
+      await sendTelegramMessage(chatId, "Invalid ICAO. Send exactly 4 letters/numbers, e.g. EFJO.");
+      return { consumed: true, response: NextResponse.json({ ok: true, ignored: "invalid icao" }) };
+    }
+    state.icao = icao;
+    state.scope = "single";
+    state.awaitingInput = null;
+    await sendTelegramMessage(chatId, `ICAO set to ${icao}.`);
+    await openMenu(chatId);
+    return { consumed: true, response: NextResponse.json({ ok: true, updated: "icao" }) };
+  }
+
+  const country = text.trim();
+  if (!country) {
+    await sendTelegramMessage(chatId, "Country cannot be empty. Example: Finland");
+    return { consumed: true, response: NextResponse.json({ ok: true, ignored: "empty country" }) };
+  }
+  state.country = country;
+  state.scope = "country";
+  state.awaitingInput = null;
+  await sendTelegramMessage(chatId, `Country set to ${country}.`);
+  await openMenu(chatId);
+  return { consumed: true, response: NextResponse.json({ ok: true, updated: "country" }) };
 }
 
 async function handleDebugMessage(chatId: string, text: string): Promise<NextResponse> {
@@ -497,6 +522,18 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
     return NextResponse.json({ ok: true, help: true });
   }
 
+  if (result === "updated" && action.includes("input:")) {
+    if (action.endsWith("icao")) {
+      await answerCallbackQuery(callbackId, "Send ICAO in next message");
+      await sendTelegramMessage(chatId, "Send ICAO now (example: EFJO).");
+    } else if (action.endsWith("country")) {
+      await answerCallbackQuery(callbackId, "Send country in next message");
+      await sendTelegramMessage(chatId, "Send country name now (example: Finland).");
+    } else {
+      await answerCallbackQuery(callbackId, "Input mode cleared");
+    }
+  }
+
   if (result === "run") {
     try {
       const runId = await runWithState(chatId, state);
@@ -514,7 +551,9 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
     }
   }
 
-  await answerCallbackQuery(callbackId, result === "updated" ? "Updated" : "Unknown action");
+  if (!(result === "updated" && action.includes("input:"))) {
+    await answerCallbackQuery(callbackId, result === "updated" ? "Updated" : "Unknown action");
+  }
   if (messageId > 0) {
     await editTelegramMessage(chatId, messageId, stateSummary(state), menuKeyboard(state));
   }
@@ -534,6 +573,8 @@ export async function POST(request: NextRequest) {
   const chatId = String(update?.message?.chat?.id || "").trim();
   const text = String(update?.message?.text || "").trim();
   if (!chatId || !text) return NextResponse.json({ ok: true, ignored: "missing chat/text" });
+  const pending = await applyAwaitingInput(chatId, text);
+  if (pending.consumed) return pending.response ?? NextResponse.json({ ok: true, consumed: true });
   return handleDebugMessage(chatId, text);
 }
 

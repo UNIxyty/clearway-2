@@ -24,4 +24,5 @@ migrations/
 !scripts/embed-ead-icaos.mjs
 !scripts/copy-ead-icaos-to-public.mjs
 !data/
+!data/icao_codes_by_country_v3_cleaned.json
 !data/ead-country-icaos.json

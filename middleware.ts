@@ -17,6 +17,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Telegram webhook must be reachable without browser session; endpoint validates its own secret header.
+  if (pathname === "/api/telegram/debug") {
+    return NextResponse.next();
+  }
+
   // Static and asset routes
   if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || isPublicAsset) {
     return NextResponse.next();

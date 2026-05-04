@@ -382,6 +382,14 @@ export default function AdminDebugPage() {
               Open raw stream
             </Link>
           ) : null}
+          {selectedRunId ? (
+            <Link
+              className="text-sm underline"
+              href={`/api/admin/debug/runs/${encodeURIComponent(selectedRunId)}${selectedRun ? "?download=1" : "?failures=1&download=1"}`}
+            >
+              Download raw JSON
+            </Link>
+          ) : null}
         </CardContent>
       </Card>
 

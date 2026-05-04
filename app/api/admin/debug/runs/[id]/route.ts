@@ -8,10 +8,12 @@ export async function GET(request: NextRequest, { params }: Params) {
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
   const run = getDebugRun(params.id);
+  const { searchParams } = new URL(request.url);
+  const shouldDownload = searchParams.get("download") === "1";
 
   // In-memory run found — return it directly.
   if (run) {
-    return NextResponse.json({
+    const payload = {
       id: run.id,
       status: run.status,
       startedAt: run.startedAt,
@@ -20,14 +22,33 @@ export async function GET(request: NextRequest, { params }: Params) {
       options: run.options,
       events: run.events,
       airports: run.airports,
-    });
+    };
+    if (shouldDownload) {
+      return new NextResponse(JSON.stringify(payload, null, 2), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="debug-run-${run.id}.json"`,
+        },
+      });
+    }
+    return NextResponse.json(payload);
   }
 
   // Run not in memory (server restarted) — try loading persisted failures from Supabase.
-  const { searchParams } = new URL(request.url);
   if (searchParams.get("failures") === "1") {
     const failures = await loadPersistedRunFailures(params.id);
-    return NextResponse.json({ id: params.id, failures });
+    const payload = { id: params.id, failures };
+    if (shouldDownload) {
+      return new NextResponse(JSON.stringify(payload, null, 2), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="debug-run-${params.id}-failures.json"`,
+        },
+      });
+    }
+    return NextResponse.json(payload);
   }
 
   return NextResponse.json({ error: "Run not found" }, { status: 404 });

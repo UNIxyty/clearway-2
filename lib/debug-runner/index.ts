@@ -432,7 +432,7 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
     if (!res.ok) {
       const detail = await readErrorDetail(res, "PDF");
       if (res.status === 404) {
-        throw new SkipStepError(`${detail} | PDF document not available for this airport in source.`);
+        throw new Error(`${detail} | PDF missing after sync (may be transient, cache miss, or source mapping issue).`);
       }
       throw new Error(detail);
     }
@@ -456,20 +456,24 @@ async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountri
       const sync = await requestOrThrow(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`);
       if (!sync.ok) {
         const detail = await readErrorDetail(sync, "GEN sync");
-        if (sync.status === 404) {
-          throw new SkipStepError(`${detail} | GEN 1.2 source not available for this prefix.`);
-        }
         throw new Error(detail);
       }
     }
-    const pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
+    let pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
+    if (!pdf.ok && pdf.status === 404 && endpoints.genPdfUrl.includes("/api/aip/gen/pdf")) {
+      // One extra sync+retry helps when the prefix PDF appears with slight lag.
+      const syncRetry = await requestOrThrow(`${run.baseUrl}/api/aip/gen/sync?icao=${encodeURIComponent(icao)}`);
+      if (syncRetry.ok) {
+        pdf = await requestOrThrow(`${run.baseUrl}${endpoints.genPdfUrl}`);
+      }
+    }
     if (!pdf.ok) {
       const detail = await readErrorDetail(pdf, "GEN PDF");
-      if (pdf.status === 404) {
-        throw new SkipStepError(`${detail} | GEN 1.2 PDF not published for this airport/prefix.`);
-      }
       if (isAsecnaGenNotAvailable(pdf, detail)) {
         return "Endpoint successful; this ASECNA country does not publish a GEN 1.2 section in the menu.";
+      }
+      if (pdf.status === 404) {
+        throw new Error(`${detail} | GEN 1.2 PDF missing after sync (may be transient, cache miss, or wrong prefix mapping).`);
       }
       throw new Error(detail);
     }

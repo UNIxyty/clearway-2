@@ -506,19 +506,39 @@ async function executeRun(run: DebugRun) {
   logEvent(run, { level: "info", message: `Run started for ${run.airports.length} airport(s).` });
 
   const artifactCountries = new Set<string>();
-  let nextIndex = 0;
-  const worker = async () => {
-    while (!run.stopRequested) {
-      const current = nextIndex;
-      nextIndex += 1;
-      if (current >= run.airports.length) return;
-      await runAirport(run, run.airports[current], artifactCountries);
-    }
+  const runCards = async (cards: AirportDebugCard[], concurrency: number, phaseLabel: string) => {
+    if (cards.length === 0) return;
+    logEvent(run, {
+      level: "info",
+      message: `Phase "${phaseLabel}" started for ${cards.length} airport(s) with concurrency ${concurrency}.`,
+    });
+    let nextIndex = 0;
+    const worker = async () => {
+      while (!run.stopRequested) {
+        const current = nextIndex;
+        nextIndex += 1;
+        if (current >= cards.length) return;
+        await runAirport(run, cards[current], artifactCountries);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, concurrency) }).map(() => worker()));
+    logEvent(run, { level: "info", message: `Phase "${phaseLabel}" completed.` });
   };
 
-  await Promise.all(
-    Array.from({ length: Math.max(1, run.options.concurrency) }).map(() => worker()),
-  );
+  // For "test all airports", run non-EAD first (faster, less session-sensitive),
+  // then EAD with concurrency 1 to avoid EAD session invalidation/rate-limit issues.
+  if (run.options.allAirports && run.options.sourceMode !== "ead-only") {
+    const nonEadCards = run.airports.filter((card) => !isEadSupportedIcao(card.icao));
+    const eadCards = run.airports.filter((card) => isEadSupportedIcao(card.icao));
+    await runCards(nonEadCards, 3, "non-ead");
+    if (!run.stopRequested) {
+      await runCards(eadCards, 1, "ead");
+    }
+  } else if (run.options.sourceMode === "ead-only") {
+    await runCards(run.airports, 1, "ead-only");
+  } else {
+    await runCards(run.airports, run.options.concurrency, "default");
+  }
 
   run.status = run.stopRequested ? "stopped" : "completed";
   run.endedAt = new Date().toISOString();

@@ -9,13 +9,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:20-bookworm-slim AS base-runtime
 WORKDIR /app
-ENV NODE_ENV=production
-ENV STORAGE_ROOT=/storage
-ENV CACHE_ROOT=/cache
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-COPY --from=builder /app ./
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -47,6 +43,16 @@ RUN apt-get update \
     xdg-utils \
  && rm -rf /var/lib/apt/lists/* \
  && npx playwright install chromium
+
+FROM base-runtime AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV STORAGE_ROOT=/storage
+ENV CACHE_ROOT=/cache
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 EXPOSE 3000
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

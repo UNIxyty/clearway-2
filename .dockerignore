@@ -7,3 +7,16 @@ test-results
 *.log
 Dockerfile*
 docker-compose*.yml
+aips/
+asecna_pdfs/
+downloads/
+docs/
+data/
+edited/
+tools/
+workers/
+scripts/
+migrations/
+*.pdf
+*.py
+*.tgz

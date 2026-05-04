@@ -77,6 +77,7 @@ function loadUsaIcaos() {
 
 const USA_ICAOS = loadUsaIcaos();
 let hasXvfbRunBinary = null;
+let resolvedPythonCmd = null;
 
 function useXvfb() {
   if (process.env.SYNC_USE_XVFB === "0" || process.env.SYNC_USE_XVFB === "false") return false;
@@ -90,6 +91,21 @@ function useXvfb() {
   }
   if (!hasXvfbRunBinary) return false;
   return true;
+}
+
+function getPythonCommand() {
+  if (resolvedPythonCmd) return resolvedPythonCmd;
+  const py3 = spawnSync("python3", ["--version"], { stdio: "ignore" });
+  if (!py3.error) {
+    resolvedPythonCmd = "python3";
+    return resolvedPythonCmd;
+  }
+  const py = spawnSync("python", ["--version"], { stdio: "ignore" });
+  if (!py.error) {
+    resolvedPythonCmd = "python";
+    return resolvedPythonCmd;
+  }
+  throw new Error("Python is required but not found (tried 'python3' and 'python'). Install Python in the sync-server runtime.");
 }
 
 async function fetchS3ObjectBytes(key) {
@@ -687,7 +703,7 @@ async function runDownload(icao, preferScraper = false) {
     return pdfPath;
   }
   if (isRussiaIcao(icao)) {
-    await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    await run(getPythonCommand(), [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
@@ -743,7 +759,7 @@ async function runExtract(icao, downloadedPdfPath = null, progress = null) {
   }
   const tempOut = join(PROJECT_ROOT, "data", "ead-aip", `${icao}-meta.json`);
   await run(
-    "python3",
+    getPythonCommand(),
     [META_EXTRACT_SCRIPT, pdfPath, "--out", tempOut, "--quiet"],
     process.env,
     (line) => {
@@ -1017,7 +1033,7 @@ async function runGenDownloadForIcao(icao, prefix, preferScraper = false) {
     return;
   }
   if (isRussiaIcao(icao)) {
-    await run("python3", [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
+    await run(getPythonCommand(), [RUS_DOWNLOAD_SCRIPT, "--icao", icao], process.env);
     return;
   }
   if (String(prefix || "").toUpperCase() === RWANDA_ICAO_PREFIX || isRwandaIcao(icao)) {

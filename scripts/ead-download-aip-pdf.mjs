@@ -340,6 +340,7 @@ async function main() {
   }
 
   const countryLabel = resolveCountryLabelForIcao(icao);
+  const prefix = icao.slice(0, 2);
 
   log(`Downloading AD 2 PDF for ICAO ${icao} (country: ${countryLabel})`);
 

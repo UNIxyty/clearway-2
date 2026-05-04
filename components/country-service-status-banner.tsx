@@ -55,9 +55,20 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     const target = normalizeCountry(currentCountry);
     return data.countries.find((row) => normalizeCountry(row.country) === target) || null;
   }, [data, currentCountry]);
+  const rows = data?.countries ?? [];
+  const runningCountries = useMemo(
+    () => rows.filter((row) => row.runningDebug).map((row) => row.country),
+    [rows]
+  );
+  const hasAnyRunningDebug = runningCountries.length > 0 || Boolean(data?.hasGlobalRunningDebug);
 
   const warning = useMemo(() => {
     if (!data) return null;
+    if (runningCountries.length > 0) {
+      const shown = runningCountries.slice(0, 6).join(", ");
+      const extra = runningCountries.length > 6 ? ` +${runningCountries.length - 6} more` : "";
+      return `Currently debug script is running for: ${shown}${extra}. You may experience troubles and bugs.`;
+    }
     if (currentCountryState?.runningDebug) {
       return `Currently debug script is running for ${currentCountryState.country}, you may experience troubles and bugs.`;
     }
@@ -65,8 +76,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
       return "Currently debug script is running for all countries, you may experience troubles and bugs.";
     }
     return null;
-  }, [data, currentCountryState]);
-  const rows = data?.countries ?? [];
+  }, [data, currentCountryState, runningCountries]);
   const statusCounts = useMemo(() => {
     const counts = {
       not_checked: 0,
@@ -110,7 +120,13 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <div className="max-w-[300px] rounded-md border bg-background/95 px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] text-muted-foreground">
+      <div
+        className={`max-w-[300px] rounded-md border px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] ${
+          hasAnyRunningDebug
+            ? "border-orange-300 bg-orange-50/95 text-orange-900 dark:border-orange-700 dark:bg-orange-950/70 dark:text-orange-200"
+            : "bg-background/95 text-muted-foreground"
+        }`}
+      >
         <div className="font-medium text-foreground text-[11px]">Portal Service Status</div>
         <div className="flex items-center gap-1 my-0.5">
           {COUNTRY_SERVICE_STATES.map((state) => (
@@ -134,6 +150,13 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
         }`}
       >
         <div className="border-b px-3 py-2 text-sm font-medium">Country service statuses</div>
+        {hasAnyRunningDebug && (
+          <div className="border-b px-3 py-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40">
+            {data?.hasGlobalRunningDebug
+              ? "Debug is currently running globally for all countries."
+              : `Debug is currently running for: ${runningCountries.join(", ")}`}
+          </div>
+        )}
         <div className="border-b px-3 py-2 flex items-center gap-3">
           <div
             className="h-12 w-12 rounded-full border shrink-0"

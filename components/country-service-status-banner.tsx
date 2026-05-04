@@ -67,6 +67,40 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     return null;
   }, [data, currentCountryState]);
   const rows = data?.countries ?? [];
+  const statusCounts = useMemo(() => {
+    const counts = {
+      not_checked: 0,
+      in_work: 0,
+      operational: 0,
+      issues: 0,
+    };
+    for (const row of rows) counts[row.state] += 1;
+    return counts;
+  }, [rows]);
+  const totalStatuses = useMemo(
+    () => COUNTRY_SERVICE_STATES.reduce((sum, s) => sum + statusCounts[s], 0),
+    [statusCounts]
+  );
+  const pieBackground = useMemo(() => {
+    if (totalStatuses === 0) return "conic-gradient(#9ca3af 0deg 360deg)";
+    let cursor = 0;
+    const segments: string[] = [];
+    const colors: Record<(typeof COUNTRY_SERVICE_STATES)[number], string> = {
+      not_checked: "#9ca3af",
+      in_work: "#f97316",
+      operational: "#22c55e",
+      issues: "#ef4444",
+    };
+    for (const state of COUNTRY_SERVICE_STATES) {
+      const value = statusCounts[state];
+      if (value <= 0) continue;
+      const sweep = (value / totalStatuses) * 360;
+      const next = cursor + sweep;
+      segments.push(`${colors[state]} ${cursor.toFixed(2)}deg ${next.toFixed(2)}deg`);
+      cursor = next;
+    }
+    return `conic-gradient(${segments.join(", ")})`;
+  }, [statusCounts, totalStatuses]);
 
   if (!data && !error) return null;
 
@@ -78,43 +112,74 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     >
       <div className="max-w-[300px] rounded-md border bg-background/95 px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] text-muted-foreground">
         <div className="font-medium text-foreground text-[11px]">Portal Service Status</div>
+        <div className="flex items-center gap-1 my-0.5">
+          {COUNTRY_SERVICE_STATES.map((state) => (
+            <span
+              key={state}
+              className={`inline-block h-2 w-2 rounded-full ${COUNTRY_SERVICE_STATE_META[state].dotClass}`}
+            />
+          ))}
+        </div>
         <div>
           You can use the portal for your needs, but keep in mind that we are actively working on parts of it.
         </div>
         {warning && <div className="mt-1 text-amber-600 text-[10px]">{warning}</div>}
       </div>
 
-      {open && (
-        <div className="mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl">
-          <div className="border-b px-3 py-2 text-sm font-medium">Country service statuses</div>
-          <div className="border-b px-3 py-2 text-xs text-muted-foreground grid grid-cols-1 gap-1">
-            {COUNTRY_SERVICE_STATES.map((state) => (
-              <div key={state} className="flex items-center gap-2">
-                <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[state].dotClass}`} />
-                <span>{COUNTRY_SERVICE_STATE_META[state].description}</span>
-              </div>
-            ))}
-          </div>
-          <div className="max-h-[44vh] overflow-auto px-3 py-2 text-xs">
-            {rows.map((row) => (
-              <div key={row.country} className="flex items-center justify-between gap-2 py-1 border-b last:border-b-0">
-                <div className="min-w-0">
-                  <div className="truncate text-foreground">{row.country}</div>
-                  {row.runningDebug && (
-                    <div className="text-amber-600">
-                      Currently debug script is running for this country, you may experience troubles and bugs.
-                    </div>
-                  )}
+      <div
+        className={`absolute left-0 mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl transition-all duration-200 ease-out origin-top-left ${
+          open
+            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+        }`}
+      >
+        <div className="border-b px-3 py-2 text-sm font-medium">Country service statuses</div>
+        <div className="border-b px-3 py-2 flex items-center gap-3">
+          <div
+            className="h-12 w-12 rounded-full border shrink-0"
+            style={{ background: pieBackground }}
+            title="Portal status distribution"
+          />
+          <div className="text-[11px] text-muted-foreground grid grid-cols-1 gap-0.5">
+            {COUNTRY_SERVICE_STATES.map((state) => {
+              const count = statusCounts[state];
+              const percent = totalStatuses > 0 ? Math.round((count / totalStatuses) * 100) : 0;
+              return (
+                <div key={state} className="flex items-center gap-2">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[state].dotClass}`} />
+                  <span>{COUNTRY_SERVICE_STATE_META[state].label}: {count} ({percent}%)</span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[row.state].dotClass}`} />
-                  <span className="text-muted-foreground">{COUNTRY_SERVICE_STATE_META[row.state].label}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-      )}
+        <div className="border-b px-3 py-2 text-xs text-muted-foreground grid grid-cols-1 gap-1">
+          {COUNTRY_SERVICE_STATES.map((state) => (
+            <div key={state} className="flex items-center gap-2">
+              <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[state].dotClass}`} />
+              <span>{COUNTRY_SERVICE_STATE_META[state].description}</span>
+            </div>
+          ))}
+        </div>
+        <div className="max-h-[32vh] overflow-auto px-3 py-2 text-xs">
+          {rows.map((row) => (
+            <div key={row.country} className="flex items-center justify-between gap-2 py-1 border-b last:border-b-0">
+              <div className="min-w-0">
+                <div className="truncate text-foreground">{row.country}</div>
+                {row.runningDebug && (
+                  <div className="text-amber-600">
+                    Currently debug script is running for this country, you may experience troubles and bugs.
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[row.state].dotClass}`} />
+                <span className="text-muted-foreground">{COUNTRY_SERVICE_STATE_META[row.state].label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

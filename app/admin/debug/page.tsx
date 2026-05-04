@@ -286,6 +286,9 @@ export default function AdminDebugPage() {
           >
             Start run
           </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/country-service-status">Country service statuses</Link>
+          </Button>
           {selectedRunId ? (
             <Button
               variant="outline"

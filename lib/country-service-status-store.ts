@@ -1,18 +1,11 @@
-import { readJsonFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import {
+  COUNTRY_SERVICE_STATES,
   type CountryServiceState,
   type CountryServiceStatusRow,
 } from "@/lib/country-service-status-shared";
 
-const STORAGE_KEY = "admin/country-service-statuses.json";
-
-type StoredStatuses = {
-  rows: CountryServiceStatusRow[];
-  savedAt: string;
-};
-
-function normalizeCountry(country: string): string {
+function normalizeCountry(country: string | null | undefined): string {
   return String(country || "").trim();
 }
 
@@ -21,39 +14,54 @@ function byCountry(a: string, b: string): number {
 }
 
 export async function loadCountryServiceStatusMap(): Promise<Map<string, CountryServiceStatusRow>> {
-  const payload = await readJsonFromStorage<StoredStatuses>(STORAGE_KEY);
-  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return new Map();
+  const { data, error } = await service
+    .from("country_service_statuses")
+    .select("country,state,note,updated_at,updated_by");
+  if (error || !data) return new Map();
+
   const out = new Map<string, CountryServiceStatusRow>();
-  for (const row of rows) {
+  for (const row of data as Array<{
+    country?: string | null;
+    state?: string | null;
+    note?: string | null;
+    updated_at?: string | null;
+    updated_by?: string | null;
+  }>) {
     const country = normalizeCountry(row.country);
     if (!country) continue;
+    const stateRaw = String(row.state || "");
+    const state = COUNTRY_SERVICE_STATES.includes(stateRaw as CountryServiceState)
+      ? (stateRaw as CountryServiceState)
+      : "not_checked";
     out.set(country, {
       country,
-      state: row.state,
+      state,
       note: String(row.note || ""),
-      updatedAt: row.updatedAt || null,
-      updatedBy: row.updatedBy || null,
+      updatedAt: row.updated_at || null,
+      updatedBy: row.updated_by || null,
     });
   }
   return out;
 }
 
 export async function saveCountryServiceStatusMap(map: Map<string, CountryServiceStatusRow>): Promise<void> {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return;
   const rows = [...map.values()]
     .map((row) => ({
       country: normalizeCountry(row.country),
       state: row.state,
       note: String(row.note || ""),
-      updatedAt: row.updatedAt || null,
-      updatedBy: row.updatedBy || null,
+      updated_at: row.updatedAt || new Date().toISOString(),
+      updated_by: row.updatedBy || null,
     }))
     .filter((row) => row.country)
     .sort((a, b) => byCountry(a.country, b.country));
 
-  await writeJsonToStorage(STORAGE_KEY, {
-    rows,
-    savedAt: new Date().toISOString(),
-  } satisfies StoredStatuses);
+  if (rows.length === 0) return;
+  await service.from("country_service_statuses").upsert(rows, { onConflict: "country" });
 }
 
 export async function upsertCountryServiceStatus(input: {
@@ -64,7 +72,8 @@ export async function upsertCountryServiceStatus(input: {
 }): Promise<CountryServiceStatusRow> {
   const country = normalizeCountry(input.country);
   if (!country) throw new Error("Country is required");
-  const map = await loadCountryServiceStatusMap();
+  const service = createSupabaseServiceRoleClient();
+  if (!service) throw new Error("Missing Supabase service role configuration");
   const row: CountryServiceStatusRow = {
     country,
     state: input.state,
@@ -72,8 +81,17 @@ export async function upsertCountryServiceStatus(input: {
     updatedAt: new Date().toISOString(),
     updatedBy: input.updatedBy || null,
   };
-  map.set(country, row);
-  await saveCountryServiceStatusMap(map);
+  const { error } = await service.from("country_service_statuses").upsert(
+    {
+      country: row.country,
+      state: row.state,
+      note: row.note,
+      updated_at: row.updatedAt,
+      updated_by: row.updatedBy,
+    },
+    { onConflict: "country" }
+  );
+  if (error) throw new Error(error.message);
   return row;
 }
 

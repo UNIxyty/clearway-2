@@ -72,20 +72,20 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[70]"
+      className="fixed top-3 left-3 z-[70]"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <div className="rounded-md border bg-background/95 px-3 py-2 shadow-md backdrop-blur text-xs text-muted-foreground">
-        <div className="font-medium text-foreground">Portal Service Status</div>
+      <div className="max-w-[300px] rounded-md border bg-background/95 px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] text-muted-foreground">
+        <div className="font-medium text-foreground text-[11px]">Portal Service Status</div>
         <div>
           You can use the portal for your needs, but keep in mind that we are actively working on parts of it.
         </div>
-        {warning && <div className="mt-1 text-amber-600">{warning}</div>}
+        {warning && <div className="mt-1 text-amber-600 text-[10px]">{warning}</div>}
       </div>
 
       {open && (
-        <div className="mt-2 w-[420px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl">
+        <div className="mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl">
           <div className="border-b px-3 py-2 text-sm font-medium">Country service statuses</div>
           <div className="border-b px-3 py-2 text-xs text-muted-foreground grid grid-cols-1 gap-1">
             {COUNTRY_SERVICE_STATES.map((state) => (

@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     image: clearway-selfhosted:latest
     command: node server.js
     env_file:
@@ -34,7 +35,11 @@ services:
       SE_NODE_SESSION_TIMEOUT: 900
 
   notam-sync:
-    image: clearway-selfhosted:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker-runner
+    image: clearway-selfhosted-worker:latest
     command: node scripts/notam-sync-server.mjs
     env_file:
       - .env
@@ -49,7 +54,11 @@ services:
       - /mnt/hdd-storage:/storage
 
   weather-sync:
-    image: clearway-selfhosted:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker-runner
+    image: clearway-selfhosted-worker:latest
     command: sh -c "SYNC_SERVER_MODE=weather node scripts/notam-sync-server.mjs"
     env_file:
       - .env
@@ -64,7 +73,11 @@ services:
       - /mnt/hdd-storage:/storage
 
   aip-sync:
-    image: clearway-selfhosted:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker-runner
+    image: clearway-selfhosted-worker:latest
     command: node scripts/aip-sync-server.mjs
     env_file:
       - .env

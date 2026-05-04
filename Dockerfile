@@ -56,3 +56,12 @@ COPY --from=builder /app/public ./public
 EXPOSE 3000
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "server.js"]
+
+FROM base-runtime AS worker-runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV STORAGE_ROOT=/storage
+ENV CACHE_ROOT=/cache
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+COPY --from=builder /app ./
+ENTRYPOINT ["dumb-init", "--"]

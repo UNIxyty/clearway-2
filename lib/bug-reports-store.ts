@@ -133,3 +133,21 @@ export async function setBugReportTelegramMessage(input: {
     })
     .eq("id", input.id);
 }
+
+export async function deleteFixedBugReport(input: {
+  id: string;
+  userId?: string;
+}): Promise<boolean> {
+  const service = createSupabaseServiceRoleClient();
+  if (!service) throw new Error("Missing Supabase service role configuration");
+  let query = service
+    .from("bug_reports")
+    .delete()
+    .eq("id", input.id)
+    .eq("status", "fixed")
+    .select("id");
+  if (input.userId) query = query.eq("user_id", input.userId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message || "Failed to delete bug report");
+  return Array.isArray(data) && data.length > 0;
+}

@@ -4,8 +4,6 @@ import { listBugReports, updateBugReportStatus } from "@/lib/bug-reports-store";
 import { BUG_REPORT_STATUS_META } from "@/lib/bug-reports-shared";
 import {
   TELEGRAM_BUG_CALLBACK_PREFIX,
-  bugStatusKeyboard,
-  formatBugReportShort,
   parseBugCallbackData,
 } from "@/lib/telegram-bug-actions";
 
@@ -39,6 +37,8 @@ const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
 type TelegramBotKind = "debug" | "bug";
+const BUG_VIEW_ALL_CALLBACK = `${TELEGRAM_BUG_CALLBACK_PREFIX}view:all`;
+const BUG_VIEW_AIRPORT_PREFIX = `${TELEGRAM_BUG_CALLBACK_PREFIX}view_airport:`;
 
 type DebugUiState = {
   sourceMode: SourceMode;
@@ -334,34 +334,64 @@ function parseBugsCommand(text: string): { status: "all" | "in_work"; limit: num
   return { status: "all", limit: 20 };
 }
 
-async function handleBugsCommand(chatId: string, text: string): Promise<NextResponse | null> {
+function formatBugRows(title: string, rows: Awaited<ReturnType<typeof listBugReports>>): string {
+  const lines = rows.map((row) => {
+    const status = BUG_REPORT_STATUS_META[row.status].label;
+    return `${row.id.slice(0, 8)} | ${row.airportIcao} | ${status} | ${row.description}`;
+  });
+  return [title, ...lines].join("\n");
+}
+
+function bugAirportsKeyboard(airports: string[]) {
+  const buttons = airports.map((icao) => ({
+    text: icao,
+    callback_data: `${BUG_VIEW_AIRPORT_PREFIX}${icao}`,
+  }));
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < buttons.length; i += 4) rows.push(buttons.slice(i, i + 4));
+  rows.push([{ text: "All reports", callback_data: BUG_VIEW_ALL_CALLBACK }]);
+  return { inline_keyboard: rows };
+}
+
+function bugBackKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "Back to airports", callback_data: BUG_VIEW_ALL_CALLBACK }]],
+  };
+}
+
+async function handleBugsCommand(
+  chatId: string,
+  text: string,
+  bot: TelegramBotKind,
+): Promise<NextResponse | null> {
   const cmd = parseBugsCommand(text);
   if (!cmd) return null;
+  if (bot !== "bug") {
+    return NextResponse.json({ ok: true, ignored: "bugs command ignored on debug bot" });
+  }
   if (!isBugChatAllowed(chatId)) {
-    await sendTelegramMessage(chatId, "This chat is not allowed to manage bug reports.");
+    await sendTelegramMessage(chatId, "This chat is not allowed to manage bug reports.", undefined, "bug");
     return NextResponse.json({ ok: true, ignored: "chat not allowed for bugs" });
   }
   const rows = await listBugReports({
     status: cmd.status === "in_work" ? "in_work" : undefined,
-    limit: cmd.limit,
+    limit: Math.max(100, cmd.limit),
   });
   if (!rows.length) {
-    await sendTelegramMessage(chatId, "No bug reports found.");
+    await sendTelegramMessage(chatId, "No bug reports found.", undefined, "bug");
     return NextResponse.json({ ok: true, bugs: 0 });
   }
-  const lines = [
-    `Bug reports (${cmd.status === "in_work" ? "in work" : "latest"}):`,
-    ...rows.map((row) => formatBugReportShort(row)),
-  ];
-  await sendTelegramMessage(chatId, lines.join("\n"));
-  for (const row of rows.slice(0, 10)) {
-    await sendTelegramMessage(
-      chatId,
-      `Bug ${row.id.slice(0, 8)} (${row.airportIcao})\n${row.description}`,
-      bugStatusKeyboard(row.id)
-    );
-  }
-  return NextResponse.json({ ok: true, bugs: rows.length });
+  const airports = Array.from(new Set(rows.map((row) => row.airportIcao))).sort((a, b) => a.localeCompare(b));
+  await sendTelegramMessage(
+    chatId,
+    [
+      `Bug reports (${cmd.status === "in_work" ? "in work" : "all"}): ${rows.length}`,
+      "Select airport:",
+    ].join("\n"),
+    bugAirportsKeyboard(airports),
+    "bug",
+  );
+  return NextResponse.json({ ok: true, bugs: rows.length, airports: airports.length });
 }
 
 async function telegramApi(method: string, payload: Record<string, unknown>, bot: TelegramBotKind = "debug"): Promise<void> {
@@ -574,7 +604,7 @@ async function handleDebugMessage(chatId: string, text: string): Promise<NextRes
   }
 }
 
-async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse> {
+async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind): Promise<NextResponse> {
   const cb = update.callback_query;
   const callbackId = String(cb?.id || "").trim();
   const action = String(cb?.data || "").trim();
@@ -587,7 +617,46 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
     }
   }
 
+  if (bot === "bug" && action === BUG_VIEW_ALL_CALLBACK) {
+    const rows = await listBugReports({ limit: 200 });
+    if (!rows.length) {
+      await answerCallbackQuery(callbackId, "No bug reports", "bug");
+      if (messageId > 0) {
+        await editTelegramMessage(chatId, messageId, "No bug reports found.", undefined, "bug");
+      }
+      return NextResponse.json({ ok: true, bugs: 0 });
+    }
+    const airports = Array.from(new Set(rows.map((row) => row.airportIcao))).sort((a, b) => a.localeCompare(b));
+    await answerCallbackQuery(callbackId, "Airport list", "bug");
+    if (messageId > 0) {
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        [`Bug reports: ${rows.length}`, "Select airport:"].join("\n"),
+        bugAirportsKeyboard(airports),
+        "bug",
+      );
+    }
+    return NextResponse.json({ ok: true, airports: airports.length });
+  }
+
+  if (bot === "bug" && action.startsWith(BUG_VIEW_AIRPORT_PREFIX)) {
+    const icao = action.slice(BUG_VIEW_AIRPORT_PREFIX.length).trim().toUpperCase();
+    const rows = (await listBugReports({ limit: 500 })).filter((row) => row.airportIcao === icao);
+    await answerCallbackQuery(callbackId, rows.length ? `Viewing ${icao}` : `${icao}: no reports`, "bug");
+    if (messageId > 0) {
+      const text = rows.length
+        ? formatBugRows(`Bug reports for ${icao} (${rows.length}):`, rows.slice(0, 30))
+        : `No bug reports found for ${icao}.`;
+      await editTelegramMessage(chatId, messageId, text, bugBackKeyboard(), "bug");
+    }
+    return NextResponse.json({ ok: true, airport: icao, bugs: rows.length });
+  }
+
   if (action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX)) {
+    if (bot !== "bug") {
+      return NextResponse.json({ ok: true, ignored: "bug callback ignored on debug bot" });
+    }
     if (!isBugChatAllowed(chatId)) {
       await answerCallbackQuery(callbackId, "Chat not allowed", "bug");
       return NextResponse.json({ ok: true, ignored: "chat not allowed for bugs" });
@@ -617,6 +686,10 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
       await sendTelegramMessage(chatId, `Failed to update bug status: ${msg}`, undefined, "bug");
       return NextResponse.json({ error: msg }, { status: 500 });
     }
+  }
+
+  if (bot !== "debug") {
+    return NextResponse.json({ ok: true, ignored: "debug callback ignored on bug bot" });
   }
 
   if (!isChatAllowed(chatId)) {
@@ -675,20 +748,24 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
 }
 
 export async function POST(request: NextRequest) {
-  if (!getWebhookSource(request)) {
+  const webhookSource = getWebhookSource(request);
+  if (!webhookSource) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const update = (await request.json().catch(() => ({}))) as TelegramUpdate;
   if (update.callback_query) {
-    return handleCallbackQuery(update);
+    return handleCallbackQuery(update, webhookSource);
   }
 
   const chatId = String(update?.message?.chat?.id || "").trim();
   const text = String(update?.message?.text || "").trim();
   if (!chatId || !text) return NextResponse.json({ ok: true, ignored: "missing chat/text" });
-  const bugsResponse = await handleBugsCommand(chatId, text);
+  const bugsResponse = await handleBugsCommand(chatId, text, webhookSource);
   if (bugsResponse) return bugsResponse;
+  if (webhookSource !== "debug") {
+    return NextResponse.json({ ok: true, ignored: "non-debug message on bug bot" });
+  }
   const pending = await applyAwaitingInput(chatId, text);
   if (pending.consumed) return pending.response ?? NextResponse.json({ ok: true, consumed: true });
   return handleDebugMessage(chatId, text);

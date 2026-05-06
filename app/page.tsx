@@ -650,6 +650,7 @@ function AIPPortalPageInner() {
   const [bugModalOpen, setBugModalOpen] = useState(false);
   const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
   const [bugReportError, setBugReportError] = useState<string | null>(null);
+  const [deletingBugReportId, setDeletingBugReportId] = useState<string | null>(null);
   const [pendingCaptchaIcao, setPendingCaptchaIcao] = useState<string | null>(null);
   const {
     dismissed: captchaConsentDismissed,
@@ -704,6 +705,27 @@ function AIPPortalPageInner() {
       setBugReportError(err instanceof Error ? err.message : "Failed to send bug report");
     } finally {
       setBugReportSubmitting(false);
+    }
+  }, []);
+
+  const deleteFixedBugReport = useCallback(async (reportId: string) => {
+    if (!reportId) return;
+    setDeletingBugReportId(reportId);
+    try {
+      const res = await fetch(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
+        method: "DELETE",
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; deleted?: boolean };
+      if (!res.ok) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      if (body.deleted) {
+        setBugReports((prev) => prev.filter((report) => report.id !== reportId));
+      }
+    } catch (err) {
+      setBugReportError(err instanceof Error ? err.message : "Failed to delete fixed bug report");
+    } finally {
+      setDeletingBugReportId(null);
     }
   }, []);
 
@@ -3412,7 +3434,11 @@ function AIPPortalPageInner() {
             <CountryServiceStatusBanner
               currentCountry={viewingAirport?.country || null}
             />
-            <BugReportsHoverBanner reports={bugReports} />
+            <BugReportsHoverBanner
+              reports={bugReports}
+              onDeleteFixed={deleteFixedBugReport}
+              deletingReportId={deletingBugReportId}
+            />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

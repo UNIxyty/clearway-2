@@ -10,9 +10,11 @@ import {
 
 type Props = {
   reports: BugReportRow[];
+  onDeleteFixed?: (reportId: string) => void;
+  deletingReportId?: string | null;
 };
 
-export default function BugReportsHoverBanner({ reports }: Props) {
+export default function BugReportsHoverBanner({ reports, onDeleteFixed, deletingReportId = null }: Props) {
   const [open, setOpen] = useState(false);
 
   const statusCounts = useMemo(() => {
@@ -68,7 +70,11 @@ export default function BugReportsHoverBanner({ reports }: Props) {
           })}
         </div>
         <div className="max-h-[32vh] overflow-auto px-3 py-2">
-          <BugReportBanner reports={reports} />
+          <BugReportBanner
+            reports={reports}
+            onDeleteFixed={onDeleteFixed}
+            deletingReportId={deletingReportId}
+          />
         </div>
       </div>
     </div>

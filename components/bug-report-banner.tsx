@@ -7,9 +7,11 @@ import {
 
 type Props = {
   reports: BugReportRow[];
+  onDeleteFixed?: (reportId: string) => void;
+  deletingReportId?: string | null;
 };
 
-export default function BugReportBanner({ reports }: Props) {
+export default function BugReportBanner({ reports, onDeleteFixed, deletingReportId = null }: Props) {
   if (!reports.length) return null;
 
   return (
@@ -30,6 +32,17 @@ export default function BugReportBanner({ reports }: Props) {
               <div className="shrink-0 flex items-center gap-1 text-muted-foreground">
                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
                 <span>{meta.label}</span>
+                {report.status === "fixed" && onDeleteFixed && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteFixed(report.id)}
+                    disabled={deletingReportId === report.id}
+                    className="ml-2 rounded border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted disabled:opacity-50"
+                    aria-label="Delete fixed bug report"
+                  >
+                    {deletingReportId === report.id ? "Deleting..." : "Delete"}
+                  </button>
+                )}
               </div>
             </div>
           );

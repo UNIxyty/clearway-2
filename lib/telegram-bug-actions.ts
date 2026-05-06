@@ -33,17 +33,16 @@ export function bugStatusKeyboard(reportId: string) {
 export function formatBugReportMessage(report: BugReportRow): string {
   return [
     "New bug report",
-    `id=${report.id}`,
-    `airport=${report.airportIcao}`,
-    `status=${BUG_REPORT_STATUS_META[report.status].label}`,
-    `user=${report.userEmail || report.userId}`,
+    `Airport: ${report.airportIcao}`,
+    `Reporter: ${report.userEmail || report.userId}`,
+    `Bug ID: ${report.id.slice(0, 8)}`,
     "",
-    report.description,
+    `Description: ${report.description}`,
   ].join("\n");
 }
 
 export function formatBugReportShort(report: BugReportRow): string {
-  return `${report.id.slice(0, 8)} | ${report.airportIcao} | ${BUG_REPORT_STATUS_META[report.status].label} | ${report.description}`;
+  return `${report.id.slice(0, 8)} | ${report.airportIcao} | ${report.description}`;
 }
 
 export function parseBugCallbackData(value: string): {

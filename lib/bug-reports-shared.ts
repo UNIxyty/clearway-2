@@ -30,9 +30,9 @@ export const BUG_REPORT_STATUS_META: Record<
   BugReportStatus,
   { label: string; dotClass: string }
 > = {
-  sent: { label: "Sent", dotClass: "bg-sky-500" },
-  read: { label: "Read", dotClass: "bg-indigo-500" },
-  in_work: { label: "In work", dotClass: "bg-amber-500" },
-  fixed: { label: "Fixed", dotClass: "bg-green-500" },
-  impossible_to_fix: { label: "Impossible to fix", dotClass: "bg-red-500" },
+  sent: { label: "Sent", dotClass: "bg-sky-500 border border-sky-300 shadow-sm" },
+  read: { label: "Read", dotClass: "bg-indigo-500 border border-indigo-300 shadow-sm" },
+  in_work: { label: "In work", dotClass: "bg-amber-500 border border-amber-300 shadow-sm" },
+  fixed: { label: "Fixed", dotClass: "bg-green-500 border border-green-300 shadow-sm" },
+  impossible_to_fix: { label: "Impossible to fix", dotClass: "bg-red-500 border border-red-300 shadow-sm" },
 };

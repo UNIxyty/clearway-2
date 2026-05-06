@@ -27,7 +27,7 @@ import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCou
 import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
 import CountryServiceStatusBanner from "@/components/country-service-status-banner";
 import BugReportModal from "@/components/bug-report-modal";
-import BugReportBanner from "@/components/bug-report-banner";
+import BugReportsHoverBanner from "@/components/bug-reports-hover-banner";
 import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
@@ -3411,12 +3411,7 @@ function AIPPortalPageInner() {
             <CountryServiceStatusBanner
               currentCountry={viewingAirport?.country || null}
             />
-            {bugReports.length > 0 && (
-              <div className="fixed top-[84px] left-3 z-[69] w-[360px] max-w-[92vw] rounded-md border bg-background/95 px-3 py-2 shadow-md backdrop-blur">
-                <div className="text-[11px] font-medium text-foreground mb-1">User Bug Reports</div>
-                <BugReportBanner reports={bugReports} />
-              </div>
-            )}
+            <BugReportsHoverBanner reports={bugReports} />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

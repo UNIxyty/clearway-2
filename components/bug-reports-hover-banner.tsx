@@ -31,11 +31,11 @@ export default function BugReportsHoverBanner({ reports }: Props) {
 
   return (
     <div
-      className="fixed top-[84px] left-3 z-[69]"
+      className="fixed top-[98px] left-3 z-[69]"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <div className="max-w-[300px] rounded-md border bg-background/95 text-muted-foreground px-2.5 py-1.5 shadow-md backdrop-blur text-[10px]">
+      <div className="w-[300px] rounded-md border bg-background/95 text-muted-foreground px-2.5 py-1.5 shadow-md backdrop-blur text-[10px]">
         <div className="font-medium text-foreground text-[11px]">User Bug Reports</div>
         <div className="flex items-center gap-1 my-0.5">
           {BUG_REPORT_STATUSES.map((status) => (

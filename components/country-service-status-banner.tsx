@@ -124,7 +124,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
       onMouseLeave={() => setOpen(false)}
     >
       <div
-        className={`max-w-[300px] rounded-md border px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] ${
+        className={`w-[300px] rounded-md border px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] ${
           hasAnyRunningDebug
             ? "border-orange-300 bg-orange-50/95 text-orange-900 dark:border-orange-700 dark:bg-orange-950/70 dark:text-orange-200"
             : "bg-background/95 text-muted-foreground"

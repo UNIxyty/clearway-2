@@ -38,6 +38,7 @@ type TelegramUpdate = {
 const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
+type TelegramBotKind = "debug" | "bug";
 
 type DebugUiState = {
   sourceMode: SourceMode;
@@ -74,14 +75,23 @@ function parseBugAllowedChatIds(): Set<string> {
   );
 }
 
-function isWebhookSecretValid(request: NextRequest): boolean {
-  const expected = String(process.env.TELEGRAM_BOT_WEBHOOK_SECRET || "").trim();
-  if (!expected) return false;
+function getWebhookSource(request: NextRequest): TelegramBotKind | null {
   const actual = request.headers.get("x-telegram-bot-api-secret-token")?.trim() || "";
-  return actual.length > 0 && actual === expected;
+  if (!actual) return null;
+  const debugSecret = String(process.env.TELEGRAM_BOT_WEBHOOK_SECRET || "").trim();
+  const bugSecret = String(process.env.TELEGRAM_BUG_BOT_WEBHOOK_SECRET || "").trim();
+  if (debugSecret && actual === debugSecret) return "debug";
+  if (bugSecret && actual === bugSecret) return "bug";
+  // Backward compatible: if only one secret exists, allow it for both webhook senders.
+  if (!bugSecret && debugSecret && actual === debugSecret) return "debug";
+  if (!debugSecret && bugSecret && actual === bugSecret) return "bug";
+  return null;
 }
 
-function getBotToken(): string {
+function getBotToken(kind: TelegramBotKind): string {
+  if (kind === "bug") {
+    return String(process.env.TELEGRAM_BUG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  }
   return String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
 }
 
@@ -354,8 +364,8 @@ async function handleBugsCommand(chatId: string, text: string): Promise<NextResp
   return NextResponse.json({ ok: true, bugs: rows.length });
 }
 
-async function telegramApi(method: string, payload: Record<string, unknown>): Promise<void> {
-  const botToken = getBotToken();
+async function telegramApi(method: string, payload: Record<string, unknown>, bot: TelegramBotKind = "debug"): Promise<void> {
+  const botToken = getBotToken(bot);
   if (!botToken) return;
   const url = `https://api.telegram.org/bot${botToken}/${method}`;
   await fetch(url, {
@@ -368,21 +378,23 @@ async function telegramApi(method: string, payload: Record<string, unknown>): Pr
 async function sendTelegramMessage(
   chatId: string,
   text: string,
-  replyMarkup?: Record<string, unknown>
+  replyMarkup?: Record<string, unknown>,
+  bot: TelegramBotKind = "debug"
 ): Promise<void> {
   await telegramApi("sendMessage", {
     chat_id: chatId,
     text,
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-  });
+  }, bot);
 }
 
 async function editTelegramMessage(
   chatId: string,
   messageId: number,
   text: string,
-  replyMarkup?: Record<string, unknown>
+  replyMarkup?: Record<string, unknown>,
+  bot: TelegramBotKind = "debug"
 ): Promise<void> {
   await telegramApi("editMessageText", {
     chat_id: chatId,
@@ -390,14 +402,14 @@ async function editTelegramMessage(
     text,
     disable_web_page_preview: true,
     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-  });
+  }, bot);
 }
 
-async function answerCallbackQuery(id: string, text?: string): Promise<void> {
+async function answerCallbackQuery(id: string, text?: string, bot: TelegramBotKind = "debug"): Promise<void> {
   await telegramApi("answerCallbackQuery", {
     callback_query_id: id,
     ...(text ? { text } : {}),
-  });
+  }, bot);
 }
 
 async function openMenu(chatId: string): Promise<void> {
@@ -577,12 +589,12 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
 
   if (action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX)) {
     if (!isBugChatAllowed(chatId)) {
-      await answerCallbackQuery(callbackId, "Chat not allowed");
+      await answerCallbackQuery(callbackId, "Chat not allowed", "bug");
       return NextResponse.json({ ok: true, ignored: "chat not allowed for bugs" });
     }
     const parsed = parseBugCallbackData(action);
     if (!parsed) {
-      await answerCallbackQuery(callbackId, "Invalid bug action");
+      await answerCallbackQuery(callbackId, "Invalid bug action", "bug");
       return NextResponse.json({ ok: true, ignored: "invalid bug callback" });
     }
     try {
@@ -591,16 +603,18 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
         status: parsed.status,
         statusUpdatedBy: `telegram:${chatId}`,
       });
-      await answerCallbackQuery(callbackId, `Set ${BUG_REPORT_STATUS_META[updated.status].label}`);
+      await answerCallbackQuery(callbackId, `Set ${BUG_REPORT_STATUS_META[updated.status].label}`, "bug");
       await sendTelegramMessage(
         chatId,
-        `Updated bug ${updated.id.slice(0, 8)} (${updated.airportIcao}) -> ${BUG_REPORT_STATUS_META[updated.status].label}`
+        `Updated bug ${updated.id.slice(0, 8)} (${updated.airportIcao}) -> ${BUG_REPORT_STATUS_META[updated.status].label}`,
+        undefined,
+        "bug"
       );
       return NextResponse.json({ ok: true, bugUpdated: updated.id });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Bug update failed";
-      await answerCallbackQuery(callbackId, "Update failed");
-      await sendTelegramMessage(chatId, `Failed to update bug status: ${msg}`);
+      await answerCallbackQuery(callbackId, "Update failed", "bug");
+      await sendTelegramMessage(chatId, `Failed to update bug status: ${msg}`, undefined, "bug");
       return NextResponse.json({ error: msg }, { status: 500 });
     }
   }
@@ -661,7 +675,7 @@ async function handleCallbackQuery(update: TelegramUpdate): Promise<NextResponse
 }
 
 export async function POST(request: NextRequest) {
-  if (!isWebhookSecretValid(request)) {
+  if (!getWebhookSource(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

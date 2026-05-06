@@ -24,12 +24,12 @@ export const COUNTRY_SERVICE_STATE_META: Record<
   },
   in_work: {
     label: "In work",
-    dotClass: "bg-orange-500 border border-orange-300 shadow-sm",
+    dotClass: "bg-orange-500",
     description: "Orange - in work",
   },
   partially_works: {
     label: "Partially works",
-    dotClass: "bg-amber-500 border border-amber-300 shadow-sm",
+    dotClass: "bg-transparent border border-amber-500",
     description: "Amber - service works partially and may fail for some airports/endpoints",
   },
   operational: {

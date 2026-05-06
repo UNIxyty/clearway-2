@@ -1281,6 +1281,7 @@ function AIPPortalPageInner() {
     const shouldExtractSync = syncRequested && !hasExtractCache;
     const shouldPdfSync =
       !syncRequested &&
+      !hasCacheEntry &&
       !aipPdfReady[icao] &&
       aipPdfExistsOnServer[icao] !== true;
 

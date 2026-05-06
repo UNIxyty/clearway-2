@@ -16,5 +16,4 @@ tools/
 workers/
 migrations/
 *.pdf
-*.py
 *.tgz

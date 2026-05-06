@@ -13,6 +13,7 @@ import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import { listScraperMetaResolvers } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
+import { filterBlockedIcaos } from "@/lib/blocked-airports";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -558,9 +559,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const isExactIcaoQuery = /^[A-Z0-9]{4}$/.test(qUpper);
+
   // Fast path: return cached/static list immediately and refresh scraper metadata in background.
   void refreshDynamicList();
-  const baseResults = cachedList.filter((a) => a.searchTextUpper.includes(qUpper));
+  const baseResults = cachedList.filter((a) =>
+    isExactIcaoQuery ? a.icao.toUpperCase() === qUpper : a.searchTextUpper.includes(qUpper)
+  );
 
   const userId = await getCurrentUserId();
   const dbResults = await searchVisibleAirportsFromDb(q, userId);
@@ -568,7 +573,7 @@ export async function GET(request: NextRequest) {
   for (const airport of baseResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
   // Prefer DB rows when available so all visible airports are searchable.
   for (const airport of dbResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
-  let results = Array.from(mergedByIcao.values());
+  let results = filterBlockedIcaos(Array.from(mergedByIcao.values()));
 
   // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
   if (qUpper.length === 4) {

@@ -14,7 +14,6 @@ type Props = {
 
 export default function BugReportsHoverBanner({ reports }: Props) {
   const [open, setOpen] = useState(false);
-  if (!reports.length) return null;
 
   const statusCounts = useMemo(() => {
     const counts: Record<(typeof BUG_REPORT_STATUSES)[number], number> = {
@@ -27,6 +26,8 @@ export default function BugReportsHoverBanner({ reports }: Props) {
     for (const report of reports) counts[report.status] += 1;
     return counts;
   }, [reports]);
+
+  if (!reports.length) return null;
 
   return (
     <div

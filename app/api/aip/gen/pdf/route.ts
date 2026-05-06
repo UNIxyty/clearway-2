@@ -6,6 +6,9 @@ import { readPdfFromStorage } from "@/lib/aip-storage";
 const GEN_PDF_PREFIX = "aip/gen-pdf";
 const SCRAPER_GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
 const NON_EAD_GEN_PDF_PREFIX = "aip/non-ead-gen-pdf";
+const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
+const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
+const SYNC_TIMEOUT_MS = 600_000;
 
 function buildCandidateKeys(prefix: string, icao: string): string[] {
   const keys = [`${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`];
@@ -19,6 +22,39 @@ function buildCandidateKeys(prefix: string, icao: string): string[] {
     keys.push("aip/usa-gen-pdf/GEN-1.2.pdf");
   }
   return [...new Set(keys)];
+}
+
+function isValidPdfBytes(bytes: Uint8Array | null): bytes is Uint8Array {
+  if (!bytes || bytes.length < 32) return false;
+  return (
+    bytes[0] === 0x25 && // %
+    bytes[1] === 0x50 && // P
+    bytes[2] === 0x44 && // D
+    bytes[3] === 0x46 && // F
+    bytes[4] === 0x2d // -
+  );
+}
+
+async function readFirstPdf(keys: string[]): Promise<Uint8Array | null> {
+  for (const key of keys) {
+    const bytes = await readPdfFromStorage(key);
+    if (isValidPdfBytes(bytes)) return bytes;
+  }
+  return null;
+}
+
+async function triggerGenSync(icao: string): Promise<void> {
+  if (!AIP_SYNC_URL || !/^[A-Z0-9]{4}$/.test(icao)) return;
+  const syncUrl = `${AIP_SYNC_URL}/sync/gen?icao=${encodeURIComponent(icao)}`;
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  try {
+    await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -36,10 +72,10 @@ export async function GET(request: NextRequest) {
   try {
     const filename = buildPdfDownloadFilename("GEN12", icao || prefix);
     const keys = buildCandidateKeys(prefix, icao);
-    let bytes: Uint8Array | null = null;
-    for (const key of keys) {
-      bytes = await readPdfFromStorage(key);
-      if (bytes) break;
+    let bytes = await readFirstPdf(keys);
+    if (!bytes && /^[A-Z0-9]{4}$/.test(icao)) {
+      await triggerGenSync(icao);
+      bytes = await readFirstPdf(keys);
     }
     if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);

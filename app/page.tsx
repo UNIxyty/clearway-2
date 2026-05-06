@@ -141,7 +141,7 @@ type ExtractedAirportRow = {
 // ICAO prefixes for EAD (EU) countries – when user views an airport with this prefix, we show AIP (EAD) and can sync from EC2
 const EAD_ICAO_PREFIXES = new Set([
   "LA", "UD", "LO", "UB", "EB", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF",
-  "LF", "UG", "ED", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "BK", "UA", "UC", "EV",
+  "LF", "UG", "ED", "ET", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "BK", "UA", "UC", "EV",
   "EY", "EL", "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ",
   "LE", "ES", "GC", "LS", "LT", "UK", "EG",
 ]);
@@ -3336,7 +3336,10 @@ function AIPPortalPageInner() {
               onClose={handleCaptchaConsentClose}
             />
 
-            <CountryServiceStatusBanner currentCountry={viewingAirport?.country || null} />
+            <CountryServiceStatusBanner
+              currentCountry={viewingAirport?.country || null}
+              currentIcao={viewingAirport?.icao || null}
+            />
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

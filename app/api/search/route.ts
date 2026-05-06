@@ -399,6 +399,28 @@ const EAD_ICAO_MAP = (() => {
   return out;
 })();
 
+const PREFERRED_ICAOS_BY_COUNTRY: Record<string, Set<string>> = {
+  malta: new Set(["LMML"]),
+};
+
+function normalizeCountryKey(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’]/g, "'")
+    .trim()
+    .toLowerCase();
+}
+
+function rankingScore(airport: AIPAirport): number {
+  const icao = String(airport.icao || "").toUpperCase();
+  const country = normalizeCountryKey(airport.country);
+  const preferred = PREFERRED_ICAOS_BY_COUNTRY[country];
+  if (preferred?.has(icao)) return 100;
+  if (country === "malta" && icao === "LMMG") return -10;
+  return 0;
+}
+
 let cachedList: IndexedAirport[] = withSearchIndex(buildBaseList());
 let dynamicRefreshInFlight: Promise<void> | null = null;
 let dynamicRefreshedAt = 0;
@@ -623,6 +645,8 @@ export async function GET(request: NextRequest) {
 
   const placeholderName = "EAD UNDEFINED";
   results.sort((a, b) => {
+    const rankDelta = rankingScore(b) - rankingScore(a);
+    if (rankDelta !== 0) return rankDelta;
     const aHasName = a.name !== placeholderName ? 1 : 0;
     const bHasName = b.name !== placeholderName ? 1 : 0;
     if (bHasName !== aHasName) return bHasName - aHasName;

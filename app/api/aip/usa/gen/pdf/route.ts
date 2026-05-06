@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 
-const GEN_KEY = "aip/usa-gen-pdf/GEN-1.2.pdf";
+const PRIMARY_GEN_KEY = "aip/usa-gen-pdf/GEN-1.2.pdf";
+const FALLBACK_GEN_KEYS = [
+  "aip/gen-pdf/US-GEN-1.2.pdf",
+  "aip/gen-pdf/KA-GEN-1.2.pdf",
+];
 
 function useInline(request: NextRequest): boolean {
   const p = request.nextUrl.searchParams;
@@ -11,7 +15,11 @@ function useInline(request: NextRequest): boolean {
 }
 
 export async function HEAD() {
-  const exists = await storageObjectExists(GEN_KEY);
+  const [primary, ...fallback] = await Promise.all([
+    storageObjectExists(PRIMARY_GEN_KEY),
+    ...FALLBACK_GEN_KEYS.map((key) => storageObjectExists(key)),
+  ]);
+  const exists = primary || fallback.some(Boolean);
   return new NextResponse(null, { status: exists ? 200 : 404 });
 }
 
@@ -21,7 +29,13 @@ export async function GET(request: NextRequest) {
   const filename = buildPdfDownloadFilename("GEN12", icao);
 
   try {
-    const bytes = await readPdfFromStorage(GEN_KEY);
+    let bytes = await readPdfFromStorage(PRIMARY_GEN_KEY);
+    if (!bytes) {
+      for (const fallbackKey of FALLBACK_GEN_KEYS) {
+        bytes = await readPdfFromStorage(fallbackKey);
+        if (bytes) break;
+      }
+    }
     if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);
     copy.set(bytes);

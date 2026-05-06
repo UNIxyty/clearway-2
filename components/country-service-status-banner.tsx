@@ -6,19 +6,27 @@ import {
   COUNTRY_SERVICE_STATES,
   type CountryServiceSummaryResponse,
 } from "@/lib/country-service-status-shared";
+import type { BugReportRow } from "@/lib/bug-reports-shared";
+import BugReportModal from "@/components/bug-report-modal";
+import BugReportBanner from "@/components/bug-report-banner";
 
 type Props = {
   currentCountry?: string | null;
+  currentIcao?: string | null;
 };
 
 function normalizeCountry(value: string | null | undefined): string {
   return String(value || "").trim().toLowerCase();
 }
 
-export default function CountryServiceStatusBanner({ currentCountry }: Props) {
+export default function CountryServiceStatusBanner({ currentCountry, currentIcao }: Props) {
   const [data, setData] = useState<CountryServiceSummaryResponse | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState(false);
+  const [reports, setReports] = useState<BugReportRow[]>([]);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +47,17 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
         }
       } catch {
         if (!cancelled) setError(true);
+      }
+
+      try {
+        const res = await fetch("/api/bug-reports", { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = (await res.json()) as { reports?: BugReportRow[] };
+        if (!cancelled) {
+          setReports(Array.isArray(payload.reports) ? payload.reports : []);
+        }
+      } catch {
+        // best-effort UI, ignore fetch failures
       }
     };
 
@@ -81,6 +100,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     const counts = {
       not_checked: 0,
       in_work: 0,
+      partially_works: 0,
       operational: 0,
       issues: 0,
     };
@@ -98,6 +118,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     const colors: Record<(typeof COUNTRY_SERVICE_STATES)[number], string> = {
       not_checked: "#9ca3af",
       in_work: "#f97316",
+      partially_works: "#f59e0b",
       operational: "#22c55e",
       issues: "#ef4444",
     };
@@ -113,6 +134,28 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
   }, [statusCounts, totalStatuses]);
 
   if (!data && !error) return null;
+
+  async function submitReport(payload: { airportIcao: string; description: string }) {
+    setReportSubmitting(true);
+    setReportError(null);
+    try {
+      const res = await fetch("/api/bug-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; report?: BugReportRow };
+      if (!res.ok || !body.report) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      setReports((prev) => [body.report!, ...prev]);
+      setReportModalOpen(false);
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : "Failed to send bug report");
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -138,6 +181,15 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
         </div>
         <div>
           You can use the portal for your needs, but keep in mind that we are actively working on parts of it.
+        </div>
+        <div className="mt-1">
+          <button
+            type="button"
+            className="rounded border px-1.5 py-0.5 text-[10px] hover:bg-muted"
+            onClick={() => setReportModalOpen(true)}
+          >
+            Found a bug
+          </button>
         </div>
         {warning && <div className="mt-1 text-amber-600 text-[10px]">{warning}</div>}
       </div>
@@ -202,7 +254,18 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
             </div>
           ))}
         </div>
+        <div className="border-t px-3 py-2">
+          <BugReportBanner reports={reports} />
+        </div>
       </div>
+      <BugReportModal
+        open={reportModalOpen}
+        initialIcao={currentIcao}
+        submitting={reportSubmitting}
+        error={reportError}
+        onClose={() => setReportModalOpen(false)}
+        onSubmit={submitReport}
+      />
     </div>
   );
 }

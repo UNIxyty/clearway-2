@@ -1,6 +1,7 @@
 export type CountryServiceState =
   | "not_checked"
   | "in_work"
+  | "partially_works"
   | "operational"
   | "issues";
 
@@ -23,8 +24,13 @@ export const COUNTRY_SERVICE_STATE_META: Record<
   },
   in_work: {
     label: "In work",
-    dotClass: "bg-orange-500",
+    dotClass: "bg-orange-500 ring-1 ring-orange-300",
     description: "Orange - in work",
+  },
+  partially_works: {
+    label: "Partially works",
+    dotClass: "bg-amber-500",
+    description: "Amber - service works partially and may fail for some airports/endpoints",
   },
   operational: {
     label: "Fully operational",
@@ -41,6 +47,7 @@ export const COUNTRY_SERVICE_STATE_META: Record<
 export const COUNTRY_SERVICE_STATES: CountryServiceState[] = [
   "not_checked",
   "in_work",
+  "partially_works",
   "operational",
   "issues",
 ];

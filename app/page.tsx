@@ -26,10 +26,13 @@ import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/l
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
 import CountryServiceStatusBanner from "@/components/country-service-status-banner";
+import BugReportModal from "@/components/bug-report-modal";
+import BugReportBanner from "@/components/bug-report-banner";
 import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { USA_WEB_AIP_URL, isUsaAipIcao } from "@/lib/usa-aip";
+import type { BugReportRow } from "@/lib/bug-reports-shared";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export type NotamItem = {
@@ -643,6 +646,10 @@ function AIPPortalPageInner() {
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
+  const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
+  const [bugModalOpen, setBugModalOpen] = useState(false);
+  const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
+  const [bugReportError, setBugReportError] = useState<string | null>(null);
   const [pendingCaptchaIcao, setPendingCaptchaIcao] = useState<string | null>(null);
   const {
     dismissed: captchaConsentDismissed,
@@ -657,6 +664,48 @@ function AIPPortalPageInner() {
   }, [results, selectedIcao]);
 
   const viewingAirport = selectedAirport;
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBugReports = async () => {
+      try {
+        const res = await fetch("/api/bug-reports", { cache: "no-store" });
+        if (!res.ok) return;
+        const payload = (await res.json().catch(() => ({}))) as { reports?: BugReportRow[] };
+        if (!cancelled) setBugReports(Array.isArray(payload.reports) ? payload.reports : []);
+      } catch {
+        // best effort
+      }
+    };
+    loadBugReports();
+    const id = window.setInterval(loadBugReports, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const submitBugReport = useCallback(async (payload: { airportIcao: string; description: string }) => {
+    setBugReportSubmitting(true);
+    setBugReportError(null);
+    try {
+      const res = await fetch("/api/bug-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; report?: BugReportRow };
+      if (!res.ok || !body.report) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      setBugReports((prev) => [body.report!, ...prev]);
+      setBugModalOpen(false);
+    } catch (err) {
+      setBugReportError(err instanceof Error ? err.message : "Failed to send bug report");
+    } finally {
+      setBugReportSubmitting(false);
+    }
+  }, []);
 
   const resultsLengthRef = useRef(0);
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
@@ -3015,6 +3064,20 @@ function AIPPortalPageInner() {
                         <span className="text-xs hidden sm:inline">Web AIP</span>
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="shrink-0 h-9 gap-1.5 px-2 bg-red-600 hover:bg-red-700 text-white border border-red-400"
+                      title="Report a bug for this airport"
+                      onClick={() => {
+                        setBugReportError(null);
+                        setBugModalOpen(true);
+                      }}
+                    >
+                      <FileWarningIcon className="size-4" />
+                      <span className="text-xs hidden sm:inline">Found a bug</span>
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4">
@@ -3336,10 +3399,24 @@ function AIPPortalPageInner() {
               onClose={handleCaptchaConsentClose}
             />
 
+            <BugReportModal
+              open={bugModalOpen}
+              initialIcao={viewingAirport?.icao || null}
+              submitting={bugReportSubmitting}
+              error={bugReportError}
+              onClose={() => setBugModalOpen(false)}
+              onSubmit={submitBugReport}
+            />
+
             <CountryServiceStatusBanner
               currentCountry={viewingAirport?.country || null}
-              currentIcao={viewingAirport?.icao || null}
             />
+            {bugReports.length > 0 && (
+              <div className="fixed top-[84px] left-3 z-[69] w-[360px] max-w-[92vw] rounded-md border bg-background/95 px-3 py-2 shadow-md backdrop-blur">
+                <div className="text-[11px] font-medium text-foreground mb-1">User Bug Reports</div>
+                <BugReportBanner reports={bugReports} />
+              </div>
+            )}
 
         <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
           Data sourced from official AIP publications. For operational use only.

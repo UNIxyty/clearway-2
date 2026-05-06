@@ -60,26 +60,35 @@ export function parseBugCallbackData(value: string): {
   return { reportId, status: statusRaw as BugReportStatus };
 }
 
-async function telegramApi<T>(method: string, payload: Record<string, unknown>): Promise<T | null> {
+async function telegramApi<T>(method: string, payload: Record<string, unknown>): Promise<T> {
   const token = bugBotToken();
-  if (!token) return null;
+  if (!token) throw new Error("TELEGRAM_BUG_BOT_TOKEN (or TELEGRAM_BOT_TOKEN) is not configured.");
   const url = `https://api.telegram.org/bot${token}/${method}`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) return null;
-    return (await res.json().catch(() => null)) as T | null;
-  } catch {
-    return null;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => null) as
+    | (T & { description?: string; ok?: boolean })
+    | null;
+  if (!res.ok) {
+    const detail = body && typeof body === "object" ? String((body as { description?: string }).description || "") : "";
+    throw new Error(`Telegram API ${res.status}${detail ? `: ${detail}` : ""}`);
   }
+  if (!body) throw new Error("Telegram API returned empty response.");
+  if (typeof body === "object" && "ok" in body && body.ok === false) {
+    const detail = String((body as { description?: string }).description || "Unknown Telegram API error");
+    throw new Error(detail);
+  }
+  return body as T;
 }
 
 export async function notifyTelegramBugReport(report: BugReportRow): Promise<void> {
   const chatId = bugChatId();
-  if (!chatId) return;
+  if (!chatId) {
+    throw new Error("TELEGRAM_BUG_CHAT_ID is not configured.");
+  }
   const payload = {
     chat_id: chatId,
     text: formatBugReportMessage(report),
@@ -89,6 +98,7 @@ export async function notifyTelegramBugReport(report: BugReportRow): Promise<voi
   const response = await telegramApi<{
     ok?: boolean;
     result?: { message_id?: number; chat?: { id?: number | string } };
+    description?: string;
   }>("sendMessage", payload);
   const messageId = Number(response?.result?.message_id || 0);
   if (messageId > 0) {

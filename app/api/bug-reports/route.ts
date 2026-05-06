@@ -35,8 +35,13 @@ export async function POST(request: NextRequest) {
       airportIcao,
       description,
     });
-    await notifyTelegramBugReport(report);
-    return NextResponse.json({ ok: true, report });
+    let telegramWarning: string | null = null;
+    try {
+      await notifyTelegramBugReport(report);
+    } catch (telegramError) {
+      telegramWarning = telegramError instanceof Error ? telegramError.message : "Telegram delivery failed";
+    }
+    return NextResponse.json({ ok: true, report, telegramWarning });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create bug report";
     return NextResponse.json({ error: message }, { status: 500 });

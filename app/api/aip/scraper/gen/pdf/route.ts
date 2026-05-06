@@ -5,7 +5,7 @@ import { readPdfFromStorage } from "@/lib/aip-storage";
 const GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
-const SYNC_TIMEOUT_MS = 300_000;
+const SYNC_TIMEOUT_MS = 600_000;
 
 async function triggerGenSync(icao: string): Promise<void> {
   if (!AIP_SYNC_URL) return;

@@ -672,7 +672,7 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
   });
 }
 
-async function runDownload(icao, preferScraper = false) {
+async function runDownload(icao, preferScraper = false, allowFallbackToScraper = true) {
   if (isUsaIcao(icao)) {
     const sourcePdf = join(USA_AIP_DIR, `${icao}_ad2.pdf`);
     mkdirSync(EAD_AIP_DIR, { recursive: true });
@@ -715,16 +715,27 @@ async function runDownload(icao, preferScraper = false) {
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
   }
-  if (useXvfb()) {
-    await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
+  try {
+    if (useXvfb()) {
+      await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", DOWNLOAD_SCRIPT, icao]);
+      const pdfPath = findDownloadedPdf(icao, preferScraper);
+      if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
+      return pdfPath;
+    }
+    await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
     const pdfPath = findDownloadedPdf(icao, preferScraper);
     if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
     return pdfPath;
+  } catch (eadErr) {
+    if (!preferScraper && allowFallbackToScraper) {
+      const fallbackScraper = getScraperSpecByIcao(icao);
+      if (fallbackScraper) {
+        logInfo("AIP-SYNC", `EAD AD2 failed for ${icao}, retrying via scraper flow (${fallbackScraper.country}).`);
+        return runDownload(icao, true, false);
+      }
+    }
+    throw eadErr;
   }
-  await run("node", [DOWNLOAD_SCRIPT, icao], process.env);
-  const pdfPath = findDownloadedPdf(icao, preferScraper);
-  if (!pdfPath) throw new Error(`Downloaded PDF not found for ${icao}`);
-  return pdfPath;
 }
 
 function mapMetaToAirportRow(meta, icao) {
@@ -998,7 +1009,7 @@ async function runRwandaGenDownload() {
   await downloadToFile(gen12PdfUrl, outPath);
 }
 
-async function runGenDownloadForIcao(icao, prefix, preferScraper = false) {
+async function runGenDownloadForIcao(icao, prefix, preferScraper = false, allowFallbackToScraper = true) {
   if (isUsaIcao(icao)) {
     const sourceGen = join(USA_AIP_DIR, "GEN1.2.pdf");
     mkdirSync(EAD_GEN_DIR, { recursive: true });
@@ -1042,7 +1053,19 @@ async function runGenDownloadForIcao(icao, prefix, preferScraper = false) {
   }
   const upperIcao = String(icao || "").trim().toUpperCase();
   const normalizedPrefix = SPAIN_LE_GEN_ALIAS_ICAOS.has(upperIcao) ? "LE" : prefix;
-  await runGenDownload(normalizedPrefix);
+  try {
+    await runGenDownload(normalizedPrefix);
+  } catch (eadErr) {
+    if (!preferScraper && allowFallbackToScraper) {
+      const fallbackScraper = getScraperSpecByIcao(icao);
+      if (fallbackScraper) {
+        logInfo("AIP-SYNC", `EAD GEN failed for ${icao}, retrying via scraper flow (${fallbackScraper.country}).`);
+        await runGenDownloadForIcao(icao, prefix, true, false);
+        return;
+      }
+    }
+    throw eadErr;
+  }
 }
 
 function findDownloadedGenPdf(icao, prefix, preferScraper = false) {

@@ -5,7 +5,7 @@ import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 const AIP_EAD_PDF_PREFIX = "aip/ead-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
-const SYNC_TIMEOUT_MS = 300_000;
+const SYNC_TIMEOUT_MS = 600_000;
 
 function badIcaoResponse() {
   return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });

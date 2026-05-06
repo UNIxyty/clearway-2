@@ -5,7 +5,7 @@ import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 const PDF_PREFIX = "aip/scraper-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
-const SYNC_TIMEOUT_MS = 300_000;
+const SYNC_TIMEOUT_MS = 600_000;
 
 function useInline(request: NextRequest): boolean {
   const p = request.nextUrl.searchParams;

@@ -10,8 +10,6 @@ const SYNC_TIMEOUT_MS = 600_000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h – delete cache older than this
 const FAST_CACHE_MAX_AGE_MS = Number(process.env.AIP_FAST_CACHE_MAX_AGE_MS || 6 * 60 * 60 * 1000); // 6h
 
-const refreshInFlight = new Map<string, Promise<void>>();
-
 async function getFromStorage(icao: string): Promise<{ airports: unknown[]; updatedAt: string | null } | null> {
   try {
     const key = `${AIP_EAD_PREFIX}/${icao}.json`;
@@ -66,39 +64,6 @@ async function fetchFromSyncServer(icao: string, extract: boolean, stream = fals
   }
 }
 
-async function fetchSyncJson(icao: string, extract: boolean): Promise<{ airports: unknown[] }> {
-  const res = await fetchFromSyncServer(icao, extract, false);
-  const data = (await res.json().catch(() => ({}))) as {
-    error?: string;
-    detail?: string;
-    code?: number;
-    airports?: unknown[];
-  };
-  if (!res.ok) {
-    const err = new Error(data.detail || data.error || `Sync failed with HTTP ${res.status}`);
-    (err as Error & { code?: number; status?: number }).code = data.code;
-    (err as Error & { code?: number; status?: number }).status = res.status;
-    throw err;
-  }
-  return { airports: Array.isArray(data.airports) ? data.airports : [] };
-}
-
-function scheduleBackgroundRefresh(icao: string, extract: boolean): boolean {
-  const key = `${icao}:${extract ? "1" : "0"}`;
-  if (refreshInFlight.has(key)) return false;
-  const task = (async () => {
-    try {
-      const data = await fetchSyncJson(icao, extract);
-      await putToStorage(icao, { airports: data.airports, updatedAt: new Date().toISOString() });
-    } catch (e) {
-      console.error(`AIP EAD background refresh failed for ${icao}:`, e);
-    } finally {
-      refreshInFlight.delete(key);
-    }
-  })();
-  refreshInFlight.set(key, task);
-  return true;
-}
 
 export async function GET(request: NextRequest) {
   if (!hasInternalDebugAccess(request)) {
@@ -139,7 +104,6 @@ export async function GET(request: NextRequest) {
     if (fromStorage) {
       const age = ageMs(fromStorage.updatedAt);
       const stale = age === null || age > FAST_CACHE_MAX_AGE_MS;
-      const refreshStarted = stale ? scheduleBackgroundRefresh(icao, extract) : false;
       return NextResponse.json({
         airports: fromStorage.airports,
         updatedAt: fromStorage.updatedAt,
@@ -147,7 +111,7 @@ export async function GET(request: NextRequest) {
           served: true,
           stale,
           ageMs: age,
-          refreshStarted,
+          refreshStarted: false,
         },
       });
     }

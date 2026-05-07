@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { startDebugRun } from "@/lib/debug-runner";
 import { listBugReports, updateBugReportStatus } from "@/lib/bug-reports-store";
-import { BUG_REPORT_STATUS_META } from "@/lib/bug-reports-shared";
+import { BUG_REPORT_STATUSES, BUG_REPORT_STATUS_META, type BugReportRow, type BugReportStatus } from "@/lib/bug-reports-shared";
 import {
   TELEGRAM_BUG_CALLBACK_PREFIX,
   parseBugCallbackData,
@@ -39,6 +39,7 @@ const BOT_CALLBACK_PREFIX = "dbg:";
 type TelegramBotKind = "debug" | "bug";
 const BUG_VIEW_ALL_CALLBACK = `${TELEGRAM_BUG_CALLBACK_PREFIX}view:all`;
 const BUG_VIEW_AIRPORT_PREFIX = `${TELEGRAM_BUG_CALLBACK_PREFIX}view_airport:`;
+const BUG_VIEW_ITEM_PREFIX = `${TELEGRAM_BUG_CALLBACK_PREFIX}view_item:`;
 
 type DebugUiState = {
   sourceMode: SourceMode;
@@ -334,22 +335,73 @@ function parseBugsCommand(text: string): { status: "all" | "in_work"; limit: num
   return { status: "all", limit: 20 };
 }
 
-function formatBugRows(title: string, rows: Awaited<ReturnType<typeof listBugReports>>): string {
-  const lines = rows.map((row) => {
-    const status = BUG_REPORT_STATUS_META[row.status].label;
-    return `${row.id.slice(0, 8)} | ${row.airportIcao} | ${status} | ${row.description}`;
-  });
-  return [title, ...lines].join("\n");
+function crop(text: string, max = 26): string {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  if (value.length <= max) return value;
+  return `${value.slice(0, Math.max(0, max - 6))}......`;
 }
 
-function bugAirportsKeyboard(airports: string[]) {
-  const buttons = airports.map((icao) => ({
-    text: icao,
+function reporterName(row: BugReportRow): string {
+  if (row.userEmail && row.userEmail.includes("@")) return row.userEmail.split("@")[0];
+  return `user_${row.userId.slice(0, 8)}`;
+}
+
+function formatBugDetail(row: BugReportRow): string {
+  const when = row.createdAt ? new Date(row.createdAt).toLocaleString() : "Unknown time";
+  const status = BUG_REPORT_STATUS_META[row.status].label;
+  return [
+    `Reporter: ${reporterName(row)}`,
+    `Date: ${when}`,
+    `Email: ${row.userEmail || "-"}`,
+    `Airport: ${row.airportIcao}`,
+    `Status: ${status}`,
+    "",
+    "Description:",
+    row.description,
+  ].join("\n");
+}
+
+function buildAirportSummaries(rows: BugReportRow[]): Array<{ icao: string; sample: string }> {
+  const byIcao = new Map<string, string>();
+  for (const row of rows) {
+    if (!byIcao.has(row.airportIcao)) byIcao.set(row.airportIcao, row.description);
+  }
+  return Array.from(byIcao.entries())
+    .map(([icao, sample]) => ({ icao, sample }))
+    .sort((a, b) => a.icao.localeCompare(b.icao));
+}
+
+function bugAirportsKeyboard(summaries: Array<{ icao: string; sample: string }>) {
+  const buttons = summaries.map(({ icao, sample }) => ({
+    text: `${icao} ${crop(sample)}`.trim(),
     callback_data: `${BUG_VIEW_AIRPORT_PREFIX}${icao}`,
   }));
   const rows: Array<Array<{ text: string; callback_data: string }>> = [];
-  for (let i = 0; i < buttons.length; i += 4) rows.push(buttons.slice(i, i + 4));
-  rows.push([{ text: "All reports", callback_data: BUG_VIEW_ALL_CALLBACK }]);
+  for (let i = 0; i < buttons.length; i += 1) rows.push([buttons[i]]);
+  return { inline_keyboard: rows };
+}
+
+function bugItemsKeyboard(icao: string, rows: BugReportRow[]) {
+  const lines = rows.slice(0, 25).map((row) => ({
+    text: `${row.id.slice(0, 8)} ${crop(row.description)}`.trim(),
+    callback_data: `${BUG_VIEW_ITEM_PREFIX}${row.id}`,
+  }));
+  const keyboard: Array<Array<{ text: string; callback_data: string }>> = lines.map((line) => [line]);
+  keyboard.push([{ text: "Back to airports", callback_data: BUG_VIEW_ALL_CALLBACK }]);
+  return { inline_keyboard: keyboard };
+}
+
+function bugDetailKeyboard(icao: string, reportId: string) {
+  const statuses: BugReportStatus[] = BUG_REPORT_STATUSES.filter((status) => status !== "sent");
+  const statusButtons = statuses.map((status) => ({
+    text: BUG_REPORT_STATUS_META[status].label,
+    callback_data: `${TELEGRAM_BUG_CALLBACK_PREFIX}set:${reportId}:${status}`,
+  }));
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < statusButtons.length; i += 2) rows.push(statusButtons.slice(i, i + 2));
+  rows.push([{ text: "Back to bug list", callback_data: `${BUG_VIEW_AIRPORT_PREFIX}${icao}` }]);
+  rows.push([{ text: "Back to airports", callback_data: BUG_VIEW_ALL_CALLBACK }]);
   return { inline_keyboard: rows };
 }
 
@@ -381,17 +433,17 @@ async function handleBugsCommand(
     await sendTelegramMessage(chatId, "No bug reports found.", undefined, "bug");
     return NextResponse.json({ ok: true, bugs: 0 });
   }
-  const airports = Array.from(new Set(rows.map((row) => row.airportIcao))).sort((a, b) => a.localeCompare(b));
+  const summaries = buildAirportSummaries(rows);
   await sendTelegramMessage(
     chatId,
     [
       `Bug reports (${cmd.status === "in_work" ? "in work" : "all"}): ${rows.length}`,
       "Select airport:",
     ].join("\n"),
-    bugAirportsKeyboard(airports),
+    bugAirportsKeyboard(summaries),
     "bug",
   );
-  return NextResponse.json({ ok: true, bugs: rows.length, airports: airports.length });
+  return NextResponse.json({ ok: true, bugs: rows.length, airports: summaries.length });
 }
 
 async function telegramApi(method: string, payload: Record<string, unknown>, bot: TelegramBotKind = "debug"): Promise<void> {
@@ -626,18 +678,18 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       }
       return NextResponse.json({ ok: true, bugs: 0 });
     }
-    const airports = Array.from(new Set(rows.map((row) => row.airportIcao))).sort((a, b) => a.localeCompare(b));
+    const summaries = buildAirportSummaries(rows);
     await answerCallbackQuery(callbackId, "Airport list", "bug");
     if (messageId > 0) {
       await editTelegramMessage(
         chatId,
         messageId,
         [`Bug reports: ${rows.length}`, "Select airport:"].join("\n"),
-        bugAirportsKeyboard(airports),
+        bugAirportsKeyboard(summaries),
         "bug",
       );
     }
-    return NextResponse.json({ ok: true, airports: airports.length });
+    return NextResponse.json({ ok: true, airports: summaries.length });
   }
 
   if (bot === "bug" && action.startsWith(BUG_VIEW_AIRPORT_PREFIX)) {
@@ -645,12 +697,36 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
     const rows = (await listBugReports({ limit: 500 })).filter((row) => row.airportIcao === icao);
     await answerCallbackQuery(callbackId, rows.length ? `Viewing ${icao}` : `${icao}: no reports`, "bug");
     if (messageId > 0) {
-      const text = rows.length
-        ? formatBugRows(`Bug reports for ${icao} (${rows.length}):`, rows.slice(0, 30))
-        : `No bug reports found for ${icao}.`;
-      await editTelegramMessage(chatId, messageId, text, bugBackKeyboard(), "bug");
+      const text = rows.length ? `Bug reports for ${icao}: ${rows.length}\nSelect a bug:` : `No bug reports found for ${icao}.`;
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        text,
+        rows.length ? bugItemsKeyboard(icao, rows) : bugBackKeyboard(),
+        "bug",
+      );
     }
     return NextResponse.json({ ok: true, airport: icao, bugs: rows.length });
+  }
+
+  if (bot === "bug" && action.startsWith(BUG_VIEW_ITEM_PREFIX)) {
+    const reportId = action.slice(BUG_VIEW_ITEM_PREFIX.length).trim();
+    const row = (await listBugReports({ limit: 500 })).find((item) => item.id === reportId);
+    if (!row) {
+      await answerCallbackQuery(callbackId, "Bug not found", "bug");
+      return NextResponse.json({ ok: true, ignored: "bug not found" });
+    }
+    await answerCallbackQuery(callbackId, `Bug ${row.id.slice(0, 8)}`, "bug");
+    if (messageId > 0) {
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        formatBugDetail(row),
+        bugDetailKeyboard(row.airportIcao, row.id),
+        "bug",
+      );
+    }
+    return NextResponse.json({ ok: true, bug: row.id });
   }
 
   if (action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX)) {
@@ -673,12 +749,15 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         statusUpdatedBy: `telegram:${chatId}`,
       });
       await answerCallbackQuery(callbackId, `Set ${BUG_REPORT_STATUS_META[updated.status].label}`, "bug");
-      await sendTelegramMessage(
-        chatId,
-        `Updated bug ${updated.id.slice(0, 8)} (${updated.airportIcao}) -> ${BUG_REPORT_STATUS_META[updated.status].label}`,
-        undefined,
-        "bug"
-      );
+      if (messageId > 0) {
+        await editTelegramMessage(
+          chatId,
+          messageId,
+          formatBugDetail(updated),
+          bugDetailKeyboard(updated.airportIcao, updated.id),
+          "bug",
+        );
+      }
       return NextResponse.json({ ok: true, bugUpdated: updated.id });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Bug update failed";

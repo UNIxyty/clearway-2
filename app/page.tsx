@@ -1305,7 +1305,7 @@ function AIPPortalPageInner() {
       !syncRequested &&
       !hasCacheEntry &&
       !aipPdfReady[icao] &&
-      aipPdfExistsOnServer[icao] !== true;
+      aipPdfExistsOnServer[icao] === false;
 
     const needsCaptchaConsent = Boolean(getCaptchaCountryByIcao(icao));
     if (needsCaptchaConsent && !captchaConsentDismissed && !syncRequested) return;

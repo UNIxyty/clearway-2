@@ -11,11 +11,26 @@ const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 600_000;
 
 function buildCandidateKeys(prefix: string, icao: string): string[] {
-  const keys = [`${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`];
+  const keys = [
+    `${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`,
+    // Legacy/manual naming variants seen in some environments (e.g. UB_GEN_1_2_en.pdf).
+    `${GEN_PDF_PREFIX}/${prefix}_GEN_1_2_en.pdf`,
+    `${GEN_PDF_PREFIX}/${prefix}_GEN_1_2.pdf`,
+    `${GEN_PDF_PREFIX}/${prefix}-GEN_1_2_en.pdf`,
+    `${GEN_PDF_PREFIX}/${prefix}-GEN_1_2.pdf`,
+  ];
   if (/^[A-Z0-9]{4}$/.test(icao)) {
-    keys.push(`${SCRAPER_GEN_PDF_PREFIX}/${icao}-GEN-1.2.pdf`);
+    keys.push(
+      `${SCRAPER_GEN_PDF_PREFIX}/${icao}-GEN-1.2.pdf`,
+      `${SCRAPER_GEN_PDF_PREFIX}/${icao}_GEN_1_2_en.pdf`,
+      `${SCRAPER_GEN_PDF_PREFIX}/${icao}_GEN_1_2.pdf`,
+    );
   }
-  keys.push(`${NON_EAD_GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`);
+  keys.push(
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`,
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}_GEN_1_2_en.pdf`,
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}_GEN_1_2.pdf`,
+  );
   // USA can be published under generic EAD namespace in some deployments.
   if (icao.startsWith("K") || icao.startsWith("P")) {
     keys.push(`${GEN_PDF_PREFIX}/US-GEN-1.2.pdf`);

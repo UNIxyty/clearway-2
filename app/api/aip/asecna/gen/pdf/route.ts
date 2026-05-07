@@ -5,6 +5,8 @@ import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage } from "@/lib/aip-storage";
 
 const GEN_PDF_PREFIX = "aip/gen-pdf";
+const SCRAPER_GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
+const NON_EAD_GEN_PDF_PREFIX = "aip/non-ead-gen-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 const SYNC_TIMEOUT_MS = 600_000;
@@ -45,8 +47,22 @@ async function triggerGenSync(icao: string): Promise<void> {
 async function readStoredGenPdf(icao: string): Promise<Uint8Array | null> {
   const prefix = String(icao || "").slice(0, 2).toUpperCase();
   if (!/^[A-Z]{2}$/.test(prefix)) return null;
-  const bytes = await readPdfFromStorage(`${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`);
-  return isValidPdfBytes(bytes) ? bytes : null;
+  const keys = [
+    `${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`,
+    `${GEN_PDF_PREFIX}/${prefix}_GEN_1_2_en.pdf`,
+    `${GEN_PDF_PREFIX}/${prefix}_GEN_1_2.pdf`,
+    `${SCRAPER_GEN_PDF_PREFIX}/${icao}-GEN-1.2.pdf`,
+    `${SCRAPER_GEN_PDF_PREFIX}/${icao}_GEN_1_2_en.pdf`,
+    `${SCRAPER_GEN_PDF_PREFIX}/${icao}_GEN_1_2.pdf`,
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`,
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}_GEN_1_2_en.pdf`,
+    `${NON_EAD_GEN_PDF_PREFIX}/${prefix}_GEN_1_2.pdf`,
+  ];
+  for (const key of keys) {
+    const bytes = await readPdfFromStorage(key);
+    if (isValidPdfBytes(bytes)) return bytes;
+  }
+  return null;
 }
 
 function pdfResponse(bytes: Uint8Array, icao: string) {
@@ -71,6 +87,12 @@ export async function GET(request: NextRequest) {
   const airport = getAsecnaAirportByIcao(icao);
   if (!airport) {
     return NextResponse.json({ error: "ICAO not found in ASECNA list" }, { status: 404 });
+  }
+
+  // Cache-first: if a valid PDF is already present, never block on external ASECNA fetch.
+  const cached = await readStoredGenPdf(icao);
+  if (cached) {
+    return pdfResponse(cached, icao);
   }
 
   const data = getAsecnaData();

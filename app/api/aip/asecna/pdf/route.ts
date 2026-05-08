@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
-import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
+import { readPdfFromStorage } from "@/lib/aip-storage";
 
 const LEGACY_PREFIX = "aip/asecna-pdf";
 const EAD_PREFIX = "aip/ead-pdf";
@@ -22,12 +22,11 @@ function useInline(request: NextRequest): boolean {
 export async function HEAD(request: NextRequest) {
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z0-9]{4}$/.test(icao)) return new NextResponse(null, { status: 400 });
-  const [eadExists, legacyExists] = await Promise.all([
-    storageObjectExists(`${EAD_PREFIX}/${icao}.pdf`),
-    storageObjectExists(`${LEGACY_PREFIX}/${icao}.pdf`),
-  ]);
-  const exists = eadExists || legacyExists;
-  return new NextResponse(null, { status: exists ? 200 : 404 });
+  const primary = await readPdfFromStorage(`${EAD_PREFIX}/${icao}.pdf`);
+  if (isValidPdfBytes(primary)) return new NextResponse(null, { status: 200 });
+  const legacy = await readPdfFromStorage(`${LEGACY_PREFIX}/${icao}.pdf`);
+  if (isValidPdfBytes(legacy)) return new NextResponse(null, { status: 200 });
+  return new NextResponse(null, { status: 404 });
 }
 
 function isValidPdfBytes(bytes: Uint8Array | null): bytes is Uint8Array {

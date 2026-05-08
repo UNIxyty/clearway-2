@@ -86,6 +86,13 @@ async function main() {
         const res = await http.fetchAsecna(pdfUrl, {}, { strictTls: false });
         if (!res.ok) throw new Error(`PDF fetch failed: ${res.status} ${res.statusText}`);
         const bytes = new Uint8Array(await res.arrayBuffer());
+        if (
+          bytes.length < 32 ||
+          bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 ||
+          bytes[3] !== 0x46 || bytes[4] !== 0x2d
+        ) {
+          throw new Error(`PDF for ${icao} is not valid (got ${bytes.length} bytes; Content-Type: ${res.headers.get("content-type") ?? "unknown"})`);
+        }
         const s3Key = `aip/asecna-pdf/${icao}.pdf`;
         await saveFile(s3Key, bytes);
         const pdfUrlPublic = `/files/${s3Key}`;

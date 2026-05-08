@@ -51,6 +51,13 @@ async function downloadAsecnaPdfToStorage(icao: string, countryCode: string) {
   const res = await http.fetchAsecna(pdfUrl, {}, { strictTls });
   if (!res.ok) throw new Error(`ASECNA PDF fetch failed: ${res.status} ${res.statusText}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
+  if (
+    bytes.length < 32 ||
+    bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 ||
+    bytes[3] !== 0x46 || bytes[4] !== 0x2d
+  ) {
+    throw new Error(`ASECNA PDF for ${icao} is not a valid PDF (got ${bytes.length} bytes; Content-Type: ${res.headers.get("content-type") ?? "unknown"})`);
+  }
   await saveFile(`${PDF_PREFIX}/${icao}.pdf`, bytes);
 }
 
@@ -133,8 +140,35 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // PDF-only sync: delegate to sync server (Playwright) when available,
+  // so it can render the HTML page as PDF even when static PDF URLs return 404.
+  // Fall back to direct HTTP only when no sync server is configured.
+  async function downloadPdfForIcao() {
+    if (AIP_SYNC_URL) {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+      const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}&extract=0`;
+      const controller = new AbortController();
+      const onAbort = () => controller.abort();
+      request.signal.addEventListener("abort", onAbort, { once: true });
+      const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      try {
+        const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({})) as { error?: string; detail?: string };
+          throw new Error((data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : ""));
+        }
+      } finally {
+        clearTimeout(timeout);
+        request.signal.removeEventListener("abort", onAbort);
+      }
+    } else {
+      await downloadAsecnaPdfToStorage(icao, airport!.countryCode);
+    }
+  }
+
   if (!stream) {
-    await downloadAsecnaPdfToStorage(icao, airport.countryCode);
+    await downloadPdfForIcao();
     const updatedAt = new Date().toISOString();
     await saveJson(icao, { updatedAt });
     return NextResponse.json({ done: true, airports: [], updatedAt, pdfReady: true });
@@ -148,7 +182,7 @@ export async function GET(request: NextRequest) {
       };
       try {
         send({ step: "Resolving ASECNA AD 2 source…" });
-        await downloadAsecnaPdfToStorage(icao, airport.countryCode);
+        await downloadPdfForIcao();
         const updatedAt = new Date().toISOString();
         await saveJson(icao, { updatedAt });
         send({ step: "ASECNA AD 2 PDF saved to storage." });

@@ -1921,7 +1921,6 @@ function AIPPortalPageInner() {
       if (newResults.length > 0) {
         const firstIcao = newResults[0].icao;
         setSelectedIcao(firstIcao);
-        void requestSyncAipEad(firstIcao);
       }
       updateStage(qUpper, "airport", "done", "Airport loaded");
       sendNotification("search_end", "Search completed", `${qUpper} ready`, notifPrefs);
@@ -1967,7 +1966,7 @@ function AIPPortalPageInner() {
       setLoading(false);
       setHasSearched(true);
     }
-  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground, requestSyncAipEad]);
+  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground]);
 
   const stopSearch = useCallback(() => {
     stopAllRequests();
@@ -2679,7 +2678,6 @@ function AIPPortalPageInner() {
                                   const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
                                   const nextIcao = withCoords?.icao ?? browseSelection[0].icao;
                                   setSelectedIcao(nextIcao);
-                                  void requestSyncAipEad(nextIcao);
                                   setSelectedCountry(browseSelectedCountry);
                                   setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);

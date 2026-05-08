@@ -319,7 +319,39 @@ async function main() {
     log(`ASECNA ICAO detected (${icao}, country code ${countryCode || 'n/a'})`);
     log('Downloading ASECNA AD 2 PDF: ' + pdfUrl);
     const http = createAsecnaFetch('EAD-SCRIPT');
-    await http.downloadPdfToFile(pdfUrl, savePath, `ASECNA AD2 ${icao}`, { strictTls });
+    let pdfSaved = false;
+    try {
+      await http.downloadPdfToFile(pdfUrl, savePath, `ASECNA AD2 ${icao}`, { strictTls });
+      const savedBytes = readFileSync(savePath);
+      if (savedBytes.length < 32 || !savedBytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        throw new Error(`Downloaded file is not a valid PDF (${savedBytes.length} bytes)`);
+      }
+      pdfSaved = true;
+    } catch (httpErr) {
+      log(`Direct PDF download failed: ${httpErr.message}`);
+      log('Falling back to Playwright render of HTML page: ' + resolvedHtmlUrl);
+    }
+    if (!pdfSaved) {
+      const { chromium } = await import('playwright');
+      const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] };
+      const executablePath = resolveChromiumExecutablePath();
+      if (executablePath) launchOptions.executablePath = executablePath;
+      else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
+      const browser = await chromium.launch(launchOptions);
+      try {
+        const page = await browser.newPage();
+        await page.goto(resolvedHtmlUrl, { waitUntil: 'networkidle', timeout: 60000 });
+        mkdirSync(dirname(savePath), { recursive: true });
+        await page.pdf({ path: savePath, format: 'A4', printBackground: true });
+      } finally {
+        await browser.close();
+      }
+      const rendered = readFileSync(savePath);
+      if (rendered.length < 32 || !rendered.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
+        throw new Error(`Playwright PDF render failed for ${icao} (${rendered.length} bytes)`);
+      }
+      log('Playwright rendered HTML to PDF successfully.');
+    }
     log('Saved: ' + savePath);
     console.log(savePath);
     return;

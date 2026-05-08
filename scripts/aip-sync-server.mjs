@@ -1263,7 +1263,8 @@ const server = createServer(async (req, res) => {
     }
     try {
       await runGenDownloadForIcao(icao, effectivePrefix, useScraperFlow);
-      const uploadedGenKey = await uploadGenPdfToS3(icao, effectivePrefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
+      const genUploadPrefix = isUsaIcao(icao) ? "US" : effectivePrefix;
+      const uploadedGenKey = await uploadGenPdfToS3(icao, genUploadPrefix, useScraperFlow ? "scraper-gen-pdf" : "gen-pdf");
       if (stream) {
         send({ step: GEN_STEPS[1] });
         send({ step: `GEN PDF saved: ${uploadedGenKey}` });

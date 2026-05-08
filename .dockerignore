@@ -16,4 +16,5 @@ tools/
 workers/
 migrations/
 *.pdf
+!usa-aip/GEN1.2.pdf
 *.tgz

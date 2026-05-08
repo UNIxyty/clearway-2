@@ -3185,7 +3185,7 @@ function AIPPortalPageInner() {
                   {pdfDownloadError && (
                     <p className="text-sm text-destructive mb-2">{pdfDownloadError}</p>
                   )}
-                  {aipViewMode === "pdf" && (
+                  {aipViewMode === "pdf" && aipEadLoadingIcao !== viewingAirport.icao && (
                     <div className="mb-3 rounded-lg border border-border/60 bg-muted/10 p-2">
                       {aipPdfReady[viewingAirport.icao] ||
                       aipEadCache[viewingAirport.icao]?.updatedAt ||

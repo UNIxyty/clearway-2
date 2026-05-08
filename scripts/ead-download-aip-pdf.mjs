@@ -326,6 +326,9 @@ async function main() {
       if (savedBytes.length < 32 || !savedBytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) {
         throw new Error(`Downloaded file is not a valid PDF (${savedBytes.length} bytes)`);
       }
+      if (savedBytes.length < 5000) {
+        throw new Error(`Downloaded PDF is a stub (${savedBytes.length} bytes); will render HTML instead`);
+      }
       pdfSaved = true;
     } catch (httpErr) {
       log(`Direct PDF download failed: ${httpErr.message}`);

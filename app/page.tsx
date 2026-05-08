@@ -768,6 +768,7 @@ function AIPPortalPageInner() {
     setGenPdfDownloadError(null);
     setAipViewMode("pdf");
     setShowGenSyncOverlay(false);
+    setGenSyncSteps([]);
   }, [viewingAirport?.icao]);
 
   useEffect(() => {
@@ -3024,24 +3025,37 @@ function AIPPortalPageInner() {
                         </Button>
                         {showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao) && (
                           <div className="absolute right-0 mt-1 w-72 rounded-md border border-border/70 bg-popover p-3 shadow-lg z-20">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                              GEN loading steps
-                            </p>
-                            <ul className="space-y-1 text-xs text-foreground/90">
-                              {(genSyncSteps.length > 0
-                                ? genSyncSteps
-                                : [
-                                    "Checking GEN PDF cache…",
-                                    "Downloading GEN PDF from source…",
-                                    "Uploading to storage…",
-                                    "Preparing download…",
-                                  ]).map((step, i) => (
-                                <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                                  <span className="mt-0.5 size-1.5 rounded-full bg-primary/70 shrink-0" />
-                                  <span>{step}</span>
-                                </li>
-                              ))}
-                            </ul>
+                            {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
+                              <>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                                  Not Available
+                                </p>
+                                <p className="text-xs text-foreground/80">
+                                  GEN 1.2 is not published on the ASECNA eAIP for this country.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                                  GEN loading steps
+                                </p>
+                                <ul className="space-y-1 text-xs text-foreground/90">
+                                  {(genSyncSteps.length > 0
+                                    ? genSyncSteps
+                                    : [
+                                        "Checking GEN PDF cache…",
+                                        "Downloading GEN PDF from source…",
+                                        "Uploading to storage…",
+                                        "Preparing download…",
+                                      ]).map((step, i) => (
+                                    <li key={`${step}-${i}`} className="flex items-start gap-1.5">
+                                      <span className="mt-0.5 size-1.5 rounded-full bg-primary/70 shrink-0" />
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

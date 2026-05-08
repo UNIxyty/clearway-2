@@ -3,6 +3,7 @@ import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, h
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage } from "@/lib/aip-storage";
+import { saveFile } from "@/lib/storage";
 
 const GEN_PDF_PREFIX = "aip/gen-pdf";
 const SCRAPER_GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
@@ -131,23 +132,19 @@ export async function GET(request: NextRequest) {
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
-  if (!isValidPdfBytes(bytes)) {
+  if (!isValidPdfBytes(bytes) || bytes.length < 5000) {
     await triggerGenSync(icao).catch(() => undefined);
     const fromStorage = await readStoredGenPdf(icao);
     if (fromStorage) {
       return pdfResponse(fromStorage, icao);
     }
     return NextResponse.json(
-      { error: "Failed to download ASECNA GEN PDF", detail: "Downloaded bytes are not a valid PDF." },
+      { error: "Failed to download ASECNA GEN PDF", detail: !isValidPdfBytes(bytes) ? "Downloaded bytes are not a valid PDF." : `Stub PDF received (${bytes.length} bytes).` },
       { status: 502 },
     );
   }
-  const filename = buildPdfDownloadFilename("GEN12", icao);
-  return new NextResponse(bytes, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+  // Cache to storage so re-requests are served locally and triggerGenSync is not needed.
+  const prefix = icao.slice(0, 2).toUpperCase();
+  saveFile(`${GEN_PDF_PREFIX}/${prefix}-GEN-1.2.pdf`, bytes).catch(() => undefined);
+  return pdfResponse(bytes, icao);
 }

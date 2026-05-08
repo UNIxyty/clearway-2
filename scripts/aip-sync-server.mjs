@@ -36,6 +36,35 @@ const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, "data", "ead-country-icaos.jso
 const USA_AIP_BY_STATE_PATH = join(PROJECT_ROOT, "data", "usa-aip-icaos-by-state.json");
 const USA_AIP_DIR = join(PROJECT_ROOT, "usa-aip");
 const RWANDA_FR_MENU_URL = "https://aim.asecna.aero/html/eAIP/FR-menu-fr-FR.html";
+const ASECNA_JSON_PATH = join(PROJECT_ROOT, "data", "asecna-airports.json");
+
+function loadAsecnaGenMap() {
+  try {
+    if (!existsSync(ASECNA_JSON_PATH)) return new Map();
+    const data = JSON.parse(readFileSync(ASECNA_JSON_PATH, "utf8"));
+    const map = new Map();
+    for (const country of data.countries || []) {
+      if (!country.gen12?.anchor) continue;
+      for (const airport of country.airports || []) {
+        const icao = String(airport.icao || "").toUpperCase();
+        if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
+        const prefix = icao.slice(0, 2);
+        if (!map.has(prefix)) {
+          map.set(prefix, {
+            gen12: country.gen12,
+            menuDirUrl: country.menuDirUrl || "https://aim.asecna.aero/html/eAIP/",
+            menuBasename: data.menuBasename || "FR-menu-fr-FR.html",
+          });
+        }
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+const ASECNA_GEN_MAP = loadAsecnaGenMap();
 
 function loadSpainLeGenAliasIcaos() {
   try {
@@ -995,6 +1024,53 @@ async function downloadToFile(url, filePath) {
   writeFileSync(filePath, bytes);
 }
 
+async function runAsecnaGenDownload(prefix, genInfo) {
+  const { asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl, createAsecnaFetch } =
+    await import("./asecna/asecna-eaip-http.mjs");
+  const { gen12, menuDirUrl, menuBasename } = genInfo;
+  const htmlUrl = gen12.htmlUrl ||
+    resolveAsecnaHtmlUrl(asecnaFormattedLeafBasename(gen12.anchor, menuBasename), menuDirUrl);
+  const pdfUrl = htmlUrlToPdfUrl(htmlUrl);
+  const savePath = join(EAD_GEN_DIR, `${prefix}-GEN-1.2.pdf`);
+  mkdirSync(EAD_GEN_DIR, { recursive: true });
+
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  const http = createAsecnaFetch("GEN-SYNC");
+  let bytes = null;
+  try {
+    const res = await http.fetchAsecna(pdfUrl, {}, { strictTls: false });
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length >= 5000 && buf.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+        bytes = buf;
+      }
+    }
+  } catch (_) {}
+
+  if (!bytes) {
+    // Playwright fallback: render HTML page as PDF when static URL is inaccessible or returns a stub.
+    logInfo("AIP-SYNC", `ASECNA GEN HTTP failed for ${prefix}; falling back to Playwright: ${htmlUrl}`);
+    const { chromium } = await import("playwright");
+    const launchOptions = { headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] };
+    const browser = await chromium.launch(launchOptions).catch(() =>
+      chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] })
+    );
+    try {
+      const page = await browser.newPage();
+      await page.goto(htmlUrl, { waitUntil: "networkidle", timeout: 60000 });
+      await page.pdf({ path: savePath, format: "A4", printBackground: true });
+    } finally {
+      await browser.close();
+    }
+    bytes = readFileSync(savePath);
+    if (bytes.length < 5000 || !bytes.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+      throw new Error(`ASECNA GEN Playwright render failed for ${prefix} (${bytes.length} bytes)`);
+    }
+    return;
+  }
+  writeFileSync(savePath, bytes);
+}
+
 async function runRwandaGenDownload() {
   const frMenu = await (await fetch(RWANDA_FR_MENU_URL)).text();
   const tocUrl = resolveRwandaTocUrl(frMenu);
@@ -1049,6 +1125,12 @@ async function runGenDownloadForIcao(icao, prefix, preferScraper = false, allowF
   }
   if (String(prefix || "").toUpperCase() === RWANDA_ICAO_PREFIX || isRwandaIcao(icao)) {
     await runRwandaGenDownload();
+    return;
+  }
+  const upperPrefix = String(prefix || icao.slice(0, 2) || "").toUpperCase();
+  const asecnaGenInfo = ASECNA_GEN_MAP.get(upperPrefix);
+  if (asecnaGenInfo) {
+    await runAsecnaGenDownload(upperPrefix, asecnaGenInfo);
     return;
   }
   const upperIcao = String(icao || "").trim().toUpperCase();

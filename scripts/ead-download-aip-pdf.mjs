@@ -340,7 +340,9 @@ async function main() {
       const executablePath = resolveChromiumExecutablePath();
       if (executablePath) launchOptions.executablePath = executablePath;
       else if (process.env.CHROME_CHANNEL) launchOptions.channel = process.env.CHROME_CHANNEL;
-      const browser = await chromium.launch(launchOptions);
+      const browser = await chromium.launch(launchOptions).catch(() =>
+        chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] })
+      );
       try {
         const page = await browser.newPage();
         await page.goto(resolvedHtmlUrl, { waitUntil: 'networkidle', timeout: 60000 });

@@ -1307,6 +1307,11 @@ function AIPPortalPageInner() {
       !aipPdfReady[icao] &&
       aipPdfExistsOnServer[icao] === false;
 
+    // Wait for HEAD probe to complete before deciding sync path.
+    // Without this guard, a premature non-sync fetch populates aipEadCache
+    // and the subsequent shouldPdfSync check is blocked by hasCacheEntry=true.
+    if (!hasCacheEntry && !syncRequested && aipPdfExistsOnServer[icao] === undefined) return;
+
     const needsCaptchaConsent = Boolean(getCaptchaCountryByIcao(icao));
     if (needsCaptchaConsent && !captchaConsentDismissed && !syncRequested) return;
 
@@ -3188,7 +3193,6 @@ function AIPPortalPageInner() {
                   {aipViewMode === "pdf" && aipEadLoadingIcao !== viewingAirport.icao && (
                     <div className="mb-3 rounded-lg border border-border/60 bg-muted/10 p-2">
                       {aipPdfReady[viewingAirport.icao] ||
-                      aipEadCache[viewingAirport.icao]?.updatedAt ||
                       aipPdfExistsOnServer[viewingAirport.icao] ? (
                         <object
                           data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}

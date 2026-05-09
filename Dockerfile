@@ -43,8 +43,7 @@ RUN apt-get update \
     libxrandr2 \
     xdg-utils \
     poppler-utils \
- && rm -rf /var/lib/apt/lists/* \
- && npx playwright install chromium
+ && rm -rf /var/lib/apt/lists/*
 
 FROM base-runtime AS runner
 WORKDIR /app
@@ -66,4 +65,5 @@ ENV STORAGE_ROOT=/storage
 ENV CACHE_ROOT=/cache
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=builder /app ./
+RUN npx playwright install chromium
 ENTRYPOINT ["dumb-init", "--"]

@@ -15,8 +15,12 @@ import readline from "node:readline/promises";
 import { collectMode, printCollectJson } from "./_collect-json.mjs";
 import { stdin as input, stdout as output } from "node:process";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -56,17 +60,22 @@ function sleep(ms) {
 function isTransientFetchError(err) {
   const msg = String(err?.message || "").toLowerCase();
   const cause = String(err?.cause?.message || "").toLowerCase();
+  const causeCode = String(err?.cause?.code || "").toLowerCase();
   return (
     msg.includes("fetch failed") ||
     msg.includes("timed out") ||
     msg.includes("timeout") ||
     msg.includes("aborted") ||
+    msg.includes("terminated") ||
     cause.includes("econnreset") ||
     cause.includes("econnrefused") ||
     cause.includes("enotfound") ||
     cause.includes("etimedout") ||
     cause.includes("socket") ||
-    cause.includes("tls")
+    cause.includes("tls") ||
+    causeCode.includes("socket") ||
+    causeCode.includes("econnreset") ||
+    causeCode.includes("etimedout")
   );
 }
 
@@ -114,6 +123,33 @@ async function fetchText(url) {
 }
 
 async function fetchPdfBytes(url) {
+  // Try curl first — it handles large files and connection drops far better than fetch.
+  const insecureFlag = process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0";
+  try {
+    const args = [
+      "-fsSL",
+      "--retry", "3",
+      "--retry-delay", "5",
+      "--retry-connrefused",
+      "--connect-timeout", "30",
+      "--max-time", String(Math.ceil(DOWNLOAD_TIMEOUT_MS / 1000)),
+      "-A", UA,
+      ...(insecureFlag ? ["-k"] : []),
+      url,
+    ];
+    const { stdout } = await execFileAsync("curl", args, {
+      maxBuffer: 200 * 1024 * 1024,
+      encoding: "buffer",
+      timeout: DOWNLOAD_TIMEOUT_MS + 10_000,
+    });
+    const bytes = Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout || "");
+    if (bytes.length === 0) throw new Error("curl returned empty response");
+    return bytes;
+  } catch (curlErr) {
+    console.error(`[NP] curl download failed, falling back to fetch: ${curlErr?.message}`);
+  }
+
+  // Fetch fallback
   return await withRetries(`download ${url}`, async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);

@@ -501,23 +501,32 @@ async function main() {
       await page.locator('#mainForm\\:searchResults_data').waitFor({ state: 'visible', timeout: 12000 }).catch(() => {});
       await page.waitForTimeout(400);
 
-      // —— Results: find row with Document Heading ~ "AD 2 <ICAO>" and prefer base AIP file (no variation number) ——
-      // Paginate through results if not found on the first page (up to MAX_PAGES).
+      // —— Results: find row with Document Heading ~ "AD 2/3/4 <ICAO>" ——
+      // Priority: AD 2 (base) > AD 3 > AD 4 > AD 2 variation fallback
+      // Scans all result pages in a single pass, collecting best candidate per section type.
       const MAX_PAGES = 10;
       const variationRe = new RegExp(`_${icao}_\\d+_en`, 'i');
       const ad2LinkRe = new RegExp(`_AD_2_${icao}_`, 'i');
-      const chartRe = /\bAD[_\-\s]?4\b|AERODROME\s*CHART|CHART\b/i;
+      const ad3LinkRe = new RegExp(`_AD_3_${icao}_`, 'i');
+      const ad4LinkRe = new RegExp(`_AD_4_${icao}_`, 'i');
+      // chartRe: exclude explicit aerodrome-chart entries (AD 4 heading alone is NOT sufficient —
+      // some countries publish small-aerodrome data under AD 4, so we only reject when "CHART"
+      // appears explicitly in the heading or filename).
+      const chartRe = /AERODROME\s*CHART|\bCHART\b/i;
       const docHeadingCol = 4;
       const headingNorm = (s) => (s || '').trim().replace(/\s+/g, ' ');
-      const isAd2Row = (s) => {
+      const makeAdRowCheck = (part) => (s) => {
         const n = headingNorm(s);
-        return (n === `AD 2 ${icao}` || (n.includes('AD 2') && n.toUpperCase().includes(icao))) && !chartRe.test(n);
+        return (n === `AD ${part} ${icao}` || (n.includes(`AD ${part}`) && n.toUpperCase().includes(icao))) && !chartRe.test(n);
       };
+      const isAd2Row = makeAdRowCheck('2');
+      const isAd3Row = makeAdRowCheck('3');
+      const isAd4Row = makeAdRowCheck('4');
 
       async function scanCurrentPage() {
         const rows = page.locator('#mainForm\\:searchResults_data tr');
         const rowCount = await rows.count();
-        const candidates = [];
+        const ad2 = [], ad3 = [], ad4 = [];
         let fallback = null;
         for (let i = 0; i < rowCount; i++) {
           const cells = rows.nth(i).locator('td');
@@ -528,26 +537,27 @@ async function main() {
           if ((await link.count()) === 0) continue;
           const linkText = await link.textContent().catch(() => '') || '';
           const heading = headingNorm(docHeading);
-          const looksAd2 = isAd2Row(heading);
-          const looksAd2ByName = ad2LinkRe.test(linkText);
-          if (!looksAd2 && !looksAd2ByName) continue;
           if (chartRe.test(linkText) || chartRe.test(heading)) continue;
 
-          let score = 0;
-          if (looksAd2) score += 120;
-          if (looksAd2ByName) score += 60;
-          if (!variationRe.test(linkText)) score += 30;
-          if (variationRe.test(linkText)) score -= 5;
-
-          candidates.push({ link, linkText, heading, score });
-          if (variationRe.test(linkText)) {
-            if (!fallback) fallback = link;
+          for (const [bucket, isRow, linkRe] of [[ad2, isAd2Row, ad2LinkRe], [ad3, isAd3Row, ad3LinkRe], [ad4, isAd4Row, ad4LinkRe]]) {
+            const byHeading = isRow(heading);
+            const byName = linkRe.test(linkText);
+            if (!byHeading && !byName) continue;
+            let score = 0;
+            if (byHeading) score += 120;
+            if (byName) score += 60;
+            if (!variationRe.test(linkText)) score += 30; else score -= 5;
+            bucket.push({ link, linkText, heading, score });
+            if (bucket === ad2 && variationRe.test(linkText) && !fallback) fallback = link;
+            break;
           }
         }
-        candidates.sort((a, b) => b.score - a.score);
-        const best = candidates.find((c) => !variationRe.test(c.linkText)) || null;
-        if (best) log(`Selected AD2 candidate on page: ${best.linkText} | ${best.heading}`);
-        return { found: best ? best.link : null, fallback };
+        const best = (arr) => arr.sort((a, b) => b.score - a.score).find((c) => !variationRe.test(c.linkText))?.link ?? null;
+        const found2 = best(ad2), found3 = best(ad3), found4 = best(ad4);
+        if (found2) log(`Selected AD 2 candidate: ${ad2[0].linkText} | ${ad2[0].heading}`);
+        else if (found3) log(`Found AD 3 candidate: ${ad3[0].linkText} | ${ad3[0].heading}`);
+        else if (found4) log(`Found AD 4 candidate: ${ad4[0].linkText} | ${ad4[0].heading}`);
+        return { found: found2, ad3Found: found3, ad4Found: found4, fallback };
       }
 
       const table = page.locator('#mainForm\\:searchResults_data');
@@ -555,26 +565,36 @@ async function main() {
 
       let pdfLink = null;
       let fallbackLink = null;
+      let ad3Link = null;
+      let ad4Link = null;
 
       for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
-        const { found, fallback } = await scanCurrentPage();
+        const { found, ad3Found, ad4Found, fallback } = await scanCurrentPage();
         if (found) { pdfLink = found; break; }
+        if (ad3Found && !ad3Link) ad3Link = ad3Found;
+        if (ad4Found && !ad4Link) ad4Link = ad4Found;
         if (fallback && !fallbackLink) fallbackLink = fallback;
 
         const nextBtn = page.locator('.ui-paginator-next:not(.ui-state-disabled)').first();
         if ((await nextBtn.count()) === 0) break;
-        log(`AD 2 ${icao} not on page ${pageNum + 1}, going to next page…`);
+        log(`AD 2/3/4 ${icao} not on page ${pageNum + 1}, going to next page…`);
         await nextBtn.click();
         await page.waitForTimeout(800);
         await table.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
       }
 
       if (!pdfLink || (await pdfLink.count()) === 0) {
-        if (fallbackLink) {
+        if (ad3Link) {
+          pdfLink = ad3Link;
+          log(`No AD 2 found — using AD 3 document for ${icao}.`);
+        } else if (ad4Link) {
+          pdfLink = ad4Link;
+          log(`No AD 2/3 found — using AD 4 document for ${icao}.`);
+        } else if (fallbackLink) {
           pdfLink = fallbackLink;
-          log('Only variation file(s) found for AD 2 ' + icao + '; using first matching row.');
+          log(`Only variation file found for AD 2 ${icao}; using it as fallback.`);
         } else {
-          throw new Error(`AD 2 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
+          throw new Error(`AD 2/3/4 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
         }
       } else {
         log('Using base AIP file (no variation number).');

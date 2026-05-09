@@ -11,7 +11,7 @@
 import readline from "node:readline/promises";
 import { collectMode, printCollectJson, pickNewestIssueByIso, isoDateFromText } from "./_collect-json.mjs";
 import { stdin as input, stdout as output, stderr } from "node:process";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -19,6 +19,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "el-salvador-eaip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "el-salvador-eaip", "AD2");
+const CACHE_ROOT = process.env.CACHE_ROOT || join(PROJECT_ROOT, "data", ".tmp");
+const URL_CACHE_FILE = join(CACHE_ROOT, "el-salvador-url-cache.json");
+const URL_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days — covers one AIRAC cycle
 
 const HISTORY_URL = "https://www.cocesna.org/aipca/AIPMS/history.html";
 const FETCH_TIMEOUT_MS = 30_000;
@@ -206,6 +209,47 @@ async function renderHtmlToPdf(htmlUrl, outFile) {
   });
 }
 
+function loadUrlCache() {
+  try {
+    if (!existsSync(URL_CACHE_FILE)) return null;
+    const raw = JSON.parse(readFileSync(URL_CACHE_FILE, "utf8"));
+    if (!raw?.savedAt || Date.now() - raw.savedAt > URL_CACHE_TTL_MS) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function saveUrlCache(issueCode, menuUrl, genEntries, ad2Entries) {
+  try {
+    mkdirSync(CACHE_ROOT, { recursive: true });
+    const cache = {
+      savedAt: Date.now(),
+      issueCode,
+      menuUrl,
+      gen: Object.fromEntries(genEntries.map((e) => [e.anchor, e.htmlUrl])),
+      ad2: Object.fromEntries(ad2Entries.map((e) => [e.icao, e.htmlUrl])),
+    };
+    writeFileSync(URL_CACHE_FILE, JSON.stringify(cache, null, 2));
+  } catch {}
+}
+
+async function fetchParsedEntries() {
+  const historyHtml = await fetchText(HISTORY_URL);
+  const issues = parseIssues(historyHtml);
+  if (!issues.length) throw new Error("No issue links found.");
+  const issue = pickNewestIssueByIso(issues, (x) => `${x.label} ${x.issueCode}`);
+  const indexHtml = await fetchText(issue.indexUrl);
+  const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
+  const tocHtml = await fetchText(tocUrl);
+  const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+  const menuHtml = await fetchText(menuUrl);
+  const genEntries = parseGenEntries(menuHtml, menuUrl);
+  const ad2Entries = parseAd2Entries(menuHtml, menuUrl);
+  saveUrlCache(issue.issueCode, menuUrl, genEntries, ad2Entries);
+  return { issue, menuUrl, menuHtml, genEntries, ad2Entries };
+}
+
 async function pickFromList(rl, prompt, items, display) {
   for (;;) {
     const raw = (await rl.question(prompt)).trim();
@@ -234,19 +278,11 @@ async function main() {
 
   if (collectMode()) {
     try {
-      const historyHtml = await fetchText(HISTORY_URL);
-      const issues = parseIssues(historyHtml);
-      if (!issues.length) throw new Error("No issue links found.");
-      const issue = pickNewestIssueByIso(issues, (x) => `${x.label} ${x.issueCode}`);
-      const indexHtml = await fetchText(issue.indexUrl);
-      const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
-      const tocHtml = await fetchText(tocUrl);
-      const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-      const menuHtml = await fetchText(menuUrl);
-      const entries = parseAd2Entries(menuHtml, menuUrl);
+      const { issue, ad2Entries } = await fetchParsedEntries();
+      if (!ad2Entries.length) throw new Error("No AD2 airport entries found.");
       printCollectJson({
         effectiveDate: isoDateFromText(issue.issueCode) ?? isoDateFromText(issue.label) ?? issue.issueCode,
-        ad2Icaos: entries.map((e) => e.icao),
+        ad2Icaos: ad2Entries.map((e) => e.icao),
       });
     } catch (err) {
       console.error("[SV] collect failed:", err?.message || err);
@@ -259,61 +295,78 @@ async function main() {
 
   let rl = null;
   try {
-    console.error("El Salvador eAIP — interactive downloader\n");
-    const historyHtml = await fetchText(HISTORY_URL);
-    const issues = parseIssues(historyHtml);
-    if (!issues.length) throw new Error("No issue links found.");
-
-    const autoMode = Boolean(downloadAd2Icao || downloadGen12);
-    let issue;
-    if (autoMode) {
-      issue = pickNewestIssueByIso(issues, (x) => `${x.label} ${x.issueCode}`);
-      console.error(`Auto-selected newest issue: ${issue.issueCode}`);
-    } else {
-      console.error("--- Available issues ---\n");
-      issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}  ${x.issueCode}`));
-
-      rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
-      issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.label} ${x.issueCode}`);
-    }
-
-    const indexHtml = await fetchText(issue.indexUrl);
-    const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
-    const tocHtml = await fetchText(tocUrl);
-    const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
-    const menuHtml = await fetchText(menuUrl);
-
     if (downloadGen12) {
-      const entries = parseGenEntries(menuHtml, menuUrl);
-      if (!entries.length) throw new Error("No GEN entries found.");
-      const chosen = entries.find((e) => /\bGEN-1\.2\b/i.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? entries[0];
+      let htmlUrl = null;
+      let issueCode = null;
+      const cache = loadUrlCache();
+      const cachedGenKey = cache ? Object.keys(cache.gen ?? {}).find((k) => /\bGEN-1\.2\b/i.test(k)) : null;
+      if (cachedGenKey) {
+        console.error("[SV] Using cached URL for GEN 1.2");
+        htmlUrl = cache.gen[cachedGenKey];
+        issueCode = cache.issueCode || "cached";
+      } else {
+        console.error("[SV] Fetching El Salvador AIP to discover GEN 1.2 URL...");
+        const { issue, genEntries } = await fetchParsedEntries();
+        issueCode = issue.issueCode;
+        const chosen = genEntries.find((e) => /\bGEN-1\.2\b/i.test(e.anchor) || /\bGEN\s*1\.2\b/i.test(e.label)) ?? genEntries[0];
+        if (!chosen) throw new Error("GEN 1.2 not found in El Salvador AIP");
+        htmlUrl = chosen.htmlUrl;
+      }
       mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, safeFilename(`${issue.issueCode}_${chosen.anchor}.pdf`));
-      const candidates = buildPdfCandidates(chosen.htmlUrl);
+      const outFile = join(OUT_GEN, safeFilename(`${issueCode}_GEN-1.2.pdf`));
+      const candidates = buildPdfCandidates(htmlUrl);
       try {
         await downloadPdfFromCandidates(candidates, outFile);
       } catch {
-        await renderHtmlToPdf(chosen.htmlUrl, outFile);
+        await renderHtmlToPdf(htmlUrl, outFile);
       }
       console.error(`Saved: ${outFile}`);
       return;
     }
 
     if (downloadAd2Icao) {
-      const entries = parseAd2Entries(menuHtml, menuUrl);
-      const chosen = entries.find((e) => e.icao === downloadAd2Icao);
-      if (!chosen) throw new Error(`AD2 ICAO not found in El Salvador menu: ${downloadAd2Icao}`);
+      let htmlUrl = null;
+      let issueCode = null;
+      const cache = loadUrlCache();
+      if (cache?.ad2?.[downloadAd2Icao]) {
+        console.error(`[SV] Using cached URL for ${downloadAd2Icao}`);
+        htmlUrl = cache.ad2[downloadAd2Icao];
+        issueCode = cache.issueCode || "cached";
+      } else {
+        console.error(`[SV] Fetching El Salvador AIP to discover URL for ${downloadAd2Icao}...`);
+        const { issue, ad2Entries } = await fetchParsedEntries();
+        issueCode = issue.issueCode;
+        const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+        if (!chosen) throw new Error(`AD2 ICAO not found in El Salvador menu: ${downloadAd2Icao}`);
+        htmlUrl = chosen.htmlUrl;
+      }
       mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, safeFilename(`${issue.issueCode}_${chosen.icao}_AD2.pdf`));
-      const candidates = buildPdfCandidates(chosen.htmlUrl);
+      const outFile = join(OUT_AD2, safeFilename(`${issueCode}_${downloadAd2Icao}_AD2.pdf`));
+      const candidates = buildPdfCandidates(htmlUrl);
       try {
         await downloadPdfFromCandidates(candidates, outFile);
       } catch {
-        await renderHtmlToPdf(chosen.htmlUrl, outFile);
+        await renderHtmlToPdf(htmlUrl, outFile);
       }
       console.error(`Saved: ${outFile}`);
       return;
     }
+
+    console.error("El Salvador eAIP — interactive downloader\n");
+    const historyHtml = await fetchText(HISTORY_URL);
+    const issues = parseIssues(historyHtml);
+    if (!issues.length) throw new Error("No issue links found.");
+
+    console.error("--- Available issues ---\n");
+    issues.forEach((x, i) => console.error(`${String(i + 1).padStart(3)}. ${x.label}  ${x.issueCode}`));
+    rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
+    const issue = await pickFromList(rl, `\nIssue number 1-${issues.length}: `, issues, (x) => `${x.label} ${x.issueCode}`);
+
+    const indexHtml = await fetchText(issue.indexUrl);
+    const tocUrl = parseTocUrl(indexHtml, issue.indexUrl);
+    const tocHtml = await fetchText(tocUrl);
+    const menuUrl = parseMenuUrlFromToc(tocHtml, tocUrl);
+    const menuHtml = await fetchText(menuUrl);
 
     console.error(`\nSelected: ${issue.label} (${issue.issueCode})`);
     console.error(`Menu: ${menuUrl}\n`);

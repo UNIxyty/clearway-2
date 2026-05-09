@@ -3719,6 +3719,10 @@
         "name": "Eelde Airport"
       },
       {
+        "icao": "EHHA",
+        "name": "Amsterdam Heliport"
+      },
+      {
         "icao": "EHHO",
         "name": "Hoogeveen Airport"
       },

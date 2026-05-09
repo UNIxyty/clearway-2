@@ -25,6 +25,7 @@ const OUT_AD2 = join(PROJECT_ROOT, "downloads", "nepal-aip", "AD2");
 
 const PAGE_URL = "https://e-aip.caanepal.gov.np/welcome/listall/1";
 const FETCH_TIMEOUT_MS = 30_000;
+const DOWNLOAD_TIMEOUT_MS = 300_000; // 5 min — Nepal PDFs can be 70+ MB on a slow server
 const FETCH_RETRIES = 4;
 const UA = "Mozilla/5.0 (compatible; clearway-np-scraper/1.0)";
 const downloadAd2Icao = (() => {
@@ -115,7 +116,7 @@ async function fetchText(url) {
 async function fetchPdfBytes(url) {
   return await withRetries(`download ${url}`, async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
         signal: controller.signal,

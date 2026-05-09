@@ -71,6 +71,7 @@ const PREFIX_TO_COUNTRY = {
   UA: 'Kazakhstan (UA)',
   UC: 'Kyrgyzstan (UC)',
   EV: 'Latvia (EV)',
+  EL: 'Luxembourg (EL)',
   EY: 'Lithuania (EY)',
   LM: 'Malta (LM)',
   LU: 'Moldova (LU)',

@@ -21,8 +21,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "cuba-aip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "cuba-aip", "AD2");
-const URL_CACHE_FILE = join(PROJECT_ROOT, "data", ".tmp", "cuba-url-cache.json");
-const URL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_ROOT = process.env.CACHE_ROOT || join(PROJECT_ROOT, "data", ".tmp");
+const URL_CACHE_FILE = join(CACHE_ROOT, "cuba-url-cache.json");
+const URL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — Cuba AIP airports rarely change
 
 const CUBA_AIP_URL = "https://aismet.avianet.cu/html/aip.html";
 const FETCH_TIMEOUT_MS = 30_000;
@@ -245,7 +246,7 @@ function loadUrlCache() {
 
 function saveUrlCache(genEntries, ad2Entries) {
   try {
-    mkdirSync(join(PROJECT_ROOT, "data", ".tmp"), { recursive: true });
+    mkdirSync(CACHE_ROOT, { recursive: true });
     const cache = {
       savedAt: Date.now(),
       gen: Object.fromEntries(genEntries.map((e) => [e.section, e.pdfUrl])),

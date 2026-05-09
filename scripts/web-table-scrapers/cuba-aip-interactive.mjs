@@ -11,7 +11,7 @@
 import readline from "node:readline/promises";
 import { collectMode, printCollectJson } from "./_collect-json.mjs";
 import { stdin as input, stdout as output, stderr } from "node:process";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join, dirname } from "path";
@@ -21,6 +21,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
 const OUT_GEN = join(PROJECT_ROOT, "downloads", "cuba-aip", "GEN");
 const OUT_AD2 = join(PROJECT_ROOT, "downloads", "cuba-aip", "AD2");
+const URL_CACHE_FILE = join(PROJECT_ROOT, "data", ".tmp", "cuba-url-cache.json");
+const URL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const CUBA_AIP_URL = "https://aismet.avianet.cu/html/aip.html";
 const FETCH_TIMEOUT_MS = 30_000;
@@ -230,6 +232,37 @@ async function pickFromList(rl, prompt, items, display) {
   }
 }
 
+function loadUrlCache() {
+  try {
+    if (!existsSync(URL_CACHE_FILE)) return null;
+    const raw = JSON.parse(readFileSync(URL_CACHE_FILE, "utf8"));
+    if (!raw?.savedAt || Date.now() - raw.savedAt > URL_CACHE_TTL_MS) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function saveUrlCache(genEntries, ad2Entries) {
+  try {
+    mkdirSync(join(PROJECT_ROOT, "data", ".tmp"), { recursive: true });
+    const cache = {
+      savedAt: Date.now(),
+      gen: Object.fromEntries(genEntries.map((e) => [e.section, e.pdfUrl])),
+      ad2: Object.fromEntries(ad2Entries.map((e) => [e.icao, e.pdfUrl])),
+    };
+    writeFileSync(URL_CACHE_FILE, JSON.stringify(cache, null, 2));
+  } catch {}
+}
+
+async function fetchParsedEntries() {
+  const html = await fetchText(CUBA_AIP_URL);
+  const genEntries = parseGenEntries(html, CUBA_AIP_URL);
+  const ad2Entries = parseAd2Entries(html, CUBA_AIP_URL);
+  saveUrlCache(genEntries, ad2Entries);
+  return { genEntries, ad2Entries };
+}
+
 async function main() {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`Usage: node scripts/web-table-scrapers/cuba-aip-interactive.mjs [--insecure] [--collect]
@@ -244,8 +277,7 @@ async function main() {
 
   if (collectMode()) {
     try {
-      const html = await fetchText(CUBA_AIP_URL);
-      const ad2Entries = parseAd2Entries(html, CUBA_AIP_URL);
+      const { ad2Entries } = await fetchParsedEntries();
       if (!ad2Entries.length) throw new Error("No AD2 airport entries found.");
       printCollectJson({ effectiveDate: null, ad2Icaos: ad2Entries.map((e) => e.icao) });
     } catch (err) {
@@ -255,33 +287,63 @@ async function main() {
     return;
   }
 
+  if (downloadAd2Icao) {
+    try {
+      let pdfUrl = null;
+      const cache = loadUrlCache();
+      if (cache?.ad2?.[downloadAd2Icao]) {
+        console.error(`[CU] Using cached URL for ${downloadAd2Icao}`);
+        pdfUrl = cache.ad2[downloadAd2Icao];
+      } else {
+        console.error(`[CU] Fetching Cuba AIP index to discover URL for ${downloadAd2Icao}...`);
+        const { ad2Entries } = await fetchParsedEntries();
+        const entry = ad2Entries.find((e) => e.icao === downloadAd2Icao);
+        if (!entry) throw new Error(`AD2 ICAO not found in Cuba list: ${downloadAd2Icao}`);
+        pdfUrl = entry.pdfUrl;
+      }
+      mkdirSync(OUT_AD2, { recursive: true });
+      const outFile = join(OUT_AD2, safeFilename(`${downloadAd2Icao}_AD2.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+    } catch (err) {
+      console.error("[CU] failed:", err?.message || err);
+      process.exit(1);
+    }
+    return;
+  }
+
+  if (downloadGen12) {
+    try {
+      let pdfUrl = null;
+      const cache = loadUrlCache();
+      const gen12Key = cache ? Object.keys(cache.gen ?? {}).find((k) => /\bGEN[-_. ]?1[._-]?2\b/i.test(k)) : null;
+      if (gen12Key) {
+        console.error("[CU] Using cached URL for GEN 1.2");
+        pdfUrl = cache.gen[gen12Key];
+      } else {
+        console.error("[CU] Fetching Cuba AIP index to discover GEN 1.2 URL...");
+        const { genEntries } = await fetchParsedEntries();
+        const chosen = genEntries.find((e) => /\bGEN[-_. ]?1[._-]?2\b/i.test(e.section) || /\bGEN[-_. ]?1[._-]?2\b/i.test(e.label)) ?? genEntries[0];
+        if (!chosen) throw new Error("GEN 1.2 not found in Cuba AIP");
+        pdfUrl = chosen.pdfUrl;
+      }
+      mkdirSync(OUT_GEN, { recursive: true });
+      const outFile = join(OUT_GEN, safeFilename(`GEN-1.2.pdf`));
+      await downloadPdf(pdfUrl, outFile);
+      console.error(`Saved: ${outFile}`);
+    } catch (err) {
+      console.error("[CU] failed:", err?.message || err);
+      process.exit(1);
+    }
+    return;
+  }
+
   let rl = null;
   try {
     console.error("Cuba AIP — interactive downloader\n");
-    const html = await fetchText(CUBA_AIP_URL);
-    const genEntries = parseGenEntries(html, CUBA_AIP_URL);
-    const ad2Entries = parseAd2Entries(html, CUBA_AIP_URL);
+    const { genEntries, ad2Entries } = await fetchParsedEntries();
     if (!genEntries.length) throw new Error("No GEN entries found.");
     if (!ad2Entries.length) throw new Error("No AD2 airport entries found.");
-
-    if (downloadGen12) {
-      const chosen = genEntries.find((e) => /\bGEN[-_. ]?1[._-]?2\b/i.test(e.section) || /\bGEN[-_. ]?1[._-]?2\b/i.test(e.label)) ?? genEntries[0];
-      mkdirSync(OUT_GEN, { recursive: true });
-      const outFile = join(OUT_GEN, safeFilename(`${chosen.section}.pdf`));
-      await downloadPdf(chosen.pdfUrl, outFile);
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
-
-    if (downloadAd2Icao) {
-      const chosen = ad2Entries.find((e) => e.icao === downloadAd2Icao);
-      if (!chosen) throw new Error(`AD2 ICAO not found in Cuba list: ${downloadAd2Icao}`);
-      mkdirSync(OUT_AD2, { recursive: true });
-      const outFile = join(OUT_AD2, safeFilename(`${chosen.icao}_AD2.pdf`));
-      await downloadPdf(chosen.pdfUrl, outFile);
-      console.error(`Saved: ${outFile}`);
-      return;
-    }
 
     rl = readline.createInterface({ input, output, terminal: Boolean(input.isTTY) });
     const mode = (await rl.question("Download:\n  [1] GEN document PDF\n  [2] AD 2 airport PDF\n  [0] Quit\n\nChoice [1/2/0]: ")).trim();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -23,6 +24,9 @@ export default function BugReportModal({
 }: Props) {
   const [airportIcao, setAirportIcao] = useState("");
   const [description, setDescription] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -30,10 +34,10 @@ export default function BugReportModal({
     setDescription("");
   }, [open, initialIcao]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[90] bg-black/60 px-4 py-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/60 px-4 py-6">
       <div className="mx-auto max-w-md rounded-lg border bg-background shadow-xl">
         <div className="border-b px-4 py-3">
           <h2 className="text-base font-semibold">Found a bug</h2>
@@ -78,6 +82,7 @@ export default function BugReportModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

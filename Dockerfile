@@ -42,6 +42,7 @@ RUN apt-get update \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
+    poppler-utils \
  && rm -rf /var/lib/apt/lists/* \
  && npx playwright install chromium
 

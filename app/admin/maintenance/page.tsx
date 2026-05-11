@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, Trash2Icon } from "lucide-react";
 
 type MaintenanceData = {
   enabled: boolean;
@@ -20,6 +20,8 @@ export default function AdminMaintenancePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clearCacheLoading, setClearCacheLoading] = useState(false);
+  const [clearCacheResult, setClearCacheResult] = useState<{ deleted: string[]; errors: string[]; total: number } | null>(null);
   const [data, setData] = useState<MaintenanceData>({
     enabled: false,
     message: "",
@@ -144,6 +146,67 @@ export default function AdminMaintenancePage() {
                   </p>
                 )}
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle className="text-base">PDF Cache</CardTitle>
+            <CardDescription>
+              Delete all cached AIP PDFs from storage. Airports will re-download PDFs on next sync.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={clearCacheLoading}
+              onClick={async () => {
+                if (!confirm("Delete ALL cached AIP PDFs for all airports? They will re-download on next sync.")) return;
+                setClearCacheResult(null);
+                setClearCacheLoading(true);
+                try {
+                  const res = await fetch("/api/admin/aip/clear-cache", {
+                    method: "DELETE",
+                    credentials: "include",
+                  });
+                  const data = await res.json() as { deleted: string[]; errors: string[]; total: number };
+                  setClearCacheResult(data);
+                } catch (e) {
+                  setClearCacheResult({ deleted: [], errors: [(e as Error)?.message ?? "Request failed"], total: 0 });
+                } finally {
+                  setClearCacheLoading(false);
+                }
+              }}
+            >
+              <Trash2Icon className={`size-4 mr-2 ${clearCacheLoading ? "animate-pulse" : ""}`} />
+              {clearCacheLoading ? "Clearing cache…" : "Clear all PDF cache"}
+            </Button>
+
+            {clearCacheResult && (
+              <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-3 text-xs space-y-1">
+                <p className="font-medium text-foreground text-sm">
+                  {clearCacheResult.total > 0
+                    ? `Deleted ${clearCacheResult.total} file${clearCacheResult.total !== 1 ? "s" : ""}`
+                    : "No cached PDF files found."}
+                </p>
+                {clearCacheResult.deleted.length > 0 && (
+                  <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5">
+                    {clearCacheResult.deleted.map((f) => (
+                      <p key={f} className="font-mono text-muted-foreground">{f}</p>
+                    ))}
+                  </div>
+                )}
+                {clearCacheResult.errors.length > 0 && (
+                  <div className="mt-2 space-y-0.5">
+                    <p className="font-medium text-destructive">Errors ({clearCacheResult.errors.length}):</p>
+                    {clearCacheResult.errors.map((e) => (
+                      <p key={e} className="font-mono text-destructive">{e}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

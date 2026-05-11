@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { deleteFile, fileExists } from "@/lib/storage";
+import { STORAGE_ROOT } from "@/lib/storage";
+import { rm, readdir, stat } from "fs/promises";
+import path from "path";
 
 function parseAdminEmails() {
   return String(process.env.ADMIN_EMAILS || "")
@@ -40,51 +42,49 @@ async function checkIsAdmin(): Promise<boolean> {
   return Boolean(data && (data as { is_admin?: boolean }).is_admin);
 }
 
-function storageKeysForIcao(icao: string): string[] {
-  const upper = icao.toUpperCase();
-  const prefix = upper.slice(0, 2);
-  return [
-    // EAD
-    `aip/ead-pdf/${upper}.pdf`,
-    `aip/ead/${upper}.json`,
-    `aip/gen-pdf/${prefix}-GEN-1.2.pdf`,
-    // Scraper
-    `aip/scraper-pdf/${upper}.pdf`,
-    `aip/scraper/${upper}.json`,
-    `aip/scraper-gen-pdf/${upper}-GEN-1.2.pdf`,
-    // Non-EAD GEN
-    `aip/non-ead-gen-pdf/${upper}-GEN-1.2.pdf`,
-    `aip/non-ead-gen/${upper}.json`,
-    // USA
-    `aip/usa-pdf/${upper}.pdf`,
-    `aip/usa/${upper}.json`,
-  ];
+// Subdirectories under /storage/aip/ that contain cached PDF or JSON files
+const PDF_DIRS = [
+  "aip/ead-pdf",
+  "aip/scraper-pdf",
+  "aip/gen-pdf",
+  "aip/scraper-gen-pdf",
+  "aip/non-ead-gen-pdf",
+  "aip/usa-pdf",
+  "aip/usa-gen-pdf",
+];
+
+async function listFiles(dir: string): Promise<string[]> {
+  try {
+    const entries = await readdir(dir);
+    return entries.map((e) => path.join(dir, e));
+  } catch {
+    return [];
+  }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   if (!(await checkIsAdmin())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
-  if (!/^[A-Z0-9]{4}$/.test(icao)) {
-    return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });
-  }
-
-  const keys = storageKeysForIcao(icao);
   const deleted: string[] = [];
   const errors: string[] = [];
 
-  for (const key of keys) {
-    try {
-      if (await fileExists(key)) {
-        await deleteFile(key);
-        deleted.push(key);
+  for (const relDir of PDF_DIRS) {
+    const absDir = path.join(STORAGE_ROOT, relDir);
+    const files = await listFiles(absDir);
+    for (const absPath of files) {
+      try {
+        const s = await stat(absPath);
+        if (!s.isFile()) continue;
+        await rm(absPath, { force: true });
+        // Return the relative storage key, not the absolute path
+        deleted.push(path.relative(STORAGE_ROOT, absPath));
+      } catch (e) {
+        errors.push(`${path.relative(STORAGE_ROOT, absPath)}: ${(e as Error)?.message ?? "unknown"}`);
       }
-    } catch (e) {
-      errors.push(`${key}: ${(e as Error)?.message ?? "unknown error"}`);
     }
   }
 
-  return NextResponse.json({ deleted, errors });
+  return NextResponse.json({ deleted, errors, total: deleted.length });
 }

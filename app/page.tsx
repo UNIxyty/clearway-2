@@ -649,8 +649,7 @@ function AIPPortalPageInner() {
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [bugModalOpen, setBugModalOpen] = useState(false);
   const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
-  const [clearCacheLoading, setClearCacheLoading] = useState(false);
-  const [clearCacheResult, setClearCacheResult] = useState<{ deleted: string[]; errors: string[] } | null>(null);
+
   const [bugReportError, setBugReportError] = useState<string | null>(null);
   const [deletingBugReportId, setDeletingBugReportId] = useState<string | null>(null);
   const [pendingCaptchaIcao, setPendingCaptchaIcao] = useState<string | null>(null);
@@ -771,7 +770,6 @@ function AIPPortalPageInner() {
     setAipViewMode("pdf");
     setShowGenSyncOverlay(false);
     setGenSyncSteps([]);
-    setClearCacheResult(null);
   }, [viewingAirport?.icao]);
 
   useEffect(() => {
@@ -2892,28 +2890,6 @@ function AIPPortalPageInner() {
                             ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
                           : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
                     </CardDescription>
-                    {clearCacheResult && (
-                      <div className="mt-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs space-y-1 max-w-sm">
-                        {clearCacheResult.deleted.length > 0 ? (
-                          <>
-                            <p className="font-medium text-foreground">Deleted {clearCacheResult.deleted.length} file{clearCacheResult.deleted.length !== 1 ? "s" : ""}:</p>
-                            {clearCacheResult.deleted.map((f) => (
-                              <p key={f} className="font-mono text-muted-foreground truncate">{f}</p>
-                            ))}
-                          </>
-                        ) : (
-                          <p className="text-muted-foreground">No cached files found for {viewingAirport.icao}.</p>
-                        )}
-                        {clearCacheResult.errors.length > 0 && (
-                          <>
-                            <p className="font-medium text-destructive mt-1">Errors:</p>
-                            {clearCacheResult.errors.map((e) => (
-                              <p key={e} className="font-mono text-destructive truncate">{e}</p>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button
@@ -3137,35 +3113,6 @@ function AIPPortalPageInner() {
                       >
                         <GlobeIcon className="size-4" />
                         <span className="text-xs hidden sm:inline">Web AIP</span>
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="shrink-0 h-9 gap-1.5 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        title="Clear all cached files for this airport (admin only)"
-                        disabled={clearCacheLoading}
-                        onClick={async () => {
-                          setClearCacheResult(null);
-                          setClearCacheLoading(true);
-                          try {
-                            const res = await fetch(`/api/admin/aip/clear-cache?icao=${encodeURIComponent(viewingAirport.icao)}`, {
-                              method: "DELETE",
-                              credentials: "include",
-                            });
-                            const data = await res.json() as { deleted: string[]; errors: string[] };
-                            setClearCacheResult(data);
-                          } catch (e) {
-                            setClearCacheResult({ deleted: [], errors: [(e as Error)?.message ?? "Request failed"] });
-                          } finally {
-                            setClearCacheLoading(false);
-                          }
-                        }}
-                      >
-                        <Trash2Icon className={`size-4 ${clearCacheLoading ? "animate-pulse" : ""}`} />
-                        <span className="text-xs hidden sm:inline">{clearCacheLoading ? "Clearing…" : "Clear Cache"}</span>
                       </Button>
                     )}
                     <Button

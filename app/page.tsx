@@ -309,6 +309,10 @@ function formatAipSyncError(data: { error?: string; detail?: string; code?: numb
   if (/captcha-protected/i.test(detail) || /\[greece\]|\[netherlands\]|\[lithuania\]/i.test(detail)) {
     return "Captcha verification required. Click Continue to open noVNC popup, complete captcha, then retry sync.";
   }
+  const combined = `${data.error ?? ""} ${detail}`.toLowerCase();
+  if (combined.includes("not found in search results") || combined.includes("may not exist in ead") || combined.includes("ad 2/3/4") && combined.includes("not found")) {
+    return "This airport is not published in EAD. It may be a military or restricted aerodrome not included in the civilian AIP.";
+  }
   const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
   return base;
 }

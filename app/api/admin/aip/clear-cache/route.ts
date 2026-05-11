@@ -42,15 +42,21 @@ async function checkIsAdmin(): Promise<boolean> {
   return Boolean(data && (data as { is_admin?: boolean }).is_admin);
 }
 
-// Subdirectories that contain auto-synced PDFs (safe to wipe — will re-download on next sync).
-// Intentionally excludes aip/usa-pdf and aip/usa-gen-pdf: those are manually uploaded
-// static files that are never re-fetched automatically.
-const PDF_DIRS = [
+// Directories to wipe. All are auto-synced and will re-populate on next sync.
+// Intentionally excludes aip/usa-pdf and aip/usa-gen-pdf (manually uploaded static files)
+// and aip/ead-aip-extracted.json (global EAD index, not per-airport).
+const CACHE_DIRS = [
+  // PDFs
   "aip/ead-pdf",
   "aip/scraper-pdf",
   "aip/gen-pdf",
   "aip/scraper-gen-pdf",
   "aip/non-ead-gen-pdf",
+  // Extracted JSON data (per-airport)
+  "aip/ead",
+  "aip/scraper",
+  "aip/non-ead-gen",
+  "aip/usa",
 ];
 
 async function listFiles(dir: string): Promise<string[]> {
@@ -70,7 +76,7 @@ export async function DELETE() {
   const deleted: string[] = [];
   const errors: string[] = [];
 
-  for (const relDir of PDF_DIRS) {
+  for (const relDir of CACHE_DIRS) {
     const absDir = path.join(STORAGE_ROOT, relDir);
     const files = await listFiles(absDir);
     for (const absPath of files) {

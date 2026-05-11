@@ -2939,6 +2939,24 @@ function AIPPortalPageInner() {
                             : isBahrainScraperIcao(icao, viewingAirport)
                               ? "/api/aip/scraper/pdf"
                               : "/api/aip/ead/pdf";
+                          const pdfSource = isAsecnaIcao(icao) ? "asecna"
+                            : isBahrainScraperIcao(icao, viewingAirport) ? "scraper"
+                            : isUsaAipIcao(icao) ? "usa"
+                            : "ead";
+
+                          // Fetch download time estimate (fire-and-forget, non-blocking)
+                          const estimateData = await fetch(
+                            `/api/aip/download-estimate?icao=${encodeURIComponent(icao)}&source=${pdfSource}`,
+                            { cache: "no-store" }
+                          ).then((r) => r.json()).catch(() => null) as { estimate: number | null } | null;
+                          const estimateMs = estimateData?.estimate ?? null;
+                          const fmtEstimate = (ms: number) => {
+                            if (ms < 60_000) return `~${Math.round(ms / 1000)}s`;
+                            const m = Math.floor(ms / 60_000);
+                            const s = Math.round((ms % 60_000) / 1000);
+                            return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
+                          };
+
                           const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, {
                             method: "HEAD",
                             cache: "no-store",
@@ -2951,7 +2969,10 @@ function AIPPortalPageInner() {
                           slowHintTimer = window.setTimeout(() => {
                             pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes.");
                           }, 12000);
-                          pushPdfStep("Downloading PDF bytes…");
+                          pushPdfStep(estimateMs !== null
+                            ? `Downloading PDF bytes… (estimated ${fmtEstimate(estimateMs)})`
+                            : "Downloading PDF bytes…");
+                          const downloadStart = Date.now();
                           const res = await fetch(
                             `${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`
                           );
@@ -2964,6 +2985,7 @@ function AIPPortalPageInner() {
                           }
                           pushPdfStep("Preparing file for browser download…");
                           const blob = await res.blob();
+                          const downloadDurationMs = Date.now() - downloadStart;
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = url;
@@ -2972,7 +2994,13 @@ function AIPPortalPageInner() {
                           URL.revokeObjectURL(url);
                           setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
                           setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
-                          pushPdfStep("Download started.");
+                          pushPdfStep(`Download started (took ${fmtEstimate(downloadDurationMs)}).`);
+                          // Record timing for future estimates
+                          fetch("/api/aip/download-stats", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ icao, source: pdfSource, duration_ms: downloadDurationMs }),
+                          }).catch(() => {});
                         } catch (err) {
                           pushPdfStep("Failed to download PDF.");
                           setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");

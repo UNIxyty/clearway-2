@@ -2677,6 +2677,15 @@ function AIPPortalPageInner() {
                             size="sm"
                             onClick={() => {
                               if (browseSelection.length > 0) {
+                                // Log each selected airport immediately before animation starts
+                                for (const airport of browseSelection) {
+                                  fetch("/api/search/log", {
+                                    method: "POST",
+                                    credentials: "include",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ query: airport.icao, resultCount: 1, source: "browse" }),
+                                  }).catch(() => {});
+                                }
                                 runBrowseLoading(() => {
                                   const merged = [...(results ?? []), ...browseSelection];
                                   const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
@@ -2688,17 +2697,6 @@ function AIPPortalPageInner() {
                                   setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                   setBrowseMenuOpen(false);
                                   setHasSearched(true);
-
-                                  // Log browse as search event
-                                  const query = browseSelectedCountry === "United States of America" && browseSelectedState
-                                    ? `${browseSelectedCountry} → ${browseSelectedState}`
-                                    : browseSelectedCountry;
-                                  fetch("/api/search/log", {
-                                    method: "POST",
-                                    credentials: "include",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ query, resultCount: browseSelection.length, source: "browse" }),
-                                  }).catch(() => {});
                                 });
                               }
                             }}

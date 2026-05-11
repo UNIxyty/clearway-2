@@ -52,11 +52,11 @@ const CACHE_DIRS = [
   "aip/gen-pdf",
   "aip/scraper-gen-pdf",
   "aip/non-ead-gen-pdf",
-  // Extracted JSON data (per-airport)
+  // Extracted JSON data (per-airport, auto-re-synced)
   "aip/ead",
   "aip/scraper",
   "aip/non-ead-gen",
-  "aip/usa",
+  // aip/usa intentionally excluded — USA JSON is AI-extracted on demand (costs API credits)
 ];
 
 async function listFiles(dir: string): Promise<string[]> {

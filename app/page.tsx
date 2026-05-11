@@ -310,8 +310,8 @@ function formatAipSyncError(data: { error?: string; detail?: string; code?: numb
     return "Captcha verification required. Click Continue to open noVNC popup, complete captcha, then retry sync.";
   }
   const combined = `${data.error ?? ""} ${detail}`.toLowerCase();
-  if (combined.includes("not found in search results") || combined.includes("may not exist in ead") || combined.includes("ad 2/3/4") && combined.includes("not found")) {
-    return "This airport is not published in EAD. It may be a military or restricted aerodrome not included in the civilian AIP.";
+  if (combined.includes("not found in search results") || combined.includes("may not exist in ead")) {
+    return "This airport was not found in EAD. It may not be published in the civilian AIP for this AIRAC cycle.";
   }
   const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
   return base;
@@ -3004,7 +3004,12 @@ function AIPPortalPageInner() {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ icao, source: pdfSource, duration_ms: downloadDurationMs }),
-                          }).catch(() => {});
+                          }).then(async (r) => {
+                            if (!r.ok) {
+                              const d = await r.json().catch(() => ({}));
+                              console.warn("[download-stats] failed to record:", d);
+                            }
+                          }).catch((e) => console.warn("[download-stats] fetch error:", e));
                         } catch (err) {
                           pushPdfStep("Failed to download PDF.");
                           setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");

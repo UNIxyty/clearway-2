@@ -368,7 +368,7 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
 // Countries/prefixes that must always use EAD and never route through custom scrapers.
 const EAD_ONLY_PREFIXES = new Set([
   "LA", "UD", "LO", "UB", "EB", "EL", "LQ", "LB", "LD", "LC", "LK", "EK", "EE", "XX", "EF", "LF",
-  "LN", "UG", "ED", "ET", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "UA", "BK", "UC", "EV", "EY",
+  "LN", "UG", "ED", "LG", "BG", "LH", "BI", "EI", "LI", "OJ", "UA", "BK", "UC", "EV", "EY",
   "LM", "LU", "EH", "EN", "RP", "EP", "LP", "LW", "LR", "LY", "LZ", "LJ", "LE", "ES", "LS",
   "LT", "UK", "EG", "GC", "GE", "GS",
 ]);

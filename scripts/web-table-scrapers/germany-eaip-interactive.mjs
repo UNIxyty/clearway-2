@@ -141,6 +141,12 @@ function parseAd2RootHash(adRootHtml) {
   return chapterHashFromHref(ad2Href);
 }
 
+function parseMilAdRootHash(adRootHtml) {
+  const milAdHref =
+    parseAnchors(adRootHtml).find((x) => /\bMIL[-\s]*AD\b/i.test(x.text) && chapterHashFromHref(x.href))?.href || "";
+  return chapterHashFromHref(milAdHref);
+}
+
 function parseGermanIcaosFromChapter(html) {
   const text = String(html || "").replace(/<[^>]+>/g, " ");
   return [...new Set([...text.matchAll(/\b((?:ED|ET)[A-Z0-9]{2})\b/g)].map((m) => String(m[1]).toUpperCase()))];
@@ -162,13 +168,29 @@ async function mapWithConcurrency(items, limit, worker) {
 async function buildAd2Map(adRootUrl) {
   const chapterBase = new URL("./", adRootUrl).href;
   const adRootHtml = await fetchText(adRootUrl);
-  const ad2RootHash = parseAd2RootHash(adRootHtml);
-  if (!ad2RootHash) return new Map();
-  const ad2RootHtml = await fetchText(new URL(`${ad2RootHash}.html`, chapterBase).href);
-  const hashes = parseAd2AirportHashes(ad2RootHtml);
-  if (!hashes.length) return new Map();
 
-  const results = await mapWithConcurrency(hashes, AIRPORT_FETCH_CONCURRENCY, async (hash) => {
+  const ad2RootHash = parseAd2RootHash(adRootHtml);
+  const milAdRootHash = parseMilAdRootHash(adRootHtml);
+
+  const allHashes = [];
+  const seenHashes = new Set();
+
+  const collectHashes = async (rootHash) => {
+    if (!rootHash) return;
+    try {
+      const html = await fetchText(new URL(`${rootHash}.html`, chapterBase).href);
+      for (const h of parseAd2AirportHashes(html)) {
+        if (!seenHashes.has(h)) { seenHashes.add(h); allHashes.push(h); }
+      }
+    } catch { /* section unavailable */ }
+  };
+
+  await collectHashes(ad2RootHash);
+  await collectHashes(milAdRootHash);
+
+  if (!allHashes.length) return new Map();
+
+  const results = await mapWithConcurrency(allHashes, AIRPORT_FETCH_CONCURRENCY, async (hash) => {
     try {
       const html = await fetchText(new URL(`${hash}.html`, chapterBase).href);
       return { hash, icaos: parseGermanIcaosFromChapter(html) };

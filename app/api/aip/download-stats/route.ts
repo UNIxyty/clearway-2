@@ -26,11 +26,16 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createSupabaseServiceRoleClient();
-    if (!admin) return NextResponse.json({ ok: false }, { status: 200 });
+    if (!admin) return NextResponse.json({ ok: false, error: "Supabase service role client not configured" }, { status: 503 });
 
-    await admin.from("pdf_download_stats").insert({ icao, source, duration_ms });
+    const { error: dbError } = await admin.from("pdf_download_stats").insert({ icao, source, duration_ms });
+    if (dbError) {
+      console.error("[download-stats] insert failed:", dbError.message, dbError.code);
+      return NextResponse.json({ ok: false, error: dbError.message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error("[download-stats] unexpected error:", e);
     return NextResponse.json({ ok: false }, { status: 200 });
   }
 }

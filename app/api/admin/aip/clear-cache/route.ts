@@ -42,15 +42,15 @@ async function checkIsAdmin(): Promise<boolean> {
   return Boolean(data && (data as { is_admin?: boolean }).is_admin);
 }
 
-// Subdirectories under /storage/aip/ that contain cached PDF or JSON files
+// Subdirectories that contain auto-synced PDFs (safe to wipe — will re-download on next sync).
+// Intentionally excludes aip/usa-pdf and aip/usa-gen-pdf: those are manually uploaded
+// static files that are never re-fetched automatically.
 const PDF_DIRS = [
   "aip/ead-pdf",
   "aip/scraper-pdf",
   "aip/gen-pdf",
   "aip/scraper-gen-pdf",
   "aip/non-ead-gen-pdf",
-  "aip/usa-pdf",
-  "aip/usa-gen-pdf",
 ];
 
 async function listFiles(dir: string): Promise<string[]> {

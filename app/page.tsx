@@ -2999,17 +2999,6 @@ function AIPPortalPageInner() {
                           setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
                           setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
                           pushPdfStep(`Download started (took ${fmtEstimate(downloadDurationMs)}).`);
-                          // Record timing for future estimates
-                          fetch("/api/aip/download-stats", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ icao, source: pdfSource, duration_ms: downloadDurationMs }),
-                          }).then(async (r) => {
-                            if (!r.ok) {
-                              const d = await r.json().catch(() => ({}));
-                              console.warn("[download-stats] failed to record:", d);
-                            }
-                          }).catch((e) => console.warn("[download-stats] fetch error:", e));
                         } catch (err) {
                           pushPdfStep("Failed to download PDF.");
                           setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");

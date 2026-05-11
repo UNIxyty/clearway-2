@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+
+async function recordStat(icao: string, source: string, duration_ms: number) {
+  try {
+    const admin = createSupabaseServiceRoleClient();
+    if (!admin) return;
+    await admin.from("pdf_download_stats").insert({ icao, source, duration_ms });
+  } catch { /* non-critical */ }
+}
 
 const AIP_EAD_PDF_PREFIX = "aip/ead-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
@@ -79,9 +88,10 @@ export async function GET(request: NextRequest) {
     const key = `${AIP_EAD_PDF_PREFIX}/${icao}.pdf`;
     let bytes = await readPdfFromStorage(key);
     if (!bytes) {
-      // Auto-heal: missing PDF triggers PDF-only sync, then retry once.
+      const syncStart = Date.now();
       await triggerPdfOnlySync(icao);
       bytes = await readPdfFromStorage(key);
+      if (bytes) recordStat(icao, "ead", Date.now() - syncStart);
     }
     if (!bytes) return new NextResponse(null, { status: 404 });
     const copy = new Uint8Array(bytes.length);

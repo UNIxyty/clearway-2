@@ -35,9 +35,9 @@ export default function SignupPage() {
       };
       if (!res.ok) throw new Error(data.error || "Failed to send confirmation email.");
 
-      if (data.sent === false) {
+      if (!res.ok || data.sent === false || !data.ok) {
         setError(
-          data.message ||
+          data.message || data.error ||
             "We could not send the email right now. Check the address and try again in a minute.",
         );
       } else {

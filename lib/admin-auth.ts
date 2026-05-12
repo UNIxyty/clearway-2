@@ -4,8 +4,13 @@ import { createServerClient } from "@supabase/ssr";
 
 type SupabaseServerClient = ReturnType<typeof createServerClient>;
 type AuthFailure = { error: NextResponse };
-type SupabaseSuccess = { supabase: SupabaseServerClient };
-type AuthSuccess = { user: NonNullable<Awaited<ReturnType<SupabaseServerClient["auth"]["getUser"]>>["data"]["user"]>; supabase: SupabaseServerClient };
+type AuthSuccess = {
+  user: NonNullable<Awaited<ReturnType<SupabaseServerClient["auth"]["getUser"]>>["data"]["user"]>;
+  supabase: SupabaseServerClient;
+  isDeveloper: boolean;
+};
+
+export type { AuthFailure, AuthSuccess };
 
 function parseAdminEmails() {
   return String(process.env.ADMIN_EMAILS || "")
@@ -14,67 +19,92 @@ function parseAdminEmails() {
     .filter(Boolean);
 }
 
-async function isAdmin(
+type Role = "none" | "admin" | "developer";
+
+async function resolveRole(
   supabase: SupabaseServerClient,
   userId: string,
   email: string | null,
-) {
+): Promise<Role> {
+  // ADMIN_EMAILS env var confers developer (highest) privilege.
   const adminEmails = parseAdminEmails();
-  if (email && adminEmails.includes(email.toLowerCase())) return true;
+  if (email && adminEmails.includes(email.toLowerCase())) return "developer";
 
   const { data, error } = await supabase
     .from("user_preferences")
-    .select("is_admin")
+    .select("is_admin, is_developer")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) return false;
-  return Boolean((data as { is_admin?: boolean } | null)?.is_admin);
+
+  if (error || !data) return "none";
+  const row = data as { is_admin?: boolean; is_developer?: boolean };
+  if (row.is_developer) return "developer";
+  if (row.is_admin) return "admin";
+  return "none";
 }
 
-async function getSupabaseFromCookies(): Promise<AuthFailure | SupabaseSuccess> {
+export function makeSupabaseFromCookies(): SupabaseServerClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) } as const;
-  }
-
+  if (!url || !anonKey) return null;
   const cookieStore = cookies();
-  return {
-    supabase: createServerClient(url, anonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    }),
-  } as const;
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() { return cookieStore.getAll(); },
+      setAll() {},
+    },
+  });
 }
 
 export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSuccess> {
-  const supabaseResult = await getSupabaseFromCookies();
-  if ("error" in supabaseResult) return supabaseResult;
+  const supabase = makeSupabaseFromCookies();
+  if (!supabase) {
+    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+  }
 
-  const {
-    data: { user },
-    error: userErr,
-  } = await supabaseResult.supabase.auth.getUser();
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user?.id) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  return { user, supabase: supabaseResult.supabase };
+  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  return { user, supabase, isDeveloper: role === "developer" };
 }
 
-export async function requireAdmin() {
-  const auth = await requireAuthenticatedUser();
-  if ("error" in auth) return auth;
-
-  const { user, supabase } = auth;
-  const admin = await isAdmin(supabase, user.id, user.email ?? null);
-  if (!admin) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+/** Passes for Admin and Developer. Returns isDeveloper so callers can branch. */
+export async function requireAdmin(): Promise<AuthFailure | AuthSuccess> {
+  const supabase = makeSupabaseFromCookies();
+  if (!supabase) {
+    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
   }
 
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user?.id) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  if (role === "none") {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+  return { user, supabase, isDeveloper: role === "developer" };
+}
+
+/** Passes only for Developer. */
+export async function requireDeveloper(): Promise<AuthFailure | Omit<AuthSuccess, "isDeveloper">> {
+  const supabase = makeSupabaseFromCookies();
+  if (!supabase) {
+    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+  }
+
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user?.id) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  if (role !== "developer") {
+    return { error: NextResponse.json({ error: "Forbidden — Developer role required" }, { status: 403 }) };
+  }
   return { user, supabase };
 }

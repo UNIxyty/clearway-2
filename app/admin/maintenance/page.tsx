@@ -20,6 +20,7 @@ export default function AdminMaintenancePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDeveloper, setIsDeveloper] = useState(false);
   const [clearCacheLoading, setClearCacheLoading] = useState(false);
   const [clearCacheResult, setClearCacheResult] = useState<{ deleted: string[]; errors: string[]; total: number } | null>(null);
   const [data, setData] = useState<MaintenanceData>({
@@ -29,6 +30,10 @@ export default function AdminMaintenancePage() {
   });
 
   useEffect(() => {
+    fetch("/api/admin/status", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setIsDeveloper(Boolean(d?.isDeveloper)))
+      .catch(() => {});
     fetch("/api/admin/maintenance", { cache: "no-store" })
       .then(async (res) => {
         const payload = await res.json().catch(() => ({}));
@@ -92,6 +97,7 @@ export default function AdminMaintenancePage() {
             <CardTitle className="text-base">Maintenance Control</CardTitle>
             <CardDescription>
               Enable or disable portal-wide maintenance mode.
+              {!isDeveloper && " Requires Developer role."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -105,35 +111,47 @@ export default function AdminMaintenancePage() {
                   </div>
                 )}
 
-                <label className="block text-sm">
-                  <span className="font-medium">Message</span>
-                  <Input
-                    value={data.message ?? ""}
-                    onChange={(e) => setData((prev) => ({ ...prev, message: e.target.value }))}
-                    placeholder="Optional maintenance message"
-                    className="mt-2"
-                  />
-                </label>
+                {isDeveloper ? (
+                  <>
+                    <label className="block text-sm">
+                      <span className="font-medium">Message</span>
+                      <Input
+                        value={data.message ?? ""}
+                        onChange={(e) => setData((prev) => ({ ...prev, message: e.target.value }))}
+                        placeholder="Optional maintenance message"
+                        className="mt-2"
+                      />
+                    </label>
 
-                <label className="block text-sm">
-                  <span className="font-medium">ETA text</span>
-                  <Input
-                    value={data.eta_text ?? ""}
-                    onChange={(e) => setData((prev) => ({ ...prev, eta_text: e.target.value }))}
-                    placeholder="e.g. 30 minutes / 2 days / 1 week"
-                    className="mt-2"
-                  />
-                </label>
+                    <label className="block text-sm">
+                      <span className="font-medium">ETA text</span>
+                      <Input
+                        value={data.eta_text ?? ""}
+                        onChange={(e) => setData((prev) => ({ ...prev, eta_text: e.target.value }))}
+                        placeholder="e.g. 30 minutes / 2 days / 1 week"
+                        className="mt-2"
+                      />
+                    </label>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" disabled={saving || data.enabled} onClick={() => save(true)}>
+                        {saving ? "Saving…" : "Enable maintenance"}
+                      </Button>
+                      <Button type="button" variant="outline" disabled={saving || !data.enabled} onClick={() => save(false)}>
+                        Disable maintenance
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                    Maintenance mode is currently <strong>{data.enabled ? "enabled" : "disabled"}</strong>.
+                    Only Developers can toggle it.
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" disabled={saving || data.enabled} onClick={() => save(true)}>
-                    {saving ? "Saving…" : "Enable maintenance"}
-                  </Button>
-                  <Button type="button" variant="outline" disabled={saving || !data.enabled} onClick={() => save(false)}>
-                    Disable maintenance
-                  </Button>
                   <Button type="button" variant="outline" onClick={() => router.push("/admin/users")}>
-                    Manage admin users
+                    Manage users
                   </Button>
                   <Button type="button" variant="outline" asChild>
                     <Link href="/admin/country-service-status">Country service statuses</Link>

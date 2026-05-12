@@ -29,6 +29,7 @@ export default function SignupPage() {
         body: JSON.stringify({ name: name.trim(), email: normalizedEmail, next: "/signup" }),
       });
       const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
         error?: string;
         sent?: boolean;
         message?: string;

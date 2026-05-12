@@ -7,7 +7,8 @@ create table if not exists public.email_confirmations (
   id uuid primary key default gen_random_uuid(),
   email text not null,
   token_hash text not null unique,
-  purpose text not null check (purpose in ('signup', 'password_reset')),
+  -- 'signup', 'signup:<userId>' (after invite confirmed), or 'password_reset'
+  purpose text not null check (purpose = 'password_reset' or purpose like 'signup%'),
   expires_at timestamptz not null,
   used_at timestamptz null,
   created_at timestamptz not null default now()

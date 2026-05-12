@@ -36,7 +36,7 @@ export default function SignupPage() {
       if (!res.ok) throw new Error(data.error || "Failed to send confirmation email.");
 
       if (data.sent === false) {
-        setInfo(
+        setError(
           data.message ||
             "We could not send the email right now. Check the address and try again in a minute.",
         );

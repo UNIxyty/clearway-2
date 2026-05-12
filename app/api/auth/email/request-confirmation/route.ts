@@ -13,7 +13,7 @@ const SIGNUP_TOKEN_TTL_MS = 60 * 60 * 1000;
 // is often http://localhost:3000, which Supabase rejects as a redirectTo URL.
 // We prefer NEXT_PUBLIC_SITE_URL, then fall back to forwarded proxy headers.
 function getPublicOrigin(requestUrl: URL, headers: Headers): string {
-  const siteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
+  const siteUrl = String(process.env.PORTAL_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
   if (siteUrl) return siteUrl;
 
   const forwardedHost = headers.get("x-forwarded-host") || headers.get("host") || "";

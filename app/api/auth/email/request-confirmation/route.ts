@@ -81,10 +81,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: tokenError.message }, { status: 500 });
   }
 
-  const { data: inviteData, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
-    redirectTo: callbackUrl,
-    data: { full_name: name, name },
-  });
+  const inviteOptions = { redirectTo: callbackUrl, data: { full_name: name, name } };
+  let { data: inviteData, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, inviteOptions);
+
+  // Supabase silently returns an existing unconfirmed (invited-but-not-completed) user
+  // without sending a new email and without any auth log entry. Detect this by checking
+  // whether the returned user was created more than 60 seconds ago — if so, it pre-existed.
+  // Delete it and re-invite so a fresh email is sent.
+  if (!inviteError && inviteData?.user) {
+    const user = inviteData.user;
+    const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0;
+    const isExistingUnconfirmed = !user.email_confirmed_at && (Date.now() - createdMs) > 60_000;
+    if (isExistingUnconfirmed) {
+      await service.auth.admin.deleteUser(user.id);
+      const reInvite = await service.auth.admin.inviteUserByEmail(email, inviteOptions);
+      inviteData = reInvite.data;
+      inviteError = reInvite.error;
+    }
+  }
 
   if (inviteError) {
     console.error("[auth/email/request-confirmation] inviteUserByEmail failed", {
@@ -94,8 +108,6 @@ export async function POST(request: Request) {
       status: inviteError.status,
       code: inviteError.code,
     });
-    // Surface config errors (bad redirect URL, SMTP issues) so the problem is visible.
-    // For user-enumeration-risk errors keep the response generic.
     const errorMsg = isConfigError(inviteError.message)
       ? `Invite email failed: ${inviteError.message}`
       : "We could not send a confirmation email right now. Please retry in a minute.";
@@ -103,8 +115,7 @@ export async function POST(request: Request) {
   }
 
   // Store the Supabase user ID in the token purpose so the confirm step can
-  // look up the account without scanning all users. The email_confirmations
-  // table allows purpose values starting with 'signup' — see the migration note.
+  // look up the account without scanning all users.
   const invitedUserId = inviteData?.user?.id ?? null;
   if (invitedUserId) {
     await service

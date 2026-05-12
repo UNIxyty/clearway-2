@@ -2155,7 +2155,13 @@ function AIPPortalPageInner() {
                               </span>
                             )}
                           </div>
-                          <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">{n.condition}</p>
+                          <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">
+                            {n.condition
+                              .split("\n")
+                              .filter((line) => !/^\|#\d+\|[-\s]+/.test(line) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(line))
+                              .join("\n")
+                              .trim()}
+                          </p>
                         </li>
                       ))}
                       {notams.length > 50 && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,21 @@ import { Clock } from "lucide-react";
 
 export default function PendingApprovalPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) {
+        // Session gone — account was declined/deleted
+        window.location.href = "/login";
+        return;
+      }
+      if (data.session.user?.user_metadata?.is_approved === true) {
+        window.location.href = "/";
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [supabase]);
 
   async function signOut() {
     await supabase.auth.signOut();

@@ -82,7 +82,28 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
     .filter(Boolean);
   if (!chatIds.length) return;
 
-  const text = ["👤 New account pending approval", `Email: ${email}`, `ID: ${userId}`].join("\n");
+  const service = createSupabaseServiceRoleClient();
+  let name = "";
+  if (service) {
+    const { data: ud } = await service.auth.admin.getUserById(userId);
+    const meta = (ud?.user?.user_metadata ?? {}) as Record<string, unknown>;
+    name =
+      (typeof meta.full_name === "string" ? meta.full_name : null) ??
+      (typeof meta.name === "string" ? meta.name : null) ??
+      "";
+  }
+
+  const dateStr = new Date().toLocaleString("en-GB", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+  const text = [
+    "👤 New account pending approval",
+    `Name: ${name || "-"}`,
+    `Email: ${email}`,
+    `ID: ${userId}`,
+    `Date: ${dateStr}`,
+  ].join("\n");
   const replyMarkup = {
     inline_keyboard: [
       [

@@ -677,25 +677,21 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
     if (bot !== "bug") {
       return NextResponse.json({ ok: true, ignored: "approval callback on debug bot" });
     }
+
     const rest = action.slice(APPROVAL_CALLBACK_PREFIX.length);
-    const colonIdx = rest.indexOf(":");
-    const approvalAction = colonIdx > -1 ? rest.slice(0, colonIdx) : rest;
-    const targetUserId = colonIdx > -1 ? rest.slice(colonIdx + 1) : "";
-    if (!targetUserId || (approvalAction !== "approve" && approvalAction !== "decline")) {
-      await answerCallbackQuery(callbackId, "Invalid action", "bug");
-      return NextResponse.json({ ok: true, ignored: "invalid approval callback" });
-    }
-    const service = createSupabaseServiceRoleClient();
-    if (!service) {
-      await answerCallbackQuery(callbackId, "Server error", "bug");
-      return NextResponse.json({ error: "Missing service key" }, { status: 503 });
-    }
-    const originalText = cb?.message?.text || "";
+    const firstColon = rest.indexOf(":");
+    const subAction = firstColon > -1 ? rest.slice(0, firstColon) : rest;
+    const remainder = firstColon > -1 ? rest.slice(firstColon + 1) : "";
+
     const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const lines = originalText.split("\n");
-    const htmlBase = [`<b>${esc(lines[0] || "")}</b>`, ...lines.slice(1).map(esc)].join("\n");
     const botToken = getBotToken("bug");
-    const editWithHtml = async (suffix: string) => {
+
+    const buildHtmlBase = (rawText: string) => {
+      const lines = rawText.replace(/\n\nSelect role:$/, "").trim().split("\n");
+      return [`<b>${esc(lines[0] || "")}</b>`, ...lines.slice(1).map(esc)].join("\n");
+    };
+
+    const editHtml = async (text: string, replyMarkup?: Record<string, unknown>) => {
       if (!botToken || messageId <= 0) return;
       await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
         method: "POST",
@@ -703,26 +699,89 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         body: JSON.stringify({
           chat_id: chatId,
           message_id: messageId,
-          text: `${htmlBase}\n\n${suffix}`,
+          text,
           parse_mode: "HTML",
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }),
       }).catch(() => undefined);
     };
-    if (approvalAction === "approve") {
-      await service.auth.admin.updateUserById(targetUserId, {
-        user_metadata: { is_approved: true },
-      });
+
+    if (subAction === "approve") {
+      const targetUserId = remainder;
+      if (!targetUserId) {
+        await answerCallbackQuery(callbackId, "Invalid action", "bug");
+        return NextResponse.json({ ok: true, ignored: "invalid approval callback" });
+      }
+      const service = createSupabaseServiceRoleClient();
+      if (!service) {
+        await answerCallbackQuery(callbackId, "Server error", "bug");
+        return NextResponse.json({ error: "Missing service key" }, { status: 503 });
+      }
+      await service.auth.admin.updateUserById(targetUserId, { user_metadata: { is_approved: true } });
       await service
         .from("user_preferences")
         .upsert({ user_id: targetUserId, is_approved: true }, { onConflict: "user_id" });
-      await answerCallbackQuery(callbackId, "User approved", "bug");
-      await editWithHtml("Confirmed");
-    } else {
+      await answerCallbackQuery(callbackId, "Approved — select role", "bug");
+      const htmlBase = buildHtmlBase(cb?.message?.text || "");
+      await editHtml(`${htmlBase}\n\nSelect role:`, {
+        inline_keyboard: [[
+          { text: "User", callback_data: `approval:role:user:${targetUserId}` },
+          { text: "Admin", callback_data: `approval:role:admin:${targetUserId}` },
+          { text: "Developer", callback_data: `approval:role:developer:${targetUserId}` },
+        ]],
+      });
+      return NextResponse.json({ ok: true, approval: "approved", userId: targetUserId });
+    }
+
+    if (subAction === "role") {
+      const secondColon = remainder.indexOf(":");
+      const role = secondColon > -1 ? remainder.slice(0, secondColon) : remainder;
+      const targetUserId = secondColon > -1 ? remainder.slice(secondColon + 1) : "";
+      if (!targetUserId || !["user", "admin", "developer"].includes(role)) {
+        await answerCallbackQuery(callbackId, "Invalid role", "bug");
+        return NextResponse.json({ ok: true, ignored: "invalid role callback" });
+      }
+      const service = createSupabaseServiceRoleClient();
+      if (!service) {
+        await answerCallbackQuery(callbackId, "Server error", "bug");
+        return NextResponse.json({ error: "Missing service key" }, { status: 503 });
+      }
+      if (role === "admin") {
+        await service
+          .from("user_preferences")
+          .upsert({ user_id: targetUserId, is_admin: true }, { onConflict: "user_id" });
+      } else if (role === "developer") {
+        await service
+          .from("user_preferences")
+          .upsert({ user_id: targetUserId, is_developer: true }, { onConflict: "user_id" });
+      }
+      const roleLabel = role === "developer" ? "Developer" : role === "admin" ? "Admin" : "User";
+      await answerCallbackQuery(callbackId, `Role: ${roleLabel}`, "bug");
+      const htmlBase = buildHtmlBase(cb?.message?.text || "");
+      await editHtml(`${htmlBase}\n\nConfirmed — ${roleLabel}`);
+      return NextResponse.json({ ok: true, role, userId: targetUserId });
+    }
+
+    if (subAction === "decline") {
+      const targetUserId = remainder;
+      if (!targetUserId) {
+        await answerCallbackQuery(callbackId, "Invalid action", "bug");
+        return NextResponse.json({ ok: true, ignored: "invalid approval callback" });
+      }
+      const service = createSupabaseServiceRoleClient();
+      if (!service) {
+        await answerCallbackQuery(callbackId, "Server error", "bug");
+        return NextResponse.json({ error: "Missing service key" }, { status: 503 });
+      }
       await service.auth.admin.deleteUser(targetUserId);
       await answerCallbackQuery(callbackId, "User declined", "bug");
-      await editWithHtml("Declined");
+      const htmlBase = buildHtmlBase(cb?.message?.text || "");
+      await editHtml(`${htmlBase}\n\nDeclined`);
+      return NextResponse.json({ ok: true, approval: "declined", userId: targetUserId });
     }
-    return NextResponse.json({ ok: true, approval: approvalAction, userId: targetUserId });
+
+    await answerCallbackQuery(callbackId, "Unknown action", "bug");
+    return NextResponse.json({ ok: true, ignored: "unknown approval sub-action" });
   }
 
   if (bot === "bug" && action === BUG_VIEW_ALL_CALLBACK) {

@@ -93,22 +93,23 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
       "";
   }
 
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const dateStr = new Date().toLocaleString("en-GB", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
   const text = [
-    "👤 New account pending approval",
-    `Name: ${name || "-"}`,
-    `Email: ${email}`,
+    "<b>New account pending approval</b>",
+    `Name: ${esc(name || "-")}`,
+    `Email: ${esc(email)}`,
     `ID: ${userId}`,
     `Date: ${dateStr}`,
   ].join("\n");
   const replyMarkup = {
     inline_keyboard: [
       [
-        { text: "✅ Confirm", callback_data: `approval:approve:${userId}` },
-        { text: "❌ Decline", callback_data: `approval:decline:${userId}` },
+        { text: "Confirm", callback_data: `approval:approve:${userId}` },
+        { text: "Decline", callback_data: `approval:decline:${userId}` },
       ],
     ],
   };
@@ -117,7 +118,7 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
     await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, reply_markup: replyMarkup }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", reply_markup: replyMarkup }),
     }).catch(() => undefined);
   }
 }

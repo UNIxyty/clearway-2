@@ -691,6 +691,23 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       return NextResponse.json({ error: "Missing service key" }, { status: 503 });
     }
     const originalText = cb?.message?.text || "";
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const lines = originalText.split("\n");
+    const htmlBase = [`<b>${esc(lines[0] || "")}</b>`, ...lines.slice(1).map(esc)].join("\n");
+    const botToken = getBotToken("bug");
+    const editWithHtml = async (suffix: string) => {
+      if (!botToken || messageId <= 0) return;
+      await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+          text: `${htmlBase}\n\n${suffix}`,
+          parse_mode: "HTML",
+        }),
+      }).catch(() => undefined);
+    };
     if (approvalAction === "approve") {
       await service.auth.admin.updateUserById(targetUserId, {
         user_metadata: { is_approved: true },
@@ -699,15 +716,11 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         .from("user_preferences")
         .upsert({ user_id: targetUserId, is_approved: true }, { onConflict: "user_id" });
       await answerCallbackQuery(callbackId, "User approved", "bug");
-      if (messageId > 0) {
-        await editTelegramMessage(chatId, messageId, `${originalText}\n\n✅ Confirmed`, undefined, "bug");
-      }
+      await editWithHtml("Confirmed");
     } else {
       await service.auth.admin.deleteUser(targetUserId);
       await answerCallbackQuery(callbackId, "User declined", "bug");
-      if (messageId > 0) {
-        await editTelegramMessage(chatId, messageId, `${originalText}\n\n❌ Declined`, undefined, "bug");
-      }
+      await editWithHtml("Declined");
     }
     return NextResponse.json({ ok: true, approval: approvalAction, userId: targetUserId });
   }

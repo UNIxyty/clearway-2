@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { startDebugRun } from "@/lib/debug-runner";
 import { listBugReports, updateBugReportStatus } from "@/lib/bug-reports-store";
 import { BUG_REPORT_STATUSES, BUG_REPORT_STATUS_META, type BugReportRow, type BugReportStatus } from "@/lib/bug-reports-shared";
@@ -36,6 +37,7 @@ type TelegramUpdate = {
 const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
+const APPROVAL_CALLBACK_PREFIX = "approval:";
 type TelegramBotKind = "debug" | "bug";
 const BUG_VIEW_ALL_CALLBACK = `${TELEGRAM_BUG_CALLBACK_PREFIX}view:all`;
 const BUG_VIEW_AIRPORT_PREFIX = `${TELEGRAM_BUG_CALLBACK_PREFIX}view_airport:`;
@@ -663,10 +665,51 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
   const chatId = String(cb?.message?.chat?.id || "").trim();
   const messageId = Number(cb?.message?.message_id || 0);
 
-  if (!callbackId || !chatId || !action.startsWith(BOT_CALLBACK_PREFIX)) {
-    if (!callbackId || !chatId || !action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX)) {
-      return NextResponse.json({ ok: true, ignored: "not a supported callback" });
+  const isKnownCallback =
+    action.startsWith(BOT_CALLBACK_PREFIX) ||
+    action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX) ||
+    action.startsWith(APPROVAL_CALLBACK_PREFIX);
+  if (!callbackId || !chatId || !isKnownCallback) {
+    return NextResponse.json({ ok: true, ignored: "not a supported callback" });
+  }
+
+  if (action.startsWith(APPROVAL_CALLBACK_PREFIX)) {
+    if (bot !== "bug") {
+      return NextResponse.json({ ok: true, ignored: "approval callback on debug bot" });
     }
+    const rest = action.slice(APPROVAL_CALLBACK_PREFIX.length);
+    const colonIdx = rest.indexOf(":");
+    const approvalAction = colonIdx > -1 ? rest.slice(0, colonIdx) : rest;
+    const targetUserId = colonIdx > -1 ? rest.slice(colonIdx + 1) : "";
+    if (!targetUserId || (approvalAction !== "approve" && approvalAction !== "decline")) {
+      await answerCallbackQuery(callbackId, "Invalid action", "bug");
+      return NextResponse.json({ ok: true, ignored: "invalid approval callback" });
+    }
+    const service = createSupabaseServiceRoleClient();
+    if (!service) {
+      await answerCallbackQuery(callbackId, "Server error", "bug");
+      return NextResponse.json({ error: "Missing service key" }, { status: 503 });
+    }
+    const originalText = cb?.message?.text || "";
+    if (approvalAction === "approve") {
+      await service.auth.admin.updateUserById(targetUserId, {
+        user_metadata: { is_approved: true },
+      });
+      await service
+        .from("user_preferences")
+        .upsert({ user_id: targetUserId, is_approved: true }, { onConflict: "user_id" });
+      await answerCallbackQuery(callbackId, "User approved", "bug");
+      if (messageId > 0) {
+        await editTelegramMessage(chatId, messageId, `${originalText}\n\n✅ Confirmed`, undefined, "bug");
+      }
+    } else {
+      await service.auth.admin.deleteUser(targetUserId);
+      await answerCallbackQuery(callbackId, "User declined", "bug");
+      if (messageId > 0) {
+        await editTelegramMessage(chatId, messageId, `${originalText}\n\n❌ Declined`, undefined, "bug");
+      }
+    }
+    return NextResponse.json({ ok: true, approval: approvalAction, userId: targetUserId });
   }
 
   if (bot === "bug" && action === BUG_VIEW_ALL_CALLBACK) {

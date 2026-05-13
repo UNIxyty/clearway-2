@@ -96,6 +96,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Redirect accounts pending admin approval (is_approved explicitly false in metadata).
+  // Undefined means existing account (not subject to approval flow) → allowed through.
+  const isApprovedMeta = (user.user_metadata as Record<string, unknown> | null)?.is_approved;
+  if (isApprovedMeta === false && !pathname.startsWith("/pending-approval")) {
+    const pendingUrl = request.nextUrl.clone();
+    pendingUrl.pathname = "/pending-approval";
+    return NextResponse.redirect(pendingUrl);
+  }
+
   return response;
 }
 

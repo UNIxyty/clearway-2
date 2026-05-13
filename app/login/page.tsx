@@ -1,6 +1,5 @@
 import LoginCard from "./ui/LoginCard";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
 // This page uses useSearchParams() in a client component; force dynamic rendering
 export const dynamic = "force-dynamic";
@@ -26,14 +25,22 @@ export default function LoginPage() {
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign in with your email/password or Google account.
+            Sign in with your email and password.
           </p>
         </div>
+
+        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+          All accounts created before 13.05 have been deleted along with their history. Please create a new account to use the portal.
+        </div>
+
         <LoginCard />
-        <Button asChild variant="outline" className="mt-3 w-full">
-          <Link href="/signup">Create account</Link>
-        </Button>
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="underline underline-offset-4 hover:text-foreground">
+            Create account
+          </Link>
+        </p>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           By continuing, you agree to use this data for operational purposes only.
         </p>
       </div>

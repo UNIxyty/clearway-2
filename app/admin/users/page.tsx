@@ -12,6 +12,7 @@ type AdminUserRow = {
   displayName: string | null;
   isAdmin: boolean;
   isDeveloper: boolean;
+  isApproved: boolean;
   createdAt: string | null;
 };
 
@@ -19,6 +20,7 @@ const ROLE_BADGE: Record<string, string> = {
   developer: "bg-violet-500/15 text-violet-600 border-violet-400/30",
   admin: "bg-blue-500/15 text-blue-600 border-blue-400/30",
   user: "bg-muted/60 text-muted-foreground border-border/50",
+  pending: "bg-amber-500/15 text-amber-600 border-amber-400/30",
 };
 
 function RoleBadge({ label }: { label: string }) {
@@ -33,6 +35,7 @@ function RoleBadge({ label }: { label: string }) {
 function roleLabel(u: AdminUserRow) {
   if (u.isDeveloper) return "developer";
   if (u.isAdmin) return "admin";
+  if (!u.isApproved) return "pending";
   return "user";
 }
 
@@ -56,7 +59,10 @@ export default function AdminUsersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function updateRole(target: AdminUserRow, patch: { isAdmin?: boolean; isDeveloper?: boolean }) {
+  async function updateRole(
+    target: AdminUserRow,
+    patch: { isAdmin?: boolean; isDeveloper?: boolean; isApproved?: boolean }
+  ) {
     setUpdatingUserId(target.id);
     setError(null);
     try {
@@ -74,11 +80,13 @@ export default function AdminUsersPage() {
                 ...u,
                 isAdmin: patch.isAdmin !== undefined ? patch.isAdmin : u.isAdmin,
                 isDeveloper: patch.isDeveloper !== undefined ? patch.isDeveloper : u.isDeveloper,
+                isApproved: patch.isApproved !== undefined ? patch.isApproved : u.isApproved,
               }
             : u,
         ).sort((a, b) => {
           if (a.isDeveloper !== b.isDeveloper) return a.isDeveloper ? -1 : 1;
           if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
+          if (a.isApproved !== b.isApproved) return a.isApproved ? 1 : -1;
           return String(a.email || "").localeCompare(String(b.email || ""), undefined, { sensitivity: "base" });
         }),
       );
@@ -103,7 +111,7 @@ export default function AdminUsersPage() {
           <CardHeader>
             <CardTitle className="text-base">Users</CardTitle>
             <CardDescription>
-              Manage roles. Admins can grant/revoke Admin. Only Developers can grant/revoke Developer.
+              Approve new accounts and manage roles. Admins can grant/revoke Admin. Only Developers can grant/revoke Developer.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -139,8 +147,21 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="flex shrink-0 gap-1.5">
+                        {/* Approve button — shown for pending users */}
+                        {!u.isApproved && !u.isDeveloper && !u.isAdmin && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            disabled={busy}
+                            onClick={() => updateRole(u, { isApproved: true })}
+                          >
+                            {busy ? "…" : "Approve"}
+                          </Button>
+                        )}
+
                         {/* Admin toggle — available to admins and devs, blocked if target is dev and caller isn't */}
-                        {!u.isDeveloper && (
+                        {!u.isDeveloper && u.isApproved && (
                           <Button
                             type="button"
                             size="sm"

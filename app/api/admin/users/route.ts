@@ -20,12 +20,12 @@ export async function GET() {
 
     const { data: prefs, error: prefsError } = await service
       .from("user_preferences")
-      .select("user_id, display_name, is_admin, is_developer")
+      .select("user_id, display_name, is_admin, is_developer, is_approved")
       .in("user_id", ids);
     if (prefsError) return NextResponse.json({ error: prefsError.message }, { status: 500 });
 
     const prefMap = new Map((prefs ?? []).map((p) => {
-      const row = p as { user_id?: string | null; display_name?: string | null; is_admin?: boolean | null; is_developer?: boolean | null };
+      const row = p as { user_id?: string | null; display_name?: string | null; is_admin?: boolean | null; is_developer?: boolean | null; is_approved?: boolean | null };
       return [String(row.user_id || ""), row];
     }));
 
@@ -39,6 +39,7 @@ export async function GET() {
           displayName: pref?.display_name ?? null,
           isAdmin: Boolean(pref?.is_admin),
           isDeveloper: Boolean(pref?.is_developer),
+          isApproved: pref ? Boolean(pref.is_approved) : true,
         };
       })
       .sort((a, b) => {
@@ -63,14 +64,16 @@ export async function POST(request: Request) {
       userId?: string;
       isAdmin?: boolean;
       isDeveloper?: boolean;
+      isApproved?: boolean;
     };
     const targetUserId = String(body.userId ?? "").trim();
     if (!targetUserId) return NextResponse.json({ error: "userId is required." }, { status: 400 });
 
     const settingAdmin = typeof body.isAdmin === "boolean";
     const settingDeveloper = typeof body.isDeveloper === "boolean";
-    if (!settingAdmin && !settingDeveloper) {
-      return NextResponse.json({ error: "isAdmin or isDeveloper (boolean) is required." }, { status: 400 });
+    const settingApproved = typeof body.isApproved === "boolean";
+    if (!settingAdmin && !settingDeveloper && !settingApproved) {
+      return NextResponse.json({ error: "isAdmin, isDeveloper, or isApproved (boolean) is required." }, { status: 400 });
     }
 
     if (settingDeveloper && !callerIsDeveloper) {
@@ -100,12 +103,20 @@ export async function POST(request: Request) {
     const patch: Record<string, boolean> = {};
     if (settingAdmin) patch.is_admin = body.isAdmin!;
     if (settingDeveloper) patch.is_developer = body.isDeveloper!;
+    if (settingApproved) patch.is_approved = body.isApproved!;
 
     const { error: upsertErr } = await service
       .from("user_preferences")
       .upsert({ user_id: targetUserId, ...patch }, { onConflict: "user_id" });
 
     if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+
+    if (settingApproved) {
+      await service.auth.admin.updateUserById(targetUserId, {
+        user_metadata: { is_approved: body.isApproved! },
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: (e as { message?: string })?.message || "Failed to update." }, { status: 500 });

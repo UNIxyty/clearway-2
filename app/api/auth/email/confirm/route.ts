@@ -69,6 +69,38 @@ async function findUserIdByEmail(email: string) {
   return { error: "User account not found for this confirmation token.", userId: null as string | null };
 }
 
+async function notifyApprovalNeeded(userId: string, email: string): Promise<void> {
+  const botToken = String(
+    process.env.TELEGRAM_BUG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ""
+  ).trim();
+  if (!botToken) return;
+  const chatIds = String(
+    process.env.TELEGRAM_BUG_ALLOWED_CHAT_IDS || process.env.TELEGRAM_DEBUG_ALLOWED_CHAT_IDS || ""
+  )
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (!chatIds.length) return;
+
+  const text = ["👤 New account pending approval", `Email: ${email}`, `ID: ${userId}`].join("\n");
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        { text: "✅ Confirm", callback_data: `approval:approve:${userId}` },
+        { text: "❌ Decline", callback_data: `approval:decline:${userId}` },
+      ],
+    ],
+  };
+
+  for (const chatId of chatIds) {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, reply_markup: replyMarkup }),
+    }).catch(() => undefined);
+  }
+}
+
 async function syncDisplayNameFromMetadata(userId: string) {
   const service = createSupabaseServiceRoleClient();
   if (!service) return;
@@ -153,6 +185,15 @@ export async function POST(request: Request) {
   }
 
   await syncDisplayNameFromMetadata(targetUserId);
+
+  // Mark account as pending approval and notify Telegram.
+  await service.auth.admin.updateUserById(targetUserId, {
+    user_metadata: { is_approved: false },
+  });
+  await service
+    .from("user_preferences")
+    .upsert({ user_id: targetUserId, is_approved: false }, { onConflict: "user_id" });
+  await notifyApprovalNeeded(targetUserId, confirmation.row.email);
 
   const { error: markUsedError } = await service
     .from("email_confirmations")

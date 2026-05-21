@@ -1,0 +1,14 @@
+services:
+  digital-wall:
+    build: .
+    container_name: digital-wall
+    env_file:
+      - .env
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - ../164.92.164.35:/app/upstream:ro
+      - /app/node_modules
+    command: npm run dev
+

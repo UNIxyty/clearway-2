@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Wall Backend Test</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: #121a31;
+        --muted: #8ea0c7;
+        --text: #e9efff;
+        --accent: #4ea1ff;
+        --border: #2a3557;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: radial-gradient(circle at top, #1d2a4f 0%, var(--bg) 45%);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 24px auto;
+        padding: 0 16px 24px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 10px;
+      }
+      .muted {
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .card {
+        background: color-mix(in srgb, var(--panel) 90%, black 10%);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .title {
+        font-weight: 600;
+        margin: 0 0 10px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .row.wrap {
+        flex-wrap: wrap;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 0 6px;
+      }
+      input, button {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0c1328;
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+      button {
+        cursor: pointer;
+        background: linear-gradient(180deg, #1f6ee7, #1252b6);
+        border: 0;
+        font-weight: 600;
+      }
+      button.secondary {
+        background: #1b2441;
+        border: 1px solid var(--border);
+      }
+      pre {
+        margin: 14px 0 0;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #060a17;
+        padding: 12px;
+        max-height: 440px;
+        overflow: auto;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .cards {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 10px;
+      }
+      .flight-card {
+        background: #0c1328;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .flight-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .chip {
+        font-size: 11px;
+        color: #cfe0ff;
+        background: #24345f;
+        border: 1px solid #30467f;
+        border-radius: 999px;
+        padding: 3px 8px;
+      }
+      .flight-route {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .flight-meta {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .aircraft-card {
+        background: #0c1328;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+      }
+      .aircraft-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .ok { color: #64ef9d; }
+      .err { color: #ff6b8f; }
+      .tips {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .field-note {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      code {
+        color: #9bc0ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Digital Wall Backend Test UI</h1>
+      <p class="muted">Quick testing for timeline backend endpoints (no curl needed).</p>
+
+      <div class="grid">
+        <section class="card">
+          <p class="title">Sync Controls</p>
+          <div class="row">
+            <button id="btn-status">Get Sync Status</button>
+            <button id="btn-refresh" class="secondary">Run Refresh</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <p class="title">Flights Query</p>
+          <div>
+            <label for="opr-id">operator/user (optional)</label>
+            <input id="opr-id" placeholder="e.g. second-operator-id" />
+            <div class="field-note">Set this to fetch flights/aircraft for second user by `oprId`.</div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="from">from (local datetime)</label>
+              <input id="from" type="datetime-local" />
+              <div id="from-iso" class="field-note">ISO: -</div>
+            </div>
+            <div>
+              <label for="to">to (local datetime)</label>
+              <input id="to" type="datetime-local" />
+              <div id="to-iso" class="field-note">ISO: -</div>
+            </div>
+          </div>
+          <div class="row wrap" style="margin-top:10px;">
+            <button id="preset-today" class="secondary">Today</button>
+            <button id="preset-48h" class="secondary">Next 48h</button>
+            <button id="preset-24h" class="secondary">Now +/-24h</button>
+            <button id="preset-clear" class="secondary">Clear</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btn-flights">Get Flights</button>
+            <button id="btn-limitations" class="secondary">Get Limitations</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="btn-aircraft">Get All Aircraft</button>
+            <button id="btn-aircraft-refresh" class="secondary">Refresh Aircraft (Live)</button>
+          </div>
+        </section>
+      </div>
+
+      <pre id="out">Click any action to start testing...</pre>
+      <div id="cards" class="cards"></div>
+      <p id="statusLine" class="tips">Status: idle</p>
+
+      <p class="tips">
+        Endpoints: <code>/api/timeline/sync-status</code>, <code>/api/timeline/refresh</code>,
+        <code>/api/timeline/flights</code>, <code>/api/timeline/aircraft</code>, <code>/api/timeline/limitations</code>
+      </p>
+    </div>
+
+    <script>
+      const out = document.getElementById("out");
+      const cards = document.getElementById("cards");
+      const statusLine = document.getElementById("statusLine");
+      const fromInput = document.getElementById("from");
+      const toInput = document.getElementById("to");
+      const oprIdInput = document.getElementById("opr-id");
+      const fromIsoLabel = document.getElementById("from-iso");
+      const toIsoLabel = document.getElementById("to-iso");
+
+      function setStatus(text, ok = true) {
+        statusLine.className = ok ? "tips ok" : "tips err";
+        statusLine.textContent = `Status: ${text}`;
+      }
+
+      function print(value) {
+        out.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      }
+
+      function clearCards() {
+        cards.innerHTML = "";
+      }
+
+      function toInputDateTimeValue(date) {
+        const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return d.toISOString().slice(0, 16);
+      }
+
+      function toIsoOrEmpty(localValue) {
+        if (!localValue) return "";
+        const dt = new Date(localValue);
+        if (Number.isNaN(dt.getTime())) return "";
+        return dt.toISOString();
+      }
+
+      function refreshIsoHints() {
+        const fromIso = toIsoOrEmpty(fromInput.value);
+        const toIso = toIsoOrEmpty(toInput.value);
+        fromIsoLabel.textContent = `ISO: ${fromIso || "-"}`;
+        toIsoLabel.textContent = `ISO: ${toIso || "-"}`;
+      }
+
+      function setRange(fromDate, toDate) {
+        fromInput.value = toInputDateTimeValue(fromDate);
+        toInput.value = toInputDateTimeValue(toDate);
+        refreshIsoHints();
+      }
+
+      function applyPresetToday() {
+        const now = new Date();
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        setRange(start, end);
+      }
+
+      function applyPresetNext48h() {
+        const now = new Date();
+        const end = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+        setRange(now, end);
+      }
+
+      function applyPresetNowPlusMinus24h() {
+        const now = new Date();
+        const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        setRange(start, end);
+      }
+
+      function clearRange() {
+        fromInput.value = "";
+        toInput.value = "";
+        refreshIsoHints();
+      }
+
+      function renderFlightCards(payload) {
+        clearCards();
+        const aircraft = payload?.data?.aircraft;
+        if (!Array.isArray(aircraft) || aircraft.length === 0) return;
+
+        const flights = [];
+        for (const ac of aircraft) {
+          for (const flight of ac.flights || []) {
+            flights.push({
+              ...flight,
+              registration: ac.registration || "UNKNOWN",
+            });
+          }
+        }
+
+        if (flights.length === 0) return;
+
+        const fmt = (value) => (value === null || value === undefined || value === "" ? "-" : String(value));
+
+        const fragment = document.createDocumentFragment();
+        for (const flight of flights) {
+          const card = document.createElement("article");
+          card.className = "flight-card";
+          card.innerHTML = `
+            <div class="flight-head">
+              <div class="flight-route">${fmt(flight.adep?.icao || "UNK")} -> ${fmt(flight.ades?.icao || "UNK")}</div>
+              <span class="chip">${fmt(flight.status || "unknown")}</span>
+            </div>
+            <div class="flight-meta">
+              <div><strong>Flight:</strong> ${fmt(flight.flightNo)} | <strong>Trip:</strong> ${fmt(flight.tripNo)}</div>
+              <div><strong>Trip Code:</strong> ${fmt(flight.tripCode)}</div>
+              <div><strong>Aircraft:</strong> ${fmt(flight.registration || flight.aircraftRegistration)}</div>
+              <div><strong>ADEP:</strong> ${fmt(flight.adep?.icao)} / ${fmt(flight.adep?.iata)} - ${fmt(flight.adep?.name)} (${fmt(flight.adep?.city)})</div>
+              <div><strong>ADES:</strong> ${fmt(flight.ades?.icao)} / ${fmt(flight.ades?.iata)} - ${fmt(flight.ades?.name)} (${fmt(flight.ades?.city)})</div>
+              <div><strong>ETD:</strong> ${fmt(flight.etd || flight.startTimeUTC)} | <strong>ETA:</strong> ${fmt(flight.eta || flight.endTimeUTC)}</div>
+              <div><strong>ATD:</strong> ${fmt(flight.atd)} | <strong>ATA:</strong> ${fmt(flight.ata)}</div>
+              <div><strong>Delay:</strong> ${fmt(flight.delayMin)} min (<strong>DEP:</strong> ${fmt(flight.departureDelayMin)} / <strong>ARR:</strong> ${fmt(flight.arrivalDelayMin)})</div>
+              <div><strong>Delayed Time (calc):</strong> DEP ${fmt(flight.delayedDepartureUTC)} | ARR ${fmt(flight.delayedArrivalUTC)}</div>
+              <div><strong>Start UTC:</strong> ${fmt(flight.startTimeUTC)}</div>
+              <div><strong>End UTC:</strong> ${fmt(flight.endTimeUTC)}</div>
+              <div><strong>Cancelled:</strong> ${flight.isCnl ? "yes" : "no"}</div>
+              <div><strong>Last Modified:</strong> ${fmt(flight.flightLastModificationTime)}</div>
+              <div><strong>Crew:</strong> ${fmt(flight.crewCount)} | <strong>Pax:</strong> ${fmt(flight.passengerCount)}</div>
+            </div>
+          `;
+          fragment.appendChild(card);
+        }
+        cards.appendChild(fragment);
+      }
+
+      function renderAircraftCards(payload) {
+        clearCards();
+        const aircraft = payload?.data?.aircraft;
+        if (!Array.isArray(aircraft) || aircraft.length === 0) return;
+
+        const fragment = document.createDocumentFragment();
+        for (const ac of aircraft) {
+          const card = document.createElement("article");
+          card.className = "aircraft-card";
+          card.innerHTML = `
+            <div class="aircraft-head">
+              <div class="flight-route">${ac.registration || "UNKNOWN"}</div>
+              <span class="chip">${ac.acftTypeIcao || ac.acftTypeShortName || "TYPE N/A"}</span>
+            </div>
+            <div class="flight-meta">
+              <div>Capacity: ${ac.paxCapacity ?? "-"}</div>
+              <div>Type ID: ${ac.acftTypeId ?? "-"}</div>
+              <div>IATA: ${ac.acftTypeIata ?? "-"}</div>
+            </div>
+          `;
+          fragment.appendChild(card);
+        }
+        cards.appendChild(fragment);
+      }
+
+      async function request(path, init) {
+        const started = Date.now();
+        setStatus(`calling ${path} ...`);
+        clearCards();
+        try {
+          const response = await fetch(path, init);
+          const text = await response.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = text;
+          }
+          setStatus(`${response.status} in ${Date.now() - started}ms`, response.ok);
+          print({
+            endpoint: path,
+            status: response.status,
+            ok: response.ok,
+            elapsedMs: Date.now() - started,
+            data
+          });
+          if (path.startsWith("/api/timeline/flights") && response.ok) {
+            renderFlightCards({ data });
+          }
+          if (path.startsWith("/api/timeline/aircraft") && response.ok) {
+            renderAircraftCards({ data });
+          }
+        } catch (error) {
+          setStatus(String(error), false);
+          print({ error: String(error), endpoint: path });
+        }
+      }
+
+      function buildFlightsPath() {
+        const from = toIsoOrEmpty(fromInput.value);
+        const to = toIsoOrEmpty(toInput.value);
+        const oprId = oprIdInput.value.trim();
+        const qp = new URLSearchParams();
+        if (from) qp.set("from", from);
+        if (to) qp.set("to", to);
+        if (oprId) qp.set("oprId", oprId);
+        qp.set("refresh", "true");
+        return qp.toString() ? `/api/timeline/flights?${qp.toString()}` : "/api/timeline/flights";
+      }
+
+      function buildAircraftPath(refresh = false) {
+        const oprId = oprIdInput.value.trim();
+        const qp = new URLSearchParams();
+        if (oprId) qp.set("oprId", oprId);
+        if (refresh) qp.set("refresh", "true");
+        return qp.toString() ? `/api/timeline/aircraft?${qp.toString()}` : "/api/timeline/aircraft";
+      }
+
+      document.getElementById("btn-status").addEventListener("click", () => request("/api/timeline/sync-status"));
+      document.getElementById("btn-refresh").addEventListener("click", () =>
+        request("/api/timeline/refresh", { method: "POST" })
+      );
+      document.getElementById("btn-flights").addEventListener("click", () => request(buildFlightsPath()));
+      document.getElementById("btn-limitations").addEventListener("click", () => request("/api/timeline/limitations"));
+      document.getElementById("btn-aircraft").addEventListener("click", () => request(buildAircraftPath(false)));
+      document.getElementById("btn-aircraft-refresh").addEventListener("click", () => request(buildAircraftPath(true)));
+      document.getElementById("preset-today").addEventListener("click", applyPresetToday);
+      document.getElementById("preset-48h").addEventListener("click", applyPresetNext48h);
+      document.getElementById("preset-24h").addEventListener("click", applyPresetNowPlusMinus24h);
+      document.getElementById("preset-clear").addEventListener("click", clearRange);
+      fromInput.addEventListener("change", refreshIsoHints);
+      toInput.addEventListener("change", refreshIsoHints);
+
+      applyPresetToday();
+    </script>
+  </body>
+</html>

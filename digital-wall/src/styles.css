@@ -1,0 +1,420 @@
+:root {
+  color-scheme: dark;
+  --bg: #161f28;
+  --bg-soft: #1d2835;
+  --bg-alt: #242f3d;
+  --border: #657590;
+  --text: #fefefe;
+  --text-soft: #90a1bb;
+  --status-not-departed: #f2f2f2;
+  --status-airborne: #a0b0e6;
+  --status-delayed: #ffd000;
+  --status-ctot: #8e42fe;
+  --status-arrived: #eeb4c5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Nunito, Roboto, Avenir, Helvetica, Arial, sans-serif;
+}
+
+.wallScreenRoot {
+  min-height: 100dvh;
+  padding: 0 10px 10px;
+}
+
+.clockBar {
+  display: flex;
+  justify-content: space-evenly;
+  border-bottom: 1px solid #aaa;
+  padding: 10px 0;
+  margin-bottom: 6px;
+}
+
+.clockCard {
+  text-align: center;
+}
+
+.clockTime {
+  margin: 0;
+  font-size: clamp(2.1rem, 3vw, 3.1rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clockCity {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
+.wallContent {
+  display: grid;
+  grid-template-columns: 210px 1fr 520px;
+  gap: 6px;
+  min-height: calc(100dvh - 95px);
+}
+
+.leftAgenda {
+  background: var(--bg-soft);
+  padding: 8px 10px;
+  overflow: auto;
+}
+
+.dateBox {
+  height: 50px;
+  border-bottom: 1px solid #888;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.agendaSection {
+  margin-bottom: 16px;
+}
+
+.agendaSection h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.legendList,
+.permanentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legendList li,
+.permanentList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  font-size: 0.82rem;
+}
+
+.legendPill {
+  width: 28px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.permanentIndex {
+  width: 18px;
+  height: 18px;
+  background: #bb2441;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.permanentText {
+  color: var(--text-soft);
+}
+
+.timelineSection {
+  background: #17212b;
+  border-left: 1px solid #888;
+  border-right: 1px solid #888;
+  min-height: 0;
+}
+
+.timelineScroller {
+  height: 100%;
+  overflow: auto;
+}
+
+.hourHeader {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 160px repeat(19, minmax(55px, 1fr));
+  border-bottom: 1px solid #737373;
+  background: #17212b;
+}
+
+.hourCell {
+  height: 52px;
+  border-left: 1px solid #6d7878;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: #c9d3de;
+  font-size: 0.72rem;
+  padding-bottom: 4px;
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+  font-variant-numeric: tabular-nums;
+}
+
+.hourCell:first-child {
+  writing-mode: horizontal-tb;
+  transform: none;
+  border-left: 0;
+}
+
+.timelineRows {
+  min-width: 1260px;
+}
+
+.timelineRow {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  min-height: 72px;
+  border-bottom: 1px solid #293648;
+}
+
+.timelineRow:nth-child(2n) {
+  background: #1f2936;
+}
+
+.aircraftCell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: inherit;
+  color: #dce5f3;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border-right: 1px solid #293648;
+}
+
+.laneCell {
+  position: relative;
+  padding: 8px 4px;
+}
+
+.hourGridLines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(19, minmax(0, 1fr));
+}
+
+.hourGridLines span {
+  border-left: 1px solid rgba(109, 120, 120, 0.45);
+}
+
+.flightWrapper {
+  position: absolute;
+  top: 10px;
+  height: 76px;
+}
+
+.flightNumber {
+  margin: 0 0 2px 2px;
+  color: #00eb72;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.flightMetaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 8px 5px;
+  gap: 8px;
+}
+
+.flightBar {
+  position: relative;
+  height: 34px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: visible;
+}
+
+.delayPart {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 18px 0 0 18px;
+  border-right: 1px dashed rgba(255, 255, 255, 0.85);
+  background-image: linear-gradient(
+    45deg,
+    #eaeaea 20%,
+    transparent 20%,
+    transparent 50%,
+    #eaeaea 50%,
+    #eaeaea 70%,
+    transparent 70%,
+    transparent
+  );
+  background-size: 10px 10px;
+}
+
+.delayTimeLabel {
+  position: absolute;
+  top: 39px;
+  font-size: 0.66rem;
+  color: #aaa;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.delayTimeLabel:first-child {
+  left: 2px;
+}
+
+.delayTimeLabel:last-child {
+  right: 2px;
+}
+
+.actualFlightPart {
+  position: absolute;
+  inset: 0 0 0 auto;
+  border-radius: 18px;
+}
+
+.barStartLabel,
+.barEndLabel {
+  font-size: 0.66rem;
+  color: #aaa;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.ctotBadge {
+  position: absolute;
+  top: 35px;
+  right: 0;
+  color: #c9b1ff;
+  font-size: 0.82rem;
+  background: #1f2936;
+  border: 1px solid #2e3d52;
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  padding: 4px 10px 5px;
+  line-height: 1;
+}
+
+.flightsTablePanel {
+  background: var(--bg);
+  border-left: 1px solid #888;
+}
+
+.tableScroller {
+  height: 100%;
+  overflow: auto;
+}
+
+.flightsTablePanel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.flightsTablePanel th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+  color: #d9e5f4;
+  border-bottom: 1px solid #333;
+  padding: 4px;
+  text-align: center;
+}
+
+.flightsTablePanel td {
+  border: 1px solid #333;
+  border-top: 0;
+  padding: 4px;
+  text-align: center;
+}
+
+.flightsTablePanel .flightCol {
+  color: #00eb72;
+  font-weight: 700;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.statusNotDeparted {
+  background-color: var(--status-not-departed);
+}
+
+.statusAirborne {
+  background-color: var(--status-airborne);
+}
+
+.statusDelayed {
+  background-color: var(--status-delayed);
+}
+
+.statusCtot {
+  background-color: var(--status-ctot);
+}
+
+.statusArrived {
+  background-color: var(--status-arrived);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 1400px) {
+  .wallContent {
+    grid-template-columns: 190px 1fr 420px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .clockBar {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .wallContent {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .leftAgenda {
+    order: 2;
+  }
+
+  .timelineSection {
+    order: 1;
+    min-height: 62vh;
+  }
+
+  .flightsTablePanel {
+    order: 3;
+    min-height: 36vh;
+    border-left: 0;
+  }
+}

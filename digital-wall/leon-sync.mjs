@@ -21,13 +21,24 @@ function toIsoOrNull(value) {
 function normalizeDateLike(value) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number" && Number.isFinite(value)) {
-    // Leon can return unix seconds for some flightWatch fields.
-    return new Date(value * 1000).toISOString();
+    // Leon can return unix seconds or unix milliseconds.
+    const ms = value > 1e12 ? value : value * 1000;
+    return new Date(ms).toISOString();
   }
   if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    // Leon sometimes returns unix timestamps as strings.
+    if (/^\d+$/.test(trimmed)) {
+      const asNumber = Number(trimmed);
+      if (Number.isFinite(asNumber)) {
+        const ms = asNumber > 1e12 ? asNumber : asNumber * 1000;
+        return new Date(ms).toISOString();
+      }
+    }
     const dt = parseDate(value);
     if (dt) return dt.toISOString();
-    return value;
+    return null;
   }
   return null;
 }

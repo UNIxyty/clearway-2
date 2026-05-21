@@ -10,7 +10,7 @@
     <main class="page">
       <header class="page-header">
         <div>
-          <h1>Operators</h1>
+          <h1><span class="icon">🧩</span>Operators</h1>
           <p class="subtitle">Add Leon operators with prefix and refresh token. Tokens are stored securely and never shown again.</p>
         </div>
         <div id="storageMode" class="chip">storage: -</div>
@@ -32,8 +32,8 @@
             <input id="refreshToken" name="refreshToken" placeholder="paste refresh token" required />
           </label>
           <div style="grid-column: 1 / -1; display:flex; gap:10px;">
-            <button class="primary" type="submit">Save Operator</button>
-            <button id="reloadBtn" type="button">Reload List</button>
+            <button class="primary" type="submit"><span class="icon">💾</span>Save Operator</button>
+            <button id="reloadBtn" type="button"><span class="icon">🔄</span>Reload List</button>
           </div>
         </form>
         <div id="formStatus" class="status"></div>
@@ -93,15 +93,17 @@
       }
 
       async function loadOperators() {
+        formStatus.className = "status loading";
         formStatus.textContent = "Loading operators...";
         const data = await api("/api/operators?includeInactive=true");
         renderOperators(data);
+        formStatus.className = "status";
         formStatus.textContent = `Loaded ${data.operators.length} operator(s).`;
       }
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        formStatus.className = "status";
+        formStatus.className = "status loading";
         formStatus.textContent = "Saving operator...";
         try {
           await api("/api/operators", {
@@ -114,6 +116,7 @@
             }),
           });
           document.getElementById("refreshToken").value = "";
+          formStatus.className = "status";
           formStatus.textContent = "Operator saved.";
           await loadOperators();
         } catch (error) {

@@ -10,10 +10,10 @@
     <main class="page">
       <header class="page-header">
         <div>
-          <h1>Aircrafts</h1>
+          <h1><span class="icon">✈️</span>Aircrafts</h1>
           <p class="subtitle">Aircraft with flights in the next 7 days across all operators. Disabled aircraft are hidden on timeline.</p>
         </div>
-        <button id="refreshBtn" class="primary" type="button">Refresh</button>
+        <button id="refreshBtn" class="primary" type="button"><span class="icon">🔄</span>Refresh</button>
       </header>
 
       <section class="card">
@@ -78,10 +78,11 @@
       }
 
       async function loadAircraft() {
-        summary.className = "status";
+        summary.className = "status loading";
         summary.textContent = "Loading aircraft schedule...";
         const data = await api("/api/aircraft/schedule?days=7&refresh=true");
         renderRows(data.aircraft || []);
+        summary.className = "status";
         summary.textContent = `${data.totalAircraft || 0} aircraft with flights in next ${data.days || 7} days (${data.source || "unknown"}).`;
       }
 
@@ -92,11 +93,15 @@
         const registration = input.getAttribute("data-registration");
         const isHidden = !input.checked;
         try {
+          summary.className = "status loading";
+          summary.textContent = `Saving visibility for ${registration}...`;
           await api("/api/aircraft/visibility", {
             method: "PUT",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ oprId, registration, isHidden }),
           });
+          summary.className = "status";
+          summary.textContent = `${registration} is now ${isHidden ? "hidden" : "visible"} on timeline.`;
         } catch (error) {
           summary.className = "status error";
           summary.textContent = error.message;

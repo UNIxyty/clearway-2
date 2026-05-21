@@ -64,6 +64,7 @@ const LEON_FLIGHT_FIELDS = `
     code { icao }
   }
   acft {
+    aircraftNid
     registration
   }
   flightWatch {
@@ -328,14 +329,14 @@ export class LeonTimelineService {
     if (this.operatorsStore) {
       try {
         const fromStore = await this.operatorsStore.getOperatorCredentials();
-        if (fromStore.length > 0) {
-          for (const operator of fromStore) {
-            this.refreshTokensByOperator.set(operator.oprId, operator.refreshToken);
-          }
-          return fromStore;
+        for (const operator of fromStore) {
+          this.refreshTokensByOperator.set(operator.oprId, operator.refreshToken);
         }
+        // When operators store is configured, operators must come from there only.
+        return fromStore;
       } catch (error) {
         this.state.lastError = error instanceof Error ? error.message : String(error);
+        return [];
       }
     }
     if (this.operatorId && this.refreshToken) {
@@ -594,7 +595,9 @@ export class LeonTimelineService {
     while (chunkStart <= toDate) {
       const chunkEnd = minDate(addDays(chunkStart, 9), toDate);
       const chunkStartText = chunkStart.toISOString().slice(0, 10);
-      const chunkEndText = chunkEnd.toISOString().slice(0, 10);
+      // Leon rejects zero-length intervals in some tenants; ensure at least 1 day.
+      const requestedEnd = chunkEnd <= chunkStart ? addDays(chunkStart, 1) : chunkEnd;
+      const chunkEndText = requestedEnd.toISOString().slice(0, 10);
       const data = await this.graphqlRequest(
         `
           query {

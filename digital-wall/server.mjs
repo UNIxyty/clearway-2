@@ -183,7 +183,13 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/flights/data") {
       const from = url.searchParams.get("from");
       const to = url.searchParams.get("to");
-      sendJson(res, await timelineService.getLegacyFlightsData({ from, to }));
+      const filtered = await timelineService.getLegacyFlightsData({ from, to });
+      const filteredFlights = filtered.reduce((acc, row) => acc + (row.flights?.length || 0), 0);
+      if (filteredFlights === 0 && (from || to)) {
+        sendJson(res, await timelineService.getLegacyFlightsData({}));
+      } else {
+        sendJson(res, filtered);
+      }
       return;
     }
 

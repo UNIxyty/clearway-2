@@ -20,6 +20,7 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   background: radial-gradient(circle at top, #111827 0%, var(--bg) 55%);
   color: var(--text);
+  animation: fadeIn 220ms ease;
 }
 
 a {
@@ -58,6 +59,13 @@ a {
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 16px;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.card:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.35);
+  transform: translateY(-1px);
 }
 
 .grid {
@@ -98,6 +106,7 @@ button {
   border-radius: 10px;
   padding: 10px 14px;
   cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, border-color 120ms ease;
 }
 
 button.primary {
@@ -113,6 +122,11 @@ button.danger {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
 .table {
@@ -156,10 +170,46 @@ button:disabled {
   margin-top: 10px;
   color: var(--muted);
   font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .status.error {
   color: var(--danger);
+}
+
+.status.loading::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: spin 0.85s linear infinite;
+}
+
+.icon {
+  margin-right: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skeleton {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.95) 25%,
+    rgba(51, 65, 85, 0.95) 50%,
+    rgba(30, 41, 59, 0.95) 75%
+  );
+  background-size: 180% 100%;
+  animation: shimmer 1.2s infinite;
 }
 
 .toggle {
@@ -267,5 +317,31 @@ button:disabled {
 @media (max-width: 900px) {
   .grid-3 {
     grid-template-columns: 1fr;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

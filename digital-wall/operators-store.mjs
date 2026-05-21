@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const LOCAL_OPERATORS_FILE = path.resolve(process.cwd(), "data", "operators.json");
 const LOCAL_VISIBILITY_FILE = path.resolve(process.cwd(), "data", "aircraft-visibility.json");
 
 function supabaseConfigured() {
@@ -81,44 +80,30 @@ function sanitizeOperator(row) {
 
 export class OperatorsStore {
   async listOperators({ includeInactive = false } = {}) {
-    if (await canUseSupabase()) {
-      const filter = includeInactive ? "" : "&is_active=eq.true";
-      const rows =
-        (await supabaseFetch(`leon_operators?select=*&order=opr_id.asc${filter}`)) || [];
-      return rows.map(sanitizeOperator);
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
     }
-
-    const local = await readLocalJson(LOCAL_OPERATORS_FILE, { operators: [] });
-    const operators = local.operators || [];
-    return operators
-      .filter((row) => includeInactive || row.isActive !== false)
-      .map(sanitizeOperator);
+    const filter = includeInactive ? "" : "&is_active=eq.true";
+    const rows =
+      (await supabaseFetch(`leon_operators?select=*&order=opr_id.asc${filter}`)) || [];
+    return rows.map(sanitizeOperator);
   }
 
   async getOperatorCredentials() {
-    if (await canUseSupabase()) {
-      const rows =
-        (await supabaseFetch(
-          "leon_operators?select=id,opr_id,name,refresh_token,is_active&is_active=eq.true&order=opr_id.asc"
-        )) || [];
-      return rows
-        .filter((row) => row.refresh_token)
-        .map((row) => ({
-          id: row.id,
-          oprId: row.opr_id,
-          name: row.name ?? row.opr_id,
-          refreshToken: row.refresh_token,
-        }));
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
     }
-
-    const local = await readLocalJson(LOCAL_OPERATORS_FILE, { operators: [] });
-    return (local.operators || [])
-      .filter((row) => row.isActive !== false && row.refreshToken)
+    const rows =
+      (await supabaseFetch(
+        "leon_operators?select=id,opr_id,name,refresh_token,is_active&is_active=eq.true&order=opr_id.asc"
+      )) || [];
+    return rows
+      .filter((row) => row.refresh_token)
       .map((row) => ({
         id: row.id,
-        oprId: row.oprId,
-        name: row.name ?? row.oprId,
-        refreshToken: row.refreshToken,
+        oprId: row.opr_id,
+        name: row.name ?? row.opr_id,
+        refreshToken: row.refresh_token,
       }));
   }
 
@@ -131,62 +116,35 @@ export class OperatorsStore {
       throw new Error("Leon API refresh token is required.");
     }
 
-    if (await canUseSupabase()) {
-      const payload = {
-        opr_id: normalizedOprId,
-        name: String(name || normalizedOprId).trim(),
-        refresh_token: String(refreshToken).trim(),
-        is_active: isActive,
-        updated_at: new Date().toISOString(),
-      };
-      const rows = await supabaseFetch("leon_operators?on_conflict=opr_id", {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(payload),
-      });
-      const row = Array.isArray(rows) ? rows[0] : rows;
-      return sanitizeOperator(row);
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
     }
-
-    const local = await readLocalJson(LOCAL_OPERATORS_FILE, { operators: [] });
-    const operators = local.operators || [];
-    const existingIndex = operators.findIndex((row) => row.oprId === normalizedOprId);
-    const next = {
-      id: existingIndex >= 0 ? operators[existingIndex].id : crypto.randomUUID(),
-      oprId: normalizedOprId,
+    const payload = {
+      opr_id: normalizedOprId,
       name: String(name || normalizedOprId).trim(),
-      refreshToken: String(refreshToken).trim(),
-      isActive,
-      updatedAt: new Date().toISOString(),
-      createdAt: existingIndex >= 0 ? operators[existingIndex].createdAt : new Date().toISOString(),
+      refresh_token: String(refreshToken).trim(),
+      is_active: isActive,
+      updated_at: new Date().toISOString(),
     };
-    if (existingIndex >= 0) {
-      operators[existingIndex] = next;
-    } else {
-      operators.push(next);
-    }
-    await writeLocalJson(LOCAL_OPERATORS_FILE, { operators });
-    return sanitizeOperator({ ...next, refresh_token: next.refreshToken, is_active: next.isActive });
+    const rows = await supabaseFetch("leon_operators?on_conflict=opr_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(payload),
+    });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return sanitizeOperator(row);
   }
 
   async setOperatorActive(id, isActive) {
-    if (await canUseSupabase()) {
-      const rows = await supabaseFetch(`leon_operators?id=eq.${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_active: isActive, updated_at: new Date().toISOString() }),
-      });
-      const row = Array.isArray(rows) ? rows[0] : rows;
-      return sanitizeOperator(row);
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
     }
-
-    const local = await readLocalJson(LOCAL_OPERATORS_FILE, { operators: [] });
-    const operators = local.operators || [];
-    const index = operators.findIndex((row) => row.id === id);
-    if (index < 0) throw new Error("Operator not found.");
-    operators[index].isActive = isActive;
-    operators[index].updatedAt = new Date().toISOString();
-    await writeLocalJson(LOCAL_OPERATORS_FILE, { operators });
-    return sanitizeOperator(operators[index]);
+    const rows = await supabaseFetch(`leon_operators?id=eq.${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: isActive, updated_at: new Date().toISOString() }),
+    });
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return sanitizeOperator(row);
   }
 
   async listHiddenAircraftKeys() {
@@ -233,7 +191,7 @@ export class OperatorsStore {
 
   storageMode() {
     if (supabaseUsable === true) return "supabase";
-    if (supabaseConfigured() && supabaseUsable === false) return "local-json-fallback";
+    if (supabaseConfigured() && supabaseUsable === false) return "supabase-unavailable";
     return "local-json";
   }
 }

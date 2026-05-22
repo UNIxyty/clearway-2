@@ -1,10 +1,5 @@
 import { addMin, clamp } from '../data';
 
-function hm(t) {
-  const [h, m] = String(t || '00:00').split(':').map(Number);
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
-}
-
 // Brighter pill colors
 const STATUS = {
   scheduled: { bg: 'rgba(72,82,115,.95)',   text: '#a8b4d8', hatch: 'rgba(100,112,155,.8)' },
@@ -15,20 +10,23 @@ const STATUS = {
   slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
 };
 
-export default function FlightPill({ flight, limIndex, onLimClick, startHour, totalHours, lane = 0 }) {
+export default function FlightPill({ flight, limIndex, onLimClick, windowStartMs, windowDurationMs, lane = 0 }) {
   const { fn, dep, arr, etd, eta, dlyMin, status, lim } = flight;
 
   const isDelayed = dlyMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
   const theme = STATUS[baseStatus] || STATUS.scheduled;
 
-  const actualDep = isDelayed ? addMin(etd, dlyMin) : etd;
   const actualEta = isDelayed ? addMin(eta, dlyMin) : eta;
 
-  const frac = (time) => (hm(time) / 60 - startHour) / totalHours;
-  const depF  = clamp(frac(etd));
-  const dlyF  = isDelayed ? clamp(frac(actualDep)) : depF;
-  const arrF  = clamp(frac(actualEta));
+  const depMs = Number(flight.startUtcMs) || 0;
+  const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
+  const arrMs = Number(flight.endUtcMs) || schedArrMs;
+  const delayEndMs = isDelayed ? depMs + dlyMin * 60_000 : depMs;
+  const frac = (ms) => (ms - windowStartMs) / windowDurationMs;
+  const depF = clamp(frac(depMs));
+  const dlyF = isDelayed ? clamp(frac(delayEndMs)) : depF;
+  const arrF = clamp(frac(arrMs));
 
   const totalF = Math.max(arrF - depF, 0.005);
   const hatchF = isDelayed ? Math.max(dlyF - depF, 0) : 0;

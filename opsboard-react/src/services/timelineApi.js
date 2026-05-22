@@ -66,13 +66,16 @@ function toNumber(value, fallback = 0) {
 }
 
 function mapFlight(flight) {
-  const etd = toHm(flight.etd || flight.startTimeUTC);
-  const eta = toHm(flight.eta || flight.endTimeUTC);
+  const start = toDate(flight.etd || flight.startTimeUTC);
+  const scheduledEnd = toDate(flight.eta || flight.endTimeUTC);
+  const etd = toHm(start);
+  const eta = toHm(scheduledEnd);
   const dep = flight.adep?.icao || 'UNK';
   const arr = flight.ades?.icao || 'UNK';
   const dlyMin = Math.max(0, toNumber(flight.delayMin, toNumber(flight.departureDelayMin, 0)));
 
-  if (!etd || !eta) return null;
+  if (!start || !scheduledEnd || !etd || !eta) return null;
+  const end = new Date(scheduledEnd.getTime() + dlyMin * 60_000);
 
   return {
     fn: flight.flightNo || 'UNKNOWN',
@@ -82,6 +85,9 @@ function mapFlight(flight) {
     eta,
     dlyMin,
     status: statusFromFlight(flight),
+    startUtcMs: start.getTime(),
+    scheduledEndUtcMs: scheduledEnd.getTime(),
+    endUtcMs: end.getTime(),
   };
 }
 
@@ -97,8 +103,9 @@ function mapAircraft(group) {
 
 export async function fetchTimelineAircraft() {
   const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  // Ops window: 1 day before through next 3 days.
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0));
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 4, 0, 0, 0));
   const query = new URLSearchParams({
     allOperators: 'true',
     refresh: 'true',
@@ -113,6 +120,8 @@ export async function fetchTimelineAircraft() {
     source: payload.source || 'unknown',
     totalAircraft: aircraft.length,
     aircraft,
+    windowStartUtc: from.toISOString(),
+    windowEndUtc: to.toISOString(),
   };
 }
 

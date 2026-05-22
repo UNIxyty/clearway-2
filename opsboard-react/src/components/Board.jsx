@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { TOTAL_HOURS, p2, clamp, addMin } from '../data';
+import { p2, clamp } from '../data';
 import FlightPill from './FlightPill';
 
 const LEGEND = [
@@ -20,14 +20,13 @@ const LIM_TYPE_COLOR = {
   CTOT: { bg: 'rgba(184,140,255,.15)', text: '#c8a8ff', border: 'rgba(184,140,255,.3)'  },
 };
 
-function nowFrac() {
-  const n = new Date();
-  return clamp((n.getHours() + n.getMinutes() / 60) / 24);
+function nowFracUtc(nowMs, windowStartMs, windowDurationMs) {
+  return clamp((nowMs - windowStartMs) / windowDurationMs);
 }
 
-function nowTimeStr() {
-  const n = new Date();
-  return p2(n.getHours()) + ':' + p2(n.getMinutes());
+function nowTimeStr(nowMs) {
+  const n = new Date(nowMs);
+  return `${p2(n.getUTCHours())}:${p2(n.getUTCMinutes())} UTC`;
 }
 
 function SoftGrid({ hours }) {
@@ -61,20 +60,19 @@ function collectLims(aircraft) {
   return lims;
 }
 
-function hm(t) {
-  const [h, m] = String(t || '00:00').split(':').map(Number);
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+function toMs(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function assignFlightLanes(flights) {
-  const sorted = [...(flights || [])].sort((a, b) => hm(a.etd) - hm(b.etd));
+  const sorted = [...(flights || [])].sort((a, b) => toMs(a.startUtcMs) - toMs(b.startUtcMs));
   const laneEnds = [];
   const withLanes = [];
 
   for (const flight of sorted) {
-    const start = hm(flight.etd);
-    const endTime = flight.dlyMin > 0 ? addMin(flight.eta, flight.dlyMin) : flight.eta;
-    const end = hm(endTime);
+    const start = toMs(flight.startUtcMs);
+    const end = Math.max(start, toMs(flight.endUtcMs, start));
     let lane = laneEnds.findIndex((laneEnd) => start >= laneEnd);
     if (lane < 0) {
       lane = laneEnds.length;
@@ -91,24 +89,62 @@ function assignFlightLanes(flights) {
   };
 }
 
-export default function Board({ aircraft = [] }) {
-  const [nf, setNf]           = useState(nowFrac);
-  const [nowStr, setNowStr]   = useState(nowTimeStr);
+export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [activeLim, setActiveLim] = useState(null);
+  const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
   const headerScrollRef = useRef(null);
   const bodyScrollRef = useRef(null);
-  const timelinePx = TOTAL_HOURS * 92;
-  const now = new Date();
-  const startHour = now.getHours() - Math.floor(TOTAL_HOURS / 2);
+  const hasCenteredInitiallyRef = useRef(false);
+  const END_PAD_PX = 260;
+  const VIEWPORT_HOURS = 10;
+  const BEFORE_NOW_HOURS = 3;
+  const parsedStartMs = new Date(windowStartUtc || '').getTime();
+  const parsedEndMs = new Date(windowEndUtc || '').getTime();
+  const fallbackStart = Date.now() - 6 * 60 * 60 * 1000;
+  const windowStartMs = Number.isFinite(parsedStartMs) ? parsedStartMs : fallbackStart;
+  const windowEndMs = Number.isFinite(parsedEndMs) && parsedEndMs > windowStartMs
+    ? parsedEndMs
+    : windowStartMs + 24 * 60 * 60 * 1000;
+  const windowDurationMs = Math.max(60 * 60 * 1000, windowEndMs - windowStartMs);
+  const timelineHours = Math.max(1, Math.ceil(windowDurationMs / (60 * 60 * 1000)));
+  const pxPerHour = visibleTimelineWidth / VIEWPORT_HOURS;
+  const timelinePx = timelineHours * pxPerHour;
+  const nowStr = nowTimeStr(nowMs);
+  const nowX = nowFracUtc(nowMs, windowStartMs, windowDurationMs) * timelinePx;
+  const nowMarkerLeft = 130 + BEFORE_NOW_HOURS * pxPerHour;
 
   useEffect(() => {
     const id = setInterval(() => {
-      setNf(nowFrac());
-      setNowStr(nowTimeStr());
-    }, 10000); // update every 10s
+      setNowMs(Date.now());
+    }, 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    const body = bodyScrollRef.current;
+    if (!body) return;
+
+    const updateSize = () => {
+      const next = Math.max(200, body.clientWidth - 130);
+      setVisibleTimelineWidth(next);
+    };
+    updateSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateSize);
+      observer.observe(body);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  useEffect(() => {
+    hasCenteredInitiallyRef.current = false;
+  }, [windowStartUtc, windowEndUtc]);
 
   useEffect(() => {
     const header = headerScrollRef.current;
@@ -137,20 +173,24 @@ export default function Board({ aircraft = [] }) {
     };
   }, []);
 
-  useEffect(() => {
+  function centerNowInView() {
     const header = headerScrollRef.current;
     const body = bodyScrollRef.current;
     if (!header || !body) return;
-
-    const viewportWidth = body.clientWidth;
-    const totalWidth = 130 + timelinePx;
-    const nowX = 130 + nf * timelinePx;
-    const maxScroll = Math.max(0, totalWidth - viewportWidth);
-    const nextScroll = Math.max(0, Math.min(maxScroll, nowX - viewportWidth / 2));
-
+    const width = Math.max(0, body.clientWidth - 130);
+    const maxScroll = Math.max(0, (timelinePx + END_PAD_PX) - width);
+    const nextScroll = Math.max(0, Math.min(maxScroll, nowX - BEFORE_NOW_HOURS * pxPerHour));
     body.scrollLeft = nextScroll;
     header.scrollLeft = nextScroll;
-  }, [nf, timelinePx]);
+  }
+
+  useEffect(() => {
+    const header = headerScrollRef.current;
+    const body = bodyScrollRef.current;
+    if (!header || !body || hasCenteredInitiallyRef.current) return;
+    centerNowInView();
+    hasCenteredInitiallyRef.current = true;
+  }, [timelinePx, END_PAD_PX, windowStartMs, windowDurationMs, nowX]);
 
   const allLims    = collectLims(aircraft);
   const limIndexMap = {};
@@ -160,9 +200,6 @@ export default function Board({ aircraft = [] }) {
     setActiveLim(prev => (prev?.fn === fn ? null : { lim, fn }));
   }
 
-  const nowInWindow = (now.getHours() + now.getMinutes() / 60 - startHour) / TOTAL_HOURS;
-  const nowPct = (clamp(nowInWindow) * 100).toFixed(3) + '%';
-  // Keep NOW marker visible even when current time is outside displayed range.
   const showNow = true;
 
   return (
@@ -231,37 +268,28 @@ export default function Board({ aircraft = [] }) {
         <div style={s.timeHeader}>
           <div style={s.acSpacer} />
           <div style={s.timeScroll} ref={headerScrollRef}>
-            <div style={{ ...s.timeInner, width: timelinePx }}>
-              {Array.from({ length: TOTAL_HOURS }, (_, i) => (
-                <div key={i} style={s.tick}>{p2((((startHour + i) % 24) + 24) % 24)}:00</div>
-              ))}
-              {showNow && (
-                <div style={{ ...s.nowHeaderPin, left: nowPct }}>
-                  <div style={s.nowTimeLabel}>{nowStr}</div>
-                  <div style={s.nowTriangle} />
-                </div>
-              )}
+            <div style={{ ...s.timeInner, width: timelinePx + END_PAD_PX }}>
+              {Array.from({ length: timelineHours }, (_, i) => {
+                const tick = new Date(windowStartMs + i * 60 * 60 * 1000);
+                const hour = `${p2(tick.getUTCHours())}:00`;
+                return <div key={i} style={{ ...s.tick, width: pxPerHour }}>{hour}</div>;
+              })}
+              <div style={{ width: END_PAD_PX, flexShrink: 0 }} />
             </div>
           </div>
+          {showNow && (
+            <div style={{ ...s.nowHeaderPin, left: nowMarkerLeft }}>
+              <div style={s.nowTimeLabel}>{nowStr}</div>
+              <div style={s.nowTriangle} />
+            </div>
+          )}
+          <button style={s.nowBtn} onClick={centerNowInView} type="button">
+            Now
+          </button>
         </div>
 
         <div style={s.rowsWrap} ref={bodyScrollRef}>
-          <div style={{ width: 130 + timelinePx }}>
-            {showNow && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  bottom: 0,
-                  left: 130 + nf * timelinePx,
-                  width: 2,
-                  background: 'linear-gradient(to bottom, rgba(95,181,255,.98) 0%, rgba(95,181,255,.55) 100%)',
-                  boxShadow: '0 0 10px rgba(95,181,255,.55)',
-                  zIndex: 60,
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
+          <div style={{ width: 130 + timelinePx + END_PAD_PX, position: 'relative' }}>
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
                 const laneData = assignFlightLanes(ac.flights || []);
@@ -276,15 +304,15 @@ export default function Board({ aircraft = [] }) {
                   </div>
 
                   {/* Timeline track */}
+                  <div style={{ display: 'flex', width: timelinePx + END_PAD_PX }}>
                   <div style={{ ...s.timeline, width: timelinePx }}>
-                    <SoftGrid hours={TOTAL_HOURS} />
+                    <SoftGrid hours={timelineHours} />
 
                     {/* AOG band */}
                     {ac.aog && laneData.flights[0] && (() => {
                       const fl = laneData.flights[0];
-                      const frac = (time) => (hm(time) / 60 - startHour) / TOTAL_HOURS;
-                      const x1 = clamp(frac(fl.etd));
-                      const x2 = clamp(frac(fl.aogEnd || '23:59'));
+                      const x1 = clamp((toMs(fl.startUtcMs, windowStartMs) - windowStartMs) / windowDurationMs);
+                      const x2 = clamp((toMs(fl.endUtcMs, windowStartMs) - windowStartMs) / windowDurationMs);
                       return (
                         <div style={{
                           position: 'absolute', top: 0, bottom: 0,
@@ -321,12 +349,14 @@ export default function Board({ aircraft = [] }) {
                         key={fl.fn}
                         flight={fl}
                         lane={fl.__lane || 0}
-                        startHour={startHour}
-                        totalHours={TOTAL_HOURS}
+                        windowStartMs={windowStartMs}
+                        windowDurationMs={windowDurationMs}
                         limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}
                         onLimClick={handleLimClick}
                       />
                     ))}
+                  </div>
+                  <div style={s.timelineEndPad} />
                   </div>
                 </div>
               )})}
@@ -336,6 +366,7 @@ export default function Board({ aircraft = [] }) {
             <div style={s.emptyState}>No flights available for the selected period.</div>
           )}
         </div>
+        {showNow && <div style={{ ...s.nowFixedLine, left: nowMarkerLeft }} />}
       </div>
     </div>
   );
@@ -371,17 +402,18 @@ const s = {
   limMsg:  { fontSize: 10, lineHeight: 1.5, marginTop: 5 },
 
   // Main
-  main: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' },
+  main: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative' },
 
   timeHeader: {
     display: 'flex', height: 34, flexShrink: 0,
     borderBottom: '1px solid #222840', background: '#161b26',
+    position: 'relative',
   },
   acSpacer: { width: 130, flexShrink: 0, borderRight: '1px solid #222840' },
   timeScroll: { flex: 1, overflowX: 'auto', overflowY: 'hidden' },
   timeInner: { position: 'relative', display: 'flex', minWidth: '100%' },
   tick: {
-    width: 92, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
+    width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
     borderRight: '1px solid #222840',
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#404d6e',
   },
@@ -406,6 +438,30 @@ const s = {
     borderRight: '4px solid transparent',
     borderTop: '5px solid rgba(95,181,255,.6)',
   },
+  nowBtn: {
+    position: 'absolute',
+    right: 8,
+    top: 5,
+    height: 22,
+    padding: '0 8px',
+    borderRadius: 6,
+    border: '1px solid #2b3f68',
+    background: '#1a2740',
+    color: '#b8d9ff',
+    fontSize: 11,
+    cursor: 'pointer',
+    zIndex: 50,
+  },
+  nowFixedLine: {
+    position: 'absolute',
+    top: 34,
+    bottom: 0,
+    width: 2,
+    background: 'linear-gradient(to bottom, rgba(95,181,255,.98) 0%, rgba(95,181,255,.55) 100%)',
+    boxShadow: '0 0 10px rgba(95,181,255,.65)',
+    zIndex: 95,
+    pointerEvents: 'none',
+  },
 
   // Board rows
   rowsWrap: { flex: 1, position: 'relative', overflow: 'auto' },
@@ -423,6 +479,7 @@ const s = {
   reg:    { fontSize: 12.5, fontWeight: 600, letterSpacing: '.3px', color: '#e8ebf5' },
   acType: { fontSize: 9.5, color: '#404d6e', marginTop: 2 },
   timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
+  timelineEndPad: { width: 260, flexShrink: 0 },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
     left: 10, fontSize: 9, color: 'rgba(210,100,100,.65)',

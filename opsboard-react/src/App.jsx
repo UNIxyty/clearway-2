@@ -5,9 +5,18 @@ import { fetchTimelineAircraft } from './services/timelineApi';
 import AircraftsPage from './components/AircraftsPage';
 import LimitationsPage from './components/LimitationsPage';
 
+function getInitialView() {
+  if (typeof window === 'undefined') return 'timeline';
+  const last = window.location.pathname.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
+  if (last === 'aircrafts' || last === 'limitations' || last === 'timeline') return last;
+  return 'timeline';
+}
+
 export default function App() {
-  const [view, setView] = useState('timeline');
+  const [view, setView] = useState(getInitialView);
   const [aircraft, setAircraft] = useState([]);
+  const [windowStartUtc, setWindowStartUtc] = useState('');
+  const [windowEndUtc, setWindowEndUtc] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [source, setSource] = useState('');
@@ -19,6 +28,8 @@ export default function App() {
       const result = await fetchTimelineAircraft();
       setAircraft(result.aircraft);
       setSource(result.source);
+      setWindowStartUtc(result.windowStartUtc || '');
+      setWindowEndUtc(result.windowEndUtc || '');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setAircraft([]);
@@ -32,6 +43,15 @@ export default function App() {
     const id = setInterval(loadTimeline, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.location.pathname.startsWith('/digital-wall/')) return;
+    const nextPath = `/digital-wall/${view}`;
+    if (window.location.pathname !== nextPath) {
+      window.history.replaceState({}, '', nextPath);
+    }
+  }, [view]);
 
   const statusText = useMemo(() => {
     if (loading) return 'Loading timeline from backend...';
@@ -57,7 +77,9 @@ export default function App() {
           </button>
         </div>
       </div>
-      {view === 'timeline' && <Board aircraft={aircraft} />}
+      {view === 'timeline' && (
+        <Board aircraft={aircraft} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} />
+      )}
       {view === 'aircrafts' && <AircraftsPage />}
       {view === 'limitations' && <LimitationsPage />}
     </div>

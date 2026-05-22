@@ -1,0 +1,41 @@
+services:
+  digital-wall-backend:
+    build:
+      context: ./digital-wall
+      dockerfile: Dockerfile
+    container_name: digital-wall-backend
+    restart: unless-stopped
+    env_file:
+      - ./digital-wall/.env
+    environment:
+      PORT: 5174
+      NODE_ENV: production
+    command: node --env-file=.env server.mjs
+    expose:
+      - "5174"
+
+  digital-wall-frontend:
+    build:
+      context: ./opsboard-react
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE_PATH: /digital-wall/timeline/
+        VITE_API_BASE_URL: /digital-wall
+    container_name: digital-wall-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - digital-wall-backend
+
+  digital-wall-gateway:
+    image: nginx:1.27-alpine
+    container_name: digital-wall-gateway
+    restart: unless-stopped
+    depends_on:
+      - digital-wall-frontend
+      - digital-wall-backend
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - ./deploy/digital-wall/nginx-gateway.conf:/etc/nginx/conf.d/default.conf:ro

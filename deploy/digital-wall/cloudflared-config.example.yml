@@ -1,0 +1,14 @@
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /etc/cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  # Digital wall subpath (frontend + backend via gateway router)
+  - hostname: clearway.verxyl.com
+    path: /digital-wall/.*
+    service: http://127.0.0.1:8088
+
+  # Existing main app (adjust if your main app uses different local port)
+  - hostname: clearway.verxyl.com
+    service: http://127.0.0.1:3000
+
+  - service: http_status:404

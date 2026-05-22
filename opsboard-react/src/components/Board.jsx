@@ -343,6 +343,10 @@ const s = {
   row: { display: 'flex', height: 64, borderBottom: '1px solid #1e243580' },
   acLabel: {
     width: 130, flexShrink: 0,
+    position: 'sticky',
+    left: 0,
+    zIndex: 35,
+    background: '#151a27',
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
     padding: '0 12px', borderRight: '1px solid #222840',
   },

@@ -105,6 +105,21 @@ export default function Board({ aircraft = [] }) {
     };
   }, []);
 
+  useEffect(() => {
+    const header = headerScrollRef.current;
+    const body = bodyScrollRef.current;
+    if (!header || !body) return;
+
+    const viewportWidth = body.clientWidth;
+    const totalWidth = 130 + timelinePx;
+    const nowX = 130 + nf * timelinePx;
+    const maxScroll = Math.max(0, totalWidth - viewportWidth);
+    const nextScroll = Math.max(0, Math.min(maxScroll, nowX - viewportWidth / 2));
+
+    body.scrollLeft = nextScroll;
+    header.scrollLeft = nextScroll;
+  }, [nf, timelinePx]);
+
   const allLims    = collectLims(aircraft);
   const limIndexMap = {};
   allLims.forEach((l, i) => { limIndexMap[l.fn] = i + 1; });

@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #161b26;
+  --bg2:       #1a2030;
+  --bg3:       #1e2538;
+  --border:    #222840;
+  --text:      #e8ebf5;
+  --text2:     #8090b8;
+  --text3:     #404d6e;
+  --green:     #3aa57a;
+  --blue:      #5fb5ff;
+  --row-h:     64px;
+  --label-w:   130px;
+  --pill-h:    18px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+@keyframes toastIn {
+  from { transform: translateX(14px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@keyframes limPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}

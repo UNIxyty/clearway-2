@@ -1,0 +1,104 @@
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function toDate(value) {
+  const dt = new Date(value);
+  return Number.isFinite(dt.getTime()) ? dt : null;
+}
+
+function toHm(value) {
+  const dt = toDate(value);
+  if (!dt) return null;
+  const hh = String(dt.getUTCHours()).padStart(2, '0');
+  const mm = String(dt.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function statusFromFlight(flight) {
+  if (flight?.isCnl) return 'slot';
+  if (flight?.ata) return 'arrived';
+  if (flight?.atd) return 'airborne';
+  if ((flight?.delayMin ?? 0) > 0) return 'delayed';
+  if (flight?.status && /airborne/i.test(flight.status)) return 'airborne';
+  if (flight?.status && /arrived/i.test(flight.status)) return 'arrived';
+  return 'scheduled';
+}
+
+function toNumber(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function mapFlight(flight) {
+  const etd = toHm(flight.etd || flight.startTimeUTC);
+  const eta = toHm(flight.eta || flight.endTimeUTC);
+  const dep = flight.adep?.icao || 'UNK';
+  const arr = flight.ades?.icao || 'UNK';
+  const dlyMin = Math.max(0, toNumber(flight.delayMin, toNumber(flight.departureDelayMin, 0)));
+
+  if (!etd || !eta) return null;
+
+  return {
+    fn: flight.flightNo || 'UNKNOWN',
+    dep,
+    arr,
+    etd,
+    eta,
+    dlyMin,
+    status: statusFromFlight(flight),
+  };
+}
+
+function mapAircraft(group) {
+  const mappedFlights = (group.flights || []).map(mapFlight).filter(Boolean);
+  if (mappedFlights.length === 0) return null;
+  return {
+    reg: group.registration || 'UNKNOWN',
+    type: group.operatorName || group.oprId || 'OPS',
+    flights: mappedFlights,
+  };
+}
+
+export async function fetchTimelineAircraft() {
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  const query = new URLSearchParams({
+    allOperators: 'true',
+    refresh: 'true',
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+
+  const response = await fetch(`${API_BASE}/api/timeline/flights?${query.toString()}`);
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Backend request failed (${response.status})`);
+  }
+
+  const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
+  return {
+    source: payload.source || 'unknown',
+    totalAircraft: aircraft.length,
+    aircraft,
+  };
+}
+
+export async function fetchAircraftSchedule() {
+  const response = await fetch(`${API_BASE}/api/aircraft/schedule?days=7&refresh=true`);
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Aircraft request failed (${response.status})`);
+  }
+  return payload;
+}
+
+export async function fetchLimitations() {
+  const response = await fetch(`${API_BASE}/api/timeline/limitations`);
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Limitations request failed (${response.status})`);
+  }
+  return payload;
+}
+

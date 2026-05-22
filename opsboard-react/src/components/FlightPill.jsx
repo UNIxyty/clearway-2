@@ -1,4 +1,9 @@
-import { addMin, frac, clamp } from '../data';
+import { addMin, clamp } from '../data';
+
+function hm(t) {
+  const [h, m] = String(t || '00:00').split(':').map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
 
 // Brighter pill colors
 const STATUS = {
@@ -10,7 +15,7 @@ const STATUS = {
   slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
 };
 
-export default function FlightPill({ flight, limIndex, onLimClick }) {
+export default function FlightPill({ flight, limIndex, onLimClick, startHour, totalHours, lane = 0 }) {
   const { fn, dep, arr, etd, eta, dlyMin, status, lim } = flight;
 
   const isDelayed = dlyMin > 0;
@@ -20,6 +25,7 @@ export default function FlightPill({ flight, limIndex, onLimClick }) {
   const actualDep = isDelayed ? addMin(etd, dlyMin) : etd;
   const actualEta = isDelayed ? addMin(eta, dlyMin) : eta;
 
+  const frac = (time) => (hm(time) / 60 - startHour) / totalHours;
   const depF  = clamp(frac(etd));
   const dlyF  = isDelayed ? clamp(frac(actualDep)) : depF;
   const arrF  = clamp(frac(actualEta));
@@ -49,7 +55,8 @@ export default function FlightPill({ flight, limIndex, onLimClick }) {
       position: 'absolute',
       left: (depF * 100).toFixed(3) + '%',
       width: (totalF * 100).toFixed(3) + '%',
-      top: '50%', transform: 'translateY(-50%)',
+      top: 10 + lane * 22,
+      transform: 'none',
       display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
     }}>
       {/* Flight number above */}

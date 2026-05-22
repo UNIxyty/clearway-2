@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { START_HOUR, TOTAL_HOURS, p2, frac, clamp } from '../data';
+import { TOTAL_HOURS, p2, clamp, addMin } from '../data';
 import FlightPill from './FlightPill';
 
 const LEGEND = [
@@ -22,7 +22,7 @@ const LIM_TYPE_COLOR = {
 
 function nowFrac() {
   const n = new Date();
-  return clamp(frac(p2(n.getHours()) + ':' + p2(n.getMinutes())));
+  return clamp((n.getHours() + n.getMinutes() / 60) / 24);
 }
 
 function nowTimeStr() {
@@ -61,6 +61,36 @@ function collectLims(aircraft) {
   return lims;
 }
 
+function hm(t) {
+  const [h, m] = String(t || '00:00').split(':').map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function assignFlightLanes(flights) {
+  const sorted = [...(flights || [])].sort((a, b) => hm(a.etd) - hm(b.etd));
+  const laneEnds = [];
+  const withLanes = [];
+
+  for (const flight of sorted) {
+    const start = hm(flight.etd);
+    const endTime = flight.dlyMin > 0 ? addMin(flight.eta, flight.dlyMin) : flight.eta;
+    const end = hm(endTime);
+    let lane = laneEnds.findIndex((laneEnd) => start >= laneEnd);
+    if (lane < 0) {
+      lane = laneEnds.length;
+      laneEnds.push(end);
+    } else {
+      laneEnds[lane] = end;
+    }
+    withLanes.push({ ...flight, __lane: lane });
+  }
+
+  return {
+    flights: withLanes,
+    lanes: Math.max(1, laneEnds.length),
+  };
+}
+
 export default function Board({ aircraft = [] }) {
   const [nf, setNf]           = useState(nowFrac);
   const [nowStr, setNowStr]   = useState(nowTimeStr);
@@ -69,6 +99,8 @@ export default function Board({ aircraft = [] }) {
   const headerScrollRef = useRef(null);
   const bodyScrollRef = useRef(null);
   const timelinePx = TOTAL_HOURS * 92;
+  const now = new Date();
+  const startHour = now.getHours() - Math.floor(TOTAL_HOURS / 2);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -128,7 +160,8 @@ export default function Board({ aircraft = [] }) {
     setActiveLim(prev => (prev?.fn === fn ? null : { lim, fn }));
   }
 
-  const nowPct = (nf * 100).toFixed(3) + '%';
+  const nowInWindow = (now.getHours() + now.getMinutes() / 60 - startHour) / TOTAL_HOURS;
+  const nowPct = (clamp(nowInWindow) * 100).toFixed(3) + '%';
   // Keep NOW marker visible even when current time is outside displayed range.
   const showNow = true;
 
@@ -200,7 +233,7 @@ export default function Board({ aircraft = [] }) {
           <div style={s.timeScroll} ref={headerScrollRef}>
             <div style={{ ...s.timeInner, width: timelinePx }}>
               {Array.from({ length: TOTAL_HOURS }, (_, i) => (
-                <div key={i} style={s.tick}>{p2((START_HOUR + i) % 24)}:00</div>
+                <div key={i} style={s.tick}>{p2((((startHour + i) % 24) + 24) % 24)}:00</div>
               ))}
               {showNow && (
                 <div style={{ ...s.nowHeaderPin, left: nowPct }}>
@@ -230,8 +263,11 @@ export default function Board({ aircraft = [] }) {
               />
             )}
             <div style={s.board} ref={boardRef}>
-              {aircraft.map(ac => (
-                <div key={ac.reg} style={s.row}>
+              {aircraft.map(ac => {
+                const laneData = assignFlightLanes(ac.flights || []);
+                const rowHeight = Math.max(64, 20 + laneData.lanes * 24);
+                return (
+                <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>
@@ -244,8 +280,9 @@ export default function Board({ aircraft = [] }) {
                     <SoftGrid hours={TOTAL_HOURS} />
 
                     {/* AOG band */}
-                    {ac.aog && ac.flights[0] && (() => {
-                      const fl = ac.flights[0];
+                    {ac.aog && laneData.flights[0] && (() => {
+                      const fl = laneData.flights[0];
+                      const frac = (time) => (hm(time) / 60 - startHour) / TOTAL_HOURS;
                       const x1 = clamp(frac(fl.etd));
                       const x2 = clamp(frac(fl.aogEnd || '23:59'));
                       return (
@@ -279,17 +316,20 @@ export default function Board({ aircraft = [] }) {
                     })()}
 
                     {/* Flight pills */}
-                    {!ac.aog && ac.flights.map(fl => (
+                    {!ac.aog && laneData.flights.map(fl => (
                       <FlightPill
                         key={fl.fn}
                         flight={fl}
+                        lane={fl.__lane || 0}
+                        startHour={startHour}
+                        totalHours={TOTAL_HOURS}
                         limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}
                         onLimClick={handleLimClick}
                       />
                     ))}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
           {aircraft.length === 0 && (

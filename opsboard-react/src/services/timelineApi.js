@@ -1,4 +1,40 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const RAW_API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+
+function normalizeApiBase() {
+  if (!RAW_API_BASE) return '';
+  // Allow "localhost:5174" style values from env.
+  if (/^https?:\/\//i.test(RAW_API_BASE)) {
+    return RAW_API_BASE.replace(/\/$/, '');
+  }
+  if (/^[\w.-]+:\d+/.test(RAW_API_BASE)) {
+    return `http://${RAW_API_BASE.replace(/\/$/, '')}`;
+  }
+  return RAW_API_BASE.replace(/\/$/, '');
+}
+
+const API_BASE = normalizeApiBase();
+
+function buildApiUrl(pathWithQuery) {
+  if (!API_BASE) return pathWithQuery;
+  return `${API_BASE}${pathWithQuery}`;
+}
+
+async function fetchJson(pathWithQuery, errorPrefix) {
+  let response;
+  try {
+    response = await fetch(buildApiUrl(pathWithQuery));
+  } catch (error) {
+    throw new Error(
+      `${errorPrefix}: ${error instanceof Error ? error.message : String(error)}. ` +
+      `Check VITE_API_BASE_URL="${RAW_API_BASE || '(empty)'}".`
+    );
+  }
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `${errorPrefix} (${response.status})`);
+  }
+  return payload;
+}
 
 function toDate(value) {
   const dt = new Date(value);
@@ -70,11 +106,7 @@ export async function fetchTimelineAircraft() {
     to: to.toISOString(),
   });
 
-  const response = await fetch(`${API_BASE}/api/timeline/flights?${query.toString()}`);
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Backend request failed (${response.status})`);
-  }
+  const payload = await fetchJson(`/api/timeline/flights?${query.toString()}`, 'Timeline request failed');
 
   const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
   return {
@@ -85,20 +117,10 @@ export async function fetchTimelineAircraft() {
 }
 
 export async function fetchAircraftSchedule() {
-  const response = await fetch(`${API_BASE}/api/aircraft/schedule?days=7&refresh=true`);
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Aircraft request failed (${response.status})`);
-  }
-  return payload;
+  return fetchJson('/api/aircraft/schedule?days=7&refresh=true', 'Aircraft request failed');
 }
 
 export async function fetchLimitations() {
-  const response = await fetch(`${API_BASE}/api/timeline/limitations`);
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Limitations request failed (${response.status})`);
-  }
-  return payload;
+  return fetchJson('/api/timeline/limitations', 'Limitations request failed');
 }
 

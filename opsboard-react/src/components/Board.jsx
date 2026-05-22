@@ -66,6 +66,9 @@ export default function Board({ aircraft = [] }) {
   const [nowStr, setNowStr]   = useState(nowTimeStr);
   const [activeLim, setActiveLim] = useState(null);
   const boardRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const bodyScrollRef = useRef(null);
+  const timelinePx = TOTAL_HOURS * 92;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -73,6 +76,33 @@ export default function Board({ aircraft = [] }) {
       setNowStr(nowTimeStr());
     }, 10000); // update every 10s
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const header = headerScrollRef.current;
+    const body = bodyScrollRef.current;
+    if (!header || !body) return;
+
+    let syncing = false;
+    const syncFromHeader = () => {
+      if (syncing) return;
+      syncing = true;
+      body.scrollLeft = header.scrollLeft;
+      requestAnimationFrame(() => { syncing = false; });
+    };
+    const syncFromBody = () => {
+      if (syncing) return;
+      syncing = true;
+      header.scrollLeft = body.scrollLeft;
+      requestAnimationFrame(() => { syncing = false; });
+    };
+
+    header.addEventListener('scroll', syncFromHeader, { passive: true });
+    body.addEventListener('scroll', syncFromBody, { passive: true });
+    return () => {
+      header.removeEventListener('scroll', syncFromHeader);
+      body.removeEventListener('scroll', syncFromBody);
+    };
   }, []);
 
   const allLims    = collectLims(aircraft);
@@ -83,7 +113,6 @@ export default function Board({ aircraft = [] }) {
     setActiveLim(prev => (prev?.fn === fn ? null : { lim, fn }));
   }
 
-  // Position of the now line as % of the timeline area (excluding the AC label column)
   const nowPct = (nf * 100).toFixed(3) + '%';
   const showNow = nf > 0 && nf < 1;
 
@@ -152,101 +181,86 @@ export default function Board({ aircraft = [] }) {
         {/* Timeline tick header */}
         <div style={s.timeHeader}>
           <div style={s.acSpacer} />
-          {/* Tick area — also holds the NOW marker in the header */}
-          <div style={{ flex: 1, position: 'relative', display: 'flex' }}>
-            {Array.from({ length: TOTAL_HOURS }, (_, i) => (
-              <div key={i} style={s.tick}>{p2((START_HOUR + i) % 24)}:00</div>
-            ))}
-            {/* NOW marker pin in the header */}
-            {showNow && (
-              <div style={{ ...s.nowHeaderPin, left: nowPct }}>
-                <div style={s.nowTimeLabel}>{nowStr}</div>
-                <div style={s.nowTriangle} />
-              </div>
-            )}
+          <div style={s.timeScroll} ref={headerScrollRef}>
+            <div style={{ ...s.timeInner, width: timelinePx }}>
+              {Array.from({ length: TOTAL_HOURS }, (_, i) => (
+                <div key={i} style={s.tick}>{p2((START_HOUR + i) % 24)}:00</div>
+              ))}
+              {showNow && (
+                <div style={{ ...s.nowHeaderPin, left: nowPct }}>
+                  <div style={s.nowTimeLabel}>{nowStr}</div>
+                  <div style={s.nowTriangle} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Scrollable rows area — NOW line overlaid as single element */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div style={s.rowsWrap} ref={bodyScrollRef}>
+          <div style={{ width: 130 + timelinePx }}>
+            <div style={s.board} ref={boardRef}>
+              {aircraft.map(ac => (
+                <div key={ac.reg} style={s.row}>
 
-          {/* Full-height NOW line — single element over all rows */}
-          {showNow && (
-            <div style={{
-              position: 'absolute',
-              top: 0, bottom: 0,
-              // left must account for the AC label column (130px)
-              left: `calc(130px + (100% - 130px) * ${nf})`,
-              width: 1,
-              background: 'linear-gradient(to bottom, rgba(95,181,255,.7) 0%, rgba(95,181,255,.35) 100%)',
-              zIndex: 30,
-              pointerEvents: 'none',
-              boxShadow: '0 0 6px rgba(95,181,255,.3)',
-            }} />
-          )}
+                  {/* AC label */}
+                  <div style={s.acLabel}>
+                    <span style={s.reg}>{ac.reg}</span>
+                    <span style={s.acType}>{ac.type}</span>
+                  </div>
 
-          {/* Scrollable board */}
-          <div style={s.board} ref={boardRef}>
-            {aircraft.map(ac => (
-              <div key={ac.reg} style={s.row}>
+                  {/* Timeline track */}
+                  <div style={{ ...s.timeline, width: timelinePx }}>
+                    <SoftGrid hours={TOTAL_HOURS} />
+                    {showNow && <div style={{ ...s.nowLine, left: nowPct }} />}
 
-                {/* AC label */}
-                <div style={s.acLabel}>
-                  <span style={s.reg}>{ac.reg}</span>
-                  <span style={s.acType}>{ac.type}</span>
+                    {/* AOG band */}
+                    {ac.aog && ac.flights[0] && (() => {
+                      const fl = ac.flights[0];
+                      const x1 = clamp(frac(fl.etd));
+                      const x2 = clamp(frac(fl.aogEnd || '23:59'));
+                      return (
+                        <div style={{
+                          position: 'absolute', top: 0, bottom: 0,
+                          left: (x1 * 100).toFixed(2) + '%',
+                          width: ((x2 - x1) * 100).toFixed(2) + '%',
+                          background: `repeating-linear-gradient(-45deg,
+                            rgba(180,60,60,.13) 0,rgba(180,60,60,.13) 5px,
+                            transparent 5px,transparent 11px)`,
+                          borderLeft: '1px dashed rgba(200,80,80,.35)',
+                          borderRight: '1px dashed rgba(200,80,80,.35)',
+                        }}>
+                          <span style={s.aogLabel}>AOG · {fl.lim?.msg?.split('—')[0]?.trim()}</span>
+                          {fl.lim && (
+                            <div
+                              style={{
+                                position: 'absolute', top: '50%', right: 8,
+                                transform: 'translateY(-50%)',
+                                ...s.limBadgeInline,
+                                background: activeLim?.fn === fl.fn
+                                  ? 'rgba(240,177,59,.35)' : 'rgba(240,177,59,.2)',
+                              }}
+                              onClick={() => handleLimClick(fl.lim, fl.fn)}
+                            >
+                              {limIndexMap[fl.fn]}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Flight pills */}
+                    {!ac.aog && ac.flights.map(fl => (
+                      <FlightPill
+                        key={fl.fn}
+                        flight={fl}
+                        limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}
+                        onLimClick={handleLimClick}
+                      />
+                    ))}
+                  </div>
                 </div>
-
-                {/* Timeline track */}
-                <div style={s.timeline}>
-                  <SoftGrid hours={TOTAL_HOURS} />
-
-                  {/* AOG band */}
-                  {ac.aog && ac.flights[0] && (() => {
-                    const fl = ac.flights[0];
-                    const x1 = clamp(frac(fl.etd));
-                    const x2 = clamp(frac(fl.aogEnd || '23:59'));
-                    return (
-                      <div style={{
-                        position: 'absolute', top: 0, bottom: 0,
-                        left: (x1 * 100).toFixed(2) + '%',
-                        width: ((x2 - x1) * 100).toFixed(2) + '%',
-                        background: `repeating-linear-gradient(-45deg,
-                          rgba(180,60,60,.13) 0,rgba(180,60,60,.13) 5px,
-                          transparent 5px,transparent 11px)`,
-                        borderLeft: '1px dashed rgba(200,80,80,.35)',
-                        borderRight: '1px dashed rgba(200,80,80,.35)',
-                      }}>
-                        <span style={s.aogLabel}>AOG · {fl.lim?.msg?.split('—')[0]?.trim()}</span>
-                        {fl.lim && (
-                          <div
-                            style={{
-                              position: 'absolute', top: '50%', right: 8,
-                              transform: 'translateY(-50%)',
-                              ...s.limBadgeInline,
-                              background: activeLim?.fn === fl.fn
-                                ? 'rgba(240,177,59,.35)' : 'rgba(240,177,59,.2)',
-                            }}
-                            onClick={() => handleLimClick(fl.lim, fl.fn)}
-                          >
-                            {limIndexMap[fl.fn]}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Flight pills */}
-                  {!ac.aog && ac.flights.map(fl => (
-                    <FlightPill
-                      key={fl.fn}
-                      flight={fl}
-                      limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}
-                      onLimClick={handleLimClick}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           {aircraft.length === 0 && (
             <div style={s.emptyState}>No flights available for the selected period.</div>
@@ -294,8 +308,10 @@ const s = {
     borderBottom: '1px solid #222840', background: '#161b26',
   },
   acSpacer: { width: 130, flexShrink: 0, borderRight: '1px solid #222840' },
+  timeScroll: { flex: 1, overflowX: 'auto', overflowY: 'hidden' },
+  timeInner: { position: 'relative', display: 'flex', minWidth: '100%' },
   tick: {
-    flex: 1, display: 'flex', alignItems: 'center', paddingLeft: 6,
+    width: 92, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
     borderRight: '1px solid #222840',
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#404d6e',
   },
@@ -322,7 +338,8 @@ const s = {
   },
 
   // Board rows
-  board: { height: '100%', overflowY: 'auto', overflowX: 'hidden' },
+  rowsWrap: { flex: 1, position: 'relative', overflow: 'auto' },
+  board: { minHeight: '100%' },
   row: { display: 'flex', height: 64, borderBottom: '1px solid #1e243580' },
   acLabel: {
     width: 130, flexShrink: 0,
@@ -332,6 +349,16 @@ const s = {
   reg:    { fontSize: 12.5, fontWeight: 600, letterSpacing: '.3px', color: '#e8ebf5' },
   acType: { fontSize: 9.5, color: '#404d6e', marginTop: 2 },
   timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
+  nowLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    background: 'linear-gradient(to bottom, rgba(95,181,255,.9) 0%, rgba(95,181,255,.4) 100%)',
+    boxShadow: '0 0 8px rgba(95,181,255,.45)',
+    zIndex: 25,
+    pointerEvents: 'none',
+  },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
     left: 10, fontSize: 9, color: 'rgba(210,100,100,.65)',

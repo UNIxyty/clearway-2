@@ -31,10 +31,15 @@ export default function FlightPill({ flight, limIndex, onLimClick }) {
   const hatchPct = ((hatchF / totalF) * 100).toFixed(2) + '%';
   const pillPct  = ((pillF  / totalF) * 100).toFixed(2) + '%';
 
-  const hatchBg = `repeating-linear-gradient(
+  const defaultHatchBg = `repeating-linear-gradient(
     -45deg,
     ${theme.hatch} 0px, ${theme.hatch} 3px,
     rgba(8,10,18,.7) 3px, rgba(8,10,18,.7) 8px
+  )`;
+  const delayedHatchBg = `repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,.72) 0px, rgba(255,255,255,.72) 2px,
+    rgba(124,132,146,.88) 2px, rgba(124,132,146,.88) 8px
   )`;
 
   const showLabels = (pillF / totalF) > 0.06;
@@ -57,8 +62,10 @@ export default function FlightPill({ flight, limIndex, onLimClick }) {
           <div style={{
             width: hatchPct, height: 18, flexShrink: 0,
             borderRadius: '99px 0 0 99px',
-            background: hatchBg,
-            boxShadow: `inset 0 0 0 1px ${theme.hatch.replace('.8', '.4')}`,
+            background: isDelayed ? delayedHatchBg : defaultHatchBg,
+            boxShadow: isDelayed
+              ? 'inset 0 0 0 1px rgba(255,255,255,.25)'
+              : `inset 0 0 0 1px ${theme.hatch.replace('.8', '.4')}`,
             overflow: 'hidden',
           }} />
         )}

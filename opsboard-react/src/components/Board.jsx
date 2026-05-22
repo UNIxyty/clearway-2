@@ -114,7 +114,8 @@ export default function Board({ aircraft = [] }) {
   }
 
   const nowPct = (nf * 100).toFixed(3) + '%';
-  const showNow = nf > 0 && nf < 1;
+  // Keep NOW marker visible even when current time is outside displayed range.
+  const showNow = true;
 
   return (
     <div style={s.outer}>
@@ -198,6 +199,21 @@ export default function Board({ aircraft = [] }) {
 
         <div style={s.rowsWrap} ref={bodyScrollRef}>
           <div style={{ width: 130 + timelinePx }}>
+            {showNow && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 130 + nf * timelinePx,
+                  width: 2,
+                  background: 'linear-gradient(to bottom, rgba(95,181,255,.98) 0%, rgba(95,181,255,.55) 100%)',
+                  boxShadow: '0 0 10px rgba(95,181,255,.55)',
+                  zIndex: 60,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => (
                 <div key={ac.reg} style={s.row}>
@@ -211,7 +227,6 @@ export default function Board({ aircraft = [] }) {
                   {/* Timeline track */}
                   <div style={{ ...s.timeline, width: timelinePx }}>
                     <SoftGrid hours={TOTAL_HOURS} />
-                    {showNow && <div style={{ ...s.nowLine, left: nowPct }} />}
 
                     {/* AOG band */}
                     {ac.aog && ac.flights[0] && (() => {
@@ -353,16 +368,6 @@ const s = {
   reg:    { fontSize: 12.5, fontWeight: 600, letterSpacing: '.3px', color: '#e8ebf5' },
   acType: { fontSize: 9.5, color: '#404d6e', marginTop: 2 },
   timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
-  nowLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    background: 'linear-gradient(to bottom, rgba(95,181,255,.9) 0%, rgba(95,181,255,.4) 100%)',
-    boxShadow: '0 0 8px rgba(95,181,255,.45)',
-    zIndex: 25,
-    pointerEvents: 'none',
-  },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
     left: 10, fontSize: 9, color: 'rgba(210,100,100,.65)',

@@ -78,18 +78,6 @@ function sanitizeOperator(row) {
   };
 }
 
-function chunkArray(items, size = 200) {
-  const chunks = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function inFilterList(values) {
-  return values.map((value) => `"${String(value).replaceAll('"', '\\"')}"`).join(",");
-}
-
 export class OperatorsStore {
   async listOperators({ includeInactive = false } = {}) {
     if (!(await canUseSupabase())) {
@@ -202,42 +190,21 @@ export class OperatorsStore {
       throw new Error(`Operator ${oprId} not found in Supabase.`);
     }
 
-    const byNid = new Map();
+    const dedupedFlights = [];
+    const seenNids = new Set();
     for (const flight of flights) {
       const nid = String(flight.flightNid ?? "").trim();
-      if (!nid) continue;
-      byNid.set(nid, flight);
+      if (!nid || seenNids.has(nid)) continue;
+      seenNids.add(nid);
+      dedupedFlights.push(flight);
     }
-    const nids = [...byNid.keys()];
-    if (nids.length === 0) {
+    if (dedupedFlights.length === 0) {
       return { cached: 0, updated: 0, skipped: 0 };
     }
 
-    const existingByNid = new Map();
-    for (const chunk of chunkArray(nids, 150)) {
-      const filter = inFilterList(chunk);
-      const rows =
-        (await supabaseFetch(
-          `leon_flights?select=flight_nid,flight_last_modification_time,raw_payload,is_deleted&operator_id=eq.${operator.id}&flight_nid=in.(${filter})`
-        )) || [];
-      for (const row of rows) {
-        existingByNid.set(String(row.flight_nid), row);
-      }
-    }
-
     const payload = [];
-    let skipped = 0;
-    for (const [nid, flight] of byNid) {
-      const existing = existingByNid.get(nid);
-      const existingMod = existing?.flight_last_modification_time ?? null;
-      const nextMod = flight.flightLastModificationTime ?? null;
-      const samePayload = existing?.raw_payload && JSON.stringify(existing.raw_payload) === JSON.stringify(flight);
-      const sameMod = existingMod === nextMod;
-      if (existing && !existing.is_deleted && samePayload && sameMod) {
-        skipped += 1;
-        continue;
-      }
-
+    for (const flight of dedupedFlights) {
+      const nid = String(flight.flightNid ?? "").trim();
       payload.push({
         operator_id: operator.id,
         flight_nid: nid,
@@ -264,12 +231,12 @@ export class OperatorsStore {
     if (payload.length > 0) {
       await supabaseFetch("leon_flights?on_conflict=operator_id,flight_nid", {
         method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
         body: JSON.stringify(payload),
       });
     }
 
-    return { cached: flights.length, updated: payload.length, skipped };
+    return { cached: flights.length, updated: payload.length, skipped: 0 };
   }
 
   async markFlightsDeleted({ oprId, flightNids }) {
@@ -280,11 +247,10 @@ export class OperatorsStore {
     if (!operator?.id) return { marked: 0 };
 
     let marked = 0;
-    for (const chunk of chunkArray(flightNids.map((v) => String(v)).filter(Boolean), 150)) {
-      if (chunk.length === 0) continue;
-      const filter = inFilterList(chunk);
+    const uniqueNids = [...new Set(flightNids.map((v) => String(v)).filter(Boolean))];
+    for (const nid of uniqueNids) {
       await supabaseFetch(
-        `leon_flights?operator_id=eq.${operator.id}&flight_nid=in.(${filter})`,
+        `leon_flights?operator_id=eq.${operator.id}&flight_nid=eq.${encodeURIComponent(nid)}`,
         {
           method: "PATCH",
           body: JSON.stringify({
@@ -294,7 +260,7 @@ export class OperatorsStore {
           }),
         }
       );
-      marked += chunk.length;
+      marked += 1;
     }
     return { marked };
   }

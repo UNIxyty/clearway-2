@@ -712,13 +712,9 @@ export class LeonTimelineService {
     }
 
     if (this.operatorsStore && persisted.length > 0) {
-      const result = await this.operatorsStore
-        .upsertFlightsCache({ oprId, flights: persisted })
-        .catch(() => null);
-      if (result) {
-        stats.updated += result.updated ?? 0;
-        stats.skipped += result.skipped ?? 0;
-      }
+      const result = await this.operatorsStore.upsertFlightsCache({ oprId, flights: persisted });
+      stats.updated += result.updated ?? 0;
+      stats.skipped += result.skipped ?? 0;
     }
 
     this.syncStateByOperator.set(oprId, { lastSyncTimestamp: checkpointBeforeStart });
@@ -777,21 +773,16 @@ export class LeonTimelineService {
     }
 
     if (this.operatorsStore && persisted.length > 0) {
-      const result = await this.operatorsStore
-        .upsertFlightsCache({ oprId, flights: persisted })
-        .catch(() => null);
-      if (result) {
-        stats.updated += result.updated ?? 0;
-        stats.skipped += result.skipped ?? 0;
-      }
+      const result = await this.operatorsStore.upsertFlightsCache({ oprId, flights: persisted });
+      stats.updated += result.updated ?? 0;
+      stats.skipped += result.skipped ?? 0;
     }
     if (this.operatorsStore && (delta.deleted?.length ?? 0) > 0) {
-      const deletedResult = await this.operatorsStore
-        .markFlightsDeleted({ oprId, flightNids: delta.deleted })
-        .catch(() => null);
-      if (deletedResult) {
-        stats.deleted += deletedResult.marked ?? 0;
-      }
+      const deletedResult = await this.operatorsStore.markFlightsDeleted({
+        oprId,
+        flightNids: delta.deleted,
+      });
+      stats.deleted += deletedResult.marked ?? 0;
     }
 
     const nextTimestamp =

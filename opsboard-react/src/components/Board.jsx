@@ -100,6 +100,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
   const END_PAD_PX = 260;
   const VIEWPORT_HOURS = 10;
   const BEFORE_NOW_HOURS = 3;
+  const FLIGHT_LANE_STEP = 42;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
   const fallbackStart = Date.now() - 6 * 60 * 60 * 1000;
@@ -293,7 +294,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
                 const laneData = assignFlightLanes(ac.flights || []);
-                const rowHeight = Math.max(64, 20 + laneData.lanes * 24);
+                const rowHeight = Math.max(72, 10 + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
                 <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
 
@@ -349,6 +350,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
                         key={fl.fn}
                         flight={fl}
                         lane={fl.__lane || 0}
+                        laneStep={FLIGHT_LANE_STEP}
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}
                         limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}

@@ -321,6 +321,11 @@ export class LeonTimelineService {
       lastError: null,
       configured: Boolean(this.operatorId && this.refreshToken),
       mode: this.useOAuth ? "oauth-refresh-token" : "api-key-refresh-token",
+      cacheStats: {
+        updated: 0,
+        skipped: 0,
+        deleted: 0,
+      },
     };
   }
 
@@ -403,6 +408,8 @@ export class LeonTimelineService {
     const configured = await this.isAnyOperatorConfigured();
     this.state.configured = configured;
     if (configured) {
+      const operators = await this.listConfiguredOperators();
+      await this.hydrateFlightsFromSupabase(operators).catch(() => {});
       this.runSyncCycle().catch((error) => {
         this.state.healthy = false;
         this.state.lastError = error instanceof Error ? error.message : String(error);
@@ -442,6 +449,33 @@ export class LeonTimelineService {
     }
   }
 
+  async hydrateFlightsFromSupabase(operators) {
+    if (!this.operatorsStore || !Array.isArray(operators) || operators.length === 0) return;
+    const now = new Date();
+    const fromIso = addDays(now, -2).toISOString();
+    const toIso = addDays(now, 8).toISOString();
+    for (const operator of operators) {
+      const rows = await this.operatorsStore.loadCachedFlights({
+        oprId: operator.oprId,
+        fromIso,
+        toIso,
+      });
+      for (const row of rows) {
+        const flight = row.flight;
+        if (!flight?.flightNid) continue;
+        const nid = this.flightCacheKey(operator.oprId, flight.flightNid);
+        flight.oprId = operator.oprId;
+        flight.operatorName = operator.name ?? operator.oprId;
+        this.flightsByNid.set(nid, flight);
+        this.aircraftByFlightNid.set(nid, {
+          oprId: operator.oprId,
+          aircraftNid: null,
+          registration: row.registration ?? flight.aircraftRegistration ?? "UNKNOWN",
+        });
+      }
+    }
+  }
+
   startPolling() {
     if (this.interval) {
       clearInterval(this.interval);
@@ -455,6 +489,7 @@ export class LeonTimelineService {
   }
 
   async runSyncCycle() {
+    const cycleStats = { updated: 0, skipped: 0, deleted: 0 };
     try {
       const operators = await this.listConfiguredOperators();
       if (operators.length === 0) {
@@ -464,9 +499,15 @@ export class LeonTimelineService {
       for (const operator of operators) {
         await this.fetchAircraftForOperator(operator.oprId);
         if (!this.syncStateByOperator.has(operator.oprId)) {
-          await this.initialSync(operator.oprId);
+          const stats = await this.initialSync(operator.oprId);
+          cycleStats.updated += stats.updated ?? 0;
+          cycleStats.skipped += stats.skipped ?? 0;
+          cycleStats.deleted += stats.deleted ?? 0;
         } else {
-          await this.incrementalSync(operator.oprId);
+          const stats = await this.incrementalSync(operator.oprId);
+          cycleStats.updated += stats.updated ?? 0;
+          cycleStats.skipped += stats.skipped ?? 0;
+          cycleStats.deleted += stats.deleted ?? 0;
         }
       }
 
@@ -474,10 +515,12 @@ export class LeonTimelineService {
       this.state.healthy = true;
       this.state.lastError = null;
       this.state.lastRunAt = new Date().toISOString();
+      this.state.cacheStats = cycleStats;
     } catch (error) {
       this.state.healthy = false;
       this.state.lastError = error instanceof Error ? error.message : String(error);
       this.state.lastRunAt = new Date().toISOString();
+      this.state.cacheStats = cycleStats;
     }
   }
 
@@ -633,6 +676,8 @@ export class LeonTimelineService {
     const end = parseDate(process.env.LEON_SYNC_RANGE_END) ?? addDays(now, 30);
     const checkpointBeforeStart = new Date().toISOString();
 
+    const persisted = [];
+    const stats = { updated: 0, skipped: 0, deleted: 0 };
     let chunkStart = start;
     while (chunkStart <= end) {
       const chunkEnd = minDate(addDays(chunkStart, THREE_MONTHS_DAYS), end);
@@ -655,6 +700,7 @@ export class LeonTimelineService {
         mapped.oprId = oprId;
         const nid = this.flightCacheKey(oprId, mapped.flightNid);
         this.flightsByNid.set(nid, mapped);
+        persisted.push(mapped);
         this.aircraftByFlightNid.set(nid, {
           oprId,
           aircraftNid: rawFlight.acft?.aircraftNid ?? null,
@@ -665,8 +711,19 @@ export class LeonTimelineService {
       chunkStart = addDays(chunkEnd, 1);
     }
 
+    if (this.operatorsStore && persisted.length > 0) {
+      const result = await this.operatorsStore
+        .upsertFlightsCache({ oprId, flights: persisted })
+        .catch(() => null);
+      if (result) {
+        stats.updated += result.updated ?? 0;
+        stats.skipped += result.skipped ?? 0;
+      }
+    }
+
     this.syncStateByOperator.set(oprId, { lastSyncTimestamp: checkpointBeforeStart });
     this.hasLiveLeonData = true;
+    return stats;
   }
 
   async incrementalSync(oprId = this.operatorId) {
@@ -693,16 +750,19 @@ export class LeonTimelineService {
       oprId
     );
 
+    const stats = { updated: 0, skipped: 0, deleted: 0 };
     const delta = data.flights?.getModifiedFlightList;
     if (!delta) {
-      return;
+      return stats;
     }
 
+    const persisted = [];
     for (const row of [...(delta.created ?? []), ...(delta.changed ?? [])]) {
       const mapped = mapLeonFlight(row);
       mapped.oprId = oprId;
       const nid = this.flightCacheKey(oprId, mapped.flightNid);
       this.flightsByNid.set(nid, mapped);
+      persisted.push(mapped);
       this.aircraftByFlightNid.set(nid, {
         oprId,
         aircraftNid: row.acft?.aircraftNid ?? null,
@@ -716,11 +776,30 @@ export class LeonTimelineService {
       this.aircraftByFlightNid.delete(key);
     }
 
+    if (this.operatorsStore && persisted.length > 0) {
+      const result = await this.operatorsStore
+        .upsertFlightsCache({ oprId, flights: persisted })
+        .catch(() => null);
+      if (result) {
+        stats.updated += result.updated ?? 0;
+        stats.skipped += result.skipped ?? 0;
+      }
+    }
+    if (this.operatorsStore && (delta.deleted?.length ?? 0) > 0) {
+      const deletedResult = await this.operatorsStore
+        .markFlightsDeleted({ oprId, flightNids: delta.deleted })
+        .catch(() => null);
+      if (deletedResult) {
+        stats.deleted += deletedResult.marked ?? 0;
+      }
+    }
+
     const nextTimestamp =
       typeof delta.timestamp === "number"
         ? new Date(delta.timestamp * 1000).toISOString()
         : toIsoOrNull(delta.timestamp) || dateTime;
     this.syncStateByOperator.set(oprId, { lastSyncTimestamp: nextTimestamp });
+    return stats;
   }
 
   async refreshNow() {
@@ -746,27 +825,63 @@ export class LeonTimelineService {
         throw new Error(`Operator ${targetOprId} is not configured.`);
       }
 
-      const now = new Date();
-      const fromDate = from ? parseDate(from) ?? addDays(now, -1) : addDays(now, -1);
-      const toDate = to ? parseDate(to) ?? addDays(now, 2) : addDays(now, 2);
-      const records = [];
+      if (forceLive) {
+        await this.runSyncCycle();
+      }
 
-      for (const operator of operators) {
-        const rawFlights = await this.fetchFlightsForOperatorRange(operator.oprId, fromDate, toDate);
-        for (const rawFlight of rawFlights) {
-          const mapped = mapLeonFlight(rawFlight);
-          mapped.oprId = operator.oprId;
-          mapped.operatorName = operator.name ?? operator.oprId;
-          if (!overlapsRange(mapped, from, to)) continue;
-          const registration = rawFlight.acft?.registration ?? "UNKNOWN";
-          if (hiddenKeys.has(this.aircraftHideKey(operator.oprId, registration))) continue;
-          records.push({
+      const operatorById = new Map(operators.map((operator) => [operator.oprId, operator]));
+      const records = [];
+      for (const [nid, flight] of this.flightsByNid.entries()) {
+        const aircraft = this.aircraftByFlightNid.get(nid) ?? {
+          oprId: flight.oprId ?? this.operatorId,
+          aircraftNid: null,
+          registration: flight.aircraftRegistration ?? "UNKNOWN",
+        };
+        const activeOprId = aircraft.oprId ?? flight.oprId;
+        if (!operatorById.has(activeOprId)) continue;
+        if (!overlapsRange(flight, from, to)) continue;
+        const registration = aircraft.registration ?? flight.aircraftRegistration ?? "UNKNOWN";
+        if (hiddenKeys.has(this.aircraftHideKey(activeOprId, registration))) continue;
+        const operator = operatorById.get(activeOprId);
+        records.push({
+          oprId: activeOprId,
+          operatorName: flight.operatorName ?? operator.name ?? activeOprId,
+          aircraftNid: aircraft.aircraftNid ?? null,
+          registration,
+          flight,
+        });
+      }
+
+      if (records.length === 0 && this.operatorsStore) {
+        for (const operator of operators) {
+          const persistedRows = await this.operatorsStore.loadCachedFlights({
             oprId: operator.oprId,
-            operatorName: operator.name ?? operator.oprId,
-            aircraftNid: rawFlight.acft?.aircraftNid ?? null,
-            registration,
-            flight: mapped,
+            fromIso: from ?? null,
+            toIso: to ?? null,
           });
+          for (const row of persistedRows) {
+            const mapped = row.flight;
+            if (!mapped?.flightNid) continue;
+            mapped.oprId = operator.oprId;
+            mapped.operatorName = operator.name ?? operator.oprId;
+            if (!overlapsRange(mapped, from, to)) continue;
+            const registration = row.registration ?? mapped.aircraftRegistration ?? "UNKNOWN";
+            if (hiddenKeys.has(this.aircraftHideKey(operator.oprId, registration))) continue;
+            const nid = this.flightCacheKey(operator.oprId, mapped.flightNid);
+            this.flightsByNid.set(nid, mapped);
+            this.aircraftByFlightNid.set(nid, {
+              oprId: operator.oprId,
+              aircraftNid: null,
+              registration,
+            });
+            records.push({
+              oprId: operator.oprId,
+              operatorName: operator.name ?? operator.oprId,
+              aircraftNid: null,
+              registration,
+              flight: mapped,
+            });
+          }
         }
       }
 
@@ -1074,6 +1189,7 @@ export class LeonTimelineService {
       limitationsCached: this.limitations.length,
       operatorsSynced: this.syncStateByOperator.size,
       storage: this.operatorsStore?.storageMode?.() ?? "unknown",
+      cacheStats: this.state.cacheStats ?? { updated: 0, skipped: 0, deleted: 0 },
     };
   }
 }

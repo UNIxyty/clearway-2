@@ -1,4 +1,4 @@
-import { addMin, clamp } from '../data';
+import { clamp } from '../data';
 
 // Brighter pill colors
 const STATUS = {
@@ -10,14 +10,20 @@ const STATUS = {
   slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
 };
 
-export default function FlightPill({ flight, limIndex, onLimClick, windowStartMs, windowDurationMs, lane = 0 }) {
+export default function FlightPill({
+  flight,
+  limIndex,
+  onLimClick,
+  windowStartMs,
+  windowDurationMs,
+  lane = 0,
+  laneStep = 42,
+}) {
   const { fn, dep, arr, etd, eta, dlyMin, status, lim } = flight;
 
   const isDelayed = dlyMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
   const theme = STATUS[baseStatus] || STATUS.scheduled;
-
-  const actualEta = isDelayed ? addMin(eta, dlyMin) : eta;
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -53,74 +59,73 @@ export default function FlightPill({ flight, limIndex, onLimClick, windowStartMs
       position: 'absolute',
       left: (depF * 100).toFixed(3) + '%',
       width: (totalF * 100).toFixed(3) + '%',
-      top: 10 + lane * 22,
+      top: 4 + lane * laneStep,
       transform: 'none',
       display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
     }}>
-      {/* Flight number above */}
-      <div style={s.fn}>{fn}</div>
+      <div style={s.frame}>
+        <div style={s.fn}>{fn}</div>
+        <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
 
-      {/* Hatch + pill + lim badge row */}
-      <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+          {isDelayed && hatchF > 0 && (
+            <div style={{
+              width: hatchPct, height: 18, flexShrink: 0,
+              borderRadius: '99px 0 0 99px',
+              background: isDelayed ? delayedHatchBg : defaultHatchBg,
+              boxShadow: isDelayed
+                ? 'inset 0 0 0 1px rgba(255,255,255,.25)'
+                : `inset 0 0 0 1px ${theme.hatch.replace('.8', '.4')}`,
+              overflow: 'hidden',
+            }} />
+          )}
 
-        {isDelayed && hatchF > 0 && (
           <div style={{
-            width: hatchPct, height: 18, flexShrink: 0,
-            borderRadius: '99px 0 0 99px',
-            background: isDelayed ? delayedHatchBg : defaultHatchBg,
-            boxShadow: isDelayed
-              ? 'inset 0 0 0 1px rgba(255,255,255,.25)'
-              : `inset 0 0 0 1px ${theme.hatch.replace('.8', '.4')}`,
-            overflow: 'hidden',
-          }} />
-        )}
+            width: pillPct, height: 18, flexShrink: 0,
+            borderRadius: isDelayed && hatchF > 0 ? '0 99px 99px 0' : '99px',
+            background: theme.bg,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
+            display: 'flex', alignItems: 'center',
+            padding: '0 7px', position: 'relative',
+            cursor: 'default', transition: 'filter .12s',
+          }}>
+            {showLabels ? (
+              <>
+                <span style={{ ...s.airport, color: theme.text, marginRight: 'auto' }}>{dep}</span>
+                <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, margin: '0 5px', flexShrink: 0 }} />
+                <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{arr}</span>
+              </>
+            ) : (
+              <span style={{ ...s.airport, color: theme.text }}>{dep}-{arr}</span>
+            )}
+          </div>
 
-        {/* Pill */}
-        <div style={{
-          width: pillPct, height: 18, flexShrink: 0,
-          borderRadius: isDelayed && hatchF > 0 ? '0 99px 99px 0' : '99px',
-          background: theme.bg,
-          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
-          display: 'flex', alignItems: 'center',
-          padding: '0 7px', position: 'relative',
-          cursor: 'default', transition: 'filter .12s',
-        }}>
-          {showLabels && (
-            <>
-              <span style={{ ...s.airport, color: theme.text, marginRight: 'auto' }}>{dep}</span>
-              <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, margin: '0 5px', flexShrink: 0 }} />
-              <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{arr}</span>
-            </>
+          {lim && limIndex !== undefined && (
+            <div
+              style={s.limBadge}
+              onClick={() => onLimClick && onLimClick(lim, fn)}
+              title={lim.msg}
+            >
+              {limIndex}
+            </div>
           )}
         </div>
-
-        {/* Limitation badge — appears right after pill */}
-        {lim && limIndex !== undefined && (
-          <div
-            style={s.limBadge}
-            onClick={() => onLimClick && onLimClick(lim, fn)}
-            title={lim.msg}
-          >
-            {limIndex}
-          </div>
-        )}
-      </div>
-
-      {/* Times below */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 2 }}>
-        <span style={s.time}>{etd}</span>
-        <span style={{ ...s.time, ...(isDelayed ? s.timeDly : {}) }}>
-          {actualEta}{isDelayed ? ` +${dlyMin}` : ''}
-        </span>
       </div>
     </div>
   );
 }
 
 const s = {
+  frame: {
+    width: '100%',
+    background: 'rgba(16,22,36,.85)',
+    border: '1px solid rgba(90,110,155,.28)',
+    borderRadius: 8,
+    padding: '3px 4px 4px',
+    boxShadow: '0 2px 6px rgba(0,0,0,.25)',
+  },
   fn: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    color: '#404d6e', marginBottom: 2, letterSpacing: '.4px', whiteSpace: 'nowrap',
+    color: '#7386b5', marginBottom: 2, letterSpacing: '.4px', whiteSpace: 'nowrap',
   },
   airport: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
@@ -135,8 +140,4 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', transition: 'background .15s',
   },
-  time: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: 8, color: '#404d6e',
-  },
-  timeDly: { color: 'rgba(220,110,110,.8)' },
 };

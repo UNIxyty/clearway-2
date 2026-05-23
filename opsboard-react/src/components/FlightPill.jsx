@@ -52,7 +52,8 @@ export default function FlightPill({
     rgba(124,132,146,.88) 2px, rgba(124,132,146,.88) 8px
   )`;
 
-  const showLabels = (pillF / totalF) > 0.06;
+  const showRoute = (pillF / totalF) > 0.08;
+  const showFull = (pillF / totalF) > 0.14;
 
   return (
     <div style={{
@@ -64,7 +65,6 @@ export default function FlightPill({
       display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
     }}>
       <div style={s.frame}>
-        <div style={s.fn}>{fn}</div>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
 
           {isDelayed && hatchF > 0 && (
@@ -80,22 +80,28 @@ export default function FlightPill({
           )}
 
           <div style={{
-            width: pillPct, height: 18, flexShrink: 0,
+            width: pillPct, height: 20, flexShrink: 0,
             borderRadius: isDelayed && hatchF > 0 ? '0 99px 99px 0' : '99px',
             background: theme.bg,
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
             display: 'flex', alignItems: 'center',
-            padding: '0 7px', position: 'relative',
+            padding: '0 8px', position: 'relative',
             cursor: 'default', transition: 'filter .12s',
+            gap: 8,
           }}>
-            {showLabels ? (
+            <span style={{ ...s.fn, color: theme.text }}>{fn}</span>
+            {showRoute ? (
               <>
-                <span style={{ ...s.airport, color: theme.text, marginRight: 'auto' }}>{dep}</span>
-                <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, margin: '0 5px', flexShrink: 0 }} />
-                <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{arr}</span>
+                <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
+                {showFull && (
+                  <>
+                    <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, flexShrink: 0 }} />
+                    <span style={{ ...s.airport, color: theme.text }}>{arr}</span>
+                  </>
+                )}
               </>
             ) : (
-              <span style={{ ...s.airport, color: theme.text }}>{dep}-{arr}</span>
+              <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
             )}
           </div>
 
@@ -117,15 +123,15 @@ export default function FlightPill({
 const s = {
   frame: {
     width: '100%',
-    background: 'rgba(16,22,36,.85)',
-    border: '1px solid rgba(90,110,155,.28)',
+    background: 'transparent',
+    border: 'none',
     borderRadius: 8,
-    padding: '3px 4px 4px',
-    boxShadow: '0 2px 6px rgba(0,0,0,.25)',
+    padding: 0,
+    boxShadow: 'none',
   },
   fn: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    color: '#7386b5', marginBottom: 2, letterSpacing: '.4px', whiteSpace: 'nowrap',
+    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700,
   },
   airport: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,

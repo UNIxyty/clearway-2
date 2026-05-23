@@ -66,7 +66,7 @@ function toMs(value, fallback = 0) {
 }
 
 function assignFlightLanes(flights) {
-  const MIN_VISUAL_DURATION_MS = 20 * 60 * 1000;
+  const MIN_VISUAL_DURATION_MS = 45 * 60 * 1000;
   const sorted = [...(flights || [])].sort((a, b) => toMs(a.startUtcMs) - toMs(b.startUtcMs));
   const laneEnds = [];
   const withLanes = [];
@@ -102,7 +102,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
   const VIEWPORT_HOURS = 10;
   const BEFORE_NOW_HOURS = 3;
   const FLIGHT_PILL_HEIGHT = 24;
-  const FLIGHT_LANE_GAP = 8;
+  const FLIGHT_LANE_GAP = 14;
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -297,7 +297,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
                 const laneData = assignFlightLanes(ac.flights || []);
-                const rowHeight = Math.max(72, 14 + laneData.lanes * FLIGHT_LANE_STEP);
+                const rowHeight = Math.max(80, 18 + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
                 <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
 

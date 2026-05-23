@@ -62,14 +62,17 @@ export default function FlightPill({
       width: (totalF * 100).toFixed(3) + '%',
       top: 4 + lane * laneStep,
       transform: 'none',
-      display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+      height: 24,
+      display: 'flex',
+      alignItems: 'stretch',
+      overflow: 'hidden',
     }}>
       <div style={s.frame}>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center', overflow: 'hidden' }}>
 
           {isDelayed && hatchF > 0 && (
             <div style={{
-              width: hatchPct, height: 18, flexShrink: 0,
+              width: hatchPct, height: 24, flexShrink: 0,
               borderRadius: '99px 0 0 99px',
               background: isDelayed ? delayedHatchBg : defaultHatchBg,
               boxShadow: isDelayed
@@ -80,7 +83,7 @@ export default function FlightPill({
           )}
 
           <div style={{
-            width: pillPct, height: 20, flexShrink: 0,
+            width: pillPct, height: 24, flexShrink: 0,
             borderRadius: isDelayed && hatchF > 0 ? '0 99px 99px 0' : '99px',
             background: theme.bg,
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
@@ -126,11 +129,13 @@ export default function FlightPill({
 const s = {
   frame: {
     width: '100%',
+    height: 24,
     background: 'transparent',
     border: 'none',
-    borderRadius: 8,
+    borderRadius: 99,
     padding: 0,
     boxShadow: 'none',
+    overflow: 'hidden',
   },
   pillMain: {
     minWidth: 0,
@@ -142,11 +147,11 @@ const s = {
   },
   fn: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1,
   },
   airport: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+    fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1,
   },
   limBadgeInline: {
     marginLeft: 4,

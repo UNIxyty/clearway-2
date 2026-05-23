@@ -65,7 +65,7 @@ export default function FlightPill({
       display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
     }}>
       <div style={s.frame}>
-        <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+        <div style={{ display: 'flex', width: '100%', alignItems: 'center', overflow: 'hidden' }}>
 
           {isDelayed && hatchF > 0 && (
             <div style={{
@@ -88,32 +88,35 @@ export default function FlightPill({
             padding: '0 8px', position: 'relative',
             cursor: 'default', transition: 'filter .12s',
             gap: 8,
+            overflow: 'hidden',
           }}>
-            <span style={{ ...s.fn, color: theme.text }}>{fn}</span>
-            {showRoute ? (
-              <>
+            <div style={s.pillMain}>
+              <span style={{ ...s.fn, color: theme.text }}>{fn}</span>
+              {showRoute ? (
+                <>
+                  <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
+                  {showFull && (
+                    <>
+                      <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, flexShrink: 0 }} />
+                      <span style={{ ...s.airport, color: theme.text }}>{arr}</span>
+                    </>
+                  )}
+                </>
+              ) : (
                 <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
-                {showFull && (
-                  <>
-                    <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, flexShrink: 0 }} />
-                    <span style={{ ...s.airport, color: theme.text }}>{arr}</span>
-                  </>
-                )}
-              </>
-            ) : (
-              <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
+              )}
+            </div>
+
+            {lim && limIndex !== undefined && (
+              <div
+                style={s.limBadgeInline}
+                onClick={() => onLimClick && onLimClick(lim, fn)}
+                title={lim.msg}
+              >
+                {limIndex}
+              </div>
             )}
           </div>
-
-          {lim && limIndex !== undefined && (
-            <div
-              style={s.limBadge}
-              onClick={() => onLimClick && onLimClick(lim, fn)}
-              title={lim.msg}
-            >
-              {limIndex}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -129,16 +132,25 @@ const s = {
     padding: 0,
     boxShadow: 'none',
   },
+  pillMain: {
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    overflow: 'hidden',
+  },
   fn: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700,
+    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis',
   },
   airport: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap',
+    fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis',
   },
-  limBadge: {
-    marginLeft: 4, flexShrink: 0,
+  limBadgeInline: {
+    marginLeft: 4,
+    flexShrink: 0,
     width: 16, height: 16, borderRadius: '50%',
     background: 'rgba(240,177,59,.25)', border: '1px solid rgba(240,177,59,.5)',
     color: '#f0b13b', fontSize: 9, fontWeight: 700,

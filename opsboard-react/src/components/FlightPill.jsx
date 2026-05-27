@@ -81,7 +81,7 @@ export default function FlightPill({
       width: (totalF * 100).toFixed(3) + '%',
       top: 4 + lane * laneStep,
       transform: 'none',
-      height: 44,
+      minHeight: 52,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'stretch',
@@ -115,10 +115,9 @@ export default function FlightPill({
             overflow: 'hidden',
           }}>
             <div style={s.pillMain}>
-              <span style={{ ...s.routeFn, color: theme.text }}>{fn}</span>
               {showRoute ? (
                 <>
-                  <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
+                  <span style={{ ...s.airport, color: theme.text }}>{dep}</span>
                   {showFull && (
                     <>
                       <span style={{ width: 1, background: 'rgba(0,0,0,.25)', height: 10, flexShrink: 0 }} />
@@ -127,7 +126,7 @@ export default function FlightPill({
                   )}
                 </>
               ) : (
-                <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
+                <span style={{ ...s.airport, color: theme.text }}>{dep}</span>
               )}
             </div>
 
@@ -198,10 +197,7 @@ const s = {
     gap: 8,
     flex: 1,
     overflow: 'hidden',
-  },
-  routeFn: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
-    color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1,
+    justifyContent: 'space-between',
   },
   airport: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,

@@ -34,3 +34,33 @@ html, body, #root {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.5; }
 }
+
+/* Keep timeline scrollbars subtle on Windows/Linux while matching dark UI */
+.timeline-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3a4766 #151a27;
+}
+
+.timeline-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: #151a27;
+}
+
+.timeline-scroll::-webkit-scrollbar-track {
+  background: #151a27;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb {
+  background: #3a4766;
+  border-radius: 999px;
+  border: 2px solid #151a27;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4d5f88;
+}
+
+.timeline-scroll::-webkit-scrollbar-corner {
+  background: #151a27;
+}

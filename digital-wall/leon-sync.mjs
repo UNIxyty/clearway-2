@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const DEFAULT_POLL_MS = 10 * 60 * 1000;
+const DEFAULT_POLL_MS = 30 * 1000;
 const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
+const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
 
 function parseDate(value) {
   const dt = new Date(value);
@@ -312,6 +313,7 @@ export class LeonTimelineService {
     this.limitations = [];
     this.rawLimitations = [];
     this.hasLiveLeonData = false;
+    this.cacheFilePath = LOCAL_CACHE_FILE;
 
     this.state = {
       source: "static-seed",
@@ -404,13 +406,14 @@ export class LeonTimelineService {
   }
 
   async bootstrap() {
-    await this.loadStaticSeeds();
+    const loadedFromCache = await this.loadLocalCache();
+    if (!loadedFromCache) {
+      await this.loadStaticSeeds();
+    }
     const configured = await this.isAnyOperatorConfigured();
     this.state.configured = configured;
     if (configured) {
-      const operators = await this.listConfiguredOperators();
-      await this.hydrateFlightsFromSupabase(operators).catch(() => {});
-      this.runSyncCycle().catch((error) => {
+      await this.runSyncCycle().catch((error) => {
         this.state.healthy = false;
         this.state.lastError = error instanceof Error ? error.message : String(error);
       });
@@ -449,31 +452,67 @@ export class LeonTimelineService {
     }
   }
 
-  async hydrateFlightsFromSupabase(operators) {
-    if (!this.operatorsStore || !Array.isArray(operators) || operators.length === 0) return;
-    const now = new Date();
-    const fromIso = addDays(now, -2).toISOString();
-    const toIso = addDays(now, 8).toISOString();
-    for (const operator of operators) {
-      const rows = await this.operatorsStore.loadCachedFlights({
-        oprId: operator.oprId,
-        fromIso,
-        toIso,
-      });
-      for (const row of rows) {
-        const flight = row.flight;
-        if (!flight?.flightNid) continue;
-        const nid = this.flightCacheKey(operator.oprId, flight.flightNid);
-        flight.oprId = operator.oprId;
-        flight.operatorName = operator.name ?? operator.oprId;
-        this.flightsByNid.set(nid, flight);
-        this.aircraftByFlightNid.set(nid, {
-          oprId: operator.oprId,
-          aircraftNid: null,
-          registration: row.registration ?? flight.aircraftRegistration ?? "UNKNOWN",
-        });
+  async loadLocalCache() {
+    const payload = await readJsonIfExists(this.cacheFilePath);
+    if (!payload || !Array.isArray(payload.flights)) return false;
+
+    this.flightsByNid.clear();
+    this.aircraftByFlightNid.clear();
+    for (const entry of payload.flights) {
+      if (!entry?.key || !entry?.flight) continue;
+      this.flightsByNid.set(entry.key, entry.flight);
+      if (entry.aircraft) {
+        this.aircraftByFlightNid.set(entry.key, entry.aircraft);
       }
     }
+
+    this.syncStateByOperator.clear();
+    if (payload.syncStateByOperator && typeof payload.syncStateByOperator === "object") {
+      for (const [oprId, syncState] of Object.entries(payload.syncStateByOperator)) {
+        if (syncState?.lastSyncTimestamp) {
+          this.syncStateByOperator.set(oprId, syncState);
+        }
+      }
+    }
+
+    this.aircraftCacheByOperator.clear();
+    if (payload.aircraftCacheByOperator && typeof payload.aircraftCacheByOperator === "object") {
+      for (const [oprId, list] of Object.entries(payload.aircraftCacheByOperator)) {
+        if (Array.isArray(list)) this.aircraftCacheByOperator.set(oprId, list);
+      }
+    }
+
+    if (Array.isArray(payload.limitations)) {
+      this.limitations = payload.limitations;
+    }
+    if (Array.isArray(payload.rawLimitations)) {
+      this.rawLimitations = payload.rawLimitations;
+    }
+
+    if (this.flightsByNid.size > 0) {
+      this.state.source = "local-cache";
+      this.state.lastRunAt = payload.savedAt ?? null;
+      return true;
+    }
+    return false;
+  }
+
+  async persistLocalCache() {
+    const payload = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      flights: [...this.flightsByNid.entries()].map(([key, flight]) => ({
+        key,
+        flight,
+        aircraft: this.aircraftByFlightNid.get(key) ?? null,
+      })),
+      syncStateByOperator: Object.fromEntries(this.syncStateByOperator.entries()),
+      aircraftCacheByOperator: Object.fromEntries(this.aircraftCacheByOperator.entries()),
+      limitations: this.limitations,
+      rawLimitations: this.rawLimitations,
+    };
+    await fs.mkdir(path.dirname(this.cacheFilePath), { recursive: true });
+    await fs.writeFile(this.cacheFilePath, JSON.stringify(payload), "utf-8");
   }
 
   startPolling() {
@@ -516,6 +555,9 @@ export class LeonTimelineService {
       this.state.lastError = null;
       this.state.lastRunAt = new Date().toISOString();
       this.state.cacheStats = cycleStats;
+      if (cycleStats.updated > 0 || cycleStats.deleted > 0 || this.flightsByNid.size === 0) {
+        await this.persistLocalCache();
+      }
     } catch (error) {
       this.state.healthy = false;
       this.state.lastError = error instanceof Error ? error.message : String(error);
@@ -676,7 +718,6 @@ export class LeonTimelineService {
     const end = parseDate(process.env.LEON_SYNC_RANGE_END) ?? addDays(now, 30);
     const checkpointBeforeStart = new Date().toISOString();
 
-    const persisted = [];
     const stats = { updated: 0, skipped: 0, deleted: 0 };
     let chunkStart = start;
     while (chunkStart <= end) {
@@ -700,7 +741,7 @@ export class LeonTimelineService {
         mapped.oprId = oprId;
         const nid = this.flightCacheKey(oprId, mapped.flightNid);
         this.flightsByNid.set(nid, mapped);
-        persisted.push(mapped);
+        stats.updated += 1;
         this.aircraftByFlightNid.set(nid, {
           oprId,
           aircraftNid: rawFlight.acft?.aircraftNid ?? null,
@@ -709,12 +750,6 @@ export class LeonTimelineService {
       }
 
       chunkStart = addDays(chunkEnd, 1);
-    }
-
-    if (this.operatorsStore && persisted.length > 0) {
-      const result = await this.operatorsStore.upsertFlightsCache({ oprId, flights: persisted });
-      stats.updated += result.updated ?? 0;
-      stats.skipped += result.skipped ?? 0;
     }
 
     this.syncStateByOperator.set(oprId, { lastSyncTimestamp: checkpointBeforeStart });
@@ -752,13 +787,12 @@ export class LeonTimelineService {
       return stats;
     }
 
-    const persisted = [];
     for (const row of [...(delta.created ?? []), ...(delta.changed ?? [])]) {
       const mapped = mapLeonFlight(row);
       mapped.oprId = oprId;
       const nid = this.flightCacheKey(oprId, mapped.flightNid);
       this.flightsByNid.set(nid, mapped);
-      persisted.push(mapped);
+      stats.updated += 1;
       this.aircraftByFlightNid.set(nid, {
         oprId,
         aircraftNid: row.acft?.aircraftNid ?? null,
@@ -770,19 +804,7 @@ export class LeonTimelineService {
       const key = this.flightCacheKey(oprId, deletedNid);
       this.flightsByNid.delete(key);
       this.aircraftByFlightNid.delete(key);
-    }
-
-    if (this.operatorsStore && persisted.length > 0) {
-      const result = await this.operatorsStore.upsertFlightsCache({ oprId, flights: persisted });
-      stats.updated += result.updated ?? 0;
-      stats.skipped += result.skipped ?? 0;
-    }
-    if (this.operatorsStore && (delta.deleted?.length ?? 0) > 0) {
-      const deletedResult = await this.operatorsStore.markFlightsDeleted({
-        oprId,
-        flightNids: delta.deleted,
-      });
-      stats.deleted += deletedResult.marked ?? 0;
+      stats.deleted += 1;
     }
 
     const nextTimestamp =
@@ -841,39 +863,6 @@ export class LeonTimelineService {
           registration,
           flight,
         });
-      }
-
-      if (records.length === 0 && this.operatorsStore) {
-        for (const operator of operators) {
-          const persistedRows = await this.operatorsStore.loadCachedFlights({
-            oprId: operator.oprId,
-            fromIso: from ?? null,
-            toIso: to ?? null,
-          });
-          for (const row of persistedRows) {
-            const mapped = row.flight;
-            if (!mapped?.flightNid) continue;
-            mapped.oprId = operator.oprId;
-            mapped.operatorName = operator.name ?? operator.oprId;
-            if (!overlapsRange(mapped, from, to)) continue;
-            const registration = row.registration ?? mapped.aircraftRegistration ?? "UNKNOWN";
-            if (hiddenKeys.has(this.aircraftHideKey(operator.oprId, registration))) continue;
-            const nid = this.flightCacheKey(operator.oprId, mapped.flightNid);
-            this.flightsByNid.set(nid, mapped);
-            this.aircraftByFlightNid.set(nid, {
-              oprId: operator.oprId,
-              aircraftNid: null,
-              registration,
-            });
-            records.push({
-              oprId: operator.oprId,
-              operatorName: operator.name ?? operator.oprId,
-              aircraftNid: null,
-              registration,
-              flight: mapped,
-            });
-          }
-        }
       }
 
       const grouped = groupFlights(records);

@@ -271,7 +271,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
         {/* Timeline tick header */}
         <div style={s.timeHeader}>
           <div style={s.acSpacer} />
-          <div style={s.timeScroll} ref={headerScrollRef}>
+          <div className="timeline-scroll timeline-scroll--header" style={s.timeScroll} ref={headerScrollRef}>
             <div style={{ ...s.timeInner, width: timelinePx + END_PAD_PX }}>
               {Array.from({ length: timelineHours }, (_, i) => {
                 const tick = new Date(windowStartMs + i * 60 * 60 * 1000);
@@ -292,7 +292,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
           </button>
         </div>
 
-        <div style={s.rowsWrap} ref={bodyScrollRef}>
+        <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
           <div style={{ width: 130 + timelinePx + END_PAD_PX, position: 'relative' }}>
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {

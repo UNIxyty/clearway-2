@@ -72,10 +72,12 @@ function mapFlight(flight) {
   const eta = toHm(scheduledEnd);
   const dep = flight.adep?.icao || 'UNK';
   const arr = flight.ades?.icao || 'UNK';
-  const dlyMin = Math.max(0, toNumber(flight.delayMin, toNumber(flight.departureDelayMin, 0)));
+  const depDelayMin = Math.max(0, toNumber(flight.departureDelayMin, toNumber(flight.delayMin, 0)));
+  const arrDelayMin = Math.max(0, toNumber(flight.arrivalDelayMin, toNumber(flight.delayMin, 0)));
 
   if (!start || !scheduledEnd || !etd || !eta) return null;
-  const end = new Date(scheduledEnd.getTime() + dlyMin * 60_000);
+  const delayedDep = toDate(flight.delayedDepartureUTC) || new Date(start.getTime() + depDelayMin * 60_000);
+  const delayedArr = toDate(flight.delayedArrivalUTC) || new Date(scheduledEnd.getTime() + arrDelayMin * 60_000);
 
   return {
     fn: flight.flightNo || 'UNKNOWN',
@@ -83,11 +85,14 @@ function mapFlight(flight) {
     arr,
     etd,
     eta,
-    dlyMin,
+    dlyMin: Math.max(depDelayMin, arrDelayMin),
+    depDelayMin,
+    arrDelayMin,
     status: statusFromFlight(flight),
     startUtcMs: start.getTime(),
+    delayedStartUtcMs: delayedDep.getTime(),
     scheduledEndUtcMs: scheduledEnd.getTime(),
-    endUtcMs: end.getTime(),
+    endUtcMs: delayedArr.getTime(),
   };
 }
 

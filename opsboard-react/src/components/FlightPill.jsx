@@ -6,9 +6,17 @@ const STATUS = {
   boarding:  { bg: 'rgba(170,125,35,.9)',   text: '#ffe0a0', hatch: 'rgba(200,155,45,.8)'  },
   airborne:  { bg: 'rgba(48,110,175,.9)',   text: '#b8e0ff', hatch: 'rgba(65,135,205,.8)'  },
   arrived:   { bg: 'rgba(38,108,78,.9)',    text: '#96e8c0', hatch: 'rgba(50,130,95,.8)'   },
-  delayed:   { bg: 'rgba(145,62,62,.9)',    text: '#ffb8b8', hatch: 'rgba(175,75,75,.8)'   },
+  delayed:   { bg: 'rgba(132,118,74,.9)',   text: '#f3dfaf', hatch: 'rgba(168,146,90,.8)'  },
   slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
 };
+
+function hmUtc(ms) {
+  const dt = new Date(ms);
+  if (!Number.isFinite(dt.getTime())) return '--:--';
+  const h = String(dt.getUTCHours()).padStart(2, '0');
+  const m = String(dt.getUTCMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
 
 export default function FlightPill({
   flight,
@@ -19,27 +27,36 @@ export default function FlightPill({
   lane = 0,
   laneStep = 42,
 }) {
-  const { fn, dep, arr, etd, eta, dlyMin, status, lim } = flight;
+  const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status, lim } = flight;
 
-  const isDelayed = dlyMin > 0;
+  const isDelayed = depDelayMin > 0 || arrDelayMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
   const theme = STATUS[baseStatus] || STATUS.scheduled;
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
-  const arrMs = Number(flight.endUtcMs) || schedArrMs;
-  const delayEndMs = isDelayed ? depMs + dlyMin * 60_000 : depMs;
+  const actualDepMs = Number(flight.delayedStartUtcMs) || (depMs + depDelayMin * 60_000);
+  const actualArrMs = Number(flight.endUtcMs) || (schedArrMs + arrDelayMin * 60_000);
+
+  const depCrossEndMs = Math.max(depMs, actualDepMs);
+  const arrCrossStartMs = Math.max(depCrossEndMs, schedArrMs);
+  const arrCrossEndMs = Math.max(arrCrossStartMs, actualArrMs);
+  const renderEndMs = arrCrossEndMs;
+
   const frac = (ms) => (ms - windowStartMs) / windowDurationMs;
   const depF = clamp(frac(depMs));
-  const dlyF = isDelayed ? clamp(frac(delayEndMs)) : depF;
-  const arrF = clamp(frac(arrMs));
+  const depCrossF = clamp(frac(depCrossEndMs));
+  const arrCrossStartF = clamp(frac(arrCrossStartMs));
+  const arrCrossEndF = clamp(frac(arrCrossEndMs));
 
-  const totalF = Math.max(arrF - depF, 0.005);
-  const hatchF = isDelayed ? Math.max(dlyF - depF, 0) : 0;
-  const pillF  = Math.max(arrF - dlyF, 0.003);
+  const totalF = Math.max(arrCrossEndF - depF, 0.005);
+  const depCrossSectionF = depDelayMin > 0 ? Math.max(depCrossF - depF, 0) : 0;
+  const mainSectionF = Math.max(arrCrossStartF - depCrossF, 0.003);
+  const arrCrossSectionF = arrDelayMin > 0 ? Math.max(arrCrossEndF - arrCrossStartF, 0) : 0;
 
-  const hatchPct = ((hatchF / totalF) * 100).toFixed(2) + '%';
-  const pillPct  = ((pillF  / totalF) * 100).toFixed(2) + '%';
+  const depCrossPct = ((depCrossSectionF / totalF) * 100).toFixed(2) + '%';
+  const mainPct = ((mainSectionF / totalF) * 100).toFixed(2) + '%';
+  const arrCrossPct = ((arrCrossSectionF / totalF) * 100).toFixed(2) + '%';
 
   const defaultHatchBg = `repeating-linear-gradient(
     -45deg,
@@ -52,8 +69,10 @@ export default function FlightPill({
     rgba(124,132,146,.88) 2px, rgba(124,132,146,.88) 8px
   )`;
 
-  const showRoute = (pillF / totalF) > 0.08;
-  const showFull = (pillF / totalF) > 0.14;
+  const showRoute = (mainSectionF / totalF) > 0.08;
+  const showFull = (mainSectionF / totalF) > 0.14;
+  const depBoundaryPct = `${((depCrossF - depF) / totalF) * 100}%`;
+  const arrBoundaryPct = `${((arrCrossStartF - depF) / totalF) * 100}%`;
 
   return (
     <div style={{
@@ -62,29 +81,31 @@ export default function FlightPill({
       width: (totalF * 100).toFixed(3) + '%',
       top: 4 + lane * laneStep,
       transform: 'none',
-      height: 24,
+      height: 44,
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'stretch',
-      overflow: 'hidden',
     }}>
+      <div style={s.fnOutside}>{fn}</div>
       <div style={s.frame}>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center', overflow: 'hidden' }}>
 
-          {isDelayed && hatchF > 0 && (
+          {depDelayMin > 0 && depCrossSectionF > 0 && (
             <div style={{
-              width: hatchPct, height: 24, flexShrink: 0,
+              width: depCrossPct, height: 24, flexShrink: 0,
               borderRadius: '99px 0 0 99px',
-              background: isDelayed ? delayedHatchBg : defaultHatchBg,
-              boxShadow: isDelayed
-                ? 'inset 0 0 0 1px rgba(255,255,255,.25)'
-                : `inset 0 0 0 1px ${theme.hatch.replace('.8', '.4')}`,
+              background: delayedHatchBg,
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)',
               overflow: 'hidden',
             }} />
           )}
 
           <div style={{
-            width: pillPct, height: 24, flexShrink: 0,
-            borderRadius: isDelayed && hatchF > 0 ? '0 99px 99px 0' : '99px',
+            width: mainPct, height: 24, flexShrink: 0,
+            borderRadius:
+              depDelayMin > 0 && depCrossSectionF > 0
+                ? (arrDelayMin > 0 && arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
+                : (arrDelayMin > 0 && arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
             background: theme.bg,
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
             display: 'flex', alignItems: 'center',
@@ -94,7 +115,7 @@ export default function FlightPill({
             overflow: 'hidden',
           }}>
             <div style={s.pillMain}>
-              <span style={{ ...s.fn, color: theme.text }}>{fn}</span>
+              <span style={{ ...s.routeFn, color: theme.text }}>{fn}</span>
               {showRoute ? (
                 <>
                   <span style={{ ...s.airport, color: theme.text, marginLeft: 'auto' }}>{dep}</span>
@@ -120,13 +141,46 @@ export default function FlightPill({
               </div>
             )}
           </div>
+
+          {arrDelayMin > 0 && arrCrossSectionF > 0 && (
+            <div style={{
+              width: arrCrossPct,
+              height: 24,
+              flexShrink: 0,
+              borderRadius: '0 99px 99px 0',
+              background: delayedHatchBg,
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)',
+              overflow: 'hidden',
+            }} />
+          )}
         </div>
+      </div>
+      <div style={s.timesRow}>
+        <span style={{ ...s.time, left: 0, transform: 'none' }}>{etd}</span>
+        {depDelayMin > 0 && <span style={{ ...s.time, left: depBoundaryPct }}>{hmUtc(depCrossEndMs)}</span>}
+        {arrDelayMin > 0 ? (
+          <>
+            <span style={{ ...s.time, left: arrBoundaryPct }}>{eta}</span>
+            <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{hmUtc(renderEndMs)}</span>
+          </>
+        ) : (
+          <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{eta}</span>
+        )}
       </div>
     </div>
   );
 }
 
 const s = {
+  fnOutside: {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 9,
+    color: '#5b6d98',
+    fontWeight: 700,
+    letterSpacing: '.4px',
+    whiteSpace: 'nowrap',
+    marginBottom: 2,
+  },
   frame: {
     width: '100%',
     height: 24,
@@ -145,7 +199,7 @@ const s = {
     flex: 1,
     overflow: 'hidden',
   },
-  fn: {
+  routeFn: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,
     color: '#7386b5', marginBottom: 0, letterSpacing: '.4px', whiteSpace: 'nowrap', fontWeight: 700, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1,
   },
@@ -162,5 +216,19 @@ const s = {
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', transition: 'background .15s',
+  },
+  timesRow: {
+    position: 'relative',
+    height: 14,
+    marginTop: 2,
+  },
+  time: {
+    position: 'absolute',
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 8,
+    color: '#5d709e',
+    lineHeight: '14px',
+    transform: 'translateX(-50%)',
+    whiteSpace: 'nowrap',
   },
 };

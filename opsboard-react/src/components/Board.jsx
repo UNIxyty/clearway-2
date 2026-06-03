@@ -65,23 +65,44 @@ function toMs(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function assignFlightLanes(flights) {
+function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx }) {
   const MIN_VISUAL_DURATION_MS = 45 * 60 * 1000;
-  const sorted = [...(flights || [])].sort((a, b) => toMs(a.startUtcMs) - toMs(b.startUtcMs));
+  const LANE_GAP_PX = 14; // visual breathing room between rounded pills
+  const frac = (ms) => clamp((ms - windowStartMs) / windowDurationMs);
+  const gapFrac = timelinePx > 0 ? (LANE_GAP_PX / timelinePx) : 0;
+
+  const sorted = [...(flights || [])]
+    .map((flight) => {
+      const startMs = toMs(flight.startUtcMs);
+      const depCrossEndMs = Math.max(
+        startMs,
+        toMs(flight.delayedStartUtcMs, startMs + toMs(flight.depDelayMin, 0) * 60_000)
+      );
+      const schedArrMs = Math.max(depCrossEndMs, toMs(flight.scheduledEndUtcMs, depCrossEndMs));
+      const arrCrossEndMs = Math.max(schedArrMs, toMs(flight.endUtcMs, schedArrMs));
+      const endMs = Math.max(startMs + MIN_VISUAL_DURATION_MS, arrCrossEndMs);
+      return {
+        ...flight,
+        __startFrac: frac(startMs),
+        __endFrac: frac(endMs),
+      };
+    })
+    .sort((a, b) => a.__startFrac - b.__startFrac);
+
   const laneEnds = [];
   const withLanes = [];
 
   for (const flight of sorted) {
-    const start = toMs(flight.startUtcMs);
-    const end = Math.max(start + MIN_VISUAL_DURATION_MS, toMs(flight.endUtcMs, start));
-    let lane = laneEnds.findIndex((laneEnd) => start >= laneEnd);
+    const startFrac = flight.__startFrac;
+    const endFrac = flight.__endFrac;
+    let lane = laneEnds.findIndex((laneEndFrac) => startFrac >= laneEndFrac);
     if (lane < 0) {
       lane = laneEnds.length;
-      laneEnds.push(end);
+      laneEnds.push(endFrac + gapFrac);
     } else {
-      laneEnds[lane] = end;
+      laneEnds[lane] = endFrac + gapFrac;
     }
-    withLanes.push({ ...flight, __lane: lane });
+    withLanes.push({ ...flight, __lane: lane, __startFrac: undefined, __endFrac: undefined });
   }
 
   return {
@@ -296,7 +317,11 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
           <div style={{ width: 130 + timelinePx + END_PAD_PX, position: 'relative' }}>
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
-                const laneData = assignFlightLanes(ac.flights || []);
+                const laneData = assignFlightLanes(ac.flights || [], {
+                  windowStartMs,
+                  windowDurationMs,
+                  timelinePx,
+                });
                 const rowHeight = Math.max(80, 18 + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
                 <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>

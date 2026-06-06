@@ -24,6 +24,37 @@ services:
     depends_on:
       - lithuania-browser
 
+  pickem:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: clearway-pickem:latest
+    command: node server.js
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      STORAGE_ROOT: /storage
+      CACHE_ROOT: /cache
+      NODE_ENV: production
+      NOTAM_SYNC_URL: http://notam-sync:3001
+      WEATHER_SYNC_URL: http://weather-sync:3001
+      AIP_SYNC_URL: http://aip-sync:3002
+      LITHUANIA_SELENIUM_URL: http://lithuania-browser:4444/wd/hub
+    volumes:
+      - /mnt/ssd-cache:/cache
+      - /mnt/hdd-storage:/storage
+    depends_on:
+      - lithuania-browser
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/pickem/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   lithuania-browser:
     image: selenium/standalone-chromium:latest
     shm_size: "2gb"

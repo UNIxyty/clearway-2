@@ -198,6 +198,14 @@ export function PickemApp() {
     void loadAll();
   }, []);
 
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => {
+      setError(null);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
   const teamsById = useMemo(() => {
     const map = new Map<string, PickemTeam>();
     for (const team of data?.teams || []) map.set(team.id, team);
@@ -354,24 +362,6 @@ export function PickemApp() {
     return <div className="rounded-xl border border-black/10 bg-white p-6">Loading Pickem...</div>;
   }
 
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-sm font-black text-orange-600">
-            !
-          </span>
-          <div>
-            <h2 className="text-base font-extrabold" style={{ color: NAVY }}>
-              Pickem error
-            </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-600">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!data) return null;
 
   const myRow =
@@ -421,6 +411,31 @@ export function PickemApp() {
       </nav>
 
       <main className="mx-auto w-full max-w-[1120px] space-y-7 px-4 pb-14 pt-6">
+        {error && (
+          <div className="sticky top-20 z-30">
+            <div className="rounded-2xl border border-orange-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-sm font-black text-orange-600">
+                  !
+                </span>
+                <div className="flex-1">
+                  <h2 className="text-sm font-extrabold" style={{ color: NAVY }}>
+                    Pickem error
+                  </h2>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-600">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="rounded px-2 py-1 text-xs font-bold text-slate-500 hover:bg-black/5"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeView === "home" && (
           <>
             <section className="overflow-hidden rounded-3xl" style={{ background: NAVY }}>

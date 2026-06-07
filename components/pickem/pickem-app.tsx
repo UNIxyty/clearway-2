@@ -120,6 +120,14 @@ function outcomeKey(home: number, away: number): "home" | "away" | "draw" {
   return home > away ? "home" : "away";
 }
 
+function sameOrder(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 function isLiveMatchStatus(status: string): boolean {
   const normalized = String(status || "").trim().toLowerCase();
   return (
@@ -287,12 +295,26 @@ export function PickemApp() {
     return score && Number.isInteger(score.home) && Number.isInteger(score.away);
   }).length;
 
-  const groupsSetCount = data
-    ? data.groups.filter((group) => {
-        const total = data.teams.filter((team) => team.groupCode === group.code).length;
-        return (groupOrder[group.code] || []).length === total;
-      }).length
-    : 0;
+  const savedGroupOrderByCode = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!data) return map;
+    for (const group of data.groups) {
+      const groupRows = data.userPredictions.groupPredictions
+        .filter((row) => row.groupCode === group.code)
+        .sort((a, b) => a.predictedPosition - b.predictedPosition);
+      if (!groupRows.length) continue;
+      const orderedTeamIds = groupRows.map((row) => row.teamId);
+      const uniqueTeams = new Set(orderedTeamIds);
+      const uniquePositions = new Set(groupRows.map((row) => row.predictedPosition));
+      const totalTeams = data.teams.filter((team) => team.groupCode === group.code).length;
+      if (orderedTeamIds.length === totalTeams && uniqueTeams.size === totalTeams && uniquePositions.size === totalTeams) {
+        map.set(group.code, orderedTeamIds);
+      }
+    }
+    return map;
+  }, [data]);
+
+  const groupsSavedCount = savedGroupOrderByCode.size;
 
   const liveGroupMatches = groupMatches.filter((match) => {
     if (isLiveMatchStatus(match.status)) return true;
@@ -518,7 +540,7 @@ export function PickemApp() {
                   <div className="rounded-xl bg-white/10 p-4">
                     <div className="text-xs font-bold uppercase tracking-wider text-white/60">Groups</div>
                     <div className="mt-1 text-3xl font-black">
-                      {groupsSetCount} <span className="text-base text-white/65">/ {data.groups.length}</span>
+                      {groupsSavedCount} <span className="text-base text-white/65">/ {data.groups.length}</span>
                     </div>
                   </div>
                   <div className="rounded-xl bg-white/10 p-4">
@@ -666,6 +688,9 @@ export function PickemApp() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {data.groups.map((group) => {
                 const ordered = groupOrder[group.code] || [];
+                const savedOrder = savedGroupOrderByCode.get(group.code) || [];
+                const isSaved = savedOrder.length > 0;
+                const isDirty = isSaved && !sameOrder(savedOrder, ordered);
                 return (
                   <article
                     key={group.id}
@@ -676,7 +701,17 @@ export function PickemApp() {
                       <h3 className="font-extrabold tracking-wider" style={{ color: NAVY }}>
                         GROUP {group.code}
                       </h3>
-                      <span className="text-xs font-bold text-slate-500">Manual order</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          isDirty
+                            ? "bg-amber-100 text-amber-700"
+                            : isSaved
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {isDirty ? "Unsaved" : isSaved ? "✓ Saved" : "Not saved"}
+                      </span>
                     </div>
                     <div className="space-y-2">
                       {ordered.map((teamId, idx) => {

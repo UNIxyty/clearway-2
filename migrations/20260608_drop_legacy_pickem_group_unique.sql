@@ -11,12 +11,12 @@ begin
     where c.conrelid = 'pickem_user_group_predictions'::regclass
       and c.contype = 'u'
       and (
-        select array_agg(a.attname order by k.ord)
+        select array_agg(a.attname::text order by k.ord)
         from unnest(c.conkey) with ordinality as k(attnum, ord)
         join pg_attribute a
           on a.attrelid = c.conrelid
          and a.attnum = k.attnum
-      ) = array['user_id', 'competition_id', 'group_code']
+      ) = array['user_id', 'competition_id', 'group_code']::text[]
   loop
     execute format(
       'alter table pickem_user_group_predictions drop constraint %I',
@@ -33,7 +33,7 @@ declare
 begin
   select
     c.conname,
-    array_agg(a.attname order by u.ordinality)
+    array_agg(a.attname::text order by u.ordinality)
   into existing_pk_name, existing_pk_columns
   from pg_constraint c
   join unnest(c.conkey) with ordinality as u(attnum, ordinality) on true
@@ -48,7 +48,7 @@ begin
     alter table pickem_user_group_predictions
       add constraint pickem_user_group_predictions_pk
       primary key (user_id, competition_id, group_code, team_id);
-  elsif existing_pk_columns <> array['user_id', 'competition_id', 'group_code', 'team_id'] then
+  elsif existing_pk_columns <> array['user_id', 'competition_id', 'group_code', 'team_id']::text[] then
     execute format(
       'alter table pickem_user_group_predictions drop constraint %I',
       existing_pk_name

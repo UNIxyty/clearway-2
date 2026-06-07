@@ -13,6 +13,11 @@ import type {
 
 type BootstrapPayload = {
   competition: PickemCompetition;
+  viewer: {
+    userId: string;
+    email: string | null;
+    displayName: string;
+  };
   groups: PickemGroup[];
   teams: PickemTeam[];
   matches: PickemMatch[];
@@ -278,13 +283,27 @@ export function PickemApp() {
   }
 
   if (error) {
-    return <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">{error}</div>;
+    return (
+      <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-sm font-black text-orange-600">
+            !
+          </span>
+          <div>
+            <h2 className="text-base font-extrabold" style={{ color: NAVY }}>
+              Pickem error
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-600">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!data) return null;
 
   const myRow =
-    leaderboard.rows.find((row) => row.userId === data.userPredictions.groupPredictions[0]?.userId) ||
+    leaderboard.rows.find((row) => row.userId === data.viewer.userId) ||
     leaderboard.rows[0] ||
     null;
 
@@ -322,7 +341,7 @@ export function PickemApp() {
             <div className="ml-1.5 flex items-center gap-2 rounded-full border border-black/10 bg-white px-2 py-1">
               <AvatarChip name={myRow?.displayName || "Me"} />
               <span className="hidden text-sm font-bold text-slate-800 sm:inline">
-                {myRow?.displayName || "Player"}
+                {data.viewer.displayName || myRow?.displayName || "Player"}
               </span>
             </div>
           </div>

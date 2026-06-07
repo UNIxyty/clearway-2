@@ -247,15 +247,41 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
     .from("pickem_points_ledger")
     .select("user_id,points")
     .eq("competition_id", competitionId);
-  if (error || !data) return [];
+  if (error) return [];
 
   const scores = new Map<string, number>();
-  for (const row of data as any[]) {
+  for (const row of (data || []) as any[]) {
     const userId = String(row.user_id);
     scores.set(userId, (scores.get(userId) ?? 0) + Number(row.points || 0));
   }
 
-  const userIds = [...scores.keys()];
+  const [submissionsRes, groupPredRes, matchPredRes] = await Promise.all([
+    supabase
+      .from("pickem_prediction_submissions")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("pickem_user_group_predictions")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("pickem_user_match_predictions")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+  ]);
+
+  const participantIds = new Set<string>(scores.keys());
+  for (const row of submissionsRes.data || []) {
+    participantIds.add(String((row as any).user_id));
+  }
+  for (const row of groupPredRes.data || []) {
+    participantIds.add(String((row as any).user_id));
+  }
+  for (const row of matchPredRes.data || []) {
+    participantIds.add(String((row as any).user_id));
+  }
+
+  const userIds = [...participantIds];
   if (!userIds.length) return [];
 
   const { data: prefs } = await supabase

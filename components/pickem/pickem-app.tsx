@@ -314,6 +314,16 @@ export function PickemApp() {
     return map;
   }, [data]);
 
+  const defaultGroupOrderByCode = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!data) return map;
+    for (const group of data.groups) {
+      const defaultOrder = data.teams.filter((team) => team.groupCode === group.code).map((team) => team.id);
+      map.set(group.code, defaultOrder);
+    }
+    return map;
+  }, [data]);
+
   const groupsSavedCount = savedGroupOrderByCode.size;
 
   const liveGroupMatches = groupMatches.filter((match) => {
@@ -689,8 +699,10 @@ export function PickemApp() {
               {data.groups.map((group) => {
                 const ordered = groupOrder[group.code] || [];
                 const savedOrder = savedGroupOrderByCode.get(group.code) || [];
+                const defaultOrder = defaultGroupOrderByCode.get(group.code) || [];
                 const isSaved = savedOrder.length > 0;
                 const isDirty = isSaved && !sameOrder(savedOrder, ordered);
+                const isChangedFromDefault = defaultOrder.length > 0 && !sameOrder(defaultOrder, ordered);
                 return (
                   <article
                     key={group.id}
@@ -703,14 +715,16 @@ export function PickemApp() {
                       </h3>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          isDirty
+                          isChangedFromDefault
+                            ? "bg-blue-100 text-blue-700"
+                            : isDirty
                             ? "bg-amber-100 text-amber-700"
                             : isSaved
                               ? "bg-emerald-100 text-emerald-700"
                               : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {isDirty ? "Unsaved" : isSaved ? "✓ Saved" : "Not saved"}
+                        {isChangedFromDefault ? "✓ Changed" : isDirty ? "Unsaved" : isSaved ? "✓ Saved" : "Default"}
                       </span>
                     </div>
                     <div className="space-y-2">

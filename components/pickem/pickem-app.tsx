@@ -789,6 +789,17 @@ export function PickemApp() {
                           Rank #{activeProfileUser.rank} · {leaderboard.rows.length.toLocaleString()} players
                         </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUser(null);
+                          setSelectedUserPredictions(null);
+                          setSelectedProfileTab("groups");
+                        }}
+                        className="rounded-md border border-black/10 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        Close
+                      </button>
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                       <span className="text-4xl font-black" style={{ color: NAVY }}>

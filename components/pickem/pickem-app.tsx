@@ -727,9 +727,9 @@ export function PickemApp() {
               </span>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_350px]">
-              <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-                <table className="w-full min-w-[760px]">
+            <div className={`grid gap-4 ${activeProfileUser ? "lg:grid-cols-[minmax(0,1fr)_350px]" : "grid-cols-1"}`}>
+              <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
+                <table className="w-full min-w-[840px]">
                   <thead>
                     <tr className="border-b border-black/10 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       <th className="px-4 py-3">Rank</th>
@@ -776,8 +776,8 @@ export function PickemApp() {
                 </table>
               </div>
 
-              <aside className="rounded-2xl border border-black/10 bg-white p-4">
-                {activeProfileUser ? (
+              {activeProfileUser && (
+                <aside className="rounded-2xl border border-black/10 bg-white p-4">
                   <>
                     <div className="flex items-start gap-3">
                       <AvatarChip name={activeProfileUser.displayName} />
@@ -931,14 +931,8 @@ export function PickemApp() {
                       )}
                     </div>
                   </>
-                ) : (
-                  <div className="flex h-full min-h-[220px] items-center justify-center rounded-xl border border-dashed border-black/15 bg-slate-50 px-4 text-center">
-                    <p className="text-sm font-semibold text-slate-500">
-                      Select a user from the standings table to view their picks.
-                    </p>
-                  </div>
-                )}
-              </aside>
+                </aside>
+              )}
             </div>
           </section>
         )}

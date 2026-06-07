@@ -113,6 +113,22 @@ export async function listMatches(competitionId: string): Promise<PickemMatch[]>
   return (data as any[]).map(mapMatch);
 }
 
+export async function listGroupResults(competitionId: string): Promise<
+  Array<{ groupCode: string; teamId: string; finalPosition: number }>
+> {
+  const supabase = service();
+  const { data, error } = await supabase
+    .from("pickem_group_results")
+    .select("group_code,team_id,final_position")
+    .eq("competition_id", competitionId);
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    groupCode: String(row.group_code),
+    teamId: String(row.team_id),
+    finalPosition: Number(row.final_position),
+  }));
+}
+
 export async function saveGroupPredictions(input: {
   userId: string;
   competitionId: string;
@@ -245,14 +261,26 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
   const supabase = service();
   const { data, error } = await supabase
     .from("pickem_points_ledger")
-    .select("user_id,points")
+    .select("user_id,source_type,points")
     .eq("competition_id", competitionId);
   if (error) return [];
 
-  const scores = new Map<string, number>();
+  const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; points: number }>();
   for (const row of (data || []) as any[]) {
     const userId = String(row.user_id);
-    scores.set(userId, (scores.get(userId) ?? 0) + Number(row.points || 0));
+    const current = scores.get(userId) || {
+      groupPoints: 0,
+      matchPoints: 0,
+      exactPoints: 0,
+      points: 0,
+    };
+    const points = Number(row.points || 0);
+    current.points += points;
+    const sourceType = String(row.source_type || "");
+    if (sourceType === "group_position") current.groupPoints += points;
+    else if (sourceType === "match_outcome") current.matchPoints += points;
+    else if (sourceType === "match_score") current.exactPoints += points;
+    scores.set(userId, current);
   }
 
   const [submissionsRes, groupPredRes, matchPredRes] = await Promise.all([
@@ -298,7 +326,10 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
   const rows = userIds
     .map((userId) => ({
       userId,
-      points: scores.get(userId) ?? 0,
+      groupPoints: scores.get(userId)?.groupPoints ?? 0,
+      matchPoints: scores.get(userId)?.matchPoints ?? 0,
+      exactPoints: scores.get(userId)?.exactPoints ?? 0,
+      points: scores.get(userId)?.points ?? 0,
       displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
       email: null as string | null,
       rank: 0,

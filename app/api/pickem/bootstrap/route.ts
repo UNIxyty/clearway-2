@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
-import { getActiveCompetition, listGroups, listMatches, listTeams, listUserPredictions } from "@/lib/pickem-store";
+import {
+  getActiveCompetition,
+  listGroupResults,
+  listGroups,
+  listMatches,
+  listTeams,
+  listUserPredictions,
+} from "@/lib/pickem-store";
 
 export async function GET() {
   const auth = await requireAuthenticatedUser();
@@ -11,10 +18,11 @@ export async function GET() {
     return NextResponse.json({ error: "Pickem competition is not configured." }, { status: 404 });
   }
 
-  const [groups, teams, matches, userPredictions, prefRes] = await Promise.all([
+  const [groups, teams, matches, groupResults, userPredictions, prefRes] = await Promise.all([
     listGroups(competition.id),
     listTeams(competition.id),
     listMatches(competition.id),
+    listGroupResults(competition.id),
     listUserPredictions({ userId: auth.user.id, competitionId: competition.id }),
     auth.supabase
       .from("user_preferences")
@@ -39,6 +47,7 @@ export async function GET() {
     groups,
     teams,
     matches,
+    groupResults,
     userPredictions,
   });
 }

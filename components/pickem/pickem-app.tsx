@@ -21,6 +21,7 @@ type BootstrapPayload = {
   groups: PickemGroup[];
   teams: PickemTeam[];
   matches: PickemMatch[];
+  groupResults: Array<{ groupCode: string; teamId: string; finalPosition: number }>;
   userPredictions: {
     groupPredictions: PickemGroupPrediction[];
     matchPredictions: PickemMatchPrediction[];
@@ -112,6 +113,11 @@ function outcomeLabel(home: number, away: number): "Home Win" | "Away Win" | "Dr
   return home > away ? "Home Win" : "Away Win";
 }
 
+function outcomeKey(home: number, away: number): "home" | "away" | "draw" {
+  if (home === away) return "draw";
+  return home > away ? "home" : "away";
+}
+
 function flagOf(team?: PickemTeam): string {
   if (!team) return "🏳️";
   return TEAM_FLAGS[(team.shortName || team.name || "").toUpperCase()] || "🏳️";
@@ -145,6 +151,7 @@ export function PickemApp() {
     groupPredictions: PickemGroupPrediction[];
     matchPredictions: PickemMatchPrediction[];
   } | null>(null);
+  const [selectedProfileTab, setSelectedProfileTab] = useState<"groups" | "matches">("groups");
   const [groupOrder, setGroupOrder] = useState<Record<string, string[]>>({});
   const [matchScores, setMatchScores] = useState<Record<string, { home: number; away: number }>>({});
 
@@ -219,6 +226,20 @@ export function PickemApp() {
         .sort((a, b) => +new Date(a.kickoffAt) - +new Date(b.kickoffAt)),
     [data],
   );
+
+  const matchById = useMemo(() => {
+    const map = new Map<string, PickemMatch>();
+    for (const match of data?.matches || []) map.set(match.id, match);
+    return map;
+  }, [data]);
+
+  const groupFinalPositionByTeam = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of data?.groupResults || []) {
+      map.set(`${row.groupCode}:${row.teamId}`, row.finalPosition);
+    }
+    return map;
+  }, [data]);
 
   const groupsComplete = useMemo(() => {
     if (!data) return false;
@@ -349,6 +370,7 @@ export function PickemApp() {
   async function viewUserPredictions(row: PickemLeaderboardRow) {
     setSelectedUser(row);
     setSelectedUserPredictions(null);
+    setSelectedProfileTab("groups");
     const res = await fetch(`/pickem/api/users/${row.userId}/predictions`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -368,6 +390,8 @@ export function PickemApp() {
     leaderboard.rows.find((row) => row.userId === data.viewer.userId) ||
     leaderboard.rows[0] ||
     null;
+
+  const activeProfileUser = selectedUser || myRow;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] text-slate-900">
@@ -680,108 +704,238 @@ export function PickemApp() {
 
         {activeView === "standings" && (
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black" style={{ color: NAVY }}>
-                Standings
-              </h2>
-              {!leaderboard.viewerSubmitted && (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-                  Submit picks to unlock others&apos; predictions
-                </span>
-              )}
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-              <table className="w-full min-w-[620px]">
-                <thead>
-                  <tr className="border-b border-black/10 bg-black/5 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Player</th>
-                    <th className="px-4 py-3 text-right">Points</th>
-                    <th className="px-4 py-3 text-right">Predictions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaderboard.rows.map((row) => (
-                    <tr key={row.userId} className="border-b border-black/5 last:border-none">
-                      <td className="px-4 py-3 text-sm font-extrabold">{row.rank}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <AvatarChip name={row.displayName} />
-                          <span className="text-sm font-bold">{row.displayName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-base font-black" style={{ color: NAVY }}>
-                        {row.points}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => viewUserPredictions(row)}
-                          className="rounded-full px-3 py-1.5 text-xs font-bold text-white"
-                          style={{ background: PRIMARY }}
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-2xl font-black" style={{ color: NAVY }}>
+                  Standings
+                </h2>
+                <p className="text-sm font-semibold text-slate-500">
+                  {leaderboard.rows.length.toLocaleString()} participants
+                </p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
+                  leaderboard.viewerSubmitted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    leaderboard.viewerSubmitted ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                />
+                {leaderboard.viewerSubmitted ? "Picks submitted" : "Submit picks to view others"}
+              </span>
             </div>
 
-            {selectedUser && selectedUserPredictions && (
-              <div className="rounded-2xl border border-black/10 bg-white p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-black" style={{ color: NAVY }}>
-                    {selectedUser.displayName} predictions
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedUser(null);
-                      setSelectedUserPredictions(null);
-                    }}
-                    className="rounded-lg border border-black/20 px-3 py-1.5 text-xs font-bold"
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                      Group picks
-                    </h4>
-                    <div className="space-y-1.5">
-                      {selectedUserPredictions.groupPredictions.map((gp) => (
-                        <div key={`${gp.groupCode}-${gp.teamId}`} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                          <span className="font-bold" style={{ color: NAVY }}>
-                            Group {gp.groupCode}
-                          </span>{" "}
-                          · {teamsById.get(gp.teamId)?.name} — #{gp.predictedPosition}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500">
-                      Match picks
-                    </h4>
-                    <div className="space-y-1.5">
-                      {selectedUserPredictions.matchPredictions.map((mp) => (
-                        <div key={mp.matchId} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                          {teamsById.get(groupMatches.find((m) => m.id === mp.matchId)?.homeTeamId || "")?.shortName ||
-                            "Home"}{" "}
-                          {mp.predictedHomeScore}-{mp.predictedAwayScore}{" "}
-                          {teamsById.get(groupMatches.find((m) => m.id === mp.matchId)?.awayTeamId || "")?.shortName ||
-                            "Away"}{" "}
-                          · <span className="font-bold">{outcomeLabel(mp.predictedHomeScore, mp.predictedAwayScore)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_350px]">
+              <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+                <table className="w-full min-w-[760px]">
+                  <thead>
+                    <tr className="border-b border-black/10 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-4 py-3">Rank</th>
+                      <th className="px-4 py-3">Player</th>
+                      <th className="px-4 py-3 text-right">Group pts</th>
+                      <th className="px-4 py-3 text-right">Match pts</th>
+                      <th className="px-4 py-3 text-right">Exact score</th>
+                      <th className="px-4 py-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.rows.map((row) => {
+                      const selected = activeProfileUser?.userId === row.userId;
+                      return (
+                        <tr
+                          key={row.userId}
+                          className={`cursor-pointer border-b border-black/5 last:border-none ${
+                            selected ? "bg-blue-50/80" : "hover:bg-slate-50"
+                          }`}
+                          onClick={() => {
+                            void viewUserPredictions(row);
+                          }}
+                        >
+                          <td className="px-4 py-3 text-sm font-extrabold">{row.rank}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <AvatarChip name={row.displayName} />
+                              <span className="text-sm font-bold">
+                                {row.displayName}
+                                {row.userId === data.viewer.userId ? " (You)" : ""}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.groupPoints}</td>
+                          <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.matchPoints}</td>
+                          <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.exactPoints}</td>
+                          <td className="px-4 py-3 text-right text-base font-black" style={{ color: NAVY }}>
+                            {row.points}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
+
+              <aside className="rounded-2xl border border-black/10 bg-white p-4">
+                {activeProfileUser ? (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <AvatarChip name={activeProfileUser.displayName} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-lg font-black" style={{ color: NAVY }}>
+                          {activeProfileUser.displayName}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Rank #{activeProfileUser.rank} · {leaderboard.rows.length.toLocaleString()} players
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <span className="text-4xl font-black" style={{ color: NAVY }}>
+                        {activeProfileUser.points}
+                      </span>
+                      <span className="text-sm font-bold text-slate-500">pts</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-xs font-bold text-slate-500">
+                      <span>Group {activeProfileUser.groupPoints}</span>
+                      <span>Match {activeProfileUser.matchPoints}</span>
+                      <span>Exact {activeProfileUser.exactPoints}</span>
+                    </div>
+
+                    <div className="mt-4 rounded-lg border border-black/10 bg-slate-50 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProfileTab("groups")}
+                        className={`w-1/2 rounded-md px-3 py-2 text-xs font-bold ${
+                          selectedProfileTab === "groups" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                        }`}
+                      >
+                        Group Picks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProfileTab("matches")}
+                        className={`w-1/2 rounded-md px-3 py-2 text-xs font-bold ${
+                          selectedProfileTab === "matches" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                        }`}
+                      >
+                        Match Predictions
+                      </button>
+                    </div>
+
+                    <div className="mt-4 max-h-[560px] space-y-3 overflow-y-auto pr-1">
+                      {!selectedUserPredictions || selectedUser?.userId !== activeProfileUser.userId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void viewUserPredictions(activeProfileUser);
+                          }}
+                          className="w-full rounded-lg border border-dashed border-black/20 px-3 py-4 text-center text-sm font-semibold text-slate-500 hover:bg-slate-50"
+                        >
+                          Load picks for this player
+                        </button>
+                      ) : selectedProfileTab === "groups" ? (
+                        data.groups.map((group) => {
+                          const picks = selectedUserPredictions.groupPredictions
+                            .filter((gp) => gp.groupCode === group.code)
+                            .sort((a, b) => a.predictedPosition - b.predictedPosition);
+                          if (!picks.length) return null;
+                          return (
+                            <div key={group.id} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                Group {group.code}
+                              </p>
+                              <div className="space-y-2">
+                                {picks.map((gp) => {
+                                  const team = teamsById.get(gp.teamId);
+                                  const finalPos = groupFinalPositionByTeam.get(`${gp.groupCode}:${gp.teamId}`);
+                                  const points = finalPos ? (finalPos === gp.predictedPosition ? 2 : 0) : null;
+                                  return (
+                                    <div
+                                      key={`${gp.groupCode}-${gp.teamId}`}
+                                      className="flex items-center justify-between rounded-lg bg-white px-2.5 py-2"
+                                    >
+                                      <span className="flex items-center gap-2 truncate text-sm font-semibold" style={{ color: NAVY }}>
+                                        <span className="w-4 text-[11px] font-black text-slate-400">{gp.predictedPosition}</span>
+                                        <span>{flagOf(team)}</span>
+                                        <span className="truncate">{team?.name || "Team"}</span>
+                                      </span>
+                                      <span
+                                        className={`rounded-md px-2 py-0.5 text-[11px] font-black ${
+                                          points === null
+                                            ? "bg-slate-100 text-slate-500"
+                                            : points > 0
+                                              ? "bg-emerald-100 text-emerald-700"
+                                              : "bg-slate-200 text-slate-500"
+                                        }`}
+                                      >
+                                        {points === null ? "-" : `+${points}`}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        selectedUserPredictions.matchPredictions
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              new Date(matchById.get(a.matchId)?.kickoffAt || 0).getTime() -
+                              new Date(matchById.get(b.matchId)?.kickoffAt || 0).getTime(),
+                          )
+                          .map((mp) => {
+                            const match = matchById.get(mp.matchId);
+                            if (!match) return null;
+                            const homeTeam = teamsById.get(match.homeTeamId);
+                            const awayTeam = teamsById.get(match.awayTeamId);
+                            const hasActual = match.homeScore !== null && match.awayScore !== null;
+                            const exact = hasActual && mp.predictedHomeScore === match.homeScore && mp.predictedAwayScore === match.awayScore;
+                            const correctOutcome =
+                              hasActual &&
+                              outcomeKey(mp.predictedHomeScore, mp.predictedAwayScore) ===
+                                outcomeKey(match.homeScore as number, match.awayScore as number);
+                            const points = !hasActual ? null : exact ? 4 : correctOutcome ? 1 : 0;
+                            return (
+                              <div key={mp.matchId} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="truncate text-sm font-bold" style={{ color: NAVY }}>
+                                    {flagOf(homeTeam)} {homeTeam?.name || "Home"}
+                                  </p>
+                                  <div className="rounded-md bg-white px-2.5 py-1 text-sm font-black text-slate-700">
+                                    {mp.predictedHomeScore} - {mp.predictedAwayScore}
+                                  </div>
+                                  <p className="truncate text-right text-sm font-bold" style={{ color: NAVY }}>
+                                    {awayTeam ? `${awayTeam.name} ${flagOf(awayTeam)}` : "Away"}
+                                  </p>
+                                </div>
+                                <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">
+                                  <span>{hasActual ? `Actual ${match.homeScore}-${match.awayScore}` : "No official result"}</span>
+                                  <span
+                                    className={`rounded-md px-2 py-0.5 font-bold ${
+                                      points === null
+                                        ? "bg-slate-100 text-slate-500"
+                                        : points > 0
+                                          ? "bg-emerald-100 text-emerald-700"
+                                          : "bg-slate-200 text-slate-500"
+                                    }`}
+                                  >
+                                    {points === null ? "-" : exact ? "+4 exact score" : points === 1 ? "+1 result" : "Missed"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm font-semibold text-slate-500">Select a player from standings.</p>
+                )}
+              </aside>
+            </div>
           </section>
         )}
 

@@ -71,6 +71,9 @@ export type PickemLeaderboardRow = {
   userId: string;
   displayName: string;
   email: string | null;
+  groupPoints: number;
+  matchPoints: number;
+  exactPoints: number;
   points: number;
   rank: number;
 };

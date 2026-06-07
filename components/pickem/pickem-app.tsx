@@ -428,13 +428,12 @@ export function PickemApp() {
     <div className="min-h-screen bg-[#f5f5f5] text-slate-900">
       <nav className="sticky top-0 z-20 border-b border-black/10 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-4">
-          <button type="button" onClick={() => setActiveView("home")} className="flex items-center gap-2.5">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md" style={{ background: NAVY }}>
-              <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
-            </span>
-            <span className="text-lg font-black tracking-wide" style={{ color: NAVY }}>
-              CLEARWAY
-            </span>
+          <button type="button" onClick={() => setActiveView("home")} className="flex items-center">
+            <img
+              src="/header_logo_white.svg"
+              alt="Clearway"
+              className="h-8 w-auto object-contain [filter:brightness(0)] transition-transform duration-200 hover:scale-[1.02]"
+            />
           </button>
           <div className="flex items-center gap-1.5">
             {[

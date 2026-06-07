@@ -120,6 +120,20 @@ function outcomeKey(home: number, away: number): "home" | "away" | "draw" {
   return home > away ? "home" : "away";
 }
 
+function isLiveMatchStatus(status: string): boolean {
+  const normalized = String(status || "").trim().toLowerCase();
+  return (
+    normalized === "live" ||
+    normalized === "inplay" ||
+    normalized === "in_play" ||
+    normalized === "in-progress" ||
+    normalized === "in_progress" ||
+    normalized === "1h" ||
+    normalized === "2h" ||
+    normalized === "ht"
+  );
+}
+
 function flagOf(team?: PickemTeam): string {
   if (!team) return "🏳️";
   return TEAM_FLAGS[(team.shortName || team.name || "").toUpperCase()] || "🏳️";
@@ -279,6 +293,17 @@ export function PickemApp() {
         return (groupOrder[group.code] || []).length === total;
       }).length
     : 0;
+
+  const liveGroupMatches = groupMatches.filter((match) => {
+    if (isLiveMatchStatus(match.status)) return true;
+    if (String(match.status || "").toLowerCase() === "finished") return false;
+    const kickoffTs = new Date(match.kickoffAt).getTime();
+    if (!Number.isFinite(kickoffTs)) return false;
+    // Fallback "live window" for sources that do not mark explicit live statuses.
+    return nowTs >= kickoffTs && nowTs <= kickoffTs + 2 * 60 * 60 * 1000;
+  });
+
+  const dashboardTopRows = leaderboard.rows.slice(0, 8);
 
   async function persistGroupPredictions(options?: { reload?: boolean }) {
     if (!data) return;
@@ -513,6 +538,106 @@ export function PickemApp() {
                     Continue Picks
                   </button>
                 </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black" style={{ color: NAVY }}>
+                  Live Games
+                </h2>
+                <span className="text-xs font-bold text-slate-500">Now playing</span>
+              </div>
+              {liveGroupMatches.length ? (
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {liveGroupMatches.map((match) => {
+                    const home = teamsById.get(match.homeTeamId);
+                    const away = teamsById.get(match.awayTeamId);
+                    const homeScore = match.homeScore ?? 0;
+                    const awayScore = match.awayScore ?? 0;
+                    return (
+                      <article
+                        key={`live-${match.id}`}
+                        className="min-w-[260px] rounded-xl border border-black/10 bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          <span>Group {match.groupCode || "-"}</span>
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                            {String(match.status || "live").toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
+                              {flagOf(home)} {home?.name || "Home"}
+                            </span>
+                            <span className="text-base font-black" style={{ color: NAVY }}>
+                              {homeScore}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
+                              {flagOf(away)} {away?.name || "Away"}
+                            </span>
+                            <span className="text-base font-black" style={{ color: NAVY }}>
+                              {awayScore}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[11px] font-semibold text-slate-500">{fmtDate(match.kickoffAt)}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
+                  No matches live right now.
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black" style={{ color: NAVY }}>
+                  Standings
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("standings")}
+                  className="rounded-md border border-black/10 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-white"
+                >
+                  Open full table
+                </button>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-black/10 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="px-3 py-2.5">Rank</th>
+                      <th className="px-3 py-2.5">Player</th>
+                      <th className="px-3 py-2.5 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardTopRows.map((row) => (
+                      <tr key={`home-row-${row.userId}`} className="border-b border-black/5 last:border-none">
+                        <td className="px-3 py-2.5 text-sm font-extrabold">{row.rank}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <AvatarChip name={row.displayName} />
+                            <span className="text-sm font-bold">
+                              {row.displayName}
+                              {row.userId === data.viewer.userId ? " (You)" : ""}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-sm font-black" style={{ color: NAVY }}>
+                          {row.points}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           </>

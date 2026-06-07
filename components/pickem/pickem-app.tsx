@@ -302,17 +302,6 @@ export function PickemApp() {
     // Fallback "live window" for sources that do not mark explicit live statuses.
     return nowTs >= kickoffTs && nowTs <= kickoffTs + 2 * 60 * 60 * 1000;
   });
-  const liveMatchesForDisplay =
-    liveGroupMatches.length || !groupMatches[0]
-      ? liveGroupMatches
-      : [
-          {
-            ...groupMatches[0],
-            homeScore: 1,
-            awayScore: 0,
-            status: "DEMO LIVE",
-          },
-        ];
 
   const dashboardTopRows = leaderboard.rows.slice(0, 8);
 
@@ -558,9 +547,9 @@ export function PickemApp() {
                 </h2>
                 <span className="text-xs font-bold text-slate-500">Now playing</span>
               </div>
-              {liveMatchesForDisplay.length ? (
+              {liveGroupMatches.length ? (
                 <div className="flex gap-3 overflow-x-auto pb-1">
-                  {liveMatchesForDisplay.map((match) => {
+                  {liveGroupMatches.map((match) => {
                     const home = teamsById.get(match.homeTeamId);
                     const away = teamsById.get(match.awayTeamId);
                     const homeScore = match.homeScore ?? 0;
@@ -603,11 +592,6 @@ export function PickemApp() {
                 <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
                   No matches live right now.
                 </div>
-              )}
-              {!liveGroupMatches.length && liveMatchesForDisplay.length > 0 && (
-                <p className="text-xs font-semibold text-slate-500">
-                  Showing a demo live card preview because no real live matches are currently available.
-                </p>
               )}
             </section>
 

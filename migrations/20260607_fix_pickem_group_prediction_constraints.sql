@@ -39,12 +39,32 @@ where p.ctid = r.ctid
   and r.rn > 1;
 
 do $$
+declare
+  existing_pk_name text;
+  existing_pk_columns text[];
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'pickem_user_group_predictions_pk'
-  ) then
+  select
+    c.conname,
+    array_agg(a.attname order by u.ordinality)
+  into existing_pk_name, existing_pk_columns
+  from pg_constraint c
+  join unnest(c.conkey) with ordinality as u(attnum, ordinality) on true
+  join pg_attribute a
+    on a.attrelid = c.conrelid
+   and a.attnum = u.attnum
+  where c.conrelid = 'pickem_user_group_predictions'::regclass
+    and c.contype = 'p'
+  group by c.conname;
+
+  if existing_pk_name is null then
+    alter table pickem_user_group_predictions
+      add constraint pickem_user_group_predictions_pk
+      primary key (user_id, competition_id, group_code, team_id);
+  elsif existing_pk_columns <> array['user_id', 'competition_id', 'group_code', 'team_id'] then
+    execute format(
+      'alter table pickem_user_group_predictions drop constraint %I',
+      existing_pk_name
+    );
     alter table pickem_user_group_predictions
       add constraint pickem_user_group_predictions_pk
       primary key (user_id, competition_id, group_code, team_id);

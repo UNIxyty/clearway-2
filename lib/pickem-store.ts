@@ -143,12 +143,17 @@ export async function saveGroupPredictions(input: {
     predicted_position: row.predictedPosition,
     updated_at: new Date().toISOString(),
   }));
-  const { error } = await supabase
+  const groupCodes = [...new Set(input.rows.map((row) => row.groupCode))];
+  const { error: delErr } = await supabase
     .from("pickem_user_group_predictions")
-    .upsert(payload, {
-      onConflict: "user_id,competition_id,group_code,team_id",
-    });
-  if (error) throw new Error(error.message || "Failed to save group predictions");
+    .delete()
+    .eq("user_id", input.userId)
+    .eq("competition_id", input.competitionId)
+    .in("group_code", groupCodes);
+  if (delErr) throw new Error(delErr.message || "Failed to reset group predictions");
+
+  const { error: insErr } = await supabase.from("pickem_user_group_predictions").insert(payload);
+  if (insErr) throw new Error(insErr.message || "Failed to save group predictions");
 }
 
 export async function saveMatchPredictions(input: {

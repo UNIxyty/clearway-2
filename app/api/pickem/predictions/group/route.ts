@@ -32,6 +32,17 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Invalid group prediction payload." }, { status: 400 });
   }
 
+  const perGroup = new Map<string, { teams: Set<string>; positions: Set<number> }>();
+  for (const row of normalized) {
+    const entry = perGroup.get(row.groupCode) || { teams: new Set<string>(), positions: new Set<number>() };
+    if (entry.teams.has(row.teamId) || entry.positions.has(row.predictedPosition)) {
+      return NextResponse.json({ error: "Duplicate team or position in group payload." }, { status: 400 });
+    }
+    entry.teams.add(row.teamId);
+    entry.positions.add(row.predictedPosition);
+    perGroup.set(row.groupCode, entry);
+  }
+
   try {
     await saveGroupPredictions({
       userId: auth.user.id,

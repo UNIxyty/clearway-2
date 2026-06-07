@@ -391,7 +391,7 @@ export function PickemApp() {
     leaderboard.rows[0] ||
     null;
 
-  const activeProfileUser = selectedUser || myRow;
+  const activeProfileUser = selectedUser;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] text-slate-900">
@@ -932,7 +932,11 @@ export function PickemApp() {
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm font-semibold text-slate-500">Select a player from standings.</p>
+                  <div className="flex h-full min-h-[220px] items-center justify-center rounded-xl border border-dashed border-black/15 bg-slate-50 px-4 text-center">
+                    <p className="text-sm font-semibold text-slate-500">
+                      Select a user from the standings table to view their picks.
+                    </p>
+                  </div>
                 )}
               </aside>
             </div>

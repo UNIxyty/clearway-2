@@ -38,6 +38,56 @@ type ActiveView = "home" | "groups" | "matches" | "standings";
 const NAVY = "#0f1e3c";
 const PRIMARY = "#1a56db";
 const ACCENT = "#f97316";
+const TEAM_FLAGS: Record<string, string> = {
+  MEX: "🇲🇽",
+  RSA: "🇿🇦",
+  KOR: "🇰🇷",
+  CZE: "🇨🇿",
+  CAN: "🇨🇦",
+  BIH: "🇧🇦",
+  QAT: "🇶🇦",
+  SUI: "🇨🇭",
+  BRA: "🇧🇷",
+  MAR: "🇲🇦",
+  HAI: "🇭🇹",
+  SCO: "🏴",
+  USA: "🇺🇸",
+  PAR: "🇵🇾",
+  AUS: "🇦🇺",
+  TUR: "🇹🇷",
+  GER: "🇩🇪",
+  CUW: "🇨🇼",
+  CIV: "🇨🇮",
+  ECU: "🇪🇨",
+  NED: "🇳🇱",
+  JPN: "🇯🇵",
+  SWE: "🇸🇪",
+  TUN: "🇹🇳",
+  BEL: "🇧🇪",
+  EGY: "🇪🇬",
+  IRN: "🇮🇷",
+  NZL: "🇳🇿",
+  ESP: "🇪🇸",
+  CPV: "🇨🇻",
+  KSA: "🇸🇦",
+  URU: "🇺🇾",
+  FRA: "🇫🇷",
+  SEN: "🇸🇳",
+  IRQ: "🇮🇶",
+  NOR: "🇳🇴",
+  ARG: "🇦🇷",
+  ALG: "🇩🇿",
+  AUT: "🇦🇹",
+  JOR: "🇯🇴",
+  POR: "🇵🇹",
+  COD: "🇨🇩",
+  UZB: "🇺🇿",
+  COL: "🇨🇴",
+  ENG: "🏴",
+  CRO: "🇭🇷",
+  GHA: "🇬🇭",
+  PAN: "🇵🇦",
+};
 
 function fmtDate(value: string): string {
   return new Date(value).toLocaleString(undefined, {
@@ -60,6 +110,11 @@ function initialsOf(name: string): string {
 function outcomeLabel(home: number, away: number): "Home Win" | "Away Win" | "Draw" {
   if (home === away) return "Draw";
   return home > away ? "Home Win" : "Away Win";
+}
+
+function flagOf(team?: PickemTeam): string {
+  if (!team) return "🏳️";
+  return TEAM_FLAGS[(team.shortName || team.name || "").toUpperCase()] || "🏳️";
 }
 
 function AvatarChip({ name }: { name: string }) {
@@ -256,12 +311,14 @@ export function PickemApp() {
     }
   }
 
-  function moveTeam(groupCode: string, fromIdx: number, toIdx: number) {
+  function reorderByDrag(groupCode: string, draggedTeamId: string, targetTeamId: string) {
     setGroupOrder((prev) => {
       const current = [...(prev[groupCode] || [])];
-      if (fromIdx < 0 || toIdx < 0 || fromIdx >= current.length || toIdx >= current.length) return prev;
-      const [entry] = current.splice(fromIdx, 1);
-      current.splice(toIdx, 0, entry);
+      const fromIdx = current.indexOf(draggedTeamId);
+      const toIdx = current.indexOf(targetTeamId);
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return prev;
+      const [moved] = current.splice(fromIdx, 1);
+      current.splice(toIdx, 0, moved);
       return { ...prev, [groupCode]: current };
     });
   }
@@ -444,6 +501,22 @@ export function PickemApp() {
                         return (
                           <div
                             key={teamId}
+                            draggable={!groupLocked}
+                            onDragStart={(event) => {
+                              event.dataTransfer.setData("text/pickem-team-id", teamId);
+                              event.dataTransfer.setData("text/pickem-group", group.code);
+                            }}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              if (groupLocked) return;
+                              const draggedGroup = event.dataTransfer.getData("text/pickem-group");
+                              const draggedTeamId = event.dataTransfer.getData("text/pickem-team-id");
+                              if (!draggedTeamId || draggedGroup !== group.code) return;
+                              reorderByDrag(group.code, draggedTeamId, teamId);
+                            }}
                             className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 ${
                               isTopTwo ? "bg-blue-50" : "bg-slate-50"
                             }`}
@@ -456,29 +529,11 @@ export function PickemApp() {
                             >
                               {idx + 1}
                             </span>
+                            <span className="text-base">{flagOf(team)}</span>
                             <span className="flex-1 truncate text-sm font-semibold" style={{ color: NAVY }}>
                               {team?.name || "Team"}
                             </span>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                disabled={groupLocked || idx === 0}
-                                onClick={() => moveTeam(group.code, idx, idx - 1)}
-                                className="rounded border px-1.5 py-0.5 text-xs disabled:opacity-40"
-                                style={{ borderColor: "rgba(15,30,60,0.25)" }}
-                              >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                disabled={groupLocked || idx === ordered.length - 1}
-                                onClick={() => moveTeam(group.code, idx, idx + 1)}
-                                className="rounded border px-1.5 py-0.5 text-xs disabled:opacity-40"
-                                style={{ borderColor: "rgba(15,30,60,0.25)" }}
-                              >
-                                ↓
-                              </button>
-                            </div>
+                            <span className="text-xs font-bold text-slate-400">drag</span>
                           </div>
                         );
                       })}
@@ -528,7 +583,7 @@ export function PickemApp() {
                           Group {match.groupCode || "-"} · {fmtDate(match.kickoffAt)}
                         </div>
                         <h3 className="mt-1 text-base font-extrabold" style={{ color: NAVY }}>
-                          {home?.name || "Home"} vs {away?.name || "Away"}
+                          {flagOf(home)} {home?.name || "Home"} vs {flagOf(away)} {away?.name || "Away"}
                         </h3>
                       </div>
                       <span
@@ -541,15 +596,15 @@ export function PickemApp() {
                     </div>
                     <div className="mt-3 flex items-center gap-2">
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         disabled={locked}
                         value={prediction?.home ?? ""}
                         onChange={(e) =>
                           setMatchScores((prev) => ({
                             ...prev,
                             [match.id]: {
-                              home: Number(e.target.value),
+                              home: Number(String(e.target.value || "0").replace(/[^0-9]/g, "").slice(0, 2)),
                               away: prev[match.id]?.away ?? 0,
                             },
                           }))
@@ -558,8 +613,8 @@ export function PickemApp() {
                       />
                       <span className="px-1 text-base font-black text-slate-400">-</span>
                       <input
-                        type="number"
-                        min={0}
+                        type="text"
+                        inputMode="numeric"
                         disabled={locked}
                         value={prediction?.away ?? ""}
                         onChange={(e) =>
@@ -567,7 +622,7 @@ export function PickemApp() {
                             ...prev,
                             [match.id]: {
                               home: prev[match.id]?.home ?? 0,
-                              away: Number(e.target.value),
+                              away: Number(String(e.target.value || "0").replace(/[^0-9]/g, "").slice(0, 2)),
                             },
                           }))
                         }

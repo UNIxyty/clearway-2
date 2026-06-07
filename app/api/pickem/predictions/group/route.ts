@@ -31,10 +31,17 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Invalid group prediction payload." }, { status: 400 });
   }
 
-  await saveGroupPredictions({
-    userId: auth.user.id,
-    competitionId: competition.id,
-    rows: normalized,
-  });
-  return NextResponse.json({ ok: true });
+  try {
+    await saveGroupPredictions({
+      userId: auth.user.id,
+      competitionId: competition.id,
+      rows: normalized,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to save group predictions." },
+      { status: 500 },
+    );
+  }
 }

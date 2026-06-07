@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { getActiveCompetition, listMatches, saveMatchPredictions } from "@/lib/pickem-store";
-import { isMatchPredictionLocked } from "@/lib/pickem-rules";
+import { isAllPicksLockedAfterFirstKickoff, isMatchPredictionLocked } from "@/lib/pickem-rules";
 
 export async function PUT(request: NextRequest) {
   const auth = await requireAuthenticatedUser();
   if ("error" in auth) return auth.error;
   const competition = await getActiveCompetition();
   if (!competition) return NextResponse.json({ error: "Competition not configured." }, { status: 404 });
+  const matches = await listMatches(competition.id);
+  if (isAllPicksLockedAfterFirstKickoff(matches)) {
+    return NextResponse.json({ error: "Predictions are locked after first kickoff." }, { status: 409 });
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
     rows?: Array<{ matchId?: string; predictedHomeScore?: number; predictedAwayScore?: number }>;
@@ -33,7 +37,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Invalid match prediction payload." }, { status: 400 });
   }
 
-  const matches = await listMatches(competition.id);
   const byId = new Map(matches.map((m) => [m.id, m]));
   for (const row of normalized) {
     const match = byId.get(row.matchId);

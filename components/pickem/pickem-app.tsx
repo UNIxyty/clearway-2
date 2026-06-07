@@ -91,11 +91,13 @@ const TEAM_FLAGS: Record<string, string> = {
 };
 
 function fmtDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
+  return new Date(value).toLocaleString("en-GB", {
     month: "short",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Europe/Riga",
+    timeZoneName: "short",
   });
 }
 
@@ -259,7 +261,11 @@ export function PickemApp() {
 
   const viewerSubmitted = Boolean(data?.userPredictions.submission?.submittedAt);
   const nowTs = Date.now();
-  const groupLocked = data ? nowTs >= new Date(data.competition.groupLockAt).getTime() : false;
+  const firstGroupKickoffTs = groupMatches.length ? new Date(groupMatches[0].kickoffAt).getTime() : null;
+  const allPicksLocked =
+    firstGroupKickoffTs !== null && Number.isFinite(firstGroupKickoffTs) ? nowTs >= firstGroupKickoffTs : false;
+  const groupLocked =
+    allPicksLocked || (data ? nowTs >= new Date(data.competition.groupLockAt).getTime() : false);
 
   const totalGroupMatches = groupMatches.length;
   const predictedGroupMatches = groupMatches.filter((match) => {
@@ -473,7 +479,7 @@ export function PickemApp() {
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs font-bold">
                     <span className="rounded-full bg-white/10 px-3 py-1">
-                      Group lock: {fmtDate(data.competition.groupLockAt)}
+                      Lock (Riga): {fmtDate(groupMatches[0]?.kickoffAt || data.competition.groupLockAt)}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 ${
@@ -530,7 +536,7 @@ export function PickemApp() {
                 className="rounded-lg px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: groupLocked ? "#94a3b8" : PRIMARY }}
               >
-                {savingGroup ? "Saving..." : groupLocked ? "Locked" : "Save Group Picks"}
+                {savingGroup ? "Saving..." : groupLocked ? "Locked after kickoff" : "Save Group Picks"}
               </button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -613,17 +619,17 @@ export function PickemApp() {
               </div>
               <button
                 type="button"
-                disabled={savingMatch}
+                disabled={allPicksLocked || savingMatch}
                 onClick={saveMatchPredictions}
                 className="rounded-lg px-4 py-2 text-sm font-bold text-white transition disabled:opacity-40"
                 style={{ background: ACCENT }}
               >
-                {savingMatch ? "Saving..." : "Save Match Predictions"}
+                {savingMatch ? "Saving..." : allPicksLocked ? "Locked after kickoff" : "Save Match Predictions"}
               </button>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {groupMatches.map((match) => {
-                const locked = new Date(match.kickoffAt).getTime() <= nowTs;
+                const locked = allPicksLocked || new Date(match.kickoffAt).getTime() <= nowTs;
                 const home = teamsById.get(match.homeTeamId);
                 const away = teamsById.get(match.awayTeamId);
                 const prediction = matchScores[match.id];

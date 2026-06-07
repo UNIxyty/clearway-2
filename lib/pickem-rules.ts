@@ -11,3 +11,18 @@ export function isMatchPredictionLocked(match: PickemMatch): boolean {
   if (!Number.isFinite(kickoffTs)) return false;
   return Date.now() >= kickoffTs;
 }
+
+export function getFirstGroupKickoffTs(matches: PickemMatch[]): number | null {
+  const groupKickoffTimes = matches
+    .filter((match) => match.stage === "group")
+    .map((match) => new Date(match.kickoffAt).getTime())
+    .filter((ts) => Number.isFinite(ts));
+  if (!groupKickoffTimes.length) return null;
+  return Math.min(...groupKickoffTimes);
+}
+
+export function isAllPicksLockedAfterFirstKickoff(matches: PickemMatch[]): boolean {
+  const firstKickoffTs = getFirstGroupKickoffTs(matches);
+  if (firstKickoffTs === null) return false;
+  return Date.now() >= firstKickoffTs;
+}

@@ -245,26 +245,31 @@ export function PickemApp() {
       }).length
     : 0;
 
+  async function persistGroupPredictions(options?: { reload?: boolean }) {
+    if (!data) return;
+    const rows = data.groups.flatMap((group) =>
+      (groupOrder[group.code] || []).map((teamId, idx) => ({
+        groupCode: group.code,
+        teamId,
+        predictedPosition: idx + 1,
+      })),
+    );
+    const res = await fetch("/pickem/api/predictions/group", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "Failed to save group predictions");
+    if (options?.reload !== false) await loadAll();
+  }
+
   async function saveGroupPredictions() {
     if (!data) return;
     setSavingGroup(true);
     setError(null);
     try {
-      const rows = data.groups.flatMap((group) =>
-        (groupOrder[group.code] || []).map((teamId, idx) => ({
-          groupCode: group.code,
-          teamId,
-          predictedPosition: idx + 1,
-        })),
-      );
-      const res = await fetch("/pickem/api/predictions/group", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rows }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to save group predictions");
-      await loadAll();
+      await persistGroupPredictions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save group predictions");
     } finally {
@@ -272,23 +277,27 @@ export function PickemApp() {
     }
   }
 
+  async function persistMatchPredictions(options?: { reload?: boolean }) {
+    const rows = Object.entries(matchScores).map(([matchId, score]) => ({
+      matchId,
+      predictedHomeScore: score.home,
+      predictedAwayScore: score.away,
+    }));
+    const res = await fetch("/pickem/api/predictions/match", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "Failed to save match predictions");
+    if (options?.reload !== false) await loadAll();
+  }
+
   async function saveMatchPredictions() {
     setSavingMatch(true);
     setError(null);
     try {
-      const rows = Object.entries(matchScores).map(([matchId, score]) => ({
-        matchId,
-        predictedHomeScore: score.home,
-        predictedAwayScore: score.away,
-      }));
-      const res = await fetch("/pickem/api/predictions/match", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rows }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to save match predictions");
-      await loadAll();
+      await persistMatchPredictions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save match predictions");
     } finally {
@@ -300,6 +309,12 @@ export function PickemApp() {
     setSubmitting(true);
     setError(null);
     try {
+      if (groupsComplete) {
+        await persistGroupPredictions({ reload: false });
+      }
+      if (matchesComplete) {
+        await persistMatchPredictions({ reload: false });
+      }
       const res = await fetch("/pickem/api/submit", { method: "POST" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Submission failed");

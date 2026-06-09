@@ -18,6 +18,16 @@ export async function GET() {
     teams,
     matches,
     isDeveloper: auth.isDeveloper,
+    viewer: {
+      id: auth.user.id,
+      email: auth.user.email ?? null,
+      name:
+        String(
+          (auth.user.user_metadata as Record<string, unknown> | undefined)?.full_name ||
+            (auth.user.user_metadata as Record<string, unknown> | undefined)?.name ||
+            "",
+        ).trim() || null,
+    },
   });
 }
 

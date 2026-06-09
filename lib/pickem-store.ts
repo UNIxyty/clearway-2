@@ -393,6 +393,43 @@ export async function replaceGroupResults(input: {
   if (error) throw new Error(error.message || "Failed to store group results");
 }
 
+export async function replaceGroupResultOrder(input: {
+  competitionId: string;
+  groupCode: string;
+  rows: Array<{ teamId: string; finalPosition: number }>;
+}): Promise<void> {
+  const supabase = service();
+  const { error: delErr } = await supabase
+    .from("pickem_group_results")
+    .delete()
+    .eq("competition_id", input.competitionId)
+    .eq("group_code", input.groupCode);
+  if (delErr) throw new Error(delErr.message || "Failed to clear group result");
+  if (!input.rows.length) return;
+  const { error } = await supabase.from("pickem_group_results").insert(
+    input.rows.map((row) => ({
+      competition_id: input.competitionId,
+      group_code: input.groupCode,
+      team_id: row.teamId,
+      final_position: row.finalPosition,
+    })),
+  );
+  if (error) throw new Error(error.message || "Failed to store group result");
+}
+
+export async function clearGroupResult(input: {
+  competitionId: string;
+  groupCode: string;
+}): Promise<void> {
+  const supabase = service();
+  const { error } = await supabase
+    .from("pickem_group_results")
+    .delete()
+    .eq("competition_id", input.competitionId)
+    .eq("group_code", input.groupCode);
+  if (error) throw new Error(error.message || "Failed to clear group result");
+}
+
 export async function upsertMatchesFromSync(input: {
   competitionId: string;
   rows: Array<{

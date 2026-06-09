@@ -10,6 +10,7 @@ under one internal port, then you expose it on your domain path:
 
 - `https://clearway.verxyl.com/digital-wall/timeline`
 - `https://clearway.verxyl.com/digital-wall/aircrafts`
+- `https://clearway.verxyl.com/digital-wall/operators`
 - `https://clearway.verxyl.com/digital-wall/limitations`
 
 Backend paths are also available via prefix, for example:
@@ -85,6 +86,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 - Frontend is built with base path `/digital-wall/timeline/`.
 - API calls are prefixed via `VITE_API_BASE_URL=/digital-wall`.
+- Set `LEON_REFRESH_TOKEN_ENCRYPTION_KEY` in `digital-wall/.env` (long random secret).  
+  Refresh tokens are encrypted at rest before saving in `leon_operators`.
 - If you update env values in `digital-wall/.env`, restart backend stack:
 
 ```bash

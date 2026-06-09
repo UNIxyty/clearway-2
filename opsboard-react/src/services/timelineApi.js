@@ -134,6 +134,56 @@ export async function fetchAircraftSchedule() {
   return fetchJson('/api/aircraft/schedule?days=7&refresh=true', 'Aircraft request failed');
 }
 
+export async function setAircraftVisibility({ oprId, registration, enabled }) {
+  const response = await fetch(buildApiUrl('/api/aircraft/visibility'), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      oprId,
+      registration,
+      isHidden: !enabled,
+    }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update aircraft visibility (${response.status})`);
+  }
+  return payload;
+}
+
+export async function fetchOperators({ includeInactive = true } = {}) {
+  const query = new URLSearchParams({
+    includeInactive: includeInactive ? 'true' : 'false',
+  });
+  return fetchJson(`/api/operators?${query.toString()}`, 'Operators request failed');
+}
+
+export async function upsertOperator({ name, oprId, refreshToken, isActive = true }) {
+  const response = await fetch(buildApiUrl('/api/operators'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name, oprId, refreshToken, isActive }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save operator (${response.status})`);
+  }
+  return payload;
+}
+
+export async function setOperatorActive(id, isActive) {
+  const response = await fetch(buildApiUrl(`/api/operators/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ isActive }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update operator (${response.status})`);
+  }
+  return payload;
+}
+
 export async function fetchLimitations() {
   return fetchJson('/api/timeline/limitations', 'Limitations request failed');
 }

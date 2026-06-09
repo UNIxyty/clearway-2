@@ -1,10 +1,64 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const LOCAL_VISIBILITY_FILE = path.resolve(process.cwd(), "data", "aircraft-visibility.json");
+const ENCRYPTED_PREFIX = "enc:v1:";
 
 function supabaseConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function getEncryptionSecret() {
+  const raw = String(
+    process.env.LEON_REFRESH_TOKEN_ENCRYPTION_KEY ||
+      process.env.LEON_TOKEN_ENCRYPTION_KEY ||
+      ""
+  ).trim();
+  if (!raw) {
+    throw new Error(
+      "Missing LEON_REFRESH_TOKEN_ENCRYPTION_KEY. Configure it before saving operators."
+    );
+  }
+  return raw;
+}
+
+function deriveEncryptionKey() {
+  return crypto.createHash("sha256").update(getEncryptionSecret()).digest();
+}
+
+function encryptRefreshToken(value) {
+  const iv = crypto.randomBytes(12);
+  const key = deriveEncryptionKey();
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${ENCRYPTED_PREFIX}${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
+}
+
+function decryptRefreshToken(value) {
+  if (!value || typeof value !== "string") return "";
+  if (!value.startsWith(ENCRYPTED_PREFIX)) {
+    // Backward compatibility for older plaintext values already in DB.
+    return value;
+  }
+
+  const encoded = value.slice(ENCRYPTED_PREFIX.length);
+  const [ivB64, tagB64, bodyB64] = encoded.split(":");
+  if (!ivB64 || !tagB64 || !bodyB64) {
+    throw new Error("Stored refresh token format is invalid.");
+  }
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    deriveEncryptionKey(),
+    Buffer.from(ivB64, "base64")
+  );
+  decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(bodyB64, "base64")),
+    decipher.final(),
+  ]);
+  return decrypted.toString("utf8");
 }
 
 let supabaseUsable = null;
@@ -103,7 +157,7 @@ export class OperatorsStore {
         id: row.id,
         oprId: row.opr_id,
         name: row.name ?? row.opr_id,
-        refreshToken: row.refresh_token,
+        refreshToken: decryptRefreshToken(row.refresh_token),
       }));
   }
 
@@ -122,7 +176,7 @@ export class OperatorsStore {
     const payload = {
       opr_id: normalizedOprId,
       name: String(name || normalizedOprId).trim(),
-      refresh_token: String(refreshToken).trim(),
+      refresh_token: encryptRefreshToken(String(refreshToken).trim()),
       is_active: isActive,
       updated_at: new Date().toISOString(),
     };

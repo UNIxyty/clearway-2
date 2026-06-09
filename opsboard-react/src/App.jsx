@@ -4,11 +4,12 @@ import Board from './components/Board';
 import { fetchTimelineAircraft } from './services/timelineApi';
 import AircraftsPage from './components/AircraftsPage';
 import LimitationsPage from './components/LimitationsPage';
+import OperatorsPage from './components/OperatorsPage';
 
 function getInitialView() {
   if (typeof window === 'undefined') return 'timeline';
   const last = window.location.pathname.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
-  if (last === 'aircrafts' || last === 'limitations' || last === 'timeline') return last;
+  if (last === 'aircrafts' || last === 'limitations' || last === 'timeline' || last === 'operators') return last;
   return 'timeline';
 }
 
@@ -66,6 +67,7 @@ export default function App() {
         <div style={s.leftTools}>
           <button style={{ ...s.tab, ...(view === 'timeline' ? s.tabActive : {}) }} onClick={() => setView('timeline')}>Timeline</button>
           <button style={{ ...s.tab, ...(view === 'aircrafts' ? s.tabActive : {}) }} onClick={() => setView('aircrafts')}>Aircrafts</button>
+          <button style={{ ...s.tab, ...(view === 'operators' ? s.tabActive : {}) }} onClick={() => setView('operators')}>Operators</button>
           <button style={{ ...s.tab, ...(view === 'limitations' ? s.tabActive : {}) }} onClick={() => setView('limitations')}>Limitations</button>
         </div>
         <div style={s.rightTools}>
@@ -81,6 +83,7 @@ export default function App() {
         <Board aircraft={aircraft} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} />
       )}
       {view === 'aircrafts' && <AircraftsPage />}
+      {view === 'operators' && <OperatorsPage />}
       {view === 'limitations' && <LimitationsPage />}
     </div>
   );

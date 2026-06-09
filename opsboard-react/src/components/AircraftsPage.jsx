@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { fetchAircraftSchedule } from '../services/timelineApi';
+import { fetchAircraftSchedule, setAircraftVisibility } from '../services/timelineApi';
 
 export default function AircraftsPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [savingKey, setSavingKey] = useState('');
 
   async function load() {
     setLoading(true);
@@ -24,6 +25,30 @@ export default function AircraftsPage() {
     load();
   }, []);
 
+  async function toggleEnabled(row, enabled) {
+    const key = `${row.oprId}:${row.registration}`;
+    setSavingKey(key);
+    setError('');
+    try {
+      await setAircraftVisibility({
+        oprId: row.oprId,
+        registration: row.registration,
+        enabled,
+      });
+      setData((prev) =>
+        prev.map((item) =>
+          item.oprId === row.oprId && item.registration === row.registration
+            ? { ...item, isHidden: !enabled }
+            : item
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingKey('');
+    }
+  }
+
   return (
     <div style={s.page}>
       <div style={s.top}>
@@ -40,7 +65,7 @@ export default function AircraftsPage() {
               <th style={s.th}>Registration</th>
               <th style={s.th}>Operator</th>
               <th style={s.th}>Flights</th>
-              <th style={s.th}>Visible</th>
+              <th style={s.th}>Enabled on timeline</th>
             </tr>
           </thead>
           <tbody>
@@ -49,7 +74,17 @@ export default function AircraftsPage() {
                 <td style={s.td}>{row.registration}</td>
                 <td style={s.td}>{row.operatorName || row.oprId || '-'}</td>
                 <td style={s.td}>{row.flightCount ?? 0}</td>
-                <td style={s.td}>{row.isHidden ? 'Hidden' : 'Visible'}</td>
+                <td style={s.td}>
+                  <label style={s.toggleWrap}>
+                    <input
+                      type="checkbox"
+                      checked={!row.isHidden}
+                      disabled={savingKey === `${row.oprId}:${row.registration}` || loading}
+                      onChange={(event) => toggleEnabled(row, event.target.checked)}
+                    />
+                    <span>{row.isHidden ? 'Disabled' : 'Enabled'}</span>
+                  </label>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -71,5 +106,11 @@ const s = {
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   th: { textAlign: 'left', padding: '8px 10px', color: '#6f7fa8', background: '#121726', borderBottom: '1px solid #222840' },
   td: { padding: '8px 10px', color: '#c9d5f0', borderBottom: '1px solid #1f2539' },
+  toggleWrap: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 12,
+  },
 };
 

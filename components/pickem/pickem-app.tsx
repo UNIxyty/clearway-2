@@ -172,6 +172,7 @@ export function PickemApp() {
   const [savingGroup, setSavingGroup] = useState(false);
   const [savingMatch, setSavingMatch] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PickemLeaderboardRow | null>(null);
   const [selectedUserPredictions, setSelectedUserPredictions] = useState<{
     groupPredictions: PickemGroupPrediction[];
@@ -420,6 +421,20 @@ export function PickemApp() {
     }
   }
 
+  async function sendConfirmationEmail() {
+    setSendingConfirmation(true);
+    setError(null);
+    try {
+      const res = await fetch("/pickem/api/confirmation-email", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to send confirmation email.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send confirmation email.");
+    } finally {
+      setSendingConfirmation(false);
+    }
+  }
+
   function reorderByDrag(groupCode: string, draggedTeamId: string, targetTeamId: string) {
     setGroupOrder((prev) => {
       const current = [...(prev[groupCode] || [])];
@@ -584,6 +599,18 @@ export function PickemApp() {
                   >
                     Continue Picks
                   </button>
+                  {viewerSubmitted && (
+                    <button
+                      type="button"
+                      disabled={sendingConfirmation}
+                      onClick={() => {
+                        void sendConfirmationEmail();
+                      }}
+                      className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/15 disabled:opacity-50"
+                    >
+                      {sendingConfirmation ? "Sending email..." : "Send confirmation email"}
+                    </button>
+                  )}
                 </div>
               </div>
             </section>

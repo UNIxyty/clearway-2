@@ -764,6 +764,10 @@ export function PickemApp() {
             <div className="grid gap-4 md:grid-cols-2">
               {groupMatches.map((match) => {
                 const locked = allPicksLocked || new Date(match.kickoffAt).getTime() <= nowTs;
+                const resultPublished =
+                  String(match.status || "").toLowerCase() === "finished" &&
+                  match.homeScore !== null &&
+                  match.awayScore !== null;
                 const home = teamsById.get(match.homeTeamId);
                 const away = teamsById.get(match.awayTeamId);
                 const prediction = matchScores[match.id];
@@ -783,10 +787,10 @@ export function PickemApp() {
                       </div>
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                          locked ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-700"
+                          resultPublished ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-700"
                         }`}
                       >
-                        {locked ? "Locked" : "Open"}
+                        {resultPublished ? "Final" : "Awaiting results"}
                       </span>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
@@ -830,7 +834,7 @@ export function PickemApp() {
                           ? `Predicted: ${outcomeLabel(prediction.home, prediction.away)}`
                           : "No prediction yet"}
                       </span>
-                      {match.homeScore !== null && match.awayScore !== null && (
+                      {resultPublished && (
                         <span className="font-bold text-emerald-700">
                           Final: {match.homeScore}-{match.awayScore}
                         </span>
@@ -1050,7 +1054,10 @@ export function PickemApp() {
                             if (!match) return null;
                             const homeTeam = teamsById.get(match.homeTeamId);
                             const awayTeam = teamsById.get(match.awayTeamId);
-                            const hasActual = match.homeScore !== null && match.awayScore !== null;
+                            const hasActual =
+                              String(match.status || "").toLowerCase() === "finished" &&
+                              match.homeScore !== null &&
+                              match.awayScore !== null;
                             const exact = hasActual && mp.predictedHomeScore === match.homeScore && mp.predictedAwayScore === match.awayScore;
                             const correctOutcome =
                               hasActual &&

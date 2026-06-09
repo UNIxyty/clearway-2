@@ -5,7 +5,12 @@ const DEFAULT_POLL_MS = 30 * 1000;
 const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
-const AIRPORT_DIRECTORY_FILE = path.resolve(process.cwd(), "..", "data", "ead-airports-with-names.json");
+const AIRPORT_DIRECTORY_CANDIDATES = [
+  path.resolve(process.cwd(), "shared-data", "ead-airports-with-names.json"),
+  path.resolve(process.cwd(), "shared-data", "airports.json"),
+  path.resolve(process.cwd(), "..", "data", "ead-airports-with-names.json"),
+  path.resolve(process.cwd(), "..", "data", "airports.json"),
+];
 
 function parseDate(value) {
   const dt = new Date(value);
@@ -473,7 +478,11 @@ export class LeonTimelineService {
   }
 
   async loadAirportDirectory() {
-    const payload = await readJsonIfExists(AIRPORT_DIRECTORY_FILE);
+    let payload = null;
+    for (const filePath of AIRPORT_DIRECTORY_CANDIDATES) {
+      payload = await readJsonIfExists(filePath);
+      if (payload) break;
+    }
     this.airportDirectoryByIcao.clear();
     if (!payload || typeof payload !== "object") {
       this.countryOptions = [];
@@ -481,16 +490,22 @@ export class LeonTimelineService {
     }
 
     const countries = new Set();
-    for (const [icaoKey, row] of Object.entries(payload)) {
-      const icao = normalizeIcao(row?.icao || icaoKey);
-      if (!icao) continue;
-      const country = normalizeCountry(row?.country);
+    const addEntry = (entry, fallbackIcao = "") => {
+      const icao = normalizeIcao(entry?.icao || fallbackIcao);
+      if (!icao) return;
+      const country = normalizeCountry(entry?.country);
       if (country) countries.add(country);
       this.airportDirectoryByIcao.set(icao, {
         icao,
-        name: String(row?.name || "").trim(),
+        name: String(entry?.name || "").trim(),
         country,
       });
+    };
+
+    if (Array.isArray(payload)) {
+      for (const row of payload) addEntry(row);
+    } else {
+      for (const [icaoKey, row] of Object.entries(payload)) addEntry(row, icaoKey);
     }
     this.countryOptions = [...countries].sort((a, b) => a.localeCompare(b));
   }
@@ -1253,7 +1268,7 @@ export class LeonTimelineService {
   decorateFlightWithLimitations(flight) {
     const limitationIds = this.getMatchedLimitationIds(flight);
     if (limitationIds.length === 0) {
-      return { ...flight, limitationIds: [], limitations: [] };
+      return { ...flight, limitationIds: [], limitations: [], lim: null };
     }
     const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
     const limitations = limitationIds
@@ -1265,14 +1280,35 @@ export class LeonTimelineService {
         description: item.description,
         type: item.type,
       }));
-    return { ...flight, limitationIds, limitations };
+    const primary = limitations[0] || null;
+    const lim =
+      primary
+        ? {
+            type: primary.type,
+            msg: primary.description || primary.title,
+          }
+        : null;
+    return { ...flight, limitationIds, limitations, lim };
   }
 
   listAirportMatches(query = "", limit = 50) {
     const q = String(query || "").trim().toLowerCase();
     const max = Math.max(1, Math.min(200, Number(limit) || 50));
     const rows = [];
-    for (const row of this.airportDirectoryByIcao.values()) {
+    const source =
+      this.airportDirectoryByIcao.size > 0
+        ? [...this.airportDirectoryByIcao.values()]
+        : [...new Map(
+            [...this.flightsByNid.values()].flatMap((flight) => {
+              const dep = normalizeIcao(flight?.adep?.icao);
+              const arr = normalizeIcao(flight?.ades?.icao);
+              return [dep, arr]
+                .filter(Boolean)
+                .map((icao) => [icao, { icao, name: "", country: "" }]);
+            })
+          ).values()];
+
+    for (const row of source) {
       if (!q) {
         rows.push(row);
       } else {

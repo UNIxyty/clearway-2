@@ -13,6 +13,8 @@ export default function LimitationsPage() {
   const [countries, setCountries] = useState([]);
   const [airportQuery, setAirportQuery] = useState('');
   const [airportResults, setAirportResults] = useState([]);
+  const [countryQuery, setCountryQuery] = useState('');
+  const [typeQuery, setTypeQuery] = useState('OPS');
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -67,8 +69,17 @@ export default function LimitationsPage() {
   }, [airportQuery]);
 
   const unselectedCountries = useMemo(
-    () => countries.filter((country) => !form.countries.includes(country)),
-    [countries, form.countries]
+    () =>
+      countries.filter(
+        (country) =>
+          !form.countries.includes(country) &&
+          (!countryQuery || country.toLowerCase().includes(countryQuery.toLowerCase()))
+      ),
+    [countries, form.countries, countryQuery]
+  );
+  const limitationTypes = ['OPS', 'AOG', 'WX', 'CTOT', 'PAX', 'CREW'];
+  const filteredTypes = limitationTypes.filter((type) =>
+    type.toLowerCase().includes(typeQuery.toLowerCase())
   );
 
   function addAirport(icao) {
@@ -118,6 +129,8 @@ export default function LimitationsPage() {
         airportIcaos: [],
         countries: [],
       });
+      setTypeQuery('OPS');
+      setCountryQuery('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -177,18 +190,35 @@ export default function LimitationsPage() {
           value={form.description}
           onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
         />
-        <select
-          style={s.input}
-          value={form.type}
-          onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
-        >
-          <option value="OPS">OPS</option>
-          <option value="AOG">AOG</option>
-          <option value="WX">WX</option>
-          <option value="CTOT">CTOT</option>
-          <option value="PAX">PAX</option>
-          <option value="CREW">CREW</option>
-        </select>
+        <div style={s.searchWrap}>
+          <input
+            style={s.input}
+            placeholder="Type (OPS/AOG/WX/...)"
+            value={typeQuery}
+            onChange={(event) => {
+              const value = event.target.value.toUpperCase();
+              setTypeQuery(value);
+              setForm((prev) => ({ ...prev, type: value || 'OPS' }));
+            }}
+          />
+          {typeQuery && filteredTypes.length > 0 && (
+            <div style={s.resultList}>
+              {filteredTypes.map((type) => (
+                <button
+                  type="button"
+                  key={type}
+                  style={s.resultItem}
+                  onClick={() => {
+                    setTypeQuery(type);
+                    setForm((prev) => ({ ...prev, type }));
+                  }}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button style={s.btn} disabled={saving || loading} type="submit">
           {saving ? 'Saving...' : 'Add Limitation'}
         </button>
@@ -202,6 +232,12 @@ export default function LimitationsPage() {
             placeholder="Search by ICAO / name / country"
             value={airportQuery}
             onChange={(event) => setAirportQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addAirport(airportQuery);
+              }
+            }}
           />
           {airportResults.length > 0 && (
             <div style={s.resultList}>
@@ -228,16 +264,36 @@ export default function LimitationsPage() {
 
         <div style={s.selectorCard}>
           <div style={s.selectorTitle}>Countries</div>
-          <select
+          <input
             style={s.input}
-            onChange={(event) => addCountry(event.target.value)}
-            value=""
-          >
-            <option value="">Add country...</option>
-            {unselectedCountries.map((country) => (
-              <option key={country} value={country}>{country}</option>
-            ))}
-          </select>
+            placeholder="Search and add country"
+            value={countryQuery}
+            onChange={(event) => setCountryQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addCountry(countryQuery);
+                setCountryQuery('');
+              }
+            }}
+          />
+          {countryQuery && unselectedCountries.length > 0 && (
+            <div style={s.resultList}>
+              {unselectedCountries.slice(0, 30).map((country) => (
+                <button
+                  type="button"
+                  key={country}
+                  style={s.resultItem}
+                  onClick={() => {
+                    addCountry(country);
+                    setCountryQuery('');
+                  }}
+                >
+                  {country}
+                </button>
+              ))}
+            </div>
+          )}
           <div style={s.chipList}>
             {form.countries.map((country) => (
               <button type="button" key={country} style={s.chip} onClick={() => removeCountry(country)}>
@@ -307,6 +363,7 @@ const s = {
     color: '#e8ebf5',
     background: '#111626',
   },
+  searchWrap: { position: 'relative' },
   selectorGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',

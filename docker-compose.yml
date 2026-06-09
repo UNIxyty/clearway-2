@@ -135,6 +135,8 @@ services:
     command: node server.mjs
     expose:
       - "5174"
+    volumes:
+      - ./data:/app/shared-data:ro
 
   digital-wall-frontend:
     build:

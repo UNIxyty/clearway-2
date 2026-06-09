@@ -86,7 +86,12 @@ export default function FlightPill({
       flexDirection: 'column',
       alignItems: 'stretch',
     }}>
-      <div style={s.fnOutside}>{fn}</div>
+      <div style={s.fnOutsideRow}>
+        <span style={s.fnOutside}>{fn}</span>
+        {Array.isArray(limIndices) && limIndices.length > 0 && (
+          <span style={s.fnLimCount}>LIM {limIndices.join(',')}</span>
+        )}
+      </div>
       <div style={s.frame}>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center', overflow: 'hidden' }}>
 
@@ -180,6 +185,13 @@ export default function FlightPill({
 }
 
 const s = {
+  fnOutsideRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 2,
+  },
   fnOutside: {
     fontFamily: "'IBM Plex Mono',monospace",
     fontSize: 9,
@@ -187,7 +199,15 @@ const s = {
     fontWeight: 700,
     letterSpacing: '.4px',
     whiteSpace: 'nowrap',
-    marginBottom: 2,
+  },
+  fnLimCount: {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 8,
+    color: '#f0c06b',
+    border: '1px solid rgba(240,177,59,.35)',
+    borderRadius: 999,
+    padding: '1px 6px',
+    lineHeight: '10px',
   },
   frame: {
     width: '100%',

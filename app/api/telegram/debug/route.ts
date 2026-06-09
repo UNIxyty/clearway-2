@@ -717,11 +717,17 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         await answerCallbackQuery(callbackId, "Server error", "bug");
         return NextResponse.json({ error: "Missing service key" }, { status: 503 });
       }
-      await service.auth.admin.updateUserById(targetUserId, { user_metadata: { is_approved: true } });
+      const { data: userLookup } = await service.auth.admin.getUserById(targetUserId);
+      const currentMeta = ((userLookup?.user?.user_metadata as Record<string, unknown> | undefined) || {});
+      const nextMeta: Record<string, unknown> = {
+        ...currentMeta,
+        is_approved: false,
+      };
+      await service.auth.admin.updateUserById(targetUserId, { user_metadata: nextMeta });
       await service
         .from("user_preferences")
-        .upsert({ user_id: targetUserId, is_approved: true }, { onConflict: "user_id" });
-      await answerCallbackQuery(callbackId, "Approved — select role", "bug");
+        .upsert({ user_id: targetUserId, is_approved: false }, { onConflict: "user_id" });
+      await answerCallbackQuery(callbackId, "Select role to finalize access", "bug");
       const htmlBase = buildHtmlBase(cb?.message?.text || "");
       await editHtml(`${htmlBase}\n\nSelect role:`, {
         inline_keyboard: [
@@ -752,8 +758,8 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         return NextResponse.json({ error: "Missing service key" }, { status: 503 });
       }
 
-      const { data: userLookup } = await service.auth.admin.getUserById(targetUserId);
-      const currentMeta = ((userLookup?.user?.user_metadata as Record<string, unknown> | undefined) || {});
+      const { data: userLookupRole } = await service.auth.admin.getUserById(targetUserId);
+      const currentMeta = ((userLookupRole?.user?.user_metadata as Record<string, unknown> | undefined) || {});
       const nextMeta: Record<string, unknown> = { ...currentMeta, is_approved: true };
       if (role === "temporary") {
         nextMeta.role = "temporary";

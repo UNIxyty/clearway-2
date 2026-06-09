@@ -4,7 +4,15 @@ import Link from "next/link";
 // This page uses useSearchParams() in a client component; force dynamic rendering
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const nextRaw = searchParams?.next;
+  const next = Array.isArray(nextRaw) ? nextRaw[0] : nextRaw;
+  const signupHref = next && next.startsWith("/") ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
@@ -36,7 +44,7 @@ export default function LoginPage() {
         <LoginCard />
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="underline underline-offset-4 hover:text-foreground">
+          <Link href={signupHref} className="underline underline-offset-4 hover:text-foreground">
             Create account
           </Link>
         </p>

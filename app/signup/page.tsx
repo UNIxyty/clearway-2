@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 
 export default function SignupPage() {
+  const [nextPath, setNextPath] = useState("/signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextParam = params.get("next");
+    if (nextParam && nextParam.startsWith("/")) {
+      setNextPath(nextParam);
+    }
+  }, []);
 
   async function requestConfirmationEmail() {
     setError(null);
@@ -26,7 +35,7 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/email/request-confirmation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: normalizedEmail, next: "/signup" }),
+        body: JSON.stringify({ name: name.trim(), email: normalizedEmail, next: nextPath }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

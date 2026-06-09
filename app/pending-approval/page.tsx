@@ -18,7 +18,15 @@ export default function PendingApprovalPage() {
         return;
       }
       if (data.session.user?.user_metadata?.is_approved === true) {
-        window.location.href = "/";
+        const role = String(data.session.user?.user_metadata?.role || "").toLowerCase();
+        const isTemporary =
+          role === "temporary" ||
+          data.session.user?.user_metadata?.is_temporary === true ||
+          (Array.isArray(data.session.user?.user_metadata?.roles) &&
+            (data.session.user?.user_metadata?.roles as unknown[]).some(
+              (value) => String(value).toLowerCase() === "temporary",
+            ));
+        window.location.href = isTemporary ? "/pickem" : "/";
       }
     }, 4000);
     return () => clearInterval(interval);

@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function AccessBlockedPage() {
-  const searchParams = useSearchParams();
-  const from = searchParams.get("from") || "/";
+  const [from, setFrom] = useState("/");
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setFrom(params.get("from") || "/");
+  }, []);
 
   async function signOut() {
     await supabase.auth.signOut();

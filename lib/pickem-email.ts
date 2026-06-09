@@ -2,6 +2,19 @@ type PickemSubmissionEmailInput = {
   to: string;
   displayName: string;
   competitionName: string;
+  groupsSet?: number;
+  groupsTotal?: number;
+  matchesPredicted?: number;
+  matchPicks?: Array<{
+    homeName: string;
+    awayName: string;
+    homeScore: number;
+    awayScore: number;
+    homeFlag?: string;
+    awayFlag?: string;
+  }>;
+  submittedAt?: string;
+  daysToKickoff?: number;
 };
 
 function appOrigin(): string {
@@ -13,23 +26,217 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
   const from = String(process.env.PICKEM_EMAIL_FROM || "Clearway Pickem <no-reply@clearway.verxyl.com>").trim();
   if (!apiKey) return false;
 
-  const subject = `${input.competitionName} picks submitted`;
+  const subject = "Your World Cup picks are locked in";
   const pickemUrl = `${appOrigin().replace(/\/+$/, "")}/pickem`;
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h2 style="margin:0 0 12px">Your picks are in</h2>
-      <p style="margin:0 0 10px">Hi ${input.displayName || "there"},</p>
-      <p style="margin:0 0 10px">
-        You successfully submitted all predictions for <strong>${input.competitionName}</strong>.
-      </p>
-      <p style="margin:0 0 10px">
-        You can review your picks and standings anytime:
-        <a href="${pickemUrl}">${pickemUrl}</a>
-      </p>
-      <p style="margin:16px 0 0;color:#6b7280;font-size:12px">Clearway Pickem</p>
-    </div>
-  `;
-  const text = `Hi ${input.displayName || "there"},\n\nYou successfully submitted all predictions for ${input.competitionName}.\nReview your picks: ${pickemUrl}\n\nClearway Pickem`;
+  const firstName = String(input.displayName || "there")
+    .trim()
+    .split(/\s+/)[0] || "there";
+  const groupsSet = Number.isFinite(input.groupsSet) ? Number(input.groupsSet) : 0;
+  const groupsTotal = Number.isFinite(input.groupsTotal) ? Number(input.groupsTotal) : 12;
+  const matchesPredicted = Number.isFinite(input.matchesPredicted) ? Number(input.matchesPredicted) : 0;
+  const daysToKickoff = Number.isFinite(input.daysToKickoff) ? Number(input.daysToKickoff) : 0;
+  const submittedAt = String(input.submittedAt || "").trim() || new Date().toISOString();
+
+  function esc(value: string): string {
+    return value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  const picksRows =
+    input.matchPicks && input.matchPicks.length
+      ? input.matchPicks
+          .map((pick) => {
+            const homeFlag = esc(String(pick.homeFlag || ""));
+            const awayFlag = esc(String(pick.awayFlag || ""));
+            return `
+                      <tr>
+                        <td style="padding:13px 0; border-bottom:1px solid rgba(15,30,60,0.07);">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                            <td style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle;">
+                              <span style="font-size:18px;">${homeFlag}</span>${homeFlag ? "&nbsp;" : ""} ${esc(pick.homeName)}
+                            </td>
+                            <td width="70" align="center" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:16px; font-weight:900; color:#1a56db; vertical-align:middle; white-space:nowrap;">
+                              ${pick.homeScore} &ndash; ${pick.awayScore}
+                            </td>
+                            <td align="right" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle;">
+                              ${esc(pick.awayName)}${awayFlag ? "&nbsp;" : ""}<span style="font-size:18px;">${awayFlag}</span>
+                            </td>
+                          </tr></table>
+                        </td>
+                      </tr>`;
+          })
+          .join("\n")
+      : `
+                      <tr>
+                        <td style="padding:13px 0; border-bottom:1px solid rgba(15,30,60,0.07); font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:600; color:rgba(15,30,60,0.6);">
+                          Match predictions are saved and available in your dashboard.
+                        </td>
+                      </tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Your World Cup picks are locked in</title>
+<!--[if mso]>
+<noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+<![endif]-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap');
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; border: 0; line-height: 100%; outline: none; text-decoration: none; }
+  body { margin: 0; padding: 0; width: 100% !important; height: 100% !important; }
+  a { text-decoration: none; }
+  .hover-darken:hover { background-color: #ea580c !important; }
+  @media only screen and (max-width: 600px) {
+    .container { width: 100% !important; }
+    .px { padding-left: 24px !important; padding-right: 24px !important; }
+    .stack { display: block !important; width: 100% !important; }
+    .stack-gap { height: 12px !important; }
+    .h1 { font-size: 28px !important; line-height: 34px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f5f5; font-family:'Archivo','Segoe UI',Arial,Helvetica,sans-serif;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f5f5f5; opacity:0;">
+    Locked in - ${groupsSet} groups and ${matchesPredicted} match scores submitted. Good luck, ${esc(firstName)}.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f5;">
+    <tr>
+      <td align="center" style="padding:24px 12px 40px;">
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+          <tr>
+            <td style="padding:4px 8px 18px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                      <td width="28" height="28" align="center" valign="middle" style="background-color:#0f1e3c; border-radius:7px;">
+                        <div style="width:11px; height:11px; background-color:#f59e0b; border-radius:3px; font-size:0; line-height:0;">&nbsp;</div>
+                      </td>
+                      <td style="padding-left:10px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:19px; font-weight:900; letter-spacing:1px; color:#0f1e3c;">CLEARWAY</td>
+                    </tr></table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#ffffff; border-radius:18px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="px" style="background-color:#0f1e3c; padding:38px 44px 34px;">
+                    <p style="margin:0 0 14px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:11px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:#f59e0b;">Picks Confirmed</p>
+                    <h1 class="h1" style="margin:0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:34px; line-height:40px; font-weight:900; letter-spacing:-0.5px; color:#ffffff;">
+                      You're locked in, ${esc(firstName)}.
+                    </h1>
+                    <p style="margin:14px 0 0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:15px; line-height:23px; color:rgba(255,255,255,0.62);">
+                      Your ${esc(input.competitionName)} predictions are saved. Here's a copy for your records.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="px" style="padding:28px 44px 6px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="stack" width="50%" style="vertical-align:top; padding-right:8px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ebf3ff; border-radius:14px;">
+                            <tr><td style="padding:18px 20px;">
+                              <p style="margin:0 0 6px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#1a56db;">Group Stage</p>
+                              <p style="margin:0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:30px; font-weight:900; color:#0f1e3c; line-height:1;">${groupsSet}<span style="font-size:15px; font-weight:700; color:rgba(15,30,60,0.4);"> / ${groupsTotal} groups</span></p>
+                            </td></tr>
+                          </table>
+                        </td>
+                        <td class="stack stack-gap" style="font-size:0; line-height:0; height:0;">&nbsp;</td>
+                        <td class="stack" width="50%" style="vertical-align:top; padding-left:8px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fff3e9; border-radius:14px;">
+                            <tr><td style="padding:18px 20px;">
+                              <p style="margin:0 0 6px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#ea580c;">Match Scores</p>
+                              <p style="margin:0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:30px; font-weight:900; color:#0f1e3c; line-height:1;">${matchesPredicted}<span style="font-size:15px; font-weight:700; color:rgba(15,30,60,0.4);"> predicted</span></p>
+                            </td></tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="px" style="padding:26px 44px 6px;">
+                    <p style="margin:0 0 4px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:rgba(15,30,60,0.4);">Your match calls</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px" style="padding:0 44px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+${picksRows}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="px" style="padding:22px 44px 4px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f8fa; border-radius:14px;">
+                      <tr>
+                        <td style="padding:16px 20px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12.5px; line-height:20px; color:rgba(15,30,60,0.6);">
+                          <strong style="color:#0f1e3c;">How points work:</strong>
+                          &nbsp;<span style="color:#1a56db; font-weight:800;">+3</span> correct result &nbsp;&middot;&nbsp;
+                          <span style="color:#ea580c; font-weight:800;">+5</span> exact scoreline bonus &nbsp;&middot;&nbsp;
+                          <span style="color:#1a56db; font-weight:800;">+3</span> per team in its right group slot
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="px" align="center" style="padding:28px 44px 10px;">
+                    <a href="${pickemUrl}" class="hover-darken" style="display:inline-block; background-color:#f97316; color:#ffffff; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:15px; font-weight:800; line-height:50px; text-align:center; text-decoration:none; width:280px; border-radius:11px;">Review my picks</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px" align="center" style="padding:4px 44px 38px;">
+                    <p style="margin:0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:13px; font-weight:600; color:rgba(15,30,60,0.45);">
+                      Kickoff in <strong style="color:#0f1e3c;">${daysToKickoff} days</strong> &middot; submitted ${esc(submittedAt)}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 24px 8px;" align="center">
+              <p style="margin:0 0 8px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:rgba(15,30,60,0.4);">
+                You're receiving this because you submitted predictions in the Clearway World Cup 2026 pool.
+              </p>
+              <p style="margin:0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12px; line-height:18px; color:rgba(15,30,60,0.4);">
+                <a href="${pickemUrl}" style="color:#1a56db; font-weight:700; text-decoration:none;">Manage picks</a>
+              </p>
+              <p style="margin:14px 0 0; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:11px; color:rgba(15,30,60,0.3);">&copy; ${new Date().getUTCFullYear()} Clearway. Not affiliated with FIFA.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  const text = `Hi ${firstName},\n\nYour picks are locked in for ${input.competitionName}.\nGroups set: ${groupsSet}/${groupsTotal}\nMatch scores predicted: ${matchesPredicted}\nReview picks: ${pickemUrl}\n\nClearway Pickem`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

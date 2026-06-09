@@ -773,6 +773,14 @@ export function PickemApp() {
                 const prediction = matchScores[match.id];
                 const predicted =
                   prediction && Number.isInteger(prediction.home) && Number.isInteger(prediction.away);
+                const exactHit =
+                  Boolean(resultPublished && predicted) &&
+                  prediction!.home === match.homeScore &&
+                  prediction!.away === match.awayScore;
+                const outcomeHit =
+                  Boolean(resultPublished && predicted) &&
+                  outcomeKey(prediction!.home, prediction!.away) ===
+                    outcomeKey(match.homeScore as number, match.awayScore as number);
                 return (
                   <article key={match.id} className="rounded-xl border border-black/10 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
@@ -835,8 +843,27 @@ export function PickemApp() {
                           : "No prediction yet"}
                       </span>
                       {resultPublished && (
-                        <span className="font-bold text-emerald-700">
-                          Final: {match.homeScore}-{match.awayScore}
+                        <span className="flex items-center gap-2">
+                          <span className="font-bold text-emerald-700">
+                            Final: {match.homeScore}-{match.awayScore}
+                          </span>
+                          {predicted ? (
+                            <span
+                              className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                                exactHit
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : outcomeHit
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-rose-100 text-rose-700"
+                              }`}
+                            >
+                              {exactHit ? "+1 result +3 exact" : outcomeHit ? "+1 result" : "Miss"}
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
+                              No pick
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>

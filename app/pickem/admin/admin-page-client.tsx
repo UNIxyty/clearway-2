@@ -12,6 +12,8 @@ type AdminPayload = {
 
 type EditState = Record<string, { home: string; away: string; status: string }>;
 
+const ADMIN_API_CANDIDATES = ["/pickem/api/admin/matches", "/api/pickem/admin/matches"];
+
 function fmtKickoff(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
     day: "2-digit",
@@ -30,13 +32,30 @@ export function PickemAdminClient() {
   const [payload, setPayload] = useState<AdminPayload | null>(null);
   const [edits, setEdits] = useState<EditState>({});
 
+  async function fetchAdminApi(
+    init?: RequestInit,
+  ): Promise<{ res: Response; json: any }> {
+    let lastJson: any = {};
+    let lastRes: Response | null = null;
+    for (const url of ADMIN_API_CANDIDATES) {
+      const res = await fetch(url, init);
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) return { res, json };
+      lastRes = res;
+      lastJson = json;
+      if (res.status !== 404) break;
+    }
+    if (!lastRes) {
+      throw new Error("Failed to reach admin API.");
+    }
+    throw new Error(lastJson.error || `Failed to load admin data (${lastRes.status}).`);
+  }
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/pickem/api/admin/matches", { cache: "no-store" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to load admin data.");
+      const { json } = await fetchAdminApi({ cache: "no-store" });
       setPayload(json as AdminPayload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin data.");
@@ -71,7 +90,7 @@ export function PickemAdminClient() {
     setSaving(match.id);
     setError(null);
     try {
-      const res = await fetch("/pickem/api/admin/matches", {
+      const { json } = await fetchAdminApi({
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -81,8 +100,6 @@ export function PickemAdminClient() {
           status: edit.status || undefined,
         }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to save match update.");
       setPayload((prev) => (prev ? { ...prev, matches: (json.matches || prev.matches) as PickemMatch[] } : prev));
       setEdits((prev) => {
         const next = { ...prev };

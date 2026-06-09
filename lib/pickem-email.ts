@@ -17,59 +17,81 @@ type PickemSubmissionEmailInput = {
   daysToKickoff?: number;
 };
 
-const TEAM_FLAG_BY_NAME: Record<string, string> = {
-  Mexico: "🇲🇽",
-  Croatia: "🇭🇷",
-  Egypt: "🇪🇬",
-  "New Zealand": "🇳🇿",
-  Canada: "🇨🇦",
-  Morocco: "🇲🇦",
-  "Ivory Coast": "🇨🇮",
-  Sweden: "🇸🇪",
-  Argentina: "🇦🇷",
-  Norway: "🇳🇴",
-  Japan: "🇯🇵",
-  "Saudi Arabia": "🇸🇦",
-  "United States": "🇺🇸",
-  Switzerland: "🇨🇭",
-  Paraguay: "🇵🇾",
-  Qatar: "🇶🇦",
-  Brazil: "🇧🇷",
-  Senegal: "🇸🇳",
-  "South Korea": "🇰🇷",
-  Australia: "🇦🇺",
-  France: "🇫🇷",
-  Uruguay: "🇺🇾",
-  Iran: "🇮🇷",
-  Panama: "🇵🇦",
-  England: "🏴",
-  Colombia: "🇨🇴",
-  Tunisia: "🇹🇳",
-  Jordan: "🇯🇴",
-  Spain: "🇪🇸",
-  Denmark: "🇩🇰",
-  Nigeria: "🇳🇬",
-  "Costa Rica": "🇨🇷",
-  Portugal: "🇵🇹",
-  Austria: "🇦🇹",
-  Ghana: "🇬🇭",
-  Honduras: "🇭🇳",
-  Germany: "🇩🇪",
-  Turkey: "🇹🇷",
-  Cameroon: "🇨🇲",
-  Uzbekistan: "🇺🇿",
-  Netherlands: "🇳🇱",
-  Italy: "🇮🇹",
-  Algeria: "🇩🇿",
-  Peru: "🇵🇪",
-  Belgium: "🇧🇪",
-  Ecuador: "🇪🇨",
-  Poland: "🇵🇱",
-  Scotland: "🏴",
+const TEAM_FLAG_BY_KEY: Record<string, string> = {
+  mexico: "🇲🇽",
+  croatia: "🇭🇷",
+  egypt: "🇪🇬",
+  newzealand: "🇳🇿",
+  canada: "🇨🇦",
+  morocco: "🇲🇦",
+  ivorycoast: "🇨🇮",
+  cotedivoire: "🇨🇮",
+  sweden: "🇸🇪",
+  argentina: "🇦🇷",
+  norway: "🇳🇴",
+  japan: "🇯🇵",
+  saudiarabia: "🇸🇦",
+  unitedstates: "🇺🇸",
+  usa: "🇺🇸",
+  switzerland: "🇨🇭",
+  paraguay: "🇵🇾",
+  qatar: "🇶🇦",
+  brazil: "🇧🇷",
+  senegal: "🇸🇳",
+  southkorea: "🇰🇷",
+  korearepublic: "🇰🇷",
+  republicofkorea: "🇰🇷",
+  australia: "🇦🇺",
+  france: "🇫🇷",
+  uruguay: "🇺🇾",
+  iran: "🇮🇷",
+  panama: "🇵🇦",
+  england: "🏴",
+  colombia: "🇨🇴",
+  tunisia: "🇹🇳",
+  jordan: "🇯🇴",
+  spain: "🇪🇸",
+  denmark: "🇩🇰",
+  nigeria: "🇳🇬",
+  costarica: "🇨🇷",
+  portugal: "🇵🇹",
+  austria: "🇦🇹",
+  ghana: "🇬🇭",
+  honduras: "🇭🇳",
+  germany: "🇩🇪",
+  turkey: "🇹🇷",
+  turkiye: "🇹🇷",
+  cameroon: "🇨🇲",
+  uzbekistan: "🇺🇿",
+  netherlands: "🇳🇱",
+  italy: "🇮🇹",
+  algeria: "🇩🇿",
+  peru: "🇵🇪",
+  belgium: "🇧🇪",
+  ecuador: "🇪🇨",
+  poland: "🇵🇱",
+  scotland: "🏴",
+  czechia: "🇨🇿",
+  czechrepublic: "🇨🇿",
+  southafrica: "🇿🇦",
+  bosniaandherzegovina: "🇧🇦",
+  bosniaherzegovina: "🇧🇦",
+  haiti: "🇭🇹",
+  curacao: "🇨🇼",
 };
 
+function normalizeTeamKey(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 export function pickemTeamFlag(name: string): string {
-  return TEAM_FLAG_BY_NAME[String(name).trim()] || "🏳️";
+  const key = normalizeTeamKey(name);
+  return TEAM_FLAG_BY_KEY[key] || "🏳️";
 }
 
 function appOrigin(): string {
@@ -112,14 +134,14 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
             return `
                       <tr>
                         <td style="padding:13px 0; border-bottom:1px solid rgba(15,30,60,0.07);">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-                            <td style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed; width:100%;"><tr>
+                            <td width="43%" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                               <span style="font-size:18px;">${homeFlag}</span>${homeFlag ? "&nbsp;" : ""} ${esc(pick.homeName)}
                             </td>
-                            <td width="70" align="center" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:16px; font-weight:900; color:#1a56db; vertical-align:middle; white-space:nowrap;">
+                            <td width="14%" align="center" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:16px; font-weight:900; color:#1a56db; vertical-align:middle; white-space:nowrap; letter-spacing:0.2px;">
                               ${pick.homeScore} &ndash; ${pick.awayScore}
                             </td>
-                            <td align="right" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle;">
+                            <td width="43%" align="right" style="font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                               ${esc(pick.awayName)}${awayFlag ? "&nbsp;" : ""}<span style="font-size:18px;">${awayFlag}</span>
                             </td>
                           </tr></table>

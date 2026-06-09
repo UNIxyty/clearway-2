@@ -1,5 +1,6 @@
 import { PICKEM_POINTS } from "@/lib/pickem-shared";
-import { listMatches, listUserPredictions, replacePointsLedger } from "@/lib/pickem-store";
+import { derivePredictedGroupPositions } from "@/lib/pickem-group-table";
+import { listGroups, listMatches, listTeams, listUserPredictions, replacePointsLedger } from "@/lib/pickem-store";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
 function matchOutcome(home: number, away: number): "home" | "away" | "draw" {
@@ -11,7 +12,7 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
   const supabase = createSupabaseServiceRoleClient();
   if (!supabase) throw new Error("Missing Supabase service role configuration");
 
-  const [{ data: groupResults }, { data: users }, matches] = await Promise.all([
+  const [{ data: groupResults }, { data: users }, groups, teams, matches] = await Promise.all([
     supabase
       .from("pickem_group_results")
       .select("group_code,team_id,final_position")
@@ -20,6 +21,8 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
       .from("pickem_prediction_submissions")
       .select("user_id")
       .eq("competition_id", competitionId),
+    listGroups(competitionId),
+    listTeams(competitionId),
     listMatches(competitionId),
   ]);
 
@@ -44,7 +47,14 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
     const userId = String((userRow as any).user_id);
     const predictions = await listUserPredictions({ userId, competitionId });
 
-    for (const gp of predictions.groupPredictions) {
+    const derivedGroups = derivePredictedGroupPositions({
+      groups,
+      teams,
+      matches,
+      matchPredictions: predictions.matchPredictions,
+    });
+
+    for (const gp of derivedGroups) {
       const actualPosition = finalPosByTeam.get(`${gp.groupCode}:${gp.teamId}`);
       if (!actualPosition) continue;
       if (actualPosition === gp.predictedPosition) {

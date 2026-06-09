@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { computePredictedGroupTable } from "@/lib/pickem-group-table";
 import type {
   PickemCompetition,
   PickemGroup,
@@ -121,14 +122,6 @@ function outcomeKey(home: number, away: number): "home" | "away" | "draw" {
   return home > away ? "home" : "away";
 }
 
-function sameOrder(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
 function isLiveMatchStatus(status: string): boolean {
   const normalized = String(status || "").trim().toLowerCase();
   return (
@@ -169,17 +162,14 @@ export function PickemApp() {
     viewerSubmitted: false,
     rows: [],
   });
-  const [savingGroup, setSavingGroup] = useState(false);
   const [savingMatch, setSavingMatch] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PickemLeaderboardRow | null>(null);
   const [selectedUserPredictions, setSelectedUserPredictions] = useState<{
-    groupPredictions: PickemGroupPrediction[];
     matchPredictions: PickemMatchPrediction[];
   } | null>(null);
   const [selectedProfileTab, setSelectedProfileTab] = useState<"groups" | "matches">("groups");
-  const [groupOrder, setGroupOrder] = useState<Record<string, string[]>>({});
   const [matchScores, setMatchScores] = useState<Record<string, { home: number; away: number }>>({});
 
   async function loadAll() {
@@ -197,21 +187,6 @@ export function PickemApp() {
       const payload = bootstrapJson as BootstrapPayload;
       setData(payload);
       setLeaderboard(leaderboardJson as LeaderboardPayload);
-
-      const teamByGroup = new Map<string, string[]>();
-      for (const group of payload.groups) {
-        teamByGroup.set(
-          group.code,
-          payload.teams.filter((team) => team.groupCode === group.code).map((team) => team.id),
-        );
-      }
-      for (const prediction of payload.userPredictions.groupPredictions) {
-        const current = teamByGroup.get(prediction.groupCode) || [];
-        const without = current.filter((teamId) => teamId !== prediction.teamId);
-        without.splice(Math.max(0, prediction.predictedPosition - 1), 0, prediction.teamId);
-        teamByGroup.set(prediction.groupCode, without);
-      }
-      setGroupOrder(Object.fromEntries(teamByGroup.entries()));
 
       const scoreMap: Record<string, { home: number; away: number }> = {};
       for (const prediction of payload.userPredictions.matchPredictions) {
@@ -260,23 +235,6 @@ export function PickemApp() {
     return map;
   }, [data]);
 
-  const groupFinalPositionByTeam = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of data?.groupResults || []) {
-      map.set(`${row.groupCode}:${row.teamId}`, row.finalPosition);
-    }
-    return map;
-  }, [data]);
-
-  const groupsComplete = useMemo(() => {
-    if (!data) return false;
-    return data.groups.every((group) => {
-      const groupTeams = data.teams.filter((team) => team.groupCode === group.code);
-      const ordered = groupOrder[group.code] || [];
-      return groupTeams.length > 0 && ordered.length === groupTeams.length;
-    });
-  }, [data, groupOrder]);
-
   const matchesComplete = useMemo(() => {
     return groupMatches.every((match) => {
       const score = matchScores[match.id];
@@ -289,8 +247,7 @@ export function PickemApp() {
   const firstGroupKickoffTs = groupMatches.length ? new Date(groupMatches[0].kickoffAt).getTime() : null;
   const allPicksLocked =
     firstGroupKickoffTs !== null && Number.isFinite(firstGroupKickoffTs) ? nowTs >= firstGroupKickoffTs : false;
-  const groupLocked =
-    allPicksLocked || (data ? nowTs >= new Date(data.competition.groupLockAt).getTime() : false);
+  const groupsComplete = matchesComplete;
 
   const totalGroupMatches = groupMatches.length;
   const predictedGroupMatches = groupMatches.filter((match) => {
@@ -298,36 +255,28 @@ export function PickemApp() {
     return score && Number.isInteger(score.home) && Number.isInteger(score.away);
   }).length;
 
-  const savedGroupOrderByCode = useMemo(() => {
-    const map = new Map<string, string[]>();
-    if (!data) return map;
-    for (const group of data.groups) {
-      const groupRows = data.userPredictions.groupPredictions
-        .filter((row) => row.groupCode === group.code)
-        .sort((a, b) => a.predictedPosition - b.predictedPosition);
-      if (!groupRows.length) continue;
-      const orderedTeamIds = groupRows.map((row) => row.teamId);
-      const uniqueTeams = new Set(orderedTeamIds);
-      const uniquePositions = new Set(groupRows.map((row) => row.predictedPosition));
-      const totalTeams = data.teams.filter((team) => team.groupCode === group.code).length;
-      if (orderedTeamIds.length === totalTeams && uniqueTeams.size === totalTeams && uniquePositions.size === totalTeams) {
-        map.set(group.code, orderedTeamIds);
-      }
+  const scoreByMatchId = useMemo(() => new Map(Object.entries(matchScores)), [matchScores]);
+  const groupsWithComputedTable = useMemo(() => {
+    if (!data) return 0;
+    const groupMatchesByCode = new Map<string, number>();
+    for (const match of groupMatches) {
+      const code = String(match.groupCode || "");
+      if (!code) continue;
+      groupMatchesByCode.set(code, (groupMatchesByCode.get(code) || 0) + 1);
     }
-    return map;
-  }, [data]);
-
-  const defaultGroupOrderByCode = useMemo(() => {
-    const map = new Map<string, string[]>();
-    if (!data) return map;
-    for (const group of data.groups) {
-      const defaultOrder = data.teams.filter((team) => team.groupCode === group.code).map((team) => team.id);
-      map.set(group.code, defaultOrder);
-    }
-    return map;
-  }, [data]);
-
-  const groupsSavedCount = savedGroupOrderByCode.size;
+    return data.groups.filter((group) => {
+      const table = computePredictedGroupTable({
+        groupCode: group.code,
+        groups: data.groups,
+        teams: data.teams,
+        matches: data.matches,
+        scoreByMatchId,
+      });
+      const playedSum = table.reduce((sum, row) => sum + row.played, 0);
+      const predictedMatchesInGroup = playedSum / 2;
+      return predictedMatchesInGroup >= (groupMatchesByCode.get(group.code) || 0);
+    }).length;
+  }, [data, groupMatches, scoreByMatchId]);
 
   const liveGroupMatches = groupMatches.filter((match) => {
     if (isLiveMatchStatus(match.status)) return true;
@@ -339,38 +288,6 @@ export function PickemApp() {
   });
 
   const dashboardTopRows = leaderboard.rows.slice(0, 8);
-
-  async function persistGroupPredictions(options?: { reload?: boolean }) {
-    if (!data) return;
-    const rows = data.groups.flatMap((group) =>
-      (groupOrder[group.code] || []).map((teamId, idx) => ({
-        groupCode: group.code,
-        teamId,
-        predictedPosition: idx + 1,
-      })),
-    );
-    const res = await fetch("/pickem/api/predictions/group", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ rows }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json.error || "Failed to save group predictions");
-    if (options?.reload !== false) await loadAll();
-  }
-
-  async function saveGroupPredictions() {
-    if (!data) return;
-    setSavingGroup(true);
-    setError(null);
-    try {
-      await persistGroupPredictions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save group predictions");
-    } finally {
-      setSavingGroup(false);
-    }
-  }
 
   async function persistMatchPredictions(options?: { reload?: boolean }) {
     const rows = Object.entries(matchScores).map(([matchId, score]) => ({
@@ -404,9 +321,6 @@ export function PickemApp() {
     setSubmitting(true);
     setError(null);
     try {
-      if (groupsComplete) {
-        await persistGroupPredictions({ reload: false });
-      }
       if (matchesComplete) {
         await persistMatchPredictions({ reload: false });
       }
@@ -433,18 +347,6 @@ export function PickemApp() {
     } finally {
       setSendingConfirmation(false);
     }
-  }
-
-  function reorderByDrag(groupCode: string, draggedTeamId: string, targetTeamId: string) {
-    setGroupOrder((prev) => {
-      const current = [...(prev[groupCode] || [])];
-      const fromIdx = current.indexOf(draggedTeamId);
-      const toIdx = current.indexOf(targetTeamId);
-      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return prev;
-      const [moved] = current.splice(fromIdx, 1);
-      current.splice(toIdx, 0, moved);
-      return { ...prev, [groupCode]: current };
-    });
   }
 
   async function viewUserPredictions(row: PickemLeaderboardRow) {
@@ -561,8 +463,8 @@ export function PickemApp() {
                   <div className="text-xs font-bold tracking-[0.2em] text-amber-400">FIFA WORLD CUP 2026</div>
                   <h1 className="mt-2 text-4xl font-black leading-none md:text-5xl">Your Predictions</h1>
                   <p className="mt-3 max-w-xl text-sm font-medium text-white/70">
-                    Predict group standings and all group-stage match scorelines. Your picks lock at kickoff,
-                    and standings update automatically from official results.
+                    Predict all group-stage match scorelines. Group standings are auto-calculated from your score picks
+                    using FIFA tie-breakers.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs font-bold">
                     <span className="rounded-full bg-white/10 px-3 py-1">
@@ -581,7 +483,7 @@ export function PickemApp() {
                   <div className="rounded-xl bg-white/10 p-4">
                     <div className="text-xs font-bold uppercase tracking-wider text-white/60">Groups</div>
                     <div className="mt-1 text-3xl font-black">
-                      {groupsSavedCount} <span className="text-base text-white/65">/ {data.groups.length}</span>
+                      {groupsWithComputedTable} <span className="text-base text-white/65">/ {data.groups.length}</span>
                     </div>
                   </div>
                   <div className="rounded-xl bg-white/10 p-4">
@@ -593,7 +495,7 @@ export function PickemApp() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveView("groups")}
+                    onClick={() => setActiveView("matches")}
                     className="mt-1 rounded-xl px-4 py-3 text-sm font-bold text-white transition hover:brightness-110"
                     style={{ background: PRIMARY }}
                   >
@@ -722,30 +624,27 @@ export function PickemApp() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-black" style={{ color: NAVY }}>
-                  Group Stage Predictions
+                  Group Standings (Auto)
                 </h2>
                 <p className="text-sm font-semibold text-slate-500">
-                  Set finishing order for each group. Top 2 are highlighted as qualified.
+                  This view is locked. Standings are calculated automatically from your predicted match scores.
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={groupLocked || savingGroup}
-                onClick={saveGroupPredictions}
-                className="rounded-lg px-4 py-2 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: groupLocked ? "#94a3b8" : PRIMARY }}
-              >
-                {savingGroup ? "Saving..." : groupLocked ? "Locked after kickoff" : "Save Group Picks"}
-              </button>
+              <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                Derived from score picks
+              </span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {data.groups.map((group) => {
-                const ordered = groupOrder[group.code] || [];
-                const savedOrder = savedGroupOrderByCode.get(group.code) || [];
-                const defaultOrder = defaultGroupOrderByCode.get(group.code) || [];
-                const isSaved = savedOrder.length > 0;
-                const isDirty = isSaved && !sameOrder(savedOrder, ordered);
-                const isChangedFromDefault = defaultOrder.length > 0 && !sameOrder(defaultOrder, ordered);
+                const table = computePredictedGroupTable({
+                  groupCode: group.code,
+                  groups: data.groups,
+                  teams: data.teams,
+                  matches: data.matches,
+                  scoreByMatchId,
+                });
+                const allGroupMatches = groupMatches.filter((match) => match.groupCode === group.code).length;
+                const predictedInGroup = table.reduce((sum, row) => sum + row.played, 0) / 2;
                 return (
                   <article
                     key={group.id}
@@ -756,43 +655,17 @@ export function PickemApp() {
                       <h3 className="font-extrabold tracking-wider" style={{ color: NAVY }}>
                         GROUP {group.code}
                       </h3>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                          isChangedFromDefault
-                            ? "bg-blue-100 text-blue-700"
-                            : isDirty
-                            ? "bg-amber-100 text-amber-700"
-                            : isSaved
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {isChangedFromDefault ? "✓ Changed" : isDirty ? "Unsaved" : isSaved ? "✓ Saved" : "Default"}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                        {predictedInGroup}/{allGroupMatches} matches predicted
                       </span>
                     </div>
                     <div className="space-y-2">
-                      {ordered.map((teamId, idx) => {
-                        const team = teamsById.get(teamId);
+                      {table.map((row, idx) => {
+                        const team = teamsById.get(row.teamId);
                         const isTopTwo = idx < 2;
                         return (
                           <div
-                            key={teamId}
-                            draggable={!groupLocked}
-                            onDragStart={(event) => {
-                              event.dataTransfer.setData("text/pickem-team-id", teamId);
-                              event.dataTransfer.setData("text/pickem-group", group.code);
-                            }}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                            }}
-                            onDrop={(event) => {
-                              event.preventDefault();
-                              if (groupLocked) return;
-                              const draggedGroup = event.dataTransfer.getData("text/pickem-group");
-                              const draggedTeamId = event.dataTransfer.getData("text/pickem-team-id");
-                              if (!draggedTeamId || draggedGroup !== group.code) return;
-                              reorderByDrag(group.code, draggedTeamId, teamId);
-                            }}
+                            key={row.teamId}
                             className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 ${
                               isTopTwo ? "bg-blue-50" : "bg-slate-50"
                             }`}
@@ -806,10 +679,16 @@ export function PickemApp() {
                               {idx + 1}
                             </span>
                             <span className="text-base">{flagOf(team)}</span>
-                            <span className="flex-1 truncate text-sm font-semibold" style={{ color: NAVY }}>
-                              {team?.name || "Team"}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400">drag</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold" style={{ color: NAVY }}>
+                                {team?.name || "Team"}
+                              </p>
+                              <p className="text-[11px] font-bold text-slate-500">
+                                P {row.played} · W {row.wins} · D {row.draws} · L {row.losses} · GF {row.goalsFor} ·
+                                {" "}GA {row.goalsAgainst}
+                              </p>
+                            </div>
+                            <span className="text-xs font-bold text-slate-500">{row.points} pts · GD {row.goalDiff}</span>
                           </div>
                         );
                       })}
@@ -1069,41 +948,46 @@ export function PickemApp() {
                         </button>
                       ) : selectedProfileTab === "groups" ? (
                         data.groups.map((group) => {
-                          const picks = selectedUserPredictions.groupPredictions
-                            .filter((gp) => gp.groupCode === group.code)
-                            .sort((a, b) => a.predictedPosition - b.predictedPosition);
-                          if (!picks.length) return null;
+                          const selectedScoreByMatchId = new Map(
+                            selectedUserPredictions.matchPredictions.map((prediction) => [
+                              prediction.matchId,
+                              { home: prediction.predictedHomeScore, away: prediction.predictedAwayScore },
+                            ]),
+                          );
+                          const table = computePredictedGroupTable({
+                            groupCode: group.code,
+                            groups: data.groups,
+                            teams: data.teams,
+                            matches: data.matches,
+                            scoreByMatchId: selectedScoreByMatchId,
+                          });
+                          if (!table.length) return null;
                           return (
                             <div key={group.id} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
                               <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">
                                 Group {group.code}
                               </p>
                               <div className="space-y-2">
-                                {picks.map((gp) => {
-                                  const team = teamsById.get(gp.teamId);
-                                  const finalPos = groupFinalPositionByTeam.get(`${gp.groupCode}:${gp.teamId}`);
-                                  const points = finalPos ? (finalPos === gp.predictedPosition ? 2 : 0) : null;
+                                {table.map((row, idx) => {
+                                  const team = teamsById.get(row.teamId);
                                   return (
                                     <div
-                                      key={`${gp.groupCode}-${gp.teamId}`}
+                                      key={`${group.code}-${row.teamId}`}
                                       className="flex items-center justify-between rounded-lg bg-white px-2.5 py-2"
                                     >
                                       <span className="flex items-center gap-2 truncate text-sm font-semibold" style={{ color: NAVY }}>
-                                        <span className="w-4 text-[11px] font-black text-slate-400">{gp.predictedPosition}</span>
+                                        <span className="w-4 text-[11px] font-black text-slate-400">{idx + 1}</span>
                                         <span>{flagOf(team)}</span>
                                         <span className="truncate">{team?.name || "Team"}</span>
                                       </span>
-                                      <span
-                                        className={`rounded-md px-2 py-0.5 text-[11px] font-black ${
-                                          points === null
-                                            ? "bg-slate-100 text-slate-500"
-                                            : points > 0
-                                              ? "bg-emerald-100 text-emerald-700"
-                                              : "bg-slate-200 text-slate-500"
-                                        }`}
-                                      >
-                                        {points === null ? "-" : `+${points}`}
-                                      </span>
+                                      <div className="text-right">
+                                        <p className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-600">
+                                          {row.points} pts · GD {row.goalDiff}
+                                        </p>
+                                        <p className="mt-1 text-[10px] font-bold text-slate-500">
+                                          P {row.played} W {row.wins} D {row.draws} L {row.losses} GF {row.goalsFor} GA {row.goalsAgainst}
+                                        </p>
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -1155,7 +1039,13 @@ export function PickemApp() {
                                           : "bg-slate-200 text-slate-500"
                                     }`}
                                   >
-                                    {points === null ? "-" : exact ? "+4 exact score" : points === 1 ? "+1 result" : "Missed"}
+                                    {points === null
+                                      ? "-"
+                                      : exact
+                                        ? "+1 result +3 exact"
+                                        : points === 1
+                                          ? "+1 result"
+                                          : "Missed"}
                                   </span>
                                 </div>
                               </div>

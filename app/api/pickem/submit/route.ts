@@ -24,13 +24,6 @@ export async function POST() {
     listUserPredictions({ userId: auth.user.id, competitionId: competition.id }),
   ]);
 
-  const groupCodes = groups.map((g) => g.code);
-  const predictedGroups = new Set(predictions.groupPredictions.map((g) => g.groupCode));
-  const missingGroups = groupCodes.filter((code) => !predictedGroups.has(code));
-  if (missingGroups.length) {
-    return NextResponse.json({ error: `Missing group predictions for: ${missingGroups.join(", ")}` }, { status: 400 });
-  }
-
   const groupMatchIds = matches.filter((m) => m.stage === "group").map((m) => m.id);
   const predictedMatchIds = new Set(predictions.matchPredictions.map((m) => m.matchId));
   const missingMatches = groupMatchIds.filter((id) => !predictedMatchIds.has(id));
@@ -82,7 +75,7 @@ export async function POST() {
       to: auth.user.email,
       displayName,
       competitionName: competition.name,
-      groupsSet: predictedGroups.size,
+      groupsSet: groups.length,
       groupsTotal: groups.length,
       matchesPredicted: predictions.matchPredictions.length,
       matchPicks,

@@ -51,7 +51,6 @@ export async function POST() {
       };
     })
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
-  const predictedGroups = new Set(predictions.groupPredictions.map((prediction) => prediction.groupCode));
   const daysToKickoff = Math.max(
     0,
     Math.ceil((new Date(competition.startsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
@@ -69,7 +68,7 @@ export async function POST() {
     to: auth.user.email,
     displayName,
     competitionName: competition.name,
-    groupsSet: predictedGroups.size,
+    groupsSet: groups.length,
     groupsTotal: groups.length,
     matchesPredicted: predictions.matchPredictions.length,
     matchPicks,

@@ -128,11 +128,11 @@ services:
     container_name: digital-wall-backend
     restart: unless-stopped
     env_file:
-      - ./digital-wall/.env
+      - ./.env
     environment:
       PORT: 5174
       NODE_ENV: production
-    command: node --env-file=.env server.mjs
+    command: node server.mjs
     expose:
       - "5174"
 

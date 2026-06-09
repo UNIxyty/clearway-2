@@ -724,11 +724,16 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       await answerCallbackQuery(callbackId, "Approved — select role", "bug");
       const htmlBase = buildHtmlBase(cb?.message?.text || "");
       await editHtml(`${htmlBase}\n\nSelect role:`, {
-        inline_keyboard: [[
-          { text: "User", callback_data: `approval:role:user:${targetUserId}` },
-          { text: "Admin", callback_data: `approval:role:admin:${targetUserId}` },
-          { text: "Developer", callback_data: `approval:role:developer:${targetUserId}` },
-        ]],
+        inline_keyboard: [
+          [
+            { text: "User", callback_data: `approval:role:user:${targetUserId}` },
+            { text: "Temporary user", callback_data: `approval:role:temporary:${targetUserId}` },
+          ],
+          [
+            { text: "Admin", callback_data: `approval:role:admin:${targetUserId}` },
+            { text: "Developer", callback_data: `approval:role:developer:${targetUserId}` },
+          ],
+        ],
       });
       return NextResponse.json({ ok: true, approval: "approved", userId: targetUserId });
     }
@@ -737,7 +742,7 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       const secondColon = remainder.indexOf(":");
       const role = secondColon > -1 ? remainder.slice(0, secondColon) : remainder;
       const targetUserId = secondColon > -1 ? remainder.slice(secondColon + 1) : "";
-      if (!targetUserId || !["user", "admin", "developer"].includes(role)) {
+      if (!targetUserId || !["user", "temporary", "admin", "developer"].includes(role)) {
         await answerCallbackQuery(callbackId, "Invalid role", "bug");
         return NextResponse.json({ ok: true, ignored: "invalid role callback" });
       }
@@ -746,16 +751,39 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         await answerCallbackQuery(callbackId, "Server error", "bug");
         return NextResponse.json({ error: "Missing service key" }, { status: 503 });
       }
-      if (role === "admin") {
-        await service
-          .from("user_preferences")
-          .upsert({ user_id: targetUserId, is_admin: true }, { onConflict: "user_id" });
-      } else if (role === "developer") {
-        await service
-          .from("user_preferences")
-          .upsert({ user_id: targetUserId, is_developer: true }, { onConflict: "user_id" });
+
+      const { data: userLookup } = await service.auth.admin.getUserById(targetUserId);
+      const currentMeta = ((userLookup?.user?.user_metadata as Record<string, unknown> | undefined) || {});
+      const nextMeta: Record<string, unknown> = { ...currentMeta, is_approved: true };
+      if (role === "temporary") {
+        nextMeta.role = "temporary";
+        nextMeta.is_temporary = true;
+      } else {
+        nextMeta.role = role;
+        nextMeta.is_temporary = false;
       }
-      const roleLabel = role === "developer" ? "Developer" : role === "admin" ? "Admin" : "User";
+      await service.auth.admin.updateUserById(targetUserId, {
+        user_metadata: nextMeta,
+      });
+
+      await service.from("user_preferences").upsert(
+        {
+          user_id: targetUserId,
+          is_admin: role === "admin",
+          is_developer: role === "developer",
+          is_approved: true,
+        },
+        { onConflict: "user_id" },
+      );
+
+      const roleLabel =
+        role === "developer"
+          ? "Developer"
+          : role === "admin"
+            ? "Admin"
+            : role === "temporary"
+              ? "Temporary user"
+              : "User";
       await answerCallbackQuery(callbackId, `Role: ${roleLabel}`, "bug");
       const htmlBase = buildHtmlBase(cb?.message?.text || "");
       await editHtml(`${htmlBase}\n\nConfirmed — ${roleLabel}`);

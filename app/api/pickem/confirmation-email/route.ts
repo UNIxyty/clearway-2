@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
-import { sendPickemSubmissionEmail } from "@/lib/pickem-email";
+import { pickemTeamFlag, sendPickemSubmissionEmail } from "@/lib/pickem-email";
 import { getActiveCompetition, hasSubmitted, listGroups, listMatches, listTeams, listUserPredictions } from "@/lib/pickem-store";
 
 export async function POST() {
@@ -46,8 +46,8 @@ export async function POST() {
         awayName: teamById.get(match.awayTeamId)?.name || "Away",
         homeScore: prediction.predictedHomeScore,
         awayScore: prediction.predictedAwayScore,
-        homeFlag: "",
-        awayFlag: "",
+        homeFlag: pickemTeamFlag(teamById.get(match.homeTeamId)?.name || ""),
+        awayFlag: pickemTeamFlag(teamById.get(match.awayTeamId)?.name || ""),
       };
     })
     .filter((row): row is NonNullable<typeof row> => Boolean(row));

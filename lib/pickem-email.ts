@@ -17,6 +17,61 @@ type PickemSubmissionEmailInput = {
   daysToKickoff?: number;
 };
 
+const TEAM_FLAG_BY_NAME: Record<string, string> = {
+  Mexico: "🇲🇽",
+  Croatia: "🇭🇷",
+  Egypt: "🇪🇬",
+  "New Zealand": "🇳🇿",
+  Canada: "🇨🇦",
+  Morocco: "🇲🇦",
+  "Ivory Coast": "🇨🇮",
+  Sweden: "🇸🇪",
+  Argentina: "🇦🇷",
+  Norway: "🇳🇴",
+  Japan: "🇯🇵",
+  "Saudi Arabia": "🇸🇦",
+  "United States": "🇺🇸",
+  Switzerland: "🇨🇭",
+  Paraguay: "🇵🇾",
+  Qatar: "🇶🇦",
+  Brazil: "🇧🇷",
+  Senegal: "🇸🇳",
+  "South Korea": "🇰🇷",
+  Australia: "🇦🇺",
+  France: "🇫🇷",
+  Uruguay: "🇺🇾",
+  Iran: "🇮🇷",
+  Panama: "🇵🇦",
+  England: "🏴",
+  Colombia: "🇨🇴",
+  Tunisia: "🇹🇳",
+  Jordan: "🇯🇴",
+  Spain: "🇪🇸",
+  Denmark: "🇩🇰",
+  Nigeria: "🇳🇬",
+  "Costa Rica": "🇨🇷",
+  Portugal: "🇵🇹",
+  Austria: "🇦🇹",
+  Ghana: "🇬🇭",
+  Honduras: "🇭🇳",
+  Germany: "🇩🇪",
+  Turkey: "🇹🇷",
+  Cameroon: "🇨🇲",
+  Uzbekistan: "🇺🇿",
+  Netherlands: "🇳🇱",
+  Italy: "🇮🇹",
+  Algeria: "🇩🇿",
+  Peru: "🇵🇪",
+  Belgium: "🇧🇪",
+  Ecuador: "🇪🇨",
+  Poland: "🇵🇱",
+  Scotland: "🏴",
+};
+
+export function pickemTeamFlag(name: string): string {
+  return TEAM_FLAG_BY_NAME[String(name).trim()] || "🏳️";
+}
+
 function appOrigin(): string {
   return String(process.env.PORTAL_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://clearway.verxyl.com").trim();
 }
@@ -27,7 +82,9 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
   if (!apiKey) return false;
 
   const subject = "Your World Cup picks are locked in";
-  const pickemUrl = `${appOrigin().replace(/\/+$/, "")}/pickem`;
+  const origin = appOrigin().replace(/\/+$/, "");
+  const pickemUrl = `${origin}/pickem`;
+  const logoUrl = `${origin}/header_logo_white.svg`;
   const firstName = String(input.displayName || "there")
     .trim()
     .split(/\s+/)[0] || "there";
@@ -84,8 +141,8 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="x-apple-disable-message-reformatting">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>Your World Cup picks are locked in</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
@@ -107,11 +164,11 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
   }
 </style>
 </head>
-<body style="margin:0; padding:0; background-color:#f5f5f5; font-family:'Archivo','Segoe UI',Arial,Helvetica,sans-serif;">
+<body bgcolor="#f5f5f5" style="margin:0; padding:0; background-color:#f5f5f5; font-family:'Archivo','Segoe UI',Arial,Helvetica,sans-serif;">
   <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f5f5f5; opacity:0;">
     Locked in - ${groupsSet} groups and ${matchesPredicted} match scores submitted. Good luck, ${esc(firstName)}.
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f5f5;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f5f5" style="background-color:#f5f5f5;">
     <tr>
       <td align="center" style="padding:24px 12px 40px;">
         <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
@@ -119,13 +176,8 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
             <td style="padding:4px 8px 18px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="vertical-align:middle;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                      <td width="28" height="28" align="center" valign="middle" style="background-color:#0f1e3c; border-radius:7px;">
-                        <div style="width:11px; height:11px; background-color:#f59e0b; border-radius:3px; font-size:0; line-height:0;">&nbsp;</div>
-                      </td>
-                      <td style="padding-left:10px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:19px; font-weight:900; letter-spacing:1px; color:#0f1e3c;">CLEARWAY</td>
-                    </tr></table>
+                  <td style="vertical-align:middle; background-color:#0f1e3c; border-radius:8px; padding:8px 12px;">
+                    <img src="${logoUrl}" alt="Clearway" width="132" style="display:block; width:132px; height:auto;">
                   </td>
                 </tr>
               </table>
@@ -176,7 +228,7 @@ export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInpu
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td class="px" style="padding:26px 44px 6px;">
-                    <p style="margin:0 0 4px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:rgba(15,30,60,0.4);">Your match calls</p>
+                    <p style="margin:0 0 4px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:#64748b;">Your match calls</p>
                   </td>
                 </tr>
                 <tr>
@@ -192,11 +244,11 @@ ${picksRows}
                   <td class="px" style="padding:22px 44px 4px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f8fa; border-radius:14px;">
                       <tr>
-                        <td style="padding:16px 20px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12.5px; line-height:20px; color:rgba(15,30,60,0.6);">
+                        <td style="padding:16px 20px; font-family:'Archivo',Arial,Helvetica,sans-serif; font-size:12.5px; line-height:20px; color:#475569;">
                           <strong style="color:#0f1e3c;">How points work:</strong>
-                          &nbsp;<span style="color:#1a56db; font-weight:800;">+1</span> correct result &nbsp;&middot;&nbsp;
-                          <span style="color:#ea580c; font-weight:800;">+3</span> exact scoreline bonus (with result) &nbsp;&middot;&nbsp;
-                          <span style="color:#1a56db; font-weight:800;">+1</span> per team in its right group slot
+                          &nbsp;<span style="color:#1a56db; font-weight:800;">+1</span> team in the right group position &nbsp;&middot;&nbsp;
+                          <span style="color:#1a56db; font-weight:800;">+1</span> correct match result &nbsp;&middot;&nbsp;
+                          <span style="color:#ea580c; font-weight:800;">+3</span> exact score (total exact = 4)
                         </td>
                       </tr>
                     </table>

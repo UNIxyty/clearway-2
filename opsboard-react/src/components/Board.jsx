@@ -50,16 +50,6 @@ function SoftGrid({ hours }) {
   );
 }
 
-function collectLims(aircraft) {
-  const lims = [];
-  aircraft.forEach(ac => {
-    ac.flights.forEach(fl => {
-      if (fl.lim) lims.push({ ...fl.lim, ac: ac.reg, fn: fl.fn });
-    });
-  });
-  return lims;
-}
-
 function toMs(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -111,9 +101,9 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [activeLim, setActiveLim] = useState(null);
+  const [activeLimId, setActiveLimId] = useState('');
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
   const headerScrollRef = useRef(null);
@@ -217,12 +207,14 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
     hasCenteredInitiallyRef.current = true;
   }, [timelinePx, END_PAD_PX, windowStartMs, windowDurationMs, nowX]);
 
-  const allLims    = collectLims(aircraft);
+  const allLims = Array.isArray(limitations) ? limitations : [];
   const limIndexMap = {};
-  allLims.forEach((l, i) => { limIndexMap[l.fn] = i + 1; });
+  allLims.forEach((l, i) => {
+    limIndexMap[l.id] = i + 1;
+  });
 
-  function handleLimClick(lim, fn) {
-    setActiveLim(prev => (prev?.fn === fn ? null : { lim, fn }));
+  function handleLimClick(id) {
+    setActiveLimId((prev) => (prev === id ? '' : id));
   }
 
   const showNow = true;
@@ -253,10 +245,10 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
           {allLims.length === 0 && <div style={s.limEmpty}>None active</div>}
           {allLims.map((l, i) => {
             const theme    = LIM_TYPE_COLOR[l.type] || LIM_TYPE_COLOR.AOG;
-            const isActive = activeLim?.fn === l.fn;
+            const isActive = activeLimId === l.id;
             return (
               <div
-                key={l.fn}
+                key={l.id}
                 style={{
                   ...s.limItem,
                   background: isActive ? theme.bg : 'transparent',
@@ -264,7 +256,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
                   opacity: isActive ? 1 : 0.45,
                   cursor: 'pointer',
                 }}
-                onClick={() => handleLimClick(l, l.fn)}
+                onClick={() => handleLimClick(l.id)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <span style={{
@@ -276,10 +268,10 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>{i + 1}</span>
                   <span style={{ ...s.limType, color: theme.text }}>{l.type}</span>
-                  <span style={s.limAc}>{l.ac}</span>
+                  <span style={s.limAc}>{l.airportIcaos?.length || 0} AP / {l.countries?.length || 0} CTR</span>
                 </div>
-                <div style={s.limFn}>{l.fn}</div>
-                {isActive && <div style={{ ...s.limMsg, color: theme.text }}>{l.msg}</div>}
+                <div style={s.limFn}>{l.title}</div>
+                {isActive && <div style={{ ...s.limMsg, color: theme.text }}>{l.description || '-'}</div>}
               </div>
             );
           })}
@@ -353,19 +345,19 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
                           borderLeft: '1px dashed rgba(200,80,80,.35)',
                           borderRight: '1px dashed rgba(200,80,80,.35)',
                         }}>
-                          <span style={s.aogLabel}>AOG · {fl.lim?.msg?.split('—')[0]?.trim()}</span>
-                          {fl.lim && (
+                          <span style={s.aogLabel}>AOG</span>
+                          {Array.isArray(fl.limitationIds) && fl.limitationIds.length > 0 && (
                             <div
                               style={{
                                 position: 'absolute', top: '50%', right: 8,
                                 transform: 'translateY(-50%)',
                                 ...s.limBadgeInline,
-                                background: activeLim?.fn === fl.fn
+                                background: activeLimId
                                   ? 'rgba(240,177,59,.35)' : 'rgba(240,177,59,.2)',
                               }}
-                              onClick={() => handleLimClick(fl.lim, fl.fn)}
+                              onClick={() => handleLimClick(fl.limitationIds[0])}
                             >
-                              {limIndexMap[fl.fn]}
+                              {limIndexMap[fl.limitationIds[0]]}
                             </div>
                           )}
                         </div>
@@ -381,7 +373,7 @@ export default function Board({ aircraft = [], windowStartUtc, windowEndUtc }) {
                         laneStep={FLIGHT_LANE_STEP}
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}
-                        limIndex={fl.lim ? limIndexMap[fl.fn] : undefined}
+                        limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                         onLimClick={handleLimClick}
                       />
                     ))}

@@ -180,6 +180,54 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/airports/search" && req.method === "GET") {
+      const q = url.searchParams.get("q") || "";
+      const limit = Number(url.searchParams.get("limit") || 50);
+      const airports = timelineService.listAirportMatches(q, limit);
+      sendJson(res, { ok: true, q, count: airports.length, airports });
+      return;
+    }
+
+    if (pathname === "/api/countries" && req.method === "GET") {
+      const q = url.searchParams.get("q") || "";
+      const limit = Number(url.searchParams.get("limit") || 200);
+      const countries = timelineService.listCountries(q, limit);
+      sendJson(res, { ok: true, q, count: countries.length, countries });
+      return;
+    }
+
+    if (pathname === "/api/timeline/limitations" && req.method === "GET") {
+      const includeInactive = url.searchParams.get("includeInactive") === "true";
+      sendJson(res, {
+        ok: true,
+        source: timelineService.getStatus().source,
+        limitations: timelineService.listCustomLimitations({ includeInactive }),
+      });
+      return;
+    }
+
+    if (pathname === "/api/timeline/limitations" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      const limitation = await timelineService.upsertCustomLimitation(body);
+      sendJson(res, { ok: true, limitation });
+      return;
+    }
+
+    if (pathname.startsWith("/api/timeline/limitations/") && req.method === "PATCH") {
+      const id = pathname.split("/").pop();
+      const body = await readJsonBody(req);
+      const limitation = await timelineService.setCustomLimitationActive(id, Boolean(body.isActive));
+      sendJson(res, { ok: true, limitation });
+      return;
+    }
+
+    if (pathname.startsWith("/api/timeline/limitations/") && req.method === "DELETE") {
+      const id = pathname.split("/").pop();
+      await timelineService.deleteCustomLimitation(id);
+      sendJson(res, { ok: true, id });
+      return;
+    }
+
     if (pathname === "/api/flights/data") {
       const from = url.searchParams.get("from");
       const to = url.searchParams.get("to");
@@ -232,11 +280,6 @@ const server = http.createServer(async (req, res) => {
           500
         );
       }
-      return;
-    }
-
-    if (pathname === "/api/timeline/limitations") {
-      sendJson(res, timelineService.getLimitations());
       return;
     }
 

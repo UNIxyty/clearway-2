@@ -20,14 +20,14 @@ function hmUtc(ms) {
 
 export default function FlightPill({
   flight,
-  limIndex,
+  limIndices = [],
   onLimClick,
   windowStartMs,
   windowDurationMs,
   lane = 0,
   laneStep = 42,
 }) {
-  const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status, lim } = flight;
+  const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
 
   const isDelayed = depDelayMin > 0 || arrDelayMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
@@ -130,13 +130,22 @@ export default function FlightPill({
               )}
             </div>
 
-            {lim && limIndex !== undefined && (
-              <div
-                style={s.limBadgeInline}
-                onClick={() => onLimClick && onLimClick(lim, fn)}
-                title={lim.msg}
-              >
-                {limIndex}
+            {Array.isArray(limIndices) && limIndices.length > 0 && (
+              <div style={s.limBadgeRow}>
+                {limIndices.slice(0, 3).map((indexValue, idx) => {
+                  const limitationId = flight?.limitationIds?.[idx];
+                  return (
+                    <div
+                      key={`${fn}-lim-${indexValue}-${idx}`}
+                      style={s.limBadgeInline}
+                      onClick={() => onLimClick && limitationId && onLimClick(limitationId)}
+                      title={flight?.limitations?.[idx]?.title || 'Limitation'}
+                    >
+                      {indexValue}
+                    </div>
+                  );
+                })}
+                {limIndices.length > 3 && <span style={s.moreLim}>+{limIndices.length - 3}</span>}
               </div>
             )}
           </div>
@@ -204,7 +213,6 @@ const s = {
     fontWeight: 700, letterSpacing: '.5px', whiteSpace: 'nowrap', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1,
   },
   limBadgeInline: {
-    marginLeft: 4,
     flexShrink: 0,
     width: 16, height: 16, borderRadius: '50%',
     background: 'rgba(240,177,59,.25)', border: '1px solid rgba(240,177,59,.5)',
@@ -212,6 +220,18 @@ const s = {
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', transition: 'background .15s',
+  },
+  limBadgeRow: {
+    marginLeft: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
+  },
+  moreLim: {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 8,
+    color: '#b9c8e7',
   },
   timesRow: {
     position: 'relative',

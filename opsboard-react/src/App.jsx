@@ -21,6 +21,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [source, setSource] = useState('');
+  const [limitations, setLimitations] = useState([]);
 
   async function loadTimeline() {
     setLoading(true);
@@ -31,9 +32,11 @@ export default function App() {
       setSource(result.source);
       setWindowStartUtc(result.windowStartUtc || '');
       setWindowEndUtc(result.windowEndUtc || '');
+      setLimitations(result.limitations || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setAircraft([]);
+      setLimitations([]);
     } finally {
       setLoading(false);
     }
@@ -80,7 +83,12 @@ export default function App() {
         </div>
       </div>
       {view === 'timeline' && (
-        <Board aircraft={aircraft} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} />
+        <Board
+          aircraft={aircraft}
+          limitations={limitations}
+          windowStartUtc={windowStartUtc}
+          windowEndUtc={windowEndUtc}
+        />
       )}
       {view === 'aircrafts' && <AircraftsPage />}
       {view === 'operators' && <OperatorsPage />}

@@ -5,6 +5,7 @@ const DEFAULT_POLL_MS = 30 * 1000;
 const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
+const AIRPORT_DIRECTORY_FILE = path.resolve(process.cwd(), "..", "data", "ead-airports-with-names.json");
 
 function parseDate(value) {
   const dt = new Date(value);
@@ -61,6 +62,20 @@ function addMinutesIso(base, minutes) {
 function addDelayIso(base, delayMinutes) {
   if (delayMinutes === null || delayMinutes === undefined || Number(delayMinutes) <= 0) return null;
   return addMinutesIso(base, delayMinutes);
+}
+
+function normalizeIcao(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizeCountry(value) {
+  return String(value || "").trim();
+}
+
+function toUniqueSorted(values = []) {
+  return [...new Set(values.filter(Boolean).map((v) => String(v).trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  );
 }
 
 const LEON_FLIGHT_FIELDS = `
@@ -312,6 +327,9 @@ export class LeonTimelineService {
     this.syncStateByOperator = new Map();
     this.limitations = [];
     this.rawLimitations = [];
+    this.customLimitations = [];
+    this.airportDirectoryByIcao = new Map();
+    this.countryOptions = [];
     this.hasLiveLeonData = false;
     this.cacheFilePath = LOCAL_CACHE_FILE;
 
@@ -406,6 +424,7 @@ export class LeonTimelineService {
   }
 
   async bootstrap() {
+    await this.loadAirportDirectory();
     const loadedFromCache = await this.loadLocalCache();
     if (!loadedFromCache) {
       await this.loadStaticSeeds();
@@ -440,6 +459,7 @@ export class LeonTimelineService {
 
     if (staticLimitations?.limitations && Array.isArray(staticLimitations.limitations)) {
       this.rawLimitations = staticLimitations.limitations;
+      // Keep legacy limitations for backward compatibility, but use custom limitations for timeline logic.
       this.limitations = staticLimitations.limitations.map((item) => ({
         id: item.id,
         title: item.title,
@@ -450,6 +470,29 @@ export class LeonTimelineService {
         endDate: item.endDate,
       }));
     }
+  }
+
+  async loadAirportDirectory() {
+    const payload = await readJsonIfExists(AIRPORT_DIRECTORY_FILE);
+    this.airportDirectoryByIcao.clear();
+    if (!payload || typeof payload !== "object") {
+      this.countryOptions = [];
+      return;
+    }
+
+    const countries = new Set();
+    for (const [icaoKey, row] of Object.entries(payload)) {
+      const icao = normalizeIcao(row?.icao || icaoKey);
+      if (!icao) continue;
+      const country = normalizeCountry(row?.country);
+      if (country) countries.add(country);
+      this.airportDirectoryByIcao.set(icao, {
+        icao,
+        name: String(row?.name || "").trim(),
+        country,
+      });
+    }
+    this.countryOptions = [...countries].sort((a, b) => a.localeCompare(b));
   }
 
   async loadLocalCache() {
@@ -488,6 +531,9 @@ export class LeonTimelineService {
     if (Array.isArray(payload.rawLimitations)) {
       this.rawLimitations = payload.rawLimitations;
     }
+    if (Array.isArray(payload.customLimitations)) {
+      this.customLimitations = payload.customLimitations;
+    }
 
     if (this.flightsByNid.size > 0) {
       this.state.source = "local-cache";
@@ -510,6 +556,7 @@ export class LeonTimelineService {
       aircraftCacheByOperator: Object.fromEntries(this.aircraftCacheByOperator.entries()),
       limitations: this.limitations,
       rawLimitations: this.rawLimitations,
+      customLimitations: this.customLimitations,
     };
     await fs.mkdir(path.dirname(this.cacheFilePath), { recursive: true });
     await fs.writeFile(this.cacheFilePath, JSON.stringify(payload), "utf-8");
@@ -861,7 +908,7 @@ export class LeonTimelineService {
           operatorName: flight.operatorName ?? operator.name ?? activeOprId,
           aircraftNid: aircraft.aircraftNid ?? null,
           registration,
-          flight,
+          flight: this.decorateFlightWithLimitations(flight),
         });
       }
 
@@ -895,7 +942,7 @@ export class LeonTimelineService {
         operatorName: flight.operatorName ?? aircraft.oprId ?? this.operatorId,
         aircraftNid: aircraft.aircraftNid,
         registration: aircraft.registration,
-        flight,
+        flight: this.decorateFlightWithLimitations(flight),
       });
     }
     const grouped = groupFlights(records);
@@ -1132,11 +1179,12 @@ export class LeonTimelineService {
   }
 
   getLimitations() {
+    const active = this.customLimitations.filter((item) => item.isActive !== false);
     return {
       source: this.state.source,
       syncedAt: this.state.lastRunAt,
-      count: this.limitations.length,
-      limitations: this.limitations,
+      count: active.length,
+      limitations: active,
     };
   }
 
@@ -1171,5 +1219,138 @@ export class LeonTimelineService {
       storage: this.operatorsStore?.storageMode?.() ?? "unknown",
       cacheStats: this.state.cacheStats ?? { updated: 0, skipped: 0, deleted: 0 },
     };
+  }
+
+  getFlightCountryByIcao(icao) {
+    const key = normalizeIcao(icao);
+    if (!key) return "";
+    return this.airportDirectoryByIcao.get(key)?.country || "";
+  }
+
+  getMatchedLimitationIds(flight) {
+    const active = this.customLimitations.filter((item) => item.isActive !== false);
+    if (active.length === 0) return [];
+    const depIcao = normalizeIcao(flight?.adep?.icao);
+    const arrIcao = normalizeIcao(flight?.ades?.icao);
+    const depCountry = this.getFlightCountryByIcao(depIcao);
+    const arrCountry = this.getFlightCountryByIcao(arrIcao);
+
+    const matched = [];
+    for (const item of active) {
+      const airportSet = new Set((item.airportIcaos || []).map(normalizeIcao).filter(Boolean));
+      const countrySet = new Set((item.countries || []).map(normalizeCountry).filter(Boolean));
+      const airportMatch =
+        airportSet.size > 0 && (airportSet.has(depIcao) || airportSet.has(arrIcao));
+      const countryMatch =
+        countrySet.size > 0 && (countrySet.has(depCountry) || countrySet.has(arrCountry));
+      if (airportMatch || countryMatch) {
+        matched.push(item.id);
+      }
+    }
+    return matched;
+  }
+
+  decorateFlightWithLimitations(flight) {
+    const limitationIds = this.getMatchedLimitationIds(flight);
+    if (limitationIds.length === 0) {
+      return { ...flight, limitationIds: [], limitations: [] };
+    }
+    const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
+    const limitations = limitationIds
+      .map((id) => limitationMap.get(id))
+      .filter(Boolean)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        type: item.type,
+      }));
+    return { ...flight, limitationIds, limitations };
+  }
+
+  listAirportMatches(query = "", limit = 50) {
+    const q = String(query || "").trim().toLowerCase();
+    const max = Math.max(1, Math.min(200, Number(limit) || 50));
+    const rows = [];
+    for (const row of this.airportDirectoryByIcao.values()) {
+      if (!q) {
+        rows.push(row);
+      } else {
+        const hay = `${row.icao} ${row.name} ${row.country}`.toLowerCase();
+        if (hay.includes(q)) rows.push(row);
+      }
+      if (rows.length >= max) break;
+    }
+    return rows;
+  }
+
+  listCountries(query = "", limit = 200) {
+    const q = String(query || "").trim().toLowerCase();
+    const max = Math.max(1, Math.min(500, Number(limit) || 200));
+    return this.countryOptions
+      .filter((country) => !q || country.toLowerCase().includes(q))
+      .slice(0, max);
+  }
+
+  listCustomLimitations({ includeInactive = true } = {}) {
+    const rows = includeInactive
+      ? this.customLimitations
+      : this.customLimitations.filter((item) => item.isActive !== false);
+    return rows
+      .slice()
+      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  }
+
+  async upsertCustomLimitation(input = {}) {
+    const title = String(input.title || "").trim();
+    if (!title) {
+      throw new Error("Limitation title is required.");
+    }
+    const now = new Date().toISOString();
+    const id = String(input.id || `LIM-${Date.now().toString(36).toUpperCase()}`).trim();
+    const next = {
+      id,
+      title,
+      description: String(input.description || "").trim(),
+      type: String(input.type || "OPS").trim().toUpperCase(),
+      airportIcaos: toUniqueSorted((input.airportIcaos || []).map(normalizeIcao)),
+      countries: toUniqueSorted((input.countries || []).map(normalizeCountry)),
+      isActive: input.isActive !== false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const index = this.customLimitations.findIndex((item) => item.id === id);
+    if (index >= 0) {
+      next.createdAt = this.customLimitations[index].createdAt || now;
+      this.customLimitations[index] = next;
+    } else {
+      this.customLimitations.push(next);
+    }
+    await this.persistLocalCache();
+    return next;
+  }
+
+  async setCustomLimitationActive(id, isActive) {
+    const index = this.customLimitations.findIndex((item) => item.id === id);
+    if (index < 0) {
+      throw new Error("Limitation not found.");
+    }
+    this.customLimitations[index] = {
+      ...this.customLimitations[index],
+      isActive: Boolean(isActive),
+      updatedAt: new Date().toISOString(),
+    };
+    await this.persistLocalCache();
+    return this.customLimitations[index];
+  }
+
+  async deleteCustomLimitation(id) {
+    const before = this.customLimitations.length;
+    this.customLimitations = this.customLimitations.filter((item) => item.id !== id);
+    if (this.customLimitations.length === before) {
+      throw new Error("Limitation not found.");
+    }
+    await this.persistLocalCache();
   }
 }

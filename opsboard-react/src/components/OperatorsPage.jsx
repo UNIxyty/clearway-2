@@ -124,15 +124,27 @@ export default function OperatorsPage() {
                 <td style={s.td}>{row.name || '-'}</td>
                 <td style={s.td}>{row.hasRefreshToken ? 'Yes' : 'No'}</td>
                 <td style={s.td}>
-                  <label style={s.toggleWrap}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(row.isActive)}
+                  <div style={s.toggleWrap}>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(row.isActive)}
+                      style={{
+                        ...s.switch,
+                        ...(row.isActive ? s.switchOn : s.switchOff),
+                      }}
                       disabled={togglingId === row.id || loading}
-                      onChange={(event) => toggleOperator(row, event.target.checked)}
-                    />
+                      onClick={() => toggleOperator(row, !row.isActive)}
+                    >
+                      <span
+                        style={{
+                          ...s.switchKnob,
+                          transform: row.isActive ? 'translateX(16px)' : 'translateX(0)',
+                        }}
+                      />
+                    </button>
                     <span>{row.isActive ? 'Enabled' : 'Disabled'}</span>
-                  </label>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -187,5 +199,32 @@ const s = {
     alignItems: 'center',
     gap: 8,
     fontSize: 12,
+  },
+  switch: {
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    border: '1px solid transparent',
+    padding: 1,
+    position: 'relative',
+    cursor: 'pointer',
+    transition: 'background .18s, border-color .18s',
+  },
+  switchOn: {
+    background: '#34c759',
+    borderColor: 'rgba(52,199,89,.45)',
+  },
+  switchOff: {
+    background: '#2b3348',
+    borderColor: '#3b4969',
+  },
+  switchKnob: {
+    display: 'block',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0,0,0,.35)',
+    transition: 'transform .18s',
   },
 };

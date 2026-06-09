@@ -93,6 +93,8 @@ function mapFlight(flight) {
     delayedStartUtcMs: delayedDep.getTime(),
     scheduledEndUtcMs: scheduledEnd.getTime(),
     endUtcMs: delayedArr.getTime(),
+    limitationIds: Array.isArray(flight.limitationIds) ? flight.limitationIds : [],
+    limitations: Array.isArray(flight.limitations) ? flight.limitations : [],
   };
 }
 
@@ -119,12 +121,17 @@ export async function fetchTimelineAircraft() {
   });
 
   const payload = await fetchJson(`/api/timeline/flights?${query.toString()}`, 'Timeline request failed');
+  const limitationsPayload = await fetchJson(
+    '/api/timeline/limitations?includeInactive=false',
+    'Limitations request failed'
+  ).catch(() => ({ limitations: [] }));
 
   const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
   return {
     source: payload.source || 'unknown',
     totalAircraft: aircraft.length,
     aircraft,
+    limitations: limitationsPayload.limitations || [],
     windowStartUtc: from.toISOString(),
     windowEndUtc: to.toISOString(),
   };
@@ -185,6 +192,55 @@ export async function setOperatorActive(id, isActive) {
 }
 
 export async function fetchLimitations() {
-  return fetchJson('/api/timeline/limitations', 'Limitations request failed');
+  return fetchJson('/api/timeline/limitations?includeInactive=true', 'Limitations request failed');
+}
+
+export async function searchAirports(query, limit = 30) {
+  const q = String(query || '').trim();
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return fetchJson(`/api/airports/search?${params.toString()}`, 'Airport search failed');
+}
+
+export async function fetchCountries(query = '', limit = 200) {
+  const q = String(query || '').trim();
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return fetchJson(`/api/countries?${params.toString()}`, 'Countries request failed');
+}
+
+export async function upsertLimitation(input) {
+  const response = await fetch(buildApiUrl('/api/timeline/limitations'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input || {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save limitation (${response.status})`);
+  }
+  return payload;
+}
+
+export async function setLimitationActive(id, isActive) {
+  const response = await fetch(buildApiUrl(`/api/timeline/limitations/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ isActive }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update limitation (${response.status})`);
+  }
+  return payload;
+}
+
+export async function deleteLimitation(id) {
+  const response = await fetch(buildApiUrl(`/api/timeline/limitations/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete limitation (${response.status})`);
+  }
+  return payload;
 }
 

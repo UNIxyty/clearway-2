@@ -75,15 +75,27 @@ export default function AircraftsPage() {
                 <td style={s.td}>{row.operatorName || row.oprId || '-'}</td>
                 <td style={s.td}>{row.flightCount ?? 0}</td>
                 <td style={s.td}>
-                  <label style={s.toggleWrap}>
-                    <input
-                      type="checkbox"
-                      checked={!row.isHidden}
+                  <div style={s.toggleWrap}>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!row.isHidden}
+                      style={{
+                        ...s.switch,
+                        ...(row.isHidden ? s.switchOff : s.switchOn),
+                      }}
                       disabled={savingKey === `${row.oprId}:${row.registration}` || loading}
-                      onChange={(event) => toggleEnabled(row, event.target.checked)}
-                    />
+                      onClick={() => toggleEnabled(row, row.isHidden)}
+                    >
+                      <span
+                        style={{
+                          ...s.switchKnob,
+                          transform: row.isHidden ? 'translateX(0)' : 'translateX(16px)',
+                        }}
+                      />
+                    </button>
                     <span>{row.isHidden ? 'Disabled' : 'Enabled'}</span>
-                  </label>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -111,6 +123,33 @@ const s = {
     alignItems: 'center',
     gap: 8,
     fontSize: 12,
+  },
+  switch: {
+    width: 36,
+    height: 20,
+    borderRadius: 999,
+    border: '1px solid transparent',
+    padding: 1,
+    position: 'relative',
+    cursor: 'pointer',
+    transition: 'background .18s, border-color .18s',
+  },
+  switchOn: {
+    background: '#34c759',
+    borderColor: 'rgba(52,199,89,.45)',
+  },
+  switchOff: {
+    background: '#2b3348',
+    borderColor: '#3b4969',
+  },
+  switchKnob: {
+    display: 'block',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0,0,0,.35)',
+    transition: 'transform .18s',
   },
 };
 

@@ -2,8 +2,36 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
+function isTemporaryUser(user: {
+  app_metadata?: Record<string, unknown> | null;
+  user_metadata?: Record<string, unknown> | null;
+}): boolean {
+  const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
+  const userMeta = (user.user_metadata || {}) as Record<string, unknown>;
+  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+  if (roleValue === "temporary") return true;
+  const rolesRaw = appMeta.roles || userMeta.roles;
+  const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
+  if (roles.includes("temporary")) return true;
+  return appMeta.is_temporary === true || userMeta.is_temporary === true;
+}
+
+function isTemporaryAllowedPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/pickem") ||
+    pathname.startsWith("/api/pickem") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/pending-approval") ||
+    pathname.startsWith("/access-blocked") ||
+    pathname.startsWith("/maintenance")
+  );
+}
+
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
   const isPublicAsset = /\.[^/]+$/.test(pathname);
 
@@ -94,7 +122,7 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
+    loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -105,6 +133,16 @@ export async function middleware(request: NextRequest) {
     const pendingUrl = request.nextUrl.clone();
     pendingUrl.pathname = "/pending-approval";
     return NextResponse.redirect(pendingUrl);
+  }
+
+  if (isTemporaryUser(user) && !isTemporaryAllowedPath(pathname)) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Forbidden for temporary user." }, { status: 403 });
+    }
+    const blockedUrl = request.nextUrl.clone();
+    blockedUrl.pathname = "/access-blocked";
+    blockedUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(blockedUrl);
   }
 
   return response;

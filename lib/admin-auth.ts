@@ -21,11 +21,33 @@ function parseAdminEmails() {
 
 type Role = "none" | "admin" | "developer";
 
+function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metadata?: unknown }): Role {
+  const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
+  const userMeta = (user.user_metadata || {}) as Record<string, unknown>;
+  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+  if (roleValue === "developer") return "developer";
+  if (roleValue === "admin") return "admin";
+
+  const rolesRaw = appMeta.roles || userMeta.roles;
+  const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
+  if (roles.includes("developer")) return "developer";
+  if (roles.includes("admin")) return "admin";
+
+  if (appMeta.is_developer === true || userMeta.is_developer === true) return "developer";
+  if (appMeta.is_admin === true || userMeta.is_admin === true) return "admin";
+  return "none";
+}
+
 async function resolveRole(
   supabase: SupabaseServerClient,
+  user: NonNullable<Awaited<ReturnType<SupabaseServerClient["auth"]["getUser"]>>["data"]["user"]>,
   userId: string,
   email: string | null,
 ): Promise<Role> {
+  // Explicit role metadata on Supabase auth.users takes precedence.
+  const userRole = roleFromSupabaseUser(user);
+  if (userRole !== "none") return userRole;
+
   // ADMIN_EMAILS env var confers developer (highest) privilege.
   const adminEmails = parseAdminEmails();
   if (email && adminEmails.includes(email.toLowerCase())) return "developer";
@@ -67,7 +89,7 @@ export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSucc
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  const role = await resolveRole(supabase, user, user.id, user.email ?? null);
   return { user, supabase, isDeveloper: role === "developer" };
 }
 
@@ -83,7 +105,7 @@ export async function requireAdmin(): Promise<AuthFailure | AuthSuccess> {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  const role = await resolveRole(supabase, user, user.id, user.email ?? null);
   if (role === "none") {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
@@ -102,7 +124,7 @@ export async function requireDeveloper(): Promise<AuthFailure | Omit<AuthSuccess
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const role = await resolveRole(supabase, user.id, user.email ?? null);
+  const role = await resolveRole(supabase, user, user.id, user.email ?? null);
   if (role !== "developer") {
     return { error: NextResponse.json({ error: "Forbidden — Developer role required" }, { status: 403 }) };
   }

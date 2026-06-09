@@ -113,6 +113,30 @@ export async function listMatches(competitionId: string): Promise<PickemMatch[]>
   return (data as any[]).map(mapMatch);
 }
 
+export async function updateMatchScore(input: {
+  competitionId: string;
+  matchId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status?: string;
+}): Promise<void> {
+  const supabase = service();
+  const updates: Record<string, unknown> = {
+    home_score: input.homeScore,
+    away_score: input.awayScore,
+    updated_at: new Date().toISOString(),
+  };
+  if (typeof input.status === "string" && input.status.trim()) {
+    updates.status = input.status.trim().toLowerCase();
+  }
+  const { error } = await supabase
+    .from("pickem_matches")
+    .update(updates)
+    .eq("competition_id", input.competitionId)
+    .eq("id", input.matchId);
+  if (error) throw new Error(error.message || "Failed to update match score");
+}
+
 export async function listGroupResults(competitionId: string): Promise<
   Array<{ groupCode: string; teamId: string; finalPosition: number }>
 > {

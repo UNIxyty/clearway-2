@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   PickemCompetition,
   PickemGroup,
@@ -159,6 +160,7 @@ function AvatarChip({ name }: { name: string }) {
 }
 
 export function PickemApp() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [activeView, setActiveView] = useState<ActiveView>("home");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -443,6 +445,11 @@ export function PickemApp() {
     setSelectedUserPredictions(json);
   }
 
+  async function signOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   if (loading) {
     return <div className="rounded-xl border border-black/10 bg-white p-6">Loading Pickem...</div>;
   }
@@ -491,6 +498,15 @@ export function PickemApp() {
               <span className="hidden text-sm font-bold text-slate-800 sm:inline">
                 {data.viewer.displayName || myRow?.displayName || "Player"}
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  void signOut();
+                }}
+                className="rounded-md border border-black/10 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>

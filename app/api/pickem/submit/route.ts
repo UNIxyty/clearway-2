@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
-import { getActiveCompetition, listGroups, listMatches, listUserPredictions, markSubmitted } from "@/lib/pickem-store";
+import { sendPickemSubmissionEmail } from "@/lib/pickem-email";
+import { getActiveCompetition, hasSubmitted, listGroups, listMatches, listUserPredictions, markSubmitted } from "@/lib/pickem-store";
 
 export async function POST() {
   const auth = await requireAuthenticatedUser();
@@ -28,6 +29,18 @@ export async function POST() {
     return NextResponse.json({ error: "You must predict all group matches before submit." }, { status: 400 });
   }
 
+  const alreadySubmitted = await hasSubmitted({ userId: auth.user.id, competitionId: competition.id });
   await markSubmitted({ userId: auth.user.id, competitionId: competition.id });
+
+  if (!alreadySubmitted && auth.user.email) {
+    const displayName =
+      String(auth.user.user_metadata?.display_name || auth.user.user_metadata?.name || "").trim() ||
+      String(auth.user.email).split("@")[0];
+    void sendPickemSubmissionEmail({
+      to: auth.user.email,
+      displayName,
+      competitionName: competition.name,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

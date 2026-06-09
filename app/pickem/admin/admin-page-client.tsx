@@ -15,7 +15,7 @@ type AdminPayload = {
   };
 };
 
-type EditState = Record<string, { home: string; away: string; status: string }>;
+type EditState = Record<string, { home: string; away: string }>;
 type Tab = "matches" | "groups";
 type GroupResultRow = { groupCode: string; teamId: string; finalPosition: number };
 type GroupsPayload = {
@@ -167,12 +167,11 @@ export function PickemAdminClient() {
     toastTimerRef.current = setTimeout(() => setToast(null), 2600);
   }
 
-  function getEditForMatch(match: PickemMatch): { home: string; away: string; status: string } {
+  function getEditForMatch(match: PickemMatch): { home: string; away: string } {
     return (
       edits[match.id] || {
         home: match.homeScore === null ? "" : String(match.homeScore),
         away: match.awayScore === null ? "" : String(match.awayScore),
-        status: match.status || "scheduled",
       }
     );
   }
@@ -191,7 +190,7 @@ export function PickemAdminClient() {
           matchId: match.id,
           homeScore,
           awayScore,
-          status: edit.status || undefined,
+          status: "finished",
         }),
       });
       setPayload((prev) => (prev ? { ...prev, matches: (json.matches || prev.matches) as PickemMatch[] } : prev));
@@ -435,6 +434,7 @@ export function PickemAdminClient() {
               Number.isInteger(match.homeScore) &&
               Number.isInteger(match.awayScore) &&
               String(match.status || "").toLowerCase() === "finished";
+            const isLive = String(match.status || "").toLowerCase() === "live";
             return (
               <article
                 key={match.id}
@@ -467,7 +467,7 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={published}
+                    disabled={!isLive || published}
                   />
                   <span className="text-lg font-black text-black/25">-</span>
                   <input
@@ -480,33 +480,22 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={published}
+                    disabled={!isLive || published}
                   />
                   <div className="flex-1 text-right text-sm font-bold text-slate-900">{away?.name || "Away"}</div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-3">
-                  <select
-                    value={edit.status}
-                    onChange={(e) =>
-                      setEdits((prev) => ({
-                        ...prev,
-                        [match.id]: { ...edit, status: e.target.value },
-                      }))
-                    }
-                    className="rounded-md border border-black/15 px-2 py-1 text-xs font-semibold"
-                  >
-                    <option value="scheduled">scheduled</option>
-                    <option value="live">live</option>
-                    <option value="finished">finished</option>
-                  </select>
+                  <div className="text-xs font-semibold text-slate-500">
+                    {published ? "Already published" : isLive ? "Live match - ready to publish final score" : "Awaiting live status"}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setModalMatchId(match.id)}
-                    disabled={saving === match.id || edit.home === "" || edit.away === ""}
+                    disabled={saving === match.id || edit.home === "" || edit.away === "" || !isLive || published}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {published ? "Revise & Recompute" : "Publish & Score"}
+                    {published ? "Published" : "Publish & Score"}
                   </button>
                 </div>
               </article>

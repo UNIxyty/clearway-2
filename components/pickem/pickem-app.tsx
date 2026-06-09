@@ -136,9 +136,46 @@ function isLiveMatchStatus(status: string): boolean {
   );
 }
 
-function flagOf(team?: PickemTeam): string {
+function flagEmojiOf(team?: PickemTeam): string {
   if (!team) return "🏳️";
   return TEAM_FLAGS[(team.shortName || team.name || "").toUpperCase()] || "🏳️";
+}
+
+function emojiToCodepoint(emoji: string): string {
+  return Array.from(emoji)
+    .map((char) => char.codePointAt(0)?.toString(16))
+    .filter((part): part is string => Boolean(part))
+    .join("-")
+    .replace(/-fe0f/g, "");
+}
+
+function flagSvgSrc(team?: PickemTeam): string {
+  const emoji = flagEmojiOf(team);
+  const codepoint = emojiToCodepoint(emoji);
+  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoint}.svg`;
+}
+
+function TeamFlag({ team, className = "h-4 w-4" }: { team?: PickemTeam; className?: string }) {
+  const emoji = flagEmojiOf(team);
+  return (
+    <>
+      <img
+        src={flagSvgSrc(team)}
+        alt={team?.name ? `${team.name} flag` : "Flag"}
+        title={team?.name || undefined}
+        className={`inline-block rounded-[2px] object-cover align-[-2px] ${className}`}
+        loading="lazy"
+        decoding="async"
+        onError={(event) => {
+          const image = event.currentTarget;
+          image.style.display = "none";
+          const sibling = image.nextElementSibling as HTMLElement | null;
+          if (sibling) sibling.style.display = "inline";
+        }}
+      />
+      <span style={{ display: "none" }}>{emoji}</span>
+    </>
+  );
 }
 
 function AvatarChip({ name }: { name: string }) {
@@ -545,7 +582,7 @@ export function PickemApp() {
                         <div className="mt-2 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
                             <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
-                              {flagOf(home)} {home?.name || "Home"}
+                              <TeamFlag team={home} /> {home?.name || "Home"}
                             </span>
                             <span className="text-base font-black" style={{ color: NAVY }}>
                               {homeScore}
@@ -553,7 +590,7 @@ export function PickemApp() {
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
-                              {flagOf(away)} {away?.name || "Away"}
+                              <TeamFlag team={away} /> {away?.name || "Away"}
                             </span>
                             <span className="text-base font-black" style={{ color: NAVY }}>
                               {awayScore}
@@ -678,7 +715,9 @@ export function PickemApp() {
                             >
                               {idx + 1}
                             </span>
-                            <span className="text-base">{flagOf(team)}</span>
+                            <span className="text-base">
+                              <TeamFlag team={team} className="h-5 w-5" />
+                            </span>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold" style={{ color: NAVY }}>
                                 {team?.name || "Team"}
@@ -738,7 +777,8 @@ export function PickemApp() {
                           Group {match.groupCode || "-"} · {fmtDate(match.kickoffAt)}
                         </div>
                         <h3 className="mt-1 text-base font-extrabold" style={{ color: NAVY }}>
-                          {flagOf(home)} {home?.name || "Home"} vs {flagOf(away)} {away?.name || "Away"}
+                          <TeamFlag team={home} /> {home?.name || "Home"} vs <TeamFlag team={away} />{" "}
+                          {away?.name || "Away"}
                         </h3>
                       </div>
                       <span
@@ -977,7 +1017,9 @@ export function PickemApp() {
                                     >
                                       <span className="flex items-center gap-2 truncate text-sm font-semibold" style={{ color: NAVY }}>
                                         <span className="w-4 text-[11px] font-black text-slate-400">{idx + 1}</span>
-                                        <span>{flagOf(team)}</span>
+                                        <span>
+                                          <TeamFlag team={team} />
+                                        </span>
                                         <span className="truncate">{team?.name || "Team"}</span>
                                       </span>
                                       <div className="text-right">
@@ -1019,13 +1061,19 @@ export function PickemApp() {
                               <div key={mp.matchId} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
                                 <div className="flex items-center justify-between gap-3">
                                   <p className="truncate text-sm font-bold" style={{ color: NAVY }}>
-                                    {flagOf(homeTeam)} {homeTeam?.name || "Home"}
+                                    <TeamFlag team={homeTeam} /> {homeTeam?.name || "Home"}
                                   </p>
                                   <div className="rounded-md bg-white px-2.5 py-1 text-sm font-black text-slate-700">
                                     {mp.predictedHomeScore} - {mp.predictedAwayScore}
                                   </div>
                                   <p className="truncate text-right text-sm font-bold" style={{ color: NAVY }}>
-                                    {awayTeam ? `${awayTeam.name} ${flagOf(awayTeam)}` : "Away"}
+                                    {awayTeam ? (
+                                      <>
+                                        {awayTeam.name} <TeamFlag team={awayTeam} />
+                                      </>
+                                    ) : (
+                                      "Away"
+                                    )}
                                   </p>
                                 </div>
                                 <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-500">

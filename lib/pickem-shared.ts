@@ -79,7 +79,7 @@ export type PickemLeaderboardRow = {
 };
 
 export const PICKEM_POINTS = {
-  GROUP_POSITION: 2,
+  GROUP_POSITION: 1,
   MATCH_OUTCOME: 1,
   MATCH_SCORE: 3,
 } as const;

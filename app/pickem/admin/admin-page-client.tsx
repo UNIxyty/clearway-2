@@ -15,7 +15,7 @@ type AdminPayload = {
   };
 };
 
-type EditState = Record<string, { home: string; away: string }>;
+type EditState = Record<string, { home: string; away: string; live: boolean }>;
 type Tab = "matches" | "groups";
 type GroupResultRow = { groupCode: string; teamId: string; finalPosition: number };
 type GroupsPayload = {
@@ -167,16 +167,17 @@ export function PickemAdminClient() {
     toastTimerRef.current = setTimeout(() => setToast(null), 2600);
   }
 
-  function getEditForMatch(match: PickemMatch): { home: string; away: string } {
+  function getEditForMatch(match: PickemMatch): { home: string; away: string; live: boolean } {
     return (
       edits[match.id] || {
         home: match.homeScore === null ? "" : String(match.homeScore),
         away: match.awayScore === null ? "" : String(match.awayScore),
+        live: String(match.status || "").toLowerCase() === "live",
       }
     );
   }
 
-  async function saveMatch(match: PickemMatch) {
+  async function saveMatch(match: PickemMatch, status: "live" | "finished") {
     const edit = getEditForMatch(match);
     const homeScore = edit.home === "" ? null : Number(edit.home);
     const awayScore = edit.away === "" ? null : Number(edit.away);
@@ -190,7 +191,7 @@ export function PickemAdminClient() {
           matchId: match.id,
           homeScore,
           awayScore,
-          status: "finished",
+          status,
         }),
       });
       setPayload((prev) => (prev ? { ...prev, matches: (json.matches || prev.matches) as PickemMatch[] } : prev));
@@ -201,12 +202,16 @@ export function PickemAdminClient() {
       });
       const homeLabel = homeScore === null ? "-" : homeScore;
       const awayLabel = awayScore === null ? "-" : awayScore;
-      flash(`Published ${homeLabel}-${awayLabel} and recomputed leaderboard points.`);
+      if (status === "finished") {
+        flash(`Published ${homeLabel}-${awayLabel} and recomputed leaderboard points.`);
+      } else {
+        flash(`Updated live score to ${homeLabel}-${awayLabel}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save match update.");
     } finally {
       setSaving(null);
-      setModalMatchId(null);
+      if (status === "finished") setModalMatchId(null);
     }
   }
 
@@ -435,6 +440,7 @@ export function PickemAdminClient() {
               Number.isInteger(match.awayScore) &&
               String(match.status || "").toLowerCase() === "finished";
             const isLive = String(match.status || "").toLowerCase() === "live";
+            const liveChecked = edit.live;
             return (
               <article
                 key={match.id}
@@ -467,7 +473,7 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={!isLive || published}
+                    disabled={!liveChecked || published}
                   />
                   <span className="text-lg font-black text-black/25">-</span>
                   <input
@@ -480,23 +486,49 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={!isLive || published}
+                    disabled={!liveChecked || published}
                   />
                   <div className="flex-1 text-right text-sm font-bold text-slate-900">{away?.name || "Away"}</div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-black/[0.06] pt-3">
-                  <div className="text-xs font-semibold text-slate-500">
-                    {published ? "Already published" : isLive ? "Live match - ready to publish final score" : "Awaiting live status"}
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={liveChecked}
+                        disabled={published}
+                        onChange={(e) =>
+                          setEdits((prev) => ({
+                            ...prev,
+                            [match.id]: { ...edit, live: e.target.checked },
+                          }))
+                        }
+                      />
+                      Live
+                    </label>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {published ? "Already published" : isLive || liveChecked ? "Live match updates enabled" : "Enable Live to edit"}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setModalMatchId(match.id)}
-                    disabled={saving === match.id || edit.home === "" || edit.away === "" || !isLive || published}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {published ? "Published" : "Publish & Score"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveMatch(match, "live")}
+                      disabled={saving === match.id || edit.home === "" || edit.away === "" || !liveChecked || published}
+                      className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Update Live
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalMatchId(match.id)}
+                      disabled={saving === match.id || edit.home === "" || edit.away === "" || !liveChecked || published}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {published ? "Published" : "Publish Final"}
+                    </button>
+                  </div>
                 </div>
               </article>
             );
@@ -530,7 +562,7 @@ export function PickemAdminClient() {
               </button>
               <button
                 type="button"
-                onClick={() => void saveMatch(modalMatch)}
+                onClick={() => void saveMatch(modalMatch, "finished")}
                 disabled={saving === modalMatch.id}
                 className="h-10 flex-1 rounded-lg bg-blue-600 text-sm font-bold text-white disabled:opacity-50"
               >

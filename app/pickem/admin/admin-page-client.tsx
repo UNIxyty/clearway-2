@@ -25,8 +25,8 @@ type GroupsPayload = {
   groupResults: GroupResultRow[];
 };
 
-const ADMIN_API_CANDIDATES = ["/pickem/api/admin/matches", "/api/pickem/admin/matches"];
-const GROUP_API_CANDIDATES = ["/pickem/api/admin/groups", "/api/pickem/admin/groups"];
+const ADMIN_API_URL = "/api/pickem/admin/matches";
+const GROUP_API_URL = "/api/pickem/admin/groups";
 
 function fmtKickoff(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
@@ -37,20 +37,6 @@ function fmtKickoff(value: string): string {
     timeZone: "Europe/Riga",
     timeZoneName: "short",
   });
-}
-
-function getOrderedApiCandidates(
-  candidates: string[],
-  scopedPrefix: string,
-): string[] {
-  if (typeof window === "undefined") return candidates;
-  const scoped = window.location.pathname.startsWith(scopedPrefix);
-  if (scoped) {
-    const preferred = candidates.filter((url) => url.startsWith(scopedPrefix + "/api/"));
-    const fallback = candidates.filter((url) => !url.startsWith(scopedPrefix + "/api/"));
-    return [...preferred, ...fallback];
-  }
-  return candidates;
 }
 
 export function PickemAdminClient() {
@@ -69,41 +55,19 @@ export function PickemAdminClient() {
   async function fetchAdminApi(
     init?: RequestInit,
   ): Promise<{ res: Response; json: any }> {
-    let lastJson: any = {};
-    let lastRes: Response | null = null;
-    const orderedCandidates = getOrderedApiCandidates(ADMIN_API_CANDIDATES, "/pickem");
-    for (const url of orderedCandidates) {
-      const res = await fetch(url, init);
-      const json = await res.json().catch(() => ({}));
-      if (res.ok) return { res, json };
-      lastRes = res;
-      lastJson = json;
-      if (res.status !== 404) break;
-    }
-    if (!lastRes) {
-      throw new Error("Failed to reach admin API.");
-    }
-    throw new Error(lastJson.error || `Failed to load admin data (${lastRes.status}).`);
+    const res = await fetch(ADMIN_API_URL, init);
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return { res, json };
+    throw new Error(json.error || `Failed to load admin data (${res.status}).`);
   }
 
   async function fetchGroupApi(
     init?: RequestInit,
   ): Promise<{ res: Response; json: any }> {
-    let lastJson: any = {};
-    let lastRes: Response | null = null;
-    const orderedCandidates = getOrderedApiCandidates(GROUP_API_CANDIDATES, "/pickem");
-    for (const url of orderedCandidates) {
-      const res = await fetch(url, init);
-      const json = await res.json().catch(() => ({}));
-      if (res.ok) return { res, json };
-      lastRes = res;
-      lastJson = json;
-      if (res.status !== 404) break;
-    }
-    if (!lastRes) {
-      throw new Error("Failed to reach admin groups API.");
-    }
-    throw new Error(lastJson.error || `Failed to load group standings (${lastRes.status}).`);
+    const res = await fetch(GROUP_API_URL, init);
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return { res, json };
+    throw new Error(json.error || `Failed to load group standings (${res.status}).`);
   }
 
   async function load() {

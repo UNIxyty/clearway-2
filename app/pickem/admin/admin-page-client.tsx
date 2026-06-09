@@ -39,6 +39,20 @@ function fmtKickoff(value: string): string {
   });
 }
 
+function getOrderedApiCandidates(
+  candidates: string[],
+  scopedPrefix: string,
+): string[] {
+  if (typeof window === "undefined") return candidates;
+  const scoped = window.location.pathname.startsWith(scopedPrefix);
+  if (scoped) {
+    const preferred = candidates.filter((url) => url.startsWith(scopedPrefix + "/api/"));
+    const fallback = candidates.filter((url) => !url.startsWith(scopedPrefix + "/api/"));
+    return [...preferred, ...fallback];
+  }
+  return candidates;
+}
+
 export function PickemAdminClient() {
   const [tab, setTab] = useState<Tab>("matches");
   const [loading, setLoading] = useState(true);
@@ -57,7 +71,8 @@ export function PickemAdminClient() {
   ): Promise<{ res: Response; json: any }> {
     let lastJson: any = {};
     let lastRes: Response | null = null;
-    for (const url of ADMIN_API_CANDIDATES) {
+    const orderedCandidates = getOrderedApiCandidates(ADMIN_API_CANDIDATES, "/pickem");
+    for (const url of orderedCandidates) {
       const res = await fetch(url, init);
       const json = await res.json().catch(() => ({}));
       if (res.ok) return { res, json };
@@ -76,7 +91,8 @@ export function PickemAdminClient() {
   ): Promise<{ res: Response; json: any }> {
     let lastJson: any = {};
     let lastRes: Response | null = null;
-    for (const url of GROUP_API_CANDIDATES) {
+    const orderedCandidates = getOrderedApiCandidates(GROUP_API_CANDIDATES, "/pickem");
+    for (const url of orderedCandidates) {
       const res = await fetch(url, init);
       const json = await res.json().catch(() => ({}));
       if (res.ok) return { res, json };
@@ -297,7 +313,7 @@ export function PickemAdminClient() {
   }
 
   const modalMatch = modalMatchId ? matches.find((m) => m.id === modalMatchId) ?? null : null;
-  const groupTeamsByCode = useMemo(() => {
+  const groupTeamsByCode = (() => {
     const map = new Map<string, PickemTeam[]>();
     for (const team of groupsPayload?.teams || []) {
       const arr = map.get(team.groupCode) || [];
@@ -308,14 +324,14 @@ export function PickemAdminClient() {
       arr.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
     }
     return map;
-  }, [groupsPayload]);
-  const groupResultCountByCode = useMemo(() => {
+  })();
+  const groupResultCountByCode = (() => {
     const map = new Map<string, number>();
     for (const row of groupsPayload?.groupResults || []) {
       map.set(row.groupCode, (map.get(row.groupCode) || 0) + 1);
     }
     return map;
-  }, [groupsPayload]);
+  })();
 
   return (
     <div className="space-y-5">

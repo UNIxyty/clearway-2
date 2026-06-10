@@ -47,6 +47,17 @@
       .status {
         font-size: 13px;
       }
+      .checks {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        margin: 8px 0 14px;
+        font-size: 13px;
+        color: #334155;
+      }
+      .checks strong {
+        color: #0f172a;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
@@ -92,6 +103,11 @@
         <button id="reloadBtn" type="button">Reload</button>
         <span id="status" class="status"></span>
       </div>
+      <div class="checks">
+        <span>Total: <strong id="countTotal">0</strong></span>
+        <span>Correct: <strong id="countCorrect">0</strong></span>
+        <span>Error: <strong id="countError">0</strong></span>
+      </div>
       <table>
         <thead>
           <tr>
@@ -103,6 +119,8 @@
             <th>Kickoff (UTC)</th>
             <th>Kickoff (Europe/Riga)</th>
             <th>Status</th>
+            <th>Correct</th>
+            <th>Error</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -206,6 +224,9 @@
         const status = document.getElementById("status");
         const rows = document.getElementById("rows");
         const meta = document.getElementById("meta");
+        const countTotal = document.getElementById("countTotal");
+        const countCorrect = document.getElementById("countCorrect");
+        const countError = document.getElementById("countError");
         status.textContent = "Loading...";
         rows.innerHTML = "";
 
@@ -234,6 +255,9 @@
 
           meta.textContent =
             `Competition: ${json.competition || "N/A"} | Group-stage matches: ${matches.length}`;
+          countTotal.textContent = String(matches.length);
+          countCorrect.textContent = "0";
+          countError.textContent = "0";
 
           matches.forEach((m, idx) => {
             const home = teamNames[m.home] || m.home;
@@ -248,7 +272,27 @@
               <td class="mono">${new Date(m.kickoffUtc).toISOString()}</td>
               <td class="mono">${new Date(m.kickoffUtc).toLocaleString("en-GB", { timeZone: "Europe/Riga" })}</td>
               <td>scheduled</td>
+              <td><input type="checkbox" data-kind="correct" /></td>
+              <td><input type="checkbox" data-kind="error" /></td>
             `;
+            const correctBox = tr.querySelector('input[data-kind="correct"]');
+            const errorBox = tr.querySelector('input[data-kind="error"]');
+            function updateCounts() {
+              countCorrect.textContent = String(
+                rows.querySelectorAll('input[data-kind="correct"]:checked').length
+              );
+              countError.textContent = String(
+                rows.querySelectorAll('input[data-kind="error"]:checked').length
+              );
+            }
+            correctBox.addEventListener("change", () => {
+              if (correctBox.checked) errorBox.checked = false;
+              updateCounts();
+            });
+            errorBox.addEventListener("change", () => {
+              if (errorBox.checked) correctBox.checked = false;
+              updateCounts();
+            });
             rows.appendChild(tr);
           });
 

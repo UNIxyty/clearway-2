@@ -27,9 +27,9 @@ canonical as (
     values
       -- Group K
       ('K1', 'K', 'POR', 'COD', '2026-06-17T17:00:00.000Z'::timestamptz),
-      ('K2', 'K', 'UZB', 'COL', '2026-06-18T02:00:00.000Z'::timestamptz),
+      ('K2', 'K', 'UZB', 'COL', '2026-06-17T21:00:00.000Z'::timestamptz),
       ('K3', 'K', 'POR', 'UZB', '2026-06-23T17:00:00.000Z'::timestamptz),
-      ('K4', 'K', 'COL', 'COD', '2026-06-24T02:00:00.000Z'::timestamptz),
+      ('K4', 'K', 'COL', 'COD', '2026-06-23T15:00:00.000Z'::timestamptz),
       ('K5', 'K', 'COL', 'POR', '2026-06-27T23:30:00.000Z'::timestamptz),
       ('K6', 'K', 'COD', 'UZB', '2026-06-27T23:30:00.000Z'::timestamptz),
       -- Group L

@@ -24,7 +24,7 @@
     { "matchId": "C6", "group": "C", "home": "MAR", "away": "HAI", "kickoffUtc": "2026-06-24T15:00:00.000Z", "venue": "Mercedes-Benz Stadium, Atlanta, USA" },
 
     { "matchId": "D1", "group": "D", "home": "USA", "away": "PAR", "kickoffUtc": "2026-06-12T18:00:00.000Z", "venue": "SoFi Stadium, Inglewood, USA" },
-    { "matchId": "D2", "group": "D", "home": "AUS", "away": "TUR", "kickoffUtc": "2026-06-13T04:00:00.000Z", "venue": "BC Place, Vancouver, Canada" },
+    { "matchId": "D2", "group": "D", "home": "AUS", "away": "TUR", "kickoffUtc": "2026-06-13T21:00:00.000Z", "venue": "BC Place, Vancouver, Canada" },
     { "matchId": "D3", "group": "D", "home": "USA", "away": "AUS", "kickoffUtc": "2026-06-19T12:00:00.000Z", "venue": "Lumen Field, Seattle, USA" },
     { "matchId": "D4", "group": "D", "home": "TUR", "away": "PAR", "kickoffUtc": "2026-06-19T20:00:00.000Z", "venue": "Levi's Stadium, Santa Clara, USA" },
     { "matchId": "D5", "group": "D", "home": "TUR", "away": "USA", "kickoffUtc": "2026-06-25T19:00:00.000Z", "venue": "SoFi Stadium, Inglewood, USA" },
@@ -55,8 +55,8 @@
     { "matchId": "H2", "group": "H", "home": "KSA", "away": "URU", "kickoffUtc": "2026-06-15T15:00:00.000Z", "venue": "Hard Rock Stadium, Miami, USA" },
     { "matchId": "H3", "group": "H", "home": "ESP", "away": "KSA", "kickoffUtc": "2026-06-21T09:00:00.000Z", "venue": "Mercedes-Benz Stadium, Atlanta, USA" },
     { "matchId": "H4", "group": "H", "home": "URU", "away": "CPV", "kickoffUtc": "2026-06-21T15:00:00.000Z", "venue": "Hard Rock Stadium, Miami, USA" },
-    { "matchId": "H5", "group": "H", "home": "KSA", "away": "ESP", "kickoffUtc": "2026-06-26T09:00:00.000Z", "venue": "Mercedes-Benz Stadium, Atlanta, USA" },
-    { "matchId": "H6", "group": "H", "home": "CPV", "away": "URU", "kickoffUtc": "2026-06-26T09:00:00.000Z", "venue": "Hard Rock Stadium, Miami, USA" },
+    { "matchId": "H5", "group": "H", "home": "KSA", "away": "ESP", "kickoffUtc": "2026-06-21T09:00:00.000Z", "venue": "Mercedes-Benz Stadium, Atlanta, USA" },
+    { "matchId": "H6", "group": "H", "home": "CPV", "away": "KSA", "kickoffUtc": "2026-06-26T09:00:00.000Z", "venue": "Hard Rock Stadium, Miami, USA" },
 
     { "matchId": "I1", "group": "I", "home": "FRA", "away": "SEN", "kickoffUtc": "2026-06-16T12:00:00.000Z", "venue": "MetLife Stadium, East Rutherford, USA" },
     { "matchId": "I2", "group": "I", "home": "IRQ", "away": "NOR", "kickoffUtc": "2026-06-16T15:00:00.000Z", "venue": "Gillette Stadium, Foxboro, USA" },
@@ -73,9 +73,9 @@
     { "matchId": "J6", "group": "J", "home": "JOR", "away": "ARG", "kickoffUtc": "2026-06-27T12:00:00.000Z", "venue": "AT&T Stadium, Arlington, USA" },
 
     { "matchId": "K1", "group": "K", "home": "POR", "away": "COD", "kickoffUtc": "2026-06-17T17:00:00.000Z", "venue": "NRG Stadium, Houston, USA" },
-    { "matchId": "K2", "group": "K", "home": "UZB", "away": "COL", "kickoffUtc": "2026-06-18T02:00:00.000Z", "venue": "Estadio Akron, Guadalajara, Mexico" },
+    { "matchId": "K2", "group": "K", "home": "UZB", "away": "COL", "kickoffUtc": "2026-06-17T21:00:00.000Z", "venue": "Estadio Akron, Guadalajara, Mexico" },
     { "matchId": "K3", "group": "K", "home": "POR", "away": "UZB", "kickoffUtc": "2026-06-23T17:00:00.000Z", "venue": "NRG Stadium, Houston, USA" },
-    { "matchId": "K4", "group": "K", "home": "COL", "away": "COD", "kickoffUtc": "2026-06-24T02:00:00.000Z", "venue": "Estadio Akron, Guadalajara, Mexico" },
+    { "matchId": "K4", "group": "K", "home": "COL", "away": "COD", "kickoffUtc": "2026-06-23T15:00:00.000Z", "venue": "Estadio Akron, Guadalajara, Mexico" },
     { "matchId": "K5", "group": "K", "home": "COL", "away": "POR", "kickoffUtc": "2026-06-27T23:30:00.000Z", "venue": "AT&T Stadium, Arlington, USA" },
     { "matchId": "K6", "group": "K", "home": "COD", "away": "UZB", "kickoffUtc": "2026-06-27T23:30:00.000Z", "venue": "Levi's Stadium, Santa Clara, USA" },
 

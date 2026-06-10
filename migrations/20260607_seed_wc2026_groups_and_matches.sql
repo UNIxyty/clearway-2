@@ -176,7 +176,7 @@ match_rows as (
       ('C5', 'C', 'SCO', 'BRA', '2026-06-24T15:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
       ('C6', 'C', 'MAR', 'HAI', '2026-06-24T15:00:00.000Z'::timestamptz, 'Mercedes-Benz Stadium, Atlanta, USA'),
       ('D1', 'D', 'USA', 'PAR', '2026-06-12T18:00:00.000Z'::timestamptz, 'SoFi Stadium, Inglewood, USA'),
-      ('D2', 'D', 'AUS', 'TUR', '2026-06-13T04:00:00.000Z'::timestamptz, 'BC Place, Vancouver, Canada'),
+      ('D2', 'D', 'AUS', 'TUR', '2026-06-13T21:00:00.000Z'::timestamptz, 'BC Place, Vancouver, Canada'),
       ('D3', 'D', 'USA', 'AUS', '2026-06-19T12:00:00.000Z'::timestamptz, 'Lumen Field, Seattle, USA'),
       ('D4', 'D', 'TUR', 'PAR', '2026-06-19T20:00:00.000Z'::timestamptz, 'Levi''s Stadium, Santa Clara, USA'),
       ('D5', 'D', 'TUR', 'USA', '2026-06-25T19:00:00.000Z'::timestamptz, 'SoFi Stadium, Inglewood, USA'),
@@ -203,8 +203,8 @@ match_rows as (
       ('H2', 'H', 'KSA', 'URU', '2026-06-15T15:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
       ('H3', 'H', 'ESP', 'KSA', '2026-06-21T09:00:00.000Z'::timestamptz, 'Mercedes-Benz Stadium, Atlanta, USA'),
       ('H4', 'H', 'URU', 'CPV', '2026-06-21T15:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
-      ('H5', 'H', 'KSA', 'ESP', '2026-06-26T09:00:00.000Z'::timestamptz, 'Mercedes-Benz Stadium, Atlanta, USA'),
-      ('H6', 'H', 'CPV', 'URU', '2026-06-26T09:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
+      ('H5', 'H', 'KSA', 'ESP', '2026-06-21T09:00:00.000Z'::timestamptz, 'Mercedes-Benz Stadium, Atlanta, USA'),
+      ('H6', 'H', 'CPV', 'KSA', '2026-06-26T09:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
       ('I1', 'I', 'FRA', 'SEN', '2026-06-16T12:00:00.000Z'::timestamptz, 'MetLife Stadium, East Rutherford, USA'),
       ('I2', 'I', 'IRQ', 'NOR', '2026-06-16T15:00:00.000Z'::timestamptz, 'Gillette Stadium, Foxboro, USA'),
       ('I3', 'I', 'FRA', 'IRQ', '2026-06-22T14:00:00.000Z'::timestamptz, 'Lincoln Financial Field, Philadelphia, USA'),
@@ -221,14 +221,14 @@ match_rows as (
       ('K2', 'K', 'UZB', 'COL', '2026-06-17T21:00:00.000Z'::timestamptz, 'Estadio Akron, Guadalajara, Mexico'),
       ('K3', 'K', 'POR', 'COL', '2026-06-27T15:00:00.000Z'::timestamptz, 'NRG Stadium, Houston, USA'),
       ('K4', 'K', 'COL', 'COD', '2026-06-23T15:00:00.000Z'::timestamptz, 'Estadio Akron, Guadalajara, Mexico'),
-      ('K5', 'K', 'COD', 'POR', '2026-07-01T12:00:00.000Z'::timestamptz, 'AT&T Stadium, Arlington, USA'),
-      ('K6', 'K', 'COL', 'UZB', '2026-07-01T12:00:00.000Z'::timestamptz, 'Levi''s Stadium, Santa Clara, USA'),
+      ('K5', 'K', 'COL', 'POR', '2026-06-27T15:00:00.000Z'::timestamptz, 'AT&T Stadium, Arlington, USA'),
+      ('K6', 'K', 'COD', 'UZB', '2026-06-27T15:00:00.000Z'::timestamptz, 'Levi''s Stadium, Santa Clara, USA'),
       ('L1', 'L', 'ENG', 'CRO', '2026-06-17T18:00:00.000Z'::timestamptz, 'Gillette Stadium, Foxboro, USA'),
       ('L2', 'L', 'GHA', 'PAN', '2026-06-17T21:00:00.000Z'::timestamptz, 'BMO Field, Toronto, Canada'),
       ('L3', 'L', 'ENG', 'PAN', '2026-06-28T14:00:00.000Z'::timestamptz, 'Gillette Stadium, Foxboro, USA'),
       ('L4', 'L', 'PAN', 'CRO', '2026-06-23T14:00:00.000Z'::timestamptz, 'BMO Field, Toronto, Canada'),
-      ('L5', 'L', 'GHA', 'PAN', '2026-07-01T15:00:00.000Z'::timestamptz, 'Arrowhead Stadium, Kansas City, USA'),
-      ('L6', 'L', 'CRO', 'ENG', '2026-07-01T15:00:00.000Z'::timestamptz, 'MetLife Stadium, East Rutherford, USA')
+      ('L5', 'L', 'PAN', 'ENG', '2026-06-27T15:00:00.000Z'::timestamptz, 'Arrowhead Stadium, Kansas City, USA'),
+      ('L6', 'L', 'CRO', 'GHA', '2026-06-27T15:00:00.000Z'::timestamptz, 'MetLife Stadium, East Rutherford, USA')
   ) as m(api_match_id, group_code, home_code, away_code, kickoff_at, venue)
 ),
 mapped as (

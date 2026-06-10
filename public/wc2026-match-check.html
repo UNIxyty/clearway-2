@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WC2026 Match Checker</title>
+    <style>
+      body {
+        font-family: Inter, Arial, sans-serif;
+        background: #f5f7fb;
+        color: #0f172a;
+        margin: 0;
+        padding: 24px;
+      }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 26px;
+      }
+      p {
+        margin: 0 0 12px;
+        color: #475569;
+      }
+      .meta {
+        margin: 10px 0 20px;
+        font-size: 13px;
+        color: #334155;
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin: 12px 0 16px;
+      }
+      button {
+        border: 1px solid #cbd5e1;
+        background: white;
+        color: #0f172a;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .status {
+        font-size: 13px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      th, td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 13px;
+      }
+      th {
+        background: #f8fafc;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #334155;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .group-pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>WC 2026 Match Checker</h1>
+      <p>Manual verification page for current Pickem fixtures from live API data.</p>
+      <div class="meta" id="meta">Loading…</div>
+      <div class="toolbar">
+        <button id="reloadBtn" type="button">Reload</button>
+        <span id="status" class="status"></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Match ID</th>
+            <th>Group</th>
+            <th>Home</th>
+            <th>Away</th>
+            <th>Kickoff (UTC)</th>
+            <th>Kickoff (Europe/Riga)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <script>
+      async function loadData() {
+        const status = document.getElementById("status");
+        const rows = document.getElementById("rows");
+        const meta = document.getElementById("meta");
+        status.textContent = "Loading...";
+        rows.innerHTML = "";
+
+        try {
+          const res = await fetch("/pickem/api/bootstrap", { cache: "no-store" });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Failed to load /pickem/api/bootstrap");
+
+          const teamsById = new Map((json.teams || []).map((t) => [t.id, t]));
+          const matches = (json.matches || [])
+            .filter((m) => m.stage === "group")
+            .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
+
+          meta.textContent =
+            `Competition: ${json.competition?.name || "N/A"} | Group-stage matches: ${matches.length}`;
+
+          matches.forEach((m, idx) => {
+            const home = teamsById.get(m.homeTeamId)?.name || "Unknown";
+            const away = teamsById.get(m.awayTeamId)?.name || "Unknown";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${idx + 1}</td>
+              <td class="mono">${m.apiMatchId || "-"}</td>
+              <td><span class="group-pill">${m.groupCode || "-"}</span></td>
+              <td>${home}</td>
+              <td>${away}</td>
+              <td class="mono">${new Date(m.kickoffAt).toISOString()}</td>
+              <td class="mono">${new Date(m.kickoffAt).toLocaleString("en-GB", { timeZone: "Europe/Riga" })}</td>
+              <td>${m.status || "scheduled"}</td>
+            `;
+            rows.appendChild(tr);
+          });
+
+          status.textContent = "Loaded successfully.";
+        } catch (err) {
+          meta.textContent = "Could not load fixtures.";
+          status.textContent = err instanceof Error ? err.message : String(err);
+        }
+      }
+
+      document.getElementById("reloadBtn").addEventListener("click", loadData);
+      loadData();
+    </script>
+  </body>
+  </html>

@@ -176,7 +176,7 @@ match_rows as (
       ('C5', 'C', 'SCO', 'BRA', '2026-06-24T15:00:00.000Z'::timestamptz, 'Hard Rock Stadium, Miami, USA'),
       ('C6', 'C', 'MAR', 'HAI', '2026-06-24T15:00:00.000Z'::timestamptz, 'Mercedes-Benz Stadium, Atlanta, USA'),
       ('D1', 'D', 'USA', 'PAR', '2026-06-12T18:00:00.000Z'::timestamptz, 'SoFi Stadium, Inglewood, USA'),
-      ('D2', 'D', 'AUS', 'TUR', '2026-06-13T21:00:00.000Z'::timestamptz, 'BC Place, Vancouver, Canada'),
+      ('D2', 'D', 'AUS', 'TUR', '2026-06-13T04:00:00.000Z'::timestamptz, 'BC Place, Vancouver, Canada'),
       ('D3', 'D', 'USA', 'AUS', '2026-06-19T12:00:00.000Z'::timestamptz, 'Lumen Field, Seattle, USA'),
       ('D4', 'D', 'TUR', 'PAR', '2026-06-19T20:00:00.000Z'::timestamptz, 'Levi''s Stadium, Santa Clara, USA'),
       ('D5', 'D', 'TUR', 'USA', '2026-06-25T19:00:00.000Z'::timestamptz, 'SoFi Stadium, Inglewood, USA'),

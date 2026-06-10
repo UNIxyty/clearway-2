@@ -26,7 +26,7 @@ match_fixes as (
       ('L1', 'L', 'ENG', 'CRO', date '2026-06-17'),
       ('L2', 'L', 'GHA', 'PAN', date '2026-06-17'),
       -- FIX_DATE fixtures
-      ('D2', 'D', 'AUS', 'TUR', date '2026-06-14'),
+      ('D2', 'D', 'AUS', 'TUR', date '2026-06-13'),
       ('K4', 'K', 'COL', 'COD', date '2026-06-23'),
       ('L4', 'L', 'PAN', 'CRO', date '2026-06-23')
   ) as x(api_match_id, group_code, home_code, away_code, local_date)

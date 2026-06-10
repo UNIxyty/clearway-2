@@ -86,7 +86,7 @@
   <body>
     <div class="wrap">
       <h1>WC 2026 Match Checker</h1>
-      <p>Manual verification page for current Pickem fixtures from live API data.</p>
+      <p>Manual verification page using a hardcoded static fixture file (no auth/API needed).</p>
       <div class="meta" id="meta">Loading…</div>
       <div class="toolbar">
         <button id="reloadBtn" type="button">Reload</button>
@@ -118,31 +118,45 @@
         rows.innerHTML = "";
 
         try {
-          const res = await fetch("/pickem/api/bootstrap", { cache: "no-store" });
+          const res = await fetch("/wc2026-hardcoded-matches.json", { cache: "no-store" });
           const json = await res.json();
-          if (!res.ok) throw new Error(json.error || "Failed to load /pickem/api/bootstrap");
+          if (!res.ok) throw new Error("Failed to load /wc2026-hardcoded-matches.json");
 
-          const teamsById = new Map((json.teams || []).map((t) => [t.id, t]));
-          const matches = (json.matches || [])
-            .filter((m) => m.stage === "group")
-            .sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
+          const teamNames = {
+            MEX: "Mexico", RSA: "South Africa", KOR: "Korea Republic", CZE: "Czechia",
+            CAN: "Canada", BIH: "Bosnia and Herzegovina", QAT: "Qatar", SUI: "Switzerland",
+            BRA: "Brazil", MAR: "Morocco", HAI: "Haiti", SCO: "Scotland",
+            USA: "United States", PAR: "Paraguay", AUS: "Australia", TUR: "Türkiye",
+            GER: "Germany", CUW: "Curaçao", CIV: "Côte d'Ivoire", ECU: "Ecuador",
+            NED: "Netherlands", JPN: "Japan", SWE: "Sweden", TUN: "Tunisia",
+            BEL: "Belgium", EGY: "Egypt", IRN: "IR Iran", NZL: "New Zealand",
+            ESP: "Spain", CPV: "Cabo Verde", KSA: "Saudi Arabia", URU: "Uruguay",
+            FRA: "France", SEN: "Senegal", IRQ: "Iraq", NOR: "Norway",
+            ARG: "Argentina", ALG: "Algeria", AUT: "Austria", JOR: "Jordan",
+            POR: "Portugal", COD: "DR Congo", UZB: "Uzbekistan", COL: "Colombia",
+            ENG: "England", CRO: "Croatia", GHA: "Ghana", PAN: "Panama"
+          };
+
+          const matches = (json.matches || []).slice().sort(
+            (a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime()
+          );
 
           meta.textContent =
-            `Competition: ${json.competition?.name || "N/A"} | Group-stage matches: ${matches.length}`;
+            `Competition: ${json.competition || "N/A"} | Group-stage matches: ${matches.length}`;
 
           matches.forEach((m, idx) => {
-            const home = teamsById.get(m.homeTeamId)?.name || "Unknown";
-            const away = teamsById.get(m.awayTeamId)?.name || "Unknown";
+            const home = teamNames[m.home] || m.home;
+            const away = teamNames[m.away] || m.away;
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td>${idx + 1}</td>
-              <td class="mono">${m.apiMatchId || "-"}</td>
-              <td><span class="group-pill">${m.groupCode || "-"}</span></td>
+              <td class="mono">${m.matchId || "-"}</td>
+              <td><span class="group-pill">${m.group || "-"}</span></td>
               <td>${home}</td>
               <td>${away}</td>
-              <td class="mono">${new Date(m.kickoffAt).toISOString()}</td>
-              <td class="mono">${new Date(m.kickoffAt).toLocaleString("en-GB", { timeZone: "Europe/Riga" })}</td>
-              <td>${m.status || "scheduled"}</td>
+              <td class="mono">${new Date(m.kickoffUtc).toISOString()}</td>
+              <td class="mono">${new Date(m.kickoffUtc).toLocaleString("en-GB", { timeZone: "Europe/Riga" })}</td>
+              <td>scheduled</td>
             `;
             rows.appendChild(tr);
           });

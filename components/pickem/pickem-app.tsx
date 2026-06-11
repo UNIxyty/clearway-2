@@ -93,14 +93,14 @@ const TEAM_FLAGS: Record<string, string> = {
 };
 
 function fmtDate(value: string): string {
-  return new Date(value).toLocaleString("en-GB", {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Riga",
-    timeZoneName: "short",
-  });
+  const dt = new Date(value);
+  if (!Number.isFinite(dt.getTime())) return value;
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  const hh = String(dt.getUTCHours()).padStart(2, "0");
+  const mm = String(dt.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${hh}:${mm} UTC`;
 }
 
 function initialsOf(name: string): string {
@@ -503,9 +503,7 @@ export function PickemApp() {
                     using FIFA tie-breakers.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs font-bold">
-                    <span className="rounded-full bg-white/10 px-3 py-1">
-                      Lock (Riga): {fmtDate(data.competition.groupLockAt)}
-                    </span>
+                    <span className="rounded-full bg-white/10 px-3 py-1">Lock (UTC): {fmtDate(data.competition.groupLockAt)}</span>
                     <span
                       className={`rounded-full px-3 py-1 ${
                         viewerSubmitted ? "bg-emerald-500/25 text-emerald-100" : "bg-white/10"

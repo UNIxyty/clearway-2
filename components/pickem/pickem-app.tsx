@@ -281,7 +281,7 @@ export function PickemApp() {
 
   const viewerSubmitted = Boolean(data?.userPredictions.submission?.submittedAt);
   const nowTs = Date.now();
-  const lockTs = new Date(data.competition.groupLockAt).getTime();
+  const lockTs = new Date(data?.competition.groupLockAt || "").getTime();
   const allPicksLocked = Number.isFinite(lockTs) ? nowTs >= lockTs : false;
   const groupsComplete = matchesComplete;
 

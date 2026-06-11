@@ -92,6 +92,81 @@ const TEAM_FLAGS: Record<string, string> = {
   PAN: "🇵🇦",
 };
 
+const WC2026_SOURCE_TIME_LABELS: Record<string, string> = {
+  "A|MEX|RSA": "11 Jun 1:00 PM UTC-6",
+  "A|KOR|CZE": "11 Jun 8:00 PM UTC-6",
+  "A|CZE|RSA": "18 Jun 12:00 PM UTC-4",
+  "A|MEX|KOR": "18 Jun 7:00 PM UTC-6",
+  "A|CZE|MEX": "24 Jun 7:00 PM UTC-6",
+  "A|RSA|KOR": "24 Jun 7:00 PM UTC-6",
+  "B|CAN|BIH": "12 Jun 3:00 PM UTC-4",
+  "B|QAT|SUI": "13 Jun 12:00 PM UTC-7",
+  "B|SUI|BIH": "18 Jun 12:00 PM UTC-7",
+  "B|CAN|QAT": "18 Jun 3:00 PM UTC-7",
+  "B|SUI|CAN": "24 Jun 12:00 PM UTC-7",
+  "B|BIH|QAT": "24 Jun 12:00 PM UTC-7",
+  "C|BRA|MAR": "13 Jun 6:00 PM UTC-4",
+  "C|HAI|SCO": "13 Jun 9:00 PM UTC-4",
+  "C|SCO|MAR": "19 Jun 6:00 PM UTC-4",
+  "C|BRA|HAI": "19 Jun 8:30 PM UTC-4",
+  "C|SCO|BRA": "24 Jun 6:00 PM UTC-4",
+  "C|MAR|HAI": "24 Jun 6:00 PM UTC-4",
+  "D|USA|PAR": "12 Jun 6:00 PM UTC-7",
+  "D|AUS|TUR": "13 Jun 9:00 PM UTC-7",
+  "D|USA|AUS": "19 Jun 12:00 PM UTC-7",
+  "D|TUR|PAR": "19 Jun 8:00 PM UTC-7",
+  "D|TUR|USA": "25 Jun 7:00 PM UTC-7",
+  "D|PAR|AUS": "25 Jun 7:00 PM UTC-7",
+  "E|GER|CUW": "14 Jun 12:00 PM UTC-5",
+  "E|CIV|ECU": "14 Jun 7:00 PM UTC-4",
+  "E|GER|CIV": "20 Jun 4:00 PM UTC-4",
+  "E|ECU|CUW": "20 Jun 7:00 PM UTC-5",
+  "E|CUW|CIV": "25 Jun 4:00 PM UTC-4",
+  "E|ECU|GER": "25 Jun 4:00 PM UTC-4",
+  "F|NED|JPN": "14 Jun 3:00 PM UTC-5",
+  "F|SWE|TUN": "14 Jun 8:00 PM UTC-6",
+  "F|NED|SWE": "20 Jun 12:00 PM UTC-5",
+  "F|TUN|JPN": "20 Jun 10:00 PM UTC-6",
+  "F|JPN|SWE": "25 Jun 6:00 PM UTC-5",
+  "F|TUN|NED": "25 Jun 6:00 PM UTC-5",
+  "G|BEL|EGY": "15 Jun 12:00 PM UTC-7",
+  "G|IRN|NZL": "15 Jun 6:00 PM UTC-7",
+  "G|BEL|IRN": "21 Jun 12:00 PM UTC-7",
+  "G|NZL|EGY": "21 Jun 6:00 PM UTC-7",
+  "G|EGY|IRN": "26 Jun 8:00 PM UTC-7",
+  "G|NZL|BEL": "26 Jun 8:00 PM UTC-7",
+  "H|ESP|CPV": "15 Jun 12:00 PM UTC-4",
+  "H|KSA|URU": "15 Jun 6:00 PM UTC-4",
+  "H|ESP|KSA": "21 Jun 12:00 PM UTC-4",
+  "H|URU|CPV": "21 Jun 6:00 PM UTC-4",
+  "H|CPV|KSA": "26 Jun 7:00 PM UTC-5",
+  "H|URU|ESP": "26 Jun 6:00 PM UTC-6",
+  "I|FRA|SEN": "16 Jun 3:00 PM UTC-4",
+  "I|IRQ|NOR": "16 Jun 6:00 PM UTC-4",
+  "I|FRA|IRQ": "22 Jun 5:00 PM UTC-4",
+  "I|NOR|SEN": "22 Jun 8:00 PM UTC-4",
+  "I|NOR|FRA": "26 Jun 3:00 PM UTC-4",
+  "I|SEN|IRQ": "26 Jun 3:00 PM UTC-4",
+  "J|ARG|ALG": "16 Jun 8:00 PM UTC-5",
+  "J|AUT|JOR": "16 Jun 9:00 PM UTC-7",
+  "J|ARG|AUT": "22 Jun 12:00 PM UTC-5",
+  "J|JOR|ALG": "22 Jun 8:00 PM UTC-7",
+  "J|ALG|AUT": "27 Jun 9:00 PM UTC-5",
+  "J|JOR|ARG": "27 Jun 9:00 PM UTC-5",
+  "K|POR|COD": "17 Jun 12:00 PM UTC-5",
+  "K|UZB|COL": "17 Jun 8:00 PM UTC-6",
+  "K|POR|UZB": "23 Jun 12:00 PM UTC-5",
+  "K|COL|COD": "23 Jun 8:00 PM UTC-6",
+  "K|COL|POR": "27 Jun 7:30 PM UTC-4",
+  "K|COD|UZB": "27 Jun 7:30 PM UTC-4",
+  "L|ENG|CRO": "17 Jun 3:00 PM UTC-5",
+  "L|GHA|PAN": "17 Jun 7:00 PM UTC-4",
+  "L|ENG|GHA": "23 Jun 4:00 PM UTC-4",
+  "L|PAN|CRO": "23 Jun 7:00 PM UTC-4",
+  "L|PAN|ENG": "27 Jun 5:00 PM UTC-4",
+  "L|CRO|GHA": "27 Jun 5:00 PM UTC-4",
+};
+
 function fmtDate(value: string): string {
   const dt = new Date(value);
   if (!Number.isFinite(dt.getTime())) return value;
@@ -112,6 +187,16 @@ function fmtDateRiga(value: string): string {
     timeZone: "Europe/Riga",
     timeZoneName: "short",
   });
+}
+
+function fmtMatchKickoff(
+  match: PickemMatch,
+  teamsById: Map<string, PickemTeam>,
+): string {
+  const home = teamsById.get(match.homeTeamId)?.shortName || "";
+  const away = teamsById.get(match.awayTeamId)?.shortName || "";
+  const key = `${match.groupCode || ""}|${home}|${away}`;
+  return WC2026_SOURCE_TIME_LABELS[key] || fmtDate(match.kickoffAt);
 }
 
 function initialsOf(name: string): string {
@@ -607,7 +692,9 @@ export function PickemApp() {
                             </span>
                           </div>
                         </div>
-                        <p className="mt-2 text-[11px] font-semibold text-slate-500">{fmtDate(match.kickoffAt)}</p>
+                        <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                          {fmtMatchKickoff(match, teamsById)}
+                        </p>
                       </article>
                     );
                   })}
@@ -796,7 +883,7 @@ export function PickemApp() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                          Group {match.groupCode || "-"} · {fmtDate(match.kickoffAt)}
+                          Group {match.groupCode || "-"} · {fmtMatchKickoff(match, teamsById)}
                         </div>
                         <h3 className="mt-1 text-base font-extrabold" style={{ color: NAVY }}>
                           <TeamFlag team={home} /> {home?.name || "Home"} vs <TeamFlag team={away} />{" "}

@@ -954,7 +954,7 @@ export function PickemApp() {
                                     : "bg-rose-100 text-rose-700"
                               }`}
                             >
-                              {exactHit ? "+1 result +3 exact" : outcomeHit ? "+1 result" : "Miss"}
+                              {exactHit ? "+1 result +2 exact" : outcomeHit ? "+1 result" : "Miss"}
                             </span>
                           ) : (
                             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">
@@ -1187,7 +1187,7 @@ export function PickemApp() {
                               hasActual &&
                               outcomeKey(mp.predictedHomeScore, mp.predictedAwayScore) ===
                                 outcomeKey(match.homeScore as number, match.awayScore as number);
-                            const points = !hasActual ? null : exact ? 4 : correctOutcome ? 1 : 0;
+                            const points = !hasActual ? null : exact ? 3 : correctOutcome ? 1 : 0;
                             return (
                               <div key={mp.matchId} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
                                 <div className="flex items-center justify-between gap-3">
@@ -1221,7 +1221,7 @@ export function PickemApp() {
                                     {points === null
                                       ? "-"
                                       : exact
-                                        ? "+1 result +3 exact"
+                                        ? "+1 result +2 exact"
                                         : points === 1
                                           ? "+1 result"
                                           : "Missed"}

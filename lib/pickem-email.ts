@@ -270,7 +270,7 @@ ${picksRows}
                           <strong style="color:#0f1e3c;">How points work:</strong>
                           &nbsp;<span style="color:#1a56db; font-weight:800;">+1</span> team in the right group position &nbsp;&middot;&nbsp;
                           <span style="color:#1a56db; font-weight:800;">+1</span> correct match result &nbsp;&middot;&nbsp;
-                          <span style="color:#ea580c; font-weight:800;">+3</span> exact score (total exact = 4)
+                          <span style="color:#ea580c; font-weight:800;">+2</span> exact score (total exact = 3)
                         </td>
                       </tr>
                     </table>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { pickemTeamFlag, sendPickemSubmissionEmail } from "@/lib/pickem-email";
+import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
 import {
   getActiveCompetition,
   hasSubmitted,
@@ -16,6 +17,9 @@ export async function POST() {
   if ("error" in auth) return auth.error;
   const competition = await getActiveCompetition();
   if (!competition) return NextResponse.json({ error: "Competition not configured." }, { status: 404 });
+  if (isGroupPredictionsLocked(competition)) {
+    return NextResponse.json({ error: "Submission is closed." }, { status: 409 });
+  }
 
   const [groups, teams, matches, predictions] = await Promise.all([
     listGroups(competition.id),

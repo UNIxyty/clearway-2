@@ -281,9 +281,8 @@ export function PickemApp() {
 
   const viewerSubmitted = Boolean(data?.userPredictions.submission?.submittedAt);
   const nowTs = Date.now();
-  const firstGroupKickoffTs = groupMatches.length ? new Date(groupMatches[0].kickoffAt).getTime() : null;
-  const allPicksLocked =
-    firstGroupKickoffTs !== null && Number.isFinite(firstGroupKickoffTs) ? nowTs >= firstGroupKickoffTs : false;
+  const lockTs = new Date(data.competition.groupLockAt).getTime();
+  const allPicksLocked = Number.isFinite(lockTs) ? nowTs >= lockTs : false;
   const groupsComplete = matchesComplete;
 
   const totalGroupMatches = groupMatches.length;
@@ -505,7 +504,7 @@ export function PickemApp() {
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs font-bold">
                     <span className="rounded-full bg-white/10 px-3 py-1">
-                      Lock (Riga): {fmtDate(groupMatches[0]?.kickoffAt || data.competition.groupLockAt)}
+                      Lock (Riga): {fmtDate(data.competition.groupLockAt)}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 ${

@@ -118,6 +118,6 @@ values (
   'wc-2026',
   'FIFA World Cup 2026',
   '2026-06-11T18:00:00Z',
-  '2026-06-11T18:00:00Z'
+  '2026-06-11T19:01:00Z'
 )
 on conflict (slug) do nothing;

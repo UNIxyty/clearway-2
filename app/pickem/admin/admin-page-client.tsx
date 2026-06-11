@@ -473,7 +473,7 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={!liveChecked || published}
+                    disabled={!liveChecked && !published}
                   />
                   <span className="text-lg font-black text-black/25">-</span>
                   <input
@@ -486,7 +486,7 @@ export function PickemAdminClient() {
                     }
                     className="h-11 w-12 rounded-lg border-2 border-black/15 text-center text-lg font-extrabold"
                     inputMode="numeric"
-                    disabled={!liveChecked || published}
+                    disabled={!liveChecked && !published}
                   />
                   <div className="flex-1 text-right text-sm font-bold text-slate-900">{away?.name || "Away"}</div>
                 </div>
@@ -497,7 +497,6 @@ export function PickemAdminClient() {
                       <input
                         type="checkbox"
                         checked={liveChecked}
-                        disabled={published}
                         onChange={(e) =>
                           setEdits((prev) => ({
                             ...prev,
@@ -508,14 +507,18 @@ export function PickemAdminClient() {
                       Live
                     </label>
                     <span className="text-xs font-semibold text-slate-500">
-                      {published ? "Already published" : isLive || liveChecked ? "Live match updates enabled" : "Enable Live to edit"}
+                      {published
+                        ? "Published. You can edit and republish final."
+                        : isLive || liveChecked
+                          ? "Live match updates enabled"
+                          : "Enable Live to edit"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => void saveMatch(match, "live")}
-                      disabled={saving === match.id || edit.home === "" || edit.away === "" || !liveChecked || published}
+                      disabled={saving === match.id || edit.home === "" || edit.away === "" || !liveChecked}
                       className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Update Live
@@ -523,10 +526,15 @@ export function PickemAdminClient() {
                     <button
                       type="button"
                       onClick={() => setModalMatchId(match.id)}
-                      disabled={saving === match.id || edit.home === "" || edit.away === "" || !liveChecked || published}
+                      disabled={
+                        saving === match.id ||
+                        edit.home === "" ||
+                        edit.away === "" ||
+                        (!liveChecked && !published)
+                      }
                       className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {published ? "Published" : "Publish Final"}
+                      {published ? "Republish Final" : "Publish Final"}
                     </button>
                   </div>
                 </div>

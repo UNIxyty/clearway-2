@@ -103,6 +103,17 @@ function fmtDate(value: string): string {
   return `${y}-${m}-${d} ${hh}:${mm} UTC`;
 }
 
+function fmtDateRiga(value: string): string {
+  return new Date(value).toLocaleString("en-GB", {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Riga",
+    timeZoneName: "short",
+  });
+}
+
 function initialsOf(name: string): string {
   return name
     .split(/\s+/)
@@ -503,7 +514,9 @@ export function PickemApp() {
                     using FIFA tie-breakers.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-2.5 text-xs font-bold">
-                    <span className="rounded-full bg-white/10 px-3 py-1">Lock (UTC): {fmtDate(data.competition.groupLockAt)}</span>
+                    <span className="rounded-full bg-white/10 px-3 py-1">
+                      Lock (Riga): {fmtDateRiga(data.competition.groupLockAt)}
+                    </span>
                     <span
                       className={`rounded-full px-3 py-1 ${
                         viewerSubmitted ? "bg-emerald-500/25 text-emerald-100" : "bg-white/10"

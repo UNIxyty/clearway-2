@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { getActiveCompetition, listMatches, saveMatchPredictions } from "@/lib/pickem-store";
-import { isGroupPredictionsLocked, isMatchPredictionLocked } from "@/lib/pickem-rules";
+import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
 
 export async function PUT(request: NextRequest) {
   const auth = await requireAuthenticatedUser();
@@ -41,9 +41,6 @@ export async function PUT(request: NextRequest) {
   for (const row of normalized) {
     const match = byId.get(row.matchId);
     if (!match) return NextResponse.json({ error: `Unknown match: ${row.matchId}` }, { status: 400 });
-    if (isMatchPredictionLocked(match)) {
-      return NextResponse.json({ error: `Match ${row.matchId} is locked.` }, { status: 409 });
-    }
   }
 
   await saveMatchPredictions({

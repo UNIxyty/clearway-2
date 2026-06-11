@@ -762,7 +762,7 @@ export function PickemApp() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {groupMatches.map((match) => {
-                const locked = allPicksLocked || new Date(match.kickoffAt).getTime() <= nowTs;
+                const locked = allPicksLocked;
                 const resultPublished =
                   String(match.status || "").toLowerCase() === "finished" &&
                   match.homeScore !== null &&

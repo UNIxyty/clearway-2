@@ -415,22 +415,23 @@ export function PickemApp() {
 
   const liveGroupMatches = groupMatches.filter((match) => isLiveMatchStatus(match.status));
 
-  const scheduledTodayMatches = groupMatches
+  const scheduledUpcomingMatches = groupMatches
     .filter((match) => {
       const kickoffTs = new Date(match.kickoffAt).getTime();
       if (!Number.isFinite(kickoffTs)) return false;
       if (String(match.status || "").toLowerCase() === "finished") return false;
       if (isLiveMatchStatus(match.status)) return false;
-      if (nowTs >= kickoffTs) return false;
-      const nowDate = new Date(nowTs);
-      const kickoffDate = new Date(kickoffTs);
-      return (
-        nowDate.getFullYear() === kickoffDate.getFullYear() &&
-        nowDate.getMonth() === kickoffDate.getMonth() &&
-        nowDate.getDate() === kickoffDate.getDate()
-      );
+      return true;
     })
-    .sort((a, b) => +new Date(a.kickoffAt) - +new Date(b.kickoffAt))
+    .sort((a, b) => {
+      const aTs = new Date(a.kickoffAt).getTime();
+      const bTs = new Date(b.kickoffAt).getTime();
+      const aFuture = aTs >= nowTs;
+      const bFuture = bTs >= nowTs;
+      if (aFuture !== bFuture) return aFuture ? -1 : 1;
+      if (aFuture) return aTs - bTs;
+      return bTs - aTs;
+    })
     .slice(0, 2);
 
   const dashboardTopRows = leaderboard.rows.slice(0, 8);
@@ -728,13 +729,13 @@ export function PickemApp() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-black" style={{ color: NAVY }}>
-                  Next Matches Today
+                  Next Scheduled Matches
                 </h2>
                 <span className="text-xs font-bold text-slate-500">Auto-updates at kickoff</span>
               </div>
-              {scheduledTodayMatches.length ? (
+              {scheduledUpcomingMatches.length ? (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {scheduledTodayMatches.map((match) => {
+                  {scheduledUpcomingMatches.map((match) => {
                     const home = teamsById.get(match.homeTeamId);
                     const away = teamsById.get(match.awayTeamId);
                     return (
@@ -763,7 +764,7 @@ export function PickemApp() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
-                  No more scheduled matches today.
+                  No scheduled matches available.
                 </div>
               )}
             </section>

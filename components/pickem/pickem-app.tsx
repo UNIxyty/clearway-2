@@ -290,6 +290,7 @@ export function PickemApp() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [activeView, setActiveView] = useState<ActiveView>("home");
   const [loading, setLoading] = useState(true);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BootstrapPayload | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardPayload>({
@@ -349,6 +350,13 @@ export function PickemApp() {
     return () => window.clearTimeout(timer);
   }, [error]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowTs(Date.now());
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const teamsById = useMemo(() => {
     const map = new Map<string, PickemTeam>();
     for (const team of data?.teams || []) map.set(team.id, team);
@@ -377,7 +385,6 @@ export function PickemApp() {
   }, [groupMatches, matchScores]);
 
   const viewerSubmitted = Boolean(data?.userPredictions.submission?.submittedAt);
-  const nowTs = Date.now();
   const lockTs = new Date(data?.competition.groupLockAt || "").getTime();
   const overrideTs = new Date(data?.viewer.lockOverrideUntil || "").getTime();
   const viewerLockOverrideActive = Number.isFinite(overrideTs) ? nowTs < overrideTs : false;
@@ -421,6 +428,24 @@ export function PickemApp() {
     // Fallback "live window" for sources that do not mark explicit live statuses.
     return nowTs >= kickoffTs && nowTs <= kickoffTs + 2 * 60 * 60 * 1000;
   });
+
+  const scheduledTodayMatches = groupMatches
+    .filter((match) => {
+      const kickoffTs = new Date(match.kickoffAt).getTime();
+      if (!Number.isFinite(kickoffTs)) return false;
+      if (String(match.status || "").toLowerCase() === "finished") return false;
+      if (isLiveMatchStatus(match.status)) return false;
+      if (nowTs >= kickoffTs) return false;
+      const nowDate = new Date(nowTs);
+      const kickoffDate = new Date(kickoffTs);
+      return (
+        nowDate.getFullYear() === kickoffDate.getFullYear() &&
+        nowDate.getMonth() === kickoffDate.getMonth() &&
+        nowDate.getDate() === kickoffDate.getDate()
+      );
+    })
+    .sort((a, b) => +new Date(a.kickoffAt) - +new Date(b.kickoffAt))
+    .slice(0, 2);
 
   const dashboardTopRows = leaderboard.rows.slice(0, 8);
 
@@ -671,6 +696,12 @@ export function PickemApp() {
                     const away = teamsById.get(match.awayTeamId);
                     const homeScore = match.homeScore ?? 0;
                     const awayScore = match.awayScore ?? 0;
+                    const kickoffTs = new Date(match.kickoffAt).getTime();
+                    const inferredLive =
+                      Number.isFinite(kickoffTs) &&
+                      nowTs >= kickoffTs &&
+                      nowTs <= kickoffTs + 2 * 60 * 60 * 1000 &&
+                      String(match.status || "").toLowerCase() !== "finished";
                     return (
                       <article
                         key={`live-${match.id}`}
@@ -679,7 +710,7 @@ export function PickemApp() {
                         <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
                           <span>Group {match.groupCode || "-"}</span>
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                            {String(match.status || "live").toUpperCase()}
+                            {(inferredLive ? "LIVE" : String(match.status || "live")).toUpperCase()}
                           </span>
                         </div>
                         <div className="mt-2 space-y-1.5">
@@ -710,6 +741,49 @@ export function PickemApp() {
               ) : (
                 <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
                   No matches live right now.
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black" style={{ color: NAVY }}>
+                  Next Matches Today
+                </h2>
+                <span className="text-xs font-bold text-slate-500">Auto-updates at kickoff</span>
+              </div>
+              {scheduledTodayMatches.length ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {scheduledTodayMatches.map((match) => {
+                    const home = teamsById.get(match.homeTeamId);
+                    const away = teamsById.get(match.awayTeamId);
+                    return (
+                      <article
+                        key={`today-next-${match.id}`}
+                        className="rounded-xl border border-black/10 bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          <span>Group {match.groupCode || "-"}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">SCHEDULED</span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          <div className="text-sm font-bold" style={{ color: NAVY }}>
+                            <TeamFlag team={home} /> {home?.name || "Home"}
+                          </div>
+                          <div className="text-sm font-bold" style={{ color: NAVY }}>
+                            <TeamFlag team={away} /> {away?.name || "Away"}
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                          {fmtMatchKickoff(match, teamsById)}
+                        </p>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm font-semibold text-slate-500">
+                  No more scheduled matches today.
                 </div>
               )}
             </section>

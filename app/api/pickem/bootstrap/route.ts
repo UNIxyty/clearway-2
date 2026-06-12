@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import {
   getActiveCompetition,
+  getUserLockOverride,
   listGroupResults,
   listGroups,
   listMatches,
@@ -18,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "Pickem competition is not configured." }, { status: 404 });
   }
 
-  const [groups, teams, matches, groupResults, userPredictions, prefRes] = await Promise.all([
+  const [groups, teams, matches, groupResults, userPredictions, prefRes, lockOverride] = await Promise.all([
     listGroups(competition.id),
     listTeams(competition.id),
     listMatches(competition.id),
@@ -29,6 +30,7 @@ export async function GET() {
       .select("display_name")
       .eq("user_id", auth.user.id)
       .maybeSingle(),
+    getUserLockOverride({ userId: auth.user.id, competitionId: competition.id }),
   ]);
 
   const displayName =
@@ -43,6 +45,7 @@ export async function GET() {
       userId: auth.user.id,
       email: auth.user.email || null,
       displayName,
+      lockOverrideUntil: lockOverride?.unlockUntil || null,
     },
     groups,
     teams,

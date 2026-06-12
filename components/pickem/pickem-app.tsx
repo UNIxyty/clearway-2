@@ -19,6 +19,7 @@ type BootstrapPayload = {
     userId: string;
     email: string | null;
     displayName: string;
+    lockOverrideUntil: string | null;
   };
   groups: PickemGroup[];
   teams: PickemTeam[];
@@ -378,7 +379,9 @@ export function PickemApp() {
   const viewerSubmitted = Boolean(data?.userPredictions.submission?.submittedAt);
   const nowTs = Date.now();
   const lockTs = new Date(data?.competition.groupLockAt || "").getTime();
-  const allPicksLocked = Number.isFinite(lockTs) ? nowTs >= lockTs : false;
+  const overrideTs = new Date(data?.viewer.lockOverrideUntil || "").getTime();
+  const viewerLockOverrideActive = Number.isFinite(overrideTs) ? nowTs < overrideTs : false;
+  const allPicksLocked = Number.isFinite(lockTs) ? nowTs >= lockTs && !viewerLockOverrideActive : false;
   const groupsComplete = matchesComplete;
 
   const totalGroupMatches = groupMatches.length;
@@ -602,6 +605,11 @@ export function PickemApp() {
                     <span className="rounded-full bg-white/10 px-3 py-1">
                       Lock (Riga): {fmtDateRiga(data.competition.groupLockAt)}
                     </span>
+                    {viewerLockOverrideActive && (
+                      <span className="rounded-full bg-emerald-500/25 px-3 py-1 text-emerald-100">
+                        Unlocked for you until {fmtDateRiga(data.viewer.lockOverrideUntil || "")}
+                      </span>
+                    )}
                     <span
                       className={`rounded-full px-3 py-1 ${
                         viewerSubmitted ? "bg-emerald-500/25 text-emerald-100" : "bg-white/10"

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { requireAdmin, requireAuthenticatedUser } from "@/lib/admin-auth";
 import { getActiveCompetition, hasSubmitted, listUserPredictions } from "@/lib/pickem-store";
 
 export async function GET(_: Request, context: { params: { userId: string } }) {
@@ -14,6 +14,12 @@ export async function GET(_: Request, context: { params: { userId: string } }) {
   if (userId !== auth.user.id) {
     const viewerSubmitted = await hasSubmitted({ userId: auth.user.id, competitionId: competition.id });
     if (!viewerSubmitted) {
+      const adminCheck = await requireAdmin();
+      const viewerIsAdmin = !("error" in adminCheck);
+      if (viewerIsAdmin) {
+        const predictions = await listUserPredictions({ userId, competitionId: competition.id });
+        return NextResponse.json(predictions);
+      }
       return NextResponse.json(
         { error: "Submit your own picks first before viewing others." },
         { status: 403 },

@@ -4,6 +4,7 @@ import { pickemTeamFlag, sendPickemSubmissionEmail } from "@/lib/pickem-email";
 import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
 import {
   getActiveCompetition,
+  getUserLockOverride,
   hasSubmitted,
   listGroups,
   listMatches,
@@ -17,7 +18,8 @@ export async function POST() {
   if ("error" in auth) return auth.error;
   const competition = await getActiveCompetition();
   if (!competition) return NextResponse.json({ error: "Competition not configured." }, { status: 404 });
-  if (isGroupPredictionsLocked(competition)) {
+  const lockOverride = await getUserLockOverride({ userId: auth.user.id, competitionId: competition.id });
+  if (isGroupPredictionsLocked(competition) && !lockOverride) {
     return NextResponse.json({ error: "Submission is closed." }, { status: 409 });
   }
 

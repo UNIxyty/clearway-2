@@ -16,7 +16,7 @@ type AdminPayload = {
 };
 
 type EditState = Record<string, { home: string; away: string; live: boolean }>;
-type Tab = "matches" | "groups";
+type Tab = "matches" | "groups" | "locks";
 type GroupResultRow = { groupCode: string; teamId: string; finalPosition: number };
 type GroupsPayload = {
   competition: PickemCompetition;
@@ -24,9 +24,27 @@ type GroupsPayload = {
   teams: PickemTeam[];
   groupResults: GroupResultRow[];
 };
+type LockParticipant = {
+  userId: string;
+  displayName: string;
+  rank: number;
+  points: number;
+};
+type LockOverrideRow = {
+  userId: string;
+  unlockUntil: string;
+  reason: string | null;
+  updatedAt: string;
+};
+type LocksPayload = {
+  competition: PickemCompetition;
+  participants: LockParticipant[];
+  overrides: LockOverrideRow[];
+};
 
 const ADMIN_API_URL = "/api/pickem/admin/matches";
 const GROUP_API_URL = "/api/pickem/admin/groups";
+const LOCK_API_URL = "/api/pickem/admin/locks";
 
 function fmtKickoff(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
@@ -39,6 +57,18 @@ function fmtKickoff(value: string): string {
   });
 }
 
+function toDateTimeLocalValue(value: string): string {
+  const ts = new Date(value).getTime();
+  if (!Number.isFinite(ts)) return "";
+  const dt = new Date(ts);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  const hh = String(dt.getHours()).padStart(2, "0");
+  const min = String(dt.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
 export function PickemAdminClient() {
   const [tab, setTab] = useState<Tab>("matches");
   const [loading, setLoading] = useState(true);
@@ -48,8 +78,13 @@ export function PickemAdminClient() {
   const [modalMatchId, setModalMatchId] = useState<string | null>(null);
   const [payload, setPayload] = useState<AdminPayload | null>(null);
   const [groupsPayload, setGroupsPayload] = useState<GroupsPayload | null>(null);
+  const [locksPayload, setLocksPayload] = useState<LocksPayload | null>(null);
   const [groupOrders, setGroupOrders] = useState<Record<string, string[]>>({});
   const [edits, setEdits] = useState<EditState>({});
+  const [selectedLockUserId, setSelectedLockUserId] = useState("");
+  const [manualLockUserId, setManualLockUserId] = useState("");
+  const [lockUntilLocal, setLockUntilLocal] = useState("");
+  const [lockReason, setLockReason] = useState("");
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   async function fetchAdminApi(
@@ -68,6 +103,15 @@ export function PickemAdminClient() {
     const json = await res.json().catch(() => ({}));
     if (res.ok) return { res, json };
     throw new Error(json.error || `Failed to load group standings (${res.status}).`);
+  }
+
+  async function fetchLockApi(
+    init?: RequestInit,
+  ): Promise<{ res: Response; json: any }> {
+    const res = await fetch(LOCK_API_URL, init);
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return { res, json };
+    throw new Error(json.error || `Failed to load lock overrides (${res.status}).`);
   }
 
   async function load() {
@@ -128,6 +172,27 @@ export function PickemAdminClient() {
       }
     })();
   }, [tab, groupsPayload]);
+
+  useEffect(() => {
+    if (tab !== "locks" || locksPayload) return;
+    void (async () => {
+      setError(null);
+      try {
+        const { json } = await fetchLockApi({ cache: "no-store" });
+        setLocksPayload(json as LocksPayload);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load lock overrides.");
+      }
+    })();
+  }, [tab, locksPayload]);
+
+  useEffect(() => {
+    if (!selectedLockUserId || !locksPayload) return;
+    const existing = locksPayload.overrides.find((row) => row.userId === selectedLockUserId);
+    if (!existing) return;
+    setLockUntilLocal(toDateTimeLocalValue(existing.unlockUntil));
+    setLockReason(existing.reason || "");
+  }, [selectedLockUserId, locksPayload]);
 
   const matches = useMemo(
     () =>
@@ -272,6 +337,66 @@ export function PickemAdminClient() {
     });
   }
 
+  const effectiveLockUserId = (manualLockUserId || selectedLockUserId).trim();
+
+  async function saveUserLockOverride() {
+    if (!effectiveLockUserId) {
+      setError("Select a player or enter a user ID.");
+      return;
+    }
+    const unlockTs = new Date(lockUntilLocal).getTime();
+    if (!Number.isFinite(unlockTs)) {
+      setError("Pick a valid unlock time.");
+      return;
+    }
+    setSaving(`lock:${effectiveLockUserId}`);
+    setError(null);
+    try {
+      const { json } = await fetchLockApi({
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: effectiveLockUserId,
+          unlockUntil: new Date(unlockTs).toISOString(),
+          reason: lockReason || null,
+        }),
+      });
+      setLocksPayload((prev) =>
+        prev
+          ? { ...prev, overrides: (json.overrides || prev.overrides) as LockOverrideRow[] }
+          : prev,
+      );
+      flash(`Saved unlock for ${effectiveLockUserId}.`);
+      setManualLockUserId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save lock override.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function clearUserOverride(userId: string) {
+    setSaving(`lock-clear:${userId}`);
+    setError(null);
+    try {
+      const { json } = await fetchLockApi({
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId, clear: true }),
+      });
+      setLocksPayload((prev) =>
+        prev
+          ? { ...prev, overrides: (json.overrides || prev.overrides) as LockOverrideRow[] }
+          : prev,
+      );
+      flash(`Cleared unlock for ${userId}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear lock override.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
   if (loading) {
     return <div className="rounded-xl border border-black/10 bg-white p-6">Loading Pickem admin...</div>;
   }
@@ -333,6 +458,15 @@ export function PickemAdminClient() {
             }`}
           >
             Group Standings
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("locks")}
+            className={`h-9 rounded-lg px-4 text-sm font-bold transition ${
+              tab === "locks" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Pick Locks
           </button>
         </div>
       </nav>
@@ -428,6 +562,121 @@ export function PickemAdminClient() {
               </article>
             );
           })}
+        </section>
+      ) : tab === "locks" ? (
+        <section className="space-y-4">
+          <article className="rounded-2xl border border-black/[0.08] bg-white p-4">
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700">
+              Per-user lock override
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Unlock one player after global lock. This does not change match kickoff dates or lock date.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Pick player</span>
+                <select
+                  value={selectedLockUserId}
+                  onChange={(e) => setSelectedLockUserId(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                >
+                  <option value="">Select participant</option>
+                  {(locksPayload?.participants || []).map((user) => (
+                    <option key={user.userId} value={user.userId}>
+                      {user.displayName} · #{user.rank} · {user.points} pts
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+                  Or user id
+                </span>
+                <input
+                  value={manualLockUserId}
+                  onChange={(e) => setManualLockUserId(e.target.value)}
+                  placeholder="uuid"
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Unlocked until</span>
+                <input
+                  type="datetime-local"
+                  value={lockUntilLocal}
+                  onChange={(e) => setLockUntilLocal(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Reason (optional)</span>
+                <input
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  placeholder="Support override"
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void saveUserLockOverride()}
+                disabled={!lockUntilLocal || !effectiveLockUserId || saving === `lock:${effectiveLockUserId}`}
+                className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {saving === `lock:${effectiveLockUserId}` ? "Saving..." : "Save unlock"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualLockUserId("");
+                  setSelectedLockUserId("");
+                  setLockReason("");
+                  setLockUntilLocal("");
+                }}
+                className="h-10 rounded-lg border border-black/15 px-4 text-sm font-bold text-slate-700"
+              >
+                Clear form
+              </button>
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-black/[0.08] bg-white p-4">
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700">Active overrides</h3>
+            <div className="mt-3 space-y-2">
+              {(locksPayload?.overrides || []).length === 0 ? (
+                <div className="rounded-lg border border-dashed border-black/20 px-3 py-4 text-sm font-semibold text-slate-500">
+                  No active per-user unlocks.
+                </div>
+              ) : (
+                (locksPayload?.overrides || []).map((row) => {
+                  const user = (locksPayload?.participants || []).find((p) => p.userId === row.userId);
+                  return (
+                    <div key={row.userId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/10 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">
+                          {user?.displayName || "Unknown user"} · {row.userId}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Until {fmtKickoff(row.unlockUntil)}
+                          {row.reason ? ` · ${row.reason}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void clearUserOverride(row.userId)}
+                        disabled={saving === `lock-clear:${row.userId}`}
+                        className="h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-slate-700 disabled:opacity-40"
+                      >
+                        {saving === `lock-clear:${row.userId}` ? "Clearing..." : "Remove"}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </article>
         </section>
       ) : (
         <section className="space-y-4">

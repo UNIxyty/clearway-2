@@ -286,6 +286,87 @@ export async function hasSubmitted(input: { userId: string; competitionId: strin
   return !error && Boolean(data);
 }
 
+export async function getUserLockOverride(input: {
+  userId: string;
+  competitionId: string;
+}): Promise<{ unlockUntil: string } | null> {
+  const supabase = service();
+  const { data, error } = await supabase
+    .from("pickem_user_lock_overrides")
+    .select("unlock_until")
+    .eq("competition_id", input.competitionId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const unlockUntil = String((data as { unlock_until?: string }).unlock_until || "");
+  if (!unlockUntil) return null;
+  const unlockTs = new Date(unlockUntil).getTime();
+  if (!Number.isFinite(unlockTs) || unlockTs <= Date.now()) return null;
+  return { unlockUntil };
+}
+
+export async function listUserLockOverrides(input: {
+  competitionId: string;
+}): Promise<Array<{ userId: string; unlockUntil: string; reason: string | null; updatedAt: string }>> {
+  const supabase = service();
+  const { data, error } = await supabase
+    .from("pickem_user_lock_overrides")
+    .select("user_id,unlock_until,reason,updated_at")
+    .eq("competition_id", input.competitionId)
+    .order("updated_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as any[])
+    .map((row) => ({
+      userId: String(row.user_id),
+      unlockUntil: String(row.unlock_until),
+      reason: row.reason ? String(row.reason) : null,
+      updatedAt: String(row.updated_at),
+    }))
+    .filter((row) => {
+      const unlockTs = new Date(row.unlockUntil).getTime();
+      return Number.isFinite(unlockTs) && unlockTs > Date.now();
+    });
+}
+
+export async function upsertUserLockOverride(input: {
+  userId: string;
+  competitionId: string;
+  unlockUntil: string;
+  reason?: string | null;
+  updatedByUserId?: string | null;
+}): Promise<void> {
+  const supabase = service();
+  const unlockTs = new Date(input.unlockUntil).getTime();
+  if (!Number.isFinite(unlockTs)) throw new Error("Invalid unlockUntil timestamp");
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("pickem_user_lock_overrides").upsert(
+    {
+      user_id: input.userId,
+      competition_id: input.competitionId,
+      unlock_until: new Date(unlockTs).toISOString(),
+      reason: input.reason ? input.reason.trim().slice(0, 300) : null,
+      updated_by_user_id: input.updatedByUserId || null,
+      updated_at: now,
+      created_at: now,
+    },
+    { onConflict: "user_id,competition_id" },
+  );
+  if (error) throw new Error(error.message || "Failed to upsert lock override");
+}
+
+export async function clearUserLockOverride(input: {
+  userId: string;
+  competitionId: string;
+}): Promise<void> {
+  const supabase = service();
+  const { error } = await supabase
+    .from("pickem_user_lock_overrides")
+    .delete()
+    .eq("competition_id", input.competitionId)
+    .eq("user_id", input.userId);
+  if (error) throw new Error(error.message || "Failed to clear lock override");
+}
+
 export async function getLeaderboard(competitionId: string): Promise<PickemLeaderboardRow[]> {
   const supabase = service();
   const { data, error } = await supabase

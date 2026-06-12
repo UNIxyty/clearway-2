@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
-import { getActiveCompetition, listMatches, saveMatchPredictions } from "@/lib/pickem-store";
+import { getActiveCompetition, getUserLockOverride, listMatches, saveMatchPredictions } from "@/lib/pickem-store";
 import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
 
 export async function PUT(request: NextRequest) {
@@ -8,7 +8,8 @@ export async function PUT(request: NextRequest) {
   if ("error" in auth) return auth.error;
   const competition = await getActiveCompetition();
   if (!competition) return NextResponse.json({ error: "Competition not configured." }, { status: 404 });
-  if (isGroupPredictionsLocked(competition)) {
+  const lockOverride = await getUserLockOverride({ userId: auth.user.id, competitionId: competition.id });
+  if (isGroupPredictionsLocked(competition) && !lockOverride) {
     return NextResponse.json({ error: "Predictions are locked." }, { status: 409 });
   }
   const matches = await listMatches(competition.id);

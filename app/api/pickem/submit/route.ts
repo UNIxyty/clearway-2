@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { pickemTeamFlag, sendPickemSubmissionEmail } from "@/lib/pickem-email";
 import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
+import { recomputePickemPoints } from "@/lib/pickem-scoring";
 import {
   getActiveCompetition,
   getUserLockOverride,
@@ -39,6 +40,7 @@ export async function POST() {
 
   const alreadySubmitted = await hasSubmitted({ userId: auth.user.id, competitionId: competition.id });
   await markSubmitted({ userId: auth.user.id, competitionId: competition.id });
+  await recomputePickemPoints(competition.id);
 
   if (!alreadySubmitted && auth.user.email) {
     const displayName =

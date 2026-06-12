@@ -12,13 +12,21 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
   const supabase = createSupabaseServiceRoleClient();
   if (!supabase) throw new Error("Missing Supabase service role configuration");
 
-  const [{ data: groupResults }, { data: users }, groups, teams, matches] = await Promise.all([
+  const [{ data: groupResults }, submissionsRes, groupPredRes, matchPredRes, groups, teams, matches] = await Promise.all([
     supabase
       .from("pickem_group_results")
       .select("group_code,team_id,final_position")
       .eq("competition_id", competitionId),
     supabase
       .from("pickem_prediction_submissions")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("pickem_user_group_predictions")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("pickem_user_match_predictions")
       .select("user_id")
       .eq("competition_id", competitionId),
     listGroups(competitionId),
@@ -43,8 +51,12 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
     details: object;
   }> = [];
 
-  for (const userRow of users || []) {
-    const userId = String((userRow as any).user_id);
+  const participantIds = new Set<string>();
+  for (const row of submissionsRes.data || []) participantIds.add(String((row as any).user_id));
+  for (const row of groupPredRes.data || []) participantIds.add(String((row as any).user_id));
+  for (const row of matchPredRes.data || []) participantIds.add(String((row as any).user_id));
+
+  for (const userId of participantIds) {
     const predictions = await listUserPredictions({ userId, competitionId });
 
     const derivedGroups = derivePredictedGroupPositions({

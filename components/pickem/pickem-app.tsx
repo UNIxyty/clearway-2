@@ -290,7 +290,6 @@ export function PickemApp() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [activeView, setActiveView] = useState<ActiveView>("home");
   const [loading, setLoading] = useState(true);
-  const [nowTs, setNowTs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BootstrapPayload | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardPayload>({
@@ -350,13 +349,7 @@ export function PickemApp() {
     return () => window.clearTimeout(timer);
   }, [error]);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNowTs(Date.now());
-    }, 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
+  const nowTs = Date.now();
   const teamsById = useMemo(() => {
     const map = new Map<string, PickemTeam>();
     for (const team of data?.teams || []) map.set(team.id, team);
@@ -420,14 +413,7 @@ export function PickemApp() {
     }).length;
   }, [data, groupMatches, scoreByMatchId]);
 
-  const liveGroupMatches = groupMatches.filter((match) => {
-    if (isLiveMatchStatus(match.status)) return true;
-    if (String(match.status || "").toLowerCase() === "finished") return false;
-    const kickoffTs = new Date(match.kickoffAt).getTime();
-    if (!Number.isFinite(kickoffTs)) return false;
-    // Fallback "live window" for sources that do not mark explicit live statuses.
-    return nowTs >= kickoffTs && nowTs <= kickoffTs + 2 * 60 * 60 * 1000;
-  });
+  const liveGroupMatches = groupMatches.filter((match) => isLiveMatchStatus(match.status));
 
   const scheduledTodayMatches = groupMatches
     .filter((match) => {
@@ -696,12 +682,6 @@ export function PickemApp() {
                     const away = teamsById.get(match.awayTeamId);
                     const homeScore = match.homeScore ?? 0;
                     const awayScore = match.awayScore ?? 0;
-                    const kickoffTs = new Date(match.kickoffAt).getTime();
-                    const inferredLive =
-                      Number.isFinite(kickoffTs) &&
-                      nowTs >= kickoffTs &&
-                      nowTs <= kickoffTs + 2 * 60 * 60 * 1000 &&
-                      String(match.status || "").toLowerCase() !== "finished";
                     return (
                       <article
                         key={`live-${match.id}`}
@@ -710,7 +690,7 @@ export function PickemApp() {
                         <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
                           <span>Group {match.groupCode || "-"}</span>
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                            {(inferredLive ? "LIVE" : String(match.status || "live")).toUpperCase()}
+                            {String(match.status || "live").toUpperCase()}
                           </span>
                         </div>
                         <div className="mt-2 space-y-1.5">

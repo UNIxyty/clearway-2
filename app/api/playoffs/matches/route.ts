@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
 
   // Fetch matches
   const { data: matchRows, error } = await supabase
@@ -19,21 +19,11 @@ export async function GET() {
 
   let teamsById: Record<string, Record<string, unknown>> = {};
   if (teamIds.length > 0) {
-    // RLS on pickem_teams requires competition_id filter — fetch it first
-    const { data: comp } = await supabase
-      .from('pickem_competitions')
-      .select('id')
-      .eq('slug', 'wc-2026')
-      .single();
-
-    if (comp) {
-      const { data: teamRows } = await supabase
-        .from('pickem_teams')
-        .select('id, name, short_name, crest_url, group_code')
-        .eq('competition_id', comp.id)
-        .in('id', teamIds);
-      (teamRows ?? []).forEach(t => { teamsById[t.id] = t; });
-    }
+    const { data: teamRows } = await supabase
+      .from('pickem_teams')
+      .select('id, name, short_name, crest_url, group_code')
+      .in('id', teamIds);
+    (teamRows ?? []).forEach(t => { teamsById[t.id] = t; });
   }
 
   const matches = (matchRows ?? []).map(m => ({

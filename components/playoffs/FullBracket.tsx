@@ -118,8 +118,8 @@ function RoundColumn({
           const isLocked = dbMatch?.isLocked ?? false;
           const pick = picks[id] ?? null;
 
-          const home = teamInSlot(id, 'home', picks, matchesByCode);
-          const away = teamInSlot(id, 'away', picks, matchesByCode);
+          const home = teamInSlot(id, 'home', picks, matchesByCode) ?? dbMatch?.homeTeam ?? null;
+          const away = teamInSlot(id, 'away', picks, matchesByCode) ?? dbMatch?.awayTeam ?? null;
 
           const homePlaceholder = def.feeders ? feederLabel(def.feeders[0], def.losers) : 'TBD';
           const awayPlaceholder = def.feeders ? feederLabel(def.feeders[1], def.losers) : 'TBD';
@@ -450,7 +450,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
           className="overflow-x-auto overflow-y-hidden pb-24"
           style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(15,30,60,0.16) transparent' }}
         >
-          <div ref={contentRef} className="relative w-max px-8 pt-2">
+          <div ref={contentRef} className="relative w-max px-8 pt-2 pb-24">
             <BracketConnectors paths={paths} width={dims.w} height={dims.h} />
 
             <div className="relative z-10 flex items-stretch" style={{ gap: 54 }}>

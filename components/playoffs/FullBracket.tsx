@@ -185,6 +185,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({});
   const [flash, setFlash] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitDone, setSubmitDone] = useState(false);
   const [paths, setPaths] = useState<ElbowPath[]>([]);
   const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
   const [scrollState, setScrollState] = useState({ left: false, right: true });
@@ -252,6 +254,19 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     });
     return out;
   }, [matches, userPredictions]);
+
+  const unlockedMatches = useMemo(() => matches.filter(m => !m.isLocked), [matches]);
+
+  const pickedCount = useMemo(() =>
+    unlockedMatches.filter(m => picks[m.matchCode]).length,
+  [unlockedMatches, picks]);
+
+  const scoredCount = useMemo(() =>
+    unlockedMatches.filter(m => {
+      const sc = scores[m.matchCode];
+      return picks[m.matchCode] && sc?.home !== '' && sc?.away !== '';
+    }).length,
+  [unlockedMatches, picks, scores]);
 
   // ---- Pick handler with downstream cascade ----
   const onPick = useCallback((id: string, side: 'home' | 'away') => {
@@ -346,6 +361,34 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       }
     }
   }, [matchesByCode, picks, scores, onSavePrediction]);
+
+  // ---- Batch submit ----
+  const handleSubmitAll = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await Promise.all(
+        unlockedMatches
+          .filter(m => picks[m.matchCode])
+          .map(m => {
+            const side = picks[m.matchCode]!;
+            const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
+              ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
+            if (!winner) return Promise.resolve();
+            const sc = scores[m.matchCode] ?? { home: '', away: '' };
+            return onSavePrediction(
+              m.id, winner.id,
+              sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
+              sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+            );
+          })
+      );
+      setSubmitDone(true);
+      setTimeout(() => setSubmitDone(false), 2500);
+    } catch { /* individual save errors are silently swallowed */ } finally {
+      setIsSubmitting(false);
+    }
+  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction]);
 
   // ---- Connector paths ----
   const measure = useCallback(() => {
@@ -569,6 +612,41 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       </div>
 
       <Toast show={toast} label="Downstream picks cleared" />
+
+      {/* Submit bar */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-black/[0.07]">
+        <div className="max-w-[1280px] mx-auto px-5 h-16 flex items-center gap-5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 mb-1.5">
+              <span className="text-[13px] font-extrabold text-navy">{pickedCount}</span>
+              <span className="text-[12px] font-semibold text-black/40">of {unlockedMatches.length} picks made</span>
+              {scoredCount > 0 && (
+                <span className="text-[11px] font-semibold text-bk-blue ml-1">· {scoredCount} with scores</span>
+              )}
+            </div>
+            <div className="h-1.5 rounded-full bg-black/[0.07] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-bk-blue transition-all duration-500"
+                style={{ width: `${unlockedMatches.length ? (pickedCount / unlockedMatches.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleSubmitAll}
+            disabled={pickedCount === 0 || isSubmitting}
+            className={[
+              'shrink-0 h-10 px-6 rounded-full text-[13px] font-extrabold tracking-tight transition-all duration-200',
+              submitDone
+                ? 'bg-emerald-500 text-white shadow-[0_4px_16px_rgba(16,185,129,0.30)]'
+                : pickedCount === 0 || isSubmitting
+                ? 'bg-black/[0.06] text-black/30 cursor-not-allowed'
+                : 'bg-bk-blue text-white shadow-[0_4px_16px_rgba(37,99,235,0.28)] hover:opacity-90 active:scale-[0.97]',
+            ].join(' ')}
+          >
+            {submitDone ? '✓ Picks Saved' : isSubmitting ? 'Saving…' : 'Submit Picks'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

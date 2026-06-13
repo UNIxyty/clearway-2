@@ -192,8 +192,9 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const colRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const picksRef = useRef(localPicks);
-  useEffect(() => { picksRef.current = localPicks; }, [localPicks]);
+  // picksRef tracks the fully-merged picks (locked official + local) so that
+  // onPick's inline save can resolve teams through the bracket for any round.
+  const picksRef = useRef<PickMap>({});
 
   // Merge locked official results into picks
   const picks = useMemo<PickMap>(() => {
@@ -206,7 +207,12 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     return out;
   }, [localPicks, matches]);
 
-  // Seed local picks from user predictions on mount
+  useEffect(() => { picksRef.current = picks; }, [picks]);
+
+  // Seed picks and scores from DB predictions.
+  // We MERGE rather than replace so that:
+  // (a) unsaved local picks aren't wiped when an unrelated save triggers a re-seed
+  // (b) scores the user is currently typing aren't cleared by partial-save optimistic updates
   useEffect(() => {
     const seed: PickMap = {};
     const seedScores: Record<string, { home: string; away: string }> = {};
@@ -221,8 +227,18 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
         };
       }
     });
-    setLocalPicks(seed);
-    setScores(seedScores);
+    // DB picks win on conflict; local unsaved picks for other matches are preserved
+    setLocalPicks(prev => ({ ...prev, ...seed }));
+    // Only fill score slots that are currently empty (don't overwrite in-progress input)
+    setScores(prev => {
+      const next = { ...prev };
+      Object.entries(seedScores).forEach(([code, sc]) => {
+        if (!next[code] || (next[code].home === '' && next[code].away === '')) {
+          next[code] = sc;
+        }
+      });
+      return next;
+    });
   }, [matches, userPredictions]);
 
   // Results (correct/wrong) from locked matches
@@ -241,6 +257,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const onPick = useCallback((id: string, side: 'home' | 'away') => {
     const dbMatch = matchesByCode[id];
     if (dbMatch?.isLocked) return;
+
+    const isToggleOff = picksRef.current[id] === side;
 
     setLocalPicks(prev => {
       const next = { ...prev };
@@ -278,15 +296,24 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
 
     // Persist to Supabase
     if (dbMatch) {
-      const winner = teamInSlot(id, side, { ...picksRef.current, [id]: side }, matchesByCode);
-      if (winner) {
-        const sc = scores[id] ?? { home: '', away: '' };
-        onSavePrediction(
-          dbMatch.id,
-          winner.id,
-          sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
-          sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
-        ).catch(() => {});
+      if (isToggleOff) {
+        // Uncheck: clear the prediction in DB
+        onSavePrediction(dbMatch.id, null as unknown as string, null as unknown as number, null as unknown as number).catch(() => {});
+      } else {
+        // picksRef.current includes locked official results, so teamInSlot resolves for all rounds
+        const mergedPicks = { ...picksRef.current, [id]: side };
+        const winner = teamInSlot(id, side, mergedPicks, matchesByCode)
+          ?? (side === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
+          ?? null;
+        if (winner) {
+          const sc = scores[id] ?? { home: '', away: '' };
+          onSavePrediction(
+            dbMatch.id,
+            winner.id,
+            sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
+            sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+          ).catch(() => {});
+        }
       }
     }
   }, [matchesByCode, scores, onSavePrediction]);
@@ -307,7 +334,9 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     const dbMatch = matchesByCode[id];
     const pick = picks[id] ?? (scoresClear ? (hs > as_ ? 'home' : 'away') : null);
     if (dbMatch && pick) {
-      const winner = teamInSlot(id, pick, picks, matchesByCode);
+      const winner = teamInSlot(id, pick, picks, matchesByCode)
+        ?? (pick === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
+        ?? null;
       if (winner) {
         onSavePrediction(
           dbMatch.id, winner.id,

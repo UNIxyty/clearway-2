@@ -318,7 +318,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
           className="overflow-x-auto overflow-y-hidden"
           style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(15,30,60,0.16) transparent' }}
         >
-          <div ref={contentRef} className="relative w-max mx-auto px-8 py-8">
+          <div ref={contentRef} className="relative w-max mx-auto px-8 pt-8 pb-24">
             {/* SVG connector layer */}
             <svg className="absolute top-0 left-0 pointer-events-none z-0" width={dims.w} height={dims.h}>
               {segs.map((s, i) => (

@@ -292,17 +292,27 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   }, [matchesByCode, scores, onSavePrediction]);
 
   const onScore = useCallback((id: string, side: 'home' | 'away', v: string) => {
-    setScores(s => ({ ...s, [id]: { ...(s[id] ?? { home: '', away: '' }), [side]: v } }));
-    // Persist score update
+    const newSc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
+    setScores(s => ({ ...s, [id]: newSc }));
+
+    // Auto-pick winner from score when user hasn't picked yet
+    const hs = parseInt(newSc.home, 10);
+    const as_ = parseInt(newSc.away, 10);
+    const scoresClear = !isNaN(hs) && !isNaN(as_) && hs !== as_;
+    if (scoresClear && !picks[id]) {
+      const autoPick: 'home' | 'away' = hs > as_ ? 'home' : 'away';
+      setLocalPicks(prev => ({ ...prev, [id]: autoPick }));
+    }
+
     const dbMatch = matchesByCode[id];
-    if (dbMatch && picks[id]) {
-      const winner = teamInSlot(id, picks[id] as 'home' | 'away', picks, matchesByCode);
+    const pick = picks[id] ?? (scoresClear ? (hs > as_ ? 'home' : 'away') : null);
+    if (dbMatch && pick) {
+      const winner = teamInSlot(id, pick, picks, matchesByCode);
       if (winner) {
-        const sc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
         onSavePrediction(
           dbMatch.id, winner.id,
-          sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
-          sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+          newSc.home !== '' ? parseInt(newSc.home, 10) : null as unknown as number,
+          newSc.away !== '' ? parseInt(newSc.away, 10) : null as unknown as number,
         ).catch(() => {});
       }
     }

@@ -164,7 +164,9 @@ export function PlayoffMatchCard({
   result, scores, flashing, index, onPick, onScore, big = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD',
 }: PlayoffMatchCardProps) {
-  const enabled = !!pick && !locked;
+  // Scores are editable whenever the match is unlocked and both teams are known.
+  // A pick is not required to start typing — the pick is auto-inferred from the score.
+  const scoresEnabled = !locked && !!home && !!away;
 
   return (
     <motion.div
@@ -228,7 +230,7 @@ export function PlayoffMatchCard({
       <div className="h-px bg-black/[0.08]" />
       <ScoreRow
         home={home} away={away} scores={scores}
-        enabled={enabled} official={official ?? null}
+        enabled={scoresEnabled} official={official ?? null}
         onScore={onScore}
       />
     </motion.div>

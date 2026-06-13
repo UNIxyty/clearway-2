@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FlagImg } from './FlagImg';
 import { ArrowLeftIcon, CheckIcon } from './icons';
@@ -155,8 +155,8 @@ export interface R32DrawBracketProps {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredictions = false }: R32DrawBracketProps) {
-  const left = pairings.slice(0, 8);
-  const right = pairings.slice(8, 16);
+  const left = useMemo(() => pairings.slice(0, 8), [pairings]);
+  const right = useMemo(() => pairings.slice(8, 16), [pairings]);
   const resolved = pairings.filter(p => p.home !== null).length;
   const pct = Math.round((resolved / 16) * 100);
 

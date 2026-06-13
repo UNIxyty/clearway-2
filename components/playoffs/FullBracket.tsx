@@ -519,10 +519,14 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
 
         <div
           ref={scrollerRef}
-          className="overflow-x-auto overflow-y-hidden pb-24"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(15,30,60,0.16) transparent' }}
+          className="overflow-x-auto overflow-y-auto"
+          style={{
+            height: 'calc(100vh - 58px - 64px)',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(15,30,60,0.16) transparent',
+          }}
         >
-          <div ref={contentRef} className="relative w-max px-8 pt-2 pb-24">
+          <div ref={contentRef} className="relative w-max px-8 pt-2 pb-8">
             <BracketConnectors paths={paths} width={dims.w} height={dims.h} />
 
             <div className="relative z-10 flex items-stretch" style={{ gap: 54 }}>

@@ -1,0 +1,579 @@
+'use client';
+
+import {
+  useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo,
+} from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { PlayoffMatchCard } from './PlayoffMatchCard';
+import { BracketConnectors, buildElbow, type ElbowPath } from './BracketConnectors';
+import { FlagImg } from './FlagImg';
+import { ChevronLeft, ChevronRight, Trophy } from './icons';
+import {
+  MATCHES, BRACKET_H, CARD_WIDTHS, GROUPS_LEFT, GROUPS_RIGHT,
+  R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
+  QF_LEFT_IDS, QF_RIGHT_IDS, downstreamOf, feederLabel,
+} from '@/lib/playoffs/bracketData';
+import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction, GroupDef } from '@/lib/playoffs/types';
+import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface FullBracketProps {
+  matches: PlayoffMatch[];
+  userPredictions: PlayoffPrediction[];
+  teams: BracketTeam[];
+  onSavePrediction: (matchId: string, winnerId: string, homeScore: number, awayScore: number) => Promise<void>;
+}
+
+// ─── Group column box ─────────────────────────────────────────────────────────
+
+function GroupBox({ group, dir }: { group: GroupDef; dir: 'left' | 'right' }) {
+  return (
+    <div className="relative flex flex-col items-center" style={{ width: 80 }}>
+      <div className="relative w-[80px] rounded-lg bg-navy overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(15,30,60,0.18)' }}>
+        <div className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ background: group.accent }} />
+        <div className="grid grid-cols-2 gap-y-1 gap-x-1.5 place-items-center px-2.5 py-2.5">
+          {group.flags.map((f, i) => <FlagImg key={i} emoji={f} size={24} />)}
+        </div>
+        <div className="text-center pb-1.5 -mt-0.5">
+          <span className="text-[9.5px] font-extrabold tracking-[0.08em] text-white/85">GROUP {group.letter}</span>
+        </div>
+      </div>
+      <div
+        className="absolute top-1/2 h-px bg-black/15"
+        style={dir === 'right' ? { left: '100%', width: 26 } : { right: '100%', width: 26 }}
+      />
+    </div>
+  );
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ show, label }: { show: boolean; label: string }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 12, scale: 0.97 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed left-1/2 -translate-x-1/2 bottom-[86px] z-50 flex items-center gap-2 px-4 h-10 rounded-full bg-navy text-white text-[12.5px] font-bold shadow-[0_10px_30px_rgba(15,30,60,0.3)]"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-bk-accent" />
+          {label}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── MiniMap ──────────────────────────────────────────────────────────────────
+
+interface MiniMapRound { id: string; label: string; state: 'done' | 'todo'; onClick: () => void }
+
+function MiniMap({ rounds }: { rounds: MiniMapRound[] }) {
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 h-11 rounded-full bg-white/95 backdrop-blur border border-black/[0.07] shadow-[0_8px_28px_rgba(15,30,60,0.14)]">
+      {rounds.map((r, i) => (
+        <div key={r.id} className="flex items-center gap-3">
+          {i > 0 && <span className="w-3 h-px bg-black/10" />}
+          <button onClick={r.onClick} className="flex items-center gap-1.5 group/mm">
+            <span className={`w-2.5 h-2.5 rounded-full transition-all ${r.state === 'done' ? 'bg-bk-blue' : 'bg-white border-[1.5px] border-black/25 group-hover/mm:border-bk-blue'}`} />
+            <span className={`text-[11px] font-extrabold tracking-tight ${r.state === 'done' ? 'text-bk-blue' : 'text-black/45'}`}>{r.label}</span>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Round column ──────────────────────────────────────────────────────────────
+
+interface RoundColumnProps {
+  label: string;
+  ids: string[];
+  width: number;
+  picks: PickMap;
+  scores: Record<string, { home: string; away: string }>;
+  flash: Record<string, boolean>;
+  startIndex: number;
+  matchesByCode: Record<string, PlayoffMatch>;
+  results: Record<string, 'correct' | 'wrong'>;
+  onPick: (id: string, side: 'home' | 'away') => void;
+  onScore: (id: string, side: 'home' | 'away', v: string) => void;
+}
+
+function RoundColumn({
+  label, ids, width, picks, scores, flash, startIndex,
+  matchesByCode, results, onPick, onScore,
+}: RoundColumnProps) {
+  return (
+    <div className="shrink-0 flex flex-col" style={{ width, height: BRACKET_H }}>
+      <div className="text-center text-[10.5px] font-extrabold tracking-[0.16em] text-black/35 mb-1 shrink-0">{label}</div>
+      <div className="flex-1 flex flex-col justify-around">
+        {ids.map((id, i) => {
+          const def = MATCHES[id];
+          const dbMatch = matchesByCode[id];
+          const isLocked = dbMatch?.isLocked ?? false;
+          const pick = picks[id] ?? null;
+
+          const home = teamInSlot(id, 'home', picks, matchesByCode);
+          const away = teamInSlot(id, 'away', picks, matchesByCode);
+
+          const homePlaceholder = def.feeders ? feederLabel(def.feeders[0], def.losers) : 'TBD';
+          const awayPlaceholder = def.feeders ? feederLabel(def.feeders[1], def.losers) : 'TBD';
+
+          const official = (dbMatch?.homeScore != null && dbMatch?.awayScore != null)
+            ? { home: dbMatch.homeScore, away: dbMatch.awayScore }
+            : null;
+
+          return (
+            <div key={id} className="flex justify-center">
+              <PlayoffMatchCard
+                id={id}
+                round={def.round}
+                width={width}
+                venue={dbMatch?.venue ?? def.round}
+                date={dbMatch?.kickoffAt ? new Date(dbMatch.kickoffAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null}
+                home={home}
+                away={away}
+                pick={pick}
+                locked={isLocked}
+                official={official}
+                result={results[id] ?? null}
+                scores={scores[id] ?? { home: '', away: '' }}
+                flashing={!!flash[id]}
+                index={startIndex + i}
+                onPick={s => onPick(id, s)}
+                onScore={(s, v) => onScore(id, s, v)}
+                homePlaceholder={homePlaceholder}
+                awayPlaceholder={awayPlaceholder}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── GroupColumn ──────────────────────────────────────────────────────────────
+
+function GroupColumn({ groups, dir }: { groups: GroupDef[]; dir: 'left' | 'right' }) {
+  return (
+    <div className="shrink-0 flex flex-col" style={{ width: CARD_WIDTHS.group, height: BRACKET_H }}>
+      <div className="text-center text-[10.5px] font-extrabold tracking-[0.16em] text-black/35 mb-1 shrink-0">GROUPS</div>
+      <div className="flex-1 flex flex-col justify-around items-center">
+        {groups.map(g => <GroupBox key={g.letter} group={g} dir={dir} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function FullBracket({ matches, userPredictions, onSavePrediction }: FullBracketProps) {
+  // Build matchesByCode map
+  const matchesByCode = useMemo<Record<string, PlayoffMatch>>(
+    () => Object.fromEntries(matches.map(m => [m.matchCode, m])),
+    [matches],
+  );
+
+  // Build picks from userPredictions + locked official results
+  const [localPicks, setLocalPicks] = useState<PickMap>({});
+  const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({});
+  const [flash, setFlash] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState(false);
+  const [paths, setPaths] = useState<ElbowPath[]>([]);
+  const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
+  const [activeTab, setActiveTab] = useState('final');
+  const [scrollState, setScrollState] = useState({ left: false, right: true });
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const colRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const picksRef = useRef(localPicks);
+  useEffect(() => { picksRef.current = localPicks; }, [localPicks]);
+
+  // Merge locked official results into picks
+  const picks = useMemo<PickMap>(() => {
+    const out: PickMap = { ...localPicks };
+    matches.forEach(m => {
+      if (m.winnerTeamId && m.homeTeamId && m.awayTeamId) {
+        out[m.matchCode] = m.winnerTeamId === m.homeTeamId ? 'home' : 'away';
+      }
+    });
+    return out;
+  }, [localPicks, matches]);
+
+  // Seed local picks from user predictions on mount
+  useEffect(() => {
+    const seed: PickMap = {};
+    const seedScores: Record<string, { home: string; away: string }> = {};
+    userPredictions.forEach(pred => {
+      const match = matches.find(m => m.id === pred.matchId);
+      if (!match || !pred.predictedWinnerId) return;
+      seed[match.matchCode] = pred.predictedWinnerId === match.homeTeamId ? 'home' : 'away';
+      if (pred.predictedHomeScore !== null && pred.predictedAwayScore !== null) {
+        seedScores[match.matchCode] = {
+          home: String(pred.predictedHomeScore),
+          away: String(pred.predictedAwayScore),
+        };
+      }
+    });
+    setLocalPicks(seed);
+    setScores(seedScores);
+  }, [matches, userPredictions]);
+
+  // Results (correct/wrong) from locked matches
+  const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {
+    const out: Record<string, 'correct' | 'wrong'> = {};
+    matches.forEach(m => {
+      if (!m.winnerTeamId || !m.isLocked) return;
+      const pred = userPredictions.find(p => p.matchId === m.id);
+      if (!pred) return;
+      out[m.matchCode] = pred.predictedWinnerId === m.winnerTeamId ? 'correct' : 'wrong';
+    });
+    return out;
+  }, [matches, userPredictions]);
+
+  // ---- Pick handler with downstream cascade ----
+  const onPick = useCallback((id: string, side: 'home' | 'away') => {
+    const dbMatch = matchesByCode[id];
+    if (dbMatch?.isLocked) return;
+
+    setLocalPicks(prev => {
+      const next = { ...prev };
+      if (next[id] === side) delete next[id]; else next[id] = side;
+
+      // Clear downstream picks that no longer make sense
+      const downs = downstreamOf(id);
+      const cleared: string[] = [];
+      let changed = true;
+      while (changed) {
+        changed = false;
+        downs.forEach(d => {
+          if (next[d] == null) return;
+          const newTeam = teamInSlot(d, next[d] as 'home' | 'away', next, matchesByCode);
+          const oldTeam = teamInSlot(d, next[d] as 'home' | 'away', prev, matchesByCode);
+          if (!newTeam || !oldTeam || newTeam.name !== oldTeam.name) {
+            delete next[d]; cleared.push(d); changed = true;
+          }
+        });
+      }
+
+      if (cleared.length) {
+        const fset: Record<string, boolean> = {};
+        cleared.forEach(c => { fset[c] = true; });
+        setFlash(f => ({ ...f, ...fset }));
+        setToast(true);
+        setTimeout(() => setFlash(f => { const n = { ...f }; cleared.forEach(c => delete n[c]); return n; }), 950);
+        clearTimeout((window as unknown as Record<string, unknown>).__toastT as ReturnType<typeof setTimeout>);
+        (window as unknown as Record<string, unknown>).__toastT = setTimeout(() => setToast(false), 2100);
+        setScores(s => { const n = { ...s }; cleared.forEach(c => delete n[c]); return n; });
+      }
+
+      return next;
+    });
+
+    // Persist to Supabase
+    if (dbMatch) {
+      const winner = teamInSlot(id, side, { ...picksRef.current, [id]: side }, matchesByCode);
+      if (winner) {
+        const sc = scores[id] ?? { home: '', away: '' };
+        onSavePrediction(
+          dbMatch.id,
+          winner.id,
+          sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
+          sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+        ).catch(() => {});
+      }
+    }
+  }, [matchesByCode, scores, onSavePrediction]);
+
+  const onScore = useCallback((id: string, side: 'home' | 'away', v: string) => {
+    setScores(s => ({ ...s, [id]: { ...(s[id] ?? { home: '', away: '' }), [side]: v } }));
+    // Persist score update
+    const dbMatch = matchesByCode[id];
+    if (dbMatch && picks[id]) {
+      const winner = teamInSlot(id, picks[id] as 'home' | 'away', picks, matchesByCode);
+      if (winner) {
+        const sc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
+        onSavePrediction(
+          dbMatch.id, winner.id,
+          sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
+          sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+        ).catch(() => {});
+      }
+    }
+  }, [matchesByCode, picks, scores, onSavePrediction]);
+
+  // ---- Connector paths ----
+  const measure = useCallback(() => {
+    const c = contentRef.current, sc = scrollerRef.current;
+    if (!c || !sc) return;
+    const cr = c.getBoundingClientRect();
+    const rects: Record<string, { left: number; top: number; w: number; h: number }> = {};
+    c.querySelectorAll('[data-card]').forEach(el => {
+      const r = el.getBoundingClientRect();
+      rects[el.getAttribute('data-card')!] = { left: r.left - cr.left, top: r.top - cr.top, w: r.width, h: r.height };
+    });
+
+    const out: ElbowPath[] = [];
+    Object.values(MATCHES).forEach(def => {
+      if (!def.feeders || def.losers) return;
+      const t = rects[def.id];
+      if (!t) return;
+      const active = !!picks[def.id];
+
+      if (def.round === 'FINAL') {
+        const fL = rects[def.feeders[0]], fR = rects[def.feeders[1]];
+        if (fL) out.push(buildElbow(fL.left + fL.w, fL.top + fL.h / 2, t.left, t.top + t.h / 2, active));
+        if (fR) out.push(buildElbow(fR.left, fR.top + fR.h / 2, t.left + t.w, t.top + t.h / 2, active));
+        return;
+      }
+      const leftSide = def.side === 'L';
+      def.feeders.forEach(fid => {
+        const f = rects[fid];
+        if (!f) return;
+        if (leftSide) out.push(buildElbow(f.left + f.w, f.top + f.h / 2, t.left, t.top + t.h / 2, active));
+        else out.push(buildElbow(f.left, f.top + f.h / 2, t.left + t.w, t.top + t.h / 2, active));
+      });
+    });
+
+    setPaths(out);
+    const nw = c.scrollWidth, nh = Math.max(c.scrollHeight, BRACKET_H + 40);
+    setDims(d => (Math.abs(d.w - nw) < 2 && Math.abs(d.h - nh) < 2) ? d : { w: nw, h: nh });
+  }, [picks]);
+
+  useLayoutEffect(() => { measure(); }, [picks, measure]);
+  useEffect(() => {
+    const ts = [60, 260, 600, 1100].map(t => setTimeout(measure, t));
+    const ro = new ResizeObserver(measure);
+    if (contentRef.current) ro.observe(contentRef.current);
+    window.addEventListener('resize', measure);
+    return () => { ts.forEach(clearTimeout); ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [measure]);
+
+  // ---- Scroll state ----
+  const updateScroll = useCallback(() => {
+    const sc = scrollerRef.current; if (!sc) return;
+    const maxL = sc.scrollWidth - sc.clientWidth;
+    setScrollState({ left: sc.scrollLeft > 8, right: sc.scrollLeft < maxL - 8 });
+    const vc = sc.scrollLeft + sc.clientWidth / 2;
+    const scr = sc.getBoundingClientRect();
+    let best: string | null = null, bestD = Infinity;
+    (['groups', 'r32', 'r16', 'qf', 'sf', 'final'] as const).forEach(k => {
+      const el = colRefs.current[k]; if (!el) return;
+      const r = el.getBoundingClientRect();
+      const center = r.left - scr.left + sc.scrollLeft + r.width / 2;
+      const d = Math.abs(center - vc);
+      if (d < bestD) { bestD = d; best = k; }
+    });
+    if (best) setActiveTab(best);
+  }, []);
+
+  useEffect(() => {
+    const sc = scrollerRef.current; if (!sc) return;
+    const center = () => {
+      const el = colRefs.current.final;
+      if (el) {
+        const scr = sc.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        sc.scrollLeft = Math.max(0, r.left - scr.left + sc.scrollLeft + r.width / 2 - sc.clientWidth / 2);
+      }
+      updateScroll();
+    };
+    const t = setTimeout(center, 120);
+    sc.addEventListener('scroll', updateScroll, { passive: true });
+    return () => { clearTimeout(t); sc.removeEventListener('scroll', updateScroll); };
+  }, [updateScroll]);
+
+  const scrollToCol = useCallback((key: string) => {
+    const sc = scrollerRef.current, el = colRefs.current[key];
+    if (!sc || !el) return;
+    const scr = sc.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    sc.scrollTo({ left: Math.max(0, r.left - scr.left + sc.scrollLeft + r.width / 2 - sc.clientWidth / 2), behavior: 'smooth' });
+  }, []);
+
+  const nudge = (dir: -1 | 1) => {
+    const sc = scrollerRef.current; if (!sc) return;
+    sc.scrollBy({ left: dir * Math.min(520, sc.clientWidth * 0.8), behavior: 'smooth' });
+  };
+
+  const setColRef = (k: string) => (el: HTMLDivElement | null) => { colRefs.current[k] = el; };
+
+  // ---- Round completion ----
+  const roundDone = (ids: string[]) =>
+    ids.filter(id => !matchesByCode[id]?.isLocked).every(id => picks[id]);
+
+  const MINI_ROUNDS: MiniMapRound[] = [
+    { id: 'r32', label: 'R32', state: roundDone([...R32_LEFT_IDS, ...R32_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('r32') },
+    { id: 'r16', label: 'R16', state: roundDone([...R16_LEFT_IDS, ...R16_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('r16') },
+    { id: 'qf',  label: 'QF',  state: roundDone([...QF_LEFT_IDS, ...QF_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('qf') },
+    { id: 'sf',  label: 'SF',  state: roundDone(['SF_M01','SF_M02']) ? 'done' : 'todo', onClick: () => scrollToCol('sf') },
+    { id: 'final', label: 'Final', state: picks['FINAL_M01'] ? 'done' : 'todo', onClick: () => scrollToCol('final') },
+  ];
+
+  const TABS = (['groups','r32','r16','qf','sf','final'] as const).map(id => ({
+    id, label: { groups: 'Groups', r32: 'R32', r16: 'R16', qf: 'QF', sf: 'SF', final: 'Final' }[id],
+    active: id === activeTab,
+  }));
+
+  const fHome = teamInSlot('FINAL_M01', 'home', picks, matchesByCode);
+  const fAway = teamInSlot('FINAL_M01', 'away', picks, matchesByCode);
+  const bHome = teamInSlot('THIRD_M01', 'home', picks, matchesByCode);
+  const bAway = teamInSlot('THIRD_M01', 'away', picks, matchesByCode);
+
+  const colProps = { picks, scores, flash, matchesByCode, results, onPick, onScore };
+
+  return (
+    <div className="min-h-screen bg-page text-navy font-sans">
+      {/* NavBar */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-black/[0.07]">
+        <div className="max-w-[1280px] mx-auto px-5 h-[58px] flex items-center justify-between gap-4">
+          <a href="/pickem" className="flex items-center gap-2.5 shrink-0">
+            <span className="w-7 h-7 rounded-md bg-navy flex items-center justify-center">
+              <span className="w-2.5 h-2.5 rounded-sm bg-bk-amber" />
+            </span>
+            <span className="text-[18px] font-black tracking-[0.04em] text-navy hidden sm:block">CLEARWAY</span>
+          </a>
+          <nav className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 h-full overflow-x-auto">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => scrollToCol(t.id)}
+                className={`relative h-full px-2.5 sm:px-3.5 flex items-center text-[13px] sm:text-[14px] font-extrabold tracking-tight transition-colors whitespace-nowrap ${t.active ? 'text-bk-blue' : 'text-navy/55 hover:text-navy'}`}
+              >
+                {t.label}
+                {t.active && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-full bg-bk-blue" />}
+              </button>
+            ))}
+          </nav>
+          <div className="shrink-0" />
+        </div>
+      </header>
+
+      {/* Heading */}
+      <div className="max-w-[1280px] mx-auto px-5 pt-5 pb-3">
+        <div className="text-[11px] font-bold tracking-[0.2em] text-bk-amber uppercase">Knockout Stage · World Cup 2026</div>
+        <h1 className="mt-1 text-[24px] sm:text-[28px] font-black tracking-tight leading-none text-navy">Tournament Bracket</h1>
+        <p className="mt-1.5 text-[13px] font-semibold text-black/45">Pick every winner from R32 through to the Final. Scroll sideways — your picks flow forward automatically.</p>
+      </div>
+
+      {/* Scroll region */}
+      <div className="relative">
+        {scrollState.left && (
+          <button onClick={() => nudge(-1)} className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white border border-black/10 shadow-[0_6px_20px_rgba(15,30,60,0.16)] items-center justify-center text-navy hover:bg-black/[0.03] transition">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+        {scrollState.right && (
+          <button onClick={() => nudge(1)} className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white border border-black/10 shadow-[0_6px_20px_rgba(15,30,60,0.16)] items-center justify-center text-navy hover:bg-black/[0.03] transition">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+        {scrollState.left && <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-20 bg-gradient-to-r from-page to-transparent" />}
+        {scrollState.right && <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 z-20 bg-gradient-to-l from-page to-transparent" />}
+
+        <div
+          ref={scrollerRef}
+          className="overflow-x-auto overflow-y-hidden pb-24"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(15,30,60,0.16) transparent' }}
+        >
+          <div ref={contentRef} className="relative w-max px-8 pt-2">
+            <BracketConnectors paths={paths} width={dims.w} height={dims.h} />
+
+            <div className="relative z-10 flex items-stretch" style={{ gap: 54 }}>
+              <div ref={setColRef('groups')}><GroupColumn groups={GROUPS_LEFT} dir="right" /></div>
+
+              <div ref={setColRef('r32')}>
+                <RoundColumn label="ROUND OF 32" ids={R32_LEFT_IDS} width={CARD_WIDTHS.r32} startIndex={0} {...colProps} />
+              </div>
+              <div ref={setColRef('r16')}>
+                <RoundColumn label="ROUND OF 16" ids={R16_LEFT_IDS} width={CARD_WIDTHS.r16} startIndex={8} {...colProps} />
+              </div>
+              <div ref={setColRef('qf')}>
+                <RoundColumn label="QUARTERFINAL" ids={QF_LEFT_IDS} width={CARD_WIDTHS.qf} startIndex={12} {...colProps} />
+              </div>
+              <div ref={setColRef('sf')}>
+                <RoundColumn label="SEMIFINAL" ids={['SF_M01']} width={CARD_WIDTHS.sf} startIndex={14} {...colProps} />
+              </div>
+
+              {/* Final + Bronze center */}
+              <div ref={setColRef('final')} className="relative shrink-0" style={{ width: CARD_WIDTHS.final, height: BRACKET_H }}>
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex justify-center">
+                  <div className="relative">
+                    <div className="absolute bottom-full left-0 right-0 mb-3 text-center">
+                      <div className="flex justify-center mb-1.5">
+                        <Trophy className="w-9 h-9 drop-shadow-[0_4px_8px_rgba(245,158,11,0.3)]" />
+                      </div>
+                      <div className="text-[15px] font-black tracking-[0.1em] text-navy leading-none">THE FINAL</div>
+                      <div className="mt-1 text-[11px] font-semibold text-black/45">Jul 19 · MetLife Stadium</div>
+                    </div>
+                    <PlayoffMatchCard
+                      id="FINAL_M01" round="FINAL" width={CARD_WIDTHS.final} big
+                      venue="MetLife Stadium · New York" date="Jul 19, 2026"
+                      home={fHome} away={fAway}
+                      pick={picks['FINAL_M01'] ?? null}
+                      locked={matchesByCode['FINAL_M01']?.isLocked ?? false}
+                      official={matchesByCode['FINAL_M01']?.homeScore != null ? { home: matchesByCode['FINAL_M01'].homeScore!, away: matchesByCode['FINAL_M01'].awayScore! } : null}
+                      result={results['FINAL_M01'] ?? null}
+                      scores={scores['FINAL_M01'] ?? { home: '', away: '' }}
+                      flashing={!!flash['FINAL_M01']}
+                      index={15}
+                      onPick={s => onPick('FINAL_M01', s)}
+                      onScore={(s, v) => onScore('FINAL_M01', s, v)}
+                      homePlaceholder="Winner SF L1"
+                      awayPlaceholder="Winner SF R1"
+                    />
+                  </div>
+                </div>
+                {/* Bronze */}
+                <div className="absolute left-0 right-0 flex justify-center" style={{ top: 'calc(50% + 168px)' }}>
+                  <div className="relative">
+                    <div className="absolute bottom-full left-0 right-0 mb-2 text-center text-[10.5px] font-bold tracking-[0.12em] text-black/40">3RD PLACE · BRONZE MATCH</div>
+                    <PlayoffMatchCard
+                      id="THIRD_M01" round="THIRD" width={CARD_WIDTHS.bronze}
+                      venue="Hard Rock · Miami" date="Jul 18, 2026"
+                      home={bHome} away={bAway}
+                      pick={picks['THIRD_M01'] ?? null}
+                      locked={matchesByCode['THIRD_M01']?.isLocked ?? false}
+                      result={results['THIRD_M01'] ?? null}
+                      scores={scores['THIRD_M01'] ?? { home: '', away: '' }}
+                      flashing={!!flash['THIRD_M01']}
+                      index={16}
+                      onPick={s => onPick('THIRD_M01', s)}
+                      onScore={(s, v) => onScore('THIRD_M01', s, v)}
+                      homePlaceholder="Loser SF L1"
+                      awayPlaceholder="Loser SF R1"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div ref={setColRef('sfR')}>
+                <RoundColumn label="SEMIFINAL" ids={['SF_M02']} width={CARD_WIDTHS.sf} startIndex={14} {...colProps} />
+              </div>
+              <div>
+                <RoundColumn label="QUARTERFINAL" ids={QF_RIGHT_IDS} width={CARD_WIDTHS.qf} startIndex={12} {...colProps} />
+              </div>
+              <div>
+                <RoundColumn label="ROUND OF 16" ids={R16_RIGHT_IDS} width={CARD_WIDTHS.r16} startIndex={8} {...colProps} />
+              </div>
+              <div>
+                <RoundColumn label="ROUND OF 32" ids={R32_RIGHT_IDS} width={CARD_WIDTHS.r32} startIndex={0} {...colProps} />
+              </div>
+              <div><GroupColumn groups={GROUPS_RIGHT} dir="left" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Toast show={toast} label="Downstream picks cleared" />
+      <MiniMap rounds={MINI_ROUNDS} />
+    </div>
+  );
+}

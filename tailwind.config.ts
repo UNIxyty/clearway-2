@@ -22,6 +22,13 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // Bracket / playoff design tokens
+        page:     '#f5f5f5',
+        navy:     { DEFAULT: '#0f1e3c', light: '#1a2e54' },
+        'bk-blue':   { DEFAULT: '#1a56db', dark: '#1647b8' },
+        'bk-amber':  { DEFAULT: '#f59e0b', dark: '#d97706' },
+        'bk-accent': { DEFAULT: '#f97316', dark: '#ea580c' },
+        pickfill: '#EBF3FF',
       },
     },
   },

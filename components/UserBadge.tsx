@@ -20,6 +20,8 @@ import {
   ArchiveRestoreIcon,
   UsersIcon,
   TrophyIcon,
+  LockIcon,
+  SwordsIcon,
 } from "lucide-react";
 
 export default function UserBadge() {
@@ -106,6 +108,44 @@ export default function UserBadge() {
             <ShieldCheckIcon className="mr-2 size-4" />
             Pickem Admin
           </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        {isAdmin ? (
+          <>
+            <DropdownMenuItem onClick={() => window.location.assign("/playoffs/r32-draw")}>
+              <SwordsIcon className="mr-2 size-4" />
+              R32 Draw
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.assign("/playoffs/bracket")}>
+              <SwordsIcon className="mr-2 size-4" />
+              Full Bracket
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.assign("/admin/playoffs/bracket-setup")}>
+              <ShieldCheckIcon className="mr-2 size-4" />
+              Bracket Setup
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.assign("/admin/playoffs/results")}>
+              <ShieldCheckIcon className="mr-2 size-4" />
+              Playoff Results
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <>
+            <div
+              title="Playoffs open after group stage"
+              className="relative flex cursor-not-allowed select-none items-center rounded-sm px-2 py-1.5 text-sm text-muted-foreground/50 outline-none"
+            >
+              <LockIcon className="mr-2 size-4" />
+              R32 Draw
+            </div>
+            <div
+              title="Playoffs open after group stage"
+              className="relative flex cursor-not-allowed select-none items-center rounded-sm px-2 py-1.5 text-sm text-muted-foreground/50 outline-none"
+            >
+              <LockIcon className="mr-2 size-4" />
+              Full Bracket
+            </div>
+          </>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/admin/airports/deleted")}>

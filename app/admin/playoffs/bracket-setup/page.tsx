@@ -24,9 +24,9 @@ interface MatchRow {
   matchCode: string;
   homeTeamId: string;
   awayTeamId: string;
-  venue: string;
-  city: string;
-  kickoffAt: string;
+  venue: string;     // read-only, seeded by migration
+  city: string;      // read-only, seeded by migration
+  kickoffAt: string; // read-only, seeded by migration
   isLocked: boolean;
 }
 
@@ -124,9 +124,6 @@ function BracketSetupContent() {
         match_code: code,
         home_team_id: row.homeTeamId || null,
         away_team_id: row.awayTeamId || null,
-        venue: row.venue || null,
-        city: row.city || null,
-        kickoff_at: row.kickoffAt || null,
         is_locked: row.isLocked,
       };
 
@@ -194,6 +191,16 @@ function BracketSetupContent() {
                   </label>
                 </div>
 
+                {/* Static info badge */}
+                {(row.venue || row.city || row.kickoffAt) && (
+                  <div className="mb-3 flex flex-wrap gap-2 text-[12px] font-semibold text-black/45">
+                    {row.venue && <span>📍 {row.venue}{row.city ? `, ${row.city}` : ''}</span>}
+                    {row.kickoffAt && (
+                      <span>🕐 {new Date(row.kickoffAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC</span>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Home team */}
                   <div>
@@ -223,41 +230,6 @@ function BracketSetupContent() {
                         <option key={t.id} value={t.id}>{t.name} (Group {t.groupCode})</option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* Kickoff */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-black/40 mb-1.5">KICKOFF</label>
-                    <input
-                      type="datetime-local"
-                      value={row.kickoffAt ? row.kickoffAt.slice(0, 16) : ''}
-                      onChange={e => setField(code, 'kickoffAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                      className="w-full h-10 px-3 rounded-lg border border-black/[0.12] bg-white text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
-                    />
-                  </div>
-
-                  {/* Venue */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-black/40 mb-1.5">VENUE</label>
-                    <input
-                      type="text"
-                      value={row.venue}
-                      onChange={e => setField(code, 'venue', e.target.value)}
-                      placeholder="Stadium name"
-                      className="w-full h-10 px-3 rounded-lg border border-black/[0.12] bg-white text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
-                    />
-                  </div>
-
-                  {/* City */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-black/40 mb-1.5">CITY</label>
-                    <input
-                      type="text"
-                      value={row.city}
-                      onChange={e => setField(code, 'city', e.target.value)}
-                      placeholder="City"
-                      className="w-full h-10 px-3 rounded-lg border border-black/[0.12] bg-white text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
-                    />
                   </div>
                 </div>
 

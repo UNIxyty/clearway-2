@@ -187,7 +187,6 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const [toast, setToast] = useState(false);
   const [paths, setPaths] = useState<ElbowPath[]>([]);
   const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
-  const [activeTab, setActiveTab] = useState('final');
   const [scrollState, setScrollState] = useState({ left: false, right: true });
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -361,17 +360,6 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     const sc = scrollerRef.current; if (!sc) return;
     const maxL = sc.scrollWidth - sc.clientWidth;
     setScrollState({ left: sc.scrollLeft > 8, right: sc.scrollLeft < maxL - 8 });
-    const vc = sc.scrollLeft + sc.clientWidth / 2;
-    const scr = sc.getBoundingClientRect();
-    let best: string | null = null, bestD = Infinity;
-    (['groups', 'r32', 'r16', 'qf', 'sf', 'final'] as const).forEach(k => {
-      const el = colRefs.current[k]; if (!el) return;
-      const r = el.getBoundingClientRect();
-      const center = r.left - scr.left + sc.scrollLeft + r.width / 2;
-      const d = Math.abs(center - vc);
-      if (d < bestD) { bestD = d; best = k; }
-    });
-    if (best) setActiveTab(best);
   }, []);
 
   useEffect(() => {
@@ -405,22 +393,6 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
 
   const setColRef = (k: string) => (el: HTMLDivElement | null) => { colRefs.current[k] = el; };
 
-  // ---- Round completion ----
-  const roundDone = (ids: string[]) =>
-    ids.filter(id => !matchesByCode[id]?.isLocked).every(id => picks[id]);
-
-  const MINI_ROUNDS: MiniMapRound[] = [
-    { id: 'r32', label: 'R32', state: roundDone([...R32_LEFT_IDS, ...R32_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('r32') },
-    { id: 'r16', label: 'R16', state: roundDone([...R16_LEFT_IDS, ...R16_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('r16') },
-    { id: 'qf',  label: 'QF',  state: roundDone([...QF_LEFT_IDS, ...QF_RIGHT_IDS]) ? 'done' : 'todo', onClick: () => scrollToCol('qf') },
-    { id: 'sf',  label: 'SF',  state: roundDone(['SF_M01','SF_M02']) ? 'done' : 'todo', onClick: () => scrollToCol('sf') },
-    { id: 'final', label: 'Final', state: picks['FINAL_M01'] ? 'done' : 'todo', onClick: () => scrollToCol('final') },
-  ];
-
-  const TABS = (['groups','r32','r16','qf','sf','final'] as const).map(id => ({
-    id, label: { groups: 'Groups', r32: 'R32', r16: 'R16', qf: 'QF', sf: 'SF', final: 'Final' }[id],
-    active: id === activeTab,
-  }));
 
   const fHome = teamInSlot('FINAL_M01', 'home', picks, matchesByCode);
   const fAway = teamInSlot('FINAL_M01', 'away', picks, matchesByCode);
@@ -433,35 +405,20 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     <div className="min-h-screen bg-page text-navy font-sans">
       {/* NavBar */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-black/[0.07]">
-        <div className="max-w-[1280px] mx-auto px-5 h-[58px] flex items-center justify-between gap-4">
-          <a href="/pickem" className="flex items-center gap-2.5 shrink-0">
-            <span className="w-7 h-7 rounded-md bg-navy flex items-center justify-center">
-              <span className="w-2.5 h-2.5 rounded-sm bg-bk-amber" />
-            </span>
-            <span className="text-[18px] font-black tracking-[0.04em] text-navy hidden sm:block">CLEARWAY</span>
+        <div className="max-w-[1280px] mx-auto px-5 h-[58px] flex items-center gap-4">
+          <a href="/pickem" className="flex items-center shrink-0">
+            <div className="h-9 bg-navy rounded-lg px-3 flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/header_logo_white.svg" alt="Clearway" className="h-5 w-auto" />
+            </div>
           </a>
-          <nav className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 h-full overflow-x-auto">
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                onClick={() => scrollToCol(t.id)}
-                className={`relative h-full px-2.5 sm:px-3.5 flex items-center text-[13px] sm:text-[14px] font-extrabold tracking-tight transition-colors whitespace-nowrap ${t.active ? 'text-bk-blue' : 'text-navy/55 hover:text-navy'}`}
-              >
-                {t.label}
-                {t.active && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-full bg-bk-blue" />}
-              </button>
-            ))}
-          </nav>
-          <div className="shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-extrabold tracking-tight text-navy">Tournament Bracket</div>
+            <div className="text-[11px] font-semibold text-black/40">WC 2026 · Knockout Stage</div>
+          </div>
         </div>
       </header>
 
-      {/* Heading */}
-      <div className="max-w-[1280px] mx-auto px-5 pt-5 pb-3">
-        <div className="text-[11px] font-bold tracking-[0.2em] text-bk-amber uppercase">Knockout Stage · World Cup 2026</div>
-        <h1 className="mt-1 text-[24px] sm:text-[28px] font-black tracking-tight leading-none text-navy">Tournament Bracket</h1>
-        <p className="mt-1.5 text-[13px] font-semibold text-black/45">Pick every winner from R32 through to the Final. Scroll sideways — your picks flow forward automatically.</p>
-      </div>
 
       {/* Scroll region */}
       <div className="relative">
@@ -573,7 +530,6 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       </div>
 
       <Toast show={toast} label="Downstream picks cleared" />
-      <MiniMap rounds={MINI_ROUNDS} />
     </div>
   );
 }

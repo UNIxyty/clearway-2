@@ -15,8 +15,10 @@ interface ScoreInputProps {
 function ScoreInput({ value, onChange, disabled }: ScoreInputProps) {
   return (
     <input
-      type="number"
+      type="text"
       inputMode="numeric"
+      pattern="[0-9]*"
+      maxLength={2}
       value={value}
       disabled={disabled}
       onChange={e => onChange(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}

@@ -36,6 +36,46 @@ function GroupBadge({ group, dir }: { group: GroupDef; dir: 'left' | 'right' }) 
 
 // ─── Draw Match Card (read-only) ─────────────────────────────────────────────
 
+function TeamRow({
+  actual, predicted, qualifier,
+}: {
+  actual: import('@/lib/playoffs/types').BracketTeam | null;
+  predicted: import('@/lib/playoffs/types').BracketTeam | null;
+  qualifier: string;
+}) {
+  const correct = actual && predicted && actual.id === predicted.id;
+  const wrong   = actual && predicted && actual.id !== predicted.id;
+
+  return (
+    <div className="flex items-center gap-2 pl-3 pr-2.5 py-2.5">
+      {actual
+        ? <FlagImg emoji={actual.flag} size={20} />
+        : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
+      <div className="flex-1 min-w-0">
+        {actual
+          ? <div className="truncate text-[12.5px] font-bold text-navy">{actual.name}</div>
+          : predicted
+            ? <div className="truncate text-[12.5px] font-semibold text-black/50 italic">{predicted.name}?</div>
+            : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(qualifier)}</div>}
+      </div>
+      {correct && (
+        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
+      )}
+      {wrong && (
+        <span className="shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+            <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DrawMatchCard({
   pairing,
   index,
@@ -45,25 +85,29 @@ function DrawMatchCard({
   index: number;
   fromLeft: boolean;
 }) {
-  const { home, away, homeQualifier, awayQualifier } = pairing;
+  const { home, away, predictedHome, predictedAway, homeQualifier, awayQualifier } = pairing;
+
+  const pts =
+    (home && predictedHome && home.id === predictedHome.id ? 1 : 0) +
+    (away && predictedAway && away.id === predictedAway.id ? 1 : 0);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: fromLeft ? -26 : 26 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4, delay: 0.04 + index * 0.03, ease: [0.22, 1, 0.36, 1] }}
-      className="w-[160px] bg-white rounded-[10px] border border-black/[0.09] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+      className="w-[180px] bg-white rounded-[10px] border border-black/[0.09] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
     >
-      {/* Home row */}
-      <div className="flex items-center gap-2 pl-3 pr-2.5 py-2.5">
-        {home
-          ? <FlagImg emoji={home.flag} size={20} />
-          : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
-        <div className="flex-1 min-w-0">
-          {home
-            ? <div className="truncate text-[12.5px] font-bold text-navy">{home.name}</div>
-            : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(homeQualifier)}</div>}
+      {(home || predictedHome) && (
+        <div className="px-3 pt-2 flex items-center justify-between">
+          <span className="text-[9px] font-extrabold tracking-wide text-black/30 uppercase">{qualifierLabel(homeQualifier)}</span>
+          {pts > 0 && home && (
+            <span className="text-[9.5px] font-extrabold text-emerald-600">+{pts} pt{pts > 1 ? 's' : ''}</span>
+          )}
         </div>
-      </div>
+      )}
+
+      <TeamRow actual={home} predicted={predictedHome} qualifier={homeQualifier} />
 
       <div className="relative flex items-center px-3 py-0.5">
         <div className="flex-1 h-px bg-black/[0.07]" />
@@ -71,17 +115,13 @@ function DrawMatchCard({
         <div className="flex-1 h-px bg-black/[0.07]" />
       </div>
 
-      {/* Away row */}
-      <div className="flex items-center gap-2 pl-3 pr-2.5 py-2.5">
-        {away
-          ? <FlagImg emoji={away.flag} size={20} />
-          : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
-        <div className="flex-1 min-w-0">
-          {away
-            ? <div className="truncate text-[12.5px] font-bold text-navy">{away.name}</div>
-            : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(awayQualifier)}</div>}
+      {(away || predictedAway) && (
+        <div className="px-3 pt-1.5">
+          <span className="text-[9px] font-extrabold tracking-wide text-black/30 uppercase">{qualifierLabel(awayQualifier)}</span>
         </div>
-      </div>
+      )}
+
+      <TeamRow actual={away} predicted={predictedAway} qualifier={awayQualifier} />
     </motion.div>
   );
 }
@@ -159,6 +199,11 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
   const right = useMemo(() => pairings.slice(8, 16), [pairings]);
   const resolved = pairings.filter(p => p.home !== null).length;
   const pct = Math.round((resolved / 16) * 100);
+  const totalPts = pairings.reduce((sum, p) => {
+    const h = p.home && p.predictedHome && p.home.id === p.predictedHome.id ? 1 : 0;
+    const a = p.away && p.predictedAway && p.away.id === p.predictedAway.id ? 1 : 0;
+    return sum + h + a;
+  }, 0);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -239,10 +284,18 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
               Auto-filled from group stage results
             </div>
           </div>
-          <div className="shrink-0 flex items-center gap-1.5 px-3 h-9 rounded-full bg-bk-blue/10 text-bk-blue-dark">
-            <span className="text-[13px] font-extrabold tabular-nums">{resolved}</span>
-            <span className="text-[12px] font-bold text-bk-blue/70">/ 16</span>
-            <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">resolved</span>
+          <div className="shrink-0 flex items-center gap-2">
+            {totalPts > 0 && (
+              <div className="flex items-center gap-1 px-2.5 h-9 rounded-full bg-emerald-500/10 text-emerald-700">
+                <span className="text-[13px] font-extrabold tabular-nums">+{totalPts}</span>
+                <span className="text-[11px] font-bold text-emerald-600/70">pts</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-3 h-9 rounded-full bg-bk-blue/10 text-bk-blue-dark">
+              <span className="text-[13px] font-extrabold tabular-nums">{resolved}</span>
+              <span className="text-[12px] font-bold text-bk-blue/70">/ 16</span>
+              <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">resolved</span>
+            </div>
           </div>
         </div>
         <div className="h-[3px] w-full bg-black/[0.06]">

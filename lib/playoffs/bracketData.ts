@@ -13,11 +13,11 @@ export const CARD_WIDTHS: Record<string, number> = {
 };
 
 export const ROUND_POINTS: Record<string, string> = {
-  R32: '+1 pt',
-  R16: '+2 pts',
-  QF: '+5 pts',
-  SF: '+8 pts',
-  FINAL: '+10 pts',
+  R32: '+3 pts',
+  R16: '+3 pts',
+  QF: '+3 pts',
+  SF: '+3 pts',
+  FINAL: '+3 pts',
   THIRD: '+3 pts',
 };
 

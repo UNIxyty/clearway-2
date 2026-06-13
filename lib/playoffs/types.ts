@@ -65,8 +65,10 @@ export interface GroupDef {
 
 export interface ResolvedPairing {
   matchCode: string;
-  home: BracketTeam | null;
+  home: BracketTeam | null;           // actual team (admin-assigned)
   away: BracketTeam | null;
+  predictedHome: BracketTeam | null;  // user's predicted team for this slot
+  predictedAway: BracketTeam | null;
   homeQualifier: string;
   awayQualifier: string;
 }

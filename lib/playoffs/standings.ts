@@ -1,4 +1,5 @@
 import type { BracketTeam } from './types';
+export type { BracketTeam };
 
 export interface GroupMatch {
   id: string;

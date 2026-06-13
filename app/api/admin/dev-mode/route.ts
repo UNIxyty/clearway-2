@@ -161,7 +161,7 @@ export async function POST() {
         predicted_away_score: 0,
         predicted_outcome: 'home',
       })),
-      { onConflict: 'user_id,match_id' },
+      { onConflict: 'user_id,competition_id,match_id' },
     ),
   ]);
 

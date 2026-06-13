@@ -49,22 +49,29 @@ function BracketSetupContent() {
 
   // Load all pickem_teams for the team selects
   useEffect(() => {
-    supabase
-      .from('pickem_teams')
-      .select('id, name, short_name, group_code, crest_url')
-      .order('group_code')
-      .order('sort_order')
-      .then(({ data }) => {
-        if (!data) return;
-        setTeams(data.map((t: Record<string, unknown>) => ({
-          id: t.id as string,
-          name: t.name as string,
-          shortName: (t.short_name as string) || (t.name as string),
-          flag: '',
-          groupCode: t.group_code as string,
-          crestUrl: t.crest_url as string | null,
-        })));
-      });
+    (async () => {
+      const { data: comp } = await supabase
+        .from('pickem_competitions')
+        .select('id')
+        .eq('slug', 'wc-2026')
+        .single();
+      if (!comp) return;
+      const { data } = await supabase
+        .from('pickem_teams')
+        .select('id, name, short_name, group_code, crest_url')
+        .eq('competition_id', comp.id)
+        .order('group_code')
+        .order('sort_order');
+      if (!data) return;
+      setTeams(data.map((t: Record<string, unknown>) => ({
+        id: t.id as string,
+        name: t.name as string,
+        shortName: (t.short_name as string) || (t.name as string),
+        flag: '',
+        groupCode: t.group_code as string,
+        crestUrl: t.crest_url as string | null,
+      })));
+    })();
   }, [supabase]);
 
   // Load existing playoff_matches

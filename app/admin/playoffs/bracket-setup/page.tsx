@@ -10,6 +10,16 @@ import {
 } from '@/lib/playoffs/bracketData';
 import type { PlayoffRound } from '@/lib/playoffs/types';
 
+// Fallback flag emoji map keyed by team short_name
+const FLAG_BY_CODE: Record<string, string> = {
+  MEX:'🇲🇽', RSA:'🇿🇦', KOR:'🇰🇷', CZE:'🇨🇿', CAN:'🇨🇦', BIH:'🇧🇦', QAT:'🇶🇦', SUI:'🇨🇭',
+  BRA:'🇧🇷', MAR:'🇲🇦', HAI:'🇭🇹', SCO:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', USA:'🇺🇸', PAR:'🇵🇾', AUS:'🇦🇺', TUR:'🇹🇷',
+  GER:'🇩🇪', CUW:'🇨🇼', CIV:'🇨🇮', ECU:'🇪🇨', NED:'🇳🇱', JPN:'🇯🇵', SWE:'🇸🇪', TUN:'🇹🇳',
+  BEL:'🇧🇪', EGY:'🇪🇬', IRN:'🇮🇷', NZL:'🇳🇿', ESP:'🇪🇸', CPV:'🇨🇻', KSA:'🇸🇦', URU:'🇺🇾',
+  FRA:'🇫🇷', SEN:'🇸🇳', IRQ:'🇮🇶', NOR:'🇳🇴', ARG:'🇦🇷', ALG:'🇩🇿', AUT:'🇦🇹', JOR:'🇯🇴',
+  POR:'🇵🇹', COD:'🇨🇩', UZB:'🇺🇿', COL:'🇨🇴', ENG:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', CRO:'🇭🇷', GHA:'🇬🇭', PAN:'🇵🇦',
+};
+
 const ROUND_TABS: Array<{ id: string; label: string; ids: string[] }> = [
   { id: 'R32',   label: 'R32',          ids: [...R32_LEFT_IDS, ...R32_RIGHT_IDS] },
   { id: 'R16',   label: 'R16',          ids: [...R16_LEFT_IDS, ...R16_RIGHT_IDS] },
@@ -114,16 +124,26 @@ function TeamSelect({
   return (
     <div ref={ref} className="relative">
       {/* Trigger */}
-      <button
-        type="button"
+      <div className={`w-full h-11 px-3 rounded-xl border-2 bg-white flex items-center gap-2.5 transition cursor-pointer ${open ? 'border-bk-blue ring-2 ring-bk-blue/15' : 'border-black/[0.12] hover:border-black/25'}`}
         onClick={() => setOpen(o => !o)}
-        className={`w-full h-11 px-3 rounded-xl border-2 bg-white flex items-center gap-2.5 text-left transition ${open ? 'border-bk-blue ring-2 ring-bk-blue/15' : 'border-black/[0.12] hover:border-black/25'}`}
       >
         {selected ? (
           <>
             <FlagImg emoji={selected.flagEmoji} size={22} />
             <span className="flex-1 text-[13.5px] font-bold text-navy truncate">{selected.name}</span>
-            <span className="text-[10px] font-extrabold tracking-widest text-black/35 shrink-0">GRP {selected.groupCode}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-extrabold tracking-widest text-black/35">GRP {selected.groupCode}</span>
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onChange(''); setOpen(false); }}
+                className="w-5 h-5 rounded-full bg-black/[0.07] hover:bg-black/20 flex items-center justify-center transition"
+                title="Clear"
+              >
+                <svg className="w-2.5 h-2.5 text-black/50" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
           </>
         ) : (
           <span className="flex-1 text-[13px] font-semibold text-black/35">{placeholder}</span>
@@ -131,21 +151,7 @@ function TeamSelect({
         <svg className={`w-4 h-4 text-black/35 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 16 16" fill="none">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      </button>
-
-      {/* Clear button */}
-      {selected && !open && (
-        <button
-          type="button"
-          onClick={e => { e.stopPropagation(); onChange(''); }}
-          className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-black/[0.07] hover:bg-black/15 flex items-center justify-center transition"
-          title="Clear"
-        >
-          <svg className="w-3 h-3 text-black/50" viewBox="0 0 12 12" fill="none">
-            <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </button>
-      )}
+      </div>
 
       {/* Dropdown panel */}
       {open && (
@@ -252,14 +258,14 @@ function BracketSetupContent() {
             .then(r => r.json())
             .then((p: { teams?: Array<{ id: string; name: string; shortName: string; groupCode: string; crestUrl: string | null }> }) => {
               if (!p.teams?.length) { setLoadError('No teams found.'); return; }
-              setTeams(p.teams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName, flagEmoji: '', groupCode: t.groupCode, crestUrl: t.crestUrl ?? null })));
+              setTeams(p.teams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName, flagEmoji: FLAG_BY_CODE[t.shortName] || '', groupCode: t.groupCode, crestUrl: t.crestUrl ?? null })));
             });
         }
         setTeams(payload.teams.map(t => ({
           id: t.id,
           name: t.name,
           shortName: t.short_name || t.name,
-          flagEmoji: t.flag_emoji || '',
+          flagEmoji: t.flag_emoji || FLAG_BY_CODE[t.short_name] || '',
           groupCode: t.group_code,
           crestUrl: t.crest_url ?? null,
         })));

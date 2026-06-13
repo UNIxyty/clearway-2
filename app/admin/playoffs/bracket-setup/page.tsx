@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { AdminRoute } from '@/components/AdminRoute';
 import { CheckIcon } from '@/components/playoffs/icons';
@@ -8,27 +8,220 @@ import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
   QF_LEFT_IDS, QF_RIGHT_IDS, MATCHES,
 } from '@/lib/playoffs/bracketData';
-import type { BracketTeam, PlayoffRound } from '@/lib/playoffs/types';
+import type { PlayoffRound } from '@/lib/playoffs/types';
 
 const ROUND_TABS: Array<{ id: string; label: string; ids: string[] }> = [
-  { id: 'R32',   label: 'R32',         ids: [...R32_LEFT_IDS, ...R32_RIGHT_IDS] },
-  { id: 'R16',   label: 'R16',         ids: [...R16_LEFT_IDS, ...R16_RIGHT_IDS] },
-  { id: 'QF',    label: 'Quarterfinal',ids: [...QF_LEFT_IDS, ...QF_RIGHT_IDS]   },
-  { id: 'SF',    label: 'Semifinal',   ids: ['SF_M01','SF_M02']                  },
-  { id: 'FINAL', label: 'Final',       ids: ['FINAL_M01']                        },
-  { id: 'THIRD', label: 'Third Place', ids: ['THIRD_M01']                        },
+  { id: 'R32',   label: 'R32',          ids: [...R32_LEFT_IDS, ...R32_RIGHT_IDS] },
+  { id: 'R16',   label: 'R16',          ids: [...R16_LEFT_IDS, ...R16_RIGHT_IDS] },
+  { id: 'QF',    label: 'Quarterfinal', ids: [...QF_LEFT_IDS, ...QF_RIGHT_IDS]   },
+  { id: 'SF',    label: 'Semifinal',    ids: ['SF_M01', 'SF_M02']                },
+  { id: 'FINAL', label: 'Final',        ids: ['FINAL_M01']                       },
+  { id: 'THIRD', label: 'Third Place',  ids: ['THIRD_M01']                       },
 ];
+
+interface Team {
+  id: string;
+  name: string;
+  shortName: string;
+  flagEmoji: string;
+  groupCode: string;
+  crestUrl: string | null;
+}
 
 interface MatchRow {
   id: string | null;
   matchCode: string;
   homeTeamId: string;
   awayTeamId: string;
-  venue: string;     // read-only, seeded by migration
-  city: string;      // read-only, seeded by migration
-  kickoffAt: string; // read-only, seeded by migration
+  venue: string;
+  city: string;
+  kickoffAt: string;
   isLocked: boolean;
 }
+
+// ─── Flag image using Twemoji CDN ────────────────────────────────────────────
+
+function FlagImg({ emoji, size = 20 }: { emoji: string; size?: number }) {
+  if (!emoji) return <span className="inline-block rounded-sm bg-black/[0.07]" style={{ width: size, height: Math.round(size * 0.75) }} />;
+  const pts = [...emoji].map(c => c.codePointAt(0)!.toString(16)).join('-');
+  return (
+    <img
+      src={`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${pts}.png`}
+      alt={emoji}
+      width={size}
+      height={Math.round(size * 0.75)}
+      className="object-contain rounded-sm shrink-0"
+      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    />
+  );
+}
+
+// ─── Custom team select ───────────────────────────────────────────────────────
+
+function TeamSelect({
+  value, teams, onChange, placeholder,
+}: {
+  value: string;
+  teams: Team[];
+  onChange: (id: string) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = teams.find(t => t.id === value) ?? null;
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return teams;
+    return teams.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      t.shortName.toLowerCase().includes(q) ||
+      t.groupCode.toLowerCase().includes(q)
+    );
+  }, [teams, search]);
+
+  // Group filtered teams by groupCode for sectioned list
+  const grouped = useMemo(() => {
+    const map = new Map<string, Team[]>();
+    filtered.forEach(t => {
+      if (!map.has(t.groupCode)) map.set(t.groupCode, []);
+      map.get(t.groupCode)!.push(t);
+    });
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered]);
+
+  useEffect(() => {
+    if (!open) { setSearch(''); return; }
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }, [open]);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  function pick(id: string) {
+    onChange(id);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`w-full h-11 px-3 rounded-xl border-2 bg-white flex items-center gap-2.5 text-left transition ${open ? 'border-bk-blue ring-2 ring-bk-blue/15' : 'border-black/[0.12] hover:border-black/25'}`}
+      >
+        {selected ? (
+          <>
+            <FlagImg emoji={selected.flagEmoji} size={22} />
+            <span className="flex-1 text-[13.5px] font-bold text-navy truncate">{selected.name}</span>
+            <span className="text-[10px] font-extrabold tracking-widest text-black/35 shrink-0">GRP {selected.groupCode}</span>
+          </>
+        ) : (
+          <span className="flex-1 text-[13px] font-semibold text-black/35">{placeholder}</span>
+        )}
+        <svg className={`w-4 h-4 text-black/35 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 16 16" fill="none">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Clear button */}
+      {selected && !open && (
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onChange(''); }}
+          className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-black/[0.07] hover:bg-black/15 flex items-center justify-center transition"
+          title="Clear"
+        >
+          <svg className="w-3 h-3 text-black/50" viewBox="0 0 12 12" fill="none">
+            <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+
+      {/* Dropdown panel */}
+      {open && (
+        <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-50 bg-white rounded-xl border border-black/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.14)] overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-black/[0.07]">
+            <div className="flex items-center gap-2 px-2.5 h-9 rounded-lg bg-black/[0.04]">
+              <svg className="w-3.5 h-3.5 text-black/35 shrink-0" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search teams…"
+                className="flex-1 bg-transparent text-[13px] font-semibold text-navy outline-none placeholder:text-black/30"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="text-black/35 hover:text-black/60">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="max-h-[280px] overflow-y-auto py-1">
+            {/* Clear option */}
+            {value && (
+              <button
+                type="button"
+                onClick={() => pick('')}
+                className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-black/[0.04] transition"
+              >
+                <span className="w-[22px] h-[17px] rounded-sm bg-black/[0.07] border border-dashed border-black/20 shrink-0" />
+                <span className="text-[12.5px] font-semibold text-black/40 italic">Clear selection</span>
+              </button>
+            )}
+
+            {grouped.length === 0 && (
+              <div className="px-4 py-5 text-center text-[13px] font-semibold text-black/35">No teams found</div>
+            )}
+
+            {grouped.map(([group, groupTeams]) => (
+              <div key={group}>
+                <div className="px-3 pt-2 pb-0.5">
+                  <span className="text-[10px] font-extrabold tracking-[0.12em] text-black/30">GROUP {group}</span>
+                </div>
+                {groupTeams.map(t => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => pick(t.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition ${t.id === value ? 'bg-bk-blue/[0.07]' : 'hover:bg-black/[0.03]'}`}
+                  >
+                    <FlagImg emoji={t.flagEmoji} size={22} />
+                    <span className={`flex-1 text-[13.5px] font-bold truncate ${t.id === value ? 'text-bk-blue' : 'text-navy'}`}>{t.name}</span>
+                    {t.id === value && (
+                      <CheckIcon className="w-4 h-4 text-bk-blue shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BracketSetupPage() {
   return (
@@ -41,26 +234,34 @@ export default function BracketSetupPage() {
 function BracketSetupContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [activeTab, setActiveTab] = useState('R32');
-  const [teams, setTeams] = useState<BracketTeam[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [rows, setRows] = useState<Record<string, MatchRow>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load all pickem_teams via admin API (avoids RLS issues with browser client)
+  // Load teams via dedicated endpoint (includes flag_emoji)
   useEffect(() => {
-    fetch('/api/pickem/admin/matches', { cache: 'no-store' })
+    fetch('/api/playoffs/teams', { cache: 'no-store' })
       .then(r => r.json())
-      .then((payload: { teams?: Array<{ id: string; name: string; shortName: string; groupCode: string; crestUrl: string | null }> }) => {
-        if (!payload.teams?.length) { setLoadError('No teams returned from admin API.'); return; }
+      .then((payload: { teams?: Array<{ id: string; name: string; short_name: string; flag_emoji: string; group_code: string; crest_url: string | null }> }) => {
+        if (!payload.teams?.length) {
+          // Fallback to admin matches API (no flag_emoji)
+          return fetch('/api/pickem/admin/matches', { cache: 'no-store' })
+            .then(r => r.json())
+            .then((p: { teams?: Array<{ id: string; name: string; shortName: string; groupCode: string; crestUrl: string | null }> }) => {
+              if (!p.teams?.length) { setLoadError('No teams found.'); return; }
+              setTeams(p.teams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName, flagEmoji: '', groupCode: t.groupCode, crestUrl: t.crestUrl ?? null })));
+            });
+        }
         setTeams(payload.teams.map(t => ({
           id: t.id,
           name: t.name,
-          shortName: t.shortName || t.name,
-          flag: '',
-          groupCode: t.groupCode,
-          crestUrl: t.crestUrl ?? null,
+          shortName: t.short_name || t.name,
+          flagEmoji: t.flag_emoji || '',
+          groupCode: t.group_code,
+          crestUrl: t.crest_url ?? null,
         })));
       })
       .catch(e => setLoadError(`Failed to load teams: ${e.message}`));
@@ -78,12 +279,12 @@ function BracketSetupContent() {
           init[row.match_code as string] = {
             id: row.id as string,
             matchCode: row.match_code as string,
-            homeTeamId: row.home_team_id as string ?? '',
-            awayTeamId: row.away_team_id as string ?? '',
-            venue: row.venue as string ?? '',
-            city: row.city as string ?? '',
-            kickoffAt: row.kickoff_at as string ?? '',
-            isLocked: row.is_locked as boolean ?? false,
+            homeTeamId: (row.home_team_id as string) ?? '',
+            awayTeamId: (row.away_team_id as string) ?? '',
+            venue: (row.venue as string) ?? '',
+            city: (row.city as string) ?? '',
+            kickoffAt: (row.kickoff_at as string) ?? '',
+            isLocked: (row.is_locked as boolean) ?? false,
           };
         });
         setRows(init);
@@ -92,12 +293,9 @@ function BracketSetupContent() {
 
   const currentIds = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
 
-  const getRow = useCallback((code: string): MatchRow => {
-    return rows[code] ?? {
-      id: null, matchCode: code, homeTeamId: '', awayTeamId: '',
-      venue: '', city: '', kickoffAt: '', isLocked: false,
-    };
-  }, [rows]);
+  const getRow = useCallback((code: string): MatchRow => (
+    rows[code] ?? { id: null, matchCode: code, homeTeamId: '', awayTeamId: '', venue: '', city: '', kickoffAt: '', isLocked: false }
+  ), [rows]);
 
   const setField = useCallback((code: string, field: keyof MatchRow, value: string | boolean) => {
     setRows(prev => ({ ...prev, [code]: { ...getRow(code), [field]: value } }));
@@ -141,6 +339,7 @@ function BracketSetupContent() {
           ⚠️ {loadError}
         </div>
       )}
+
       {/* Header */}
       <div className="bg-white border-b border-black/[0.07]">
         <div className="max-w-5xl mx-auto px-5 pt-6 pb-5">
@@ -149,12 +348,12 @@ function BracketSetupContent() {
             <h1 className="text-[22px] font-black tracking-tight text-navy">Bracket Setup</h1>
           </div>
           <p className="text-[13px] font-semibold text-black/45">
-            Assign teams to each knockout match slot. R32 matches require selecting teams from the group stage draw.
+            Assign qualifying teams to each knockout match slot.
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="max-w-5xl mx-auto px-5 flex gap-0.5 pb-0">
+        <div className="max-w-5xl mx-auto px-5 flex gap-0.5">
           {ROUND_TABS.map(t => (
             <button
               key={t.id}
@@ -175,8 +374,21 @@ function BracketSetupContent() {
             const isSaved = saved[code];
             return (
               <div key={code} className="bg-white rounded-xl border border-black/[0.08] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[11px] font-extrabold tracking-widest text-navy/60 bg-navy/[0.07] px-2 py-1 rounded">{code}</span>
+                {/* Match header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[11px] font-extrabold tracking-widest text-navy/60 bg-navy/[0.07] px-2 py-1 rounded">{code}</span>
+                    {(row.venue || row.city) && (
+                      <span className="text-[12px] font-semibold text-black/40">
+                        📍 {row.venue}{row.city ? `, ${row.city}` : ''}
+                      </span>
+                    )}
+                    {row.kickoffAt && (
+                      <span className="text-[12px] font-semibold text-black/40">
+                        · {new Date(row.kickoffAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC
+                      </span>
+                    )}
+                  </div>
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -184,49 +396,34 @@ function BracketSetupContent() {
                       onChange={e => setField(code, 'isLocked', e.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-[12px] font-semibold text-black/55">Lock predictions</span>
+                    <span className="text-[12px] font-semibold text-black/55">Lock</span>
                   </label>
                 </div>
 
-                {/* Static info badge */}
-                {(row.venue || row.city || row.kickoffAt) && (
-                  <div className="mb-3 flex flex-wrap gap-2 text-[12px] font-semibold text-black/45">
-                    {row.venue && <span>📍 {row.venue}{row.city ? `, ${row.city}` : ''}</span>}
-                    {row.kickoffAt && (
-                      <span>🕐 {new Date(row.kickoffAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC</span>
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Home team */}
+                {/* Team selects */}
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-black/40 mb-1.5">HOME TEAM</label>
-                    <select
+                    <div className="text-[10.5px] font-extrabold tracking-widest text-black/30 mb-1.5">HOME</div>
+                    <TeamSelect
                       value={row.homeTeamId}
-                      onChange={e => setField(code, 'homeTeamId', e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border border-black/[0.12] bg-white text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
-                    >
-                      <option value="">— Select team —</option>
-                      {teams.map(t => (
-                        <option key={t.id} value={t.id}>{t.name} (Group {t.groupCode})</option>
-                      ))}
-                    </select>
+                      teams={teams}
+                      onChange={id => setField(code, 'homeTeamId', id)}
+                      placeholder="Select home team"
+                    />
                   </div>
 
-                  {/* Away team */}
+                  <div className="hidden sm:flex items-center justify-center mt-5">
+                    <span className="text-[15px] font-black text-black/20">vs</span>
+                  </div>
+
                   <div>
-                    <label className="block text-[11px] font-bold text-black/40 mb-1.5">AWAY TEAM</label>
-                    <select
+                    <div className="text-[10.5px] font-extrabold tracking-widest text-black/30 mb-1.5">AWAY</div>
+                    <TeamSelect
                       value={row.awayTeamId}
-                      onChange={e => setField(code, 'awayTeamId', e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border border-black/[0.12] bg-white text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
-                    >
-                      <option value="">— Select team —</option>
-                      {teams.map(t => (
-                        <option key={t.id} value={t.id}>{t.name} (Group {t.groupCode})</option>
-                      ))}
-                    </select>
+                      teams={teams}
+                      onChange={id => setField(code, 'awayTeamId', id)}
+                      placeholder="Select away team"
+                    />
                   </div>
                 </div>
 

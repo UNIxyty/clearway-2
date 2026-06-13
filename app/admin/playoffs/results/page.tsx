@@ -113,6 +113,7 @@ function ResultsContent() {
           home_score: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
           away_score: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
           winner_team_id: row.winnerTeamId || null,
+          is_locked: true,
         })
         .eq('id', row.id);
       setToast(`${code} result saved`);

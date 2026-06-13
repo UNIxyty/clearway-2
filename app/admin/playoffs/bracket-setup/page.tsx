@@ -46,23 +46,52 @@ function BracketSetupContent() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load all pickem_teams for the team selects
   useEffect(() => {
     (async () => {
-      const { data: comp } = await supabase
+      const { data: comp, error: compErr } = await supabase
         .from('pickem_competitions')
-        .select('id')
+        .select('id, slug')
         .eq('slug', 'wc-2026')
         .single();
-      if (!comp) return;
-      const { data } = await supabase
+      if (compErr || !comp) {
+        // Fallback: fetch all competitions and pick the first one
+        const { data: allComps, error: allErr } = await supabase
+          .from('pickem_competitions')
+          .select('id, slug')
+          .limit(5);
+        if (allErr || !allComps?.length) {
+          setLoadError(`Competition lookup failed: ${(compErr || allErr)?.message}. No competitions found.`);
+          return;
+        }
+        const fallback = allComps[0];
+        setLoadError(`Slug 'wc-2026' not found — using '${fallback.slug}' instead. Check competition slug if teams look wrong.`);
+        const { data: teams2 } = await supabase
+          .from('pickem_teams')
+          .select('id, name, short_name, group_code, crest_url')
+          .eq('competition_id', fallback.id)
+          .order('group_code')
+          .order('sort_order');
+        if (teams2?.length) {
+          setTeams(teams2.map((t: Record<string, unknown>) => ({
+            id: t.id as string, name: t.name as string,
+            shortName: (t.short_name as string) || (t.name as string),
+            flag: '', groupCode: t.group_code as string,
+            crestUrl: t.crest_url as string | null,
+          })));
+        }
+        return;
+      }
+      const { data, error: teamsErr } = await supabase
         .from('pickem_teams')
         .select('id, name, short_name, group_code, crest_url')
         .eq('competition_id', comp.id)
         .order('group_code')
         .order('sort_order');
-      if (!data) return;
+      if (teamsErr) { setLoadError(`Teams query failed: ${teamsErr.message}`); return; }
+      if (!data?.length) { setLoadError(`No teams found for competition '${comp.slug}' (id: ${comp.id})`); return; }
       setTeams(data.map((t: Record<string, unknown>) => ({
         id: t.id as string,
         name: t.name as string,
@@ -144,6 +173,11 @@ function BracketSetupContent() {
 
   return (
     <div className="min-h-screen bg-page">
+      {loadError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 text-[13px] font-semibold text-amber-800">
+          ⚠️ {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-black/[0.07]">
         <div className="max-w-5xl mx-auto px-5 pt-6 pb-5">

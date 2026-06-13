@@ -37,7 +37,7 @@ type LeaderboardPayload = {
   rows: PickemLeaderboardRow[];
 };
 
-type ActiveView = "home" | "groups" | "matches" | "standings";
+type ActiveView = "home" | "groups" | "matches" | "standings" | "playoffs";
 
 const NAVY = "#0f1e3c";
 const PRIMARY = "#1a56db";
@@ -285,6 +285,85 @@ function AvatarChip({ name }: { name: string }) {
     </span>
   );
 }
+
+// ─── Playoffs view (sub-switch between R32 Draw and Full Bracket) ─────────────
+
+function PlayoffsView() {
+  const [subView, setSubView] = useState<"r32" | "bracket">("r32");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 rounded-xl bg-black/[0.04] p-1 w-fit">
+        <button
+          type="button"
+          onClick={() => setSubView("r32")}
+          className={`h-9 rounded-lg px-4 text-sm font-bold transition ${
+            subView === "r32" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          R32 Draw
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubView("bracket")}
+          className={`h-9 rounded-lg px-4 text-sm font-bold transition ${
+            subView === "bracket" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Full Bracket
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a
+          href={subView === "r32" ? "/playoffs/r32-draw" : "/playoffs/bracket"}
+          className="flex flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-black/20 transition group"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-extrabold tracking-[0.1em] text-slate-400 uppercase">
+                {subView === "r32" ? "Round of 32" : "Full Bracket"}
+              </span>
+              <span className="text-[18px] font-black text-slate-900">
+                {subView === "r32" ? "R32 Draw" : "Full Bracket"}
+              </span>
+            </div>
+            <span className="text-[22px] select-none">{subView === "r32" ? "🏟️" : "🏆"}</span>
+          </div>
+          <p className="text-[13px] font-semibold text-slate-500 leading-snug">
+            {subView === "r32"
+              ? "See all 16 Round of 32 matchups auto-filled from group standings."
+              : "Pick winners for every knockout round from R32 to the Final."}
+          </p>
+          <span
+            className="inline-flex items-center gap-1 text-[13px] font-extrabold transition"
+            style={{ color: PRIMARY }}
+          >
+            Open →
+          </span>
+        </a>
+
+        <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white p-5">
+          <div className="text-[11px] font-extrabold tracking-[0.1em] text-slate-400 uppercase mb-1">How it works</div>
+          {subView === "r32" ? (
+            <ul className="space-y-2 text-[13px] font-semibold text-slate-600">
+              <li className="flex gap-2"><span>1.</span> Groups A–L produce 2 qualifiers each + 8 best third-place teams</li>
+              <li className="flex gap-2"><span>2.</span> 16 R32 matchups are auto-set by FIFA bracket rules</li>
+              <li className="flex gap-2"><span>3.</span> The draw page shows who plays who</li>
+            </ul>
+          ) : (
+            <ul className="space-y-2 text-[13px] font-semibold text-slate-600">
+              <li className="flex gap-2"><span>1.</span> Click a team to pick them as the winner</li>
+              <li className="flex gap-2"><span>2.</span> Optionally enter a predicted scoreline for bonus points</li>
+              <li className="flex gap-2"><span>3.</span> Picks cascade — changing an R32 pick clears later rounds</li>
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main app ─────────────────────────────────────────────────────────────────
 
 export function PickemApp() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -544,6 +623,7 @@ export function PickemApp() {
               { id: "groups", label: "Groups" },
               { id: "matches", label: "Matches" },
               { id: "standings", label: "Standings" },
+              { id: "playoffs", label: "Playoffs" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -1302,17 +1382,29 @@ export function PickemApp() {
           </section>
         )}
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            disabled={!groupsComplete || !matchesComplete || submitting}
-            onClick={submitAll}
-            className="rounded-xl px-5 py-3 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: ACCENT }}
-          >
-            {submitting ? "Submitting..." : viewerSubmitted ? "Resubmit All Picks" : "Submit All Picks"}
-          </button>
-        </div>
+        {activeView === "playoffs" && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-black" style={{ color: NAVY }}>Playoffs</h2>
+              <p className="text-sm font-semibold text-slate-500">WC 2026 knockout bracket — Round of 32 to the Final</p>
+            </div>
+            <PlayoffsView />
+          </section>
+        )}
+
+        {activeView !== "playoffs" && (
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              disabled={!groupsComplete || !matchesComplete || submitting}
+              onClick={submitAll}
+              className="rounded-xl px-5 py-3 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: ACCENT }}
+            >
+              {submitting ? "Submitting..." : viewerSubmitted ? "Resubmit All Picks" : "Submit All Picks"}
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

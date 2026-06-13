@@ -468,6 +468,19 @@ export function PickemAdminClient() {
           >
             Pick Locks
           </button>
+          <div className="mx-1 h-5 w-px bg-black/10" />
+          <a
+            href="/admin/playoffs/bracket-setup"
+            className="h-9 rounded-lg px-4 text-sm font-bold transition text-slate-500 hover:text-slate-700 flex items-center"
+          >
+            Bracket Setup
+          </a>
+          <a
+            href="/admin/playoffs/results"
+            className="h-9 rounded-lg px-4 text-sm font-bold transition text-slate-500 hover:text-slate-700 flex items-center"
+          >
+            Playoff Results
+          </a>
         </div>
       </nav>
 

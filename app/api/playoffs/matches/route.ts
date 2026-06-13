@@ -10,8 +10,8 @@ export async function GET() {
       id, match_code, round, match_number, kickoff_at, venue, city,
       is_locked, home_score, away_score, winner_team_id,
       home_team_id, away_team_id,
-      homeTeam:pickem_teams!home_team_id(id, name, short_name, flag_emoji, crest_url, group_code),
-      awayTeam:pickem_teams!away_team_id(id, name, short_name, flag_emoji, crest_url, group_code)
+      homeTeam:pickem_teams!home_team_id(id, name, short_name, crest_url, group_code),
+      awayTeam:pickem_teams!away_team_id(id, name, short_name, crest_url, group_code)
     `)
     .order('match_number');
 

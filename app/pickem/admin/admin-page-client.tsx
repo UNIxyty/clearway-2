@@ -16,7 +16,30 @@ type AdminPayload = {
 };
 
 type EditState = Record<string, { home: string; away: string; live: boolean }>;
-type Tab = "matches" | "groups" | "locks";
+type Tab = "matches" | "groups" | "locks" | "devmode";
+
+type DevModePreviewRow = {
+  matchId: string;
+  groupCode: string | null;
+  homeName: string;
+  awayName: string;
+  actualHome: number;
+  actualAway: number;
+  predictedHome: number | null;
+  predictedAway: number | null;
+  hasPrediction: boolean;
+  outcomeCorrect: boolean;
+  scoreCorrect: boolean;
+  points: number;
+};
+
+type DevModePayload = {
+  active: boolean;
+  overrideCount: number;
+  matchesWithPrediction?: number;
+  totalPoints?: number;
+  preview?: DevModePreviewRow[];
+};
 type GroupResultRow = { groupCode: string; teamId: string; finalPosition: number };
 type GroupsPayload = {
   competition: PickemCompetition;
@@ -81,6 +104,8 @@ export function PickemAdminClient() {
   const [locksPayload, setLocksPayload] = useState<LocksPayload | null>(null);
   const [groupOrders, setGroupOrders] = useState<Record<string, string[]>>({});
   const [edits, setEdits] = useState<EditState>({});
+  const [devModePayload, setDevModePayload] = useState<DevModePayload | null>(null);
+  const [devModeLoading, setDevModeLoading] = useState(false);
   const [selectedLockUserId, setSelectedLockUserId] = useState("");
   const [manualLockUserId, setManualLockUserId] = useState("");
   const [lockUntilLocal, setLockUntilLocal] = useState("");
@@ -174,6 +199,20 @@ export function PickemAdminClient() {
   }, [tab, groupsPayload]);
 
   useEffect(() => {
+    if (tab !== "devmode" || !payload?.isDeveloper) return;
+    void (async () => {
+      setDevModeLoading(true);
+      try {
+        const res = await fetch("/api/admin/dev-mode", { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok) setDevModePayload(json as DevModePayload);
+      } finally {
+        setDevModeLoading(false);
+      }
+    })();
+  }, [tab, payload?.isDeveloper]);
+
+  useEffect(() => {
     if (tab !== "locks" || locksPayload) return;
     void (async () => {
       setError(null);
@@ -240,6 +279,43 @@ export function PickemAdminClient() {
         live: String(match.status || "").toLowerCase() === "live",
       }
     );
+  }
+
+  async function activateDevMode() {
+    setSaving("devmode:activate");
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/dev-mode", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to activate dev mode.");
+      // Reload dev mode status
+      const statusRes = await fetch("/api/admin/dev-mode", { cache: "no-store" });
+      const statusJson = await statusRes.json().catch(() => ({}));
+      if (statusRes.ok) setDevModePayload(statusJson as DevModePayload);
+      flash(`Dev mode activated — ${json.matchCount} matches simulated.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to activate dev mode.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function deactivateDevMode() {
+    setSaving("devmode:deactivate");
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/dev-mode", { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Failed to clear dev mode.");
+      }
+      setDevModePayload({ active: false, overrideCount: 0, preview: [] });
+      flash("Dev mode cleared.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear dev mode.");
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function saveMatch(match: PickemMatch, status: "live" | "finished") {
@@ -468,6 +544,20 @@ export function PickemAdminClient() {
           >
             Pick Locks
           </button>
+          {payload.isDeveloper && (
+            <>
+              <div className="mx-1 h-5 w-px bg-black/10" />
+              <button
+                type="button"
+                onClick={() => setTab("devmode")}
+                className={`h-9 rounded-lg px-4 text-sm font-bold transition ${
+                  tab === "devmode" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Dev Mode
+              </button>
+            </>
+          )}
           <div className="mx-1 h-5 w-px bg-black/10" />
           <a
             href="/admin/playoffs/bracket-setup"
@@ -508,7 +598,108 @@ export function PickemAdminClient() {
         </div>
       </section>
 
-      {tab === "groups" ? (
+      {tab === "devmode" ? (
+        <section className="space-y-4">
+          <article className="rounded-2xl border border-black/[0.08] bg-white p-5">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700">Dev Mode</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Simulate group stage completion without touching real match data. Only affects your account.
+                </p>
+              </div>
+              <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold tracking-[0.1em] ${
+                devModePayload?.active
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-black/[0.05] text-slate-500"
+              }`}>
+                {devModePayload?.active ? `ACTIVE · ${devModePayload.overrideCount} overrides` : "INACTIVE"}
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              {devModePayload?.active ? (
+                <button
+                  type="button"
+                  onClick={() => void deactivateDevMode()}
+                  disabled={saving === "devmode:deactivate"}
+                  className="h-10 rounded-lg border border-black/15 px-4 text-sm font-bold text-slate-700 disabled:opacity-40"
+                >
+                  {saving === "devmode:deactivate" ? "Clearing..." : "Clear simulation"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void activateDevMode()}
+                  disabled={saving === "devmode:activate" || devModeLoading}
+                  className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  {saving === "devmode:activate" ? "Activating..." : "Simulate group stage complete"}
+                </button>
+              )}
+            </div>
+
+            {devModePayload?.active && (
+              <div className="mt-4 rounded-xl bg-slate-50 border border-black/[0.07] px-4 py-3 text-sm">
+                <div className="flex items-center gap-6 text-sm font-semibold text-slate-600">
+                  <span>Matches predicted: <strong className="text-slate-900">{devModePayload.matchesWithPrediction ?? 0} / {devModePayload.overrideCount}</strong></span>
+                  <span>Simulated points: <strong className="text-bk-blue">{devModePayload.totalPoints ?? 0} pts</strong></span>
+                </div>
+              </div>
+            )}
+          </article>
+
+          {devModePayload?.active && devModePayload.preview && devModePayload.preview.length > 0 && (
+            <article className="rounded-2xl border border-black/[0.08] bg-white p-5">
+              <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700 mb-3">Score preview</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                      <th className="pb-2 pr-3">Group</th>
+                      <th className="pb-2 pr-3">Match</th>
+                      <th className="pb-2 pr-3 text-center">Actual</th>
+                      <th className="pb-2 pr-3 text-center">Predicted</th>
+                      <th className="pb-2 text-center">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/[0.05]">
+                    {(devModePayload.preview ?? [])
+                      .sort((a, b) => (a.groupCode ?? '').localeCompare(b.groupCode ?? ''))
+                      .map(row => (
+                        <tr key={row.matchId} className="text-slate-700">
+                          <td className="py-1.5 pr-3 font-bold text-slate-400">{row.groupCode ?? '-'}</td>
+                          <td className="py-1.5 pr-3 font-semibold">
+                            {row.homeName} <span className="text-slate-400">vs</span> {row.awayName}
+                          </td>
+                          <td className="py-1.5 pr-3 text-center font-extrabold tabular-nums">
+                            {row.actualHome}–{row.actualAway}
+                          </td>
+                          <td className="py-1.5 pr-3 text-center font-semibold tabular-nums">
+                            {row.hasPrediction ? `${row.predictedHome}–${row.predictedAway}` : (
+                              <span className="text-slate-400 italic">none</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 text-center">
+                            {row.hasPrediction ? (
+                              <span className={`font-extrabold ${
+                                row.scoreCorrect ? 'text-emerald-600' : row.outcomeCorrect ? 'text-blue-600' : 'text-red-500'
+                              }`}>
+                                {row.points > 0 ? `+${row.points}` : '0'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
+        </section>
+      ) : tab === "groups" ? (
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {(groupsPayload?.groups || []).map((group) => {
             const teamOrder = groupOrders[group.code] || (groupTeamsByCode.get(group.code) || []).map((t) => t.id);

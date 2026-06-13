@@ -48,60 +48,23 @@ function BracketSetupContent() {
   const [toast, setToast] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load all pickem_teams for the team selects
+  // Load all pickem_teams via admin API (avoids RLS issues with browser client)
   useEffect(() => {
-    (async () => {
-      const { data: comp, error: compErr } = await supabase
-        .from('pickem_competitions')
-        .select('id, slug')
-        .eq('slug', 'wc-2026')
-        .single();
-      if (compErr || !comp) {
-        // Fallback: fetch all competitions and pick the first one
-        const { data: allComps, error: allErr } = await supabase
-          .from('pickem_competitions')
-          .select('id, slug')
-          .limit(5);
-        if (allErr || !allComps?.length) {
-          setLoadError(`Competition lookup failed: ${(compErr || allErr)?.message}. No competitions found.`);
-          return;
-        }
-        const fallback = allComps[0];
-        setLoadError(`Slug 'wc-2026' not found — using '${fallback.slug}' instead. Check competition slug if teams look wrong.`);
-        const { data: teams2 } = await supabase
-          .from('pickem_teams')
-          .select('id, name, short_name, group_code, crest_url')
-          .eq('competition_id', fallback.id)
-          .order('group_code')
-          .order('sort_order');
-        if (teams2?.length) {
-          setTeams(teams2.map((t: Record<string, unknown>) => ({
-            id: t.id as string, name: t.name as string,
-            shortName: (t.short_name as string) || (t.name as string),
-            flag: '', groupCode: t.group_code as string,
-            crestUrl: t.crest_url as string | null,
-          })));
-        }
-        return;
-      }
-      const { data, error: teamsErr } = await supabase
-        .from('pickem_teams')
-        .select('id, name, short_name, group_code, crest_url')
-        .eq('competition_id', comp.id)
-        .order('group_code')
-        .order('sort_order');
-      if (teamsErr) { setLoadError(`Teams query failed: ${teamsErr.message}`); return; }
-      if (!data?.length) { setLoadError(`No teams found for competition '${comp.slug}' (id: ${comp.id})`); return; }
-      setTeams(data.map((t: Record<string, unknown>) => ({
-        id: t.id as string,
-        name: t.name as string,
-        shortName: (t.short_name as string) || (t.name as string),
-        flag: '',
-        groupCode: t.group_code as string,
-        crestUrl: t.crest_url as string | null,
-      })));
-    })();
-  }, [supabase]);
+    fetch('/api/pickem/admin/matches', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((payload: { teams?: Array<{ id: string; name: string; shortName: string; groupCode: string; crestUrl: string | null }> }) => {
+        if (!payload.teams?.length) { setLoadError('No teams returned from admin API.'); return; }
+        setTeams(payload.teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          shortName: t.shortName || t.name,
+          flag: '',
+          groupCode: t.groupCode,
+          crestUrl: t.crestUrl ?? null,
+        })));
+      })
+      .catch(e => setLoadError(`Failed to load teams: ${e.message}`));
+  }, []);
 
   // Load existing playoff_matches
   useEffect(() => {

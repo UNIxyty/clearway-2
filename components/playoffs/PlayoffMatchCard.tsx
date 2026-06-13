@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckIcon, XIcon, LockIcon } from './icons';
 import { FlagImg } from './FlagImg';
 import type { BracketTeam } from '@/lib/playoffs/types';
-import { ROUND_POINTS } from '@/lib/playoffs/bracketData';
 
 interface ScoreInputProps {
   value: string;
@@ -186,11 +185,6 @@ export function PlayoffMatchCard({
       ].join(' ')}
     >
       {big && <div className="h-1 w-full bg-gradient-to-r from-bk-amber via-bk-accent to-bk-amber" />}
-
-      {/* Points badge — top-left */}
-      <div className="absolute top-2 left-2 z-20 px-1.5 py-0.5 rounded-full bg-bk-blue/10 text-bk-blue-dark text-[9.5px] font-extrabold tracking-tight pointer-events-none">
-        {ROUND_POINTS[round] ?? ''}
-      </div>
 
       {/* Status badge — top-right */}
       <div className="absolute top-2 right-2 z-20 flex items-center pointer-events-none">

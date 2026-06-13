@@ -337,13 +337,15 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     const newSc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
     setScores(s => ({ ...s, [id]: newSc }));
 
-    // Auto-pick winner from score when user hasn't picked yet
+    // Auto-pick (or correct) winner whenever both scores are present and unequal
     const hs = parseInt(newSc.home, 10);
     const as_ = parseInt(newSc.away, 10);
     const scoresClear = !isNaN(hs) && !isNaN(as_) && hs !== as_;
-    if (scoresClear && !picks[id]) {
+    if (scoresClear) {
       const autoPick: 'home' | 'away' = hs > as_ ? 'home' : 'away';
-      setLocalPicks(prev => ({ ...prev, [id]: autoPick }));
+      if (picks[id] !== autoPick) {
+        setLocalPicks(prev => ({ ...prev, [id]: autoPick }));
+      }
     }
 
     const dbMatch = matchesByCode[id];
@@ -367,22 +369,45 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
+      const pickedMatches = unlockedMatches.filter(m => picks[m.matchCode]);
+
       await Promise.all(
-        unlockedMatches
-          .filter(m => picks[m.matchCode])
-          .map(m => {
-            const side = picks[m.matchCode]!;
-            const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
-              ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
-            if (!winner) return Promise.resolve();
-            const sc = scores[m.matchCode] ?? { home: '', away: '' };
-            return onSavePrediction(
-              m.id, winner.id,
-              sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
-              sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
-            );
-          })
+        pickedMatches.map(m => {
+          const side = picks[m.matchCode]!;
+          const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
+            ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
+          if (!winner) return Promise.resolve();
+          const sc = scores[m.matchCode] ?? { home: '', away: '' };
+          return onSavePrediction(
+            m.id, winner.id,
+            sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
+            sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+          );
+        })
       );
+
+      // Send playoff picks confirmation email
+      const emailPicks = pickedMatches.map(m => {
+        const side = picks[m.matchCode]!;
+        const home = m.homeTeam ?? matchesByCode[m.matchCode]?.homeTeam ?? null;
+        const away = m.awayTeam ?? matchesByCode[m.matchCode]?.awayTeam ?? null;
+        const sc = scores[m.matchCode] ?? { home: '', away: '' };
+        return {
+          round: m.round,
+          homeName: home?.name ?? 'TBD',
+          awayName: away?.name ?? 'TBD',
+          homeScore: sc.home !== '' ? parseInt(sc.home, 10) : null,
+          awayScore: sc.away !== '' ? parseInt(sc.away, 10) : null,
+          homeFlag: home?.flag ?? '',
+          awayFlag: away?.flag ?? '',
+        };
+      });
+      fetch('/api/playoffs/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ picks: emailPicks }),
+      }).catch(() => {});
+
       setSubmitDone(true);
       setTimeout(() => setSubmitDone(false), 2500);
     } catch { /* individual save errors are silently swallowed */ } finally {

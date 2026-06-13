@@ -98,6 +98,203 @@ function appOrigin(): string {
   return String(process.env.PORTAL_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://clearway.verxyl.com").trim();
 }
 
+// ─── Playoff picks email ──────────────────────────────────────────────────────
+
+export interface PlayoffPicksEmailInput {
+  to: string;
+  displayName: string;
+  picksMade: number;
+  matchPicks?: Array<{
+    round: string;
+    homeName: string;
+    awayName: string;
+    homeScore: number | null;
+    awayScore: number | null;
+    homeFlag?: string;
+    awayFlag?: string;
+  }>;
+  submittedAt?: string;
+}
+
+export async function sendPlayoffPicksEmail(input: PlayoffPicksEmailInput): Promise<boolean> {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+  const from = String(process.env.PICKEM_EMAIL_FROM || "Clearway Pickem <no-reply@clearway.verxyl.com>").trim();
+  if (!apiKey) return false;
+
+  const origin = appOrigin().replace(/\/+$/, "");
+  const bracketUrl = `${origin}/playoffs/bracket`;
+  const logoUrl = `${origin}/header_logo_white.svg`;
+  const firstName = String(input.displayName || "there").trim().split(/\s+/)[0] || "there";
+  const submittedAt = String(input.submittedAt || "").trim() || new Date().toISOString();
+
+  function esc(v: string) {
+    return v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+  }
+
+  const ROUND_LABEL: Record<string, string> = {
+    R32: "Round of 32", R16: "Round of 16", QF: "Quarterfinal",
+    SF: "Semifinal", FINAL: "Final", THIRD: "3rd Place",
+  };
+
+  const picksRows = input.matchPicks && input.matchPicks.length
+    ? input.matchPicks.map(p => {
+        const hf = esc(String(p.homeFlag || ""));
+        const af = esc(String(p.awayFlag || ""));
+        const score = p.homeScore !== null && p.awayScore !== null
+          ? `${p.homeScore} &ndash; ${p.awayScore}`
+          : "&ndash;";
+        const roundLabel = ROUND_LABEL[p.round] ?? esc(p.round);
+        return `
+          <tr>
+            <td colspan="3" style="padding:6px 0 2px; font-family:'Archivo',Arial,sans-serif; font-size:10px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; color:#94a3b8;">${roundLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0 12px; border-bottom:1px solid rgba(15,30,60,0.07);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td width="43%" style="font-family:'Archivo',Arial,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle; text-align:left;">
+                  <span style="font-size:18px;">${hf}</span>${hf?"&nbsp;":""} ${esc(p.homeName)}
+                </td>
+                <td width="14%" align="center" style="font-family:'Archivo',Arial,sans-serif; font-size:16px; font-weight:900; color:#1a56db; vertical-align:middle; white-space:nowrap;">${score}</td>
+                <td width="43%" align="right" style="font-family:'Archivo',Arial,sans-serif; font-size:14px; font-weight:700; color:#0f1e3c; vertical-align:middle; text-align:right;">
+                  ${esc(p.awayName)}${af?"&nbsp;":""}<span style="font-size:18px;">${af}</span>
+                </td>
+              </tr></table>
+            </td>
+          </tr>`;
+      }).join("\n")
+    : `<tr><td style="padding:13px 0; font-family:'Archivo',Arial,sans-serif; font-size:14px; font-weight:600; color:rgba(15,30,60,0.5);">Playoff bracket picks are saved in your account.</td></tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light"><title>Your WC2026 Playoff picks are locked in</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&display=swap');
+  body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+  body{margin:0;padding:0;width:100%!important;}
+  a{text-decoration:none;}
+  .hover-darken:hover{background-color:#1d4ed8!important;}
+  @media only screen and (max-width:600px){
+    .container{width:100%!important;}.px{padding-left:24px!important;padding-right:24px!important;}
+    .h1{font-size:28px!important;line-height:34px!important;}
+  }
+</style>
+</head>
+<body bgcolor="#f5f5f5" style="margin:0;padding:0;background-color:#f5f5f5;font-family:'Archivo','Segoe UI',Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f5f5f5;opacity:0;">
+    ${esc(firstName)}, your WC2026 Playoff bracket picks are saved — ${input.picksMade} picks locked in.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f5f5">
+    <tr><td align="center" style="padding:24px 12px 40px;">
+      <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+        <tr><td style="padding:4px 8px 18px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="vertical-align:middle;background-color:#0f1e3c;border-radius:8px;padding:8px 12px;">
+              <img src="${logoUrl}" alt="Clearway" width="132" style="display:block;width:132px;height:auto;">
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="background-color:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="px" style="background:linear-gradient(135deg,#0f1e3c 0%,#1e3a8a 100%);padding:38px 44px 34px;">
+              <p style="margin:0 0 12px;font-family:'Archivo',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#f59e0b;">WC2026 · Knockout Stage</p>
+              <h1 class="h1" style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:34px;line-height:40px;font-weight:900;letter-spacing:-0.5px;color:#ffffff;">
+                Bracket locked in, ${esc(firstName)}.
+              </h1>
+              <p style="margin:14px 0 0;font-family:'Archivo',Arial,sans-serif;font-size:15px;line-height:23px;color:rgba(255,255,255,0.62);">
+                Your WC2026 Playoff predictions are saved. Here's your bracket summary.
+              </p>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="px" style="padding:28px 44px 6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="50%" style="vertical-align:top;padding-right:8px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ebf3ff;border-radius:14px;">
+                      <tr><td style="padding:18px 20px;">
+                        <p style="margin:0 0 6px;font-family:'Archivo',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1a56db;">Matches Predicted</p>
+                        <p style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:30px;font-weight:900;color:#0f1e3c;line-height:1;">${input.picksMade}<span style="font-size:15px;font-weight:700;color:rgba(15,30,60,0.4);"> picks</span></p>
+                      </td></tr>
+                    </table>
+                  </td>
+                  <td width="50%" style="vertical-align:top;padding-left:8px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fef3c7;border-radius:14px;">
+                      <tr><td style="padding:18px 20px;">
+                        <p style="margin:0 0 6px;font-family:'Archivo',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#d97706;">Tournament</p>
+                        <p style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:30px;font-weight:900;color:#0f1e3c;line-height:1;">WC<span style="font-size:20px;font-weight:700;color:rgba(15,30,60,0.4);">2026</span></p>
+                      </td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="px" style="padding:26px 44px 6px;">
+              <p style="margin:0 0 4px;font-family:'Archivo',Arial,sans-serif;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;">Your bracket picks</p>
+            </td></tr>
+            <tr><td class="px" style="padding:0 44px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+${picksRows}
+              </table>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="px" style="padding:22px 44px 4px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f8fa;border-radius:14px;">
+                <tr><td style="padding:16px 20px;font-family:'Archivo',Arial,sans-serif;font-size:12.5px;line-height:20px;color:#475569;">
+                  <strong style="color:#0f1e3c;">How playoff points work:</strong>
+                  &nbsp;<span style="color:#1a56db;font-weight:800;">+1</span> correct winner &nbsp;&middot;&nbsp;
+                  <span style="color:#ea580c;font-weight:800;">+2</span> exact score &nbsp;&middot;&nbsp;
+                  <span style="color:#16a34a;font-weight:800;">+3</span> total for exact prediction
+                </td></tr>
+              </table>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="px" align="center" style="padding:28px 44px 10px;">
+              <a href="${bracketUrl}" class="hover-darken" style="display:inline-block;background-color:#1a56db;color:#ffffff;font-family:'Archivo',Arial,sans-serif;font-size:15px;font-weight:800;line-height:50px;text-align:center;text-decoration:none;width:280px;border-radius:11px;">View my bracket</a>
+            </td></tr>
+            <tr><td class="px" align="center" style="padding:4px 44px 38px;">
+              <p style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:13px;font-weight:600;color:rgba(15,30,60,0.45);">
+                Submitted ${esc(submittedAt)}
+              </p>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:26px 24px 8px;" align="center">
+          <p style="margin:0 0 8px;font-family:'Archivo',Arial,sans-serif;font-size:12px;line-height:18px;color:rgba(15,30,60,0.4);">
+            You're receiving this because you submitted playoff predictions in the Clearway WC2026 pool.
+          </p>
+          <p style="margin:0;font-family:'Archivo',Arial,sans-serif;font-size:12px;line-height:18px;color:rgba(15,30,60,0.4);">
+            <a href="${bracketUrl}" style="color:#1a56db;font-weight:700;text-decoration:none;">View bracket</a>
+          </p>
+          <p style="margin:14px 0 0;font-family:'Archivo',Arial,sans-serif;font-size:11px;color:rgba(15,30,60,0.3);">&copy; ${new Date().getUTCFullYear()} Clearway. Not affiliated with FIFA.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Hi ${firstName},\n\nYour WC2026 Playoff bracket picks are locked in (${input.picksMade} matches predicted).\n\nView bracket: ${bracketUrl}\n\nClearway`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [input.to], subject: "Your WC2026 Playoff picks are locked in", html, text }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Group stage submission email ─────────────────────────────────────────────
+
 export async function sendPickemSubmissionEmail(input: PickemSubmissionEmailInput): Promise<boolean> {
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
   const from = String(process.env.PICKEM_EMAIL_FROM || "Clearway Pickem <no-reply@clearway.verxyl.com>").trim();

@@ -300,6 +300,21 @@ export function PickemAdminClient() {
     }
   }
 
+  async function fillR32FromPredictions() {
+    setSaving("devmode:fill-r32");
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/dev-mode/fill-r32", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to fill R32.");
+      flash(`R32 filled — ${json.filled}/${json.total} slots populated.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fill R32.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
   async function deactivateDevMode() {
     setSaving("devmode:deactivate");
     setError(null);
@@ -619,14 +634,24 @@ export function PickemAdminClient() {
 
             <div className="mt-4 flex items-center gap-3">
               {devModePayload?.active ? (
-                <button
-                  type="button"
-                  onClick={() => void deactivateDevMode()}
-                  disabled={saving === "devmode:deactivate"}
-                  className="h-10 rounded-lg border border-black/15 px-4 text-sm font-bold text-slate-700 disabled:opacity-40"
-                >
-                  {saving === "devmode:deactivate" ? "Clearing..." : "Clear simulation"}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void fillR32FromPredictions()}
+                    disabled={saving === "devmode:fill-r32"}
+                    className="h-10 rounded-lg bg-bk-blue px-4 text-sm font-bold text-white disabled:opacity-40"
+                  >
+                    {saving === "devmode:fill-r32" ? "Filling..." : "Fill R32 bracket"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deactivateDevMode()}
+                    disabled={saving === "devmode:deactivate"}
+                    className="h-10 rounded-lg border border-black/15 px-4 text-sm font-bold text-slate-700 disabled:opacity-40"
+                  >
+                    {saving === "devmode:deactivate" ? "Clearing..." : "Clear simulation"}
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"

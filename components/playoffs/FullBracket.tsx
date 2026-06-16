@@ -397,52 +397,23 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      // Snapshot BEFORE any saves so we can compute diff for the update email
+      // Snapshot BEFORE any saves so we can compute the diff for the update email
       const oldPredsMap = new Map(userPredictions.map(p => [p.matchId, p]));
       const isFirstSubmit = userPredictions.filter(p => p.predictedWinnerId).length === 0;
 
-      // Build a team map from all match data (R32 DB entries cover every real team)
-      const allTeamsMap = new Map<string, BracketTeam>();
-      Object.values(matchesByCode).forEach(m => {
-        if (m.homeTeam) allTeamsMap.set(m.homeTeam.id, m.homeTeam);
-        if (m.awayTeam) allTeamsMap.set(m.awayTeam.id, m.awayTeam);
-      });
-
-      // Pre-save user predictions indexed by matchId for slot resolution
-      const predsByMatchId = new Map(userPredictions.map(p => [p.matchId, p]));
-
-      // Resolve which team sits in a bracket slot using user predictions directly,
-      // avoiding the picks PickMap which can mis-classify R16+ sides when homeTeamId is null.
-      function resolveSlot(matchCode: string, side: 'home' | 'away'): BracketTeam | null {
-        const def = MATCHES[matchCode];
-        if (!def) return null;
-        if (!def.feeders) {
-          // R32 leaf — teams are fixed in the DB
-          const m = matchesByCode[matchCode];
-          return side === 'home' ? (m?.homeTeam ?? null) : (m?.awayTeam ?? null);
-        }
-        const feederCode = def.feeders[side === 'home' ? 0 : 1];
-        const feederMatch = matchesByCode[feederCode];
-        if (!feederMatch) return null;
-        const pred = predsByMatchId.get(feederMatch.id);
-        if (!pred?.predictedWinnerId) return null;
-        if (def.losers) {
-          // 3rd-place: slot is the LOSER of the feeder SF
-          const fHome = resolveSlot(feederCode, 'home');
-          const fAway = resolveSlot(feederCode, 'away');
-          return fHome?.id === pred.predictedWinnerId ? fAway : fHome;
-        }
-        return allTeamsMap.get(pred.predictedWinnerId) ?? null;
-      }
-
       const pickedMatches = unlockedMatches.filter(m => picks[m.matchCode]);
 
+      // Resolve + save the winner for every picked match. teamInSlot walks the
+      // live `picks` map (all rounds), so QF/SF/Final resolve correctly even
+      // though their DB home/away team ids are still null.
+      const newWinnerByMatchId = new Map<string, string>();
       await Promise.all(
         pickedMatches.map(m => {
           const side = picks[m.matchCode]!;
-          const winner = resolveSlot(m.matchCode, side)
+          const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
             ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
           if (!winner) return Promise.resolve();
+          newWinnerByMatchId.set(m.id, winner.id);
           const sc = scores[m.matchCode] ?? { home: '', away: '' };
           return onSavePrediction(
             m.id, winner.id,
@@ -460,45 +431,32 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
           .map(p => onSavePrediction(p.matchId, null, null, null))
       );
 
-      // Build email picks — resolve teams via predictions, never TBD for any round
-      const emailPicks = pickedMatches.map(m => {
-        const side = picks[m.matchCode]!;
-        const home = resolveSlot(m.matchCode, 'home');
-        const away = resolveSlot(m.matchCode, 'away');
-        const winner = resolveSlot(m.matchCode, side);
+      // Compute which matches actually changed vs the pre-submit snapshot. The
+      // email itself is built server-side from the freshly-saved DB rows; here we
+      // only pass the diff (old values) so the route can render the change email.
+      const changes = pickedMatches.flatMap(m => {
         const sc = scores[m.matchCode] ?? { home: '', away: '' };
         const newHomeScore = sc.home !== '' ? parseInt(sc.home, 10) : null;
         const newAwayScore = sc.away !== '' ? parseInt(sc.away, 10) : null;
+        const newWinnerId = newWinnerByMatchId.get(m.id) ?? null;
         const oldPred = oldPredsMap.get(m.id);
-        const oldWinner = oldPred?.predictedWinnerId ? allTeamsMap.get(oldPred.predictedWinnerId) : null;
-        const hasChanged = !isFirstSubmit && (
-          oldPred?.predictedWinnerId !== (winner?.id ?? null) ||
-          oldPred?.predictedHomeScore !== newHomeScore ||
-          oldPred?.predictedAwayScore !== newAwayScore
-        );
-        return {
-          round: m.round,
-          matchLabel: `Match ${m.matchNumber}`,
-          homeName: home?.name ?? 'TBD',
-          awayName: away?.name ?? 'TBD',
-          homeFlag: home?.flag ?? '',
-          awayFlag: away?.flag ?? '',
-          homeScore: newHomeScore,
-          awayScore: newAwayScore,
-          winnerName: winner?.name ?? '',
-          winnerFlag: winner?.flag ?? '',
-          oldWinnerName: oldWinner?.name ?? '',
-          oldWinnerFlag: oldWinner?.flag ?? '',
+        const changed =
+          (oldPred?.predictedWinnerId ?? null) !== newWinnerId ||
+          (oldPred?.predictedHomeScore ?? null) !== newHomeScore ||
+          (oldPred?.predictedAwayScore ?? null) !== newAwayScore;
+        if (!changed) return [];
+        return [{
+          matchId: m.id,
+          oldWinnerId: oldPred?.predictedWinnerId ?? null,
           oldHomeScore: oldPred?.predictedHomeScore ?? null,
           oldAwayScore: oldPred?.predictedAwayScore ?? null,
-          hasChanged,
-        };
+        }];
       });
 
       fetch('/api/playoffs/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ picks: emailPicks, isFirstSubmit }),
+        body: JSON.stringify({ isFirstSubmit, changes }),
       }).catch(() => {});
 
       setSubmitDone(true);

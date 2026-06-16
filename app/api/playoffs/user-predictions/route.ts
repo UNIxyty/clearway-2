@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
+import {
+  resolveSlotServer, resolveWinnerServer,
+  type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
+} from '@/lib/playoffs/resolveBracketServer';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -10,7 +16,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Check if viewer has submitted any playoff picks
+  // Viewer must have submitted their own playoff picks before viewing others'
   const { data: viewerPicks, error: viewerPicksError } = await supabase
     .from('playoff_predictions')
     .select('id')
@@ -20,86 +26,108 @@ export async function GET(request: Request) {
   if (viewerPicksError) {
     return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
   }
-
-  const viewerSubmitted = viewerPicks && viewerPicks.length > 0;
-
-  if (!viewerSubmitted) {
+  if (!viewerPicks || viewerPicks.length === 0) {
     return NextResponse.json({ error: 'Forbidden: you have not submitted playoff picks' }, { status: 403 });
   }
 
-  // Get userId from search params
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
-
   if (!userId) {
     return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 });
   }
 
-  // Use service role client to bypass RLS
   const serviceClient = createSupabaseServiceRoleClient();
   if (!serviceClient) {
     return NextResponse.json({ error: 'Service role client unavailable' }, { status: 500 });
   }
 
-  // Fetch predictions with match data
-  const { data: predictionsData, error: predictionsError } = await serviceClient
-    .from('playoff_predictions')
-    .select(`
-      match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded,
-      match:playoff_matches!match_id(
-        match_code, round, home_score, away_score, winner_team_id, is_locked,
-        homeTeam:pickem_teams!home_team_id(name, flag_emoji),
-        awayTeam:pickem_teams!away_team_id(name, flag_emoji)
-      )
-    `)
-    .eq('user_id', userId);
+  // Load the full bracket, the target user's predictions, and all teams
+  const [{ data: matchRows, error: matchErr }, { data: predRows, error: predErr }] = await Promise.all([
+    serviceClient
+      .from('playoff_matches')
+      .select('id, match_code, round, match_number, home_team_id, away_team_id, home_score, away_score, winner_team_id, is_locked'),
+    serviceClient
+      .from('playoff_predictions')
+      .select('match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded')
+      .eq('user_id', userId),
+  ]);
 
-  if (predictionsError) {
+  if (matchErr || predErr) {
     return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 });
   }
 
-  // Fetch all teams to resolve predicted_winner_id
-  const { data: teamsData, error: teamsError } = await serviceClient
-    .from('pickem_teams')
-    .select('id, name, flag_emoji');
+  const matches = matchRows ?? [];
+  const preds = predRows ?? [];
 
+  const { data: teamRows, error: teamsError } = await serviceClient
+    .from('pickem_teams')
+    .select('id, name, short_name, flag_emoji');
   if (teamsError) {
     return NextResponse.json({ error: 'Failed to fetch teams' }, { status: 500 });
   }
 
-  const teamMap = new Map<string, { name: string; flag_emoji: string }>();
-  for (const team of teamsData ?? []) {
-    teamMap.set(team.id as string, {
-      name: team.name as string,
-      flag_emoji: team.flag_emoji as string,
+  const teamsById = new Map<string, ServerTeam>();
+  for (const t of teamRows ?? []) {
+    teamsById.set(t.id as string, {
+      id: t.id as string,
+      name: (t.name as string) ?? (t.short_name as string) ?? 'TBD',
+      flag: (t.flag_emoji as string) ?? '',
     });
   }
 
-  const predictions = (predictionsData ?? []).map((row: any) => {
-    const match = row.match as any;
-    const homeTeam = match?.homeTeam as any;
-    const awayTeam = match?.awayTeam as any;
+  const matchesByCode: Record<string, ServerMatch> = {};
+  const matchExtraById = new Map<string, Record<string, unknown>>();
+  matches.forEach(m => {
+    matchesByCode[m.match_code as string] = {
+      id: m.id as string,
+      matchCode: m.match_code as string,
+      round: m.round as string,
+      matchNumber: (m.match_number as number) ?? null,
+      homeTeamId: (m.home_team_id as string) ?? null,
+      awayTeamId: (m.away_team_id as string) ?? null,
+    };
+    matchExtraById.set(m.id as string, m);
+  });
 
-    const predictedWinnerId = row.predicted_winner_id as string | null;
-    const predictedWinnerTeam = predictedWinnerId ? teamMap.get(predictedWinnerId) : null;
+  const predsByMatchId = new Map<string, ServerPrediction>();
+  preds.forEach(p => {
+    predsByMatchId.set(p.match_id as string, {
+      predictedWinnerId: (p.predicted_winner_id as string) ?? null,
+      predictedHomeScore: (p.predicted_home_score as number) ?? null,
+      predictedAwayScore: (p.predicted_away_score as number) ?? null,
+    });
+  });
+
+  const ctx: ResolveContext = { matchesByCode, predsByMatchId, teamsById };
+
+  const predictions = preds.map(row => {
+    const matchId = row.match_id as string;
+    const m = matchExtraById.get(matchId);
+    const code = (m?.match_code as string) ?? null;
+
+    // Resolve home/away through the bracket (R16+ have null DB team ids)
+    const home = code ? resolveSlotServer(code, 'home', ctx) : null;
+    const away = code ? resolveSlotServer(code, 'away', ctx) : null;
+    const winner = code ? resolveWinnerServer(code, ctx) : null;
 
     return {
-      matchCode: match?.match_code ?? null,
-      round: match?.round ?? null,
-      homeTeamName: homeTeam?.name ?? null,
-      homeTeamFlag: homeTeam?.flag_emoji ?? null,
-      awayTeamName: awayTeam?.name ?? null,
-      awayTeamFlag: awayTeam?.flag_emoji ?? null,
-      predictedWinnerId,
-      predictedWinnerName: predictedWinnerTeam?.name ?? null,
-      predictedWinnerFlag: predictedWinnerTeam?.flag_emoji ?? null,
-      predictedHomeScore: row.predicted_home_score ?? null,
-      predictedAwayScore: row.predicted_away_score ?? null,
-      isLocked: match?.is_locked ?? false,
-      actualHomeScore: match?.home_score ?? null,
-      actualAwayScore: match?.away_score ?? null,
-      winnerTeamId: match?.winner_team_id ?? null,
-      pointsAwarded: row.points_awarded ?? null,
+      matchCode: code,
+      round: (m?.round as string) ?? null,
+      matchNumber: (m?.match_number as number) ?? null,
+      homeTeamName: home?.name ?? null,
+      homeTeamFlag: home?.flag ?? null,
+      awayTeamName: away?.name ?? null,
+      awayTeamFlag: away?.flag ?? null,
+      predictedWinnerId: (row.predicted_winner_id as string) ?? null,
+      predictedWinnerName: winner?.name ?? null,
+      predictedWinnerFlag: winner?.flag ?? null,
+      predictedHomeScore: (row.predicted_home_score as number) ?? null,
+      predictedAwayScore: (row.predicted_away_score as number) ?? null,
+      isLocked: (m?.is_locked as boolean) ?? false,
+      actualHomeScore: (m?.home_score as number) ?? null,
+      actualAwayScore: (m?.away_score as number) ?? null,
+      winnerTeamId: (m?.winner_team_id as string) ?? null,
+      pointsAwarded: (row.points_awarded as number) ?? null,
     };
   });
 

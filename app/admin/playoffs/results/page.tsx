@@ -98,7 +98,15 @@ function ResultsContent() {
       });
   }, [supabase]);
 
-  const currentIds = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
+  const currentIds = useMemo(() => {
+    const ids = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
+    // Sort by kickoff date so the earliest match shows first
+    return [...ids].sort((a, b) => {
+      const ta = results[a]?.kickoffAt ? new Date(results[a].kickoffAt as string).getTime() : Infinity;
+      const tb = results[b]?.kickoffAt ? new Date(results[b].kickoffAt as string).getTime() : Infinity;
+      return ta - tb;
+    });
+  }, [activeTab, results]);
 
   function flash(msg: string) {
     setToast(msg);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/admin-auth';
-import { sendPlayoffPicksEmail } from '@/lib/pickem-email';
+import { sendBracketConfirmation } from '@/server/emails/triggers/sendBracketConfirmation';
 
 interface PickRow {
   round: string;
@@ -32,16 +32,14 @@ export async function POST(req: NextRequest) {
     timeZone: 'Europe/Riga',
   });
 
-  const sent = await sendPlayoffPicksEmail({
-    to: auth.user.email,
+  sendBracketConfirmation({
+    userId: auth.user.id,
+    email: auth.user.email,
     displayName,
-    picksMade: picks.length,
-    matchPicks: picks,
+    picks,
     submittedAt,
+    deadline: String(body.deadline ?? ''),
   });
 
-  if (!sent) {
-    return NextResponse.json({ error: 'Email could not be sent.' }, { status: 500 });
-  }
   return NextResponse.json({ ok: true });
 }

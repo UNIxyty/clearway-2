@@ -22,7 +22,7 @@ export interface FullBracketProps {
   matches: PlayoffMatch[];
   userPredictions: PlayoffPrediction[];
   teams: BracketTeam[];
-  onSavePrediction: (matchId: string, winnerId: string, homeScore: number, awayScore: number) => Promise<void>;
+  onSavePrediction: (matchId: string, winnerId: string | null, homeScore: number | null, awayScore: number | null) => Promise<void>;
 }
 
 // ─── Group column box ─────────────────────────────────────────────────────────
@@ -187,6 +187,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const [toast, setToast] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [paths, setPaths] = useState<ElbowPath[]>([]);
   const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
   const [scrollState, setScrollState] = useState({ left: false, right: true });
@@ -305,12 +306,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     clearTimeout((window as unknown as Record<string, unknown>).__toastT as ReturnType<typeof setTimeout>);
     (window as unknown as Record<string, unknown>).__toastT = setTimeout(() => setToast(false), 2100);
     setScores(s => { const n = { ...s }; clearedCodes.forEach(c => delete n[c]); return n; });
-    // Clear downstream predictions from DB so the seeding effect doesn't restore them
-    clearedCodes.forEach(c => {
-      const m = matchesByCode[c];
-      if (m) onSavePrediction(m.id, null as unknown as string, null as unknown as number, null as unknown as number).catch(() => {});
-    });
-  }, [matchesByCode, onSavePrediction]);
+  }, [matchesByCode]);
 
   // ---- Pick handler with downstream cascade ----
   const onPick = useCallback((id: string, side: 'home' | 'away') => {
@@ -329,28 +325,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     });
 
     applyCascade(clearedCodes);
-
-    // Persist to Supabase
-    if (dbMatch) {
-      if (isToggleOff) {
-        onSavePrediction(dbMatch.id, null as unknown as string, null as unknown as number, null as unknown as number).catch(() => {});
-      } else {
-        const mergedPicks = { ...picksRef.current, [id]: side };
-        const winner = teamInSlot(id, side, mergedPicks, matchesByCode)
-          ?? (side === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
-          ?? null;
-        if (winner) {
-          const sc = scores[id] ?? { home: '', away: '' };
-          onSavePrediction(
-            dbMatch.id,
-            winner.id,
-            sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
-            sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
-          ).catch(() => {});
-        }
-      }
-    }
-  }, [matchesByCode, scores, onSavePrediction, computeCascade, applyCascade]);
+    setIsDirty(true);
+  }, [matchesByCode, computeCascade, applyCascade]);
 
   const onScore = useCallback((id: string, side: 'home' | 'away', v: string) => {
     const newSc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
@@ -374,24 +350,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       }
     }
 
-    const dbMatch = matchesByCode[id];
-    // Only save to DB when BOTH scores are filled and indicate a clear winner.
-    // Saving with a partial score (one field empty) while a wrong team is selected triggers
-    // an optimistic setPredictions → userPredictions change → seeding effect, which fires
-    // AFTER the cascade's setLocalPicks and overwrites the auto-switched pick.
-    if (!scoresClear || !dbMatch) return;
-    const saveSide: 'home' | 'away' = hs > as_ ? 'home' : 'away';
-    const winner = teamInSlot(id, saveSide, picksRef.current, matchesByCode)
-      ?? (saveSide === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
-      ?? null;
-    if (winner) {
-      onSavePrediction(
-        dbMatch.id, winner.id,
-        parseInt(newSc.home, 10),
-        parseInt(newSc.away, 10),
-      ).catch(() => {});
-    }
-  }, [matchesByCode, scores, onSavePrediction, computeCascade, applyCascade]);
+    setIsDirty(true);
+  }, [matchesByCode, scores, computeCascade, applyCascade]);
 
   // ---- Batch submit ----
   const handleSubmitAll = useCallback(async () => {
@@ -409,10 +369,18 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
           const sc = scores[m.matchCode] ?? { home: '', away: '' };
           return onSavePrediction(
             m.id, winner.id,
-            sc.home !== '' ? parseInt(sc.home, 10) : null as unknown as number,
-            sc.away !== '' ? parseInt(sc.away, 10) : null as unknown as number,
+            sc.home !== '' ? parseInt(sc.home, 10) : null,
+            sc.away !== '' ? parseInt(sc.away, 10) : null,
           );
         })
+      );
+
+      // Clear stale DB predictions for downstream picks that were cascade-cleared locally
+      const pickedMatchIds = new Set(pickedMatches.map(m => m.id));
+      await Promise.all(
+        userPredictions
+          .filter(p => p.predictedWinnerId && !pickedMatchIds.has(p.matchId))
+          .map(p => onSavePrediction(p.matchId, null, null, null))
       );
 
       // Send playoff picks confirmation email
@@ -438,11 +406,12 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       }).catch(() => {});
 
       setSubmitDone(true);
+      setIsDirty(false);
       setTimeout(() => setSubmitDone(false), 2500);
     } catch { /* individual save errors are silently swallowed */ } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction]);
+  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction, userPredictions]);
 
   // ---- Connector paths ----
   const measure = useCallback(() => {
@@ -767,12 +736,12 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
           </div>
           <button
             onClick={handleSubmitAll}
-            disabled={pickedCount === 0 || isSubmitting}
+            disabled={!isDirty || isSubmitting}
             className={[
               'shrink-0 h-10 px-6 rounded-full text-[13px] font-extrabold tracking-tight transition-all duration-200',
               submitDone
                 ? 'bg-emerald-500 text-white shadow-[0_4px_16px_rgba(16,185,129,0.30)]'
-                : pickedCount === 0 || isSubmitting
+                : !isDirty || isSubmitting
                 ? 'bg-black/[0.06] text-black/30 cursor-not-allowed'
                 : 'bg-bk-blue text-white shadow-[0_4px_16px_rgba(37,99,235,0.28)] hover:opacity-90 active:scale-[0.97]',
             ].join(' ')}

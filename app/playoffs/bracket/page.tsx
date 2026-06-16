@@ -42,11 +42,11 @@ function FullBracketContent() {
 
   async function handleSavePrediction(
     matchId: string,
-    winnerId: string,
-    homeScore: number,
-    awayScore: number,
+    winnerId: string | null,
+    homeScore: number | null,
+    awayScore: number | null,
   ) {
-    await savePrediction(matchId, winnerId, homeScore ?? null, awayScore ?? null);
+    await savePrediction(matchId, winnerId, homeScore, awayScore);
   }
 
   return (

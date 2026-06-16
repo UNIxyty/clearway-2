@@ -50,12 +50,14 @@ function TeamRow({
     <div className="flex items-center gap-2 pl-3 pr-2.5 py-2.5">
       {actual
         ? <FlagImg emoji={actual.flag} size={20} />
-        : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
+        : predicted
+          ? <FlagImg emoji={predicted.flag} size={20} />
+          : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
       <div className="flex-1 min-w-0">
         {actual
           ? <div className="truncate text-[12.5px] font-bold text-navy">{actual.name}</div>
           : predicted
-            ? <div className="truncate text-[12.5px] font-semibold text-black/50 italic">{predicted.name}?</div>
+            ? <div className="truncate text-[12.5px] font-bold text-navy/85">{predicted.name}</div>
             : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(qualifier)}</div>}
       </div>
       {correct && (
@@ -198,7 +200,14 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
   const left = useMemo(() => pairings.slice(0, 8), [pairings]);
   const right = useMemo(() => pairings.slice(8, 16), [pairings]);
   const resolved = pairings.filter(p => p.home !== null).length;
-  const pct = Math.round((resolved / 16) * 100);
+  // Matchups whose slots are filled either by official teams or by the user's
+  // predicted qualifiers (from their group-stage score picks).
+  const predictedKnown = pairings.filter(
+    p => (p.home ?? p.predictedHome) && (p.away ?? p.predictedAway),
+  ).length;
+  const predictedComplete = predictedKnown === 16;
+  const known = isGroupStageComplete ? resolved : predictedKnown;
+  const pct = Math.round((known / 16) * 100);
   const totalPts = pairings.reduce((sum, p) => {
     const h = p.home && p.predictedHome && p.home.id === p.predictedHome.id ? 1 : 0;
     const a = p.away && p.predictedAway && p.away.id === p.predictedAway.id ? 1 : 0;
@@ -233,13 +242,13 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
     const leftLeaves: Leaf[] = left.map(p => {
       const r = rect[p.matchCode];
       if (!r) return null;
-      return { x: r.right, y: r.mid, hasTeam: p.home !== null };
+      return { x: r.right, y: r.mid, hasTeam: (p.home ?? p.predictedHome) !== null };
     }).filter(Boolean) as Leaf[];
 
     const rightLeaves: Leaf[] = right.map(p => {
       const r = rect[p.matchCode];
       if (!r) return null;
-      return { x: r.left, y: r.mid, hasTeam: p.home !== null };
+      return { x: r.left, y: r.mid, hasTeam: (p.home ?? p.predictedHome) !== null };
     }).filter(Boolean) as Leaf[];
 
     const out: Seg[] = [];
@@ -281,7 +290,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
           <div className="text-center min-w-0">
             <div className="text-[19px] sm:text-[20px] font-black tracking-tight text-navy leading-none">Round of 32</div>
             <div className="text-[12px] sm:text-[13px] font-semibold text-black/45 truncate">
-              Auto-filled from group stage results
+              {isGroupStageComplete ? 'Auto-filled from group stage results' : 'Auto-filled from your group-stage picks'}
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
@@ -292,9 +301,9 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
               </div>
             )}
             <div className="flex items-center gap-1.5 px-3 h-9 rounded-full bg-bk-blue/10 text-bk-blue-dark">
-              <span className="text-[13px] font-extrabold tabular-nums">{resolved}</span>
+              <span className="text-[13px] font-extrabold tabular-nums">{known}</span>
               <span className="text-[12px] font-bold text-bk-blue/70">/ 16</span>
-              <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">resolved</span>
+              <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">{isGroupStageComplete ? 'resolved' : 'predicted'}</span>
             </div>
           </div>
         </div>
@@ -307,7 +316,9 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
       <div className="bg-white border-b border-black/[0.07] px-4 sm:px-6 py-2.5 text-center text-[12.5px] font-bold text-black/55">
         {isGroupStageComplete
           ? <span className="text-emerald-600">Group stage complete — all 16 matchups resolved</span>
-          : <span><span className="text-bk-blue-dark">{resolved}/16</span> matchups known · waiting for group stage to finish</span>}
+          : predictedKnown > 0
+            ? <span><span className="text-bk-blue-dark">{predictedKnown}/16</span> matchups predicted from your group picks · official results pending</span>
+            : <span>Predict your group-stage scores to auto-fill the Round of 32</span>}
       </div>
 
       {isMobile ? (
@@ -391,7 +402,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
           </span>
           <div className="flex items-center gap-2 shrink-0 mx-auto sm:mx-0">
             <AnimatePresence mode="wait">
-              {isGroupStageComplete && !hasUserPredictions ? (
+              {(isGroupStageComplete || predictedComplete) && !hasUserPredictions ? (
                 <motion.a
                   key="cta"
                   href="/playoffs/bracket"
@@ -402,7 +413,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
                 >
                   Make Your R32 Predictions →
                 </motion.a>
-              ) : isGroupStageComplete && hasUserPredictions ? (
+              ) : (isGroupStageComplete || predictedComplete) && hasUserPredictions ? (
                 <motion.a
                   key="done"
                   href="/playoffs/bracket"
@@ -414,7 +425,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
                 </motion.a>
               ) : (
                 <span className="text-[13px] font-bold text-black/40 whitespace-nowrap">
-                  Available once group stage ends
+                  Predict your group scores to unlock
                 </span>
               )}
             </AnimatePresence>

@@ -375,10 +375,15 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     }
 
     const dbMatch = matchesByCode[id];
-    const pick = picks[id] ?? (scoresClear ? (hs > as_ ? 'home' : 'away') : null);
-    if (dbMatch && pick) {
-      const winner = teamInSlot(id, pick, picks, matchesByCode)
-        ?? (pick === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
+    // When scores clearly indicate a winner, always save that side — not stale picks[id].
+    // If picks[id] were used here and it differs from the score-implied winner, the
+    // optimistic update would seed the wrong team back via the seeding effect.
+    const savePick: 'home' | 'away' | null = scoresClear
+      ? (hs > as_ ? 'home' : 'away')
+      : (picks[id] ?? null);
+    if (dbMatch && savePick) {
+      const winner = teamInSlot(id, savePick, picks, matchesByCode)
+        ?? (savePick === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
         ?? null;
       if (winner) {
         onSavePrediction(

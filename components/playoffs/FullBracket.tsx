@@ -175,7 +175,7 @@ function GroupColumn({ groups, dir }: { groups: GroupDef[]; dir: 'left' | 'right
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FullBracket({ matches, userPredictions, onSavePrediction }: FullBracketProps) {
+export function FullBracket({ matches, userPredictions, teams, onSavePrediction }: FullBracketProps) {
   // Build matchesByCode map
   const matchesByCode = useMemo<Record<string, PlayoffMatch>>(
     () => Object.fromEntries(matches.map(m => [m.matchCode, m])),
@@ -397,6 +397,11 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
+      // Snapshot BEFORE any saves so we can compute the diff for the update email
+      const oldPredsMap = new Map(userPredictions.map(p => [p.matchId, p]));
+      const isFirstSubmit = userPredictions.filter(p => p.predictedWinnerId).length === 0;
+      const teamsById = new Map(teams.map(t => [t.id, t]));
+
       const pickedMatches = unlockedMatches.filter(m => picks[m.matchCode]);
 
       await Promise.all(
@@ -422,26 +427,46 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
           .map(p => onSavePrediction(p.matchId, null, null, null))
       );
 
-      // Send playoff picks confirmation email
+      // Build email picks — use teamInSlot so R16+ team names are never TBD
       const emailPicks = pickedMatches.map(m => {
         const side = picks[m.matchCode]!;
-        const home = m.homeTeam ?? matchesByCode[m.matchCode]?.homeTeam ?? null;
-        const away = m.awayTeam ?? matchesByCode[m.matchCode]?.awayTeam ?? null;
+        const home = teamInSlot(m.matchCode, 'home', picks, matchesByCode);
+        const away = teamInSlot(m.matchCode, 'away', picks, matchesByCode);
+        const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
+          ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
         const sc = scores[m.matchCode] ?? { home: '', away: '' };
+        const newHomeScore = sc.home !== '' ? parseInt(sc.home, 10) : null;
+        const newAwayScore = sc.away !== '' ? parseInt(sc.away, 10) : null;
+        const oldPred = oldPredsMap.get(m.id);
+        const oldWinner = oldPred?.predictedWinnerId ? teamsById.get(oldPred.predictedWinnerId) : null;
+        const hasChanged = !isFirstSubmit && (
+          oldPred?.predictedWinnerId !== (winner?.id ?? null) ||
+          oldPred?.predictedHomeScore !== newHomeScore ||
+          oldPred?.predictedAwayScore !== newAwayScore
+        );
         return {
           round: m.round,
+          matchLabel: `Match ${m.matchNumber}`,
           homeName: home?.name ?? 'TBD',
           awayName: away?.name ?? 'TBD',
-          homeScore: sc.home !== '' ? parseInt(sc.home, 10) : null,
-          awayScore: sc.away !== '' ? parseInt(sc.away, 10) : null,
           homeFlag: home?.flag ?? '',
           awayFlag: away?.flag ?? '',
+          homeScore: newHomeScore,
+          awayScore: newAwayScore,
+          winnerName: winner?.name ?? '',
+          winnerFlag: winner?.flag ?? '',
+          oldWinnerName: oldWinner?.name ?? '',
+          oldWinnerFlag: oldWinner?.flag ?? '',
+          oldHomeScore: oldPred?.predictedHomeScore ?? null,
+          oldAwayScore: oldPred?.predictedAwayScore ?? null,
+          hasChanged,
         };
       });
+
       fetch('/api/playoffs/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ picks: emailPicks }),
+        body: JSON.stringify({ picks: emailPicks, isFirstSubmit }),
       }).catch(() => {});
 
       setSubmitDone(true);
@@ -450,7 +475,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     } catch { /* individual save errors are silently swallowed */ } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction, userPredictions]);
+  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction, userPredictions, teams]);
 
   // ---- Connector paths ----
   const measure = useCallback(() => {

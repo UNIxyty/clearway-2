@@ -106,6 +106,9 @@ async function _send(
     bracketUrl: `${base}/playoffs/bracket`,
     deadline,
     unsubscribeLink: unsubscribeUrl(userId),
+    wc2026LogoUrl: `${base}/wc2026-logo.png`,
+    clearwayLogoUrl: `${base}/header_logo_white.svg`,
+    verxylLogoUrl: `${base}/logo.png`,
   });
 
   await sendEmail(

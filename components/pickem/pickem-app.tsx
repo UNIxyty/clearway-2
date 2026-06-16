@@ -421,6 +421,8 @@ export function PickemApp() {
   const [playoffSelectedUser, setPlayoffSelectedUser] = useState<PlayoffLeaderboardRow | null>(null);
   const [playoffUserPredictions, setPlayoffUserPredictions] = useState<PlayoffUserPrediction[] | null>(null);
   const [playoffPredictionsLoading, setPlayoffPredictionsLoading] = useState(false);
+  const [playoffPredictionsError, setPlayoffPredictionsError] = useState<string | null>(null);
+  const [playoffStandingsError, setPlayoffStandingsError] = useState<string | null>(null);
 
   async function loadAll() {
     setLoading(true);
@@ -641,19 +643,42 @@ export function PickemApp() {
   }
 
   async function loadPlayoffStandings() {
-    const res = await fetch("/api/playoffs/standings", { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) setPlayoffLeaderboard(json as PlayoffLeaderboardPayload);
+    setPlayoffStandingsError(null);
+    try {
+      const res = await fetch("/api/playoffs/standings", { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPlayoffLeaderboard(json as PlayoffLeaderboardPayload);
+      } else {
+        console.error("[playoff-standings] load failed", res.status, json);
+        setPlayoffStandingsError((json as { error?: string }).error ?? "Unable to load standings");
+      }
+    } catch (err) {
+      console.error("[playoff-standings] load threw", err);
+      setPlayoffStandingsError("Unable to load standings");
+    }
   }
 
   async function viewPlayoffUserPredictions(row: PlayoffLeaderboardRow) {
     setPlayoffSelectedUser(row);
     setPlayoffUserPredictions(null);
+    setPlayoffPredictionsError(null);
     setPlayoffPredictionsLoading(true);
-    const res = await fetch(`/api/playoffs/user-predictions?userId=${row.userId}`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
-    setPlayoffPredictionsLoading(false);
-    if (res.ok) setPlayoffUserPredictions((json as { predictions: PlayoffUserPrediction[] }).predictions ?? []);
+    try {
+      const res = await fetch(`/api/playoffs/user-predictions?userId=${row.userId}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setPlayoffUserPredictions((json as { predictions: PlayoffUserPrediction[] }).predictions ?? []);
+      } else {
+        console.error("[playoff-picks] load failed", res.status, json);
+        setPlayoffPredictionsError((json as { error?: string }).error ?? "Unable to load predictions");
+      }
+    } catch (err) {
+      console.error("[playoff-picks] load threw", err);
+      setPlayoffPredictionsError("Unable to load predictions");
+    } finally {
+      setPlayoffPredictionsLoading(false);
+    }
   }
 
   async function signOut() {
@@ -1550,7 +1575,18 @@ export function PickemApp() {
             {standingsTab === "playoffs" && (
             <div className={`grid gap-4 ${playoffSelectedUser ? "lg:grid-cols-[minmax(0,1fr)_350px]" : "grid-cols-1"}`}>
               <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
-                {!playoffLeaderboard.viewerSubmitted ? (
+                {playoffStandingsError ? (
+                  <div className="px-6 py-12 text-center text-sm font-semibold text-red-500">
+                    {playoffStandingsError}
+                    <button
+                      type="button"
+                      onClick={() => void loadPlayoffStandings()}
+                      className="mt-2 block mx-auto text-xs font-bold text-blue-600 hover:underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : !playoffLeaderboard.viewerSubmitted ? (
                   <div className="px-6 py-12 text-center text-sm font-semibold text-slate-400">
                     Submit your playoff picks to see the standings.
                   </div>
@@ -1608,8 +1644,19 @@ export function PickemApp() {
                   </div>
                   {playoffPredictionsLoading ? (
                     <div className="text-center text-sm text-slate-400 py-8">Loading picks…</div>
+                  ) : playoffPredictionsError ? (
+                    <div className="text-center text-sm font-semibold text-red-500 py-8">
+                      {playoffPredictionsError}
+                      <button
+                        type="button"
+                        onClick={() => { if (playoffSelectedUser) void viewPlayoffUserPredictions(playoffSelectedUser); }}
+                        className="mt-2 block mx-auto text-xs font-bold text-blue-600 hover:underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
                   ) : playoffUserPredictions === null ? null : playoffUserPredictions.length === 0 ? (
-                    <div className="text-center text-sm text-slate-400 py-8">No picks submitted yet.</div>
+                    <div className="text-center text-sm text-slate-400 py-8">This user hasn&apos;t made predictions yet.</div>
                   ) : (
                     <div className="space-y-2">
                       {playoffUserPredictions.map((pred) => {

@@ -6,8 +6,22 @@ import { AdminRoute } from '@/components/AdminRoute';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
-  QF_LEFT_IDS, QF_RIGHT_IDS,
+  QF_LEFT_IDS, QF_RIGHT_IDS, MATCHES,
 } from '@/lib/playoffs/bracketData';
+
+/*
+ * ── MANUAL QA CHECKLIST — verify after changing publish/scoring logic ──────────
+ * Bug 6 (publish → points + progression). Steps:
+ *  1. Bracket Setup → R32 tab → "Load from Groups" so R32 has real teams.
+ *  2. Results → R32 tab → enter a score for one match, pick a winner, "Publish Final".
+ *     Expect toast "published · N predictions scored" with N = users who picked it.
+ *  3. As a test user on /playoffs/bracket, refocus the tab → that R32 card shows a
+ *     green "+1 pt" (or "miss") badge; Standings → Playoffs reflects new totals.
+ *  4. Back in Results, switch to the R16 tab: the downstream match that this winner
+ *     feeds now shows the advanced team name (no longer "—") and can be scored.
+ *  5. Republish with a different winner → downstream slot updates to the new team.
+ * ──────────────────────────────────────────────────────────────────────────────
+ */
 
 const ROUND_TABS = [
   { id: 'R32',   label: 'R32',          ids: [...R32_LEFT_IDS, ...R32_RIGHT_IDS] },
@@ -62,41 +76,51 @@ function ResultsContent() {
   const [modalCode, setModalCode] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase
+  const loadResults = useCallback(async () => {
+    const { data, error } = await supabase
       .from('playoff_matches')
       .select(`
         id, match_code, home_score, away_score, winner_team_id, is_locked,
         kickoff_at, home_team_id, away_team_id,
         homeTeam:pickem_teams!home_team_id(name),
         awayTeam:pickem_teams!away_team_id(name)
-      `)
-      .then(({ data }) => {
-        if (!data) return;
-        const init: Record<string, MatchResult> = {};
-        data.forEach((row: Record<string, unknown>) => {
-          const code = row.match_code as string;
-          const homeTeam = row.homeTeam as Record<string, unknown> | null;
-          const awayTeam = row.awayTeam as Record<string, unknown> | null;
-          const locked = Boolean(row.is_locked);
-          init[code] = {
-            id: row.id as string,
-            matchCode: code,
-            homeTeamName: (homeTeam?.name as string) ?? '—',
-            awayTeamName: (awayTeam?.name as string) ?? '—',
-            homeTeamId: (row.home_team_id as string) ?? '',
-            awayTeamId: (row.away_team_id as string) ?? '',
-            homeScore: row.home_score != null ? String(row.home_score) : '',
-            awayScore: row.away_score != null ? String(row.away_score) : '',
-            winnerTeamId: (row.winner_team_id as string) ?? '',
-            isLocked: locked,
-            kickoffAt: (row.kickoff_at as string) ?? null,
-            liveChecked: locked,
-          };
-        });
-        setResults(init);
+      `);
+    if (error) {
+      console.error('[playoff-results] failed to load matches', error);
+      return;
+    }
+    if (!data) return;
+    setResults(prev => {
+      const init: Record<string, MatchResult> = {};
+      data.forEach((row: Record<string, unknown>) => {
+        const code = row.match_code as string;
+        const homeTeam = row.homeTeam as Record<string, unknown> | null;
+        const awayTeam = row.awayTeam as Record<string, unknown> | null;
+        const locked = Boolean(row.is_locked);
+        // Preserve the admin's in-progress local edits (live checkbox) across reloads.
+        const existing = prev[code];
+        init[code] = {
+          id: row.id as string,
+          matchCode: code,
+          homeTeamName: (homeTeam?.name as string) ?? '—',
+          awayTeamName: (awayTeam?.name as string) ?? '—',
+          homeTeamId: (row.home_team_id as string) ?? '',
+          awayTeamId: (row.away_team_id as string) ?? '',
+          homeScore: row.home_score != null ? String(row.home_score) : '',
+          awayScore: row.away_score != null ? String(row.away_score) : '',
+          winnerTeamId: (row.winner_team_id as string) ?? '',
+          isLocked: locked,
+          kickoffAt: (row.kickoff_at as string) ?? null,
+          liveChecked: existing?.liveChecked || locked,
+        };
       });
+      return init;
+    });
   }, [supabase]);
+
+  useEffect(() => {
+    void loadResults();
+  }, [loadResults]);
 
   const currentIds = useMemo(() => {
     const ids = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
@@ -158,13 +182,43 @@ function ResultsContent() {
     }
   }, [results, supabase]);
 
-  // Save scores + is_locked=true + call RPC
+  // Propagate the published match's winner (and, for the bronze match, the loser)
+  // into the downstream match slot(s) it feeds. R16+ rows store null home/away
+  // team ids until the feeding match is decided, so without this step the next
+  // round can never be scored (no teams → no winner → 0 points for everyone).
+  const advanceWinner = useCallback(async (code: string, row: MatchResult) => {
+    const winnerId = row.winnerTeamId;
+    if (!winnerId) return;
+    const loserId = winnerId === row.homeTeamId ? row.awayTeamId : row.homeTeamId;
+
+    // Downstream matches are those whose feeders include this match code.
+    const downstream = Object.values(MATCHES).filter(d => d.feeders?.includes(code));
+    for (const def of downstream) {
+      const slotIndex = def.feeders!.indexOf(code); // 0 → home slot, 1 → away slot
+      const teamForSlot = def.losers ? loserId : winnerId;
+      if (!teamForSlot) continue;
+      const downRow = results[def.id];
+      if (!downRow?.id) continue;
+      const field = slotIndex === 0 ? 'home_team_id' : 'away_team_id';
+      const { error } = await supabase
+        .from('playoff_matches')
+        .update({ [field]: teamForSlot })
+        .eq('id', downRow.id);
+      if (error) {
+        console.error('[playoff-results] failed to advance winner to downstream slot', {
+          from: code, to: def.id, field, error: error.message,
+        });
+      }
+    }
+  }, [results, supabase]);
+
+  // Save scores + is_locked=true + call RPC, then advance the winner downstream.
   const publishFinal = useCallback(async (code: string) => {
     const row = results[code];
     if (!row?.id) return;
     setPublishing(prev => ({ ...prev, [code]: true }));
     try {
-      await supabase
+      const { error: updateErr } = await supabase
         .from('playoff_matches')
         .update({
           home_score: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
@@ -173,22 +227,35 @@ function ResultsContent() {
           is_locked: true,
         })
         .eq('id', row.id);
+      if (updateErr) throw updateErr;
 
-      const { error } = await supabase.rpc('calculate_playoff_points', { p_match_id: row.id });
-      if (error) throw error;
+      const { error: rpcErr } = await supabase.rpc('calculate_playoff_points', { p_match_id: row.id });
+      if (rpcErr) throw rpcErr;
+
+      // How many predictions were scored, for an informative confirmation.
+      const { count } = await supabase
+        .from('playoff_predictions')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', row.id);
+
+      // Advance the winner into the next round so it becomes scoreable.
+      await advanceWinner(code, row);
 
       setResults(prev => ({
         ...prev,
         [code]: { ...prev[code], isLocked: true, liveChecked: true },
       }));
-      flash(`${code} published and points calculated`);
+      // Reload so downstream rows pick up their newly-assigned team names.
+      await loadResults();
+      flash(`${code} published · ${count ?? 0} prediction${count === 1 ? '' : 's'} scored`);
     } catch (err) {
+      console.error('[playoff-results] publish failed', { code, err });
       flash(`Error: ${err instanceof Error ? err.message : 'unknown'}`);
     } finally {
       setPublishing(prev => ({ ...prev, [code]: false }));
       setModalCode(null);
     }
-  }, [results, supabase]);
+  }, [results, supabase, advanceWinner, loadResults]);
 
   const modalRow = modalCode ? results[modalCode] ?? null : null;
 

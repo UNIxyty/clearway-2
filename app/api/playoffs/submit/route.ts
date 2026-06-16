@@ -120,6 +120,15 @@ export async function POST(req: NextRequest) {
       const home = resolveSlotServer(code, 'home', ctx);
       const away = resolveSlotServer(code, 'away', ctx);
       const pred = predsByMatchId.get(m.id as string)!;
+      if (!home || !away) {
+        // Observable signal: a predicted match could not resolve both teams from
+        // the feeder graph. For R16+ this means an upstream pick is missing; if it
+        // fires for an R32 match the bracket data is out of sync (a real bug).
+        console.warn('[bracket-email] unresolved team in confirmation', {
+          userId: auth.user.id, matchCode: code, round: m.round,
+          homeResolved: !!home, awayResolved: !!away,
+        });
+      }
       return {
         round: m.round as string,
         homeName: home?.name ?? 'TBD',

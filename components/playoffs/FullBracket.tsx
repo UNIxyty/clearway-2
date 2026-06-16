@@ -190,6 +190,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [paths, setPaths] = useState<ElbowPath[]>([]);
   const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
   const [scrollState, setScrollState] = useState({ left: false, right: true });
@@ -396,6 +397,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
   const handleSubmitAll = useCallback(async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    setSaveError(null);
     try {
       // Snapshot BEFORE any saves so we can compute the diff for the update email
       const oldPredsMap = new Map(userPredictions.map(p => [p.matchId, p]));
@@ -406,30 +408,70 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
       // Resolve + save the winner for every picked match. teamInSlot walks the
       // live `picks` map (all rounds), so QF/SF/Final resolve correctly even
       // though their DB home/away team ids are still null.
+      //
+      // Each save is awaited independently via allSettled so that a single failed
+      // upsert can be reported per-match instead of aborting the whole batch and
+      // leaving a partial (e.g. 16/32) save silently behind a green "saved" UI.
       const newWinnerByMatchId = new Map<string, string>();
-      await Promise.all(
-        pickedMatches.map(m => {
-          const side = picks[m.matchCode]!;
-          const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
-            ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
-          if (!winner) return Promise.resolve();
-          newWinnerByMatchId.set(m.id, winner.id);
-          const sc = scores[m.matchCode] ?? { home: '', away: '' };
-          return onSavePrediction(
+      type SaveUnit = { code: string; promise: Promise<unknown> };
+      const saveUnits: SaveUnit[] = [];
+
+      for (const m of pickedMatches) {
+        const side = picks[m.matchCode]!;
+        const winner = teamInSlot(m.matchCode, side, picks, matchesByCode)
+          ?? (side === 'home' ? m.homeTeam : m.awayTeam) ?? null;
+        if (!winner) {
+          // A picked match whose team can't be resolved (upstream gap) — this
+          // would silently drop the pick, so surface it rather than skip quietly.
+          console.warn('[playoff-save] could not resolve winner for picked match', {
+            matchCode: m.matchCode, side,
+          });
+          saveUnits.push({ code: m.matchCode, promise: Promise.reject(new Error('unresolved team')) });
+          continue;
+        }
+        newWinnerByMatchId.set(m.id, winner.id);
+        const sc = scores[m.matchCode] ?? { home: '', away: '' };
+        saveUnits.push({
+          code: m.matchCode,
+          promise: onSavePrediction(
             m.id, winner.id,
             sc.home !== '' ? parseInt(sc.home, 10) : null,
             sc.away !== '' ? parseInt(sc.away, 10) : null,
-          );
-        })
-      );
+          ),
+        });
+      }
 
       // Clear stale DB predictions for downstream picks that were cascade-cleared locally
       const pickedMatchIds = new Set(pickedMatches.map(m => m.id));
-      await Promise.all(
-        userPredictions
-          .filter(p => p.predictedWinnerId && !pickedMatchIds.has(p.matchId))
-          .map(p => onSavePrediction(p.matchId, null, null, null))
-      );
+      const clearUnits: SaveUnit[] = userPredictions
+        .filter(p => p.predictedWinnerId && !pickedMatchIds.has(p.matchId))
+        .map(p => ({
+          code: matches.find(m => m.id === p.matchId)?.matchCode ?? p.matchId,
+          promise: onSavePrediction(p.matchId, null, null, null),
+        }));
+
+      const allUnits = [...saveUnits, ...clearUnits];
+      const settled = await Promise.allSettled(allUnits.map(u => u.promise));
+
+      const failedCodes = allUnits
+        .filter((_, i) => settled[i].status === 'rejected')
+        .map(u => u.code);
+
+      if (failedCodes.length > 0) {
+        settled.forEach((s, i) => {
+          if (s.status === 'rejected') {
+            console.error('[playoff-save] failed to persist prediction', {
+              matchCode: allUnits[i].code,
+              reason: s.reason instanceof Error ? s.reason.message : s.reason,
+            });
+          }
+        });
+        const shown = failedCodes.slice(0, 4).join(', ');
+        const more = failedCodes.length > 4 ? ` +${failedCodes.length - 4} more` : '';
+        setSaveError(`${failedCodes.length} pick${failedCodes.length !== 1 ? 's' : ''} failed to save (${shown}${more}). Please try again.`);
+        // Keep the form dirty so the user can retry; do NOT show success.
+        return;
+      }
 
       // Compute which matches actually changed vs the pre-submit snapshot. The
       // email itself is built server-side from the freshly-saved DB rows; here we
@@ -462,10 +504,13 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
       setSubmitDone(true);
       setIsDirty(false);
       setTimeout(() => setSubmitDone(false), 2500);
-    } catch { /* individual save errors are silently swallowed */ } finally {
+    } catch (err) {
+      console.error('[playoff-save] unexpected error during submit', err);
+      setSaveError('Something went wrong saving your picks. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, onSavePrediction, userPredictions]);
+  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, matches, onSavePrediction, userPredictions]);
 
   // ---- Connector paths ----
   const measure = useCallback(() => {
@@ -782,6 +827,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
               <span className="text-[12px] font-semibold text-black/40">of {unlockedMatches.length} picks made</span>
               {scoredCount > 0 && (
                 <span className="text-[11px] font-semibold text-bk-blue ml-1">· {scoredCount} with scores</span>
+              )}
+              {saveError && (
+                <span className="text-[11px] font-bold text-red-600 ml-1 truncate">· {saveError}</span>
               )}
             </div>
             <div className="h-1.5 rounded-full bg-black/[0.07] overflow-hidden">

@@ -3,7 +3,17 @@ import { renderTemplate } from '@/server/emails/renderTemplate';
 import { sendEmail } from '@/server/emails/sendEmail';
 import { unsubscribeUrl } from '@/server/utils/unsubscribeToken';
 
-const DEBOUNCE_MS = 5 * 60 * 1000; // 5 minutes
+const DEBOUNCE_MS = 5 * 60 * 1000; // quiet-period after the latest change
+const MAX_WAIT_MS = 6 * 60 * 1000; // hard cap measured from the FIRST change in a batch
+
+/*
+ * NOTE ON DURABILITY: this debounce is in-memory (per Node process). A container
+ * restart/redeploy drops any pending timers, so a batch mid-debounce would not be
+ * emailed. For the current low-volume, fire-and-forget use that trade-off is
+ * acceptable. If stronger guarantees are needed, persist batches to a
+ * `pending_email_batches(user_id, email_type, first_change_at, scheduled_send_at,
+ * payload, sent)` table and drain it from a 30s node-cron worker instead of setTimeout.
+ */
 
 export interface PredictionChange {
   round: string;
@@ -28,7 +38,7 @@ interface Pending {
   userId: string;
   email: string;
   firstName: string;
-  changeTimestamp: string;
+  firstChangeAt: number;
   unchangedCount: number;
   deadline: string;
   // matchLabel → latest change (newer overwrites older for same match)
@@ -43,26 +53,29 @@ export function sendPredictionUpdateEmail(input: SendPredictionUpdateInput): voi
 
   const firstName = input.displayName.trim().split(/\s+/)[0] || 'there';
   const changesByMatch = existing?.changesByMatch ?? new Map<string, PredictionChange>();
+  // Anchor the max-wait window to the first change of this batch, not the latest.
+  const firstChangeAt = existing?.firstChangeAt ?? Date.now();
 
   for (const change of input.changes) {
     changesByMatch.set(change.matchLabel, change);
   }
 
+  // Quiet-period debounce, but never push the send past MAX_WAIT_MS from the
+  // first change — otherwise a user who keeps editing would never get the email.
+  const elapsed = Date.now() - firstChangeAt;
+  const delay = Math.max(0, Math.min(DEBOUNCE_MS, MAX_WAIT_MS - elapsed));
+
   const timer = setTimeout(() => {
     pending.delete(input.userId);
     void _send(input.userId, input.email, firstName, changesByMatch, input.unchangedCount, input.deadline);
-  }, DEBOUNCE_MS);
+  }, delay);
 
   pending.set(input.userId, {
     timer,
     userId: input.userId,
     email: input.email,
     firstName,
-    changeTimestamp: new Date().toLocaleString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-      timeZone: 'Europe/Riga',
-    }),
+    firstChangeAt,
     unchangedCount: input.unchangedCount,
     deadline: input.deadline,
     changesByMatch,
@@ -111,10 +124,17 @@ async function _send(
     verxylLogoUrl: `${base}/verxyl-logo.png`,
   });
 
-  await sendEmail(
-    email,
-    `Your WC2026 bracket was updated (${changes.length} change${changes.length !== 1 ? 's' : ''})`,
-    html,
-    { userId, emailType: 'prediction_update' },
-  );
+  try {
+    await sendEmail(
+      email,
+      `Your WC2026 bracket was updated (${changes.length} change${changes.length !== 1 ? 's' : ''})`,
+      html,
+      { userId, emailType: 'prediction_update' },
+    );
+  } catch (err) {
+    console.error('[prediction-update-email] send failed', {
+      userId, changeCount: changes.length,
+      reason: err instanceof Error ? err.message : err,
+    });
+  }
 }

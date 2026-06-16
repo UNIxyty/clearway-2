@@ -362,8 +362,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
 
     if (scoresClear) {
       const autoPick: 'home' | 'away' = hs > as_ ? 'home' : 'away';
-      if (picks[id] !== autoPick) {
-        // Auto-pick switched: run full downstream cascade
+      // Use picksRef.current for the freshest merged picks (not the closure snapshot)
+      if (picksRef.current[id] !== autoPick) {
         const clearedCodes = computeCascade(id, autoPick);
         setLocalPicks(prev => {
           const next = { ...prev, [id]: autoPick };
@@ -375,25 +375,23 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     }
 
     const dbMatch = matchesByCode[id];
-    // When scores clearly indicate a winner, always save that side — not stale picks[id].
-    // If picks[id] were used here and it differs from the score-implied winner, the
-    // optimistic update would seed the wrong team back via the seeding effect.
-    const savePick: 'home' | 'away' | null = scoresClear
-      ? (hs > as_ ? 'home' : 'away')
-      : (picks[id] ?? null);
-    if (dbMatch && savePick) {
-      const winner = teamInSlot(id, savePick, picks, matchesByCode)
-        ?? (savePick === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
-        ?? null;
-      if (winner) {
-        onSavePrediction(
-          dbMatch.id, winner.id,
-          newSc.home !== '' ? parseInt(newSc.home, 10) : null as unknown as number,
-          newSc.away !== '' ? parseInt(newSc.away, 10) : null as unknown as number,
-        ).catch(() => {});
-      }
+    // Only save to DB when BOTH scores are filled and indicate a clear winner.
+    // Saving with a partial score (one field empty) while a wrong team is selected triggers
+    // an optimistic setPredictions → userPredictions change → seeding effect, which fires
+    // AFTER the cascade's setLocalPicks and overwrites the auto-switched pick.
+    if (!scoresClear || !dbMatch) return;
+    const saveSide: 'home' | 'away' = hs > as_ ? 'home' : 'away';
+    const winner = teamInSlot(id, saveSide, picksRef.current, matchesByCode)
+      ?? (saveSide === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
+      ?? null;
+    if (winner) {
+      onSavePrediction(
+        dbMatch.id, winner.id,
+        parseInt(newSc.home, 10),
+        parseInt(newSc.away, 10),
+      ).catch(() => {});
     }
-  }, [matchesByCode, picks, scores, onSavePrediction, computeCascade, applyCascade]);
+  }, [matchesByCode, scores, onSavePrediction, computeCascade, applyCascade]);
 
   // ---- Batch submit ----
   const handleSubmitAll = useCallback(async () => {

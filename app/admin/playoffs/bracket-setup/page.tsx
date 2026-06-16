@@ -246,6 +246,8 @@ function BracketSetupContent() {
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkClearing, setBulkClearing] = useState(false);
 
   // Load teams via dedicated endpoint (includes flag_emoji)
   useEffect(() => {
@@ -296,6 +298,57 @@ function BracketSetupContent() {
         setRows(init);
       });
   }, [supabase]);
+
+  const loadFromGroupResults = useCallback(async () => {
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/admin/playoffs/populate-r32', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) { setToast(`Error: ${json.error}`); return; }
+      setToast(`Loaded ${json.filled}/${json.total} R32 matchups from group results`);
+      // Reload rows from DB
+      const { data } = await supabase.from('playoff_matches').select('*');
+      if (data) {
+        const updated: Record<string, MatchRow> = { ...rows };
+        data.forEach((row: Record<string, unknown>) => {
+          updated[row.match_code as string] = {
+            id: row.id as string,
+            matchCode: row.match_code as string,
+            homeTeamId: (row.home_team_id as string) ?? '',
+            awayTeamId: (row.away_team_id as string) ?? '',
+            venue: (row.venue as string) ?? '',
+            city: (row.city as string) ?? '',
+            kickoffAt: (row.kickoff_at as string) ?? '',
+            isLocked: (row.is_locked as boolean) ?? false,
+          };
+        });
+        setRows(updated);
+      }
+    } finally {
+      setBulkLoading(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [supabase, rows]);
+
+  const clearR32Teams = useCallback(async () => {
+    setBulkClearing(true);
+    try {
+      const res = await fetch('/api/admin/playoffs/clear-r32', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) { setToast(`Error: ${json.error}`); return; }
+      setToast(`Cleared all ${json.cleared} R32 team assignments`);
+      setRows(prev => {
+        const next = { ...prev };
+        [...R32_LEFT_IDS, ...R32_RIGHT_IDS].forEach(code => {
+          if (next[code]) next[code] = { ...next[code], homeTeamId: '', awayTeamId: '' };
+        });
+        return next;
+      });
+    } finally {
+      setBulkClearing(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, []);
 
   const currentIds = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
 
@@ -373,6 +426,30 @@ function BracketSetupContent() {
       </div>
 
       <main className="max-w-5xl mx-auto px-5 py-6">
+        {activeTab === 'R32' && (
+          <div className="flex items-center gap-3 mb-5 p-4 bg-white rounded-xl border border-black/[0.08] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex-1">
+              <p className="text-[13px] font-bold text-navy">Auto-populate from group stage</p>
+              <p className="text-[12px] font-semibold text-black/45 mt-0.5">Loads actual group results and fills all 16 R32 matchups. 3rd-place slots use best-third ranking.</p>
+            </div>
+            <button
+              onClick={clearR32Teams}
+              disabled={bulkClearing || bulkLoading}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 text-[13px] font-bold transition disabled:opacity-50 whitespace-nowrap"
+            >
+              {bulkClearing && <div className="w-3 h-3 rounded-full border-2 border-red-300 border-t-red-600 animate-spin" />}
+              Clear R32
+            </button>
+            <button
+              onClick={loadFromGroupResults}
+              disabled={bulkLoading || bulkClearing}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-bk-blue hover:bg-bk-blue-dark text-white text-[13px] font-bold transition disabled:opacity-50 whitespace-nowrap"
+            >
+              {bulkLoading && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+              Load from Groups
+            </button>
+          </div>
+        )}
         <div className="space-y-4">
           {currentIds.map(code => {
             const row = getRow(code);

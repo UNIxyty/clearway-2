@@ -66,13 +66,14 @@ interface TeamRowProps {
   team: BracketTeam | null;
   selected: boolean;
   locked: boolean;
+  scoreBlocked?: boolean;
   onPick: () => void;
   fontSize: string;
   placeholder: string;
 }
 
-function TeamRow({ team, selected, locked, onPick, fontSize, placeholder }: TeamRowProps) {
-  const disabled = locked || !team;
+function TeamRow({ team, selected, locked, scoreBlocked, onPick, fontSize, placeholder }: TeamRowProps) {
+  const disabled = locked || !team || !!scoreBlocked;
   return (
     <button
       type="button"
@@ -154,18 +155,24 @@ export interface PlayoffMatchCardProps {
   onPick: (side: 'home' | 'away') => void;
   onScore: (side: 'home' | 'away', v: string) => void;
   big?: boolean;
+  fullWidth?: boolean;
   homePlaceholder?: string;
   awayPlaceholder?: string;
 }
 
 export function PlayoffMatchCard({
   id, round, width, venue, date, home, away, pick, locked, official,
-  result, scores, flashing, index, onPick, onScore, big = false,
+  result, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD',
 }: PlayoffMatchCardProps) {
-  // Scores are editable whenever the match is unlocked and both teams are known.
-  // A pick is not required to start typing — the pick is auto-inferred from the score.
   const scoresEnabled = !locked && !!home && !!away;
+
+  // When scores clearly indicate a winner, block picking the other team
+  const hs = parseInt(scores.home, 10);
+  const as_ = parseInt(scores.away, 10);
+  const scoreWinner = (!locked && !isNaN(hs) && !isNaN(as_) && hs !== as_)
+    ? (hs > as_ ? 'home' : 'away')
+    : null;
 
   return (
     <motion.div
@@ -173,7 +180,7 @@ export function PlayoffMatchCard({
       initial={{ opacity: 0, y: 14, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, delay: 0.04 + index * 0.018, ease: [0.22, 1, 0.36, 1] }}
-      style={{ width }}
+      style={fullWidth ? undefined : { width }}
       className={[
         'relative z-10 bg-white rounded-lg border overflow-hidden',
         flashing ? 'flash-clear' : '',
@@ -209,6 +216,7 @@ export function PlayoffMatchCard({
 
       <TeamRow
         team={home} selected={pick === 'home'} locked={locked}
+        scoreBlocked={scoreWinner !== null && scoreWinner !== 'home'}
         onPick={() => onPick('home')}
         fontSize={big ? 'text-[14px]' : 'text-[12.5px]'}
         placeholder={homePlaceholder}
@@ -216,6 +224,7 @@ export function PlayoffMatchCard({
       <div className="h-px bg-black/[0.06] mx-3" />
       <TeamRow
         team={away} selected={pick === 'away'} locked={locked}
+        scoreBlocked={scoreWinner !== null && scoreWinner !== 'away'}
         onPick={() => onPick('away')}
         fontSize={big ? 'text-[14px]' : 'text-[12.5px]'}
         placeholder={awayPlaceholder}

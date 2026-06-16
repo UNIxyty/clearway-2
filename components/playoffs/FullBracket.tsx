@@ -190,6 +190,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const [paths, setPaths] = useState<ElbowPath[]>([]);
   const [dims, setDims] = useState({ w: 3000, h: BRACKET_H + 60 });
   const [scrollState, setScrollState] = useState({ left: false, right: true });
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileRound, setMobileRound] = useState('R32');
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -268,54 +270,71 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     }).length,
   [unlockedMatches, picks, scores]);
 
+  // ---- Shared cascade helper ----
+  // Precomputes which downstream picks are invalidated when `id` switches to `newSide`.
+  // Uses picksRef.current (the full merged picks) so locked official results are included.
+  const computeCascade = useCallback((id: string, newSide: 'home' | 'away' | null) => {
+    const curPicks = picksRef.current;
+    const nextPicks: PickMap = { ...curPicks };
+    if (newSide === null) delete nextPicks[id]; else nextPicks[id] = newSide;
+
+    const downs = downstreamOf(id);
+    const clearedCodes: string[] = [];
+    let changed = true;
+    while (changed) {
+      changed = false;
+      downs.forEach(d => {
+        if (nextPicks[d] == null) return;
+        const newTeam = teamInSlot(d, nextPicks[d] as 'home' | 'away', nextPicks, matchesByCode);
+        const oldTeam = teamInSlot(d, nextPicks[d] as 'home' | 'away', curPicks, matchesByCode);
+        if (!newTeam || !oldTeam || newTeam.name !== oldTeam.name) {
+          delete nextPicks[d]; clearedCodes.push(d); changed = true;
+        }
+      });
+    }
+    return clearedCodes;
+  }, [matchesByCode]);
+
+  const applyCascade = useCallback((clearedCodes: string[]) => {
+    if (!clearedCodes.length) return;
+    const fset: Record<string, boolean> = {};
+    clearedCodes.forEach(c => { fset[c] = true; });
+    setFlash(f => ({ ...f, ...fset }));
+    setToast(true);
+    setTimeout(() => setFlash(f => { const n = { ...f }; clearedCodes.forEach(c => delete n[c]); return n; }), 950);
+    clearTimeout((window as unknown as Record<string, unknown>).__toastT as ReturnType<typeof setTimeout>);
+    (window as unknown as Record<string, unknown>).__toastT = setTimeout(() => setToast(false), 2100);
+    setScores(s => { const n = { ...s }; clearedCodes.forEach(c => delete n[c]); return n; });
+    // Clear downstream predictions from DB so the seeding effect doesn't restore them
+    clearedCodes.forEach(c => {
+      const m = matchesByCode[c];
+      if (m) onSavePrediction(m.id, null as unknown as string, null as unknown as number, null as unknown as number).catch(() => {});
+    });
+  }, [matchesByCode, onSavePrediction]);
+
   // ---- Pick handler with downstream cascade ----
   const onPick = useCallback((id: string, side: 'home' | 'away') => {
     const dbMatch = matchesByCode[id];
     if (dbMatch?.isLocked) return;
 
     const isToggleOff = picksRef.current[id] === side;
+    const newSide = isToggleOff ? null : side;
+    const clearedCodes = computeCascade(id, newSide);
 
     setLocalPicks(prev => {
       const next = { ...prev };
       if (next[id] === side) delete next[id]; else next[id] = side;
-
-      // Clear downstream picks that no longer make sense
-      const downs = downstreamOf(id);
-      const cleared: string[] = [];
-      let changed = true;
-      while (changed) {
-        changed = false;
-        downs.forEach(d => {
-          if (next[d] == null) return;
-          const newTeam = teamInSlot(d, next[d] as 'home' | 'away', next, matchesByCode);
-          const oldTeam = teamInSlot(d, next[d] as 'home' | 'away', prev, matchesByCode);
-          if (!newTeam || !oldTeam || newTeam.name !== oldTeam.name) {
-            delete next[d]; cleared.push(d); changed = true;
-          }
-        });
-      }
-
-      if (cleared.length) {
-        const fset: Record<string, boolean> = {};
-        cleared.forEach(c => { fset[c] = true; });
-        setFlash(f => ({ ...f, ...fset }));
-        setToast(true);
-        setTimeout(() => setFlash(f => { const n = { ...f }; cleared.forEach(c => delete n[c]); return n; }), 950);
-        clearTimeout((window as unknown as Record<string, unknown>).__toastT as ReturnType<typeof setTimeout>);
-        (window as unknown as Record<string, unknown>).__toastT = setTimeout(() => setToast(false), 2100);
-        setScores(s => { const n = { ...s }; cleared.forEach(c => delete n[c]); return n; });
-      }
-
+      clearedCodes.forEach(c => delete next[c]);
       return next;
     });
+
+    applyCascade(clearedCodes);
 
     // Persist to Supabase
     if (dbMatch) {
       if (isToggleOff) {
-        // Uncheck: clear the prediction in DB
         onSavePrediction(dbMatch.id, null as unknown as string, null as unknown as number, null as unknown as number).catch(() => {});
       } else {
-        // picksRef.current includes locked official results, so teamInSlot resolves for all rounds
         const mergedPicks = { ...picksRef.current, [id]: side };
         const winner = teamInSlot(id, side, mergedPicks, matchesByCode)
           ?? (side === 'home' ? dbMatch.homeTeam : dbMatch.awayTeam)
@@ -331,20 +350,27 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
         }
       }
     }
-  }, [matchesByCode, scores, onSavePrediction]);
+  }, [matchesByCode, scores, onSavePrediction, computeCascade, applyCascade]);
 
   const onScore = useCallback((id: string, side: 'home' | 'away', v: string) => {
     const newSc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
     setScores(s => ({ ...s, [id]: newSc }));
 
-    // Auto-pick (or correct) winner whenever both scores are present and unequal
     const hs = parseInt(newSc.home, 10);
     const as_ = parseInt(newSc.away, 10);
     const scoresClear = !isNaN(hs) && !isNaN(as_) && hs !== as_;
+
     if (scoresClear) {
       const autoPick: 'home' | 'away' = hs > as_ ? 'home' : 'away';
       if (picks[id] !== autoPick) {
-        setLocalPicks(prev => ({ ...prev, [id]: autoPick }));
+        // Auto-pick switched: run full downstream cascade
+        const clearedCodes = computeCascade(id, autoPick);
+        setLocalPicks(prev => {
+          const next = { ...prev, [id]: autoPick };
+          clearedCodes.forEach(c => delete next[c]);
+          return next;
+        });
+        applyCascade(clearedCodes);
       }
     }
 
@@ -362,7 +388,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
         ).catch(() => {});
       }
     }
-  }, [matchesByCode, picks, scores, onSavePrediction]);
+  }, [matchesByCode, picks, scores, onSavePrediction, computeCascade, applyCascade]);
 
   // ---- Batch submit ----
   const handleSubmitAll = useCallback(async () => {
@@ -462,6 +488,15 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
     return () => { ts.forEach(clearTimeout); ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [measure]);
 
+  // ---- Mobile detection ----
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    setIsMobile(mq.matches);
+    const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+
   // ---- Scroll state ----
   const updateScroll = useCallback(() => {
     const sc = scrollerRef.current; if (!sc) return;
@@ -508,6 +543,17 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
 
   const colProps = { picks, scores, flash, matchesByCode, results, onPick, onScore };
 
+  // ---- Mobile round data ----
+  const MOBILE_ROUNDS = [
+    { key: 'R32',   label: 'R32',   ids: [...R32_LEFT_IDS, ...R32_RIGHT_IDS] },
+    { key: 'R16',   label: 'R16',   ids: [...R16_LEFT_IDS, ...R16_RIGHT_IDS] },
+    { key: 'QF',    label: 'QF',    ids: [...QF_LEFT_IDS, ...QF_RIGHT_IDS]   },
+    { key: 'SF',    label: 'SF',    ids: ['SF_M01', 'SF_M02']                },
+    { key: 'FINAL', label: 'Final', ids: ['FINAL_M01']                       },
+    { key: 'THIRD', label: '3rd',   ids: ['THIRD_M01']                       },
+  ];
+  const mobileRoundIds = MOBILE_ROUNDS.find(r => r.key === mobileRound)?.ids ?? [];
+
   return (
     <div className="min-h-screen bg-page text-navy font-sans">
       {/* NavBar */}
@@ -524,11 +570,67 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
             <div className="text-[11px] font-semibold text-black/40">WC 2026 · Knockout Stage</div>
           </div>
         </div>
+        {/* Mobile round tabs */}
+        {isMobile && (
+          <div className="flex overflow-x-auto px-3 pb-0 gap-0.5 scrollbar-none">
+            {MOBILE_ROUNDS.map(r => (
+              <button
+                key={r.key}
+                onClick={() => setMobileRound(r.key)}
+                className={`shrink-0 h-9 px-3.5 text-[12px] font-extrabold tracking-tight border-b-2 transition whitespace-nowrap ${mobileRound === r.key ? 'text-bk-blue border-bk-blue' : 'text-black/40 border-transparent'}`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
 
+      {/* Mobile view: single-round vertical list */}
+      {isMobile && (
+        <div className="px-4 pt-4 pb-28 flex flex-col gap-3 max-w-[520px] mx-auto">
+          {mobileRoundIds.map((id, i) => {
+            const def = MATCHES[id];
+            const dbMatch = matchesByCode[id];
+            const isLocked = dbMatch?.isLocked ?? false;
+            const pick = picks[id] ?? null;
+            const home = teamInSlot(id, 'home', picks, matchesByCode) ?? dbMatch?.homeTeam ?? null;
+            const away = teamInSlot(id, 'away', picks, matchesByCode) ?? dbMatch?.awayTeam ?? null;
+            const homePlaceholder = def.feeders ? feederLabel(def.feeders[0], def.losers) : 'TBD';
+            const awayPlaceholder = def.feeders ? feederLabel(def.feeders[1], def.losers) : 'TBD';
+            const official = (dbMatch?.homeScore != null && dbMatch?.awayScore != null)
+              ? { home: dbMatch.homeScore, away: dbMatch.awayScore } : null;
+            return (
+              <PlayoffMatchCard
+                key={id}
+                id={id}
+                round={def.round}
+                width={0}
+                fullWidth
+                venue={dbMatch?.venue ?? def.round}
+                date={dbMatch?.kickoffAt ? new Date(dbMatch.kickoffAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null}
+                home={home}
+                away={away}
+                pick={pick}
+                locked={isLocked}
+                official={official}
+                result={results[id] ?? null}
+                scores={scores[id] ?? { home: '', away: '' }}
+                flashing={!!flash[id]}
+                index={i}
+                onPick={s => onPick(id, s)}
+                onScore={(s, v) => onScore(id, s, v)}
+                homePlaceholder={homePlaceholder}
+                awayPlaceholder={awayPlaceholder}
+              />
+            );
+          })}
+        </div>
+      )}
+
       {/* Scroll region */}
-      <div className="relative">
+      <div className={`relative${isMobile ? ' hidden' : ''}`}>
         {scrollState.left && (
           <button onClick={() => nudge(-1)} className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white border border-black/10 shadow-[0_6px_20px_rgba(15,30,60,0.16)] items-center justify-center text-navy hover:bg-black/[0.03] transition">
             <ChevronLeft className="w-5 h-5" />

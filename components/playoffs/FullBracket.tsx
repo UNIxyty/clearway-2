@@ -215,16 +215,36 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   useEffect(() => { picksRef.current = picks; }, [picks]);
 
   // Seed picks and scores from DB predictions.
-  // We MERGE rather than replace so that:
-  // (a) unsaved local picks aren't wiped when an unrelated save triggers a re-seed
-  // (b) scores the user is currently typing aren't cleared by partial-save optimistic updates
+  // Process rounds in depth order (R32 first) so that upstream picks are in the partial
+  // seed when we need teamInSlot to resolve teams for knockout rounds (where
+  // match.homeTeamId/awayTeamId are null until the actual match is played).
   useEffect(() => {
+    const ROUND_DEPTH: Record<string, number> = { R32: 0, R16: 1, QF: 2, SF: 3, THIRD: 4, FINAL: 5 };
     const seed: PickMap = {};
     const seedScores: Record<string, { home: string; away: string }> = {};
-    userPredictions.forEach(pred => {
-      const match = matches.find(m => m.id === pred.matchId);
-      if (!match || !pred.predictedWinnerId) return;
-      seed[match.matchCode] = pred.predictedWinnerId === match.homeTeamId ? 'home' : 'away';
+
+    const predsWithMatches = userPredictions
+      .map(pred => ({ pred, match: matches.find(m => m.id === pred.matchId) }))
+      .filter((x): x is { pred: typeof x['pred']; match: PlayoffMatch } =>
+        !!x.match && !!x.pred.predictedWinnerId)
+      .sort((a, b) =>
+        (ROUND_DEPTH[a.match.round] ?? 0) - (ROUND_DEPTH[b.match.round] ?? 0));
+
+    predsWithMatches.forEach(({ pred, match }) => {
+      let side: 'home' | 'away';
+      if (match.homeTeamId && match.awayTeamId) {
+        // R32: teams are fixed in DB — direct comparison is safe
+        side = pred.predictedWinnerId === match.homeTeamId ? 'home' : 'away';
+      } else {
+        // Knockout round (R16/QF/SF/Final): homeTeamId is null until played.
+        // Resolve teams dynamically using the partial seed built so far.
+        const homeTeam = teamInSlot(match.matchCode, 'home', seed, matchesByCode);
+        const awayTeam = teamInSlot(match.matchCode, 'away', seed, matchesByCode);
+        if (homeTeam?.id === pred.predictedWinnerId) side = 'home';
+        else if (awayTeam?.id === pred.predictedWinnerId) side = 'away';
+        else return; // upstream not seeded yet or data inconsistency — skip
+      }
+      seed[match.matchCode] = side;
       if (pred.predictedHomeScore !== null && pred.predictedAwayScore !== null) {
         seedScores[match.matchCode] = {
           home: String(pred.predictedHomeScore),
@@ -232,9 +252,8 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
         };
       }
     });
-    // DB picks win on conflict; local unsaved picks for other matches are preserved
+
     setLocalPicks(prev => ({ ...prev, ...seed }));
-    // Only fill score slots that are currently empty (don't overwrite in-progress input)
     setScores(prev => {
       const next = { ...prev };
       Object.entries(seedScores).forEach(([code, sc]) => {
@@ -244,7 +263,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       });
       return next;
     });
-  }, [matches, userPredictions]);
+  }, [matches, userPredictions, matchesByCode]);
 
   // Results (correct/wrong) from locked matches
   const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {

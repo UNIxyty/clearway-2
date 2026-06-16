@@ -37,6 +37,38 @@ type LeaderboardPayload = {
   rows: PickemLeaderboardRow[];
 };
 
+type PlayoffLeaderboardRow = {
+  rank: number;
+  userId: string;
+  displayName: string;
+  totalPoints: number;
+  correctPicks: number;
+};
+
+type PlayoffLeaderboardPayload = {
+  viewerSubmitted: boolean;
+  rows: PlayoffLeaderboardRow[];
+};
+
+type PlayoffUserPrediction = {
+  matchCode: string;
+  round: string;
+  homeTeamName: string;
+  homeTeamFlag: string;
+  awayTeamName: string;
+  awayTeamFlag: string;
+  predictedWinnerId: string | null;
+  predictedWinnerName: string | null;
+  predictedWinnerFlag: string | null;
+  predictedHomeScore: number | null;
+  predictedAwayScore: number | null;
+  isLocked: boolean;
+  actualHomeScore: number | null;
+  actualAwayScore: number | null;
+  winnerTeamId: string | null;
+  pointsAwarded: number;
+};
+
 type ActiveView = "home" | "groups" | "matches" | "standings" | "playoffs";
 
 const NAVY = "#0f1e3c";
@@ -384,6 +416,11 @@ export function PickemApp() {
   } | null>(null);
   const [selectedProfileTab, setSelectedProfileTab] = useState<"groups" | "matches">("groups");
   const [matchScores, setMatchScores] = useState<Record<string, { home: number; away: number }>>({});
+  const [standingsTab, setStandingsTab] = useState<"groups" | "playoffs">("groups");
+  const [playoffLeaderboard, setPlayoffLeaderboard] = useState<PlayoffLeaderboardPayload>({ viewerSubmitted: false, rows: [] });
+  const [playoffSelectedUser, setPlayoffSelectedUser] = useState<PlayoffLeaderboardRow | null>(null);
+  const [playoffUserPredictions, setPlayoffUserPredictions] = useState<PlayoffUserPrediction[] | null>(null);
+  const [playoffPredictionsLoading, setPlayoffPredictionsLoading] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -419,6 +456,12 @@ export function PickemApp() {
   useEffect(() => {
     void loadAll();
   }, []);
+
+  useEffect(() => {
+    if (activeView === "standings" && standingsTab === "playoffs") {
+      void loadPlayoffStandings();
+    }
+  }, [activeView, standingsTab]);
 
   useEffect(() => {
     if (!error) return;
@@ -595,6 +638,22 @@ export function PickemApp() {
       return;
     }
     setSelectedUserPredictions(json);
+  }
+
+  async function loadPlayoffStandings() {
+    const res = await fetch("/api/playoffs/standings", { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) setPlayoffLeaderboard(json as PlayoffLeaderboardPayload);
+  }
+
+  async function viewPlayoffUserPredictions(row: PlayoffLeaderboardRow) {
+    setPlayoffSelectedUser(row);
+    setPlayoffUserPredictions(null);
+    setPlayoffPredictionsLoading(true);
+    const res = await fetch(`/api/playoffs/user-predictions?userId=${row.userId}`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    setPlayoffPredictionsLoading(false);
+    if (res.ok) setPlayoffUserPredictions((json as { predictions: PlayoffUserPrediction[] }).predictions ?? []);
   }
 
   async function signOut() {
@@ -1172,29 +1231,54 @@ export function PickemApp() {
               </p>
             </div>
 
+            {/* Group / Playoffs toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.05] w-fit">
+              {(["groups", "playoffs"] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => { setStandingsTab(tab); setPlayoffSelectedUser(null); setPlayoffUserPredictions(null); }}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    standingsTab === tab ? "bg-white shadow-sm text-navy" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {tab === "groups" ? "Groups" : "Playoffs"}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-2xl font-black" style={{ color: NAVY }}>
-                  Standings
+                  {standingsTab === "groups" ? "Standings" : "Playoff Standings"}
                 </h2>
                 <p className="text-sm font-semibold text-slate-500">
-                  {leaderboard.rows.length.toLocaleString()} participants
+                  {standingsTab === "groups" ? leaderboard.rows.length.toLocaleString() : playoffLeaderboard.rows.length.toLocaleString()} participants
                 </p>
               </div>
-              <span
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
-                  leaderboard.viewerSubmitted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                }`}
-              >
+              {standingsTab === "groups" && (
                 <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    leaderboard.viewerSubmitted ? "bg-emerald-500" : "bg-amber-500"
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
+                    leaderboard.viewerSubmitted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
                   }`}
-                />
-                {leaderboard.viewerSubmitted ? "Picks submitted" : "Submit picks to view others"}
-              </span>
+                >
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      leaderboard.viewerSubmitted ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                  {leaderboard.viewerSubmitted ? "Picks submitted" : "Submit picks to view others"}
+                </span>
+              )}
+              {standingsTab === "playoffs" && !playoffLeaderboard.viewerSubmitted && (
+                <span className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold bg-amber-100 text-amber-700">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Submit playoff picks to view others
+                </span>
+              )}
             </div>
 
+            {standingsTab === "groups" && (
             <div className={`grid gap-4 ${activeProfileUser ? "lg:grid-cols-[minmax(0,1fr)_350px]" : "grid-cols-1"}`}>
               <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
                 <table className="w-full min-w-[840px]">
@@ -1461,6 +1545,105 @@ export function PickemApp() {
                 </aside>
               )}
             </div>
+            )}
+
+            {standingsTab === "playoffs" && (
+            <div className={`grid gap-4 ${playoffSelectedUser ? "lg:grid-cols-[minmax(0,1fr)_350px]" : "grid-cols-1"}`}>
+              <div className="overflow-x-auto rounded-2xl border border-black/10 bg-white">
+                {!playoffLeaderboard.viewerSubmitted ? (
+                  <div className="px-6 py-12 text-center text-sm font-semibold text-slate-400">
+                    Submit your playoff picks to see the standings.
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-black/10 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <th className="px-4 py-3">Rank</th>
+                        <th className="px-4 py-3">Player</th>
+                        <th className="px-4 py-3 text-right">Correct picks</th>
+                        <th className="px-4 py-3 text-right">Total pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {playoffLeaderboard.rows.map((row) => {
+                        const selected = playoffSelectedUser?.userId === row.userId;
+                        return (
+                          <tr
+                            key={row.userId}
+                            className={`cursor-pointer border-b border-black/5 last:border-none ${selected ? "bg-blue-50/80" : "hover:bg-slate-50"}`}
+                            onClick={() => void viewPlayoffUserPredictions(row)}
+                          >
+                            <td className="px-4 py-3 text-sm font-extrabold">{row.rank}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <AvatarChip name={row.displayName} />
+                                <span className="text-sm font-bold">
+                                  {row.displayName}
+                                  {row.userId === data.viewer.userId ? " (You)" : ""}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.correctPicks}</td>
+                            <td className="px-4 py-3 text-right text-base font-black" style={{ color: NAVY }}>{row.totalPoints}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {playoffSelectedUser && (
+                <aside className="rounded-2xl border border-black/10 bg-white p-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <AvatarChip name={playoffSelectedUser.displayName} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-lg font-black" style={{ color: NAVY }}>{playoffSelectedUser.displayName}</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Rank #{playoffSelectedUser.rank} · {playoffLeaderboard.rows.length} players · {playoffSelectedUser.totalPoints} pts
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => { setPlayoffSelectedUser(null); setPlayoffUserPredictions(null); }}
+                      className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+                  </div>
+                  {playoffPredictionsLoading ? (
+                    <div className="text-center text-sm text-slate-400 py-8">Loading picks…</div>
+                  ) : playoffUserPredictions === null ? null : playoffUserPredictions.length === 0 ? (
+                    <div className="text-center text-sm text-slate-400 py-8">No picks submitted yet.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {playoffUserPredictions.map((pred) => {
+                        const winnerCorrect = pred.winnerTeamId && pred.predictedWinnerId === pred.winnerTeamId;
+                        const scoreCorrect = winnerCorrect && pred.actualHomeScore !== null &&
+                          pred.predictedHomeScore === pred.actualHomeScore && pred.predictedAwayScore === pred.actualAwayScore;
+                        return (
+                          <div key={pred.matchCode} className={`rounded-lg border p-3 ${pred.isLocked ? (winnerCorrect ? "border-emerald-200 bg-emerald-50/40" : pred.winnerTeamId ? "border-red-200 bg-red-50/30" : "border-black/[0.07] bg-white") : "border-black/[0.07] bg-white"}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-extrabold tracking-widest text-slate-400">{pred.round} · {pred.matchCode}</span>
+                              {pred.isLocked && pred.winnerTeamId && (
+                                <span className={`text-[10.5px] font-extrabold ${winnerCorrect ? (scoreCorrect ? "text-emerald-600" : "text-emerald-600") : "text-red-500"}`}>
+                                  {winnerCorrect ? (scoreCorrect ? `+${pred.pointsAwarded} pts` : `+${pred.pointsAwarded} pt`) : "miss"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[12.5px] font-bold text-navy">
+                              {pred.predictedWinnerFlag} {pred.predictedWinnerName ?? "—"}
+                              {pred.predictedHomeScore !== null && pred.predictedAwayScore !== null && (
+                                <span className="text-slate-400 font-semibold ml-1.5">({pred.predictedHomeScore}–{pred.predictedAwayScore})</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {pred.homeTeamFlag} {pred.homeTeamName} vs {pred.awayTeamFlag} {pred.awayTeamName}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
+            )}
           </section>
         )}
 

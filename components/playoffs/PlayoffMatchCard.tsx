@@ -149,6 +149,7 @@ export interface PlayoffMatchCardProps {
   locked: boolean;
   official?: { home: number; away: number } | null;
   result?: 'correct' | 'wrong' | null;
+  pointsLabel?: string | null;
   scores: { home: string; away: string };
   flashing: boolean;
   index: number;
@@ -162,7 +163,7 @@ export interface PlayoffMatchCardProps {
 
 export function PlayoffMatchCard({
   id, round, width, venue, date, home, away, pick, locked, official,
-  result, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
+  result, pointsLabel, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD',
 }: PlayoffMatchCardProps) {
   const scoresEnabled = !locked && !!home && !!away;
@@ -194,18 +195,26 @@ export function PlayoffMatchCard({
       {big && <div className="h-1 w-full bg-gradient-to-r from-bk-amber via-bk-accent to-bk-amber" />}
 
       {/* Status badge — top-right */}
-      <div className="absolute top-2 right-2 z-20 flex items-center pointer-events-none">
-        {result === 'correct' && (
-          <span className="w-[18px] h-[18px] rounded-full bg-emerald-500 flex items-center justify-center">
-            <CheckIcon className="w-2.5 h-2.5 text-white" />
-          </span>
+      <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
+        {pointsLabel ? (
+          <span className={`text-[10.5px] font-extrabold tracking-tight ${
+            pointsLabel === 'miss' ? 'text-red-500' : 'text-emerald-600'
+          }`}>{pointsLabel}</span>
+        ) : (
+          <>
+            {result === 'correct' && (
+              <span className="w-[18px] h-[18px] rounded-full bg-emerald-500 flex items-center justify-center">
+                <CheckIcon className="w-2.5 h-2.5 text-white" />
+              </span>
+            )}
+            {result === 'wrong' && (
+              <span className="w-[18px] h-[18px] rounded-full bg-red-500 flex items-center justify-center">
+                <XIcon className="w-2.5 h-2.5 text-white" />
+              </span>
+            )}
+          </>
         )}
-        {result === 'wrong' && (
-          <span className="w-[18px] h-[18px] rounded-full bg-red-500 flex items-center justify-center">
-            <XIcon className="w-2.5 h-2.5 text-white" />
-          </span>
-        )}
-        {locked && !result && <LockIcon className="w-[14px] h-[14px] text-black/35" />}
+        {locked && !result && !pointsLabel && <LockIcon className="w-[14px] h-[14px] text-black/35" />}
       </div>
 
       {/* Venue + date */}

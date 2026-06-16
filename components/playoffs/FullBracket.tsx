@@ -100,13 +100,14 @@ interface RoundColumnProps {
   startIndex: number;
   matchesByCode: Record<string, PlayoffMatch>;
   results: Record<string, 'correct' | 'wrong'>;
+  pointsLabels: Record<string, string>;
   onPick: (id: string, side: 'home' | 'away') => void;
   onScore: (id: string, side: 'home' | 'away', v: string) => void;
 }
 
 function RoundColumn({
   label, ids, width, picks, scores, flash, startIndex,
-  matchesByCode, results, onPick, onScore,
+  matchesByCode, results, pointsLabels, onPick, onScore,
 }: RoundColumnProps) {
   return (
     <div className="shrink-0 flex flex-col" style={{ width, height: BRACKET_H }}>
@@ -145,6 +146,7 @@ function RoundColumn({
                 scores={scores[id] ?? { home: '', away: '' }}
                 flashing={!!flash[id]}
                 index={startIndex + i}
+                pointsLabel={pointsLabels[id] ?? null}
                 onPick={s => onPick(id, s)}
                 onScore={(s, v) => onScore(id, s, v)}
                 homePlaceholder={homePlaceholder}
@@ -273,6 +275,24 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
       const pred = userPredictions.find(p => p.matchId === m.id);
       if (!pred) return;
       out[m.matchCode] = pred.predictedWinnerId === m.winnerTeamId ? 'correct' : 'wrong';
+    });
+    return out;
+  }, [matches, userPredictions]);
+
+  // Points labels: 'miss' | '+N' | '+N +2' per match code
+  const ROUND_PTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
+  const pointsLabels = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    matches.forEach(m => {
+      if (!m.isLocked || !m.winnerTeamId) return;
+      const pred = userPredictions.find(p => p.matchId === m.id);
+      if (!pred?.predictedWinnerId) return;
+      const winnerCorrect = pred.predictedWinnerId === m.winnerTeamId;
+      if (!winnerCorrect) { out[m.matchCode] = 'miss'; return; }
+      const roundPts = ROUND_PTS[m.round] ?? 1;
+      const scoreCorrect = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null
+        && pred.predictedHomeScore === m.homeScore && pred.predictedAwayScore === m.awayScore;
+      out[m.matchCode] = scoreCorrect ? `+${roundPts} +2` : `+${roundPts}`;
     });
     return out;
   }, [matches, userPredictions]);
@@ -532,7 +552,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
   const bHome = teamInSlot('THIRD_M01', 'home', picks, matchesByCode);
   const bAway = teamInSlot('THIRD_M01', 'away', picks, matchesByCode);
 
-  const colProps = { picks, scores, flash, matchesByCode, results, onPick, onScore };
+  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, onPick, onScore };
 
   // ---- Mobile round data ----
   const MOBILE_ROUNDS = [
@@ -607,6 +627,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
                 locked={isLocked}
                 official={official}
                 result={results[id] ?? null}
+                pointsLabel={pointsLabels[id] ?? null}
                 scores={scores[id] ?? { home: '', away: '' }}
                 flashing={!!flash[id]}
                 index={i}
@@ -682,6 +703,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
                       locked={matchesByCode['FINAL_M01']?.isLocked ?? false}
                       official={matchesByCode['FINAL_M01']?.homeScore != null ? { home: matchesByCode['FINAL_M01'].homeScore!, away: matchesByCode['FINAL_M01'].awayScore! } : null}
                       result={results['FINAL_M01'] ?? null}
+                      pointsLabel={pointsLabels['FINAL_M01'] ?? null}
                       scores={scores['FINAL_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['FINAL_M01']}
                       index={15}
@@ -703,6 +725,7 @@ export function FullBracket({ matches, userPredictions, onSavePrediction }: Full
                       pick={picks['THIRD_M01'] ?? null}
                       locked={matchesByCode['THIRD_M01']?.isLocked ?? false}
                       result={results['THIRD_M01'] ?? null}
+                      pointsLabel={pointsLabels['THIRD_M01'] ?? null}
                       scores={scores['THIRD_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['THIRD_M01']}
                       index={16}

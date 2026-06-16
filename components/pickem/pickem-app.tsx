@@ -492,6 +492,15 @@ export function PickemApp() {
     }).length;
   }, [data, groupMatches, scoreByMatchId]);
 
+  // Map groupCode+teamId → actual final position (from admin-published group results)
+  const groupResultsMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of data?.groupResults ?? []) {
+      m.set(`${r.groupCode}-${r.teamId}`, r.finalPosition);
+    }
+    return m;
+  }, [data]);
+
   const liveGroupMatches = groupMatches.filter((match) => isLiveMatchStatus(match.status));
 
   const scheduledUpcomingMatches = groupMatches
@@ -898,6 +907,16 @@ export function PickemApp() {
 
         {activeView === "groups" && (
           <section className="space-y-4">
+            {/* Testing banner */}
+            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+              <span className="mt-0.5 text-lg leading-none">🧪</span>
+              <p className="text-sm font-semibold text-amber-900">
+                <span className="font-extrabold">Testing group points.</span> We are currently testing how group placement
+                point distribution works. All points awarded during this test period will be{" "}
+                <span className="font-extrabold">reverted to normal</span> once testing is complete.
+              </p>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-black" style={{ color: NAVY }}>
@@ -922,6 +941,10 @@ export function PickemApp() {
                 });
                 const allGroupMatches = groupMatches.filter((match) => match.groupCode === group.code).length;
                 const predictedInGroup = table.reduce((sum, row) => sum + row.played, 0) / 2;
+                const groupPts = table.reduce((sum, row, idx) => {
+                  const actual = groupResultsMap.get(`${group.code}-${row.teamId}`);
+                  return sum + (actual !== undefined && actual === idx + 1 ? 1 : 0);
+                }, 0);
                 return (
                   <article
                     key={group.id}
@@ -932,14 +955,24 @@ export function PickemApp() {
                       <h3 className="font-extrabold tracking-wider" style={{ color: NAVY }}>
                         GROUP {group.code}
                       </h3>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
-                        {predictedInGroup}/{allGroupMatches} matches predicted
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {groupPts > 0 && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">
+                            +{groupPts} pt{groupPts !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                          {predictedInGroup}/{allGroupMatches} predicted
+                        </span>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {table.map((row, idx) => {
                         const team = teamsById.get(row.teamId);
                         const isTopTwo = idx < 2;
+                        const actualPosition = groupResultsMap.get(`${group.code}-${row.teamId}`);
+                        const hasResult = actualPosition !== undefined;
+                        const correct = hasResult && actualPosition === idx + 1;
                         return (
                           <div
                             key={row.teamId}
@@ -967,7 +1000,20 @@ export function PickemApp() {
                                 {" "}GA {row.goalsAgainst}
                               </p>
                             </div>
-                            <span className="text-xs font-bold text-slate-500">{row.points} pts · GD {row.goalDiff}</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-xs font-bold text-slate-500">{row.points} pts · GD {row.goalDiff}</span>
+                              {hasResult && (
+                                <span
+                                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ${
+                                    correct
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-slate-200 text-slate-500"
+                                  }`}
+                                >
+                                  {correct ? "+1 pt" : `actual ${actualPosition}${["st","nd","rd","th"][Math.min(actualPosition-1,3)]}`}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1116,6 +1162,16 @@ export function PickemApp() {
 
         {activeView === "standings" && (
           <section className="space-y-4">
+            {/* Testing banner */}
+            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+              <span className="mt-0.5 text-lg leading-none">🧪</span>
+              <p className="text-sm font-semibold text-amber-900">
+                <span className="font-extrabold">Testing group points.</span> We are currently testing how group placement
+                point distribution works. All points awarded during this test period will be{" "}
+                <span className="font-extrabold">reverted to normal</span> once testing is complete.
+              </p>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-2xl font-black" style={{ color: NAVY }}>
@@ -1273,14 +1329,28 @@ export function PickemApp() {
                             scoreByMatchId: selectedScoreByMatchId,
                           });
                           if (!table.length) return null;
+                          const groupPts = table.reduce((sum, row, idx) => {
+                            const actual = groupResultsMap.get(`${group.code}-${row.teamId}`);
+                            return sum + (actual !== undefined && actual === idx + 1 ? 1 : 0);
+                          }, 0);
                           return (
                             <div key={group.id} className="rounded-xl border border-black/10 bg-slate-50/70 p-3">
-                              <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                                Group {group.code}
-                              </p>
+                              <div className="mb-2 flex items-center justify-between">
+                                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                  Group {group.code}
+                                </p>
+                                {groupPts > 0 && (
+                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                                    +{groupPts} pt{groupPts !== 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
                               <div className="space-y-2">
                                 {table.map((row, idx) => {
                                   const team = teamsById.get(row.teamId);
+                                  const actualPosition = groupResultsMap.get(`${group.code}-${row.teamId}`);
+                                  const hasResult = actualPosition !== undefined;
+                                  const correct = hasResult && actualPosition === idx + 1;
                                   return (
                                     <div
                                       key={`${group.code}-${row.teamId}`}
@@ -1293,13 +1363,25 @@ export function PickemApp() {
                                         </span>
                                         <span className="truncate">{team?.name || "Team"}</span>
                                       </span>
-                                      <div className="text-right">
+                                      <div className="flex flex-col items-end gap-1">
                                         <p className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-600">
                                           {row.points} pts · GD {row.goalDiff}
                                         </p>
-                                        <p className="mt-1 text-[10px] font-bold text-slate-500">
-                                          P {row.played} W {row.wins} D {row.draws} L {row.losses} GF {row.goalsFor} GA {row.goalsAgainst}
-                                        </p>
+                                        {hasResult ? (
+                                          <span
+                                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ${
+                                              correct
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : "bg-slate-200 text-slate-500"
+                                            }`}
+                                          >
+                                            {correct ? "+1 pt" : `actual ${actualPosition}${["st","nd","rd","th"][Math.min(actualPosition-1,3)]}`}
+                                          </span>
+                                        ) : (
+                                          <p className="text-[10px] font-bold text-slate-500">
+                                            P {row.played} W {row.wins} D {row.draws} L {row.losses} GF {row.goalsFor} GA {row.goalsAgainst}
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                   );

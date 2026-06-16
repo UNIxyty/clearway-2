@@ -122,8 +122,11 @@ function RoundColumn({
           const home = teamInSlot(id, 'home', picks, matchesByCode) ?? dbMatch?.homeTeam ?? null;
           const away = teamInSlot(id, 'away', picks, matchesByCode) ?? dbMatch?.awayTeam ?? null;
 
-          const homePlaceholder = def.feeders ? feederLabel(def.feeders[0], def.losers) : 'TBD';
-          const awayPlaceholder = def.feeders ? feederLabel(def.feeders[1], def.losers) : 'TBD';
+          // R32 leaves (no feeders) get their teams from playoff_matches via the
+          // admin Bracket Setup. Until an admin sets them, show that explicitly —
+          // this page never guesses teams from group-stage results.
+          const homePlaceholder = def.feeders ? feederLabel(def.feeders[0], def.losers) : 'Not set by admin';
+          const awayPlaceholder = def.feeders ? feederLabel(def.feeders[1], def.losers) : 'Not set by admin';
 
           const official = (dbMatch?.homeScore != null && dbMatch?.awayScore != null)
             ? { home: dbMatch.homeScore, away: dbMatch.awayScore }

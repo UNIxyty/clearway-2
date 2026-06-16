@@ -1,3 +1,17 @@
+/*
+ * SCOPE — READ BEFORE USING:
+ * computeGroupStandings / computeBestThird / resolveR32Pairings / resolveQualifier
+ * are used EXCLUSIVELY for scoring/displaying the user's group-stage-derived R32
+ * projection on the R32 Draw page (/playoffs/r32-draw) and in the Group Stage
+ * Complete email, plus the admin-side "populate from group results" convenience
+ * tools that an admin explicitly triggers to pre-fill playoff_matches.
+ *
+ * They must NEVER be used as a runtime data source for the actual Full Bracket /
+ * playoff_matches system, which is populated solely by admin input reflecting the
+ * real FIFA-published bracket. The Full Bracket and the Bracket Confirmation /
+ * Prediction Update emails read only from playoff_matches + playoff_predictions
+ * (via lib/playoffs/resolveBracketServer.ts), never from group computation.
+ */
 import type { BracketTeam } from './types';
 export type { BracketTeam };
 

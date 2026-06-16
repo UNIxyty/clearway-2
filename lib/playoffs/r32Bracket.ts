@@ -1,3 +1,14 @@
+/*
+ * SCOPE — READ BEFORE USING:
+ * These utilities (R32_PAIRINGS and the qualifier mapping) are used EXCLUSIVELY
+ * for scoring/displaying the user's group-stage-derived R32 projection on the
+ * R32 Draw page (/playoffs/r32-draw) and in the Group Stage Complete email.
+ *
+ * They must NEVER be used as a data source for the actual Full Bracket /
+ * playoff_matches system, which is populated solely by admin input reflecting
+ * the real FIFA-published bracket. The Full Bracket and the Bracket Confirmation
+ * / Prediction Update emails read only from playoff_matches + playoff_predictions.
+ */
 import type { R32Pairing } from './types';
 
 export const R32_PAIRINGS: R32Pairing[] = [

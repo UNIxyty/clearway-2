@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
-import { computeGroupStandings, computeBestThird, resolveQualifier } from '@/lib/playoffs/standings';
+import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
 
 const FLAG_BY_CODE: Record<string, string> = {
@@ -89,21 +89,14 @@ export async function GET() {
   // Best thirds
   const bestThirds = computeBestThird(allStandings);
 
-  // Resolve predicted teams for each R32 slot
-  const result = R32_PAIRINGS.map(p => ({
-    matchCode: p.matchCode,
-    predictedHomeTeamId: resolveQualifier(p.home, allStandings, bestThirds)?.id ?? null,
-    predictedAwayTeamId: resolveQualifier(p.away, allStandings, bestThirds)?.id ?? null,
-  }));
-
-  // Build a team lookup by id
-  const teamById = new Map(teams.map(t => [t.id, t]));
+  // Resolve predicted teams for each R32 slot (best-thirds assigned uniquely)
+  const resolved = resolveR32Pairings(R32_PAIRINGS, allStandings, bestThirds);
 
   return NextResponse.json({
-    pairings: result.map(r => ({
+    pairings: resolved.map(r => ({
       matchCode: r.matchCode,
-      predictedHome: r.predictedHomeTeamId ? (teamById.get(r.predictedHomeTeamId) ?? null) : null,
-      predictedAway: r.predictedAwayTeamId ? (teamById.get(r.predictedAwayTeamId) ?? null) : null,
+      predictedHome: r.home,
+      predictedAway: r.away,
     })),
   });
 }

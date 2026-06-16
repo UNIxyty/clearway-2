@@ -112,6 +112,11 @@ export function computeBestThird(allStandings: Map<string, StandingRow[]>): Stan
  * Resolve a qualifier code to a team from computed standings.
  * e.g. '1A' → 1st-place team of Group A
  *      '3ABCDF' → best 3rd from groups A,B,C,D,F
+ *
+ * NOTE: for best-third ('3…') slots this resolves each slot in isolation and so
+ * can return the SAME third-place team for multiple slots. Use
+ * {@link resolveR32Pairings} to resolve a whole bracket with unique third-place
+ * assignment. This single-slot helper is kept for non-third qualifiers.
  */
 export function resolveQualifier(
   qualifier: string,
@@ -119,8 +124,6 @@ export function resolveQualifier(
   bestThirds: StandingRow[],
 ): BracketTeam | null {
   if (qualifier.startsWith('3')) {
-    // best-third slot; which third actually goes here depends on FIFA draw rules
-    // for now return the highest-ranking available third not yet assigned
     const groups = qualifier.slice(1).split('');
     const eligible = bestThirds.filter(r => groups.includes(r.groupCode));
     return eligible[0]?.team ?? null;
@@ -130,4 +133,91 @@ export function resolveQualifier(
   const rows = allStandings.get(group);
   if (!rows) return null;
   return rows.find(r => r.position === pos)?.team ?? null;
+}
+
+export interface R32Slot {
+  matchCode: string;
+  home: string; // qualifier code, e.g. '1E' or '3ABCDF'
+  away: string;
+}
+
+export interface ResolvedR32 {
+  matchCode: string;
+  home: BracketTeam | null;
+  away: BracketTeam | null;
+}
+
+/**
+ * Assign best-third teams to best-third slots so that each qualifying third-place
+ * team fills exactly one slot, respecting each slot's eligible group set. Uses
+ * backtracking over the (at most 8×8) slot/third space, trying higher-ranked
+ * thirds first for a deterministic result. Returns a map keyed `${matchCode}:${side}`.
+ */
+function assignBestThirds(
+  thirdSlots: Array<{ key: string; groups: string[] }>,
+  bestThirds: StandingRow[],
+): Map<string, BracketTeam> {
+  const result = new Map<string, BracketTeam>();
+  const used = new Set<string>();
+
+  // Constrain search order to the most-restricted slots first (fewest eligible
+  // available thirds) to make backtracking find a complete matching quickly.
+  const order = [...thirdSlots.keys()].sort((a, b) => {
+    const ea = bestThirds.filter(t => thirdSlots[a].groups.includes(t.groupCode)).length;
+    const eb = bestThirds.filter(t => thirdSlots[b].groups.includes(t.groupCode)).length;
+    return ea - eb;
+  });
+
+  const backtrack = (i: number): boolean => {
+    if (i === order.length) return true;
+    const slot = thirdSlots[order[i]];
+    for (const third of bestThirds) {
+      if (used.has(third.team.id)) continue;
+      if (!slot.groups.includes(third.groupCode)) continue;
+      used.add(third.team.id);
+      result.set(slot.key, third.team);
+      if (backtrack(i + 1)) return true;
+      used.delete(third.team.id);
+      result.delete(slot.key);
+    }
+    // Allow leaving a slot unfilled when no complete matching exists yet (e.g.
+    // group stage not finished) rather than aborting the whole assignment.
+    return backtrack(i + 1);
+  };
+  backtrack(0);
+  return result;
+}
+
+/**
+ * Resolve a full R32 pairing list to concrete teams, assigning best-third slots
+ * uniquely so no third-place team appears in more than one match.
+ */
+export function resolveR32Pairings(
+  pairings: ReadonlyArray<R32Slot>,
+  allStandings: Map<string, StandingRow[]>,
+  bestThirds: StandingRow[],
+): ResolvedR32[] {
+  const thirdSlots: Array<{ key: string; groups: string[] }> = [];
+  for (const p of pairings) {
+    (['home', 'away'] as const).forEach(side => {
+      const q = p[side];
+      if (q.startsWith('3')) {
+        thirdSlots.push({ key: `${p.matchCode}:${side}`, groups: q.slice(1).split('') });
+      }
+    });
+  }
+  const thirdAssign = assignBestThirds(thirdSlots, bestThirds);
+
+  const resolveSide = (matchCode: string, side: 'home' | 'away', q: string): BracketTeam | null => {
+    if (q.startsWith('3')) return thirdAssign.get(`${matchCode}:${side}`) ?? null;
+    const pos = parseInt(q[0], 10);
+    const rows = allStandings.get(q.slice(1));
+    return rows?.find(r => r.position === pos)?.team ?? null;
+  };
+
+  return pairings.map(p => ({
+    matchCode: p.matchCode,
+    home: resolveSide(p.matchCode, 'home', p.home),
+    away: resolveSide(p.matchCode, 'away', p.away),
+  }));
 }

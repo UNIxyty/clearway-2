@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
-import { computeGroupStandings, computeBestThird, resolveQualifier } from '@/lib/playoffs/standings';
+import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
 
 export const dynamic = 'force-dynamic';
@@ -57,18 +57,15 @@ export async function POST() {
   );
   const bestThirds = computeBestThird(allStandings);
 
-  const rows = R32_PAIRINGS.map((p, i) => {
-    const homeTeam = resolveQualifier(p.home, allStandings, bestThirds);
-    const awayTeam = resolveQualifier(p.away, allStandings, bestThirds);
-    return {
-      match_code: p.matchCode,
-      match_number: i + 1,
-      round: 'R32',
-      home_team_id: homeTeam?.id ?? null,
-      away_team_id: awayTeam?.id ?? null,
-      is_locked: false,
-    };
-  });
+  const resolved = resolveR32Pairings(R32_PAIRINGS, allStandings, bestThirds);
+  const rows = resolved.map((r, i) => ({
+    match_code: r.matchCode,
+    match_number: i + 1,
+    round: 'R32',
+    home_team_id: r.home?.id ?? null,
+    away_team_id: r.away?.id ?? null,
+    is_locked: false,
+  }));
 
   const { error } = await supabase
     .from('playoff_matches')

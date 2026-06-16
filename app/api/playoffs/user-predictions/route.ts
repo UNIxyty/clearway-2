@@ -5,6 +5,7 @@ import {
   resolveSlotServer, resolveWinnerServer,
   type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
 } from '@/lib/playoffs/resolveBracketServer';
+import { flagFor } from '@/lib/playoffs/flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
 
   const { data: teamRows, error: teamsError } = await serviceClient
     .from('pickem_teams')
-    .select('id, name, short_name, flag_emoji');
+    .select('id, name, short_name');
   if (teamsError) {
     return NextResponse.json({ error: 'Failed to fetch teams' }, { status: 500 });
   }
@@ -71,7 +72,7 @@ export async function GET(request: Request) {
     teamsById.set(t.id as string, {
       id: t.id as string,
       name: (t.name as string) ?? (t.short_name as string) ?? 'TBD',
-      flag: (t.flag_emoji as string) ?? '',
+      flag: flagFor(t.short_name as string),
     });
   }
 

@@ -7,6 +7,7 @@ import {
   resolveSlotServer, resolveWinnerServer,
   type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
 } from '@/lib/playoffs/resolveBracketServer';
+import { flagFor } from '@/lib/playoffs/flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,13 +71,13 @@ export async function POST(req: NextRequest) {
   if (teamIds.size > 0) {
     const { data: teamRows } = await supabase
       .from('pickem_teams')
-      .select('id, name, short_name, flag_emoji')
+      .select('id, name, short_name')
       .in('id', [...teamIds]);
     (teamRows ?? []).forEach(t => {
       teamsById.set(t.id as string, {
         id: t.id as string,
         name: (t.name as string) ?? (t.short_name as string) ?? 'TBD',
-        flag: (t.flag_emoji as string) ?? '',
+        flag: flagFor(t.short_name as string),
       });
     });
   }

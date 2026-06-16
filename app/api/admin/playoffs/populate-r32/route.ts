@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
 import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
+import { flagFor } from '@/lib/playoffs/flags';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export async function POST() {
       .not('group_code', 'is', null),
     supabase
       .from('pickem_teams')
-      .select('id, name, short_name, group_code, flag_emoji, crest_url')
+      .select('id, name, short_name, group_code, crest_url')
       .eq('competition_id', comp.id),
   ]);
 
@@ -36,7 +37,7 @@ export async function POST() {
     id: t.id as string,
     name: t.name as string,
     shortName: (t.short_name as string) || (t.name as string),
-    flag: (t.flag_emoji as string) || '',
+    flag: flagFor(t.short_name as string),
     groupCode: t.group_code as string,
     crestUrl: (t.crest_url as string | null) ?? null,
   }));

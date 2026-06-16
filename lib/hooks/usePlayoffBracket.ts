@@ -74,18 +74,35 @@ export function usePlayoffBracket(): UsePlayoffBracketResult {
   /** Build the current pick map from saved predictions + official locked results */
   const picks = useMemo<PickMap>(() => {
     const out: PickMap = {};
-    Object.values(matchesByCode).forEach(m => {
-      // If match has a locked winner, treat that as the pick for downstream resolution
-      if (m.winnerTeamId) {
+
+    // Process rounds in depth order so upstream picks are resolved before downstream ones
+    const ROUND_DEPTH: Record<string, number> = { R32: 0, R16: 1, QF: 2, SF: 3, THIRD: 4, FINAL: 5 };
+    const sorted = Object.values(matchesByCode).sort(
+      (a, b) => (ROUND_DEPTH[a.round] ?? 0) - (ROUND_DEPTH[b.round] ?? 0),
+    );
+
+    sorted.forEach(m => {
+      // Locked official result takes priority
+      if (m.winnerTeamId && m.homeTeamId && m.awayTeamId) {
         out[m.matchCode] = m.winnerTeamId === m.homeTeamId ? 'home' : 'away';
         return;
       }
-      // Use user prediction
+
       const pred = predictionsByMatchId[m.id];
-      if (pred?.predictedWinnerId) {
+      if (!pred?.predictedWinnerId) return;
+
+      if (m.homeTeamId && m.awayTeamId) {
+        // R32: teams are fixed — direct ID comparison is safe
         out[m.matchCode] = pred.predictedWinnerId === m.homeTeamId ? 'home' : 'away';
+      } else {
+        // R16+: homeTeamId is null until played — resolve dynamically from upstream picks
+        const homeTeam = teamInSlot(m.matchCode, 'home', out, matchesByCode);
+        const awayTeam = teamInSlot(m.matchCode, 'away', out, matchesByCode);
+        if (homeTeam?.id === pred.predictedWinnerId) out[m.matchCode] = 'home';
+        else if (awayTeam?.id === pred.predictedWinnerId) out[m.matchCode] = 'away';
       }
     });
+
     return out;
   }, [matchesByCode, predictionsByMatchId]);
 

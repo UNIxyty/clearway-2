@@ -188,8 +188,8 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
       leaderboardUrl: opts.leaderboardUrl || `${base}/playoffs/standings`,
       unsubscribeLink: unsubscribeUrl(user.id),
       wc2026LogoUrl: `${base}/wc2026-logo.png`,
-      clearwayLogoUrl: `${base}/header_logo_white.svg`,
-      verxylLogoUrl: `${base}/logo.png`,
+      clearwayLogoUrl: `${base}/clearway-logo.svg`,
+      verxylLogoUrl: `${base}/verxyl-logo.png`,
     });
 
     await sendEmail(

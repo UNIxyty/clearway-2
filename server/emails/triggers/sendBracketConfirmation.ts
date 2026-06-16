@@ -83,8 +83,8 @@ async function _send(input: SendBracketConfirmationInput): Promise<void> {
     bracketUrl: `${base}/playoffs/bracket`,
     unsubscribeLink: unsubscribeUrl(input.userId),
     wc2026LogoUrl: `${base}/wc2026-logo.png`,
-    clearwayLogoUrl: `${base}/header_logo_white.svg`,
-    verxylLogoUrl: `${base}/logo.png`,
+    clearwayLogoUrl: `${base}/clearway-logo.svg`,
+    verxylLogoUrl: `${base}/verxyl-logo.png`,
   });
 
   await sendEmail(

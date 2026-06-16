@@ -40,6 +40,15 @@ export function usePlayoffMatches(): UsePlayoffMatchesResult {
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
+  // Re-fetch when the user switches back to this tab (admin may have published results)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setTick(t => t + 1);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);

@@ -18,11 +18,21 @@ export function usePlayoffPredictions(): UsePlayoffPredictionsResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   // Fetch current user ID once
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, [supabase]);
+
+  // Re-fetch when tab becomes visible (admin may have scored a match)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setTick(t => t + 1);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   // Fetch predictions when userId is known
   useEffect(() => {
@@ -52,7 +62,7 @@ export function usePlayoffPredictions(): UsePlayoffPredictionsResult {
       });
 
     return () => { cancelled = true; };
-  }, [supabase, userId]);
+  }, [supabase, userId, tick]);
 
   const predictionsByMatchId = useMemo(() =>
     Object.fromEntries(predictions.map(p => [p.matchId, p])),

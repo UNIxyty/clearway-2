@@ -620,3 +620,20 @@ export async function markR32Confirmed(competitionId: string): Promise<void> {
     );
   if (error) throw new Error(error.message || "Failed to set tournament state");
 }
+
+/** Stamp the final-standings-email-sent time. Set BEFORE the blast so a rapid
+ * re-trigger (admin double-publish) can't double-send. Returns true if this call
+ * won the guard (was previously unset), false if it was already set. */
+export async function claimFinalEmailSend(competitionId: string): Promise<boolean> {
+  const supabase = service();
+  const existing = await getTournamentState(competitionId);
+  if (existing.finalEmailSentAt) return false;
+  const { error } = await supabase
+    .from("tournament_state")
+    .upsert(
+      { competition_id: competitionId, final_email_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { onConflict: "competition_id", ignoreDuplicates: false },
+    );
+  if (error) throw new Error(error.message || "Failed to set final email state");
+  return true;
+}

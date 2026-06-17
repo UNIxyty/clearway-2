@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { MATCHES } from '@/lib/playoffs/bracketData';
+import { maybeSendFinalStandings } from '@/server/emails/triggers/sendFinalStandingsEmail';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -112,6 +113,14 @@ export async function POST(req: NextRequest) {
       matchRow.home_team_id as string | null,
       matchRow.away_team_id as string | null,
     );
+
+    // Stage 7: once both FINAL and THIRD are published+scored, fire the final
+    // standings email exactly once (guarded inside). Fire-and-forget — the admin
+    // response must not wait on the batch. Event-driven only; no polling.
+    const round = MATCHES[matchCode]?.round;
+    if (round === 'FINAL' || round === 'THIRD') {
+      void maybeSendFinalStandings();
+    }
   }
 
   return NextResponse.json({ ok: true, scoredCount });

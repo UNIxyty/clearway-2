@@ -203,6 +203,26 @@ function assignBestThirds(
 }
 
 /**
+ * Compute a single user's predicted R32 bracket from their predicted group
+ * standings. `groupMatches` must already carry the user's predicted scores.
+ * This is the one source of truth shared by the R32 Draw page (what the user
+ * sees) and the R32-projection scoring (what they're awarded) so the two never
+ * disagree.
+ */
+export function computeUserPredictedR32(
+  pairings: ReadonlyArray<R32Slot>,
+  groupMatches: GroupMatch[],
+  teams: BracketTeam[],
+): ResolvedR32[] {
+  const groupCodes = [...new Set(teams.map(t => t.groupCode))];
+  const allStandings = new Map(
+    groupCodes.map(gc => [gc, computeGroupStandings(groupMatches, teams, gc)]),
+  );
+  const bestThirds = computeBestThird(allStandings);
+  return resolveR32Pairings(pairings, allStandings, bestThirds);
+}
+
+/**
  * Resolve a full R32 pairing list to concrete teams, assigning best-third slots
  * uniquely so no third-place team appears in more than one match.
  */

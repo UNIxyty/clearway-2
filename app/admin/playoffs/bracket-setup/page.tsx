@@ -247,6 +247,7 @@ function BracketSetupContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkClearing, setBulkClearing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Load teams via dedicated endpoint (includes flag_emoji)
   useEffect(() => {
@@ -346,6 +347,38 @@ function BracketSetupContent() {
     } finally {
       setBulkClearing(false);
       setTimeout(() => setToast(null), 3000);
+    }
+  }, []);
+
+  const confirmR32Bracket = useCallback(async () => {
+    const ok = window.confirm(
+      'Confirm the R32 bracket?\n\nThis scores every user\'s R32 projection against these real pairs and emails all users their Group Stage results. Run this only once, after all 16 R32 matchups are correct.'
+    );
+    if (!ok) return;
+    setConfirming(true);
+    try {
+      const res = await fetch('/api/admin/playoffs/confirm-r32', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) { setToast(`Error: ${json.error ?? 'confirm failed'}`); return; }
+      if (json.alreadyConfirmed) {
+        const rerun = window.confirm('R32 was already confirmed. Re-run scoring and re-send emails?');
+        if (!rerun) return;
+        const res2 = await fetch('/api/admin/playoffs/confirm-r32', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: true }),
+        });
+        const json2 = await res2.json();
+        if (!res2.ok) { setToast(`Error: ${json2.error ?? 'confirm failed'}`); return; }
+        setToast('R32 re-scored and emails re-sent');
+        return;
+      }
+      setToast(`R32 confirmed · scored all users · emailing ${json.matchups} matchups`);
+    } catch (e) {
+      setToast(`Error: ${e instanceof Error ? e.message : 'confirm failed'}`);
+    } finally {
+      setConfirming(false);
+      setTimeout(() => setToast(null), 4000);
     }
   }, []);
 
@@ -453,6 +486,15 @@ function BracketSetupContent() {
             >
               {bulkLoading && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
               Load from Groups
+            </button>
+            <button
+              onClick={confirmR32Bracket}
+              disabled={confirming || bulkLoading || bulkClearing}
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold transition disabled:opacity-50 whitespace-nowrap"
+              title="Score every user's R32 projection against these real pairs and email all users. Run once."
+            >
+              {confirming && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+              Confirm R32 Bracket
             </button>
           </div>
         )}

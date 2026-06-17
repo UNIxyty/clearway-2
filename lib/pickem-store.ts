@@ -375,21 +375,23 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
     .eq("competition_id", competitionId);
   if (error) return [];
 
-  const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; points: number }>();
+  const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; r32Points: number; points: number }>();
   for (const row of (data || []) as any[]) {
     const userId = String(row.user_id);
     const current = scores.get(userId) || {
       groupPoints: 0,
       matchPoints: 0,
       exactPoints: 0,
+      r32Points: 0,
       points: 0,
     };
     const points = Number(row.points || 0);
-    current.points += points;
+    current.points += points; // total includes every source type, incl. r32_projection
     const sourceType = String(row.source_type || "");
     if (sourceType === "group_position") current.groupPoints += points;
     else if (sourceType === "match_outcome") current.matchPoints += points;
     else if (sourceType === "match_score") current.exactPoints += points;
+    else if (sourceType === "r32_projection") current.r32Points += points;
     scores.set(userId, current);
   }
 
@@ -439,6 +441,7 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
       groupPoints: scores.get(userId)?.groupPoints ?? 0,
       matchPoints: scores.get(userId)?.matchPoints ?? 0,
       exactPoints: scores.get(userId)?.exactPoints ?? 0,
+      r32Points: scores.get(userId)?.r32Points ?? 0,
       points: scores.get(userId)?.points ?? 0,
       displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
       email: null as string | null,
@@ -583,4 +586,37 @@ export async function replacePointsLedger(input: {
     })),
   );
   if (error) throw new Error(error.message || "Failed to write points ledger");
+}
+
+// ─── tournament_state (one-time batch guards) ───────────────────────────────
+
+export interface TournamentState {
+  r32ConfirmedAt: string | null;
+  finalEmailSentAt: string | null;
+}
+
+export async function getTournamentState(competitionId: string): Promise<TournamentState> {
+  const supabase = service();
+  const { data } = await supabase
+    .from("tournament_state")
+    .select("r32_confirmed_at, final_email_sent_at")
+    .eq("competition_id", competitionId)
+    .maybeSingle();
+  return {
+    r32ConfirmedAt: (data?.r32_confirmed_at as string) ?? null,
+    finalEmailSentAt: (data?.final_email_sent_at as string) ?? null,
+  };
+}
+
+/** Stamp the R32-confirmed time. Callers guard on getTournamentState first so
+ * this is only invoked once; re-invoking simply refreshes the timestamp. */
+export async function markR32Confirmed(competitionId: string): Promise<void> {
+  const supabase = service();
+  const { error } = await supabase
+    .from("tournament_state")
+    .upsert(
+      { competition_id: competitionId, r32_confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { onConflict: "competition_id", ignoreDuplicates: false },
+    );
+  if (error) throw new Error(error.message || "Failed to set tournament state");
 }

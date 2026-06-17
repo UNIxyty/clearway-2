@@ -74,6 +74,7 @@ export type PickemLeaderboardRow = {
   groupPoints: number;
   matchPoints: number;
   exactPoints: number;
+  r32Points: number;
   points: number;
   rank: number;
 };
@@ -82,4 +83,8 @@ export const PICKEM_POINTS = {
   GROUP_POSITION: 1,
   MATCH_OUTCOME: 1,
   MATCH_SCORE: 2,
+  // +1 per R32 slot where the user's predicted pair (derived from their group
+  // score picks) matches the real admin-confirmed pair. Matches the "+1 pt" the
+  // R32 Draw page shows per matchup — keep these in sync.
+  R32_PROJECTION: 1,
 } as const;

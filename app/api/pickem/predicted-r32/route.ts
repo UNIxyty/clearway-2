@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
-import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
+import { computeUserPredictedR32 } from '@/lib/playoffs/standings';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
 
 const FLAG_BY_CODE: Record<string, string> = {
@@ -80,17 +80,9 @@ export async function GET() {
     };
   });
 
-  // Compute standings per group
-  const groupCodes = [...new Set(teams.map(t => t.groupCode))];
-  const allStandings = new Map(
-    groupCodes.map(gc => [gc, computeGroupStandings(groupMatches, teams, gc)])
-  );
-
-  // Best thirds
-  const bestThirds = computeBestThird(allStandings);
-
-  // Resolve predicted teams for each R32 slot (best-thirds assigned uniquely)
-  const resolved = resolveR32Pairings(R32_PAIRINGS, allStandings, bestThirds);
+  // Resolve predicted R32 via the shared helper so the page and the Stage-4
+  // R32-projection scoring compute identical brackets.
+  const resolved = computeUserPredictedR32(R32_PAIRINGS, groupMatches, teams);
 
   return NextResponse.json({
     pairings: resolved.map(r => ({

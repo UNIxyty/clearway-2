@@ -6,9 +6,8 @@ import { AdminRoute } from '@/components/AdminRoute';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
-  QF_LEFT_IDS, QF_RIGHT_IDS, MATCHES,
+  QF_LEFT_IDS, QF_RIGHT_IDS,
 } from '@/lib/playoffs/bracketData';
-import type { PlayoffRound } from '@/lib/playoffs/types';
 
 // Fallback flag emoji map keyed by team short_name
 const FLAG_BY_CODE: Record<string, string> = {
@@ -363,33 +362,40 @@ function BracketSetupContent() {
 
   const save = useCallback(async (code: string) => {
     const row = getRow(code);
-    const def = MATCHES[code];
     setSaving(prev => ({ ...prev, [code]: true }));
     try {
-      const matchNumber = parseInt(code.replace(/\D/g, ''), 10) || 0;
-      const payload = {
-        match_number: matchNumber,
-        round: def.round as PlayoffRound,
-        match_code: code,
-        home_team_id: row.homeTeamId || null,
-        away_team_id: row.awayTeamId || null,
-        is_locked: row.isLocked,
-      };
-
-      if (row.id) {
-        await supabase.from('playoff_matches').update(payload).eq('id', row.id);
-      } else {
-        const { data } = await supabase.from('playoff_matches').insert(payload).select('id').single();
-        if (data) setRows(prev => ({ ...prev, [code]: { ...prev[code], id: (data as Record<string, unknown>).id as string } }));
+      // Write through a server endpoint (service role) so admins granted via
+      // ADMIN_EMAILS / auth metadata aren't silently blocked by the
+      // playoff_matches RLS policy (which only checks user_preferences.is_admin).
+      const res = await fetch('/api/admin/playoffs/set-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchCode: code,
+          homeTeamId: row.homeTeamId || null,
+          awayTeamId: row.awayTeamId || null,
+          isLocked: row.isLocked,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast(`${code}: ${json.error ?? 'save failed'}`);
+        setTimeout(() => setToast(null), 3000);
+        return;
       }
-
+      if (json.id) {
+        setRows(prev => ({ ...prev, [code]: { ...prev[code], id: json.id as string } }));
+      }
       setSaved(prev => ({ ...prev, [code]: true }));
       setToast(`${code} saved`);
       setTimeout(() => setToast(null), 2000);
+    } catch (e) {
+      setToast(`${code}: ${e instanceof Error ? e.message : 'save failed'}`);
+      setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(prev => ({ ...prev, [code]: false }));
     }
-  }, [getRow, supabase]);
+  }, [getRow]);
 
   return (
     <div className="min-h-screen bg-page">

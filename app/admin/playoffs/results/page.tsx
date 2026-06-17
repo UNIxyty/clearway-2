@@ -6,7 +6,7 @@ import { AdminRoute } from '@/components/AdminRoute';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
-  QF_LEFT_IDS, QF_RIGHT_IDS, MATCHES,
+  QF_LEFT_IDS, QF_RIGHT_IDS,
 } from '@/lib/playoffs/bracketData';
 
 /*
@@ -162,84 +162,54 @@ function ResultsContent() {
     setResults(prev => ({ ...prev, [code]: { ...prev[code], liveChecked: checked } }));
   }, []);
 
-  // Save scores only — no is_locked, no RPC
+  // Save scores only — no is_locked, no RPC. Goes through the admin server
+  // endpoint (service role) so the write isn't silently blocked by RLS.
   const updateLive = useCallback(async (code: string) => {
     const row = results[code];
     if (!row?.id) return;
     setSavingLive(prev => ({ ...prev, [code]: true }));
     try {
-      await supabase
-        .from('playoff_matches')
-        .update({
-          home_score: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
-          away_score: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
-          winner_team_id: row.winnerTeamId || null,
-        })
-        .eq('id', row.id);
+      const res = await fetch('/api/admin/playoffs/publish-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchCode: code,
+          homeScore: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
+          awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
+          winnerTeamId: row.winnerTeamId || null,
+          publish: false,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { flash(`Error: ${json.error ?? 'update failed'}`); return; }
       flash(`${code} live score updated`);
+    } catch (err) {
+      flash(`Error: ${err instanceof Error ? err.message : 'update failed'}`);
     } finally {
       setSavingLive(prev => ({ ...prev, [code]: false }));
     }
-  }, [results, supabase]);
+  }, [results]);
 
-  // Propagate the published match's winner (and, for the bronze match, the loser)
-  // into the downstream match slot(s) it feeds. R16+ rows store null home/away
-  // team ids until the feeding match is decided, so without this step the next
-  // round can never be scored (no teams → no winner → 0 points for everyone).
-  const advanceWinner = useCallback(async (code: string, row: MatchResult) => {
-    const winnerId = row.winnerTeamId;
-    if (!winnerId) return;
-    const loserId = winnerId === row.homeTeamId ? row.awayTeamId : row.homeTeamId;
-
-    // Downstream matches are those whose feeders include this match code.
-    const downstream = Object.values(MATCHES).filter(d => d.feeders?.includes(code));
-    for (const def of downstream) {
-      const slotIndex = def.feeders!.indexOf(code); // 0 → home slot, 1 → away slot
-      const teamForSlot = def.losers ? loserId : winnerId;
-      if (!teamForSlot) continue;
-      const downRow = results[def.id];
-      if (!downRow?.id) continue;
-      const field = slotIndex === 0 ? 'home_team_id' : 'away_team_id';
-      const { error } = await supabase
-        .from('playoff_matches')
-        .update({ [field]: teamForSlot })
-        .eq('id', downRow.id);
-      if (error) {
-        console.error('[playoff-results] failed to advance winner to downstream slot', {
-          from: code, to: def.id, field, error: error.message,
-        });
-      }
-    }
-  }, [results, supabase]);
-
-  // Save scores + is_locked=true + call RPC, then advance the winner downstream.
+  // Save scores + is_locked=true, calculate points, and advance the winner —
+  // all server-side (service role) so RLS can't silently drop the writes.
   const publishFinal = useCallback(async (code: string) => {
     const row = results[code];
     if (!row?.id) return;
     setPublishing(prev => ({ ...prev, [code]: true }));
     try {
-      const { error: updateErr } = await supabase
-        .from('playoff_matches')
-        .update({
-          home_score: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
-          away_score: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
-          winner_team_id: row.winnerTeamId || null,
-          is_locked: true,
-        })
-        .eq('id', row.id);
-      if (updateErr) throw updateErr;
-
-      const { error: rpcErr } = await supabase.rpc('calculate_playoff_points', { p_match_id: row.id });
-      if (rpcErr) throw rpcErr;
-
-      // How many predictions were scored, for an informative confirmation.
-      const { count } = await supabase
-        .from('playoff_predictions')
-        .select('id', { count: 'exact', head: true })
-        .eq('match_id', row.id);
-
-      // Advance the winner into the next round so it becomes scoreable.
-      await advanceWinner(code, row);
+      const res = await fetch('/api/admin/playoffs/publish-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchCode: code,
+          homeScore: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
+          awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
+          winnerTeamId: row.winnerTeamId || null,
+          publish: true,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { flash(`Error: ${json.error ?? 'publish failed'}`); return; }
 
       setResults(prev => ({
         ...prev,
@@ -247,7 +217,7 @@ function ResultsContent() {
       }));
       // Reload so downstream rows pick up their newly-assigned team names.
       await loadResults();
-      flash(`${code} published · ${count ?? 0} prediction${count === 1 ? '' : 's'} scored`);
+      flash(`${code} published · ${json.scoredCount ?? 0} prediction${json.scoredCount === 1 ? '' : 's'} scored`);
     } catch (err) {
       console.error('[playoff-results] publish failed', { code, err });
       flash(`Error: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -255,7 +225,7 @@ function ResultsContent() {
       setPublishing(prev => ({ ...prev, [code]: false }));
       setModalCode(null);
     }
-  }, [results, supabase, advanceWinner, loadResults]);
+  }, [results, loadResults]);
 
   const modalRow = modalCode ? results[modalCode] ?? null : null;
 

@@ -5,6 +5,7 @@ import type { BracketTeam } from '@/lib/playoffs/types';
 import { renderTemplate } from '@/server/emails/renderTemplate';
 import { sendEmail } from '@/server/emails/sendEmail';
 import { unsubscribeUrl } from '@/server/utils/unsubscribeToken';
+import { flagFor } from '@/lib/playoffs/flags';
 
 export interface R32Matchup {
   flagA: string;
@@ -38,10 +39,10 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
     .eq('competition_id', opts.competitionId)
     .eq('stage', 'group');
 
-  // Fetch all teams
+  // Fetch all teams (pickem_teams has no flag column — derive from short_name)
   const { data: rawTeams } = await supabase
     .from('pickem_teams')
-    .select('id, group_code, name, short_name, flag, crest_url')
+    .select('id, group_code, name, short_name, crest_url')
     .eq('competition_id', opts.competitionId);
 
   if (!rawMatches || !rawTeams) return;
@@ -50,7 +51,7 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
     id: t.id,
     name: t.name,
     shortName: t.short_name,
-    flag: t.flag ?? '',
+    flag: flagFor(t.short_name),
     groupCode: t.group_code,
     crestUrl: t.crest_url ?? null,
   }));

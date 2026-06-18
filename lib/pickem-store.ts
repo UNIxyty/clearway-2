@@ -567,12 +567,21 @@ export async function replacePointsLedger(input: {
   }>;
 }): Promise<void> {
   const supabase = service();
+  // SAFETY: never wipe the ledger to empty. A zero-row recompute almost always
+  // means it ran in a phase with no scoreable data yet (or a transient/missing
+  // source), NOT that every user legitimately dropped to zero. Skip the
+  // destructive delete entirely in that case so a mistimed recompute can't erase
+  // everyone's points. (Going from many rows to fewer non-zero rows — e.g. an
+  // admin correcting a result — is still allowed.)
+  if (!input.rows.length) {
+    console.warn("[replacePointsLedger] recompute produced 0 rows — skipping ledger replace to avoid wiping existing points", { competitionId: input.competitionId });
+    return;
+  }
   const { error: delErr } = await supabase
     .from("pickem_points_ledger")
     .delete()
     .eq("competition_id", input.competitionId);
   if (delErr) throw new Error(delErr.message || "Failed to clear points");
-  if (!input.rows.length) return;
   const now = new Date().toISOString();
   const { error } = await supabase.from("pickem_points_ledger").insert(
     input.rows.map((row) => ({

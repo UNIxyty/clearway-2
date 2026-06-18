@@ -34,6 +34,7 @@ type BootstrapPayload = {
 
 type LeaderboardPayload = {
   viewerSubmitted: boolean;
+  groupResultsFinalized?: boolean;
   rows: PickemLeaderboardRow[];
 };
 
@@ -1340,7 +1341,9 @@ export function PickemApp() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.groupPoints}</td>
+                          <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">
+                            {leaderboard.groupResultsFinalized ? row.groupPoints : <span className="text-slate-300" title="Group positions not finalized yet">—</span>}
+                          </td>
                           <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.matchPoints}</td>
                           <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.exactPoints}</td>
                           <td className="px-4 py-3 text-right text-base font-black" style={{ color: NAVY }}>
@@ -1385,7 +1388,7 @@ export function PickemApp() {
                       <span className="text-sm font-bold text-slate-500">pts</span>
                     </div>
                     <div className="mt-1 flex items-center gap-3 text-xs font-bold text-slate-500">
-                      <span>Group {activeProfileUser.groupPoints}</span>
+                      <span>Group {leaderboard.groupResultsFinalized ? activeProfileUser.groupPoints : "—"}</span>
                       <span>Match {activeProfileUser.matchPoints}</span>
                       <span>Exact {activeProfileUser.exactPoints}</span>
                     </div>

@@ -68,6 +68,17 @@ export async function POST(req: NextRequest) {
   const winnerTeamId = (body.winnerTeamId as string) || null;
   const publish = Boolean(body.publish);
 
+  // A published match MUST have a decided winner — otherwise the result is scored
+  // (points calculated) but every Full Bracket card stays neutral forever because
+  // the scored-state gate requires winner_team_id. For draws the admin picks the
+  // winner (e.g. penalties) in the UI before publishing.
+  if (publish && (!winnerTeamId || homeScore === null || awayScore === null)) {
+    return NextResponse.json(
+      { error: 'Cannot publish: a final result needs both scores and a winner.' },
+      { status: 400 },
+    );
+  }
+
   const supabase = createSupabaseAdminClient();
 
   const { data: matchRow, error: fetchErr } = await supabase

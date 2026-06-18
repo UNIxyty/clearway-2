@@ -298,9 +298,15 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
       if (!m.winnerTeamId || m.homeScore == null) return;
       const pred = userPredictions.find(p => p.matchId === m.id);
       if (!pred?.predictedWinnerId) return;
+      // "miss" is keyed strictly on winner correctness so the pill and the ✕
+      // circle always agree and "Missed" unambiguously means "wrong winner"
+      // (not merely "0 points") — a wrong winner that happened to fluke an
+      // exact-score bonus still reads as a miss on the card; the bonus still
+      // counts toward the user's authoritative total elsewhere.
       const winnerCorrect = pred.predictedWinnerId === m.winnerTeamId;
-      const earned = pred.pointsAwarded ?? (winnerCorrect ? (ROUND_PTS[m.round] ?? 1) : 0);
-      if (earned <= 0) { out[m.matchCode] = 'miss'; return; }
+      if (!winnerCorrect) { out[m.matchCode] = 'miss'; return; }
+      const earned = (pred.pointsAwarded && pred.pointsAwarded > 0)
+        ? pred.pointsAwarded : (ROUND_PTS[m.round] ?? 1);
       const scoreCorrect = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null
         && pred.predictedHomeScore === m.homeScore && pred.predictedAwayScore === m.awayScore;
       out[m.matchCode] = `${scoreCorrect ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;

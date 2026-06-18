@@ -6,6 +6,14 @@
  * against a synthetic dataset and reused by the email trigger unchanged.
  */
 
+// MUST stay in sync with the calculate_playoff_points RPC
+// (migrations/20260616_playoff_score_bonus.sql) and FullBracket's ROUND_PTS.
+// This core recomputes per-round base + exact bonus (rather than reading the
+// folded points_awarded) because the email needs the base/bonus SPLIT, which the
+// single stored value can't provide. The recomputed total equals SUM(points_awarded)
+// only while these constants match the RPC — if the RPC's values change, change
+// these too (and FullBracket's), or the final-email totals will drift from the
+// leaderboard.
 export const ROUND_POINTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
 export const EXACT_BONUS = 2;
 export const ROUND_LABEL: Record<string, string> = {

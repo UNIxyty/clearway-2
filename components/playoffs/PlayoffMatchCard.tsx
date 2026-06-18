@@ -194,27 +194,32 @@ export function PlayoffMatchCard({
     >
       {big && <div className="h-1 w-full bg-gradient-to-r from-bk-amber via-bk-accent to-bk-amber" />}
 
-      {/* Status badge — top-right */}
+      {/* Points pill — top-left. Shown once the match is scored and the user had
+          a prediction: green earned pill, or a muted "Missed" pill for 0 pts. */}
+      {pointsLabel && (
+        <div className="absolute top-2 left-2 z-20 pointer-events-none">
+          {pointsLabel === 'miss' ? (
+            <span className="px-1.5 py-0.5 rounded-full bg-black/[0.06] text-[9.5px] font-extrabold tracking-tight text-black/45">Missed</span>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[9.5px] font-extrabold tracking-tight text-emerald-700">{pointsLabel}</span>
+          )}
+        </div>
+      )}
+
+      {/* Status circle — top-right. Green ✓ correct, gray ✕ miss, lock when
+          still open. Distinct "miss" state ≠ the blank pre-match state. */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
-        {pointsLabel ? (
-          <span className={`text-[10.5px] font-extrabold tracking-tight ${
-            pointsLabel === 'miss' ? 'text-red-500' : 'text-emerald-600'
-          }`}>{pointsLabel}</span>
-        ) : (
-          <>
-            {result === 'correct' && (
-              <span className="w-[18px] h-[18px] rounded-full bg-emerald-500 flex items-center justify-center">
-                <CheckIcon className="w-2.5 h-2.5 text-white" />
-              </span>
-            )}
-            {result === 'wrong' && (
-              <span className="w-[18px] h-[18px] rounded-full bg-red-500 flex items-center justify-center">
-                <XIcon className="w-2.5 h-2.5 text-white" />
-              </span>
-            )}
-          </>
+        {result === 'correct' && (
+          <span className="w-[18px] h-[18px] rounded-full bg-emerald-500 flex items-center justify-center">
+            <CheckIcon className="w-2.5 h-2.5 text-white" />
+          </span>
         )}
-        {locked && !result && !pointsLabel && <LockIcon className="w-[14px] h-[14px] text-black/35" />}
+        {result === 'wrong' && (
+          <span className="w-[18px] h-[18px] rounded-full bg-slate-400 flex items-center justify-center">
+            <XIcon className="w-2.5 h-2.5 text-white" />
+          </span>
+        )}
+        {locked && !result && <LockIcon className="w-[14px] h-[14px] text-black/35" />}
       </div>
 
       {/* Venue + date */}

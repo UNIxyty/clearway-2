@@ -1660,16 +1660,19 @@ export function PickemApp() {
                   ) : (
                     <div className="space-y-2">
                       {playoffUserPredictions.map((pred) => {
+                        // Scored once the real result is published (actual score set) and a
+                        // winner is decided — gate on that, not is_locked (mirrors Full Bracket).
+                        const scored = pred.actualHomeScore !== null && !!pred.winnerTeamId;
                         const winnerCorrect = pred.winnerTeamId && pred.predictedWinnerId === pred.winnerTeamId;
                         const scoreCorrect = winnerCorrect && pred.actualHomeScore !== null &&
                           pred.predictedHomeScore === pred.actualHomeScore && pred.predictedAwayScore === pred.actualAwayScore;
                         return (
-                          <div key={pred.matchCode} className={`rounded-lg border p-3 ${pred.isLocked ? (winnerCorrect ? "border-emerald-200 bg-emerald-50/40" : pred.winnerTeamId ? "border-red-200 bg-red-50/30" : "border-black/[0.07] bg-white") : "border-black/[0.07] bg-white"}`}>
+                          <div key={pred.matchCode} className={`rounded-lg border p-3 ${scored ? (winnerCorrect ? "border-emerald-200 bg-emerald-50/40" : "border-red-200 bg-red-50/30") : "border-black/[0.07] bg-white"}`}>
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[10px] font-extrabold tracking-widest text-slate-400">{pred.round} · {pred.matchCode}</span>
-                              {pred.isLocked && pred.winnerTeamId && (
-                                <span className={`text-[10.5px] font-extrabold ${winnerCorrect ? (scoreCorrect ? "text-emerald-600" : "text-emerald-600") : "text-red-500"}`}>
-                                  {winnerCorrect ? (scoreCorrect ? `+${pred.pointsAwarded} pts` : `+${pred.pointsAwarded} pt`) : "miss"}
+                              {scored && (
+                                <span className={`text-[10.5px] font-extrabold ${winnerCorrect ? "text-emerald-600" : "text-red-500"}`}>
+                                  {winnerCorrect ? `${scoreCorrect ? "★ " : ""}+${pred.pointsAwarded} ${pred.pointsAwarded === 1 ? "pt" : "pts"}` : "miss"}
                                 </span>
                               )}
                             </div>

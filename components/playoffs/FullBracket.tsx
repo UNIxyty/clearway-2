@@ -271,32 +271,39 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
     });
   }, [matches, userPredictions, matchesByCode]);
 
-  // Results (correct/wrong) from locked matches
+  // A match is "scored" once its real result is published (home_score set) and a
+  // winner is decided — gate on that, NOT on is_locked, so the badges stay in
+  // sync with the "Actual X–Y" score (which also keys off home_score) and still
+  // show even if a result was published without the lock flag.
+  const ROUND_PTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
+
+  // Results (correct/wrong) for the current user's prediction on scored matches.
   const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {
     const out: Record<string, 'correct' | 'wrong'> = {};
     matches.forEach(m => {
-      if (!m.winnerTeamId || !m.isLocked) return;
+      if (!m.winnerTeamId || m.homeScore == null) return;
       const pred = userPredictions.find(p => p.matchId === m.id);
-      if (!pred) return;
+      if (!pred?.predictedWinnerId) return;
       out[m.matchCode] = pred.predictedWinnerId === m.winnerTeamId ? 'correct' : 'wrong';
     });
     return out;
   }, [matches, userPredictions]);
 
-  // Points labels: 'miss' | '+N' | '+N +2' per match code
-  const ROUND_PTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
+  // Points pill text per match code. Uses the authoritative points_awarded
+  // written by calculate_playoff_points; 'miss' when the user predicted but
+  // earned 0. '★' prefix marks an exact-score bonus.
   const pointsLabels = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     matches.forEach(m => {
-      if (!m.isLocked || !m.winnerTeamId) return;
+      if (!m.winnerTeamId || m.homeScore == null) return;
       const pred = userPredictions.find(p => p.matchId === m.id);
       if (!pred?.predictedWinnerId) return;
       const winnerCorrect = pred.predictedWinnerId === m.winnerTeamId;
-      if (!winnerCorrect) { out[m.matchCode] = 'miss'; return; }
-      const roundPts = ROUND_PTS[m.round] ?? 1;
+      const earned = pred.pointsAwarded ?? (winnerCorrect ? (ROUND_PTS[m.round] ?? 1) : 0);
+      if (earned <= 0) { out[m.matchCode] = 'miss'; return; }
       const scoreCorrect = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null
         && pred.predictedHomeScore === m.homeScore && pred.predictedAwayScore === m.awayScore;
-      out[m.matchCode] = scoreCorrect ? `+${roundPts} +2` : `+${roundPts}`;
+      out[m.matchCode] = `${scoreCorrect ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;
     });
     return out;
   }, [matches, userPredictions]);

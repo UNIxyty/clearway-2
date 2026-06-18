@@ -15,6 +15,7 @@ import {
 } from '@/lib/playoffs/bracketData';
 import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction, GroupDef } from '@/lib/playoffs/types';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
+import { PLAYOFF_ROUND_POINTS } from '@/lib/playoffs/scoring-constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
   // winner is decided — gate on that, NOT on is_locked, so the badges stay in
   // sync with the "Actual X–Y" score (which also keys off home_score) and still
   // show even if a result was published without the lock flag.
-  const ROUND_PTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
+  const ROUND_PTS = PLAYOFF_ROUND_POINTS; // single source of truth (shared w/ RPC + email)
 
   // Results (correct/wrong) for the current user's prediction on scored matches.
   const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {

@@ -9,6 +9,7 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -21,5 +22,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "digital-wall/**", "scripts/verify-final-standings.ts"]
+  "exclude": ["node_modules", "digital-wall/**"]
 }

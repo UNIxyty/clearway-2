@@ -6,16 +6,15 @@
  * against a synthetic dataset and reused by the email trigger unchanged.
  */
 
-// MUST stay in sync with the calculate_playoff_points RPC
-// (migrations/20260616_playoff_score_bonus.sql) and FullBracket's ROUND_PTS.
-// This core recomputes per-round base + exact bonus (rather than reading the
-// folded points_awarded) because the email needs the base/bonus SPLIT, which the
-// single stored value can't provide. The recomputed total equals SUM(points_awarded)
-// only while these constants match the RPC — if the RPC's values change, change
-// these too (and FullBracket's), or the final-email totals will drift from the
-// leaderboard.
-export const ROUND_POINTS: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
-export const EXACT_BONUS = 2;
+// Re-exported from the single source of truth. This core recomputes the per-round
+// base + exact-bonus SPLIT (which the folded points_awarded can't provide); its
+// total equals SUM(points_awarded) as long as these constants match the RPC,
+// which scripts/check-playoff-points-sync.ts enforces.
+// Relative .ts import (allowImportingTsExtensions) so this leaf resolves under
+// tsc, webpack, AND the bare-node verify harness identically.
+import { PLAYOFF_ROUND_POINTS, PLAYOFF_EXACT_BONUS } from '../../lib/playoffs/scoring-constants.ts';
+export const ROUND_POINTS = PLAYOFF_ROUND_POINTS;
+export const EXACT_BONUS = PLAYOFF_EXACT_BONUS;
 export const ROUND_LABEL: Record<string, string> = {
   R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals',
   SF: 'Semi-Finals', FINAL: 'Final', THIRD: 'Third Place',

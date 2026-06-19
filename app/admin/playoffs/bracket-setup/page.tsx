@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { AdminRoute } from '@/components/AdminRoute';
 import { AdminSubNav } from '@/components/AdminSubNav';
+import { FlagImage } from '@/components/FlagImage';
+import { flagCdnCode } from '@/lib/playoffs/flags';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
@@ -49,21 +51,10 @@ interface MatchRow {
   isLocked: boolean;
 }
 
-// ─── Flag image using Twemoji CDN ────────────────────────────────────────────
+// ─── Flag image via flagcdn (shared component) ───────────────────────────────
 
 function FlagImg({ emoji, size = 20 }: { emoji: string; size?: number }) {
-  if (!emoji) return <span className="inline-block rounded-sm bg-black/[0.07]" style={{ width: size, height: Math.round(size * 0.75) }} />;
-  const pts = [...emoji].map(c => c.codePointAt(0)!.toString(16)).join('-');
-  return (
-    <img
-      src={`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${pts}.png`}
-      alt={emoji}
-      width={size}
-      height={Math.round(size * 0.75)}
-      className="object-contain rounded-sm shrink-0"
-      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-    />
-  );
+  return <FlagImage countryCode={flagCdnCode(emoji)} emoji={emoji} size={size} />;
 }
 
 // ─── Custom team select ───────────────────────────────────────────────────────

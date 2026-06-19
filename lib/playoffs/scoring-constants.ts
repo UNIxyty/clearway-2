@@ -11,8 +11,13 @@
  * If you change a value here, update the RPC migration to match (the check will
  * tell you if you forgot).
  */
-export const PLAYOFF_ROUND_POINTS: Record<string, number> = {
-  R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3,
-};
-
+// Flat scoring across EVERY round: +1 for a correct winner, +2 exact-score bonus.
+// PLAYOFF_ROUND_POINTS keeps its per-round-map shape (consumers do [round] lookups)
+// but every round resolves to the same PLAYOFF_WINNER_POINTS — one source of truth.
+export const PLAYOFF_WINNER_POINTS = 1;
 export const PLAYOFF_EXACT_BONUS = 2;
+
+const PLAYOFF_ROUNDS = ['R32', 'R16', 'QF', 'SF', 'FINAL', 'THIRD'] as const;
+export const PLAYOFF_ROUND_POINTS: Record<string, number> = Object.fromEntries(
+  PLAYOFF_ROUNDS.map((r) => [r, PLAYOFF_WINNER_POINTS]),
+);

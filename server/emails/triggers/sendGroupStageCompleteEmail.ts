@@ -179,7 +179,7 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
 
     await sendEmail(
       user.email,
-      'WC2026 Group Stage Complete – Your Results & R32 Bracket',
+      'WC2026 Group Stage Complete — Your Results Are In',
       html,
       { userId: user.id, emailType: 'group_stage_complete' },
     );

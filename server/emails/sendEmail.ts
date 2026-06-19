@@ -1,9 +1,15 @@
 import { Resend } from 'resend';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
-const FROM = process.env.EMAIL_FROM_ADDRESS
-  ? `WC2026 Pick'em <${process.env.EMAIL_FROM_ADDRESS}>`
-  : "WC2026 Pick'em <noreply@verxyl.com>";
+// Sender display name + address, e.g. "Clearway WC2026 Pickems <noreply@verxyl.com>".
+// Required — no hardcoded fallback. Throws (and the send is logged failed) if unset.
+function getFrom(): string {
+  const from = process.env.PICKEM_EMAIL_FROM;
+  if (!from || !from.trim()) {
+    throw new Error('PICKEM_EMAIL_FROM is not set — refusing to send email without a configured sender address.');
+  }
+  return from;
+}
 
 let _resend: Resend | null = null;
 function getResend(): Resend {
@@ -20,7 +26,7 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  opts?: { userId?: string; emailType?: string },
+  opts?: { userId?: string; emailType?: string; isTest?: boolean },
 ): Promise<SendEmailResult> {
   const supabase = createSupabaseAdminClient();
   const logRow = {
@@ -31,11 +37,12 @@ export async function sendEmail(
     status: 'pending' as string,
     error_message: null as string | null,
     sent_at: null as string | null,
+    is_test: opts?.isTest ?? false,
   };
 
   let result: SendEmailResult;
   try {
-    const { error } = await getResend().emails.send({ from: FROM, to, subject, html });
+    const { error } = await getResend().emails.send({ from: getFrom(), to, subject, html });
     if (error) {
       logRow.status = 'failed';
       logRow.error_message = error.message;

@@ -9,8 +9,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PLAYOFF_ROUND_POINTS, PLAYOFF_EXACT_BONUS } from '../lib/playoffs/scoring-constants.ts';
 
-// The current authoritative RPC definition (the +2 bonus version).
-const MIGRATION = 'migrations/20260616_playoff_score_bonus.sql';
+// The current authoritative RPC definition (flat 1/2 across all rounds).
+const MIGRATION = 'migrations/20260619_flat_playoff_points.sql';
 const sql = fs.readFileSync(path.join(process.cwd(), MIGRATION), 'utf-8');
 
 const problems: string[] = [];

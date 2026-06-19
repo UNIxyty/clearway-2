@@ -125,7 +125,7 @@ async function _blast(competitionId: string): Promise<void> {
     const html = renderTemplate('finalStandings.html', getFinalStandingsData(user.id, standings, firstName, base));
     await sendEmail(
       user.email,
-      'WC2026 Pick\'em – Final Results & Your Tournament Rank',
+      "WC2026 Pick'em Is Over — Here's How You Finished",
       html,
       { userId: user.id, emailType: 'final_standings' },
     );

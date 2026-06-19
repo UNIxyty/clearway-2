@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { AdminRoute } from '@/components/AdminRoute';
+import { AdminSubNav } from '@/components/AdminSubNav';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
@@ -231,6 +232,7 @@ function TeamSelect({
 export default function BracketSetupPage() {
   return (
     <AdminRoute>
+      <AdminSubNav />
       <BracketSetupContent />
     </AdminRoute>
   );

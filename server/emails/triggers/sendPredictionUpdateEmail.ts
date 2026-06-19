@@ -3,8 +3,8 @@ import { renderTemplate } from '@/server/emails/renderTemplate';
 import { sendEmail } from '@/server/emails/sendEmail';
 import { unsubscribeUrl } from '@/server/utils/unsubscribeToken';
 
-const DEBOUNCE_MS = 5 * 60 * 1000; // quiet-period after the latest change
-const MAX_WAIT_MS = 6 * 60 * 1000; // hard cap measured from the FIRST change in a batch
+const DEBOUNCE_MS = 90 * 1000;  // quiet-period after the latest change (target <2 min)
+const MAX_WAIT_MS = 120 * 1000; // hard cap from the FIRST change so worst case ≈ 2 min
 
 /*
  * NOTE ON DURABILITY: this debounce is in-memory (per Node process). A container
@@ -127,7 +127,7 @@ async function _send(
   try {
     await sendEmail(
       email,
-      `Your WC2026 bracket was updated (${changes.length} change${changes.length !== 1 ? 's' : ''})`,
+      `Your WC2026 Bracket Was Updated (${changes.length} change${changes.length === 1 ? '' : 's'})`,
       html,
       { userId, emailType: 'prediction_update' },
     );

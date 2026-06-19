@@ -89,7 +89,7 @@ async function _send(input: SendBracketConfirmationInput): Promise<void> {
 
   await sendEmail(
     input.email,
-    "Your WC2026 Playoff picks are locked in",
+    "Your WC2026 Playoff Picks Are Locked In",
     html,
     { userId: input.userId, emailType: 'bracket_confirmation' },
   );

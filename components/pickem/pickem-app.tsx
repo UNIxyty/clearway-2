@@ -42,6 +42,9 @@ type PlayoffLeaderboardRow = {
   rank: number;
   userId: string;
   displayName: string;
+  r32ProjPts: number;
+  matchResultPts: number;
+  exactScorePts: number;
   totalPoints: number;
   correctPicks: number;
 };
@@ -1599,8 +1602,10 @@ export function PickemApp() {
                       <tr className="border-b border-black/10 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
                         <th className="px-4 py-3">Rank</th>
                         <th className="px-4 py-3">Player</th>
-                        <th className="px-4 py-3 text-right">Correct picks</th>
-                        <th className="px-4 py-3 text-right">Total pts</th>
+                        <th className="px-4 py-3 text-right">R32 Proj Pts</th>
+                        <th className="px-4 py-3 text-right">Match Result Pts</th>
+                        <th className="px-4 py-3 text-right">Exact Score Pts</th>
+                        <th className="px-4 py-3 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1622,7 +1627,9 @@ export function PickemApp() {
                                 </span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.correctPicks}</td>
+                            <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.r32ProjPts}</td>
+                            <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.matchResultPts}</td>
+                            <td className="px-4 py-3 text-right text-sm font-extrabold text-slate-600">{row.exactScorePts}</td>
                             <td className="px-4 py-3 text-right text-base font-black" style={{ color: NAVY }}>{row.totalPoints}</td>
                           </tr>
                         );

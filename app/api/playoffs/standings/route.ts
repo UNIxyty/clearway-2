@@ -1,110 +1,85 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
+import { getActiveCompetition } from '@/lib/pickem-store';
+import { PLAYOFF_EXACT_BONUS } from '@/lib/playoffs/scoring-constants';
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
-
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Gate: viewer must have submitted their own playoff picks (Stage 8).
+  const { data: viewerPicks, error: viewerErr } = await supabase
+    .from('playoff_predictions').select('id').eq('user_id', user.id).limit(1);
+  if (viewerErr) return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
+  if (!viewerPicks || viewerPicks.length === 0) return NextResponse.json({ viewerSubmitted: false, rows: [] });
+
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return NextResponse.json({ error: 'Service role client unavailable' }, { status: 500 });
+
+  const comp = await getActiveCompetition();
+
+  const [{ data: preds, error: predErr }, { data: matchRows, error: matchErr }, ledgerRes] = await Promise.all([
+    service.from('playoff_predictions')
+      .select('user_id, match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded'),
+    service.from('playoff_matches')
+      .select('id, winner_team_id, home_score, away_score'),
+    comp
+      ? service.from('pickem_points_ledger').select('user_id, points').eq('competition_id', comp.id).eq('source_type', 'r32_projection')
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (predErr || matchErr) return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 });
+
+  const matchById = new Map((matchRows ?? []).map(m => [m.id as string, m]));
+
+  interface Agg { r32ProjPts: number; matchResultPts: number; exactScorePts: number; correctPicks: number }
+  const agg = new Map<string, Agg>();
+  const ensure = (uid: string): Agg => {
+    let a = agg.get(uid);
+    if (!a) { a = { r32ProjPts: 0, matchResultPts: 0, exactScorePts: 0, correctPicks: 0 }; agg.set(uid, a); }
+    return a;
+  };
+
+  // R32 projection points from the ledger.
+  for (const row of (ledgerRes.data ?? [])) {
+    ensure(row.user_id as string).r32ProjPts += Number(row.points ?? 0);
   }
 
-  // Check if viewer has submitted any playoff picks
-  const { data: viewerPicks, error: viewerPicksError } = await supabase
-    .from('playoff_predictions')
-    .select('id')
-    .eq('user_id', user.id)
-    .limit(1);
-
-  if (viewerPicksError) {
-    return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
-  }
-
-  const viewerSubmitted = viewerPicks && viewerPicks.length > 0;
-
-  if (!viewerSubmitted) {
-    return NextResponse.json({ viewerSubmitted: false, rows: [] });
-  }
-
-  // Use service role client to bypass RLS
-  const serviceClient = createSupabaseServiceRoleClient();
-  if (!serviceClient) {
-    return NextResponse.json({ error: 'Service role client unavailable' }, { status: 500 });
-  }
-
-  const { data: allPredictions, error: predictionsError } = await serviceClient
-    .from('playoff_predictions')
-    .select('user_id, points_awarded, predicted_home_score, predicted_away_score');
-
-  if (predictionsError) {
-    return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 });
-  }
-
-  if (!allPredictions || allPredictions.length === 0) {
-    return NextResponse.json({ viewerSubmitted: true, rows: [] });
-  }
-
-  // Aggregate by user_id
-  const aggregated = new Map<string, {
-    totalPoints: number;
-    correctPicks: number;
-    picksWithScores: number;
-  }>();
-
-  for (const row of allPredictions) {
-    const userId = row.user_id as string;
-    if (!aggregated.has(userId)) {
-      aggregated.set(userId, { totalPoints: 0, correctPicks: 0, picksWithScores: 0 });
-    }
-    const entry = aggregated.get(userId)!;
-    entry.totalPoints += (row.points_awarded ?? 0);
-    if ((row.points_awarded ?? 0) > 0) {
-      entry.correctPicks += 1;
-    }
-    if (row.predicted_home_score != null && row.predicted_away_score != null) {
-      entry.picksWithScores += 1;
+  // Match result (base winner) + exact-score bonus from scored playoff predictions.
+  for (const p of (preds ?? [])) {
+    const m = matchById.get(p.match_id as string);
+    if (!m || !m.winner_team_id || m.home_score === null || m.away_score === null) continue;
+    const a = ensure(p.user_id as string);
+    const winnerCorrect = !!p.predicted_winner_id && p.predicted_winner_id === m.winner_team_id;
+    const exact = p.predicted_home_score === m.home_score && p.predicted_away_score === m.away_score;
+    const bonus = exact ? PLAYOFF_EXACT_BONUS : 0;
+    if (exact) a.exactScorePts += PLAYOFF_EXACT_BONUS;
+    if (winnerCorrect) {
+      a.matchResultPts += Math.max(0, Number(p.points_awarded ?? 0) - bonus); // base winner points only
+      a.correctPicks += 1;
     }
   }
 
-  const userIds = Array.from(aggregated.keys());
+  const userIds = [...agg.keys()];
+  if (userIds.length === 0) return NextResponse.json({ viewerSubmitted: true, rows: [] });
 
-  // Get display names
-  const { data: userPrefs, error: prefsError } = await serviceClient
-    .from('user_preferences')
-    .select('user_id, display_name')
-    .in('user_id', userIds);
+  const { data: prefs } = await service.from('user_preferences').select('user_id, display_name').in('user_id', userIds);
+  const nameById = new Map((prefs ?? []).map(p => [p.user_id as string, p.display_name as string]));
 
-  if (prefsError) {
-    return NextResponse.json({ error: 'Failed to fetch user preferences' }, { status: 500 });
-  }
+  const rows = userIds.map(uid => {
+    const a = agg.get(uid)!;
+    return {
+      userId: uid,
+      displayName: nameById.get(uid) ?? uid,
+      r32ProjPts: a.r32ProjPts,
+      matchResultPts: a.matchResultPts,
+      exactScorePts: a.exactScorePts,
+      totalPoints: a.r32ProjPts + a.matchResultPts + a.exactScorePts,
+      correctPicks: a.correctPicks,
+    };
+  }).sort((x, y) => y.totalPoints - x.totalPoints || x.displayName.localeCompare(y.displayName))
+    .map((r, i) => ({ rank: i + 1, ...r }));
 
-  const displayNameMap = new Map<string, string>();
-  for (const pref of userPrefs ?? []) {
-    displayNameMap.set(pref.user_id as string, pref.display_name as string);
-  }
-
-  // Build rows and rank
-  const rows = Array.from(aggregated.entries()).map(([userId, stats]) => ({
-    userId,
-    displayName: displayNameMap.get(userId) ?? userId,
-    totalPoints: stats.totalPoints,
-    correctPicks: stats.correctPicks,
-    picksWithScores: stats.picksWithScores,
-  }));
-
-  rows.sort((a, b) => {
-    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-    return a.displayName.localeCompare(b.displayName);
-  });
-
-  const rankedRows = rows.map((row, index) => ({
-    rank: index + 1,
-    userId: row.userId,
-    displayName: row.displayName,
-    totalPoints: row.totalPoints,
-    correctPicks: row.correctPicks,
-  }));
-
-  return NextResponse.json({ viewerSubmitted: true, rows: rankedRows });
+  return NextResponse.json({ viewerSubmitted: true, rows });
 }

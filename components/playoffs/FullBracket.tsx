@@ -24,6 +24,9 @@ export interface FullBracketProps {
   userPredictions: PlayoffPrediction[];
   teams: BracketTeam[];
   onSavePrediction: (matchId: string, winnerId: string | null, homeScore: number | null, awayScore: number | null) => Promise<void>;
+  /** When mounted inside the Playoffs tab shell: hide the standalone navbar and
+   *  size the scroller to the embedded area instead of the full viewport. */
+  embedded?: boolean;
 }
 
 // ─── Group column box ─────────────────────────────────────────────────────────
@@ -179,7 +182,7 @@ function GroupColumn({ groups, dir }: { groups: GroupDef[]; dir: 'left' | 'right
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FullBracket({ matches, userPredictions, teams, onSavePrediction }: FullBracketProps) {
+export function FullBracket({ matches, userPredictions, teams, onSavePrediction, embedded = false }: FullBracketProps) {
   // Build matchesByCode map
   const matchesByCode = useMemo<Record<string, PlayoffMatch>>(
     () => Object.fromEntries(matches.map(m => [m.matchCode, m])),
@@ -643,9 +646,11 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
   const mobileRoundIds = MOBILE_ROUNDS.find(r => r.key === mobileRound)?.ids ?? [];
 
   return (
-    <div className="min-h-screen bg-page text-navy font-sans">
-      {/* NavBar */}
+    <div className={`${embedded ? '' : 'min-h-screen'} bg-page text-navy font-sans`}>
+      {/* NavBar — hidden when embedded in the Playoffs tab shell (the shell owns chrome). */}
+      {(!embedded || isMobile) && (
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-black/[0.07]">
+        {!embedded && (
         <div className="max-w-[1280px] mx-auto px-5 h-[58px] flex items-center gap-4">
           <a href="/pickem" className="flex items-center shrink-0">
             <div className="h-9 bg-navy rounded-lg px-3 flex items-center">
@@ -658,6 +663,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
             <div className="text-[11px] font-semibold text-black/40">WC 2026 · Knockout Stage</div>
           </div>
         </div>
+        )}
         {/* Mobile round tabs */}
         {isMobile && (
           <div className="flex overflow-x-auto px-3 pb-0 gap-0.5 scrollbar-none">
@@ -673,6 +679,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
           </div>
         )}
       </header>
+      )}
 
 
       {/* Mobile view: single-round vertical list */}
@@ -737,7 +744,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction 
           ref={scrollerRef}
           className="overflow-x-auto overflow-y-auto"
           style={{
-            height: 'calc(100vh - 58px - 64px)',
+            height: embedded ? 'clamp(480px, calc(100vh - 300px), 900px)' : 'calc(100vh - 58px - 64px)',
             scrollbarWidth: 'thin',
             scrollbarColor: 'rgba(15,30,60,0.16) transparent',
           }}

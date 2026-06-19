@@ -192,11 +192,13 @@ export interface R32DrawBracketProps {
   pairings: ResolvedPairing[];
   isGroupStageComplete: boolean;
   hasUserPredictions?: boolean;
+  /** Hide the standalone header when mounted inside the Playoffs tab shell. */
+  embedded?: boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredictions = false }: R32DrawBracketProps) {
+export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredictions = false, embedded = false }: R32DrawBracketProps) {
   const left = useMemo(() => pairings.slice(0, 8), [pairings]);
   const right = useMemo(() => pairings.slice(8, 16), [pairings]);
   const resolved = pairings.filter(p => p.home !== null).length;
@@ -279,8 +281,9 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
   }, [isMobile]);
 
   return (
-    <div className="min-h-screen bg-page text-navy font-sans">
-      {/* Header */}
+    <div className={`${embedded ? '' : 'min-h-screen'} bg-page text-navy font-sans`}>
+      {/* Header — hidden when embedded in the Playoffs tab shell. */}
+      {!embedded && (
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-black/[0.07]">
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 h-[60px] flex items-center justify-between gap-3">
           <Link href="/pickem" className="flex items-center gap-1.5 text-[13px] font-bold text-black/45 hover:text-navy transition shrink-0">
@@ -311,6 +314,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
           <div className="h-full bg-bk-amber transition-[width] duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
       </header>
+      )}
 
       {/* Stats strip */}
       <div className="bg-white border-b border-black/[0.07] px-4 sm:px-6 py-2.5 text-center text-[12.5px] font-bold text-black/55">

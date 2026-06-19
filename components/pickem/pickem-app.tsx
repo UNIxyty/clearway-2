@@ -78,6 +78,8 @@ type PlayoffUserPrediction = {
 type ActiveView = "home" | "groups" | "matches" | "standings" | "playoffs";
 
 const NAVY = "#0f1e3c";
+// Rank-tint medal colours (design Standings: gold/silver/bronze on the top 3).
+const MEDAL: Record<number, string> = { 1: "#FFD700", 2: "#C0C0C0", 3: "#CD7F32" };
 const PRIMARY = "#1a56db";
 const ACCENT = "#f97316";
 const TEAM_FLAGS: Record<string, string> = {
@@ -1340,7 +1342,7 @@ export function PickemApp() {
                             void viewUserPredictions(row);
                           }}
                         >
-                          <td className="px-4 py-3 text-sm font-extrabold">{row.rank}</td>
+                          <td className="px-4 py-3 text-sm font-extrabold tabular-nums" style={{ borderLeft: `3px solid ${MEDAL[row.rank] ?? "transparent"}`, color: MEDAL[row.rank] ?? undefined }}>{row.rank}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <AvatarChip name={row.displayName} />
@@ -1623,7 +1625,7 @@ export function PickemApp() {
                             className={`cursor-pointer border-b border-black/5 last:border-none ${selected ? "bg-blue-50/80" : "hover:bg-slate-50"}`}
                             onClick={() => void viewPlayoffUserPredictions(row)}
                           >
-                            <td className="px-4 py-3 text-sm font-extrabold">{row.rank}</td>
+                            <td className="px-4 py-3 text-sm font-extrabold tabular-nums" style={{ borderLeft: `3px solid ${MEDAL[row.rank] ?? "transparent"}`, color: MEDAL[row.rank] ?? undefined }}>{row.rank}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <AvatarChip name={row.displayName} />

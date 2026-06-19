@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { computePredictedGroupTable } from "@/lib/pickem-group-table";
+import { FlagImage } from "@/components/FlagImage";
+import { flagCdnCode } from "@/lib/playoffs/flags";
 import type {
   PickemCompetition,
   PickemGroup,
@@ -284,6 +286,10 @@ function emojiToCodepoint(emoji: string): string {
 
 function flagSvgSrc(team?: PickemTeam): string {
   const emoji = flagEmojiOf(team);
+  // Prefer flagcdn (Windows-safe real images); fall back to Twemoji for non-country
+  // glyphs (e.g. the white-flag placeholder).
+  const code = flagCdnCode(emoji);
+  if (code) return `https://flagcdn.com/w40/${code}.png`;
   const codepoint = emojiToCodepoint(emoji);
   return `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoint}.svg`;
 }
@@ -1686,14 +1692,17 @@ export function PickemApp() {
                                 </span>
                               )}
                             </div>
-                            <div className="text-[12.5px] font-bold text-navy">
-                              {pred.predictedWinnerFlag} {pred.predictedWinnerName ?? "—"}
+                            <div className="text-[12.5px] font-bold text-navy flex items-center gap-1.5">
+                              <FlagImage countryCode={flagCdnCode(pred.predictedWinnerFlag)} emoji={pred.predictedWinnerFlag ?? ""} size={16} />
+                              <span>{pred.predictedWinnerName ?? "—"}</span>
                               {pred.predictedHomeScore !== null && pred.predictedAwayScore !== null && (
-                                <span className="text-slate-400 font-semibold ml-1.5">({pred.predictedHomeScore}–{pred.predictedAwayScore})</span>
+                                <span className="text-slate-400 font-semibold">({pred.predictedHomeScore}–{pred.predictedAwayScore})</span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">
-                              {pred.homeTeamFlag} {pred.homeTeamName} vs {pred.awayTeamFlag} {pred.awayTeamName}
+                            <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                              <FlagImage countryCode={flagCdnCode(pred.homeTeamFlag)} emoji={pred.homeTeamFlag} size={13} /> {pred.homeTeamName}
+                              <span className="mx-0.5">vs</span>
+                              <FlagImage countryCode={flagCdnCode(pred.awayTeamFlag)} emoji={pred.awayTeamFlag} size={13} /> {pred.awayTeamName}
                             </div>
                           </div>
                         );

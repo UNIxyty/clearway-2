@@ -602,19 +602,50 @@ export async function replacePointsLedger(input: {
 export interface TournamentState {
   r32ConfirmedAt: string | null;
   finalEmailSentAt: string | null;
+  playoffsOpenedAt: string | null;
+  playoffsPredictionDeadline: string | null;
+  playoffsOpenedBy: string | null;
 }
 
 export async function getTournamentState(competitionId: string): Promise<TournamentState> {
   const supabase = service();
   const { data } = await supabase
     .from("tournament_state")
-    .select("r32_confirmed_at, final_email_sent_at")
+    .select("r32_confirmed_at, final_email_sent_at, playoffs_opened_at, playoffs_prediction_deadline, playoffs_opened_by")
     .eq("competition_id", competitionId)
     .maybeSingle();
   return {
     r32ConfirmedAt: (data?.r32_confirmed_at as string) ?? null,
     finalEmailSentAt: (data?.final_email_sent_at as string) ?? null,
+    playoffsOpenedAt: (data?.playoffs_opened_at as string) ?? null,
+    playoffsPredictionDeadline: (data?.playoffs_prediction_deadline as string) ?? null,
+    playoffsOpenedBy: (data?.playoffs_opened_by as string) ?? null,
   };
+}
+
+/** Open playoffs to regular users (or update the deadline). Never clears
+ * playoffs_opened_at once set — there is no "close playoffs" flow. */
+export async function openPlayoffs(input: {
+  competitionId: string;
+  deadline: string;        // ISO
+  adminUserId: string;
+}): Promise<void> {
+  const supabase = service();
+  const existing = await getTournamentState(input.competitionId);
+  const row: Record<string, unknown> = {
+    competition_id: input.competitionId,
+    playoffs_prediction_deadline: input.deadline,
+    updated_at: new Date().toISOString(),
+  };
+  // Stamp opened_at / opened_by only on the FIRST open; later calls just move the deadline.
+  if (!existing.playoffsOpenedAt) {
+    row.playoffs_opened_at = new Date().toISOString();
+    row.playoffs_opened_by = input.adminUserId;
+  }
+  const { error } = await supabase
+    .from("tournament_state")
+    .upsert(row, { onConflict: "competition_id", ignoreDuplicates: false });
+  if (error) throw new Error(error.message || "Failed to open playoffs");
 }
 
 /** Stamp the R32-confirmed time. Callers guard on getTournamentState first so

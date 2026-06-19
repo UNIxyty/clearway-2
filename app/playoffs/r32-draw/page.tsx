@@ -1,12 +1,12 @@
 'use client';
 
-import { AdminRoute } from '@/components/AdminRoute';
+import { PlayoffsGate } from '@/components/playoffs/PlayoffsGate';
 import { R32DrawView } from '@/components/playoffs/R32DrawView';
 
 export default function R32DrawPage() {
   return (
-    <AdminRoute>
+    <PlayoffsGate>
       <R32DrawView />
-    </AdminRoute>
+    </PlayoffsGate>
   );
 }

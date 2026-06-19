@@ -8,6 +8,8 @@ import { usePlayoffMatches } from '@/lib/hooks/usePlayoffMatches';
 import { usePlayoffPredictions } from '@/lib/hooks/usePlayoffPredictions';
 import { FullBracketView } from '@/components/playoffs/FullBracketView';
 import { R32DrawView } from '@/components/playoffs/R32DrawView';
+import { PlayoffsGate } from '@/components/playoffs/PlayoffsGate';
+import { OpenPlayoffsCard } from '@/components/playoffs/OpenPlayoffsCard';
 
 /*
  * Playoffs — single-page in-app tab shell (ported from design playoffs/app.jsx).
@@ -103,6 +105,7 @@ export default function PlayoffsPage() {
   const view = tab === 'admin' ? null : VIEWS[tab];
 
   return (
+    <PlayoffsGate>
     <div className="min-h-screen bg-page text-navy">
       <main className="max-w-[1280px] mx-auto px-4 sm:px-5 pt-6 pb-10">
         {/* header row */}
@@ -179,6 +182,7 @@ export default function PlayoffsPage() {
         </motion.div>
       </main>
     </div>
+    </PlayoffsGate>
   );
 }
 
@@ -222,6 +226,7 @@ function AdminPanel() {
     <div className="px-5 sm:px-7 py-7 bg-page">
       <h2 className="text-[17px] font-black tracking-tight text-navy mb-1">Admin Tools</h2>
       <p className="text-[13px] font-semibold text-black/45 mb-5">Manage the playoffs bracket without leaving this view.</p>
+      <div className="mb-4"><OpenPlayoffsCard /></div>
       <div className="grid gap-3 sm:grid-cols-3">
         {ADMIN_CARDS.map(c => (
           <Link key={c.title} href={c.href}

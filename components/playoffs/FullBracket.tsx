@@ -16,6 +16,7 @@ import {
 import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction, GroupDef } from '@/lib/playoffs/types';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
 import { PLAYOFF_ROUND_POINTS } from '@/lib/playoffs/scoring-constants';
+import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,13 +106,14 @@ interface RoundColumnProps {
   matchesByCode: Record<string, PlayoffMatch>;
   results: Record<string, 'correct' | 'wrong'>;
   pointsLabels: Record<string, string>;
+  readOnly: boolean;
   onPick: (id: string, side: 'home' | 'away') => void;
   onScore: (id: string, side: 'home' | 'away', v: string) => void;
 }
 
 function RoundColumn({
   label, ids, width, picks, scores, flash, startIndex,
-  matchesByCode, results, pointsLabels, onPick, onScore,
+  matchesByCode, results, pointsLabels, readOnly, onPick, onScore,
 }: RoundColumnProps) {
   return (
     <div className="shrink-0 flex flex-col" style={{ width, height: BRACKET_H }}>
@@ -120,7 +122,7 @@ function RoundColumn({
         {ids.map((id, i) => {
           const def = MATCHES[id];
           const dbMatch = matchesByCode[id];
-          const isLocked = dbMatch?.isLocked ?? false;
+          const isLocked = (dbMatch?.isLocked ?? false) || readOnly;
           const pick = picks[id] ?? null;
 
           const home = teamInSlot(id, 'home', picks, matchesByCode) ?? dbMatch?.homeTeam ?? null;
@@ -183,6 +185,8 @@ function GroupColumn({ groups, dir }: { groups: GroupDef[]; dir: 'left' | 'right
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FullBracket({ matches, userPredictions, teams, onSavePrediction, embedded = false }: FullBracketProps) {
+  // Feature-level read-only (non-admin after the deadline). Layered on per-match locks.
+  const readOnly = usePlayoffsReadOnly();
   // Build matchesByCode map
   const matchesByCode = useMemo<Record<string, PlayoffMatch>>(
     () => Object.fromEntries(matches.map(m => [m.matchCode, m])),
@@ -632,7 +636,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   const bHome = teamInSlot('THIRD_M01', 'home', picks, matchesByCode);
   const bAway = teamInSlot('THIRD_M01', 'away', picks, matchesByCode);
 
-  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, onPick, onScore };
+  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, readOnly, onPick, onScore };
 
   // ---- Mobile round data ----
   const MOBILE_ROUNDS = [
@@ -688,7 +692,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
           {mobileRoundIds.map((id, i) => {
             const def = MATCHES[id];
             const dbMatch = matchesByCode[id];
-            const isLocked = dbMatch?.isLocked ?? false;
+            const isLocked = (dbMatch?.isLocked ?? false) || readOnly;
             const pick = picks[id] ?? null;
             const home = teamInSlot(id, 'home', picks, matchesByCode) ?? dbMatch?.homeTeam ?? null;
             const away = teamInSlot(id, 'away', picks, matchesByCode) ?? dbMatch?.awayTeam ?? null;
@@ -784,7 +788,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       venue="MetLife Stadium · New York" date="Jul 19, 2026"
                       home={fHome} away={fAway}
                       pick={picks['FINAL_M01'] ?? null}
-                      locked={matchesByCode['FINAL_M01']?.isLocked ?? false}
+                      locked={(matchesByCode['FINAL_M01']?.isLocked ?? false) || readOnly}
                       official={matchesByCode['FINAL_M01']?.homeScore != null ? { home: matchesByCode['FINAL_M01'].homeScore!, away: matchesByCode['FINAL_M01'].awayScore! } : null}
                       result={results['FINAL_M01'] ?? null}
                       pointsLabel={pointsLabels['FINAL_M01'] ?? null}
@@ -807,7 +811,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       venue="Hard Rock · Miami" date="Jul 18, 2026"
                       home={bHome} away={bAway}
                       pick={picks['THIRD_M01'] ?? null}
-                      locked={matchesByCode['THIRD_M01']?.isLocked ?? false}
+                      locked={(matchesByCode['THIRD_M01']?.isLocked ?? false) || readOnly}
                       result={results['THIRD_M01'] ?? null}
                       pointsLabel={pointsLabels['THIRD_M01'] ?? null}
                       scores={scores['THIRD_M01'] ?? { home: '', away: '' }}
@@ -842,7 +846,8 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
 
       <Toast show={toast} label="Downstream picks cleared" />
 
-      {/* Submit bar */}
+      {/* Submit bar — hidden entirely in feature-level read-only mode. */}
+      {!readOnly && (
       <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-black/[0.07]">
         <div className="max-w-[1280px] mx-auto px-5 h-16 flex items-center gap-5">
           <div className="flex-1 min-w-0">
@@ -879,6 +884,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

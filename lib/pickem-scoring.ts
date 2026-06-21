@@ -1,4 +1,4 @@
-import { PICKEM_POINTS } from "@/lib/pickem-shared";
+import { PICKEM_POINTS, type PickemMatchPrediction } from "@/lib/pickem-shared";
 import { derivePredictedGroupPositions } from "@/lib/pickem-group-table";
 import { getTournamentState, listGroups, listMatches, listTeams, listUserPredictions, replacePointsLedger } from "@/lib/pickem-store";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -10,6 +10,66 @@ import { R32_PAIRINGS } from "@/lib/playoffs/r32Bracket";
 function matchOutcome(home: number, away: number): "home" | "away" | "draw" {
   if (home === away) return "draw";
   return home > away ? "home" : "away";
+}
+
+/**
+ * DRY RUN: how many group-position points WOULD be awarded for one group if it
+ * finished in `orderTeamIds` order (index 0 = 1st). Pure read — writes nothing to
+ * the ledger. Mirrors the group_position logic in recomputePickemPoints exactly
+ * (derived predicted positions vs the candidate final positions, +1 per match).
+ */
+export async function previewGroupPositionPoints(
+  competitionId: string,
+  groupCode: string,
+  orderTeamIds: string[],
+): Promise<{ points: number; correctPlacements: number }> {
+  const supabase = createSupabaseServiceRoleClient();
+  if (!supabase) throw new Error("Missing Supabase service role configuration");
+
+  const [groups, teams, matches, { data: predRows }] = await Promise.all([
+    listGroups(competitionId),
+    listTeams(competitionId),
+    listMatches(competitionId),
+    supabase
+      .from("pickem_user_match_predictions")
+      .select("user_id, match_id, predicted_home_score, predicted_away_score, predicted_outcome")
+      .eq("competition_id", competitionId),
+  ]);
+
+  // Candidate final position per team (1-based) for the target group.
+  const candidatePos = new Map<string, number>();
+  orderTeamIds.forEach((teamId, idx) => candidatePos.set(teamId, idx + 1));
+
+  // All users' match predictions grouped by user.
+  const predsByUser = new Map<string, PickemMatchPrediction[]>();
+  for (const p of (predRows ?? [])) {
+    const uid = String((p as { user_id: string }).user_id);
+    if (!predsByUser.has(uid)) predsByUser.set(uid, []);
+    predsByUser.get(uid)!.push({
+      userId: uid,
+      competitionId,
+      matchId: String((p as { match_id: string }).match_id),
+      predictedHomeScore: Number((p as { predicted_home_score: number }).predicted_home_score),
+      predictedAwayScore: Number((p as { predicted_away_score: number }).predicted_away_score),
+      predictedOutcome: (p as { predicted_outcome: "home" | "away" | "draw" }).predicted_outcome,
+    });
+  }
+
+  let points = 0;
+  let correctPlacements = 0;
+  for (const matchPredictions of predsByUser.values()) {
+    const derived = derivePredictedGroupPositions({ groups, teams, matches, matchPredictions });
+    for (const gp of derived) {
+      if (gp.groupCode !== groupCode) continue;
+      const real = candidatePos.get(gp.teamId);
+      if (real !== undefined && real === gp.predictedPosition) {
+        points += PICKEM_POINTS.GROUP_POSITION;
+        correctPlacements += 1;
+      }
+    }
+  }
+
+  return { points, correctPlacements };
 }
 
 export async function recomputePickemPoints(competitionId: string): Promise<void> {

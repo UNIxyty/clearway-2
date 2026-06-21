@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PickemCompetition, PickemGroup, PickemMatch, PickemTeam } from "@/lib/pickem-shared";
+import { GroupSortable } from "@/components/pickem/GroupSortable";
+
+type GroupPreview = { points: number; correctPlacements: number } | "loading";
 
 type AdminPayload = {
   competition: PickemCompetition;
@@ -103,6 +106,8 @@ export function PickemAdminClient() {
   const [groupsPayload, setGroupsPayload] = useState<GroupsPayload | null>(null);
   const [locksPayload, setLocksPayload] = useState<LocksPayload | null>(null);
   const [groupOrders, setGroupOrders] = useState<Record<string, string[]>>({});
+  const [groupPreview, setGroupPreview] = useState<Record<string, GroupPreview>>({});
+  const previewTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [edits, setEdits] = useState<EditState>({});
   const [devModePayload, setDevModePayload] = useState<DevModePayload | null>(null);
   const [devModeLoading, setDevModeLoading] = useState(false);
@@ -417,15 +422,31 @@ export function PickemAdminClient() {
     }
   }
 
-  function moveGroupTeam(groupCode: string, idx: number, direction: -1 | 1) {
-    setGroupOrders((prev) => {
-      const current = [...(prev[groupCode] || [])];
-      const nextIdx = idx + direction;
-      if (idx < 0 || nextIdx < 0 || idx >= current.length || nextIdx >= current.length) return prev;
-      const next = [...current];
-      [next[idx], next[nextIdx]] = [next[nextIdx], next[idx]];
-      return { ...prev, [groupCode]: next };
-    });
+  // Debounced dry-run preview: how many group-position points the current
+  // (unsaved) order would award. Writes nothing until the admin Publishes.
+  function previewGroup(groupCode: string, orderTeamIds: string[]) {
+    if (orderTeamIds.length !== 4) return;
+    if (previewTimers.current[groupCode]) clearTimeout(previewTimers.current[groupCode]);
+    setGroupPreview((prev) => ({ ...prev, [groupCode]: "loading" }));
+    previewTimers.current[groupCode] = setTimeout(() => {
+      fetch("/api/pickem/admin/groups/preview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ groupCode, orderTeamIds }),
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j && j.ok) setGroupPreview((prev) => ({ ...prev, [groupCode]: { points: j.points, correctPlacements: j.correctPlacements } }));
+          else setGroupPreview((prev) => { const n = { ...prev }; delete n[groupCode]; return n; });
+        })
+        .catch(() => setGroupPreview((prev) => { const n = { ...prev }; delete n[groupCode]; return n; }));
+    }, 250);
+  }
+
+  // Drag-sort commit: set the new order + refresh the preview.
+  function commitGroupOrder(groupCode: string, orderedIds: string[]) {
+    setGroupOrders((prev) => ({ ...prev, [groupCode]: orderedIds }));
+    previewGroup(groupCode, orderedIds);
   }
 
   const effectiveLockUserId = (manualLockUserId || selectedLockUserId).trim();
@@ -744,32 +765,28 @@ export function PickemAdminClient() {
                     {isPublished ? "FINAL" : "DRAFT"}
                   </span>
                 </div>
-                <div className="space-y-2">
-                  {teamObjs.map((team, idx) => (
-                    <div key={team.id} className="flex items-center gap-2 rounded-lg bg-white/10 px-2 py-2">
-                      <span className="w-5 text-center text-sm font-bold text-blue-200">{idx + 1}</span>
-                      <span className="flex-1 truncate text-sm font-semibold">{team.name}</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => moveGroupTeam(group.code, idx, -1)}
-                          disabled={idx === 0}
-                          className="h-7 w-7 rounded border border-white/25 text-xs font-black disabled:opacity-30"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveGroupTeam(group.code, idx, 1)}
-                          disabled={idx === teamObjs.length - 1}
-                          className="h-7 w-7 rounded border border-white/25 text-xs font-black disabled:opacity-30"
-                        >
-                          ↓
-                        </button>
-                      </div>
+                <GroupSortable
+                  items={teamObjs.map((t) => ({ id: t.id, name: t.name, shortName: t.shortName }))}
+                  onCommit={(ids) => commitGroupOrder(group.code, ids)}
+                  disabled={isPublished}
+                />
+                {!isPublished && (() => {
+                  const pv = groupPreview[group.code];
+                  return (
+                    <div className="mt-2 flex items-center justify-between text-[11.5px] font-semibold text-white/55">
+                      <span>
+                        {pv === "loading"
+                          ? "Calculating…"
+                          : pv
+                            ? `${pv.correctPlacements} correct placement${pv.correctPlacements === 1 ? "" : "s"}`
+                            : "Drag to set the finishing order — preview updates on change"}
+                      </span>
+                      {pv && pv !== "loading" && (
+                        <span className="text-emerald-300 font-extrabold tabular-nums">≈ +{pv.points} pts to distribute</span>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
                 <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
                   <button
                     type="button"

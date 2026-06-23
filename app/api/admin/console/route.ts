@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { getActiveCompetition, getTournamentState, getLeaderboard, listGroupResults } from '@/lib/pickem-store';
+import { getActiveCompetition, getTournamentState, getLeaderboard } from '@/lib/pickem-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +40,14 @@ export async function GET() {
     });
   }
 
-  const [ts, groupResults, leaderboard, groupPreds, playoffPreds, emailsSent, optOuts, r32Rows] = await Promise.all([
+  // Group stage is complete only when ALL 12 groups × 4 teams have a final
+  // position set (12 × 4 = 48 non-null final_position rows). A single group
+  // being published is NOT "complete".
+  const GROUP_RESULTS_COMPLETE = 48;
+
+  const [ts, finalizedResults, leaderboard, groupPreds, playoffPreds, emailsSent, optOuts, r32Rows] = await Promise.all([
     getTournamentState(comp.id),
-    listGroupResults(comp.id),
+    supabase.from('pickem_group_results').select('id', { count: 'exact', head: true }).eq('competition_id', comp.id).not('final_position', 'is', null),
     getLeaderboard(comp.id),
     supabase.from('pickem_user_match_predictions').select('id', { count: 'exact', head: true }).eq('competition_id', comp.id),
     supabase.from('playoff_predictions').select('id', { count: 'exact', head: true }).not('predicted_winner_id', 'is', null),
@@ -56,7 +61,7 @@ export async function GET() {
   return NextResponse.json({
     profile: { name, initials: initialsOf(name) },
     state: {
-      groupStageComplete: groupResults.length > 0,
+      groupStageComplete: (finalizedResults.count ?? 0) === GROUP_RESULTS_COMPLETE,
       r32ConfirmedAt: ts.r32ConfirmedAt,
       playoffsOpenedAt: ts.playoffsOpenedAt,
       playoffsDeadlineAt: ts.playoffsPredictionDeadline,

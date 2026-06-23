@@ -1,13 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { PlayoffsGate } from '@/components/playoffs/PlayoffsGate';
-import PlayoffsPageShell from '@/components/playoffs/PlayoffsPageShell';
 
-/*
- * /playoffs — the launch gate (admins always; regular users once opened) wraps
- * the design's tab-switcher shell, which mounts the real R32DrawView /
- * FullBracketView (embedded) + the Admin Tools panel.
- */
+// Client-only: the shell initializes its active tab from ?view= in a useState
+// initializer. Under Next SSR that would render the default first then correct
+// on hydration (flash + mismatch). ssr:false makes the URL-init run once on the
+// client, so ?view=bracket is honored on direct load with no flash.
+const PlayoffsPageShell = dynamic(() => import('@/components/playoffs/PlayoffsPageShell'), { ssr: false });
+
 export default function PlayoffsRoutePage() {
   return (
     <PlayoffsGate>

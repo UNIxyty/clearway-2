@@ -13,7 +13,7 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from('email_logs')
-    .select('id, user_id, email_type, recipient_email, subject, status, error_message, sent_at, created_at')
+    .select('id, user_id, email_type, recipient_email, subject, status, error_message, sent_at, created_at, is_test')
     .order('created_at', { ascending: false })
     .limit(200);
 

@@ -291,19 +291,19 @@ const ADMIN_CARDS: AdminCardDef[] = [
   {
     title: 'Bracket Setup',
     subtitle: 'Assign teams to playoff slots and confirm the R32 bracket',
-    href: '/admin/playoffs/bracket-setup',
+    href: '/admin?section=bracket-setup',
     icon: SetupIcon,
   },
   {
     title: 'Enter Results',
     subtitle: 'Publish match scores and calculate points',
-    href: '/admin/playoffs/results',
+    href: '/admin?section=results',
     icon: TrophyIcon,
   },
   {
     title: 'Email Tools',
     subtitle: 'Send and test emails to all participants',
-    href: '/admin/email-tools',
+    href: '/admin?section=email-tools',
     icon: MailIcon,
   },
 ];

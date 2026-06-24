@@ -33,8 +33,11 @@ export interface FullBracketProps {
 // ─── Group column box ─────────────────────────────────────────────────────────
 
 function GroupBox({ group, dir }: { group: GroupDef; dir: 'left' | 'right' }) {
+  // The connector dash is no longer drawn here — measure() draws a real elbow in
+  // the SVG layer from this badge's edge to the nearest R32 card's vertical
+  // midpoint. data-group / data-group-dir let measure() locate this badge.
   return (
-    <div className="relative flex flex-col items-center" style={{ width: 80 }}>
+    <div className="relative flex flex-col items-center" style={{ width: 80 }} data-group={group.letter} data-group-dir={dir}>
       <div className="relative w-[80px] rounded-lg bg-navy overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(15,30,60,0.18)' }}>
         <div className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ background: group.accent }} />
         <div className="grid grid-cols-2 gap-y-1 gap-x-1.5 place-items-center px-2.5 py-2.5">
@@ -44,10 +47,6 @@ function GroupBox({ group, dir }: { group: GroupDef; dir: 'left' | 'right' }) {
           <span className="text-[9.5px] font-extrabold tracking-[0.08em] text-white/85">GROUP {group.letter}</span>
         </div>
       </div>
-      <div
-        className="absolute top-1/2 h-px bg-black/15"
-        style={dir === 'right' ? { left: '100%', width: 26 } : { right: '100%', width: 26 }}
-      />
     </div>
   );
 }
@@ -567,6 +566,31 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
         if (leftSide) out.push(buildElbow(f.left + f.w, f.top + f.h / 2, t.left, t.top + t.h / 2, active));
         else out.push(buildElbow(f.left, f.top + f.h / 2, t.left + t.w, t.top + t.h / 2, active));
       });
+    });
+
+    // Group badge → nearest R32 card connectors. Badges are evenly spread, so
+    // each one connects to whichever R32 card on its side is vertically closest,
+    // meeting that card at its mid-height (replaces the old fixed 26px stub).
+    c.querySelectorAll('[data-group]').forEach(el => {
+      const gr = el.getBoundingClientRect();
+      const dir = el.getAttribute('data-group-dir'); // 'right' = left half, 'left' = right half
+      const g = { left: gr.left - cr.left, top: gr.top - cr.top, w: gr.width, h: gr.height };
+      const gCenterY = g.top + g.h / 2;
+      const cardIds = dir === 'right' ? R32_LEFT_IDS : R32_RIGHT_IDS;
+
+      let bestId: string | null = null;
+      let bestDist = Infinity;
+      cardIds.forEach(id => {
+        const card = rects[id];
+        if (!card) return;
+        const dist = Math.abs((card.top + card.h / 2) - gCenterY);
+        if (dist < bestDist) { bestDist = dist; bestId = id; }
+      });
+      if (!bestId) return;
+      const card = rects[bestId];
+      const cardCenterY = card.top + card.h / 2;
+      if (dir === 'right') out.push(buildElbow(g.left + g.w, gCenterY, card.left, cardCenterY, false));
+      else out.push(buildElbow(g.left, gCenterY, card.left + card.w, cardCenterY, false));
     });
 
     setPaths(out);

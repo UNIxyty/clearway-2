@@ -748,12 +748,17 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
           ref={scrollerRef}
           className="overflow-x-auto overflow-y-auto"
           style={{
-            height: embedded ? 'clamp(480px, calc(100vh - 300px), 900px)' : 'calc(100vh - 58px - 64px)',
+            // Reserve room for surrounding chrome AND the fixed 64px submit bar.
+            // Embedded: shell header + tab pills + info banner (~236px) + footer (64px).
+            // Standalone: navbar (58px) + footer (64px).
+            height: embedded ? 'clamp(480px, calc(100vh - 236px - 64px), 900px)' : 'calc(100vh - 58px - 64px)',
             scrollbarWidth: 'thin',
             scrollbarColor: 'rgba(15,30,60,0.16) transparent',
           }}
         >
-          <div ref={contentRef} className="relative w-max px-8 pt-2 pb-8">
+          {/* pb clears the fixed 64px "X of Y picks made" submit bar so the last
+              R32 row scrolls fully above it instead of hiding behind it. */}
+          <div ref={contentRef} className="relative w-max px-8 pt-2 pb-24">
             <BracketConnectors paths={paths} width={dims.w} height={dims.h} />
 
             <div className="relative z-10 flex items-stretch" style={{ gap: 54 }}>

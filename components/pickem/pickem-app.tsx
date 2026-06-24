@@ -359,7 +359,7 @@ function PlayoffsView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <a
-          href={subView === "r32" ? "/playoffs/r32-draw" : "/playoffs/bracket"}
+          href={subView === "r32" ? "/playoffs?view=r32" : "/playoffs?view=bracket"}
           className="flex flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-black/20 transition group"
         >
           <div className="flex items-start justify-between">

@@ -1,7 +1,7 @@
 'use client';
 
 /* =============================================================================
- * AdminConsole — unified back-office at /admin.
+ * AdminConsole — unified back-office at /pickem/admin.
  *
  * Consolidates the former /admin/playoffs/bracket-setup, /admin/playoffs/results
  * and /admin/email-tools routes into a single page with its own internal
@@ -45,6 +45,9 @@ import { AdminGuide } from '@/components/admin/AdminGuide';
 import { BracketSetupView } from '@/components/admin/BracketSetupView';
 import { ResultsView } from '@/components/admin/ResultsView';
 import { EmailToolsView } from '@/components/admin/EmailToolsView';
+import { GroupStandingsView } from '@/components/admin/GroupStandingsView';
+import { GroupMatchResultsView } from '@/components/admin/GroupMatchResultsView';
+import { PickLocksView } from '@/components/admin/PickLocksView';
 
 /** Intent forwarded to BracketSetupView when launched from an Overview shortcut. */
 type BracketIntent = 'confirm-r32' | 'open-playoffs' | null;
@@ -65,6 +68,18 @@ const SECTION_HEADER: Partial<Record<AdminSection, { title: string; subtitle: st
   'email-logs': {
     title: 'Email Logs',
     subtitle: 'Debug email delivery issues',
+  },
+  'group-standings': {
+    title: 'Group Standings',
+    subtitle: 'Set final group positions for all 12 groups',
+  },
+  'match-results': {
+    title: 'Group Stage Matches',
+    subtitle: 'Enter and publish group stage match scores',
+  },
+  'pick-locks': {
+    title: 'Pick Locks',
+    subtitle: 'Control when predictions open and close for each stage',
   },
 };
 
@@ -189,6 +204,9 @@ export default function AdminConsole() {
               {section === 'email-tools' && <EmailToolsView embedded />}
               {section === 'email-logs' && <EmailLogs logs={logs} />}
               {section === 'guide' && <AdminGuide />}
+              {section === 'group-standings' && <GroupStandingsView embedded />}
+              {section === 'match-results' && <GroupMatchResultsView embedded />}
+              {section === 'pick-locks' && <PickLocksView embedded />}
             </motion.div>
           </AnimatePresence>
         </main>

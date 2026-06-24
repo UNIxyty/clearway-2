@@ -1,20 +1,12 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import dynamic from 'next/dynamic';
-import { AdminRoute } from '@/components/AdminRoute';
-
-/*
- * Unified admin console — section via ?section= (overview by default).
- * Client-only: AdminConsole initializes its active section from ?section= in a
- * useState initializer. ssr:false makes that run once on the client so a direct
- * ?section=email-logs load is honored without an SSR default-then-correct flash.
- */
-const AdminConsole = dynamic(() => import('@/components/admin/AdminConsole'), { ssr: false });
-
-export default function AdminPage() {
-  return (
-    <AdminRoute>
-      <AdminConsole />
-    </AdminRoute>
-  );
+// The unified admin console moved to /pickem/admin. Preserve old bookmarks,
+// forwarding any ?section= so deep links keep working.
+export default function Page({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const section = typeof searchParams.section === 'string' ? searchParams.section : null;
+  redirect(section ? `/pickem/admin?section=${section}` : '/pickem/admin');
 }

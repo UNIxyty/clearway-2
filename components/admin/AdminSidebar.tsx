@@ -11,12 +11,15 @@ import type { AdminSection } from '@/types/admin';
 import {
   ArrowIcon,
   BookIcon,
+  CalendarIcon,
   CloseIcon,
   GridIcon,
   HomeIcon,
   ListIcon,
+  LockIcon,
   MailIcon,
   MenuIcon,
+  TableIcon,
   TrophyIcon,
 } from './icons';
 
@@ -29,6 +32,9 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'email-tools', label: 'Email Tools', Icon: MailIcon },
   { id: 'email-logs', label: 'Email Logs', Icon: ListIcon },
   { id: 'guide', label: 'Guide', Icon: BookIcon },
+  { id: 'group-standings', label: 'Group Standings', Icon: TableIcon },
+  { id: 'match-results', label: 'Group Matches', Icon: CalendarIcon },
+  { id: 'pick-locks', label: 'Pick Locks', Icon: LockIcon },
 ];
 
 export const SECTION_LABEL: Record<AdminSection, string> = NAV_ITEMS.reduce(
@@ -87,7 +93,7 @@ function NavList({ active, onSelect, adminName, adminInitials }: NavListProps) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-bold text-white">{adminName}</div>
-          <a href="/" className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#94A3B8] transition-colors hover:text-white">
+          <a href="/pickem" className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#94A3B8] transition-colors hover:text-white">
             Back to App <ArrowIcon className="h-3 w-3" />
           </a>
         </div>

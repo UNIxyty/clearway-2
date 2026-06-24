@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation';
-export default function Page() { redirect('/admin?section=results'); }
+export default function Page() { redirect('/pickem/admin?section=results'); }

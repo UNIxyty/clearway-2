@@ -596,13 +596,13 @@ export function PickemAdminClient() {
           )}
           <div className="mx-1 h-5 w-px bg-black/10" />
           <a
-            href="/admin?section=bracket-setup"
+            href="/pickem/admin?section=bracket-setup"
             className="h-9 rounded-lg px-4 text-sm font-bold transition text-slate-500 hover:text-slate-700 flex items-center"
           >
             Bracket Setup
           </a>
           <a
-            href="/admin?section=results"
+            href="/pickem/admin?section=results"
             className="h-9 rounded-lg px-4 text-sm font-bold transition text-slate-500 hover:text-slate-700 flex items-center"
           >
             Playoff Results

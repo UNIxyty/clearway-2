@@ -41,14 +41,17 @@
  *   AdminSubNav (prior session) → superseded by AdminConsole; remove after wiring.
  * ===========================================================================*/
 
-/** The six internal sections of the unified console, reflected in ?section=. */
+/** The nine internal sections of the unified console, reflected in ?section=. */
 export type AdminSection =
   | 'overview'
   | 'bracket-setup'
   | 'results'
   | 'email-tools'
   | 'email-logs'
-  | 'guide';
+  | 'guide'
+  | 'group-standings'
+  | 'match-results'
+  | 'pick-locks';
 
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   'overview',
@@ -57,6 +60,9 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   'email-tools',
   'email-logs',
   'guide',
+  'group-standings',
+  'match-results',
+  'pick-locks',
 ] as const;
 
 export function isAdminSection(value: string | null): value is AdminSection {

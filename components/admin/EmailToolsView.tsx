@@ -23,6 +23,11 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
   const [recipient, setRecipient] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Custom broadcast (one-off email to all users from a custom template).
+  const BROADCAST_TEMPLATES = ['apology'];
+  const [bcSubject, setBcSubject] = useState('');
+  const [bcTemplate, setBcTemplate] = useState('apology');
+  const [bcBusy, setBcBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/email-tools', { cache: 'no-store' });
@@ -69,6 +74,25 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
       if (res.ok) void load();
     } finally { setBusy(null); }
   }, [status, load]);
+
+  const runBroadcast = useCallback(async (testOnly: boolean) => {
+    if (!bcSubject.trim()) { flash('Enter a subject line'); return; }
+    if (!testOnly) {
+      if (!status) return;
+      if (!window.confirm(`This will send to all ${status.userCount} users. Are you sure?`)) return;
+    }
+    setBcBusy(testOnly ? 'test' : 'all');
+    try {
+      const res = await fetch('/api/admin/email-tools/broadcast', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: bcTemplate, subject: bcSubject.trim(), testOnly }),
+      });
+      const json = await res.json();
+      flash(res.ok
+        ? `${testOnly ? 'Test sent' : 'Broadcast complete'} — sent: ${json.sent}, failed: ${json.failed}`
+        : `Error: ${json.error}`);
+    } finally { setBcBusy(null); }
+  }, [bcSubject, bcTemplate, status]);
 
   return (
     <div className={embedded ? '' : 'min-h-screen bg-page'}>
@@ -128,6 +152,52 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
             </div>
           );
         })}
+
+        {/* Custom one-off broadcast (apology + any future templates). */}
+        {status && (
+          <div className="bg-white rounded-xl border border-black/[0.08] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <p className="text-[15px] font-black text-navy">Custom Broadcast</p>
+            <p className="text-[12.5px] font-semibold text-black/45 mt-0.5">Send a one-off email to all users using a custom template</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className="space-y-1 block">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-black/40">Subject</span>
+                <input
+                  value={bcSubject}
+                  onChange={e => setBcSubject(e.target.value)}
+                  placeholder="A note about our last email"
+                  className="h-9 w-full px-3 rounded-lg border-2 border-black/12 text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
+                />
+              </label>
+              <label className="space-y-1 block">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-black/40">Template</span>
+                <select
+                  value={bcTemplate}
+                  onChange={e => setBcTemplate(e.target.value)}
+                  className="h-9 w-full px-3 rounded-lg border-2 border-black/12 text-[13px] font-semibold text-navy outline-none focus:border-bk-blue"
+                >
+                  {BROADCAST_TEMPLATES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() => runBroadcast(true)}
+                disabled={bcBusy !== null}
+                className="h-9 px-4 rounded-lg border border-black/15 bg-white text-[13px] font-bold text-navy hover:bg-black/[0.03] transition disabled:opacity-40"
+              >
+                {bcBusy === 'test' ? 'Sending…' : 'Send Test to Me'}
+              </button>
+              <button
+                onClick={() => runBroadcast(false)}
+                disabled={bcBusy !== null}
+                className="h-9 px-4 rounded-lg bg-[#f59e0b] hover:bg-[#d97706] text-white text-[13px] font-bold transition disabled:opacity-40"
+              >
+                {bcBusy === 'all' ? 'Sending…' : `Send to All Users (${status.userCount})`}
+              </button>
+            </div>
+          </div>
+        )}
+
         {!status && <div className="text-center py-10 text-black/40 font-semibold">Loading…</div>}
       </main>
 

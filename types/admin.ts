@@ -94,7 +94,8 @@ export type EmailType =
   | 'prediction_update'
   | 'group_stage_complete'
   | 'final_standings'
-  | 'playoffs_opened';
+  | 'playoffs_opened'
+  | 'broadcast';
 
 export type EmailStatus = 'sent' | 'failed' | 'pending';
 

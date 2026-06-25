@@ -14,6 +14,7 @@ const EMAIL_TYPE_LABEL: Record<EmailType, string> = {
   group_stage_complete: 'Group Stage Complete',
   final_standings: 'Final Standings',
   playoffs_opened: 'Playoffs Opened',
+  broadcast: 'Custom Broadcast',
 };
 
 const STATUS_STYLE: Record<EmailStatus, string> = {

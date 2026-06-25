@@ -232,6 +232,11 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkClearing, setBulkClearing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Confirm-R32 email-audience modal.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [audience, setAudience] = useState<'all' | 'test' | 'none'>('all');
+  const [recipientsInput, setRecipientsInput] = useState('');
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   // initialAction='confirm-r32' (Overview shortcut): jump to R32, scroll the
   // R32 action bar into view, pulse it briefly. Purely visual — never triggers it.
@@ -349,51 +354,33 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
     }
   }, []);
 
-  const confirmR32Bracket = useCallback(async () => {
-    // Choose the email audience BEFORE anything runs. Scoring always happens;
-    // only the Group Stage Complete blast is gated by this choice.
-    const raw = window.prompt(
-      'Confirm R32 — who should receive the Group Stage Complete email?\n\n' +
-      '• Leave BLANK  →  email EVERYONE (go live)\n' +
-      '• Emails (comma-separated)  →  send ONLY to those (test: you + admins)\n' +
-      '• Type  none  →  score only, send NO email\n\n' +
-      'Scoring runs in every case. Press Cancel to abort.',
-      '',
-    );
-    if (raw === null) return; // cancelled
+  // Open the in-app confirm modal (audience chooser). No native dialogs.
+  const openConfirm = useCallback(() => {
+    setConfirmError(null);
+    setConfirmOpen(true);
+  }, []);
 
-    const trimmed = raw.trim();
-    let bodyExtra: { recipients?: string[]; scoreOnly?: boolean } = {};
-    let audienceLabel: string;
-    if (trimmed === '') {
-      audienceLabel = 'EVERYONE (all users)';
-    } else if (trimmed.toLowerCase() === 'none') {
-      bodyExtra = { scoreOnly: true };
-      audienceLabel = 'no one (score only)';
-    } else {
-      const recipients = trimmed.split(',').map(s => s.trim()).filter(Boolean);
-      if (!recipients.every(e => e.includes('@'))) {
-        setToast('Error: enter valid comma-separated emails');
-        setTimeout(() => setToast(null), 4000);
+  // Run the actual confirm using the modal's selected audience.
+  const runConfirm = useCallback(async (force = false) => {
+    let bodyExtra: { recipients?: string[]; scoreOnly?: boolean; force?: boolean } = {};
+    if (audience === 'test') {
+      const recipients = recipientsInput.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+      if (recipients.length === 0 || !recipients.every(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) {
+        setConfirmError('Enter one or more valid email addresses, separated by commas.');
         return;
       }
       bodyExtra = { recipients };
-      audienceLabel = `${recipients.length} test recipient(s): ${recipients.join(', ')}`;
+    } else if (audience === 'none') {
+      bodyExtra = { scoreOnly: true };
     }
-
-    const ok = window.confirm(
-      `Confirm the R32 bracket?\n\n` +
-      `This scores every user's R32 projection against these real pairs.\n` +
-      `Email will be sent to: ${audienceLabel}.\n\n` +
-      `Run only after all 16 R32 matchups are correct.`,
-    );
-    if (!ok) return;
+    if (force) bodyExtra.force = true;
 
     const describe = (j: { emailMode?: string; emailRecipients?: string[] | null }) =>
       j.emailMode === 'all' ? 'emailed all users'
         : j.emailMode === 'test' ? `emailed ${j.emailRecipients?.length ?? 0} test recipient(s)`
           : 'no email sent (score only)';
 
+    setConfirmError(null);
     setConfirming(true);
     try {
       const res = await fetch('/api/admin/playoffs/confirm-r32', {
@@ -402,28 +389,21 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
         body: JSON.stringify(bodyExtra),
       });
       const json = await res.json();
-      if (!res.ok) { setToast(`Error: ${json.error ?? 'confirm failed'}`); return; }
-      if (json.alreadyConfirmed) {
-        const rerun = window.confirm(`R32 was already confirmed. Re-run scoring and re-send email to ${audienceLabel}?`);
-        if (!rerun) return;
-        const res2 = await fetch('/api/admin/playoffs/confirm-r32', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ force: true, ...bodyExtra }),
-        });
-        const json2 = await res2.json();
-        if (!res2.ok) { setToast(`Error: ${json2.error ?? 'confirm failed'}`); return; }
-        setToast(`R32 re-scored · ${describe(json2)}`);
+      if (!res.ok) { setConfirmError(json.error ?? 'Confirm failed'); return; }
+      if (json.alreadyConfirmed && !force) {
+        // Surface re-run as an inline confirm step inside the same modal.
+        setConfirmError('__ALREADY_CONFIRMED__');
         return;
       }
+      setConfirmOpen(false);
       setToast(`R32 confirmed · scored all users · ${describe(json)}`);
     } catch (e) {
-      setToast(`Error: ${e instanceof Error ? e.message : 'confirm failed'}`);
+      setConfirmError(e instanceof Error ? e.message : 'Confirm failed');
     } finally {
       setConfirming(false);
       setTimeout(() => setToast(null), 4000);
     }
-  }, []);
+  }, [audience, recipientsInput]);
 
   const currentIds = ROUND_TABS.find(t => t.id === activeTab)?.ids ?? [];
 
@@ -533,10 +513,10 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
               Load from Groups
             </button>
             <button
-              onClick={confirmR32Bracket}
+              onClick={openConfirm}
               disabled={confirming || bulkLoading || bulkClearing}
               className="inline-flex items-center gap-2 h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold transition disabled:opacity-50 whitespace-nowrap"
-              title="Score every user's R32 projection against these real pairs and email all users. Run once."
+              title="Score every user's R32 projection against these real pairs, then choose who gets the email. Run once."
             >
               {confirming && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
               Confirm R32 Bracket
@@ -622,6 +602,79 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
           })}
         </div>
       </main>
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-[460px] rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="text-[15px] font-extrabold text-navy">Confirm R32 Bracket</h3>
+            <p className="mt-1 text-[12.5px] font-semibold text-black/50">
+              Scoring runs for every user. Choose who receives the Group Stage Complete email.
+            </p>
+
+            <div className="mt-4 space-y-2">
+              {([
+                { id: 'all', title: 'Email everyone', sub: 'Go live — all registered users (except opt-outs).' },
+                { id: 'test', title: 'Test recipients only', sub: 'Send to specific addresses (you + admins).' },
+                { id: 'none', title: 'Score only', sub: 'Run scoring, send no email.' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => { setAudience(opt.id); setConfirmError(null); }}
+                  className={`w-full flex items-start gap-3 rounded-xl border p-3 text-left transition ${audience === opt.id ? 'border-bk-blue bg-bk-blue/[0.06]' : 'border-black/10 hover:bg-black/[0.02]'}`}
+                >
+                  <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${audience === opt.id ? 'border-bk-blue bg-bk-blue' : 'border-black/25'}`} />
+                  <span>
+                    <span className="block text-[13px] font-bold text-navy">{opt.title}</span>
+                    <span className="block text-[12px] font-semibold text-black/45">{opt.sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {audience === 'test' && (
+              <div className="mt-3">
+                <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-black/45 mb-1">Recipient emails</label>
+                <input
+                  value={recipientsInput}
+                  onChange={e => { setRecipientsInput(e.target.value); setConfirmError(null); }}
+                  placeholder="you@example.com, dev@example.com"
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-[13px] font-semibold text-slate-800"
+                  autoFocus
+                />
+                <p className="mt-1 text-[11.5px] font-semibold text-black/40">Comma-separated. Must be real accounts to receive the personalized email.</p>
+              </div>
+            )}
+
+            {confirmError && confirmError !== '__ALREADY_CONFIRMED__' && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-700">{confirmError}</div>
+            )}
+
+            {confirmError === '__ALREADY_CONFIRMED__' ? (
+              <div className="mt-4">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-800">
+                  R32 was already confirmed. Re-run scoring and re-send the email with this audience?
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button type="button" onClick={() => setConfirmOpen(false)} disabled={confirming} className="h-10 flex-1 rounded-lg border border-black/15 text-[13px] font-bold text-slate-700 disabled:opacity-50">Cancel</button>
+                  <button type="button" onClick={() => void runConfirm(true)} disabled={confirming} className="h-10 flex-1 rounded-lg bg-amber-500 text-[13px] font-bold text-white disabled:opacity-50 inline-flex items-center justify-center gap-2">
+                    {confirming && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                    Re-run &amp; re-send
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 flex items-center gap-2">
+                <button type="button" onClick={() => setConfirmOpen(false)} disabled={confirming} className="h-10 flex-1 rounded-lg border border-black/15 text-[13px] font-bold text-slate-700 disabled:opacity-50">Cancel</button>
+                <button type="button" onClick={() => void runConfirm(false)} disabled={confirming} className="h-10 flex-1 rounded-lg bg-emerald-600 text-[13px] font-bold text-white disabled:opacity-50 inline-flex items-center justify-center gap-2">
+                  {confirming && <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                  {audience === 'none' ? 'Score only' : audience === 'test' ? 'Score & send test' : 'Score & email everyone'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 inset-x-0 flex justify-center px-4 pointer-events-none z-50">

@@ -13,7 +13,7 @@ export interface AdminConsoleData {
 const DEFAULTS: AdminConsoleData = {
   profile: { name: 'Admin', initials: 'A' },
   state: { groupStageComplete: false, r32ConfirmedAt: null, playoffsOpenedAt: null, playoffsDeadlineAt: null, finalEmailSentAt: null },
-  stats: { participants: 0, groupMatchesPredicted: 0, playoffPredictionsMade: 0, emailsSent: 0, emailOptOuts: 0 },
+  stats: { participants: 0, groupMatchesPredicted: 0, playoffPredictionsMade: 0, emailsSent: 0, emailOptOuts: 0, groupsFinalized: 0 },
   assignedSlots: 0,
 };
 

@@ -185,6 +185,11 @@ export function GroupStandingsView({ embedded = false }: { embedded?: boolean })
     return map;
   }, [groupsPayload]);
 
+  const totalGroups = groupsPayload?.groups.length ?? 12;
+  const finalizedGroups = (groupsPayload?.groups || []).filter(
+    (g) => (groupResultCountByCode.get(g.code) || 0) === 4,
+  ).length;
+
   if (loading) {
     return <div className="rounded-xl border border-black/10 bg-white p-6">Loading group standings...</div>;
   }
@@ -200,6 +205,20 @@ export function GroupStandingsView({ embedded = false }: { embedded?: boolean })
           {error}
         </div>
       )}
+
+      {/* Publish-progress reminder — finalize all groups before Confirm R32. */}
+      {groupsPayload && finalizedGroups >= totalGroups ? (
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <span className="text-[13px] font-bold text-emerald-700">All {totalGroups} groups finalized ✓</span>
+          <a href="/pickem/admin?section=bracket-setup" className="shrink-0 text-[12.5px] font-bold text-emerald-700 hover:underline">
+            Go to Bracket Setup →
+          </a>
+        </div>
+      ) : finalizedGroups > 0 ? (
+        <div className="sticky top-0 z-10 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold text-amber-800">
+          {finalizedGroups} of {totalGroups} groups have final positions set. Set all {totalGroups} before confirming the R32 bracket.
+        </div>
+      ) : null}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {(groupsPayload?.groups || []).map((group) => {

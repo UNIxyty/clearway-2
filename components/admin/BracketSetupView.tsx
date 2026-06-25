@@ -9,6 +9,8 @@ import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
   QF_LEFT_IDS, QF_RIGHT_IDS,
 } from '@/lib/playoffs/bracketData';
+import { useAdminStats } from '@/hooks/useAdminStats';
+import { useTournamentState } from '@/hooks/useTournamentState';
 
 // Fallback flag emoji map keyed by team short_name
 const FLAG_BY_CODE: Record<string, string> = {
@@ -228,7 +230,23 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
+  // Optional actionable link rendered inside the toast (e.g. jump to a section).
+  const [toastLink, setToastLink] = useState<{ href: string; label: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Prerequisite status (read from the shared, module-cached console fetch — no
+  // new queries). groupsFinalized 0..12; r32ConfirmedAt for the confirm chip.
+  const stats = useAdminStats();
+  const { state: tState } = useTournamentState();
+  // R32 slots filled is computed from the live local rows so it updates as the
+  // admin edits, without refetching.
+  const r32Filled = useMemo(
+    () => [...R32_LEFT_IDS, ...R32_RIGHT_IDS].filter(c => {
+      const r = rows[c];
+      return !!(r?.homeTeamId && r?.awayTeamId);
+    }).length,
+    [rows],
+  );
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkClearing, setBulkClearing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -305,10 +323,20 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
 
   const loadFromGroupResults = useCallback(async () => {
     setBulkLoading(true);
+    setToastLink(null);
+    let persist = false;
     try {
       const res = await fetch('/api/admin/playoffs/populate-r32', { method: 'POST' });
       const json = await res.json();
       if (!res.ok) { setToast(`Error: ${json.error}`); return; }
+      if (json.filled === 0) {
+        // Nothing to fill = group standings aren't published yet. Don't no-op
+        // silently; tell the admin the missing prerequisite + link to fix it.
+        setToast('Cannot auto-fill R32 — group standings are not yet published. Set final positions for all 12 groups first.');
+        setToastLink({ href: '/pickem/admin?section=group-standings', label: 'Go to Group Standings →' });
+        persist = true;
+        return;
+      }
       setToast(`Loaded ${json.filled}/${json.total} R32 matchups from group results`);
       // Reload rows from DB
       const { data } = await supabase.from('playoff_matches').select('*');
@@ -330,7 +358,9 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
       }
     } finally {
       setBulkLoading(false);
-      setTimeout(() => setToast(null), 3000);
+      // Keep the prerequisite toast on screen (it has an action link); otherwise
+      // auto-dismiss as usual.
+      if (!persist) setTimeout(() => setToast(null), 3000);
     }
   }, [supabase, rows]);
 
@@ -490,6 +520,30 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
       </div>
 
       <main className={embedded ? 'pt-5' : 'max-w-5xl mx-auto px-5 py-6'}>
+        {/* Prerequisite status — read-only, non-blocking (admin can still enter
+            teams manually). Data from the shared console fetch + live rows. */}
+        <div className="mb-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <div className={`rounded-xl border px-3 py-2.5 ${stats.groupsFinalized >= 12 ? 'border-emerald-200 bg-emerald-50' : stats.groupsFinalized > 0 ? 'border-amber-200 bg-amber-50' : 'border-black/10 bg-black/[0.02]'}`}>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-black/40">Group standings</div>
+            <div className={`mt-0.5 text-[13px] font-extrabold ${stats.groupsFinalized >= 12 ? 'text-emerald-700' : stats.groupsFinalized > 0 ? 'text-amber-700' : 'text-black/50'}`}>
+              {stats.groupsFinalized} / 12 finalized
+            </div>
+          </div>
+          <div className={`rounded-xl border px-3 py-2.5 ${r32Filled >= 16 ? 'border-emerald-200 bg-emerald-50' : r32Filled > 0 ? 'border-amber-200 bg-amber-50' : 'border-black/10 bg-black/[0.02]'}`}>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-black/40">R32 slots filled</div>
+            <div className={`mt-0.5 text-[13px] font-extrabold ${r32Filled >= 16 ? 'text-emerald-700' : r32Filled > 0 ? 'text-amber-700' : 'text-black/50'}`}>
+              {r32Filled} / 16
+            </div>
+          </div>
+          <div className={`rounded-xl border px-3 py-2.5 ${tState.r32ConfirmedAt ? 'border-emerald-200 bg-emerald-50' : 'border-black/10 bg-black/[0.02]'}`}>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-black/40">Confirm R32</div>
+            <div className={`mt-0.5 text-[13px] font-extrabold ${tState.r32ConfirmedAt ? 'text-emerald-700' : 'text-black/50'}`}>
+              {tState.r32ConfirmedAt
+                ? `Confirmed ${new Date(tState.r32ConfirmedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                : 'Not yet confirmed'}
+            </div>
+          </div>
+        </div>
         {activeTab === 'R32' && (
           <div ref={r32BarRef} className={`flex items-center gap-3 mb-5 p-4 bg-white rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all ${highlightConfirm ? 'border-emerald-400 ring-2 ring-emerald-300 animate-pulse' : 'border-black/[0.08]'}`}>
             <div className="flex-1">
@@ -677,10 +731,27 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
       )}
 
       {toast && (
-        <div className="fixed bottom-6 inset-x-0 flex justify-center px-4 pointer-events-none z-50">
-          <div className="bg-navy text-white text-[13px] font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5">
-            <CheckIcon className="w-4 h-4 text-emerald-400" />
-            {toast}
+        <div className={`fixed bottom-6 inset-x-0 flex justify-center px-4 z-50 ${toastLink ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+          <div className="bg-navy text-white text-[13px] font-semibold px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 max-w-[92vw]">
+            <span className="flex items-center gap-2.5">
+              <CheckIcon className="w-4 h-4 shrink-0 text-emerald-400" />
+              {toast}
+            </span>
+            {toastLink && (
+              <>
+                <a href={toastLink.href} className="shrink-0 rounded-lg bg-white/15 px-3 py-1.5 text-[12px] font-bold transition hover:bg-white/25">
+                  {toastLink.label}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => { setToast(null); setToastLink(null); }}
+                  aria-label="Dismiss"
+                  className="shrink-0 text-white/55 transition hover:text-white"
+                >
+                  ✕
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

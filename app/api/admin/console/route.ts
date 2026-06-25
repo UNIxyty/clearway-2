@@ -35,7 +35,7 @@ export async function GET() {
     return NextResponse.json({
       profile: { name, initials: initialsOf(name) },
       state: { groupStageComplete: false, r32ConfirmedAt: null, playoffsOpenedAt: null, playoffsDeadlineAt: null, finalEmailSentAt: null },
-      stats: { participants: 0, groupMatchesPredicted: 0, playoffPredictionsMade: 0, emailsSent: 0, emailOptOuts: 0 },
+      stats: { participants: 0, groupMatchesPredicted: 0, playoffPredictionsMade: 0, emailsSent: 0, emailOptOuts: 0, groupsFinalized: 0 },
       assignedSlots: 0,
     });
   }
@@ -73,6 +73,9 @@ export async function GET() {
       playoffPredictionsMade: playoffPreds.count ?? 0,
       emailsSent: emailsSent.count ?? 0,
       emailOptOuts: optOuts.count ?? 0,
+      // Reuse the finalized-rows count above (groups publish all 4 at once, so
+      // rows/4 = groups finalized). No extra query.
+      groupsFinalized: Math.floor((finalizedResults.count ?? 0) / 4),
     },
     assignedSlots,
   });

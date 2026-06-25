@@ -85,6 +85,8 @@ export interface AdminStats {
   playoffPredictionsMade: number;
   emailsSent: number;
   emailOptOuts: number;
+  /** Groups (of 12) with all 4 final positions published (finalized rows / 4). */
+  groupsFinalized: number;
 }
 
 export type EmailType =

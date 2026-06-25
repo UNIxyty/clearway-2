@@ -29,6 +29,14 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const force = Boolean(body.force);
+  // Email audience control (scoring always runs; only the blast is gated):
+  //   recipients omitted/null     -> email EVERYONE (go live, default)
+  //   recipients = ['a@x','b@y']  -> email ONLY those addresses (test/admins)
+  //   recipients = [] or scoreOnly-> score only, send NO email
+  const recipients: string[] | null = Array.isArray(body.recipients)
+    ? body.recipients.map((r: unknown) => String(r).trim()).filter(Boolean)
+    : null;
+  const scoreOnly = body.scoreOnly === true || (Array.isArray(recipients) && recipients.length === 0);
 
   const state = await getTournamentState(comp.id);
   if (state.r32ConfirmedAt && !force) {
@@ -92,15 +100,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed' }, { status: 500 });
   }
 
-  // 4: fire-and-forget the Group Stage Complete blast.
+  // 4: fire-and-forget the Group Stage Complete blast (unless score-only).
   const base = (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
-  sendGroupStageCompleteBlast({
-    competitionId: comp.id,
-    matchups,
-    r32Deadline,
-    r32PredictionsUrl: `${base}/playoffs/bracket`,
-    leaderboardUrl: `${base}/pickem`,
-  });
+  if (!scoreOnly) {
+    sendGroupStageCompleteBlast({
+      competitionId: comp.id,
+      matchups,
+      r32Deadline,
+      r32PredictionsUrl: `${base}/playoffs/bracket`,
+      leaderboardUrl: `${base}/pickem`,
+      onlyEmails: recipients ?? undefined,
+    });
+  }
 
-  return NextResponse.json({ ok: true, scored: true, matchups: matchups.length, reRun: force && !!state.r32ConfirmedAt });
+  const emailMode = scoreOnly ? 'none' : recipients ? 'test' : 'all';
+  return NextResponse.json({
+    ok: true,
+    scored: true,
+    matchups: matchups.length,
+    reRun: force && !!state.r32ConfirmedAt,
+    emailMode,
+    emailRecipients: recipients ?? null,
+  });
 }

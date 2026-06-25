@@ -22,6 +22,13 @@ export interface GroupStageBlastOptions {
   r32Deadline: string;
   r32PredictionsUrl: string;
   leaderboardUrl: string;
+  /**
+   * When provided, only users whose email is in this list receive the blast
+   * (case-insensitive) — used to rehearse the send to admins/devs before going
+   * live. Ranks/averages are still computed across ALL users, so a test
+   * recipient sees their real standing. Omit to email everyone (default).
+   */
+  onlyEmails?: string[];
 }
 
 interface GroupRow {
@@ -146,8 +153,15 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
   const matchupsLeft = opts.matchups.slice(0, 8);
   const matchupsRight = opts.matchups.slice(8, 16);
 
+  // Optional allow-list (rehearse to admins/devs). Population/stats above are
+  // unfiltered, so ranks stay correct; this only narrows who is actually sent.
+  const onlySet = opts.onlyEmails && opts.onlyEmails.length > 0
+    ? new Set(opts.onlyEmails.map(e => e.trim().toLowerCase()))
+    : null;
+
   for (const user of users) {
     if (!user.email) continue;
+    if (onlySet && !onlySet.has(user.email.toLowerCase())) continue;
     const prefs = prefsByUser.get(user.id);
     if (prefs?.email_opt_out) continue;
 

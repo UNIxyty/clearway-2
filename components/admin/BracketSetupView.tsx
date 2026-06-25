@@ -350,29 +350,73 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
   }, []);
 
   const confirmR32Bracket = useCallback(async () => {
+    // Choose the email audience BEFORE anything runs. Scoring always happens;
+    // only the Group Stage Complete blast is gated by this choice.
+    const raw = window.prompt(
+      'Confirm R32 — who should receive the Group Stage Complete email?\n\n' +
+      '• Leave BLANK  →  email EVERYONE (go live)\n' +
+      '• Emails (comma-separated)  →  send ONLY to those (test: you + admins)\n' +
+      '• Type  none  →  score only, send NO email\n\n' +
+      'Scoring runs in every case. Press Cancel to abort.',
+      '',
+    );
+    if (raw === null) return; // cancelled
+
+    const trimmed = raw.trim();
+    let bodyExtra: { recipients?: string[]; scoreOnly?: boolean } = {};
+    let audienceLabel: string;
+    if (trimmed === '') {
+      audienceLabel = 'EVERYONE (all users)';
+    } else if (trimmed.toLowerCase() === 'none') {
+      bodyExtra = { scoreOnly: true };
+      audienceLabel = 'no one (score only)';
+    } else {
+      const recipients = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      if (!recipients.every(e => e.includes('@'))) {
+        setToast('Error: enter valid comma-separated emails');
+        setTimeout(() => setToast(null), 4000);
+        return;
+      }
+      bodyExtra = { recipients };
+      audienceLabel = `${recipients.length} test recipient(s): ${recipients.join(', ')}`;
+    }
+
     const ok = window.confirm(
-      'Confirm the R32 bracket?\n\nThis scores every user\'s R32 projection against these real pairs and emails all users their Group Stage results. Run this only once, after all 16 R32 matchups are correct.'
+      `Confirm the R32 bracket?\n\n` +
+      `This scores every user's R32 projection against these real pairs.\n` +
+      `Email will be sent to: ${audienceLabel}.\n\n` +
+      `Run only after all 16 R32 matchups are correct.`,
     );
     if (!ok) return;
+
+    const describe = (j: { emailMode?: string; emailRecipients?: string[] | null }) =>
+      j.emailMode === 'all' ? 'emailed all users'
+        : j.emailMode === 'test' ? `emailed ${j.emailRecipients?.length ?? 0} test recipient(s)`
+          : 'no email sent (score only)';
+
     setConfirming(true);
     try {
-      const res = await fetch('/api/admin/playoffs/confirm-r32', { method: 'POST' });
+      const res = await fetch('/api/admin/playoffs/confirm-r32', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyExtra),
+      });
       const json = await res.json();
       if (!res.ok) { setToast(`Error: ${json.error ?? 'confirm failed'}`); return; }
       if (json.alreadyConfirmed) {
-        const rerun = window.confirm('R32 was already confirmed. Re-run scoring and re-send emails?');
+        const rerun = window.confirm(`R32 was already confirmed. Re-run scoring and re-send email to ${audienceLabel}?`);
         if (!rerun) return;
         const res2 = await fetch('/api/admin/playoffs/confirm-r32', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ force: true }),
+          body: JSON.stringify({ force: true, ...bodyExtra }),
         });
         const json2 = await res2.json();
         if (!res2.ok) { setToast(`Error: ${json2.error ?? 'confirm failed'}`); return; }
-        setToast('R32 re-scored and emails re-sent');
+        setToast(`R32 re-scored · ${describe(json2)}`);
         return;
       }
-      setToast(`R32 confirmed · scored all users · emailing ${json.matchups} matchups`);
+      setToast(`R32 confirmed · scored all users · ${describe(json)}`);
     } catch (e) {
       setToast(`Error: ${e instanceof Error ? e.message : 'confirm failed'}`);
     } finally {

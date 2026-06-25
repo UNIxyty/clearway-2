@@ -728,20 +728,31 @@ export function PickemApp() {
               { id: "groups", label: "Groups" },
               { id: "matches", label: "Matches" },
               { id: "standings", label: "Standings" },
-              { id: "playoffs", label: "Playoffs" },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveView(item.id as ActiveView)}
-                className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
-                  activeView === item.id ? "text-white" : "text-slate-700 hover:bg-black/5"
-                }`}
-                style={activeView === item.id ? { background: PRIMARY } : undefined}
-              >
-                {item.label}
-              </button>
-            ))}
+              // Playoffs lives at its own route (the unified shell), not an in-dashboard view.
+              { id: "playoffs", label: "Playoffs", href: "/playoffs" },
+            ].map((item) =>
+              item.href ? (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className="rounded-lg px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-black/5"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveView(item.id as ActiveView)}
+                  className={`rounded-lg px-3 py-2 text-sm font-bold transition ${
+                    activeView === item.id ? "text-white" : "text-slate-700 hover:bg-black/5"
+                  }`}
+                  style={activeView === item.id ? { background: PRIMARY } : undefined}
+                >
+                  {item.label}
+                </button>
+              ),
+            )}
             <div className="ml-1.5 flex items-center gap-2 rounded-full border border-black/10 bg-white px-2 py-1">
               <AvatarChip name={myRow?.displayName || "Me"} />
               <span className="hidden text-sm font-bold text-slate-800 sm:inline">

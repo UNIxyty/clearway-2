@@ -94,7 +94,9 @@ export async function POST(req: NextRequest) {
   // 2 + 3: mark confirmed, then recompute (now includes r32_projection).
   try {
     await markR32Confirmed(comp.id);
+    console.log('[confirm-r32] marked confirmed', { competitionId: comp.id, force });
     await recomputePickemPoints(comp.id);
+    console.log('[confirm-r32] recompute complete', { competitionId: comp.id, r32Matchups: matchups.length });
   } catch (e) {
     console.error('[confirm-r32] scoring failed', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed' }, { status: 500 });
@@ -103,6 +105,10 @@ export async function POST(req: NextRequest) {
   // 4: fire-and-forget the Group Stage Complete blast (unless score-only).
   const base = (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
   if (!scoreOnly) {
+    console.log('[confirm-r32] dispatching group-stage email', {
+      mode: recipients ? 'test' : 'all',
+      recipients: recipients?.length ?? null,
+    });
     sendGroupStageCompleteBlast({
       competitionId: comp.id,
       matchups,
@@ -111,6 +117,8 @@ export async function POST(req: NextRequest) {
       leaderboardUrl: `${base}/pickem`,
       onlyEmails: recipients ?? undefined,
     });
+  } else {
+    console.log('[confirm-r32] score-only — no email dispatched', { competitionId: comp.id });
   }
 
   const emailMode = scoreOnly ? 'none' : recipients ? 'test' : 'all';

@@ -37,7 +37,10 @@ interface GroupRow {
 }
 
 export function sendGroupStageCompleteBlast(opts: GroupStageBlastOptions): void {
-  void _blast(opts);
+  // Fire-and-forget, but never let a failure vanish as an unhandled rejection.
+  void _blast(opts).catch(err =>
+    console.error('[group-stage-blast] fatal — blast aborted', err),
+  );
 }
 
 async function _blast(opts: GroupStageBlastOptions): Promise<void> {
@@ -159,6 +162,8 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
     ? new Set(opts.onlyEmails.map(e => e.trim().toLowerCase()))
     : null;
 
+  let sent = 0;
+  let failed = 0;
   for (const user of users) {
     if (!user.email) continue;
     if (onlySet && !onlySet.has(user.email.toLowerCase())) continue;
@@ -191,11 +196,29 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
       verxylLogoUrl: `${base}/verxyl-logo.png`,
     });
 
-    await sendEmail(
-      user.email,
-      'WC2026 Group Stage Complete — Your Results Are In',
-      html,
-      { userId: user.id, emailType: 'group_stage_complete' },
-    );
+    // Per-recipient guard so one failed send doesn't abort the whole batch and
+    // each failure is visible in server logs (was previously silent).
+    try {
+      await sendEmail(
+        user.email,
+        'WC2026 Group Stage Complete — Your Results Are In',
+        html,
+        { userId: user.id, emailType: 'group_stage_complete' },
+      );
+      sent++;
+    } catch (err) {
+      failed++;
+      console.error('[group-stage-blast] send failed', {
+        userId: user.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
+
+  console.log('[group-stage-blast] complete', {
+    competitionId: opts.competitionId,
+    mode: onlySet ? 'test' : 'all',
+    sent,
+    failed,
+  });
 }

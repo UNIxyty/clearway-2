@@ -367,16 +367,38 @@ export async function clearUserLockOverride(input: {
   if (error) throw new Error(error.message || "Failed to clear lock override");
 }
 
+/**
+ * Read ALL ledger rows for a competition, paginating past PostgREST's default
+ * 1000-row cap. The ledger exceeds 1000 rows mid-tournament, and a single
+ * unpaginated read silently drops the overflow — which undercounts (or zeroes)
+ * points for users whose rows land past the cap.
+ */
+async function selectAllLedgerRows(
+  competitionId: string,
+): Promise<Array<{ user_id: string; source_type: string; points: number }>> {
+  const supabase = service();
+  const PAGE = 1000;
+  const out: Array<{ user_id: string; source_type: string; points: number }> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("pickem_points_ledger")
+      .select("user_id,source_type,points")
+      .eq("competition_id", competitionId)
+      .range(from, from + PAGE - 1);
+    if (error) break;
+    const rows = (data ?? []) as Array<{ user_id: string; source_type: string; points: number }>;
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function getLeaderboard(competitionId: string): Promise<PickemLeaderboardRow[]> {
   const supabase = service();
-  const { data, error } = await supabase
-    .from("pickem_points_ledger")
-    .select("user_id,source_type,points")
-    .eq("competition_id", competitionId);
-  if (error) return [];
+  const ledgerData = await selectAllLedgerRows(competitionId);
 
   const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; r32Points: number; points: number }>();
-  for (const row of (data || []) as any[]) {
+  for (const row of ledgerData) {
     const userId = String(row.user_id);
     const current = scores.get(userId) || {
       groupPoints: 0,

@@ -395,6 +395,21 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
     scores.set(userId, current);
   }
 
+  // Combined standings: fold each user's playoff match points (winner + exact
+  // bonus, authoritative points_awarded) into the SAME total as the group ledger
+  // so there is ONE leaderboard / one rank. playoff_predictions is global (single
+  // competition), so no competition_id filter.
+  const playoffByUser = new Map<string, number>();
+  {
+    const { data: ppRows } = await supabase
+      .from("playoff_predictions")
+      .select("user_id,points_awarded");
+    for (const row of (ppRows || []) as any[]) {
+      const uid = String(row.user_id);
+      playoffByUser.set(uid, (playoffByUser.get(uid) || 0) + Number(row.points_awarded || 0));
+    }
+  }
+
   const [submissionsRes, groupPredRes, matchPredRes] = await Promise.all([
     supabase
       .from("pickem_prediction_submissions")
@@ -420,6 +435,7 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
   for (const row of matchPredRes.data || []) {
     participantIds.add(String((row as any).user_id));
   }
+  for (const uid of playoffByUser.keys()) participantIds.add(uid);
 
   const userIds = [...participantIds];
   if (!userIds.length) return [];
@@ -436,17 +452,23 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
   }
 
   const rows = userIds
-    .map((userId) => ({
-      userId,
-      groupPoints: scores.get(userId)?.groupPoints ?? 0,
-      matchPoints: scores.get(userId)?.matchPoints ?? 0,
-      exactPoints: scores.get(userId)?.exactPoints ?? 0,
-      r32Points: scores.get(userId)?.r32Points ?? 0,
-      points: scores.get(userId)?.points ?? 0,
-      displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
-      email: null as string | null,
-      rank: 0,
-    }))
+    .map((userId) => {
+      const ledgerTotal = scores.get(userId)?.points ?? 0;
+      const playoffPoints = playoffByUser.get(userId) ?? 0;
+      return {
+        userId,
+        groupPoints: scores.get(userId)?.groupPoints ?? 0,
+        matchPoints: scores.get(userId)?.matchPoints ?? 0,
+        exactPoints: scores.get(userId)?.exactPoints ?? 0,
+        r32Points: scores.get(userId)?.r32Points ?? 0,
+        playoffPoints,
+        // ONE combined total: group ledger (incl. r32 projection) + playoff points.
+        points: ledgerTotal + playoffPoints,
+        displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
+        email: null as string | null,
+        rank: 0,
+      };
+    })
     .sort((a, b) => b.points - a.points || a.displayName.localeCompare(b.displayName));
 
   rows.forEach((row, idx) => {

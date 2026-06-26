@@ -6,6 +6,7 @@ import {
   sendBroadcast,
   type BroadcastRecipient,
 } from '@/server/emails/broadcast';
+import { resolveRecipients, type RecipientFilters } from '@/server/emails/resolveRecipients';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   }
 
-  const { recipients } = await fetchBroadcastRecipients();
+  // Optional recipient targeting. mode 'all' (or omitted) => every non-opted-out
+  // user (existing behavior); otherwise resolve the filtered/list set.
+  const recip = body.recipients as RecipientFilters | undefined;
+  let recipients: BroadcastRecipient[];
+  if (recip && recip.mode && recip.mode !== 'all') {
+    const resolved = await resolveRecipients(recip);
+    recipients = resolved.map(r => ({ id: r.userId, email: r.email, firstName: r.firstName }));
+  } else {
+    recipients = (await fetchBroadcastRecipients()).recipients;
+  }
+
   const result = await sendBroadcast({ template, subject, recipients, isTest: false });
   return NextResponse.json(result);
 }

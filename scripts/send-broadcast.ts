@@ -19,7 +19,9 @@ import {
   renderBroadcast,
   broadcastVars,
   sendBroadcast,
+  type BroadcastRecipient,
 } from '@/server/emails/broadcast';
+import { resolveRecipients, type RecipientFilters } from '@/server/emails/resolveRecipients';
 
 /** Minimal .env loader (dotenv isn't a dependency). .env.local wins over .env. */
 function loadEnv(): void {
@@ -61,6 +63,7 @@ async function main(): Promise<void> {
   const dryRun = hasFlag('dry-run');
   const limitRaw = argValue('limit');
   const onlyUser = argValue('user');
+  const filterRaw = argValue('filter');
 
   if (!template) fail('--template is required (e.g. --template apology)');
   if (!isBroadcastTemplate(template)) fail(`Unknown template "${template}". Available: ${BROADCAST_TEMPLATES.join(', ')}`);
@@ -72,7 +75,32 @@ async function main(): Promise<void> {
   console.log(`Supabase project: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
   console.log(`Template: ${template}.html   Subject: "${subject}"`);
 
-  const { recipients, skippedOptOut } = await fetchBroadcastRecipients(onlyUser);
+  // --filter '{"hasPlayoffPicks":true}' | '{"minPoints":10}' | '{"topN":5}'
+  // resolves via the shared resolveRecipients (combined-standings aware). No
+  // --filter => existing behavior (all non-opted-out, optionally one --user).
+  let recipients: BroadcastRecipient[];
+  let skippedOptOut = 0;
+  if (filterRaw) {
+    const parsed = ((): Record<string, unknown> => {
+      try { return JSON.parse(filterRaw) as Record<string, unknown>; }
+      catch { fail('--filter must be a valid JSON string'); }
+    })();
+    const filters: RecipientFilters = {
+      mode: 'filtered',
+      hasGroupPicks: parsed.hasGroupPicks === true || undefined,
+      hasPlayoffPicks: parsed.hasPlayoffPicks === true || undefined,
+      noPlayoffPicks: parsed.noPlayoffPicks === true || undefined,
+      minPoints: typeof parsed.minPoints === 'number' ? parsed.minPoints : undefined,
+      maxPoints: typeof parsed.maxPoints === 'number' ? parsed.maxPoints : undefined,
+      topN: typeof parsed.topN === 'number' ? parsed.topN : undefined,
+    };
+    const resolved = await resolveRecipients(filters);
+    recipients = resolved.map(r => ({ id: r.userId, email: r.email, firstName: r.firstName }));
+  } else {
+    const res = await fetchBroadcastRecipients(onlyUser);
+    recipients = res.recipients;
+    skippedOptOut = res.skippedOptOut;
+  }
 
   // ── Dry run: render the first recipient, print vars + HTML, send nothing ──
   if (dryRun) {

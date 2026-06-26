@@ -23,8 +23,10 @@ export const ROUND_LABEL: Record<string, string> = {
 /** Already-aggregated ledger totals per user (group stage + r32_projection). */
 export interface LedgerUser {
   userId: string;
-  points: number;     // group_position + match_outcome + match_score + r32_projection
+  points: number;     // NOTE: getLeaderboard now returns a COMBINED total; this
+                      // module subtracts playoffPoints to recover ledger-only.
   r32Points: number;  // r32_projection only
+  playoffPoints?: number; // playoff match points already folded into `points`
 }
 export interface CorePlayoffPred {
   user_id: string;
@@ -117,7 +119,10 @@ export function computeFinalStandingsFromData(
     const led = ledgerByUser.get(uid);
     const a = acc.get(uid);
     const r32ProjectionPoints = led?.r32Points ?? 0;
-    const ledgerTotal = led?.points ?? 0;
+    // getLeaderboard.points is now the COMBINED total; recover the ledger-only
+    // portion so playoff points (added back via playoffTotal below) aren't
+    // double-counted.
+    const ledgerTotal = (led?.points ?? 0) - (led?.playoffPoints ?? 0);
     const groupStagePoints = ledgerTotal - r32ProjectionPoints;
 
     const r32Points = a?.base['R32'] ?? 0;

@@ -75,6 +75,9 @@ export type PickemLeaderboardRow = {
   matchPoints: number;
   exactPoints: number;
   r32Points: number;
+  /** All playoff match points (winner + exact bonus) from playoff_predictions. */
+  playoffPoints: number;
+  /** Combined total = group ledger (incl. r32 projection) + playoffPoints. */
   points: number;
   rank: number;
 };

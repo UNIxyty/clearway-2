@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       const matchups: R32Matchup[] = filled.map(r => {
         const h = teamById.get(r.home_team_id as string); const a = teamById.get(r.away_team_id as string);
         return {
+          matchCode: r.match_code as string,
           teamA: (h?.name as string) ?? 'TBD', flagA: flagFor(h?.short_name as string),
           teamB: (a?.name as string) ?? 'TBD', flagB: flagFor(a?.short_name as string),
           date: r.kickoff_at ? new Date(r.kickoff_at as string).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '',

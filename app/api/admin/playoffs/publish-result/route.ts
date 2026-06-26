@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { MATCHES } from '@/lib/playoffs/bracketData';
@@ -133,6 +134,14 @@ export async function POST(req: NextRequest) {
       void maybeSendFinalStandings();
     }
   }
+
+  // Invalidate the playoff route caches so a freshly published result isn't
+  // served from a stale RSC/server cache. (The client read of
+  // /api/playoffs/matches is already force-dynamic + no-store; this covers the
+  // server-rendered shells. Real route paths — there is no /pickem/playoffs.)
+  revalidatePath('/playoffs');
+  revalidatePath('/playoffs/bracket');
+  revalidatePath('/playoffs/r32-draw');
 
   return NextResponse.json({ ok: true, scoredCount });
 }

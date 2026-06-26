@@ -6,8 +6,12 @@ import { flagFor } from '@/lib/playoffs/flags';
 import { PICKEM_POINTS, type PickemMatchPrediction } from '@/lib/pickem-shared';
 import { derivePredictedGroupPositions } from '@/lib/pickem-group-table';
 import { listGroups, listMatches, listTeams } from '@/lib/pickem-store';
+import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
+import { computeUserPredictedR32, type BracketTeam, type GroupMatch } from '@/lib/playoffs/standings';
 
 export interface R32Matchup {
+  /** R32 slot code (e.g. R32_M01) — used to carry the slot's official date/venue. */
+  matchCode: string;
   flagA: string;
   teamA: string;
   flagB: string;
@@ -153,8 +157,48 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
     : 0;
   const sortedTotals = [...allTotals].sort((a, b) => b - a);
 
-  const matchupsLeft = opts.matchups.slice(0, 8);
-  const matchupsRight = opts.matchups.slice(8, 16);
+  // ── Per-user R32 projection ──
+  // The email's "Your R32 Matchups" must be each user's OWN projection (their
+  // group picks → computeUserPredictedR32), NOT the official playoff_matches
+  // pairs. Slot date/venue come from opts.matchups (official per-slot meta).
+  const bracketTeams: BracketTeam[] = teams.map(t => ({
+    id: t.id,
+    name: t.name,
+    shortName: t.shortName,
+    flag: flagFor(t.shortName),
+    groupCode: t.groupCode,
+    crestUrl: t.crestUrl ?? null,
+  }));
+  const groupStageMatches = matches.filter(m => m.groupCode);
+  const slotMeta = new Map(opts.matchups.map(m => [m.matchCode, { date: m.date, venue: m.venue }]));
+
+  function userR32Matchups(userId: string): R32Matchup[] {
+    const predMap = new Map((predsByUser.get(userId) ?? []).map(p => [p.matchId, p]));
+    const gm: GroupMatch[] = groupStageMatches.map(m => {
+      const p = predMap.get(m.id);
+      return {
+        id: m.id,
+        groupCode: m.groupCode as string,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        homeScore: p ? p.predictedHomeScore : null,
+        awayScore: p ? p.predictedAwayScore : null,
+        status: m.status,
+      };
+    });
+    return computeUserPredictedR32(R32_PAIRINGS, gm, bracketTeams).map(r => {
+      const meta = slotMeta.get(r.matchCode) ?? { date: '', venue: '' };
+      return {
+        matchCode: r.matchCode,
+        teamA: r.home?.name ?? 'TBD',
+        flagA: r.home ? flagFor(r.home.shortName) : '',
+        teamB: r.away?.name ?? 'TBD',
+        flagB: r.away ? flagFor(r.away.shortName) : '',
+        date: meta.date,
+        venue: meta.venue,
+      };
+    });
+  }
 
   // Optional allow-list (rehearse to admins/devs). Population/stats above are
   // unfiltered, so ranks stay correct; this only narrows who is actually sent.
@@ -169,6 +213,10 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
     if (onlySet && !onlySet.has(user.email.toLowerCase())) continue;
     const prefs = prefsByUser.get(user.id);
     if (prefs?.email_opt_out) continue;
+
+    const userMatchups = userR32Matchups(user.id);
+    const matchupsLeft = userMatchups.slice(0, 8);
+    const matchupsRight = userMatchups.slice(8, 16);
 
     const displayName = String(
       prefs?.display_name || user.user_metadata?.display_name || user.user_metadata?.name || ''

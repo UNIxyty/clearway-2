@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     const home = teamById.get(r.home_team_id as string);
     const away = teamById.get(r.away_team_id as string);
     return {
+      matchCode: r.match_code as string,
       teamA: (home?.name as string) ?? 'TBD',
       flagA: flagFor(home?.short_name as string),
       teamB: (away?.name as string) ?? 'TBD',

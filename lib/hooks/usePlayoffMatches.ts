@@ -54,7 +54,7 @@ export function usePlayoffMatches(): UsePlayoffMatchesResult {
     setLoading(true);
     setError(null);
 
-    fetch('/api/playoffs/matches')
+    fetch('/api/playoffs/matches', { cache: 'no-store' })
       .then(r => r.json())
       .then(({ matches: rows, error: err }: { matches?: Record<string, unknown>[]; error?: string }) => {
         if (cancelled) return;

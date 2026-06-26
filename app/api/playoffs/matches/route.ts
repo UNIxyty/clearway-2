@@ -34,5 +34,7 @@ export async function GET() {
     awayTeam: m.away_team_id ? (teamsById[m.away_team_id] ?? null) : null,
   }));
 
-  return NextResponse.json({ matches });
+  // no-store so a published result is never served stale from the browser or a
+  // CDN/edge cache in front of the origin (force-dynamic only governs Next).
+  return NextResponse.json({ matches }, { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
 }

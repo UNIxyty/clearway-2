@@ -43,22 +43,23 @@ function TeamRow({
   predicted: import('@/lib/playoffs/types').BracketTeam | null;
   qualifier: string;
 }) {
+  // This is the PER-USER R32 Draw: always display the user's OWN projected
+  // team (from their group-stage picks). `actual` (the official playoff_matches
+  // qualifier) is used ONLY to mark whether the projection was correct — it is
+  // never shown as the team, so two users with different picks see different
+  // brackets even after the official R32 is confirmed.
   const correct = actual && predicted && actual.id === predicted.id;
   const wrong   = actual && predicted && actual.id !== predicted.id;
 
   return (
     <div className="flex items-center gap-2 pl-3 pr-2.5 py-2.5">
-      {actual
-        ? <FlagImg emoji={actual.flag} size={20} />
-        : predicted
-          ? <FlagImg emoji={predicted.flag} size={20} />
-          : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
+      {predicted
+        ? <FlagImg emoji={predicted.flag} size={20} />
+        : <span className="w-[20px] h-[15px] rounded-sm bg-black/[0.06] border border-dashed border-black/20 shrink-0" />}
       <div className="flex-1 min-w-0">
-        {actual
-          ? <div className="truncate text-[12.5px] font-bold text-navy">{actual.name}</div>
-          : predicted
-            ? <div className="truncate text-[12.5px] font-bold text-navy/85">{predicted.name}</div>
-            : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(qualifier)}</div>}
+        {predicted
+          ? <div className="truncate text-[12.5px] font-bold text-navy">{predicted.name}</div>
+          : <div className="text-[11px] italic font-semibold text-black/35 truncate">{qualifierLabel(qualifier)}</div>}
       </div>
       {correct && (
         <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -201,14 +202,13 @@ export interface R32DrawBracketProps {
 export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredictions = false, embedded = false }: R32DrawBracketProps) {
   const left = useMemo(() => pairings.slice(0, 8), [pairings]);
   const right = useMemo(() => pairings.slice(8, 16), [pairings]);
-  const resolved = pairings.filter(p => p.home !== null).length;
-  // Matchups whose slots are filled either by official teams or by the user's
-  // predicted qualifiers (from their group-stage score picks).
+  // The bracket is always the user's OWN projection, so progress is measured by
+  // how many slots their group picks resolve — not by the official bracket.
   const predictedKnown = pairings.filter(
     p => (p.home ?? p.predictedHome) && (p.away ?? p.predictedAway),
   ).length;
   const predictedComplete = predictedKnown === 16;
-  const known = isGroupStageComplete ? resolved : predictedKnown;
+  const known = predictedKnown;
   const pct = Math.round((known / 16) * 100);
   const totalPts = pairings.reduce((sum, p) => {
     const h = p.home && p.predictedHome && p.home.id === p.predictedHome.id ? 1 : 0;
@@ -293,7 +293,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
           <div className="text-center min-w-0">
             <div className="text-[19px] sm:text-[20px] font-black tracking-tight text-navy leading-none">Round of 32</div>
             <div className="text-[12px] sm:text-[13px] font-semibold text-black/45 truncate">
-              {isGroupStageComplete ? 'Auto-filled from group stage results' : 'Auto-filled from your group-stage picks'}
+              {isGroupStageComplete ? 'Your projection vs the official R32' : 'Auto-filled from your group-stage picks'}
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
@@ -306,7 +306,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
             <div className="flex items-center gap-1.5 px-3 h-9 rounded-full bg-bk-blue/10 text-bk-blue-dark">
               <span className="text-[13px] font-extrabold tabular-nums">{known}</span>
               <span className="text-[12px] font-bold text-bk-blue/70">/ 16</span>
-              <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">{isGroupStageComplete ? 'resolved' : 'predicted'}</span>
+              <span className="hidden sm:inline text-[12px] font-bold text-bk-blue/70">predicted</span>
             </div>
           </div>
         </div>
@@ -319,7 +319,7 @@ export function R32DrawBracket({ pairings, isGroupStageComplete, hasUserPredicti
       {/* Stats strip */}
       <div className="bg-white border-b border-black/[0.07] px-4 sm:px-6 py-2.5 text-center text-[12.5px] font-bold text-black/55">
         {isGroupStageComplete
-          ? <span className="text-emerald-600">Group stage complete — all 16 matchups resolved</span>
+          ? <span className="text-emerald-600">Official R32 confirmed — {totalPts}/16 of your predicted qualifiers correct</span>
           : predictedKnown > 0
             ? <span><span className="text-bk-blue-dark">{predictedKnown}/16</span> matchups predicted from your group picks · official results pending</span>
             : <span>Predict your group-stage scores to auto-fill the Round of 32</span>}

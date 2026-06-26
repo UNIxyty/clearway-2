@@ -239,3 +239,8 @@ body {
   line-height: 1.35;
   color: hsl(215, 16%, 47%);
 }
+
+/* R32 Projection mobile group-jump nav — hide the horizontal scrollbar
+   (matches the design export's own .no-scrollbar utility). */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

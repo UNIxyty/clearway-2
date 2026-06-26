@@ -92,13 +92,21 @@ export function getFinalStandingsData(
 }
 
 /** Batch send. Guard is claimed BEFORE sending so a re-trigger can't double-send. */
-export async function sendFinalStandingsBlast(competitionId: string): Promise<void> {
-  const won = await claimFinalEmailSend(competitionId);
-  if (!won) return; // already sent
-  void _blast(competitionId);
+export async function sendFinalStandingsBlast(
+  competitionId: string,
+  opts?: { onlyEmails?: string[] },
+): Promise<void> {
+  const onlyEmails = opts?.onlyEmails;
+  // A targeted send (admins-only / test) must NOT consume the one-time guard,
+  // so the real all-users send remains possible afterward.
+  if (!onlyEmails || onlyEmails.length === 0) {
+    const won = await claimFinalEmailSend(competitionId);
+    if (!won) return; // already sent
+  }
+  void _blast(competitionId, onlyEmails);
 }
 
-async function _blast(competitionId: string): Promise<void> {
+async function _blast(competitionId: string, onlyEmails?: string[]): Promise<void> {
   const supabase = createSupabaseAdminClient();
   const base = (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
 
@@ -109,11 +117,16 @@ async function _blast(competitionId: string): Promise<void> {
     .select('user_id, display_name, email_opt_out');
   const prefsByUser = new Map((allPrefs ?? []).map(p => [p.user_id as string, p]));
 
+  const onlySet = onlyEmails && onlyEmails.length > 0
+    ? new Set(onlyEmails.map(e => e.trim().toLowerCase()))
+    : null;
+
   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
 
   for (const user of users) {
     if (!user.email) continue;
-    if (!standings.perUser.has(user.id)) continue; // not a participant
+    if (onlySet && !onlySet.has(user.email.toLowerCase())) continue;
+    if (!standings.perUser.has(user.id)) continue; // not a participant (no standings row)
     const prefs = prefsByUser.get(user.id);
     if (prefs?.email_opt_out) continue;
 

@@ -6,6 +6,7 @@ import { sendEmail } from '@/server/emails/sendEmail';
 import { renderMockEmail, EMAIL_META, EMAIL_TYPES, type EmailType } from '@/server/emails/mockData';
 import { sendGroupStageCompleteBlast, type R32Matchup } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
 import { sendFinalStandingsBlast } from '@/server/emails/triggers/sendFinalStandingsEmail';
+import { getAdminEmails } from '@/server/emails/resolveRecipients';
 import { flagFor } from '@/lib/playoffs/flags';
 
 export const dynamic = 'force-dynamic';
@@ -69,12 +70,19 @@ export async function POST(req: NextRequest) {
 
   if (action === 'all') {
     const force = Boolean(body.force);
+    // audience: 'all' (default) | 'admins' (only admins/devs receive it). An
+    // admins-only send is a review step — it never consumes one-time guards.
+    const adminOnly = String(body.audience ?? 'all') === 'admins';
+    const onlyEmails = adminOnly ? await getAdminEmails() : undefined;
     const comp = await getActiveCompetition();
     if (!comp) return NextResponse.json({ error: 'No active competition' }, { status: 404 });
     const supabase = createSupabaseAdminClient();
 
     if (!EMAIL_META[emailType].batch) {
       return NextResponse.json({ error: `${EMAIL_META[emailType].label} is a per-user email — use Send Test.` }, { status: 400 });
+    }
+    if (adminOnly && (!onlyEmails || onlyEmails.length === 0)) {
+      return NextResponse.json({ error: 'No admin recipients found (set ADMIN_EMAILS or mark users as admin).' }, { status: 400 });
     }
 
     if (emailType === 'group_stage_complete') {
@@ -102,11 +110,16 @@ export async function POST(req: NextRequest) {
         };
       });
       const base = (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
-      sendGroupStageCompleteBlast({ competitionId: comp.id, matchups, r32Deadline: '', r32PredictionsUrl: `${base}/playoffs/bracket`, leaderboardUrl: `${base}/pickem` });
-      return NextResponse.json({ ok: true, queued: true });
+      sendGroupStageCompleteBlast({ competitionId: comp.id, matchups, r32Deadline: '', r32PredictionsUrl: `${base}/playoffs/bracket`, leaderboardUrl: `${base}/pickem`, onlyEmails });
+      return NextResponse.json({ ok: true, queued: true, audience: adminOnly ? 'admins' : 'all' });
     }
 
     if (emailType === 'final_standings') {
+      // Admins-only review send: bypass the one-time guard entirely.
+      if (adminOnly) {
+        await sendFinalStandingsBlast(comp.id, { onlyEmails });
+        return NextResponse.json({ ok: true, queued: true, audience: 'admins' });
+      }
       const state = await getTournamentState(comp.id);
       if (state.finalEmailSentAt && !force) {
         return NextResponse.json({ error: 'Already sent', alreadySent: state.finalEmailSentAt }, { status: 409 });
@@ -118,7 +131,7 @@ export async function POST(req: NextRequest) {
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       }
       await sendFinalStandingsBlast(comp.id);
-      return NextResponse.json({ ok: true, queued: true });
+      return NextResponse.json({ ok: true, queued: true, audience: 'all' });
     }
   }
 

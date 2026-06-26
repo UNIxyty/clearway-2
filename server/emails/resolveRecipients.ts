@@ -141,6 +141,29 @@ async function distinctUserIds(
   return new Set((data ?? []).map(r => String((r as { user_id: string }).user_id)));
 }
 
+/**
+ * Email addresses of all admins/developers — from ADMIN_EMAILS env plus
+ * user_preferences (is_admin / is_developer). Used for "send to admins only".
+ */
+export async function getAdminEmails(): Promise<string[]> {
+  const supabase = createSupabaseAdminClient();
+  const out = new Set(
+    String(process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+  );
+  const { data: prefs } = await supabase
+    .from('user_preferences')
+    .select('user_id')
+    .or('is_admin.eq.true,is_developer.eq.true');
+  const ids = new Set((prefs ?? []).map(p => String((p as { user_id: string }).user_id)));
+  if (ids.size > 0) {
+    const { data } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    for (const u of data.users) {
+      if (u.email && ids.has(u.id)) out.add(u.email.toLowerCase());
+    }
+  }
+  return [...out];
+}
+
 async function playoffPickUserIds(supabase: ReturnType<typeof createSupabaseAdminClient>): Promise<Set<string>> {
   const { data } = await supabase
     .from('playoff_predictions')

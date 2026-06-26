@@ -75,6 +75,21 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
     } finally { setBusy(null); }
   }, [status, load]);
 
+  // Review send: only admins/devs receive it; never consumes one-time guards.
+  const sendAdmins = useCallback(async (emailType: string, label: string) => {
+    if (!window.confirm(`Send "${label}" to ADMINS ONLY (review send)? Regular users won't receive it.`)) return;
+    setBusy(emailType + ':admins');
+    try {
+      const res = await fetch('/api/admin/email-tools', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'all', emailType, audience: 'admins' }),
+      });
+      const json = await res.json();
+      flash(res.ok ? `${label}: sent to admins only` : `Error: ${json.error}`);
+      if (res.ok) void load();
+    } finally { setBusy(null); }
+  }, [load]);
+
   const runBroadcast = useCallback(async (testOnly: boolean) => {
     if (!bcSubject.trim()) { flash('Enter a subject line'); return; }
     if (!testOnly) {
@@ -131,6 +146,13 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
                     className="h-9 px-4 rounded-lg border border-black/15 bg-white text-[13px] font-bold text-navy hover:bg-black/[0.03] transition">
                     Send Test
                   </button>
+                  {meta.batch && (
+                    <button onClick={() => sendAdmins(type, meta.label)} disabled={busy === type + ':admins'}
+                      className="h-9 px-4 rounded-lg border border-bk-blue/40 bg-bk-blue/5 text-bk-blue-dark text-[13px] font-bold transition hover:bg-bk-blue/10 disabled:opacity-40"
+                      title="Send to admins/devs only (review send — does not consume one-time guard)">
+                      {busy === type + ':admins' ? 'Sending…' : 'Send to Admins'}
+                    </button>
+                  )}
                   <button onClick={() => sendAll(type, meta.label)} disabled={!meta.batch || busy === type + ':all'}
                     className="h-9 px-4 rounded-lg bg-bk-blue hover:bg-bk-blue-dark text-white text-[13px] font-bold transition disabled:opacity-40"
                     title={meta.batch ? 'Send to all users' : 'Per-user email — use Send Test'}>

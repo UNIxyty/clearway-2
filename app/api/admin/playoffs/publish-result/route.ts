@@ -3,7 +3,6 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { MATCHES } from '@/lib/playoffs/bracketData';
-import { maybeSendFinalStandings } from '@/server/emails/triggers/sendFinalStandingsEmail';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -126,13 +125,11 @@ export async function POST(req: NextRequest) {
       matchRow.away_team_id as string | null,
     );
 
-    // Stage 7: once both FINAL and THIRD are published+scored, fire the final
-    // standings email exactly once (guarded inside). Fire-and-forget — the admin
-    // response must not wait on the batch. Event-driven only; no polling.
-    const round = MATCHES[matchCode]?.round;
-    if (round === 'FINAL' || round === 'THIRD') {
-      void maybeSendFinalStandings();
-    }
+    // NOTE: the Final Standings email is NO LONGER sent automatically here.
+    // Auto-blasting every user the moment FINAL/THIRD was published gave the
+    // admin no chance to review or choose the audience. It is now a deliberate
+    // action in Email Tools (Send Test → me, Send to Admins, or Send to All),
+    // still guarded by tournament_state.final_email_sent_at so it can't double-send.
   }
 
   // Invalidate the playoff route caches so a freshly published result isn't

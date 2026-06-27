@@ -33,6 +33,7 @@ import { usePlayoffPredictions } from '@/hooks/usePlayoffPredictions';
 import { R32DrawView } from '@/components/playoffs/R32DrawView';
 import { FullBracketView } from '@/components/playoffs/FullBracketView';
 import { OpenPlayoffsCard } from '@/components/playoffs/OpenPlayoffsCard';
+import { BackToDashboard } from '@/components/playoffs/BackToDashboard';
 
 /* ----------------------------------------------------------------- types --- */
 type TabId = 'r32' | 'bracket' | 'admin';
@@ -413,6 +414,11 @@ export default function PlayoffsPage() {
 
   return (
     <div className="text-[#0f1e3c]">
+      {/* 0 — back to dashboard (always visible, not behind a menu) */}
+      <div className="mb-3">
+        <BackToDashboard />
+      </div>
+
       {/* 1 — page header */}
       <div className="flex items-start justify-between gap-4">
         <div>

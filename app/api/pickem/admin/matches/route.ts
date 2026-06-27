@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { recomputePickemPoints } from "@/lib/pickem-scoring";
-import { getActiveCompetition, listMatches, listTeams, updateMatchScore } from "@/lib/pickem-store";
+import { claimPlayoffsAutoOpen, getActiveCompetition, listMatches, listTeams, updateMatchScore } from "@/lib/pickem-store";
+import { sendPlayoffsOpenedBlast } from "@/server/emails/triggers/sendPlayoffsOpenedEmail";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -73,6 +74,29 @@ export async function PATCH(request: NextRequest) {
     });
     await recomputePickemPoints(competition.id);
     const matches = await listMatches(competition.id);
+
+    // Auto-open playoffs once EVERY group-stage match has a published score (i.e.
+    // the admin just published the last group result). Idempotent: the store guard
+    // only stamps playoffs_opened_at if it's still null, so this can't re-fire or
+    // clobber a manual open, and it never sets the prediction deadline.
+    const groupMatches = matches.filter(m => m.stage === "group");
+    const allGroupScored =
+      groupMatches.length > 0 &&
+      groupMatches.every(m => m.homeScore !== null && m.awayScore !== null);
+    if (allGroupScored) {
+      try {
+        const justOpened = await claimPlayoffsAutoOpen(competition.id);
+        if (justOpened) {
+          console.log("[matches] all group results in — playoffs auto-opened", { competitionId: competition.id });
+          // No-ops with a log if the playoffsOpened.html template isn't designed yet.
+          sendPlayoffsOpenedBlast({ competitionId: competition.id });
+        }
+      } catch (autoOpenErr) {
+        // Never fail the score save because of the auto-open side-effect.
+        console.error("[matches] playoffs auto-open failed", autoOpenErr);
+      }
+    }
+
     return NextResponse.json({ ok: true, matches });
   } catch (error) {
     return NextResponse.json(

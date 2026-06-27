@@ -84,16 +84,16 @@
                 {{#each groups}}
                 {{#if rowAlt}}
                 <tr>
-                  <td bgcolor="#fafafa" valign="middle" style="padding: 10px 10px 10px 0; border-bottom: 1px solid #e5e7eb; background-color: #fafafa; width: 20%;">
-                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; color: #0f1e3c;">{{label}}</p>
+                  <td bgcolor="#fafafa" valign="middle" style="padding: 10px 10px 10px 0; border-bottom: 1px solid #e5e7eb; background-color: #fafafa; width: 14%;">
+                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; color: #0f1e3c;">Group {{groupCode}}</p>
                   </td>
                   <td bgcolor="#fafafa" valign="middle" style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; background-color: #fafafa;">
-                    <p style="margin: 0 0 3px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #9ca3af;">Predicted: {{predicted}}</p>
-                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0f1e3c; font-weight: bold;">Actual: {{actual}}</p>
+                    <p style="margin: 0 0 3px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #9ca3af;">Predicted order: {{#each predictedOrder}}{{position}}{{ord}} {{flag}} {{name}}{{#unless @last}}, {{/unless}}{{/each}}</p>
+                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0f1e3c; font-weight: bold;">Actual order: {{#each actualOrder}}{{position}}{{ord}} {{flag}} {{name}}{{#unless @last}}, {{/unless}}{{/each}}</p>
                   </td>
                   <td bgcolor="#fafafa" valign="middle" align="right" style="padding: 10px 0 10px 8px; border-bottom: 1px solid #e5e7eb; background-color: #fafafa; white-space: nowrap;">
                     {{#if hasPoints}}
-                    <span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px;">+{{points}} pts</span>
+                    <span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px;">+{{pointsEarned}} pts</span>
                     {{else}}
                     <span style="display: inline-block; background-color: #f3f4f6; color: #6b7280; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px; border: 1px solid #d1d5db;">+0 pts</span>
                     {{/if}}
@@ -101,16 +101,16 @@
                 </tr>
                 {{else}}
                 <tr>
-                  <td bgcolor="#ffffff" valign="middle" style="padding: 10px 10px 10px 0; border-bottom: 1px solid #e5e7eb; background-color: #ffffff; width: 20%;">
-                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; color: #0f1e3c;">{{label}}</p>
+                  <td bgcolor="#ffffff" valign="middle" style="padding: 10px 10px 10px 0; border-bottom: 1px solid #e5e7eb; background-color: #ffffff; width: 14%;">
+                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; color: #0f1e3c;">Group {{groupCode}}</p>
                   </td>
                   <td bgcolor="#ffffff" valign="middle" style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; background-color: #ffffff;">
-                    <p style="margin: 0 0 3px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #9ca3af;">Predicted: {{predicted}}</p>
-                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0f1e3c; font-weight: bold;">Actual: {{actual}}</p>
+                    <p style="margin: 0 0 3px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #9ca3af;">Predicted order: {{#each predictedOrder}}{{position}}{{ord}} {{flag}} {{name}}{{#unless @last}}, {{/unless}}{{/each}}</p>
+                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #0f1e3c; font-weight: bold;">Actual order: {{#each actualOrder}}{{position}}{{ord}} {{flag}} {{name}}{{#unless @last}}, {{/unless}}{{/each}}</p>
                   </td>
                   <td bgcolor="#ffffff" valign="middle" align="right" style="padding: 10px 0 10px 8px; border-bottom: 1px solid #e5e7eb; background-color: #ffffff; white-space: nowrap;">
                     {{#if hasPoints}}
-                    <span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px;">+{{points}} pts</span>
+                    <span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px;">+{{pointsEarned}} pts</span>
                     {{else}}
                     <span style="display: inline-block; background-color: #f3f4f6; color: #6b7280; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 20px; border: 1px solid #d1d5db;">+0 pts</span>
                     {{/if}}

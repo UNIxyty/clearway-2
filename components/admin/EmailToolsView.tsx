@@ -8,6 +8,7 @@ interface Status {
   userCount: number;
   guards: Record<string, string | null>;
   meta: Record<string, Meta>;
+  playoffsOpenedTemplateAvailable: boolean;
 }
 
 const ORDER = ['group_stage_complete', 'bracket_confirmation', 'prediction_update', 'final_standings'];
@@ -44,6 +45,22 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
       const res = await fetch('/api/admin/email-tools', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test', emailType, recipient }),
+      });
+      const json = await res.json();
+      flash(res.ok ? `Test sent to ${json.sentTo}` : `Error: ${json.error}`);
+      if (res.ok) { setTestOpen(null); setRecipient(''); void load(); }
+    } finally { setBusy(null); }
+  }, [recipient, load]);
+
+  // Playoffs Opened test send — its own action because the template is designed
+  // separately and isn't part of the standard mock email types.
+  const sendPlayoffsOpenedTest = useCallback(async () => {
+    if (!recipient.includes('@')) { flash('Enter a valid email address'); return; }
+    setBusy('playoffs_opened:test');
+    try {
+      const res = await fetch('/api/admin/email-tools', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test-playoffs-opened', recipient }),
       });
       const json = await res.json();
       flash(res.ok ? `Test sent to ${json.sentTo}` : `Error: ${json.error}`);
@@ -174,6 +191,42 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
             </div>
           );
         })}
+
+        {/* Playoffs Opened — auto-sent when the last group result is published.
+            Send Test is disabled until the template is designed (Claude Design). */}
+        {status && (
+          <div className="bg-white rounded-xl border border-black/[0.08] p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-[240px]">
+                <p className="text-[15px] font-black text-navy">Playoffs Opened</p>
+                <p className="text-[12.5px] font-semibold text-black/45 mt-0.5">Auto-sent to all users when the final group result is published and playoffs open.</p>
+                <p className="text-[12px] font-semibold text-black/40 mt-1.5">{fmt(status.lastSent['playoffs_opened'] ?? null)}</p>
+                {!status.playoffsOpenedTemplateAvailable && (
+                  <p className="text-[11.5px] font-bold text-amber-700 mt-1">Template not yet designed</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => status.playoffsOpenedTemplateAvailable && setTestOpen(testOpen === 'playoffs_opened' ? null : 'playoffs_opened')}
+                  disabled={!status.playoffsOpenedTemplateAvailable}
+                  title={status.playoffsOpenedTemplateAvailable ? 'Send a test render to an email address' : 'Template not yet designed — use Claude Design to create it first'}
+                  className="h-9 px-4 rounded-lg border border-black/15 bg-white text-[13px] font-bold text-navy hover:bg-black/[0.03] transition disabled:opacity-40 disabled:cursor-not-allowed">
+                  Send Test
+                </button>
+              </div>
+            </div>
+            {status.playoffsOpenedTemplateAvailable && testOpen === 'playoffs_opened' && (
+              <div className="mt-3 flex items-center gap-2 border-t border-black/[0.06] pt-3">
+                <input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="test@example.com"
+                  className="flex-1 h-9 px-3 rounded-lg border-2 border-black/12 text-[13px] font-semibold text-navy outline-none focus:border-bk-blue" />
+                <button onClick={() => sendPlayoffsOpenedTest()} disabled={busy === 'playoffs_opened:test'}
+                  className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold transition disabled:opacity-40">
+                  {busy === 'playoffs_opened:test' ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Custom one-off broadcast (apology + any future templates). */}
         {status && (

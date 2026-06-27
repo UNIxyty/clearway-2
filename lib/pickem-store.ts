@@ -408,11 +408,14 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
       points: 0,
     };
     const points = Number(row.points || 0);
-    current.points += points; // total includes every source type, incl. r32_projection
     const sourceType = String(row.source_type || "");
-    if (sourceType === "group_position") current.groupPoints += points;
-    else if (sourceType === "match_outcome") current.matchPoints += points;
-    else if (sourceType === "match_score") current.exactPoints += points;
+    // `points` here is the GROUP-STAGE total only (group_position + match_outcome
+    // + match_score). r32_projection is deliberately excluded — it belongs to the
+    // Playoffs standings, not the group-stage leaderboard. r32 is tracked
+    // separately in r32Points.
+    if (sourceType === "group_position") { current.groupPoints += points; current.points += points; }
+    else if (sourceType === "match_outcome") { current.matchPoints += points; current.points += points; }
+    else if (sourceType === "match_score") { current.exactPoints += points; current.points += points; }
     else if (sourceType === "r32_projection") current.r32Points += points;
     scores.set(userId, current);
   }
@@ -475,7 +478,7 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
 
   const rows = userIds
     .map((userId) => {
-      const ledgerTotal = scores.get(userId)?.points ?? 0;
+      const groupStageTotal = scores.get(userId)?.points ?? 0; // group/match/exact only
       const playoffPoints = playoffByUser.get(userId) ?? 0;
       return {
         userId,
@@ -484,8 +487,10 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
         exactPoints: scores.get(userId)?.exactPoints ?? 0,
         r32Points: scores.get(userId)?.r32Points ?? 0,
         playoffPoints,
-        // ONE combined total: group ledger (incl. r32 projection) + playoff points.
-        points: ledgerTotal + playoffPoints,
+        // GROUP-STAGE total only (group_position + match_outcome + match_score).
+        // r32_projection and playoff points are surfaced in their own fields and
+        // shown on the Playoffs standings tab — never folded into this total.
+        points: groupStageTotal,
         displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
         email: null as string | null,
         rank: 0,
@@ -690,6 +695,25 @@ export async function openPlayoffs(input: {
     .from("tournament_state")
     .upsert(row, { onConflict: "competition_id", ignoreDuplicates: false });
   if (error) throw new Error(error.message || "Failed to open playoffs");
+}
+
+/** Auto-open playoffs when the last group result is published. Stamps
+ * playoffs_opened_at ONLY if it is currently null (never overwrites a manual open)
+ * and deliberately does NOT touch playoffs_prediction_deadline — the deadline
+ * stays a manual admin decision. Returns true if THIS call opened it (so the
+ * caller fires the one-time "Playoffs Opened" email), false if already open. */
+export async function claimPlayoffsAutoOpen(competitionId: string): Promise<boolean> {
+  const supabase = service();
+  const existing = await getTournamentState(competitionId);
+  if (existing.playoffsOpenedAt) return false;
+  const { error } = await supabase
+    .from("tournament_state")
+    .upsert(
+      { competition_id: competitionId, playoffs_opened_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      { onConflict: "competition_id", ignoreDuplicates: false },
+    );
+  if (error) throw new Error(error.message || "Failed to auto-open playoffs");
+  return true;
 }
 
 /** Stamp the R32-confirmed time. Callers guard on getTournamentState first so

@@ -35,10 +35,23 @@ export interface GroupStageBlastOptions {
   onlyEmails?: string[];
 }
 
-interface GroupRow {
-  label: string; predicted: string; actual: string;
-  points: number; rowAlt: boolean; hasPoints: boolean;
+/** One team line within a group's predicted/actual standings (all 4 positions). */
+interface GroupStandingEntry {
+  position: number; // 1..4
+  ord: string;      // ordinal suffix: 'st' | 'nd' | 'rd' | 'th'
+  name: string;     // short code, e.g. CZE
+  flag: string;     // emoji flag
 }
+interface GroupRow {
+  groupCode: string;
+  predictedOrder: GroupStandingEntry[];
+  actualOrder: GroupStandingEntry[];
+  pointsEarned: number;
+  rowAlt: boolean;
+  hasPoints: boolean;
+}
+
+const ORD = (n: number): string => (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 
 export function sendGroupStageCompleteBlast(opts: GroupStageBlastOptions): void {
   // Fire-and-forget, but never let a failure vanish as an unhandled rejection.
@@ -97,9 +110,13 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
 
   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
 
-  const fmt = (ids: string[]) =>
-    ids.map(id => teamById.get(id)).filter(Boolean)
-       .map(t => `${flagFor(t!.shortName)} ${t!.shortName}`).join(', ') || '–';
+  // One standings line per team, carrying its 1-based position so the email can
+  // show the FULL predicted/actual order (all 4 positions), not just qualifiers.
+  const entry = (teamId: string, position: number): GroupStandingEntry | null => {
+    const t = teamById.get(teamId);
+    if (!t) return null;
+    return { position, ord: ORD(position), name: t.shortName, flag: flagFor(t.shortName) };
+  };
 
   // Per-user group points via the SAME score-derived model as the leaderboard:
   // derived predicted positions vs admin-set real final positions, +1 per match.
@@ -135,11 +152,20 @@ async function _blast(opts: GroupStageBlastOptions): Promise<void> {
       }
       total += pts;
 
+      // predByGroup is index-by-(position-1); actualIds is already sorted by real
+      // final position. Both render as the full 1st→4th order.
+      const predictedOrder = predictedIds
+        .map((id, i) => (id ? entry(id, i + 1) : null))
+        .filter((e): e is GroupStandingEntry => e !== null);
+      const actualOrder = actualIds
+        .map((id, i) => entry(id, i + 1))
+        .filter((e): e is GroupStandingEntry => e !== null);
+
       return {
-        label: `Group ${code}`,
-        predicted: fmt(predictedIds.filter(Boolean)),
-        actual: fmt(actualIds),
-        points: pts,
+        groupCode: code,
+        predictedOrder,
+        actualOrder,
+        pointsEarned: pts,
         rowAlt: idx % 2 === 1,
         hasPoints: pts > 0,
       };

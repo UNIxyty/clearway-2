@@ -6,6 +6,7 @@ import { sendEmail } from '@/server/emails/sendEmail';
 import { renderMockEmail, EMAIL_META, EMAIL_TYPES, type EmailType } from '@/server/emails/mockData';
 import { sendGroupStageCompleteBlast, type R32Matchup } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
 import { sendFinalStandingsBlast } from '@/server/emails/triggers/sendFinalStandingsEmail';
+import { playoffsOpenedTemplateExists, renderPlayoffsOpenedMock } from '@/server/emails/triggers/sendPlayoffsOpenedEmail';
 import { getAdminEmails } from '@/server/emails/resolveRecipients';
 import { flagFor } from '@/lib/playoffs/flags';
 
@@ -42,6 +43,9 @@ export async function GET() {
       final_standings: state.finalEmailSentAt,
     },
     meta: EMAIL_META,
+    // The playoffs_opened template is produced separately via Claude Design; the
+    // UI disables its Send Test button until the file exists on disk.
+    playoffsOpenedTemplateAvailable: playoffsOpenedTemplateExists(),
   });
 }
 
@@ -52,6 +56,23 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const action = String(body.action ?? '');
+
+  // Special case: playoffs_opened is not part of the mock EMAIL_TYPES union (its
+  // template is designed separately). Handle its test send before that guard.
+  if (action === 'test-playoffs-opened') {
+    if (!playoffsOpenedTemplateExists()) {
+      return NextResponse.json({ error: 'Template not yet designed — use Claude Design to create it first.' }, { status: 400 });
+    }
+    const recipient = String(body.recipient ?? '').trim();
+    if (!recipient || !recipient.includes('@')) {
+      return NextResponse.json({ error: 'A valid recipient email is required.' }, { status: 400 });
+    }
+    const { subject, html } = renderPlayoffsOpenedMock();
+    const result = await sendEmail(recipient, subject, html, { emailType: 'playoffs_opened', isTest: true });
+    if (!result.success) return NextResponse.json({ error: result.error ?? 'Send failed' }, { status: 500 });
+    return NextResponse.json({ ok: true, sentTo: recipient });
+  }
+
   const emailType = String(body.emailType ?? '') as EmailType;
   if (!EMAIL_TYPES.includes(emailType)) {
     return NextResponse.json({ error: `Unknown email type: ${emailType}` }, { status: 400 });

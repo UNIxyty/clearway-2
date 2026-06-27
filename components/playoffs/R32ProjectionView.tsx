@@ -21,6 +21,7 @@ import { GroupProjectionCard } from '@/components/playoffs/r32projection/GroupPr
 import { R32MatchupPreview } from '@/components/playoffs/r32projection/R32MatchupPreview';
 import { ScoringStrip } from '@/components/playoffs/r32projection/ScoringStrip';
 import { GroupJumpNav } from '@/components/playoffs/r32projection/GroupJumpNav';
+import { BackToDashboard } from '@/components/playoffs/BackToDashboard';
 import { Check } from '@/components/playoffs/r32projection/icons';
 import type { ScoringStatus } from '@/components/playoffs/r32projection/types';
 
@@ -129,6 +130,9 @@ export function R32ProjectionView({ embedded = false }: { embedded?: boolean }) 
         {!embedded && (
           <header className="bg-white border-b border-black/[0.07]">
             <div className="max-w-[1180px] mx-auto px-4 sm:px-6 pt-6 pb-0">
+              <div className="mb-3">
+                <BackToDashboard />
+              </div>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
                   <h1 className="text-[22px] sm:text-[24px] font-black tracking-tight text-navy leading-tight">Round of 32 Projection</h1>

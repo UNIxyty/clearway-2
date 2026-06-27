@@ -74,10 +74,13 @@ export type PickemLeaderboardRow = {
   groupPoints: number;
   matchPoints: number;
   exactPoints: number;
+  /** r32_projection ledger points. Shown on the Playoffs tab, NOT in `points`. */
   r32Points: number;
-  /** All playoff match points (winner + exact bonus) from playoff_predictions. */
+  /** All playoff match points (winner + exact bonus) from playoff_predictions.
+   * Shown on the Playoffs tab, NOT in `points`. */
   playoffPoints: number;
-  /** Combined total = group ledger (incl. r32 projection) + playoffPoints. */
+  /** GROUP-STAGE total only: group_position + match_outcome + match_score.
+   * Excludes r32_projection and playoff points by design. */
   points: number;
   rank: number;
 };

@@ -62,16 +62,18 @@ preds = preds.concat(matches.map((m, idx): CorePlayoffPred => {
 const result = computeFinalStandingsFromData(ledger, preds, matches);
 
 // ── Independent hand-calc (deliberately separate summation) ──
-const ROUND_VAL: Record<string, number> = { R32: 1, R16: 2, QF: 5, SF: 8, FINAL: 10, THIRD: 3 };
+// Flat scoring: +1 per correct winner in EVERY round (mirrors scoring-constants.ts).
+const ROUND_VAL: Record<string, number> = { R32: 1, R16: 1, QF: 1, SF: 1, FINAL: 1, THIRD: 1 };
 const matchById = new Map(matches.map(m => [m.id, m]));
-function handCalc(userId: string, ledgerTotal: number): number {
+function handCalc(userId: string, groupStage: number, r32proj: number): number {
   let playoff = 0;
   for (const p of preds.filter(x => x.user_id === userId)) {
     const m = matchById.get(p.match_id)!;
     if (p.predicted_winner_id === m.winner_team_id) playoff += ROUND_VAL[m.round];
     if (p.predicted_home_score === m.home_score && p.predicted_away_score === m.away_score) playoff += 2;
   }
-  return ledgerTotal + playoff;
+  // points (group-stage only) + r32 projection + playoff round points.
+  return groupStage + r32proj + playoff;
 }
 
 let failures = 0;
@@ -84,10 +86,10 @@ const check = (label: string, got: unknown, want: unknown) => {
 console.log('\n=== #2 totalPoints: core vs independent hand-calc (3 spanning users) ===');
 for (const id of ['champ', 'avgish', 'last']) {
   const u = result.perUser.get(id)!;
-  const led = ledger.find(l => l.userId === id)!.points;
+  const ledRow = ledger.find(l => l.userId === id)!;
   console.log(`\n${id} — rank #${result.rankByUser.get(id)}  total=${u.totalPoints}`);
   console.log(`   breakdown: group=${u.groupStagePoints} r32proj=${u.r32ProjectionPoints} R32=${u.r32Points} R16=${u.r16Points} QF=${u.qfPoints} SF=${u.sfPoints} Final&3rd=${u.finalPoints} exactBonus=${u.exactScoreBonusPoints} (exactCount=${u.exactScoreCount}, correct=${u.correctPicksCount}/${u.totalPicksCount}) bestRound=${u.bestRound}`);
-  check(`${id} total == hand-calc`, u.totalPoints, handCalc(id, led));
+  check(`${id} total == hand-calc`, u.totalPoints, handCalc(id, ledRow.points, ledRow.r32Points));
   // breakdown must sum to total
   const sum = u.groupStagePoints + u.r32ProjectionPoints + u.r32Points + u.r16Points + u.qfPoints + u.sfPoints + u.finalPoints + u.exactScoreBonusPoints;
   check(`${id} breakdown sums to total`, sum, u.totalPoints);

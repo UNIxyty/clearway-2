@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PlayoffMatchCard } from './PlayoffMatchCard';
 import { BracketConnectors, buildElbow, type ElbowPath } from './BracketConnectors';
 import { FlagImg } from './FlagImg';
+import { BackToDashboard } from './BackToDashboard';
 import { ChevronLeft, ChevronRight, Trophy } from './icons';
 import {
   MATCHES, BRACKET_H, CARD_WIDTHS, GROUPS_LEFT, GROUPS_RIGHT,
@@ -690,6 +691,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
             <div className="text-[13px] font-extrabold tracking-tight text-navy">Tournament Bracket</div>
             <div className="text-[11px] font-semibold text-black/40">WC 2026 · Knockout Stage</div>
           </div>
+          <BackToDashboard className="shrink-0" />
         </div>
         )}
         {/* Mobile round tabs */}

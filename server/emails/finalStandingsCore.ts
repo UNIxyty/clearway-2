@@ -20,13 +20,11 @@ export const ROUND_LABEL: Record<string, string> = {
   SF: 'Semi-Finals', FINAL: 'Final', THIRD: 'Third Place',
 };
 
-/** Already-aggregated ledger totals per user (group stage + r32_projection). */
+/** Already-aggregated ledger totals per user. */
 export interface LedgerUser {
   userId: string;
-  points: number;     // NOTE: getLeaderboard now returns a COMBINED total; this
-                      // module subtracts playoffPoints to recover ledger-only.
+  points: number;     // GROUP-STAGE total only (group_position+match_outcome+match_score)
   r32Points: number;  // r32_projection only
-  playoffPoints?: number; // playoff match points already folded into `points`
 }
 export interface CorePlayoffPred {
   user_id: string;
@@ -119,11 +117,9 @@ export function computeFinalStandingsFromData(
     const led = ledgerByUser.get(uid);
     const a = acc.get(uid);
     const r32ProjectionPoints = led?.r32Points ?? 0;
-    // getLeaderboard.points is now the COMBINED total; recover the ledger-only
-    // portion so playoff points (added back via playoffTotal below) aren't
-    // double-counted.
-    const ledgerTotal = (led?.points ?? 0) - (led?.playoffPoints ?? 0);
-    const groupStagePoints = ledgerTotal - r32ProjectionPoints;
+    // getLeaderboard.points is now GROUP-STAGE only (r32 + playoff live in their
+    // own buckets), so it maps straight to groupStagePoints — no subtraction.
+    const groupStagePoints = led?.points ?? 0;
 
     const r32Points = a?.base['R32'] ?? 0;
     const r16Points = a?.base['R16'] ?? 0;
@@ -151,7 +147,7 @@ export function computeFinalStandingsFromData(
       exactScoreBonusPoints, exactScoreCount,
       correctPicksCount: a?.correctCount ?? 0,
       totalPicksCount: a?.totalPicks ?? 0,
-      totalPoints: ledgerTotal + playoffTotal,
+      totalPoints: groupStagePoints + r32ProjectionPoints + playoffTotal,
       bestRound,
     });
   }

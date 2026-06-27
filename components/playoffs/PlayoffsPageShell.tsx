@@ -27,6 +27,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { usePlayoffsLaunchState } from '@/hooks/usePlayoffsLaunchState';
+import { usePlayoffsLaunchState as usePlayoffsLaunchInfo } from '@/lib/hooks/usePlayoffsLaunchState';
 import { usePlayoffMatches } from '@/hooks/usePlayoffMatches';
 import { usePlayoffPredictions } from '@/hooks/usePlayoffPredictions';
 
@@ -360,10 +361,25 @@ const CONTENT_TRANSITION = {
   exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
 } as const;
 
+/* ------------------------------------------------------ deadline plate --- */
+// Mirrors the dashboard's group-stage "Lock (Riga)" pill, but for the playoffs
+// prediction deadline. Always rendered in Europe/Riga regardless of the viewer's
+// own timezone, so the time matches what the admin set.
+function fmtRiga(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Europe/Riga', timeZoneName: 'short',
+  });
+}
+
 /* --------------------------------------------------------------- page --- */
 export default function PlayoffsPage() {
   const isAdmin = useIsAdmin();
   const { playoffsOpenedAt, predictionsLocked } = usePlayoffsLaunchState();
+  const { deadline, accessUntil } = usePlayoffsLaunchInfo();
   const { matches } = usePlayoffMatches();
   const { made: picksMade, total: picksTotal } = usePlayoffPredictions();
 
@@ -428,6 +444,20 @@ export default function PlayoffsPage() {
           <h1 className="mt-1 text-[28px] sm:text-[32px] font-black tracking-tight leading-none text-[#0f1e3c]">
             Playoffs
           </h1>
+          {(deadline || accessUntil) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] font-bold">
+              {deadline && (
+                <span className="rounded-full bg-[#1a56db]/10 px-3 py-1 text-[#1647b8]">
+                  Predictions close (Riga): {fmtRiga(deadline)}
+                </span>
+              )}
+              {accessUntil && new Date(accessUntil).getTime() > Date.now() && (
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+                  Open for you until {fmtRiga(accessUntil)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="shrink-0 pt-1">
           <ProgressPill

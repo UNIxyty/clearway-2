@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { recomputePickemPoints } from "@/lib/pickem-scoring";
 import { claimPlayoffsAutoOpen, getActiveCompetition, listMatches, listTeams, updateMatchScore } from "@/lib/pickem-store";
-import { sendPlayoffsOpenedBlast } from "@/server/emails/triggers/sendPlayoffsOpenedEmail";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -75,22 +74,27 @@ export async function PATCH(request: NextRequest) {
     await recomputePickemPoints(competition.id);
     const matches = await listMatches(competition.id);
 
-    // Auto-open playoffs once EVERY group-stage match has a published score (i.e.
-    // the admin just published the last group result). Idempotent: the store guard
-    // only stamps playoffs_opened_at if it's still null, so this can't re-fire or
+    // Auto-open playoffs once EVERY group-stage match is FINISHED (not merely
+    // scored — a live/in-progress match already carries a running scoreline, so
+    // checking for a non-null score would fire mid-matchday). Mirrors the
+    // finished-check in lib/pickem-scoring.ts. Idempotent: the store guard only
+    // stamps playoffs_opened_at if it's still null, so this can't re-fire or
     // clobber a manual open, and it never sets the prediction deadline.
+    //
+    // NOTE: this only OPENS the feature. The "Playoffs Opened" email is NOT sent
+    // automatically — the admin sends it deliberately from Email Tools → Send to
+    // All. (Auto-sending once blasted every user prematurely off a live match.)
     const groupMatches = matches.filter(m => m.stage === "group");
-    const allGroupScored =
+    const allGroupFinished =
       groupMatches.length > 0 &&
-      groupMatches.every(m => m.homeScore !== null && m.awayScore !== null);
-    if (allGroupScored) {
+      groupMatches.every(
+        m => m.homeScore !== null && m.awayScore !== null && String(m.status).toLowerCase() === "finished",
+      );
+    if (allGroupFinished) {
       try {
         const justOpened = await claimPlayoffsAutoOpen(competition.id);
         if (justOpened) {
-          console.log(`Playoffs auto-opened after all ${groupMatches.length} group matches completed`);
-          // Sends to all non-opted-out users; no-ops with a log if the
-          // playoffsOpened.html template isn't on disk yet.
-          sendPlayoffsOpenedBlast({ competitionId: competition.id });
+          console.log(`Playoffs auto-opened after all ${groupMatches.length} group matches finished — send the Playoffs Opened email manually from Email Tools`);
         }
       } catch (autoOpenErr) {
         // Never fail the score save because of the auto-open side-effect.

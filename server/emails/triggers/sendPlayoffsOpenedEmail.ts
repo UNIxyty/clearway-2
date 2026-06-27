@@ -26,6 +26,17 @@ function appBase(): string {
   return (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
 }
 
+/** "June 29, 2026 at 22:00" (UTC), or null when no deadline is set yet (the
+ * template renders "Set by your admin soon" in that case). */
+function formatDeadline(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const date = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  return `${date} at ${time}`;
+}
+
 /** Test render with mock data (used by the Email Tools "Send Test" button). Only
  * call when playoffsOpenedTemplateExists() is true. */
 export function renderPlayoffsOpenedMock(): { subject: string; html: string } {
@@ -33,11 +44,11 @@ export function renderPlayoffsOpenedMock(): { subject: string; html: string } {
   return {
     subject: "WC2026 Pick'em — Playoffs Are Open",
     html: renderTemplate(TEMPLATE, {
-      firstName: 'Admin',
-      deadline: 'coming soon',
+      firstName: 'Test User',
+      deadline: 'June 29, 2026 at 22:00',
       playoffsBracketUrl: `${base}/playoffs`,
       dashboardUrl: `${base}/pickem`,
-      unsubscribeLink: `${base}/unsubscribe?token=mock`,
+      unsubscribeLink: `${base}/api/unsubscribe?token=test`,
       wc2026LogoUrl: `${base}/wc2026-logo.png`,
       clearwayLogoUrl: `${base}/clearway-logo.svg`,
       verxylLogoUrl: `${base}/verxyl-logo.png`,
@@ -68,16 +79,13 @@ async function _blast(opts: PlayoffsOpenedBlastOptions): Promise<void> {
   const base = appBase();
 
   const state = await getTournamentState(opts.competitionId);
-  const deadline = state.playoffsPredictionDeadline
-    ? new Date(state.playoffsPredictionDeadline).toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
-      })
-    : null;
+  const deadline = formatDeadline(state.playoffsPredictionDeadline);
 
   const { data: allPrefs } = await supabase
     .from('user_preferences')
-    .select('user_id, email_opt_out');
+    .select('user_id, display_name, email_opt_out');
   const optOutByUser = new Map((allPrefs ?? []).map(p => [p.user_id as string, Boolean(p.email_opt_out)]));
+  const nameByUser = new Map((allPrefs ?? []).map(p => [p.user_id as string, (p.display_name as string) ?? '']));
 
   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
 
@@ -93,7 +101,7 @@ async function _blast(opts: PlayoffsOpenedBlastOptions): Promise<void> {
     if (optOutByUser.get(user.id)) continue;
 
     const displayName = String(
-      user.user_metadata?.display_name || user.user_metadata?.name || '',
+      nameByUser.get(user.id) || user.user_metadata?.display_name || user.user_metadata?.name || '',
     ).trim() || user.email.split('@')[0];
     const firstName = displayName.split(/\s+/)[0] || 'there';
 

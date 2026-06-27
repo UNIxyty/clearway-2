@@ -6,7 +6,7 @@ import { sendEmail } from '@/server/emails/sendEmail';
 import { renderMockEmail, EMAIL_META, EMAIL_TYPES, type EmailType } from '@/server/emails/mockData';
 import { sendGroupStageCompleteBlast, type R32Matchup } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
 import { sendFinalStandingsBlast } from '@/server/emails/triggers/sendFinalStandingsEmail';
-import { playoffsOpenedTemplateExists, renderPlayoffsOpenedMock } from '@/server/emails/triggers/sendPlayoffsOpenedEmail';
+import { playoffsOpenedTemplateExists, renderPlayoffsOpenedMock, sendPlayoffsOpenedBlast } from '@/server/emails/triggers/sendPlayoffsOpenedEmail';
 import { getAdminEmails } from '@/server/emails/resolveRecipients';
 import { flagFor } from '@/lib/playoffs/flags';
 
@@ -32,8 +32,21 @@ export async function GET() {
     lastSent[t] = (data?.sent_at as string) ?? null;
   }
 
-  const state = comp ? await getTournamentState(comp.id) : { r32ConfirmedAt: null, finalEmailSentAt: null };
+  const state = comp
+    ? await getTournamentState(comp.id)
+    : { r32ConfirmedAt: null, finalEmailSentAt: null, playoffsOpenedAt: null };
   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+
+  // playoffs_opened isn't in the mock EMAIL_TYPES loop above — query its last send
+  // separately so the dedicated card can show "Last sent".
+  const { data: poLast } = await supabase
+    .from('email_logs')
+    .select('sent_at')
+    .eq('email_type', 'playoffs_opened')
+    .eq('status', 'sent')
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   return NextResponse.json({
     lastSent,
@@ -46,6 +59,8 @@ export async function GET() {
     // The playoffs_opened template is produced separately via Claude Design; the
     // UI disables its Send Test button until the file exists on disk.
     playoffsOpenedTemplateAvailable: playoffsOpenedTemplateExists(),
+    playoffsOpenedLastSent: (poLast?.sent_at as string) ?? null,
+    playoffsOpenedAt: state.playoffsOpenedAt ?? null,
   });
 }
 
@@ -71,6 +86,24 @@ export async function POST(req: NextRequest) {
     const result = await sendEmail(recipient, subject, html, { emailType: 'playoffs_opened', isTest: true });
     if (!result.success) return NextResponse.json({ error: result.error ?? 'Send failed' }, { status: 500 });
     return NextResponse.json({ ok: true, sentTo: recipient });
+  }
+
+  // Batch send the Playoffs Opened email to all non-opted-out users. Manual admin
+  // action — separate from the auto-trigger; no one-time guard (the auto-open
+  // guard prevents the AUTOMATIC fire, not deliberate re-sends from here).
+  if (action === 'all-playoffs-opened') {
+    if (!playoffsOpenedTemplateExists()) {
+      return NextResponse.json({ error: 'Template not yet designed — use Claude Design to create it first.' }, { status: 400 });
+    }
+    const comp = await getActiveCompetition();
+    if (!comp) return NextResponse.json({ error: 'No active competition' }, { status: 404 });
+    const adminOnly = String(body.audience ?? 'all') === 'admins';
+    const onlyEmails = adminOnly ? await getAdminEmails() : undefined;
+    if (adminOnly && (!onlyEmails || onlyEmails.length === 0)) {
+      return NextResponse.json({ error: 'No admin recipients found (set ADMIN_EMAILS or mark users as admin).' }, { status: 400 });
+    }
+    sendPlayoffsOpenedBlast({ competitionId: comp.id, onlyEmails });
+    return NextResponse.json({ ok: true, queued: true, audience: adminOnly ? 'admins' : 'all' });
   }
 
   const emailType = String(body.emailType ?? '') as EmailType;

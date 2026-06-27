@@ -87,8 +87,9 @@ export async function PATCH(request: NextRequest) {
       try {
         const justOpened = await claimPlayoffsAutoOpen(competition.id);
         if (justOpened) {
-          console.log("[matches] all group results in — playoffs auto-opened", { competitionId: competition.id });
-          // No-ops with a log if the playoffsOpened.html template isn't designed yet.
+          console.log(`Playoffs auto-opened after all ${groupMatches.length} group matches completed`);
+          // Sends to all non-opted-out users; no-ops with a log if the
+          // playoffsOpened.html template isn't on disk yet.
           sendPlayoffsOpenedBlast({ competitionId: competition.id });
         }
       } catch (autoOpenErr) {

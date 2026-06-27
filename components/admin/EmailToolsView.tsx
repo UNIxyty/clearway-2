@@ -9,6 +9,8 @@ interface Status {
   guards: Record<string, string | null>;
   meta: Record<string, Meta>;
   playoffsOpenedTemplateAvailable: boolean;
+  playoffsOpenedLastSent: string | null;
+  playoffsOpenedAt: string | null;
 }
 
 const ORDER = ['group_stage_complete', 'bracket_confirmation', 'prediction_update', 'final_standings'];
@@ -67,6 +69,24 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
       if (res.ok) { setTestOpen(null); setRecipient(''); void load(); }
     } finally { setBusy(null); }
   }, [recipient, load]);
+
+  const sendPlayoffsOpenedAll = useCallback(async () => {
+    if (!status) return;
+    const warn = status.playoffsOpenedAt
+      ? `Playoffs were already opened on ${new Date(status.playoffsOpenedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}. Sending again will re-notify all users.\n\n`
+      : '';
+    if (!window.confirm(`${warn}This will send "Playoffs Opened" to all ${status.userCount} users. This cannot be undone.`)) return;
+    setBusy('playoffs_opened:all');
+    try {
+      const res = await fetch('/api/admin/email-tools', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'all-playoffs-opened' }),
+      });
+      const json = await res.json();
+      flash(res.ok ? 'Playoffs Opened: batch send queued' : `Error: ${json.error}`);
+      if (res.ok) void load();
+    } finally { setBusy(null); }
+  }, [status, load]);
 
   const sendAll = useCallback(async (emailType: string, label: string) => {
     if (!status) return;
@@ -199,10 +219,15 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex-1 min-w-[240px]">
                 <p className="text-[15px] font-black text-navy">Playoffs Opened</p>
-                <p className="text-[12.5px] font-semibold text-black/45 mt-0.5">Auto-sent to all users when the final group result is published and playoffs open.</p>
-                <p className="text-[12px] font-semibold text-black/40 mt-1.5">{fmt(status.lastSent['playoffs_opened'] ?? null)}</p>
+                <p className="text-[12.5px] font-semibold text-black/45 mt-0.5">Sent automatically when the group stage ends. Notifies all users that playoff predictions are now open.</p>
+                <p className="text-[12px] font-semibold text-black/40 mt-1.5">{fmt(status.playoffsOpenedLastSent)}</p>
                 {!status.playoffsOpenedTemplateAvailable && (
                   <p className="text-[11.5px] font-bold text-amber-700 mt-1">Template not yet designed</p>
+                )}
+                {status.playoffsOpenedTemplateAvailable && status.playoffsOpenedAt && (
+                  <p className="text-[11.5px] font-bold text-amber-700 mt-1">
+                    Playoffs opened: {new Date(status.playoffsOpenedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -212,6 +237,13 @@ export function EmailToolsView({ embedded = false }: { embedded?: boolean }) {
                   title={status.playoffsOpenedTemplateAvailable ? 'Send a test render to an email address' : 'Template not yet designed — use Claude Design to create it first'}
                   className="h-9 px-4 rounded-lg border border-black/15 bg-white text-[13px] font-bold text-navy hover:bg-black/[0.03] transition disabled:opacity-40 disabled:cursor-not-allowed">
                   Send Test
+                </button>
+                <button
+                  onClick={() => sendPlayoffsOpenedAll()}
+                  disabled={!status.playoffsOpenedTemplateAvailable || busy === 'playoffs_opened:all'}
+                  title={status.playoffsOpenedTemplateAvailable ? 'Send to all users' : 'Template not yet designed — use Claude Design to create it first'}
+                  className="h-9 px-4 rounded-lg bg-bk-blue hover:bg-bk-blue-dark text-white text-[13px] font-bold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                  {busy === 'playoffs_opened:all' ? 'Sending…' : 'Send to All'}
                 </button>
               </div>
             </div>

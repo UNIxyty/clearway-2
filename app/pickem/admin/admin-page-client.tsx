@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PickemCompetition, PickemGroup, PickemMatch, PickemTeam } from "@/lib/pickem-shared";
 import { GroupSortable } from "@/components/pickem/GroupSortable";
+import { OpenPlayoffsCard } from "@/components/playoffs/OpenPlayoffsCard";
 
 type GroupPreview = { points: number; correctPlacements: number } | "loading";
 
@@ -67,10 +68,24 @@ type LocksPayload = {
   participants: LockParticipant[];
   overrides: LockOverrideRow[];
 };
+type PlayoffAccessRow = {
+  userId: string;
+  accessUntil: string;
+  reason: string | null;
+  updatedAt: string;
+};
+type PlayoffAccessPayload = {
+  competition: PickemCompetition;
+  participants: LockParticipant[];
+  globalOpenedAt: string | null;
+  globalDeadline: string | null;
+  grants: PlayoffAccessRow[];
+};
 
 const ADMIN_API_URL = "/api/pickem/admin/matches";
 const GROUP_API_URL = "/api/pickem/admin/groups";
 const LOCK_API_URL = "/api/pickem/admin/locks";
+const PLAYOFF_ACCESS_API_URL = "/api/pickem/admin/playoff-access";
 
 function fmtKickoff(value: string): string {
   return new Date(value).toLocaleString("en-GB", {
@@ -115,6 +130,11 @@ export function PickemAdminClient() {
   const [manualLockUserId, setManualLockUserId] = useState("");
   const [lockUntilLocal, setLockUntilLocal] = useState("");
   const [lockReason, setLockReason] = useState("");
+  const [playoffAccessPayload, setPlayoffAccessPayload] = useState<PlayoffAccessPayload | null>(null);
+  const [selectedAccessUserId, setSelectedAccessUserId] = useState("");
+  const [manualAccessUserId, setManualAccessUserId] = useState("");
+  const [accessUntilLocal, setAccessUntilLocal] = useState("");
+  const [accessReason, setAccessReason] = useState("");
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   async function fetchAdminApi(
@@ -142,6 +162,15 @@ export function PickemAdminClient() {
     const json = await res.json().catch(() => ({}));
     if (res.ok) return { res, json };
     throw new Error(json.error || `Failed to load lock overrides (${res.status}).`);
+  }
+
+  async function fetchPlayoffAccessApi(
+    init?: RequestInit,
+  ): Promise<{ res: Response; json: any }> {
+    const res = await fetch(PLAYOFF_ACCESS_API_URL, init);
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) return { res, json };
+    throw new Error(json.error || `Failed to load playoff access (${res.status}).`);
   }
 
   async function load() {
@@ -237,6 +266,26 @@ export function PickemAdminClient() {
     setLockUntilLocal(toDateTimeLocalValue(existing.unlockUntil));
     setLockReason(existing.reason || "");
   }, [selectedLockUserId, locksPayload]);
+
+  useEffect(() => {
+    if (tab !== "locks" || playoffAccessPayload) return;
+    void (async () => {
+      try {
+        const { json } = await fetchPlayoffAccessApi({ cache: "no-store" });
+        setPlayoffAccessPayload(json as PlayoffAccessPayload);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load playoff access.");
+      }
+    })();
+  }, [tab, playoffAccessPayload]);
+
+  useEffect(() => {
+    if (!selectedAccessUserId || !playoffAccessPayload) return;
+    const existing = playoffAccessPayload.grants.find((row) => row.userId === selectedAccessUserId);
+    if (!existing) return;
+    setAccessUntilLocal(toDateTimeLocalValue(existing.accessUntil));
+    setAccessReason(existing.reason || "");
+  }, [selectedAccessUserId, playoffAccessPayload]);
 
   const matches = useMemo(
     () =>
@@ -504,6 +553,62 @@ export function PickemAdminClient() {
       flash(`Cleared unlock for ${userId}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to clear lock override.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const effectiveAccessUserId = (manualAccessUserId || selectedAccessUserId).trim();
+
+  async function saveUserPlayoffAccess() {
+    if (!effectiveAccessUserId) {
+      setError("Select a player or enter a user ID.");
+      return;
+    }
+    const accessTs = new Date(accessUntilLocal).getTime();
+    if (!Number.isFinite(accessTs)) {
+      setError("Pick a valid access-until time.");
+      return;
+    }
+    setSaving(`access:${effectiveAccessUserId}`);
+    setError(null);
+    try {
+      const { json } = await fetchPlayoffAccessApi({
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: effectiveAccessUserId,
+          accessUntil: new Date(accessTs).toISOString(),
+          reason: accessReason || null,
+        }),
+      });
+      setPlayoffAccessPayload((prev) =>
+        prev ? { ...prev, grants: (json.grants || prev.grants) as PlayoffAccessRow[] } : prev,
+      );
+      flash(`Granted playoff access to ${effectiveAccessUserId}.`);
+      setManualAccessUserId("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to grant playoff access.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function clearUserPlayoffAccess(userId: string) {
+    setSaving(`access-clear:${userId}`);
+    setError(null);
+    try {
+      const { json } = await fetchPlayoffAccessApi({
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId, clear: true }),
+      });
+      setPlayoffAccessPayload((prev) =>
+        prev ? { ...prev, grants: (json.grants || prev.grants) as PlayoffAccessRow[] } : prev,
+      );
+      flash(`Revoked playoff access for ${userId}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to revoke playoff access.");
     } finally {
       setSaving(null);
     }
@@ -925,6 +1030,127 @@ export function PickemAdminClient() {
                         className="h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-slate-700 disabled:opacity-40"
                       >
                         {saving === `lock-clear:${row.userId}` ? "Clearing..." : "Remove"}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </article>
+
+          {/* ── Playoffs access (open-for-all + per-user, mirrors Pick Locks) ── */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-black/10" />
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Playoffs Access</span>
+            <div className="h-px flex-1 bg-black/10" />
+          </div>
+
+          {/* Open playoffs to ALL users (sets opened_at + prediction deadline). */}
+          <OpenPlayoffsCard />
+
+          <article className="rounded-2xl border border-black/[0.08] bg-white p-4">
+            <h2 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700">
+              Per-user playoff access
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Let one player into the playoffs (interactive) before they&apos;re opened to everyone. Access lasts until the time you set, then they follow the global rules again.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Pick player</span>
+                <select
+                  value={selectedAccessUserId}
+                  onChange={(e) => setSelectedAccessUserId(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                >
+                  <option value="">Select participant</option>
+                  {(playoffAccessPayload?.participants || locksPayload?.participants || []).map((user) => (
+                    <option key={user.userId} value={user.userId}>
+                      {user.displayName} · #{user.rank} · {user.points} pts
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Or user id</span>
+                <input
+                  value={manualAccessUserId}
+                  onChange={(e) => setManualAccessUserId(e.target.value)}
+                  placeholder="uuid"
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Access until</span>
+                <input
+                  type="datetime-local"
+                  value={accessUntilLocal}
+                  onChange={(e) => setAccessUntilLocal(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Reason (optional)</span>
+                <input
+                  value={accessReason}
+                  onChange={(e) => setAccessReason(e.target.value)}
+                  placeholder="Early access"
+                  className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm font-semibold text-slate-800"
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void saveUserPlayoffAccess()}
+                disabled={!accessUntilLocal || !effectiveAccessUserId || saving === `access:${effectiveAccessUserId}`}
+                className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {saving === `access:${effectiveAccessUserId}` ? "Saving..." : "Grant access"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualAccessUserId("");
+                  setSelectedAccessUserId("");
+                  setAccessReason("");
+                  setAccessUntilLocal("");
+                }}
+                className="h-10 rounded-lg border border-black/15 px-4 text-sm font-bold text-slate-700"
+              >
+                Clear form
+              </button>
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-black/[0.08] bg-white p-4">
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-slate-700">Active playoff access grants</h3>
+            <div className="mt-3 space-y-2">
+              {(playoffAccessPayload?.grants || []).length === 0 ? (
+                <div className="rounded-lg border border-dashed border-black/20 px-3 py-4 text-sm font-semibold text-slate-500">
+                  No active per-user playoff grants.
+                </div>
+              ) : (
+                (playoffAccessPayload?.grants || []).map((row) => {
+                  const user = (playoffAccessPayload?.participants || []).find((p) => p.userId === row.userId);
+                  return (
+                    <div key={row.userId} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/10 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">
+                          {user?.displayName || "Unknown user"} · {row.userId}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          Until {fmtKickoff(row.accessUntil)}
+                          {row.reason ? ` · ${row.reason}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void clearUserPlayoffAccess(row.userId)}
+                        disabled={saving === `access-clear:${row.userId}`}
+                        className="h-9 rounded-lg border border-black/15 px-3 text-xs font-bold text-slate-700 disabled:opacity-40"
+                      >
+                        {saving === `access-clear:${row.userId}` ? "Clearing..." : "Remove"}
                       </button>
                     </div>
                   );

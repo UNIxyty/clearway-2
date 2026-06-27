@@ -367,6 +367,93 @@ export async function clearUserLockOverride(input: {
   if (error) throw new Error(error.message || "Failed to clear lock override");
 }
 
+// ─── per-user playoff access ────────────────────────────────────────────────
+// Mirrors the lock-override system, but for the PLAYOFFS gate: an admin can grant
+// a single user access to the playoffs (interactive, until access_until) before
+// playoffs are opened globally — the same shape as Pick Locks. Backed by the
+// pickem_user_playoff_access table (see migrations note).
+
+export async function getUserPlayoffAccess(input: {
+  userId: string;
+  competitionId: string;
+}): Promise<{ accessUntil: string } | null> {
+  const supabase = service();
+  const { data, error } = await supabase
+    .from("pickem_user_playoff_access")
+    .select("access_until")
+    .eq("competition_id", input.competitionId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const accessUntil = String((data as { access_until?: string }).access_until || "");
+  if (!accessUntil) return null;
+  const ts = new Date(accessUntil).getTime();
+  if (!Number.isFinite(ts) || ts <= Date.now()) return null;
+  return { accessUntil };
+}
+
+export async function listUserPlayoffAccess(input: {
+  competitionId: string;
+}): Promise<Array<{ userId: string; accessUntil: string; reason: string | null; updatedAt: string }>> {
+  const supabase = service();
+  const { data, error } = await supabase
+    .from("pickem_user_playoff_access")
+    .select("user_id,access_until,reason,updated_at")
+    .eq("competition_id", input.competitionId)
+    .order("updated_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as any[])
+    .map((row) => ({
+      userId: String(row.user_id),
+      accessUntil: String(row.access_until),
+      reason: row.reason ? String(row.reason) : null,
+      updatedAt: String(row.updated_at),
+    }))
+    .filter((row) => {
+      const ts = new Date(row.accessUntil).getTime();
+      return Number.isFinite(ts) && ts > Date.now();
+    });
+}
+
+export async function upsertUserPlayoffAccess(input: {
+  userId: string;
+  competitionId: string;
+  accessUntil: string;
+  reason?: string | null;
+  grantedByUserId?: string | null;
+}): Promise<void> {
+  const supabase = service();
+  const ts = new Date(input.accessUntil).getTime();
+  if (!Number.isFinite(ts)) throw new Error("Invalid accessUntil timestamp");
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("pickem_user_playoff_access").upsert(
+    {
+      user_id: input.userId,
+      competition_id: input.competitionId,
+      access_until: new Date(ts).toISOString(),
+      reason: input.reason ? input.reason.trim().slice(0, 300) : null,
+      granted_by: input.grantedByUserId || null,
+      updated_at: now,
+      created_at: now,
+    },
+    { onConflict: "user_id,competition_id" },
+  );
+  if (error) throw new Error(error.message || "Failed to upsert playoff access");
+}
+
+export async function clearUserPlayoffAccess(input: {
+  userId: string;
+  competitionId: string;
+}): Promise<void> {
+  const supabase = service();
+  const { error } = await supabase
+    .from("pickem_user_playoff_access")
+    .delete()
+    .eq("competition_id", input.competitionId)
+    .eq("user_id", input.userId);
+  if (error) throw new Error(error.message || "Failed to clear playoff access");
+}
+
 /**
  * Read ALL ledger rows for a competition, paginating past PostgREST's default
  * 1000-row cap. The ledger exceeds 1000 rows mid-tournament, and a single

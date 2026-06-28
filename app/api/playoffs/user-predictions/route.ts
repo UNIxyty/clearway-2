@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/admin-auth';
 import {
   resolveSlotServer, resolveWinnerServer,
   type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
@@ -17,18 +18,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Viewer must have submitted their own playoff picks before viewing others'
-  const { data: viewerPicks, error: viewerPicksError } = await supabase
-    .from('playoff_predictions')
-    .select('id')
-    .eq('user_id', user.id)
-    .limit(1);
+  // Viewer must have submitted their own playoff picks before viewing others' —
+  // UNLESS they're an admin, who can inspect any user's picks regardless.
+  const isAdmin = !('error' in (await requireAdmin()));
+  if (!isAdmin) {
+    const { data: viewerPicks, error: viewerPicksError } = await supabase
+      .from('playoff_predictions')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1);
 
-  if (viewerPicksError) {
-    return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
-  }
-  if (!viewerPicks || viewerPicks.length === 0) {
-    return NextResponse.json({ error: 'Forbidden: you have not submitted playoff picks' }, { status: 403 });
+    if (viewerPicksError) {
+      return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
+    }
+    if (!viewerPicks || viewerPicks.length === 0) {
+      return NextResponse.json({ error: 'Forbidden: you have not submitted playoff picks' }, { status: 403 });
+    }
   }
 
   const { searchParams } = new URL(request.url);

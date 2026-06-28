@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
 import { getActiveCompetition } from '@/lib/pickem-store';
+import { requireAdmin } from '@/lib/admin-auth';
 import { PLAYOFF_WINNER_POINTS } from '@/lib/playoffs/scoring-constants';
 
 export async function GET() {
@@ -9,11 +10,15 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Gate: viewer must have submitted their own playoff picks (Stage 8).
-  const { data: viewerPicks, error: viewerErr } = await supabase
-    .from('playoff_predictions').select('id').eq('user_id', user.id).limit(1);
-  if (viewerErr) return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
-  if (!viewerPicks || viewerPicks.length === 0) return NextResponse.json({ viewerSubmitted: false, rows: [] });
+  // Gate: viewer must have submitted their own playoff picks (Stage 8) — UNLESS
+  // they're an admin, who can always view the standings to monitor the pool.
+  const isAdmin = !('error' in (await requireAdmin()));
+  if (!isAdmin) {
+    const { data: viewerPicks, error: viewerErr } = await supabase
+      .from('playoff_predictions').select('id').eq('user_id', user.id).limit(1);
+    if (viewerErr) return NextResponse.json({ error: 'Failed to check viewer picks' }, { status: 500 });
+    if (!viewerPicks || viewerPicks.length === 0) return NextResponse.json({ viewerSubmitted: false, rows: [] });
+  }
 
   const service = createSupabaseServiceRoleClient();
   if (!service) return NextResponse.json({ error: 'Service role client unavailable' }, { status: 500 });

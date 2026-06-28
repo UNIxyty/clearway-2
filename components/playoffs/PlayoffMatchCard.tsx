@@ -111,10 +111,11 @@ interface ScoreRowProps {
   scores: { home: string; away: string };
   enabled: boolean;
   official?: { home: number; away: number } | null;
+  live?: boolean;
   onScore: (side: 'home' | 'away', v: string) => void;
 }
 
-function ScoreRow({ home, away, scores, enabled, official, onScore }: ScoreRowProps) {
+function ScoreRow({ home, away, scores, enabled, official, live, onScore }: ScoreRowProps) {
   return (
     <div className={`px-3 pt-2 pb-2.5 transition-opacity duration-300 ${enabled ? 'opacity-100' : 'opacity-40 pointer-events-none select-none'}`}>
       <div className="flex items-center justify-center gap-1.5">
@@ -129,8 +130,8 @@ function ScoreRow({ home, away, scores, enabled, official, onScore }: ScoreRowPr
           : <span style={{ width: 18, height: 14, borderRadius: 2, background: '#e5e7eb', display: 'inline-block', flexShrink: 0 }} />}
       </div>
       {official && (
-        <div className="mt-1.5 text-center text-[10px] font-bold text-emerald-600">
-          Actual {official.home}–{official.away}
+        <div className={`mt-1.5 text-center text-[10px] font-bold ${live ? 'text-red-600' : 'text-emerald-600'}`}>
+          {live ? `LIVE ${official.home}–${official.away}` : `Actual ${official.home}–${official.away}`}
         </div>
       )}
     </div>
@@ -163,12 +164,14 @@ export interface PlayoffMatchCardProps {
   awayPlaceholder?: string;
   /** Unsaved sessionStorage draft exists for this match → show an orange dot. */
   unsavedDraft?: boolean;
+  /** Match in progress (scores entered by admin, not yet published) → LIVE badge. */
+  live?: boolean;
 }
 
 export function PlayoffMatchCard({
   id, round, matchNumber, width, venue, date, home, away, pick, locked, official,
   result, pointsLabel, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
-  homePlaceholder = 'TBD', awayPlaceholder = 'TBD', unsavedDraft = false,
+  homePlaceholder = 'TBD', awayPlaceholder = 'TBD', unsavedDraft = false, live = false,
 }: PlayoffMatchCardProps) {
   const scoresEnabled = !locked && !!home && !!away;
 
@@ -222,6 +225,15 @@ export function PlayoffMatchCard({
       {/* Status circle — top-right. Green ✓ correct, gray ✕ miss, lock when
           still open. Distinct "miss" state ≠ the blank pre-match state. */}
       <div className="absolute top-2 right-2 z-20 flex items-center gap-1 pointer-events-none">
+        {live && !result && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[8.5px] font-extrabold tracking-wide text-red-600">
+            <span className="relative flex w-1.5 h-1.5">
+              <span className="absolute inline-flex w-full h-full rounded-full bg-red-500 opacity-70 animate-ping" />
+              <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-red-500" />
+            </span>
+            LIVE
+          </span>
+        )}
         {result === 'correct' && (
           <span className="w-[18px] h-[18px] rounded-full bg-emerald-500 flex items-center justify-center">
             <CheckIcon className="w-2.5 h-2.5 text-white" />
@@ -263,7 +275,7 @@ export function PlayoffMatchCard({
       <div className="h-px bg-black/[0.08]" />
       <ScoreRow
         home={home} away={away} scores={scores}
-        enabled={scoresEnabled} official={official ?? null}
+        enabled={scoresEnabled} official={official ?? null} live={live}
         onScore={onScore}
       />
     </motion.div>

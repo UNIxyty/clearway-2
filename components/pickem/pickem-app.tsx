@@ -5,6 +5,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { computePredictedGroupTable } from "@/lib/pickem-group-table";
 import { FlagImage } from "@/components/FlagImage";
 import { flagCdnCode } from "@/lib/playoffs/flags";
+import { usePlayoffMatches } from "@/lib/hooks/usePlayoffMatches";
+
+const PLAYOFF_ROUND_LABEL: Record<string, string> = {
+  R32: "Round of 32", R16: "Round of 16", QF: "Quarter-Final",
+  SF: "Semi-Final", FINAL: "Final", THIRD: "Third Place",
+};
 import type {
   PickemCompetition,
   PickemGroup,
@@ -560,6 +566,15 @@ export function PickemApp() {
 
   const liveGroupMatches = groupMatches.filter((match) => isLiveMatchStatus(match.status));
 
+  // Live playoff matches: admin has entered a score but not yet published (locked).
+  const { matches: allPlayoffMatches } = usePlayoffMatches();
+  const livePlayoffMatches = useMemo(
+    () => allPlayoffMatches.filter(
+      (m) => m.homeScore != null && m.awayScore != null && !m.isLocked && m.homeTeam && m.awayTeam,
+    ),
+    [allPlayoffMatches],
+  );
+
   const scheduledUpcomingMatches = groupMatches
     .filter((match) => {
       const kickoffTs = new Date(match.kickoffAt).getTime();
@@ -872,7 +887,7 @@ export function PickemApp() {
                 </h2>
                 <span className="text-xs font-bold text-slate-500">Now playing</span>
               </div>
-              {liveGroupMatches.length ? (
+              {liveGroupMatches.length || livePlayoffMatches.length ? (
                 <div className="flex gap-3 overflow-x-auto pb-1">
                   {liveGroupMatches.map((match) => {
                     const home = teamsById.get(match.homeTeamId);
@@ -910,6 +925,39 @@ export function PickemApp() {
                         </div>
                         <p className="mt-2 text-[11px] font-semibold text-slate-500">
                           {fmtMatchKickoff(match, teamsById)}
+                        </p>
+                      </article>
+                    );
+                  })}
+                  {livePlayoffMatches.map((match) => {
+                    const home = match.homeTeam;
+                    const away = match.awayTeam;
+                    if (!home || !away) return null;
+                    return (
+                      <article
+                        key={`live-po-${match.id}`}
+                        className="min-w-[260px] rounded-xl border border-black/10 bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          <span>{PLAYOFF_ROUND_LABEL[match.round] || match.round}</span>
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">LIVE</span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
+                              <FlagImage countryCode={flagCdnCode(home.flag)} emoji={home.flag} size={16} /> {home.name}
+                            </span>
+                            <span className="text-base font-black" style={{ color: NAVY }}>{match.homeScore ?? 0}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-bold" style={{ color: NAVY }}>
+                              <FlagImage countryCode={flagCdnCode(away.flag)} emoji={away.flag} size={16} /> {away.name}
+                            </span>
+                            <span className="text-base font-black" style={{ color: NAVY }}>{match.awayScore ?? 0}</span>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                          {[match.venue, match.city].filter(Boolean).join(", ")}
                         </p>
                       </article>
                     );

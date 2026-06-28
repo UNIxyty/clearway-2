@@ -140,6 +140,7 @@ function RoundColumn({
                 index={startIndex + i}
                 pointsLabel={pointsLabels[id] ?? null}
                 unsavedDraft={draftCodes.has(id)}
+                live={!!official && !dbMatch?.isLocked}
                 onPick={s => onPick(id, s)}
                 onScore={(s, v) => onScore(id, s, v)}
                 homePlaceholder={homePlaceholder}
@@ -812,6 +813,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 flashing={!!flash[id]}
                 index={i}
                 unsavedDraft={draftCodes.has(id)}
+                live={!!official && !dbMatch?.isLocked}
                 onPick={s => onPick(id, s)}
                 onScore={(s, v) => onScore(id, s, v)}
                 homePlaceholder={homePlaceholder}
@@ -892,6 +894,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       flashing={!!flash['FINAL_M01']}
                       index={15}
                       unsavedDraft={draftCodes.has('FINAL_M01')}
+                      live={matchesByCode['FINAL_M01']?.homeScore != null && matchesByCode['FINAL_M01']?.awayScore != null && !matchesByCode['FINAL_M01']?.isLocked}
                       onPick={s => onPick('FINAL_M01', s)}
                       onScore={(s, v) => onScore('FINAL_M01', s, v)}
                       homePlaceholder="Winner SF L1"
@@ -915,6 +918,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       flashing={!!flash['THIRD_M01']}
                       index={16}
                       unsavedDraft={draftCodes.has('THIRD_M01')}
+                      live={matchesByCode['THIRD_M01']?.homeScore != null && matchesByCode['THIRD_M01']?.awayScore != null && !matchesByCode['THIRD_M01']?.isLocked}
                       onPick={s => onPick('THIRD_M01', s)}
                       onScore={(s, v) => onScore('THIRD_M01', s, v)}
                       homePlaceholder="Loser SF L1"

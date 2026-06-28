@@ -20,6 +20,8 @@ function isTemporaryAllowedPath(pathname: string): boolean {
   return (
     pathname.startsWith("/pickem") ||
     pathname.startsWith("/api/pickem") ||
+    pathname.startsWith("/playoffs") ||
+    pathname.startsWith("/api/playoffs") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||

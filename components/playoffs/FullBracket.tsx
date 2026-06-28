@@ -6,15 +6,14 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlayoffMatchCard } from './PlayoffMatchCard';
 import { BracketConnectors, buildElbow, type ElbowPath } from './BracketConnectors';
-import { FlagImg } from './FlagImg';
 import { BackToDashboard } from './BackToDashboard';
 import { ChevronLeft, ChevronRight, Trophy } from './icons';
 import {
-  MATCHES, BRACKET_H, CARD_WIDTHS, GROUPS_LEFT, GROUPS_RIGHT,
+  MATCHES, BRACKET_H, CARD_WIDTHS,
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
   QF_LEFT_IDS, QF_RIGHT_IDS, downstreamOf, feederLabel,
 } from '@/lib/playoffs/bracketData';
-import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction, GroupDef } from '@/lib/playoffs/types';
+import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction } from '@/lib/playoffs/types';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
 import { PLAYOFF_ROUND_POINTS } from '@/lib/playoffs/scoring-constants';
 import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
@@ -29,27 +28,6 @@ export interface FullBracketProps {
   /** When mounted inside the Playoffs tab shell: hide the standalone navbar and
    *  size the scroller to the embedded area instead of the full viewport. */
   embedded?: boolean;
-}
-
-// ─── Group column box ─────────────────────────────────────────────────────────
-
-function GroupBox({ group, dir }: { group: GroupDef; dir: 'left' | 'right' }) {
-  // The connector dash is no longer drawn here — measure() draws a real elbow in
-  // the SVG layer from this badge's edge to the nearest R32 card's vertical
-  // midpoint. data-group / data-group-dir let measure() locate this badge.
-  return (
-    <div className="relative flex flex-col items-center" style={{ width: 80 }} data-group={group.letter} data-group-dir={dir}>
-      <div className="relative w-[80px] rounded-lg bg-navy overflow-hidden" style={{ boxShadow: '0 2px 8px rgba(15,30,60,0.18)' }}>
-        <div className="absolute top-0 bottom-0 left-0 w-[3px]" style={{ background: group.accent }} />
-        <div className="grid grid-cols-2 gap-y-1 gap-x-1.5 place-items-center px-2.5 py-2.5">
-          {group.flags.map((f, i) => <FlagImg key={i} emoji={f} size={24} />)}
-        </div>
-        <div className="text-center pb-1.5 -mt-0.5">
-          <span className="text-[9.5px] font-extrabold tracking-[0.08em] text-white/85">GROUP {group.letter}</span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -143,6 +121,7 @@ function RoundColumn({
               <PlayoffMatchCard
                 id={id}
                 round={def.round}
+                matchNumber={dbMatch?.matchNumber ?? null}
                 width={width}
                 venue={dbMatch?.venue ?? def.round}
                 date={dbMatch?.kickoffAt ? new Date(dbMatch.kickoffAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null}
@@ -169,18 +148,6 @@ function RoundColumn({
   );
 }
 
-// ─── GroupColumn ──────────────────────────────────────────────────────────────
-
-function GroupColumn({ groups, dir }: { groups: GroupDef[]; dir: 'left' | 'right' }) {
-  return (
-    <div className="shrink-0 flex flex-col" style={{ width: CARD_WIDTHS.group, height: BRACKET_H }}>
-      <div className="text-center text-[10.5px] font-extrabold tracking-[0.16em] text-black/35 mb-1 shrink-0">GROUPS</div>
-      <div className="flex-1 flex flex-col justify-around items-center">
-        {groups.map(g => <GroupBox key={g.letter} group={g} dir={dir} />)}
-      </div>
-    </div>
-  );
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -569,31 +536,6 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       });
     });
 
-    // Group badge → nearest R32 card connectors. Badges are evenly spread, so
-    // each one connects to whichever R32 card on its side is vertically closest,
-    // meeting that card at its mid-height (replaces the old fixed 26px stub).
-    c.querySelectorAll('[data-group]').forEach(el => {
-      const gr = el.getBoundingClientRect();
-      const dir = el.getAttribute('data-group-dir'); // 'right' = left half, 'left' = right half
-      const g = { left: gr.left - cr.left, top: gr.top - cr.top, w: gr.width, h: gr.height };
-      const gCenterY = g.top + g.h / 2;
-      const cardIds = dir === 'right' ? R32_LEFT_IDS : R32_RIGHT_IDS;
-
-      let bestId: string | null = null;
-      let bestDist = Infinity;
-      cardIds.forEach(id => {
-        const card = rects[id];
-        if (!card) return;
-        const dist = Math.abs((card.top + card.h / 2) - gCenterY);
-        if (dist < bestDist) { bestDist = dist; bestId = id; }
-      });
-      if (!bestId) return;
-      const card = rects[bestId];
-      const cardCenterY = card.top + card.h / 2;
-      if (dir === 'right') out.push(buildElbow(g.left + g.w, gCenterY, card.left, cardCenterY, false));
-      else out.push(buildElbow(g.left, gCenterY, card.left + card.w, cardCenterY, false));
-    });
-
     setPaths(out);
     const nw = c.scrollWidth, nh = Math.max(c.scrollHeight, BRACKET_H + 40);
     setDims(d => (Math.abs(d.w - nw) < 2 && Math.abs(d.h - nh) < 2) ? d : { w: nw, h: nh });
@@ -731,6 +673,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 key={id}
                 id={id}
                 round={def.round}
+                matchNumber={dbMatch?.matchNumber ?? null}
                 width={0}
                 fullWidth
                 venue={dbMatch?.venue ?? def.round}
@@ -788,8 +731,6 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
             <BracketConnectors paths={paths} width={dims.w} height={dims.h} />
 
             <div className="relative z-10 flex items-stretch" style={{ gap: 54 }}>
-              <div ref={setColRef('groups')}><GroupColumn groups={GROUPS_LEFT} dir="right" /></div>
-
               <div ref={setColRef('r32')}>
                 <RoundColumn label="ROUND OF 32" ids={R32_LEFT_IDS} width={CARD_WIDTHS.r32} startIndex={0} {...colProps} />
               </div>
@@ -815,7 +756,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       <div className="mt-1 text-[11px] font-semibold text-black/45">Jul 19 · MetLife Stadium</div>
                     </div>
                     <PlayoffMatchCard
-                      id="FINAL_M01" round="FINAL" width={CARD_WIDTHS.final} big
+                      id="FINAL_M01" round="FINAL" matchNumber={matchesByCode['FINAL_M01']?.matchNumber ?? null} width={CARD_WIDTHS.final} big
                       venue="MetLife Stadium · New York" date="Jul 19, 2026"
                       home={fHome} away={fAway}
                       pick={picks['FINAL_M01'] ?? null}
@@ -838,7 +779,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                   <div className="relative">
                     <div className="absolute bottom-full left-0 right-0 mb-2 text-center text-[10.5px] font-bold tracking-[0.12em] text-black/40">3RD PLACE · BRONZE MATCH</div>
                     <PlayoffMatchCard
-                      id="THIRD_M01" round="THIRD" width={CARD_WIDTHS.bronze}
+                      id="THIRD_M01" round="THIRD" matchNumber={matchesByCode['THIRD_M01']?.matchNumber ?? null} width={CARD_WIDTHS.bronze}
                       venue="Hard Rock · Miami" date="Jul 18, 2026"
                       home={bHome} away={bAway}
                       pick={picks['THIRD_M01'] ?? null}
@@ -869,7 +810,6 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
               <div>
                 <RoundColumn label="ROUND OF 32" ids={R32_RIGHT_IDS} width={CARD_WIDTHS.r32} startIndex={0} {...colProps} />
               </div>
-              <div><GroupColumn groups={GROUPS_RIGHT} dir="left" /></div>
             </div>
           </div>
         </div>

@@ -140,6 +140,8 @@ function ScoreRow({ home, away, scores, enabled, official, onScore }: ScoreRowPr
 export interface PlayoffMatchCardProps {
   id: string;
   round: string;
+  /** Official FIFA match number (e.g. 73–104), shown on the card. */
+  matchNumber?: number | null;
   width: number;
   venue: string | null;
   date: string | null;
@@ -162,7 +164,7 @@ export interface PlayoffMatchCardProps {
 }
 
 export function PlayoffMatchCard({
-  id, round, width, venue, date, home, away, pick, locked, official,
+  id, round, matchNumber, width, venue, date, home, away, pick, locked, official,
   result, pointsLabel, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD',
 }: PlayoffMatchCardProps) {
@@ -222,8 +224,11 @@ export function PlayoffMatchCard({
         {locked && !result && <LockIcon className="w-[14px] h-[14px] text-black/35" />}
       </div>
 
-      {/* Venue + date */}
+      {/* Official match number + venue + date */}
       <div className={`px-3 ${big ? 'pt-2.5' : 'pt-7'} pb-1.5 text-center`}>
+        {matchNumber != null && (
+          <div className="text-[9.5px] font-extrabold tracking-[0.1em] text-black/40">MATCH {matchNumber}</div>
+        )}
         <div className="text-[10px] font-bold tracking-tight text-bk-amber truncate">{venue}</div>
         <div className="text-[9.5px] font-semibold tracking-tight text-bk-amber/70">{date}</div>
       </div>

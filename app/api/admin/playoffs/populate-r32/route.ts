@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
+import { OFFICIAL_MATCH_NUMBER } from '@/lib/playoffs/bracketData';
 import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
 import { flagFor } from '@/lib/playoffs/flags';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
@@ -61,7 +62,9 @@ export async function POST() {
   const resolved = resolveR32Pairings(R32_PAIRINGS, allStandings, bestThirds);
   const rows = resolved.map((r, i) => ({
     match_code: r.matchCode,
-    match_number: i + 1,
+    // Official FIFA match number (73–88 for R32) — NOT the bracket slot index.
+    // Writing i+1 here previously overwrote the seeded official numbers.
+    match_number: OFFICIAL_MATCH_NUMBER[r.matchCode] ?? (i + 1),
     round: 'R32',
     home_team_id: r.home?.id ?? null,
     away_team_id: r.away?.id ?? null,

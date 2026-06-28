@@ -21,6 +21,25 @@ export const ROUND_POINTS: Record<string, string> = {
   THIRD: '+3 pts',
 };
 
+/**
+ * Official FIFA World Cup 2026 knockout match numbers, keyed by our internal
+ * bracket match_code. Single source of truth for the number shown on the Full
+ * Bracket — must match migrations/20260613_seed_playoff_fixtures.sql. The internal
+ * code (R32_M01…) is only a bracket-position id, NOT the official number, so every
+ * writer of playoff_matches.match_number uses this map.
+ */
+export const OFFICIAL_MATCH_NUMBER: Record<string, number> = {
+  R32_M01: 74, R32_M02: 77, R32_M03: 73, R32_M04: 75,
+  R32_M05: 83, R32_M06: 84, R32_M07: 81, R32_M08: 82,
+  R32_M09: 76, R32_M10: 78, R32_M11: 79, R32_M12: 80,
+  R32_M13: 86, R32_M14: 88, R32_M15: 85, R32_M16: 87,
+  R16_M01: 89, R16_M02: 90, R16_M03: 93, R16_M04: 94,
+  R16_M05: 91, R16_M06: 92, R16_M07: 95, R16_M08: 96,
+  QF_M01: 97, QF_M02: 98, QF_M03: 99, QF_M04: 100,
+  SF_M01: 101, SF_M02: 102,
+  THIRD_M01: 103, FINAL_M01: 104,
+};
+
 /* ---- Group cosmetic data ---- */
 export const GROUPS_LEFT: GroupDef[] = [
   { letter: 'A', accent: '#16a34a', flags: ['🇦🇷', '🇦🇺', '🇮🇸', '🇨🇲'] },

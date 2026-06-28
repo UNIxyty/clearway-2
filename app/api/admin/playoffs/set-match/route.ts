@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { MATCHES } from '@/lib/playoffs/bracketData';
+import { MATCHES, OFFICIAL_MATCH_NUMBER } from '@/lib/playoffs/bracketData';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, id: updated[0].id });
   }
 
-  // Row didn't exist — insert it.
-  const matchNumber = parseInt(matchCode.replace(/\D/g, ''), 10) || 0;
+  // Row didn't exist — insert it with the official FIFA match number.
+  const matchNumber = OFFICIAL_MATCH_NUMBER[matchCode] ?? (parseInt(matchCode.replace(/\D/g, ''), 10) || 0);
   const { data: inserted, error: insErr } = await supabase
     .from('playoff_matches')
     .insert({

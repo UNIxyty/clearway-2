@@ -1,11 +1,7 @@
 import { PICKEM_POINTS, type PickemMatchPrediction } from "@/lib/pickem-shared";
 import { derivePredictedGroupPositions } from "@/lib/pickem-group-table";
-import { getTournamentState, listGroups, listMatches, listTeams, listUserPredictions, replacePointsLedger } from "@/lib/pickem-store";
+import { listGroups, listMatches, listTeams, listUserPredictions, replacePointsLedger } from "@/lib/pickem-store";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { computeUserPredictedR32 } from "@/lib/playoffs/standings";
-import type { GroupMatch, BracketTeam } from "@/lib/playoffs/standings";
-import { flagFor } from "@/lib/playoffs/flags";
-import { R32_PAIRINGS } from "@/lib/playoffs/r32Bracket";
 
 function matchOutcome(home: number, away: number): "home" | "away" | "draw" {
   if (home === away) return "draw";
@@ -120,29 +116,6 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
   for (const row of groupPredRes.data || []) participantIds.add(String((row as any).user_id));
   for (const row of matchPredRes.data || []) participantIds.add(String((row as any).user_id));
 
-  // R32 projection scoring is only active once the admin has confirmed the real
-  // R32 bracket (Stage 4). Until then we skip it entirely.
-  const tState = await getTournamentState(competitionId);
-  const r32Confirmed = !!tState.r32ConfirmedAt;
-  const bracketTeams: BracketTeam[] = teams.map((t) => ({
-    id: t.id, name: t.name, shortName: t.shortName, flag: flagFor(t.shortName),
-    groupCode: t.groupCode, crestUrl: t.crestUrl ?? null,
-  }));
-  const groupStageMatches = matches.filter((m) => m.stage === "group" && m.groupCode);
-  const realR32ByCode = new Map<string, { home: string | null; away: string | null }>();
-  if (r32Confirmed) {
-    const { data: r32Rows } = await supabase
-      .from("playoff_matches")
-      .select("match_code, home_team_id, away_team_id")
-      .eq("round", "R32");
-    for (const r of r32Rows || []) {
-      realR32ByCode.set(String((r as any).match_code), {
-        home: ((r as any).home_team_id as string) ?? null,
-        away: ((r as any).away_team_id as string) ?? null,
-      });
-    }
-  }
-
   for (const userId of participantIds) {
     const predictions = await listUserPredictions({ userId, competitionId });
 
@@ -203,43 +176,6 @@ export async function recomputePickemPoints(competitionId: string): Promise<void
             matchId: mp.matchId,
           },
         });
-      }
-    }
-
-    // R32 projection: +1 per slot where the user's predicted pair (derived from
-    // their group score picks, same computation the R32 Draw page shows) matches
-    // the real admin-confirmed pair. Pair compared unordered (home/away agnostic).
-    if (r32Confirmed && realR32ByCode.size > 0) {
-      const predByMatch = new Map(predictions.matchPredictions.map((mp) => [mp.matchId, mp]));
-      const userGroupMatches: GroupMatch[] = groupStageMatches.map((m) => {
-        const p = predByMatch.get(m.id);
-        return {
-          id: m.id,
-          groupCode: m.groupCode as string,
-          homeTeamId: m.homeTeamId,
-          awayTeamId: m.awayTeamId,
-          homeScore: p ? p.predictedHomeScore : null,
-          awayScore: p ? p.predictedAwayScore : null,
-          status: m.status,
-        };
-      });
-      const predictedR32 = computeUserPredictedR32(R32_PAIRINGS, userGroupMatches, bracketTeams);
-      for (const slot of predictedR32) {
-        const real = realR32ByCode.get(slot.matchCode);
-        if (!real?.home || !real?.away) continue;
-        const predIds = [slot.home?.id, slot.away?.id].filter((x): x is string => !!x);
-        if (predIds.length !== 2) continue;
-        const realIds = [real.home, real.away];
-        const paired = predIds.every((id) => realIds.includes(id));
-        if (paired) {
-          ledgerRows.push({
-            userId,
-            sourceType: "r32_projection",
-            sourceId: slot.matchCode,
-            points: PICKEM_POINTS.R32_PROJECTION,
-            details: { matchCode: slot.matchCode, predicted: predIds, real: realIds },
-          });
-        }
       }
     }
   }

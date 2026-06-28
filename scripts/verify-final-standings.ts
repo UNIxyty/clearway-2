@@ -44,24 +44,24 @@ function buildPreds(userId: string, correctN: number, exactN: number): CorePlayo
 }
 
 // 8 users with varied accuracy + a dedicated bestRound stress user.
-const profiles: Array<{ id: string; ledger: number; r32proj: number; correctN: number; exactN: number }> = [
-  { id: 'champ',  ledger: 90, r32proj: 14, correctN: 30, exactN: 10 },
-  { id: 'strong', ledger: 70, r32proj: 12, correctN: 26, exactN: 6 },
-  { id: 'midA',   ledger: 55, r32proj: 8,  correctN: 18, exactN: 3 },
-  { id: 'midB',   ledger: 50, r32proj: 8,  correctN: 16, exactN: 3 },
-  { id: 'avgish', ledger: 48, r32proj: 7,  correctN: 17, exactN: 3 },
-  { id: 'weak',   ledger: 30, r32proj: 4,  correctN: 12, exactN: 2 },
-  { id: 'poor',   ledger: 18, r32proj: 2,  correctN: 8,  exactN: 1 },
-  { id: 'last',   ledger: 8,  r32proj: 0,  correctN: 3,  exactN: 0 },
+const profiles: Array<{ id: string; ledger: number; correctN: number; exactN: number }> = [
+  { id: 'champ',  ledger: 90, correctN: 30, exactN: 10 },
+  { id: 'strong', ledger: 70, correctN: 26, exactN: 6 },
+  { id: 'midA',   ledger: 55, correctN: 18, exactN: 3 },
+  { id: 'midB',   ledger: 50, correctN: 16, exactN: 3 },
+  { id: 'avgish', ledger: 48, correctN: 17, exactN: 3 },
+  { id: 'weak',   ledger: 30, correctN: 12, exactN: 2 },
+  { id: 'poor',   ledger: 18, correctN: 8,  exactN: 1 },
+  { id: 'last',   ledger: 8,  correctN: 3,  exactN: 0 },
 ];
 
-const ledger: LedgerUser[] = profiles.map(p => ({ userId: p.id, points: p.ledger, r32Points: p.r32proj }));
+const ledger: LedgerUser[] = profiles.map(p => ({ userId: p.id, points: p.ledger }));
 let preds: CorePlayoffPred[] = profiles.flatMap(p => buildPreds(p.id, p.correctN, p.exactN));
 
 // ── bestRound stress user: FINAL correct (raw 10) but only ~83% of its ceiling;
 //    R32 14/16 winners (raw 14, but 29% of ceiling) → bestRound must be Final. ──
 const stressId = 'pct_stress';
-ledger.push({ userId: stressId, points: 40, r32Points: 5 });
+ledger.push({ userId: stressId, points: 40 });
 preds = preds.concat(matches.map((m, idx): CorePlayoffPred => {
   if (m.round === 'FINAL') return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0, points_awarded: pa(true, false) }; // winner right, not exact
   if (m.round === 'R32' && idx < 14) return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0, points_awarded: pa(true, false) }; // 14 winner-right
@@ -73,13 +73,13 @@ const result = computeFinalStandingsFromData(ledger, preds, matches);
 
 // ── Independent hand-calc (deliberately separate summation) ──
 // Playoff total = SUM(points_awarded) (the authoritative value the core uses).
-function handCalc(userId: string, groupStage: number, r32proj: number): number {
+function handCalc(userId: string, groupStage: number): number {
   let playoff = 0;
   for (const p of preds.filter(x => x.user_id === userId)) {
     playoff += Number(p.points_awarded ?? 0);
   }
-  // points (group-stage only) + r32 projection + playoff round points.
-  return groupStage + r32proj + playoff;
+  // points (group-stage only) + playoff round points.
+  return groupStage + playoff;
 }
 
 let failures = 0;
@@ -94,10 +94,10 @@ for (const id of ['champ', 'avgish', 'last']) {
   const u = result.perUser.get(id)!;
   const ledRow = ledger.find(l => l.userId === id)!;
   console.log(`\n${id} — rank #${result.rankByUser.get(id)}  total=${u.totalPoints}`);
-  console.log(`   breakdown: group=${u.groupStagePoints} r32proj=${u.r32ProjectionPoints} R32=${u.r32Points} R16=${u.r16Points} QF=${u.qfPoints} SF=${u.sfPoints} Final&3rd=${u.finalPoints} exactBonus=${u.exactScoreBonusPoints} (exactCount=${u.exactScoreCount}, correct=${u.correctPicksCount}/${u.totalPicksCount}) bestRound=${u.bestRound}`);
-  check(`${id} total == hand-calc`, u.totalPoints, handCalc(id, ledRow.points, ledRow.r32Points));
+  console.log(`   breakdown: group=${u.groupStagePoints} R32=${u.r32Points} R16=${u.r16Points} QF=${u.qfPoints} SF=${u.sfPoints} Final&3rd=${u.finalPoints} exactBonus=${u.exactScoreBonusPoints} (exactCount=${u.exactScoreCount}, correct=${u.correctPicksCount}/${u.totalPicksCount}) bestRound=${u.bestRound}`);
+  check(`${id} total == hand-calc`, u.totalPoints, handCalc(id, ledRow.points));
   // breakdown must sum to total
-  const sum = u.groupStagePoints + u.r32ProjectionPoints + u.r32Points + u.r16Points + u.qfPoints + u.sfPoints + u.finalPoints + u.exactScoreBonusPoints;
+  const sum = u.groupStagePoints + u.r32Points + u.r16Points + u.qfPoints + u.sfPoints + u.finalPoints + u.exactScoreBonusPoints;
   check(`${id} breakdown sums to total`, sum, u.totalPoints);
 }
 
@@ -128,7 +128,7 @@ const rank = result.rankByUser.get('champ')!;
 const card = rankCardStyle(rank);
 const html = render({
   firstName: 'Alex', finalRank: rank, totalUsers: result.totalUsers, totalPoints: champ.totalPoints,
-  groupStagePoints: champ.groupStagePoints, r32ProjectionPoints: champ.r32ProjectionPoints,
+  groupStagePoints: champ.groupStagePoints,
   r32Points: champ.r32Points, r16Points: champ.r16Points, qfPoints: champ.qfPoints, sfPoints: champ.sfPoints,
   finalPoints: champ.finalPoints, exactScoreBonusPoints: champ.exactScoreBonusPoints, bestRound: champ.bestRound,
   correctPicksCount: champ.correctPicksCount, totalPicksCount: champ.totalPicksCount, exactScoreCount: champ.exactScoreCount,

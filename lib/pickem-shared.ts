@@ -74,13 +74,11 @@ export type PickemLeaderboardRow = {
   groupPoints: number;
   matchPoints: number;
   exactPoints: number;
-  /** r32_projection ledger points. Shown on the Playoffs tab, NOT in `points`. */
-  r32Points: number;
   /** All playoff match points (winner + exact bonus) from playoff_predictions.
    * Shown on the Playoffs tab, NOT in `points`. */
   playoffPoints: number;
   /** GROUP-STAGE total only: group_position + match_outcome + match_score.
-   * Excludes r32_projection and playoff points by design. */
+   * Excludes playoff points by design. */
   points: number;
   rank: number;
 };
@@ -89,8 +87,4 @@ export const PICKEM_POINTS = {
   GROUP_POSITION: 1,
   MATCH_OUTCOME: 1,
   MATCH_SCORE: 2,
-  // +1 per R32 slot where the user's predicted pair (derived from their group
-  // score picks) matches the real admin-confirmed pair. Matches the "+1 pt" the
-  // R32 Draw page shows per matchup — keep these in sync.
-  R32_PROJECTION: 1,
 } as const;

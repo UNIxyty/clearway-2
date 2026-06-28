@@ -484,26 +484,22 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
   const supabase = service();
   const ledgerData = await selectAllLedgerRows(competitionId);
 
-  const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; r32Points: number; points: number }>();
+  const scores = new Map<string, { groupPoints: number; matchPoints: number; exactPoints: number; points: number }>();
   for (const row of ledgerData) {
     const userId = String(row.user_id);
     const current = scores.get(userId) || {
       groupPoints: 0,
       matchPoints: 0,
       exactPoints: 0,
-      r32Points: 0,
       points: 0,
     };
     const points = Number(row.points || 0);
     const sourceType = String(row.source_type || "");
     // `points` here is the GROUP-STAGE total only (group_position + match_outcome
-    // + match_score). r32_projection is deliberately excluded — it belongs to the
-    // Playoffs standings, not the group-stage leaderboard. r32 is tracked
-    // separately in r32Points.
+    // + match_score).
     if (sourceType === "group_position") { current.groupPoints += points; current.points += points; }
     else if (sourceType === "match_outcome") { current.matchPoints += points; current.points += points; }
     else if (sourceType === "match_score") { current.exactPoints += points; current.points += points; }
-    else if (sourceType === "r32_projection") current.r32Points += points;
     scores.set(userId, current);
   }
 
@@ -572,11 +568,10 @@ export async function getLeaderboard(competitionId: string): Promise<PickemLeade
         groupPoints: scores.get(userId)?.groupPoints ?? 0,
         matchPoints: scores.get(userId)?.matchPoints ?? 0,
         exactPoints: scores.get(userId)?.exactPoints ?? 0,
-        r32Points: scores.get(userId)?.r32Points ?? 0,
         playoffPoints,
         // GROUP-STAGE total only (group_position + match_outcome + match_score).
-        // r32_projection and playoff points are surfaced in their own fields and
-        // shown on the Playoffs standings tab — never folded into this total.
+        // Playoff points live in playoffPoints / the Playoffs standings tab and are
+        // never folded into this total.
         points: groupStageTotal,
         displayName: displayById.get(userId) || `User ${userId.slice(0, 8)}`,
         email: null as string | null,

@@ -133,7 +133,7 @@ export function AdminOverview({
             </span>
             <span className="text-[12px] font-semibold text-white/85">
               {canConfirmR32
-                ? 'Scores group projections + sends the Group Stage Complete email to everyone.'
+                ? 'Recomputes group-stage points + sends the Group Stage Complete email to everyone.'
                 : 'All 16 R32 slots must be assigned before this can run.'}
             </span>
           </button>

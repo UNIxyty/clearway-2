@@ -3,16 +3,15 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getActiveCompetition, getTournamentState, markR32Confirmed } from '@/lib/pickem-store';
 import { recomputePickemPoints } from '@/lib/pickem-scoring';
-import { sendGroupStageCompleteBlast, type R32Matchup } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
-import { flagFor } from '@/lib/playoffs/flags';
+import { sendGroupStageCompleteBlast } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
 
 export const dynamic = 'force-dynamic';
 
 /*
  * Stage 4 — "Confirm R32 Bracket" batch action (admin, runs once).
  * 1. Guard on tournament_state.r32_confirmed_at so the batch only fires once.
- * 2. Mark confirmed (this flips on r32_projection scoring inside recompute).
- * 3. Recompute the points ledger for ALL users (group + match + r32_projection),
+ * 2. Mark confirmed (lifecycle marker used elsewhere).
+ * 3. Recompute the points ledger for ALL users (group placement + match points),
  *    idempotent full-replace.
  * 4. Send the Group Stage Complete email to every user (group points pulled from
  *    the same score-derived model as the leaderboard).
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
   // Real R32 pairs must be fully entered before confirming.
   const { data: r32Rows } = await supabase
     .from('playoff_matches')
-    .select('match_code, match_number, home_team_id, away_team_id, kickoff_at, venue, city')
+    .select('match_code, match_number, home_team_id, away_team_id, kickoff_at')
     .eq('round', 'R32')
     .order('match_number');
 
@@ -64,40 +63,17 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  // Team names/flags for the email matchup cards.
-  const teamIds = [...new Set(filled.flatMap(r => [r.home_team_id, r.away_team_id]).filter(Boolean) as string[])];
-  const { data: teamRows } = await supabase
-    .from('pickem_teams')
-    .select('id, name, short_name')
-    .in('id', teamIds);
-  const teamById = new Map((teamRows ?? []).map(t => [t.id as string, t]));
-
-  const matchups: R32Matchup[] = filled.map(r => {
-    const home = teamById.get(r.home_team_id as string);
-    const away = teamById.get(r.away_team_id as string);
-    return {
-      matchCode: r.match_code as string,
-      teamA: (home?.name as string) ?? 'TBD',
-      flagA: flagFor(home?.short_name as string),
-      teamB: (away?.name as string) ?? 'TBD',
-      flagB: flagFor(away?.short_name as string),
-      date: r.kickoff_at
-        ? new Date(r.kickoff_at as string).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
-        : '',
-      venue: [r.venue, r.city].filter(Boolean).join(', '),
-    };
-  });
-
   const r32Deadline = filled[0]?.kickoff_at
     ? new Date(filled[0].kickoff_at as string).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Riga' })
     : '';
 
-  // 2 + 3: mark confirmed, then recompute (now includes r32_projection).
+  // 2 + 3: mark confirmed (lifecycle marker), then recompute the group/match
+  // ledger (no longer includes any R32 projection scoring — that feature is gone).
   try {
     await markR32Confirmed(comp.id);
     console.log('[confirm-r32] marked confirmed', { competitionId: comp.id, force });
     await recomputePickemPoints(comp.id);
-    console.log('[confirm-r32] recompute complete', { competitionId: comp.id, r32Matchups: matchups.length });
+    console.log('[confirm-r32] recompute complete', { competitionId: comp.id });
   } catch (e) {
     console.error('[confirm-r32] scoring failed', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Scoring failed' }, { status: 500 });
@@ -112,7 +88,6 @@ export async function POST(req: NextRequest) {
     });
     sendGroupStageCompleteBlast({
       competitionId: comp.id,
-      matchups,
       r32Deadline,
       r32PredictionsUrl: `${base}/playoffs/bracket`,
       leaderboardUrl: `${base}/pickem`,
@@ -126,7 +101,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     scored: true,
-    matchups: matchups.length,
     reRun: force && !!state.r32ConfirmedAt,
     emailMode,
     emailRecipients: recipients ?? null,

@@ -3,7 +3,7 @@
 /* =============================================================================
  * PlayoffsPage — /playoffs route shell (chrome only)
  * -----------------------------------------------------------------------------
- * In-page tab switcher hosting the R32 Draw and Full Bracket views plus an
+ * In-page tab switcher hosting the Full Bracket and World Champion views plus an
  * Admin tools panel. This is a shell/chrome component: it owns the header,
  * the tab pills + sliding indicator, the collapsible info banner, the
  * context-aware progress pill, and tab-content transitions. It does NOT own
@@ -28,19 +28,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { usePlayoffsLaunchState } from '@/hooks/usePlayoffsLaunchState';
 import { usePlayoffsLaunchState as usePlayoffsLaunchInfo } from '@/lib/hooks/usePlayoffsLaunchState';
-import { usePlayoffMatches } from '@/hooks/usePlayoffMatches';
 import { usePlayoffPredictions } from '@/hooks/usePlayoffPredictions';
 
-import { R32DrawView } from '@/components/playoffs/R32DrawView';
 import { FullBracketView } from '@/components/playoffs/FullBracketView';
 import { ChampionView } from '@/components/playoffs/ChampionView';
 import { OpenPlayoffsCard } from '@/components/playoffs/OpenPlayoffsCard';
 import { BackToDashboard } from '@/components/playoffs/BackToDashboard';
 
 /* ----------------------------------------------------------------- types --- */
-type TabId = 'r32' | 'bracket' | 'champion' | 'admin';
-
-const R32_MATCHUP_COUNT = 16;
+type TabId = 'bracket' | 'champion' | 'admin';
 
 /* ----------------------------------------------------------------- icons --- */
 type IconProps = { className?: string };
@@ -60,11 +56,6 @@ const LockIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
     <rect x="4" y="11" width="16" height="9" rx="2" />
     <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-  </svg>
-);
-const CheckIcon = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 6 9 17l-5-5" />
   </svg>
 );
 const ArrowIcon = ({ className }: IconProps) => (
@@ -94,7 +85,7 @@ const MailIcon = ({ className }: IconProps) => (
 );
 
 /* -------------------------------------------------------------- url sync --- */
-const TAB_IDS: readonly TabId[] = ['r32', 'bracket', 'champion', 'admin'];
+const TAB_IDS: readonly TabId[] = ['bracket', 'champion', 'admin'];
 
 function isTabId(value: string | null): value is TabId {
   return value !== null && (TAB_IDS as readonly string[]).includes(value);
@@ -110,15 +101,6 @@ function tabFromUrl(): TabId | null {
 type BannerContent = { summary: string; steps: string[] };
 
 const BANNER: Record<TabId, BannerContent> = {
-  r32: {
-    summary:
-      'Groups A–L each produce 2 qualifiers + 8 best third-place teams · matchups are auto-set by FIFA bracket rules',
-    steps: [
-      'Groups A–L produce 2 qualifiers each + 8 best third-place teams.',
-      '16 R32 matchups are auto-set by FIFA bracket rules.',
-      'The draw page shows who plays who.',
-    ],
-  },
   bracket: {
     summary:
       'Click a team to pick them as the winner · Optionally predict the exact score for a bonus point · Changing an early pick clears later dependent rounds',
@@ -149,38 +131,25 @@ const BANNER: Record<TabId, BannerContent> = {
 /* -------------------------------------------------------- progress pill --- */
 type ProgressPillProps = {
   tab: TabId;
-  resolvedCount: number;
   picksMade: number;
   picksTotal: number;
   predictionsLocked: boolean;
 };
 
-function ProgressPill({ tab, resolvedCount, picksMade, picksTotal, predictionsLocked }: ProgressPillProps) {
+function ProgressPill({ tab, picksMade, picksTotal, predictionsLocked }: ProgressPillProps) {
   if (tab === 'admin' || tab === 'champion') return null;
 
   let tone = 'bg-[#1a56db]/10 text-[#1647b8]';
   let icon: React.ReactNode = null;
   let text = '';
 
-  if (tab === 'r32') {
-    const complete = resolvedCount >= R32_MATCHUP_COUNT;
-    if (complete) {
-      tone = 'bg-emerald-100 text-emerald-700';
-      icon = <CheckIcon className="w-3.5 h-3.5" />;
-      text = `${R32_MATCHUP_COUNT}/${R32_MATCHUP_COUNT} matchups resolved`;
-    } else {
-      tone = 'bg-[#f59e0b]/15 text-[#d97706]';
-      text = `${resolvedCount}/${R32_MATCHUP_COUNT} matchups resolved`;
-    }
+  if (predictionsLocked) {
+    tone = 'bg-black/[0.07] text-black/55';
+    icon = <LockIcon className="w-3.5 h-3.5" />;
+    text = 'Predictions locked';
   } else {
-    if (predictionsLocked) {
-      tone = 'bg-black/[0.07] text-black/55';
-      icon = <LockIcon className="w-3.5 h-3.5" />;
-      text = 'Predictions locked';
-    } else {
-      tone = 'bg-[#1a56db]/10 text-[#1647b8]';
-      text = `${picksMade}/${picksTotal} picks made`;
-    }
+    tone = 'bg-[#1a56db]/10 text-[#1647b8]';
+    text = `${picksMade}/${picksTotal} picks made`;
   }
 
   return (
@@ -389,21 +358,18 @@ export default function PlayoffsPage() {
   const isAdmin = useIsAdmin();
   const { playoffsOpenedAt, predictionsLocked } = usePlayoffsLaunchState();
   const { deadline, accessUntil } = usePlayoffsLaunchInfo();
-  const { matches } = usePlayoffMatches();
   const { made: picksMade, total: picksTotal } = usePlayoffPredictions();
 
   const [tab, setTab] = useState<TabId>(() => {
     const fromUrl = tabFromUrl();
-    if (fromUrl === 'admin' && !isAdmin) return 'r32';
-    return fromUrl ?? 'r32';
+    if (fromUrl === 'admin' && !isAdmin) return 'bracket';
+    return fromUrl ?? 'bracket';
   });
   const [infoExpanded, setInfoExpanded] = useState(false);
 
-  const resolvedCount = matches.filter((m) => m.round === 'R32' && m.isResolved).length;
   const showAdminPreview = isAdmin && playoffsOpenedAt === null;
 
   const tabs: TabDef[] = [
-    { id: 'r32', label: 'R32 Draw' },
     { id: 'bracket', label: 'Full Bracket' },
     { id: 'champion', label: '🏆 World Champion' },
     ...(isAdmin ? [{ id: 'admin' as const, label: 'Admin Tools' }] : []),
@@ -472,7 +438,6 @@ export default function PlayoffsPage() {
         <div className="shrink-0 pt-1">
           <ProgressPill
             tab={tab}
-            resolvedCount={resolvedCount}
             picksMade={picksMade}
             picksTotal={picksTotal}
             predictionsLocked={predictionsLocked}
@@ -499,7 +464,6 @@ export default function PlayoffsPage() {
             animate={CONTENT_TRANSITION.animate}
             exit={CONTENT_TRANSITION.exit}
           >
-            {tab === 'r32' && <R32DrawView embedded />}
             {tab === 'bracket' && <FullBracketView embedded />}
             {tab === 'champion' && <ChampionView embedded />}
             {tab === 'admin' && <AdminPanel />}

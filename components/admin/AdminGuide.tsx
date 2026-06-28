@@ -56,7 +56,7 @@ export function AdminGuide() {
         items={[
           'Group stage runs → users predict match scorelines',
           'Admin sets real final group positions (Bracket Setup → drag-sort)',
-          "Admin confirms R32 bracket → scores everyone's group projections + sends Group Stage Complete email",
+          'Admin confirms R32 bracket → recomputes group-stage points + sends Group Stage Complete email',
           'Admin opens playoffs to users + sets deadline (Overview → Open Playoffs)',
           'Users predict playoff winners and scores in the Full Bracket',
           'Admin publishes results match by match (Enter Results) → points calculated per publish',
@@ -83,8 +83,8 @@ export function AdminGuide() {
 
       <H3>Load from Groups (R32)</H3>
       <P>
-        Auto-fills all 16 R32 matchup slots using the real group standings you set above. Uses the same FIFA bracket
-        pairing rules as the R32 Draw page. Best-third-place teams are assigned uniquely (no duplicate teams).
+        Auto-fills all 16 R32 matchup slots using the real group standings you set above. Uses the standard FIFA bracket
+        pairing rules. Best-third-place teams are assigned uniquely (no duplicate teams).
       </P>
       <P>
         <Strong>When to use:</Strong> only after all 12 groups have final positions set. Running it on incomplete data
@@ -95,9 +95,8 @@ export function AdminGuide() {
       <P>The single most important admin action in the whole app. This button:</P>
       <OrderedList
         items={[
-          'Scores every user\u2019s R32 bracket projection (+1 pt per correct matchup slot)',
           <>
-            Runs <Code>recomputePickemPoints</Code> for all users
+            Runs <Code>recomputePickemPoints</Code> for all users (group placement + match points)
           </>,
           'Sends the Group Stage Complete email to every user',
         ]}

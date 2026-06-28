@@ -155,7 +155,6 @@ export async function POST(req: NextRequest) {
   // server-rendered shells. Real route paths — there is no /pickem/playoffs.)
   revalidatePath('/playoffs');
   revalidatePath('/playoffs/bracket');
-  revalidatePath('/playoffs/r32-draw');
 
   return NextResponse.json({ ok: true, scoredCount });
 }

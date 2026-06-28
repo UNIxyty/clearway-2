@@ -20,14 +20,11 @@ export async function GET() {
 
   const comp = await getActiveCompetition();
 
-  const [{ data: preds, error: predErr }, { data: matchRows, error: matchErr }, ledgerRes, champRes] = await Promise.all([
+  const [{ data: preds, error: predErr }, { data: matchRows, error: matchErr }, champRes] = await Promise.all([
     service.from('playoff_predictions')
       .select('user_id, match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded'),
     service.from('playoff_matches')
       .select('id, winner_team_id, home_score, away_score'),
-    comp
-      ? service.from('pickem_points_ledger').select('user_id, points').eq('competition_id', comp.id).eq('source_type', 'r32_projection')
-      : Promise.resolve({ data: [], error: null }),
     comp
       ? service.from('pickem_champion_predictions').select('user_id, points_awarded').eq('competition_id', comp.id)
       : Promise.resolve({ data: [], error: null }),
@@ -36,18 +33,13 @@ export async function GET() {
 
   const matchById = new Map((matchRows ?? []).map(m => [m.id as string, m]));
 
-  interface Agg { r32ProjPts: number; matchResultPts: number; exactScorePts: number; championPts: number; correctPicks: number }
+  interface Agg { matchResultPts: number; exactScorePts: number; championPts: number; correctPicks: number }
   const agg = new Map<string, Agg>();
   const ensure = (uid: string): Agg => {
     let a = agg.get(uid);
-    if (!a) { a = { r32ProjPts: 0, matchResultPts: 0, exactScorePts: 0, championPts: 0, correctPicks: 0 }; agg.set(uid, a); }
+    if (!a) { a = { matchResultPts: 0, exactScorePts: 0, championPts: 0, correctPicks: 0 }; agg.set(uid, a); }
     return a;
   };
-
-  // R32 projection points from the ledger.
-  for (const row of (ledgerRes.data ?? [])) {
-    ensure(row.user_id as string).r32ProjPts += Number(row.points ?? 0);
-  }
 
   // World Champion points (6 if correct).
   for (const row of (champRes.data ?? [])) {
@@ -79,11 +71,10 @@ export async function GET() {
     return {
       userId: uid,
       displayName: nameById.get(uid) ?? uid,
-      r32ProjPts: a.r32ProjPts,
       matchResultPts: a.matchResultPts,
       exactScorePts: a.exactScorePts,
       championPts: a.championPts,
-      totalPoints: a.r32ProjPts + a.matchResultPts + a.exactScorePts + a.championPts,
+      totalPoints: a.matchResultPts + a.exactScorePts + a.championPts,
       correctPicks: a.correctPicks,
     };
   }).sort((x, y) => y.totalPoints - x.totalPoints || x.displayName.localeCompare(y.displayName))

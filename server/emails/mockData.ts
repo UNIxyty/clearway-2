@@ -115,31 +115,11 @@ export function renderMockEmail(type: EmailType): { subject: string; html: strin
         mkGroup('K', [['NGA', '🇳🇬'], ['PER', '🇵🇪'], ['SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'], ['UAE', '🇦🇪']], [['SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'], ['NGA', '🇳🇬'], ['PER', '🇵🇪'], ['UAE', '🇦🇪']], 1, 10),
         mkGroup('L', [['NOR', '🇳🇴'], ['CHI', '🇨🇱'], ['CIV', '🇨🇮'], ['UZB', '🇺🇿']], [['NOR', '🇳🇴'], ['CHI', '🇨🇱'], ['CIV', '🇨🇮'], ['UZB', '🇺🇿']], 4, 11),
       ];
-      const matchups = [
-        { matchCode: 'R32_M01', flagA: '🇲🇽', teamA: 'Mexico', flagB: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', teamB: 'Wales', date: '29 Jun, 20:30', venue: 'Estadio Azteca' },
-        { matchCode: 'R32_M02', flagA: '🇦🇷', teamA: 'Argentina', flagB: '🇩🇰', teamB: 'Denmark', date: '29 Jun, 17:00', venue: 'MetLife Stadium' },
-        { matchCode: 'R32_M03', flagA: '🇪🇸', teamA: 'Spain', flagB: '🇭🇷', teamB: 'Croatia', date: '30 Jun, 20:30', venue: 'SoFi Stadium' },
-        { matchCode: 'R32_M04', flagA: '🇧🇷', teamA: 'Brazil', flagB: '🇺🇾', teamB: 'Uruguay', date: '30 Jun, 17:00', venue: 'AT&T Stadium' },
-        { matchCode: 'R32_M05', flagA: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', teamA: 'England', flagB: '🇨🇴', teamB: 'Colombia', date: '1 Jul, 20:30', venue: 'Lincoln Financial Field' },
-        { matchCode: 'R32_M06', flagA: '🇳🇬', teamA: 'Nigeria', flagB: '🇨🇱', teamB: 'Chile', date: '1 Jul, 17:00', venue: 'Hard Rock Stadium' },
-        { matchCode: 'R32_M07', flagA: '🇺🇸', teamA: 'USA', flagB: '🇵🇱', teamB: 'Poland', date: '2 Jul, 20:30', venue: 'Levi\'s Stadium' },
-        { matchCode: 'R32_M08', flagA: '🇫🇷', teamA: 'France', flagB: '🇩🇪', teamB: 'Germany', date: '2 Jul, 17:00', venue: 'Arrowhead Stadium' },
-        { matchCode: 'R32_M09', flagA: '🇧🇪', teamA: 'Belgium', flagB: '🇨🇭', teamB: 'Switzerland', date: '3 Jul, 20:30', venue: 'Gillette Stadium' },
-        { matchCode: 'R32_M10', flagA: '🇵🇹', teamA: 'Portugal', flagB: '🇳🇱', teamB: 'Netherlands', date: '3 Jul, 17:00', venue: 'NRG Stadium' },
-        { matchCode: 'R32_M11', flagA: '🇮🇹', teamA: 'Italy', flagB: '🇵🇪', teamB: 'Peru', date: '4 Jul, 20:30', venue: 'Mercedes-Benz Stadium' },
-        { matchCode: 'R32_M12', flagA: '🇳🇴', teamA: 'Norway', flagB: '🇲🇦', teamB: 'Morocco', date: '4 Jul, 17:00', venue: 'BMO Field' },
-        { matchCode: 'R32_M13', flagA: '🇯🇵', teamA: 'Japan', flagB: '🇨🇦', teamB: 'Canada', date: '5 Jul, 20:30', venue: 'BC Place' },
-        { matchCode: 'R32_M14', flagA: '🇰🇷', teamA: 'South Korea', flagB: '🇸🇳', teamB: 'Senegal', date: '5 Jul, 17:00', venue: 'Lumen Field' },
-        { matchCode: 'R32_M15', flagA: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', teamA: 'Scotland', flagB: '🇨🇮', teamB: 'Ivory Coast', date: '6 Jul, 20:30', venue: 'Estadio BBVA' },
-        { matchCode: 'R32_M16', flagA: '🇦🇺', teamA: 'Australia', flagB: '🇨🇷', teamB: 'Costa Rica', date: '6 Jul, 17:00', venue: 'Estadio Akron' },
-      ];
       return {
         subject: meta.subject,
         html: renderTemplate('groupStageComplete.html', {
           firstName: 'Alex', totalGroupPoints: 26, rank: 4, totalUsers: 26, avgPoints: 12.5,
           groups,
-          matchupsLeft: matchups.slice(0, 8),
-          matchupsRight: matchups.slice(8, 16),
           r32PredictionsUrl: `${base}/playoffs/bracket`, r32Deadline: '28 Jun 2026, 22:00', leaderboardUrl: `${base}/pickem`, ...L,
         }),
       };
@@ -149,7 +129,7 @@ export function renderMockEmail(type: EmailType): { subject: string; html: strin
         subject: meta.subject,
         html: renderTemplate('finalStandings.html', {
           firstName: 'Alex', finalRank: 1, totalUsers: 26, totalPoints: 64,
-          groupStagePoints: 22, r32ProjectionPoints: 9, r32Points: 12, r16Points: 6, qfPoints: 3, sfPoints: 2, finalPoints: 2,
+          groupStagePoints: 22, r32Points: 12, r16Points: 6, qfPoints: 3, sfPoints: 2, finalPoints: 2,
           exactScoreBonusPoints: 8, championPoints: 6, bestRound: 'Round of 32', correctPicksCount: 19, totalPicksCount: 31, exactScoreCount: 4,
           avgPoints: 38, pointsAboveAverage: 26, aboveOrBelowText: 'above', deltaColor: '#16a34a',
           rankCardBg: '#FFFBEB', rankCardBorder: '#FFD700', rankMedal: '🥇', rankNumColor: '#B45309',

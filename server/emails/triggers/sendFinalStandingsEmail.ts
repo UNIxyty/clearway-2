@@ -11,21 +11,20 @@ import {
 /*
  * Stage 7 — Final Standings email.
  *
- * Tournament total combines two stores (there is no single combined leaderboard
- * in the app today, so this module defines the canonical final ranking; any
- * future combined-leaderboard UI MUST reuse computeFinalStandings):
+ * Tournament total combines the point stores (this module defines the canonical
+ * final ranking; any future combined-leaderboard UI MUST reuse computeFinalStandings):
  *   - pickem_points_ledger : group stage (group_position + match_outcome +
- *     match_score) and r32_projection — read via getLeaderboard.
+ *     match_score) — read via getLeaderboard.
  *   - playoff_predictions.points_awarded : playoff round points, written by the
- *     calculate_playoff_points RPC (winner points by round + folded +2 exact bonus).
+ *     calculate_playoff_points RPC.
+ *   - pickem_champion_predictions.points_awarded : World Champion bonus.
  *
  * Breakdown shown in the email (sums to the displayed TOTAL = combined total):
  *   groupStagePoints     = all group-stage ledger (group_position+match_outcome+match_score)
- *   r32ProjectionPoints  = ledger r32_projection
- *   r32/r16/qf/sf Points = playoff base (winner) points per round
- *   finalPoints          = playoff base points for FINAL + THIRD (template has no
- *                          separate Third-Place row, so they're folded together)
- *   exactScoreBonusPoints= 2 × playoff exact-score hits
+ *   r32/r16/qf/sf Points = playoff winner base points per round
+ *   finalPoints          = playoff base points for FINAL + THIRD (folded together)
+ *   exactScoreBonusPoints= playoff points above the winner base
+ *   championPoints       = World Champion bonus
  */
 
 /** Canonical combined final standings for all participants. Computed once per
@@ -47,7 +46,7 @@ export async function computeFinalStandings(competitionId: string): Promise<Fina
     championByUser.set(String(row.user_id), Number(row.points_awarded ?? 0));
   }
   return computeFinalStandingsFromData(
-    ledger.map(r => ({ userId: r.userId, points: r.points, r32Points: r.r32Points })),
+    ledger.map(r => ({ userId: r.userId, points: r.points })),
     (predRows ?? []) as CorePlayoffPred[],
     (matchRows ?? []) as CorePlayoffMatch[],
     championByUser,
@@ -71,7 +70,6 @@ export function getFinalStandingsData(
     totalUsers: standings.totalUsers,
     totalPoints: u.totalPoints,
     groupStagePoints: u.groupStagePoints,
-    r32ProjectionPoints: u.r32ProjectionPoints,
     r32Points: u.r32Points,
     r16Points: u.r16Points,
     qfPoints: u.qfPoints,

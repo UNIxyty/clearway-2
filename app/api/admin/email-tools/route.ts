@@ -4,11 +4,10 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getActiveCompetition, getTournamentState } from '@/lib/pickem-store';
 import { sendEmail } from '@/server/emails/sendEmail';
 import { renderMockEmail, EMAIL_META, EMAIL_TYPES, type EmailType } from '@/server/emails/mockData';
-import { sendGroupStageCompleteBlast, type R32Matchup } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
+import { sendGroupStageCompleteBlast } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
 import { sendFinalStandingsBlast } from '@/server/emails/triggers/sendFinalStandingsEmail';
 import { playoffsOpenedTemplateExists, renderPlayoffsOpenedMock, sendPlayoffsOpenedBlast } from '@/server/emails/triggers/sendPlayoffsOpenedEmail';
 import { getAdminEmails } from '@/server/emails/resolveRecipients';
-import { flagFor } from '@/lib/playoffs/flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,27 +143,8 @@ export async function POST(req: NextRequest) {
       if (!state.r32ConfirmedAt) {
         return NextResponse.json({ error: 'Confirm the R32 bracket first (Bracket Setup → Confirm R32).' }, { status: 400 });
       }
-      // Build matchups from the real R32 pairs.
-      const { data: r32Rows } = await supabase
-        .from('playoff_matches')
-        .select('match_code, match_number, home_team_id, away_team_id, kickoff_at, venue, city')
-        .eq('round', 'R32').order('match_number');
-      const filled = (r32Rows ?? []).filter(r => r.home_team_id && r.away_team_id);
-      const teamIds = [...new Set(filled.flatMap(r => [r.home_team_id, r.away_team_id]).filter(Boolean) as string[])];
-      const { data: teamRows } = await supabase.from('pickem_teams').select('id, name, short_name').in('id', teamIds);
-      const teamById = new Map((teamRows ?? []).map(t => [t.id as string, t]));
-      const matchups: R32Matchup[] = filled.map(r => {
-        const h = teamById.get(r.home_team_id as string); const a = teamById.get(r.away_team_id as string);
-        return {
-          matchCode: r.match_code as string,
-          teamA: (h?.name as string) ?? 'TBD', flagA: flagFor(h?.short_name as string),
-          teamB: (a?.name as string) ?? 'TBD', flagB: flagFor(a?.short_name as string),
-          date: r.kickoff_at ? new Date(r.kickoff_at as string).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '',
-          venue: [r.venue, r.city].filter(Boolean).join(', '),
-        };
-      });
       const base = (process.env.APP_BASE_URL ?? 'https://clearway.verxyl.com').replace(/\/+$/, '');
-      sendGroupStageCompleteBlast({ competitionId: comp.id, matchups, r32Deadline: '', r32PredictionsUrl: `${base}/playoffs/bracket`, leaderboardUrl: `${base}/pickem`, onlyEmails });
+      sendGroupStageCompleteBlast({ competitionId: comp.id, r32Deadline: '', r32PredictionsUrl: `${base}/playoffs/bracket`, leaderboardUrl: `${base}/pickem`, onlyEmails });
       return NextResponse.json({ ok: true, queued: true, audience: adminOnly ? 'admins' : 'all' });
     }
 

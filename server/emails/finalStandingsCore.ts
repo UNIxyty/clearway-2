@@ -25,7 +25,6 @@ export const ROUND_LABEL: Record<string, string> = {
 export interface LedgerUser {
   userId: string;
   points: number;     // GROUP-STAGE total only (group_position+match_outcome+match_score)
-  r32Points: number;  // r32_projection only
 }
 export interface CorePlayoffPred {
   user_id: string;
@@ -46,7 +45,6 @@ export interface CorePlayoffMatch {
 
 export interface PerUser {
   groupStagePoints: number;
-  r32ProjectionPoints: number;
   r32Points: number;
   r16Points: number;
   qfPoints: number;
@@ -122,7 +120,6 @@ export function computeFinalStandingsFromData(
   for (const uid of participantIds) {
     const led = ledgerByUser.get(uid);
     const a = acc.get(uid);
-    const r32ProjectionPoints = led?.r32Points ?? 0;
     const groupStagePoints = led?.points ?? 0;
     const championPoints = championByUser.get(uid) ?? 0;
 
@@ -148,13 +145,13 @@ export function computeFinalStandingsFromData(
     }
 
     perUser.set(uid, {
-      groupStagePoints, r32ProjectionPoints,
+      groupStagePoints,
       r32Points, r16Points, qfPoints, sfPoints, finalPoints,
       exactScoreBonusPoints, exactScoreCount,
       correctPicksCount: a?.correctCount ?? 0,
       totalPicksCount: a?.totalPicks ?? 0,
       championPoints,
-      totalPoints: groupStagePoints + r32ProjectionPoints + playoffTotal + championPoints,
+      totalPoints: groupStagePoints + playoffTotal + championPoints,
       bestRound,
     });
   }

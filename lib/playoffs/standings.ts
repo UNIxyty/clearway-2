@@ -1,10 +1,9 @@
 /*
  * SCOPE — READ BEFORE USING:
  * computeGroupStandings / computeBestThird / resolveR32Pairings / resolveQualifier
- * are used EXCLUSIVELY for scoring/displaying the user's group-stage-derived R32
- * projection on the R32 Draw page (/playoffs/r32-draw) and in the Group Stage
- * Complete email, plus the admin-side "populate from group results" convenience
- * tools that an admin explicitly triggers to pre-fill playoff_matches.
+ * back ONLY the admin-side "Load from Groups (R32)" convenience tools that an admin
+ * explicitly triggers to pre-fill the official R32 playoff_matches from the real
+ * group standings (populate-r32 / dev-mode fill-r32).
  *
  * They must NEVER be used as a runtime data source for the actual Full Bracket /
  * playoff_matches system, which is populated solely by admin input reflecting the
@@ -200,26 +199,6 @@ function assignBestThirds(
   };
   backtrack(0);
   return result;
-}
-
-/**
- * Compute a single user's predicted R32 bracket from their predicted group
- * standings. `groupMatches` must already carry the user's predicted scores.
- * This is the one source of truth shared by the R32 Draw page (what the user
- * sees) and the R32-projection scoring (what they're awarded) so the two never
- * disagree.
- */
-export function computeUserPredictedR32(
-  pairings: ReadonlyArray<R32Slot>,
-  groupMatches: GroupMatch[],
-  teams: BracketTeam[],
-): ResolvedR32[] {
-  const groupCodes = [...new Set(teams.map(t => t.groupCode))];
-  const allStandings = new Map(
-    groupCodes.map(gc => [gc, computeGroupStandings(groupMatches, teams, gc)]),
-  );
-  const bestThirds = computeBestThird(allStandings);
-  return resolveR32Pairings(pairings, allStandings, bestThirds);
 }
 
 /**

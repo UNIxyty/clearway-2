@@ -7,7 +7,7 @@ import { flagCdnCode } from '@/lib/playoffs/flags';
 import { CheckIcon } from '@/components/playoffs/icons';
 import {
   R32_LEFT_IDS, R32_RIGHT_IDS, R16_LEFT_IDS, R16_RIGHT_IDS,
-  QF_LEFT_IDS, QF_RIGHT_IDS,
+  QF_LEFT_IDS, QF_RIGHT_IDS, OFFICIAL_MATCH_NUMBER,
 } from '@/lib/playoffs/bracketData';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { useTournamentState } from '@/hooks/useTournamentState';
@@ -587,7 +587,9 @@ export function BracketSetupView({ embedded = false, initialAction = null }: Bra
                 {/* Match header */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[11px] font-extrabold tracking-widest text-navy/60 bg-navy/[0.07] px-2 py-1 rounded">{code}</span>
+                    <span className="text-[11px] font-extrabold tracking-widest text-navy/60 bg-navy/[0.07] px-2 py-1 rounded">
+                      {OFFICIAL_MATCH_NUMBER[code] ? `MATCH ${OFFICIAL_MATCH_NUMBER[code]}` : code}
+                    </span>
                     {(row.venue || row.city) && (
                       <span className="text-[12px] font-semibold text-black/40">
                         📍 {row.venue}{row.city ? `, ${row.city}` : ''}

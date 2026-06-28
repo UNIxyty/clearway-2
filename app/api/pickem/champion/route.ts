@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/admin-auth';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
-import { getActiveCompetition, getTournamentState, listTeams } from '@/lib/pickem-store';
+import { getActiveCompetition, getTournamentState, getUserPlayoffAccess, listTeams } from '@/lib/pickem-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +23,10 @@ export async function GET() {
   if (!comp) return NextResponse.json({ error: 'Competition not configured.' }, { status: 404 });
 
   const supabase = service();
-  const [teams, state, finalRes, predRes, r32Res] = await Promise.all([
+  const [teams, state, access, finalRes, predRes, r32Res] = await Promise.all([
     listTeams(comp.id),
     getTournamentState(comp.id),
+    getUserPlayoffAccess({ userId: auth.user.id, competitionId: comp.id }),
     supabase.from('playoff_matches').select('winner_team_id, is_locked').eq('round', 'FINAL').limit(1).maybeSingle(),
     supabase.from('pickem_champion_predictions')
       .select('predicted_team_id, points_awarded')
@@ -45,6 +46,9 @@ export async function GET() {
   const finalLocked = Boolean(finalRes.data?.is_locked);
   const championTeamId = (finalRes.data?.winner_team_id as string | null) ?? null;
   const deadline = state.playoffsPredictionDeadline;
+  // A live per-user playoff-access grant keeps the pick editable even past the
+  // global deadline — mirrors the playoffs gate (usePlayoffsLaunchState).
+  const userAccess = access ? new Date(access.accessUntil).getTime() > Date.now() : false;
   const pastDeadline = deadline ? Date.now() >= new Date(deadline).getTime() : false;
 
   return NextResponse.json({
@@ -57,7 +61,7 @@ export async function GET() {
         }
       : null,
     deadline,
-    isLocked: finalLocked || pastDeadline,
+    isLocked: finalLocked || (pastDeadline && !userAccess),
     finalPlayed: championTeamId !== null,
     championTeamId,
   });
@@ -75,14 +79,17 @@ export async function POST(req: NextRequest) {
 
   const supabase = service();
 
-  // Re-check the lock server-side so a stale client can't write past it.
-  const [state, finalRes] = await Promise.all([
+  // Re-check the lock server-side so a stale client can't write past it. A live
+  // per-user playoff-access grant keeps it editable past the global deadline.
+  const [state, access, finalRes] = await Promise.all([
     getTournamentState(comp.id),
+    getUserPlayoffAccess({ userId: auth.user.id, competitionId: comp.id }),
     supabase.from('playoff_matches').select('is_locked').eq('round', 'FINAL').limit(1).maybeSingle(),
   ]);
+  const userAccess = access ? new Date(access.accessUntil).getTime() > Date.now() : false;
   const pastDeadline = state.playoffsPredictionDeadline
     ? Date.now() >= new Date(state.playoffsPredictionDeadline).getTime() : false;
-  if (Boolean(finalRes.data?.is_locked) || pastDeadline) {
+  if (Boolean(finalRes.data?.is_locked) || (pastDeadline && !userAccess)) {
     return NextResponse.json({ error: 'Champion pick is locked.' }, { status: 403 });
   }
 

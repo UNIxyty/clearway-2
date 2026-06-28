@@ -74,4 +74,10 @@ WHERE u.id IN (
   SELECT DISTINCT user_id FROM pickem_champion_predictions
 );
 
-GRANT SELECT ON pickem_combined_standings TO service_role, authenticated;
+-- Security: a VIEW can't have its own RLS policies, so lock it down via grants +
+-- security_invoker. Only the service role (which the app uses) may read it; client
+-- keys (anon/authenticated) are revoked. security_invoker makes any future
+-- non-superuser read honor the underlying tables' RLS instead of bypassing it.
+REVOKE ALL ON pickem_combined_standings FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON pickem_combined_standings TO service_role;
+ALTER VIEW pickem_combined_standings SET (security_invoker = true);

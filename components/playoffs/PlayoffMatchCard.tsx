@@ -161,12 +161,14 @@ export interface PlayoffMatchCardProps {
   fullWidth?: boolean;
   homePlaceholder?: string;
   awayPlaceholder?: string;
+  /** Unsaved sessionStorage draft exists for this match → show an orange dot. */
+  unsavedDraft?: boolean;
 }
 
 export function PlayoffMatchCard({
   id, round, matchNumber, width, venue, date, home, away, pick, locked, official,
   result, pointsLabel, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
-  homePlaceholder = 'TBD', awayPlaceholder = 'TBD',
+  homePlaceholder = 'TBD', awayPlaceholder = 'TBD', unsavedDraft = false,
 }: PlayoffMatchCardProps) {
   const scoresEnabled = !locked && !!home && !!away;
 
@@ -195,6 +197,15 @@ export function PlayoffMatchCard({
       ].join(' ')}
     >
       {big && <div className="h-1 w-full bg-gradient-to-r from-bk-amber via-bk-accent to-bk-amber" />}
+
+      {/* Unsaved-draft dot — top-right corner, separate from the status badge. */}
+      {unsavedDraft && (
+        <span
+          className="absolute top-1 right-1 z-30 rounded-full pointer-events-none"
+          style={{ width: 6, height: 6, background: '#f59e0b' }}
+          aria-label="Unsaved pick"
+        />
+      )}
 
       {/* Points pill — top-left. Shown once the match is scored and the user had
           a prediction: green earned pill, or a muted "Missed" pill for 0 pts. */}

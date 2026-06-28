@@ -17,6 +17,7 @@ import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction } from '@/li
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
 import { PLAYOFF_WINNER_POINTS } from '@/lib/playoffs/scoring-constants';
 import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
+import { useUnsavedBracketPicks, type SavedPick, type DraftPick } from '@/lib/hooks/useUnsavedBracketPicks';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ export interface FullBracketProps {
   /** When mounted inside the Playoffs tab shell: hide the standalone navbar and
    *  size the scroller to the embedded area instead of the full viewport. */
   embedded?: boolean;
+  /** Scope for the sessionStorage unsaved-picks draft (single competition). */
+  competitionId?: string;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -84,6 +87,7 @@ interface RoundColumnProps {
   matchesByCode: Record<string, PlayoffMatch>;
   results: Record<string, 'correct' | 'wrong'>;
   pointsLabels: Record<string, string>;
+  draftCodes: Set<string>;
   readOnly: boolean;
   onPick: (id: string, side: 'home' | 'away') => void;
   onScore: (id: string, side: 'home' | 'away', v: string) => void;
@@ -91,7 +95,7 @@ interface RoundColumnProps {
 
 function RoundColumn({
   label, ids, width, picks, scores, flash, startIndex,
-  matchesByCode, results, pointsLabels, readOnly, onPick, onScore,
+  matchesByCode, results, pointsLabels, draftCodes, readOnly, onPick, onScore,
 }: RoundColumnProps) {
   return (
     <div className="shrink-0 flex flex-col" style={{ width, height: BRACKET_H }}>
@@ -135,6 +139,7 @@ function RoundColumn({
                 flashing={!!flash[id]}
                 index={startIndex + i}
                 pointsLabel={pointsLabels[id] ?? null}
+                unsavedDraft={draftCodes.has(id)}
                 onPick={s => onPick(id, s)}
                 onScore={(s, v) => onScore(id, s, v)}
                 homePlaceholder={homePlaceholder}
@@ -151,7 +156,7 @@ function RoundColumn({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FullBracket({ matches, userPredictions, teams, onSavePrediction, embedded = false }: FullBracketProps) {
+export function FullBracket({ matches, userPredictions, teams, onSavePrediction, embedded = false, competitionId = 'wc-2026' }: FullBracketProps) {
   // Feature-level read-only (non-admin after the deadline). Layered on per-match locks.
   const readOnly = usePlayoffsReadOnly();
   // Build matchesByCode map
@@ -181,6 +186,34 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   // picksRef tracks the fully-merged picks (locked official + local) so that
   // onPick's inline save can resolve teams through the bracket for any round.
   const picksRef = useRef<PickMap>({});
+
+  // Last-saved values per slot (matchCode → SavedPick) for the draft isDirty check.
+  const savedByCode = useMemo<Record<string, SavedPick>>(() => {
+    const codeById = new Map(matches.map(m => [m.id, m.matchCode]));
+    const out: Record<string, SavedPick> = {};
+    for (const p of userPredictions) {
+      const code = codeById.get(p.matchId);
+      if (!code) continue;
+      out[code] = {
+        predictedWinnerId: p.predictedWinnerId ?? null,
+        predictedHomeScore: p.predictedHomeScore ?? null,
+        predictedAwayScore: p.predictedAwayScore ?? null,
+      };
+    }
+    return out;
+  }, [matches, userPredictions]);
+
+  // sessionStorage draft of unsaved picks — survives tab switches (unmount).
+  const {
+    draftPicks, setDraftPick, clearDraftPick, clearAllDrafts,
+    hasDraft, draftCount, isDirty: draftDirty, loaded: draftsLoaded,
+  } = useUnsavedBracketPicks(competitionId, savedByCode);
+
+  // Resolve the team id a slot's side currently points to (for storing in a draft).
+  const winnerIdFor = useCallback((code: string, side: 'home' | 'away' | null, picksOverride: PickMap): string | null => {
+    if (!side) return null;
+    return teamInSlot(code, side, picksOverride, matchesByCode)?.id ?? null;
+  }, [matchesByCode]);
 
   // Merge locked official results into picks
   const picks = useMemo<PickMap>(() => {
@@ -234,7 +267,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       }
     });
 
-    setLocalPicks(prev => ({ ...prev, ...seed }));
+    // prev (which may already hold restored sessionStorage drafts or live edits)
+    // wins over the DB seed, so unsaved work is never clobbered by a re-seed.
+    setLocalPicks(prev => ({ ...seed, ...prev }));
     setScores(prev => {
       const next = { ...prev };
       Object.entries(seedScores).forEach(([code, sc]) => {
@@ -245,6 +280,64 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       return next;
     });
   }, [matches, userPredictions, matchesByCode]);
+
+  // Restore unsaved drafts from sessionStorage ONCE, after they've loaded. Draft
+  // values take priority over the DB seed (the user sees their unsaved work).
+  const draftRestoredRef = useRef(false);
+  useEffect(() => {
+    if (draftRestoredRef.current) return;
+    if (!draftsLoaded || matches.length === 0) return;
+    draftRestoredRef.current = true;
+
+    const codes = Object.keys(draftPicks);
+    if (codes.length === 0) return;
+
+    const ROUND_DEPTH: Record<string, number> = { R32: 0, R16: 1, QF: 2, SF: 3, THIRD: 4, FINAL: 5 };
+    const working: PickMap = { ...picksRef.current };
+    const seed: PickMap = {};
+    const seedScores: Record<string, { home: string; away: string }> = {};
+
+    codes
+      .map(code => ({ code, d: draftPicks[code], m: matchesByCode[code] }))
+      .filter((x): x is { code: string; d: DraftPick; m: PlayoffMatch } => !!x.m)
+      .sort((a, b) => (ROUND_DEPTH[a.m.round] ?? 0) - (ROUND_DEPTH[b.m.round] ?? 0))
+      .forEach(({ code, d, m }) => {
+        if (d.predictedWinnerId) {
+          let side: 'home' | 'away' | null = null;
+          if (m.homeTeamId && m.awayTeamId) {
+            side = d.predictedWinnerId === m.homeTeamId ? 'home'
+              : d.predictedWinnerId === m.awayTeamId ? 'away' : null;
+          } else {
+            const homeTeam = teamInSlot(code, 'home', working, matchesByCode);
+            const awayTeam = teamInSlot(code, 'away', working, matchesByCode);
+            if (homeTeam?.id === d.predictedWinnerId) side = 'home';
+            else if (awayTeam?.id === d.predictedWinnerId) side = 'away';
+          }
+          if (side) { seed[code] = side; working[code] = side; }
+        }
+        if (d.predictedHomeScore !== null && d.predictedAwayScore !== null) {
+          seedScores[code] = { home: String(d.predictedHomeScore), away: String(d.predictedAwayScore) };
+        }
+      });
+
+    if (Object.keys(seed).length) setLocalPicks(prev => ({ ...prev, ...seed }));
+    if (Object.keys(seedScores).length) setScores(prev => ({ ...prev, ...seedScores }));
+    if (Object.keys(seed).length || Object.keys(seedScores).length) setIsDirty(true);
+  }, [draftsLoaded, draftPicks, matches, matchesByCode]);
+
+  // Drafts become irrelevant once every match is locked — wipe them.
+  useEffect(() => {
+    if (matches.length > 0 && matches.every(m => m.isLocked) && hasDraft) clearAllDrafts();
+  }, [matches, hasDraft, clearAllDrafts]);
+
+  // Warn on full-page close/navigation while unsaved drafts differ from saved.
+  // (Tab-switches within the app are handled by sessionStorage restoration.)
+  useEffect(() => {
+    if (!draftDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [draftDirty]);
 
   // A match is "scored" once its real result is published (home_score set) and a
   // winner is decided — gate on that, NOT on is_locked, so the badges stay in
@@ -357,9 +450,23 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       return next;
     });
 
+    // Mirror into the sessionStorage draft (toggle-off / cascade-clears remove drafts).
+    if (newSide === null) {
+      clearDraftPick(id);
+    } else {
+      const winnerId = winnerIdFor(id, newSide, { ...picksRef.current, [id]: newSide });
+      const sc = scores[id] ?? { home: '', away: '' };
+      setDraftPick(id, {
+        predictedWinnerId: winnerId,
+        predictedHomeScore: sc.home !== '' ? parseInt(sc.home, 10) : null,
+        predictedAwayScore: sc.away !== '' ? parseInt(sc.away, 10) : null,
+      });
+    }
+    clearedCodes.forEach(c => clearDraftPick(c));
+
     applyCascade(clearedCodes);
     setIsDirty(true);
-  }, [matchesByCode, computeCascade, applyCascade]);
+  }, [matchesByCode, computeCascade, applyCascade, scores, setDraftPick, clearDraftPick, winnerIdFor]);
 
   const onScore = useCallback((id: string, side: 'home' | 'away', v: string) => {
     const newSc = { ...(scores[id] ?? { home: '', away: '' }), [side]: v };
@@ -368,9 +475,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
     const hs = parseInt(newSc.home, 10);
     const as_ = parseInt(newSc.away, 10);
     const scoresClear = !isNaN(hs) && !isNaN(as_) && hs !== as_;
+    const autoPick: 'home' | 'away' | null = scoresClear ? (hs > as_ ? 'home' : 'away') : null;
 
-    if (scoresClear) {
-      const autoPick: 'home' | 'away' = hs > as_ ? 'home' : 'away';
+    if (autoPick) {
       // Use picksRef.current for the freshest merged picks (not the closure snapshot)
       if (picksRef.current[id] !== autoPick) {
         const clearedCodes = computeCascade(id, autoPick);
@@ -380,11 +487,21 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
           return next;
         });
         applyCascade(clearedCodes);
+        clearedCodes.forEach(c => clearDraftPick(c));
       }
     }
 
+    // Mirror into the sessionStorage draft.
+    const draftSide: 'home' | 'away' | null = autoPick ?? picksRef.current[id] ?? null;
+    const winnerId = winnerIdFor(id, draftSide, draftSide ? { ...picksRef.current, [id]: draftSide } : picksRef.current);
+    setDraftPick(id, {
+      predictedWinnerId: winnerId,
+      predictedHomeScore: newSc.home !== '' ? parseInt(newSc.home, 10) : null,
+      predictedAwayScore: newSc.away !== '' ? parseInt(newSc.away, 10) : null,
+    });
+
     setIsDirty(true);
-  }, [matchesByCode, scores, computeCascade, applyCascade]);
+  }, [matchesByCode, scores, computeCascade, applyCascade, setDraftPick, clearDraftPick, winnerIdFor]);
 
   // ---- Batch submit ----
   const handleSubmitAll = useCallback(async () => {
@@ -494,6 +611,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
         body: JSON.stringify({ isFirstSubmit, changes }),
       }).catch(() => {});
 
+      // Saved → drop the sessionStorage draft. (On failure above we returned early
+      // so the draft is kept and the user can retry without losing work.)
+      clearAllDrafts();
       setSubmitDone(true);
       setIsDirty(false);
       setTimeout(() => setSubmitDone(false), 2500);
@@ -503,7 +623,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, matches, onSavePrediction, userPredictions]);
+  }, [isSubmitting, unlockedMatches, picks, scores, matchesByCode, matches, onSavePrediction, userPredictions, clearAllDrafts]);
 
   // ---- Connector paths ----
   const measure = useCallback(() => {
@@ -605,7 +725,8 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   const bHome = teamInSlot('THIRD_M01', 'home', picks, matchesByCode);
   const bAway = teamInSlot('THIRD_M01', 'away', picks, matchesByCode);
 
-  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, readOnly, onPick, onScore };
+  const draftCodes = useMemo(() => new Set(Object.keys(draftPicks)), [draftPicks]);
+  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, draftCodes, readOnly, onPick, onScore };
 
   // ---- Mobile round data ----
   const MOBILE_ROUNDS = [
@@ -690,6 +811,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 scores={scores[id] ?? { home: '', away: '' }}
                 flashing={!!flash[id]}
                 index={i}
+                unsavedDraft={draftCodes.has(id)}
                 onPick={s => onPick(id, s)}
                 onScore={(s, v) => onScore(id, s, v)}
                 homePlaceholder={homePlaceholder}
@@ -769,6 +891,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       scores={scores['FINAL_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['FINAL_M01']}
                       index={15}
+                      unsavedDraft={draftCodes.has('FINAL_M01')}
                       onPick={s => onPick('FINAL_M01', s)}
                       onScore={(s, v) => onScore('FINAL_M01', s, v)}
                       homePlaceholder="Winner SF L1"
@@ -791,6 +914,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       scores={scores['THIRD_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['THIRD_M01']}
                       index={16}
+                      unsavedDraft={draftCodes.has('THIRD_M01')}
                       onPick={s => onPick('THIRD_M01', s)}
                       onScore={(s, v) => onScore('THIRD_M01', s, v)}
                       homePlaceholder="Loser SF L1"
@@ -841,6 +965,17 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
               />
             </div>
           </div>
+          {/* Unsaved-changes indicator (sessionStorage draft). */}
+          {hasDraft && draftCount > 0 ? (
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-bold" style={{ color: '#f59e0b' }}>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} />
+              {draftCount} unsaved {draftCount === 1 ? 'pick' : 'picks'}
+            </span>
+          ) : Object.keys(savedByCode).length > 0 ? (
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-bold" style={{ color: '#16a34a' }}>
+              ✓ All picks saved
+            </span>
+          ) : null}
           <button
             onClick={handleSubmitAll}
             disabled={!isDirty || isSubmitting}
@@ -851,6 +986,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 : !isDirty || isSubmitting
                 ? 'bg-black/[0.06] text-black/30 cursor-not-allowed'
                 : 'bg-bk-blue text-white shadow-[0_4px_16px_rgba(37,99,235,0.28)] hover:opacity-90 active:scale-[0.97]',
+              draftDirty && !submitDone && !isSubmitting ? 'ring-2 ring-[#f59e0b] ring-offset-1' : '',
             ].join(' ')}
           >
             {submitDone ? '✓ Picks Saved' : isSubmitting ? 'Saving…' : 'Submit Picks'}

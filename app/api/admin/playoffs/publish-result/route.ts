@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { getActiveCompetition } from '@/lib/pickem-store';
 import { MATCHES } from '@/lib/playoffs/bracketData';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -124,6 +125,22 @@ export async function POST(req: NextRequest) {
       matchRow.home_team_id as string | null,
       matchRow.away_team_id as string | null,
     );
+
+    // Publishing the FINAL decides the World Champion → score champion picks
+    // automatically (no separate admin click). Best-effort: never fail the
+    // publish if champion scoring hiccups.
+    if (MATCHES[matchCode].round === 'FINAL') {
+      try {
+        const comp = await getActiveCompetition();
+        if (comp) {
+          const { error: champErr } = await supabase.rpc('calculate_champion_points', { p_competition_id: comp.id });
+          if (champErr) console.error('[publish-result] champion RPC failed', { error: champErr.message });
+          else console.log('[publish-result] champion points calculated', { competitionId: comp.id });
+        }
+      } catch (champEx) {
+        console.error('[publish-result] champion scoring threw', champEx);
+      }
+    }
 
     // NOTE: the Final Standings email is NO LONGER sent automatically here.
     // Auto-blasting every user the moment FINAL/THIRD was published gave the

@@ -15,7 +15,7 @@ import {
 } from '@/lib/playoffs/bracketData';
 import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction } from '@/lib/playoffs/types';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
-import { PLAYOFF_ROUND_POINTS } from '@/lib/playoffs/scoring-constants';
+import { PLAYOFF_WINNER_POINTS } from '@/lib/playoffs/scoring-constants';
 import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -250,7 +250,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   // winner is decided — gate on that, NOT on is_locked, so the badges stay in
   // sync with the "Actual X–Y" score (which also keys off home_score) and still
   // show even if a result was published without the lock flag.
-  const ROUND_PTS = PLAYOFF_ROUND_POINTS; // single source of truth (shared w/ RPC + email)
+  // Fallback only — the card shows the authoritative pred.pointsAwarded; this is
+  // used when a points value somehow isn't present yet (flat winner base = 2).
+  const WINNER_BASE = PLAYOFF_WINNER_POINTS;
 
   // Results (correct/wrong) for the current user's prediction on scored matches.
   const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {
@@ -281,7 +283,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       const winnerCorrect = pred.predictedWinnerId === m.winnerTeamId;
       if (!winnerCorrect) { out[m.matchCode] = 'miss'; return; }
       const earned = (pred.pointsAwarded && pred.pointsAwarded > 0)
-        ? pred.pointsAwarded : (ROUND_PTS[m.round] ?? 1);
+        ? pred.pointsAwarded : WINNER_BASE;
       const scoreCorrect = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null
         && pred.predictedHomeScore === m.homeScore && pred.predictedAwayScore === m.awayScore;
       out[m.matchCode] = `${scoreCorrect ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;

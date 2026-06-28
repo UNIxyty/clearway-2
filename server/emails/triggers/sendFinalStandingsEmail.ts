@@ -33,16 +33,24 @@ import {
 export async function computeFinalStandings(competitionId: string): Promise<FinalStandings> {
   const supabase = createSupabaseAdminClient();
   const ledger = await getLeaderboard(competitionId);
-  const [{ data: predRows }, { data: matchRows }] = await Promise.all([
+  const [{ data: predRows }, { data: matchRows }, { data: champRows }] = await Promise.all([
     supabase.from('playoff_predictions')
-      .select('user_id, match_id, predicted_winner_id, predicted_home_score, predicted_away_score'),
+      .select('user_id, match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded'),
     supabase.from('playoff_matches')
       .select('id, round, home_score, away_score, winner_team_id, is_locked'),
+    supabase.from('pickem_champion_predictions')
+      .select('user_id, points_awarded')
+      .eq('competition_id', competitionId),
   ]);
+  const championByUser = new Map<string, number>();
+  for (const row of (champRows ?? []) as Array<{ user_id: string; points_awarded: number | null }>) {
+    championByUser.set(String(row.user_id), Number(row.points_awarded ?? 0));
+  }
   return computeFinalStandingsFromData(
     ledger.map(r => ({ userId: r.userId, points: r.points, r32Points: r.r32Points })),
     (predRows ?? []) as CorePlayoffPred[],
     (matchRows ?? []) as CorePlayoffMatch[],
+    championByUser,
   );
 }
 
@@ -70,6 +78,7 @@ export function getFinalStandingsData(
     sfPoints: u.sfPoints,
     finalPoints: u.finalPoints,
     exactScoreBonusPoints: u.exactScoreBonusPoints,
+    championPoints: u.championPoints,
     bestRound: u.bestRound,
     correctPicksCount: u.correctPicksCount,
     totalPicksCount: u.totalPicksCount,

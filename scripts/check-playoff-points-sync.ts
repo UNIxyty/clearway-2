@@ -1,46 +1,55 @@
 /*
- * Drift guard: assert the calculate_playoff_points SQL RPC's round values and
- * exact-score bonus match the TS single source of truth (scoring-constants.ts).
- * No DB needed — it parses the migration text. Fails (exit 1) on any mismatch so
- * a future point-value change on one side can't silently ship.
+ * Drift guard: assert the playoff + champion SQL RPCs use the SAME point values
+ * as the TS single source of truth (scoring-constants.ts). No DB needed — it
+ * parses `SCORING:<path>=<n>` marker comments in the migrations and fails (exit 1)
+ * on any mismatch so a future point-value change on one side can't silently ship.
  *   node --experimental-strip-types scripts/check-playoff-points-sync.ts
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PLAYOFF_ROUND_POINTS, PLAYOFF_EXACT_BONUS } from '../lib/playoffs/scoring-constants.ts';
+import { SCORING } from '../lib/playoffs/scoring-constants.ts';
 
-// The current authoritative RPC definition (flat 1/2 across all rounds).
-const MIGRATION = 'migrations/20260619_flat_playoff_points.sql';
-const sql = fs.readFileSync(path.join(process.cwd(), MIGRATION), 'utf-8');
+// Migrations carrying the authoritative SQL point values (with SCORING: markers).
+const MIGRATIONS = [
+  'migrations/20260629_new_playoff_scoring.sql',
+  'migrations/20260629_champion_predictions.sql',
+];
+
+// Flatten the TS SCORING object into dot-paths → value.
+function flatten(obj: Record<string, unknown>, prefix = ''): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (typeof v === 'number') out[key] = v;
+    else if (v && typeof v === 'object') Object.assign(out, flatten(v as Record<string, unknown>, key));
+  }
+  return out;
+}
+const tsValues = flatten(SCORING as unknown as Record<string, unknown>);
+
+// Parse every `SCORING:PATH=N` marker across the migrations.
+const sqlValues: Record<string, number> = {};
+for (const file of MIGRATIONS) {
+  const sql = fs.readFileSync(path.join(process.cwd(), file), 'utf-8');
+  for (const m of sql.matchAll(/SCORING:([A-Z0-9_.]+)\s*=\s*(\d+)/g)) {
+    sqlValues[m[1]] = Number(m[2]);
+  }
+}
 
 const problems: string[] = [];
-
-// Parse "WHEN 'R32' THEN 1" pairs from the round CASE.
-const sqlRounds: Record<string, number> = {};
-for (const m of sql.matchAll(/WHEN\s+'([A-Z0-9]+)'\s+THEN\s+(\d+)/g)) {
-  sqlRounds[m[1]] = Number(m[2]);
+for (const [key, val] of Object.entries(tsValues)) {
+  if (sqlValues[key] === undefined) problems.push(`SQL is missing marker SCORING:${key} (TS has ${val})`);
+  else if (sqlValues[key] !== val) problems.push(`${key}: TS=${val} but SQL=${sqlValues[key]}`);
 }
-
-// Parse the exact-score bonus: "v_points := v_points + 2;"
-const bonusMatch = sql.match(/v_points\s*:=\s*v_points\s*\+\s*(\d+)\s*;/);
-const sqlBonus = bonusMatch ? Number(bonusMatch[1]) : NaN;
-
-// Compare round values both directions.
-for (const [round, pts] of Object.entries(PLAYOFF_ROUND_POINTS)) {
-  if (sqlRounds[round] === undefined) problems.push(`RPC is missing round ${round} (TS has ${pts})`);
-  else if (sqlRounds[round] !== pts) problems.push(`round ${round}: TS=${pts} but RPC=${sqlRounds[round]}`);
+for (const key of Object.keys(sqlValues)) {
+  if (tsValues[key] === undefined) problems.push(`SQL has extra marker SCORING:${key}=${sqlValues[key]} not in TS`);
 }
-for (const round of Object.keys(sqlRounds)) {
-  if (PLAYOFF_ROUND_POINTS[round] === undefined) problems.push(`RPC has extra round ${round}=${sqlRounds[round]} not in TS`);
-}
-if (sqlBonus !== PLAYOFF_EXACT_BONUS) problems.push(`exact bonus: TS=${PLAYOFF_EXACT_BONUS} but RPC=${Number.isNaN(sqlBonus) ? 'not found' : sqlBonus}`);
 
 if (problems.length) {
-  console.error('❌ playoff point values DRIFTED between TS and the SQL RPC:');
+  console.error('❌ scoring values DRIFTED between TS (scoring-constants.ts) and the SQL RPCs:');
   for (const p of problems) console.error('   • ' + p);
-  console.error(`\nUpdate either lib/playoffs/scoring-constants.ts or ${MIGRATION} so they match.`);
+  console.error('\nUpdate either lib/playoffs/scoring-constants.ts or the migration SCORING: markers so they match.');
   process.exit(1);
 }
 
-console.log('✅ playoff point values in sync (TS scoring-constants ↔ RPC):',
-  JSON.stringify(PLAYOFF_ROUND_POINTS), `exactBonus=${PLAYOFF_EXACT_BONUS}`);
+console.log('✅ scoring values in sync (TS SCORING ↔ SQL markers):', JSON.stringify(tsValues));

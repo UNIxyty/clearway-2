@@ -33,11 +33,12 @@ import { usePlayoffPredictions } from '@/hooks/usePlayoffPredictions';
 
 import { R32DrawView } from '@/components/playoffs/R32DrawView';
 import { FullBracketView } from '@/components/playoffs/FullBracketView';
+import { ChampionView } from '@/components/playoffs/ChampionView';
 import { OpenPlayoffsCard } from '@/components/playoffs/OpenPlayoffsCard';
 import { BackToDashboard } from '@/components/playoffs/BackToDashboard';
 
 /* ----------------------------------------------------------------- types --- */
-type TabId = 'r32' | 'bracket' | 'admin';
+type TabId = 'r32' | 'bracket' | 'champion' | 'admin';
 
 const R32_MATCHUP_COUNT = 16;
 
@@ -93,7 +94,7 @@ const MailIcon = ({ className }: IconProps) => (
 );
 
 /* -------------------------------------------------------------- url sync --- */
-const TAB_IDS: readonly TabId[] = ['r32', 'bracket', 'admin'];
+const TAB_IDS: readonly TabId[] = ['r32', 'bracket', 'champion', 'admin'];
 
 function isTabId(value: string | null): value is TabId {
   return value !== null && (TAB_IDS as readonly string[]).includes(value);
@@ -127,6 +128,14 @@ const BANNER: Record<TabId, BannerContent> = {
       'Picks cascade — changing an R32 pick clears later rounds.',
     ],
   },
+  champion: {
+    summary: 'Pick the team you think wins the whole tournament for +6 bonus points · locks at the prediction deadline',
+    steps: [
+      'Choose one team to be your World Champion.',
+      'A correct pick is worth +6 bonus points.',
+      'You can change it any time until the deadline.',
+    ],
+  },
   admin: {
     summary: 'Manage bracket setup, enter results, and send emails from here',
     steps: [
@@ -147,7 +156,7 @@ type ProgressPillProps = {
 };
 
 function ProgressPill({ tab, resolvedCount, picksMade, picksTotal, predictionsLocked }: ProgressPillProps) {
-  if (tab === 'admin') return null;
+  if (tab === 'admin' || tab === 'champion') return null;
 
   let tone = 'bg-[#1a56db]/10 text-[#1647b8]';
   let icon: React.ReactNode = null;
@@ -396,6 +405,7 @@ export default function PlayoffsPage() {
   const tabs: TabDef[] = [
     { id: 'r32', label: 'R32 Draw' },
     { id: 'bracket', label: 'Full Bracket' },
+    { id: 'champion', label: '🏆 World Champion' },
     ...(isAdmin ? [{ id: 'admin' as const, label: 'Admin Tools' }] : []),
   ];
 
@@ -491,6 +501,7 @@ export default function PlayoffsPage() {
           >
             {tab === 'r32' && <R32DrawView embedded />}
             {tab === 'bracket' && <FullBracketView embedded />}
+            {tab === 'champion' && <ChampionView embedded />}
             {tab === 'admin' && <AdminPanel />}
           </motion.div>
         </AnimatePresence>

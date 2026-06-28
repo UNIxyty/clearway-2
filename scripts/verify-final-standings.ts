@@ -23,13 +23,23 @@ for (const [round, n] of ROUNDS) {
 const HOME = (m: CorePlayoffMatch) => m.winner_team_id!;
 const AWAY = (m: CorePlayoffMatch) => `AWAY_${m.id}`;
 
+// Authoritative points_awarded under the new tiered model. The synthetic data
+// carries no both-teams context, so it uses the ONE_OR_NO tier: winner+exact=4,
+// exact-only=2, winner-only=2.
+function pa(winnerCorrect: boolean, exact: boolean): number {
+  if (winnerCorrect && exact) return 4;
+  if (exact) return 2;
+  if (winnerCorrect) return 2;
+  return 0;
+}
+
 // A user's playoff predictions: first `exactN` matches exact (2–1, winner right),
 // next up to `correctN` winner-right-not-exact (3–1), rest wrong (0–1, away).
 function buildPreds(userId: string, correctN: number, exactN: number): CorePlayoffPred[] {
   return matches.map((m, idx): CorePlayoffPred => {
-    if (idx < exactN) return { user_id: userId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 2, predicted_away_score: 1 };
-    if (idx < correctN) return { user_id: userId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 1 };
-    return { user_id: userId, match_id: m.id, predicted_winner_id: AWAY(m), predicted_home_score: 0, predicted_away_score: 1 };
+    if (idx < exactN) return { user_id: userId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 2, predicted_away_score: 1, points_awarded: pa(true, true) };
+    if (idx < correctN) return { user_id: userId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 1, points_awarded: pa(true, false) };
+    return { user_id: userId, match_id: m.id, predicted_winner_id: AWAY(m), predicted_home_score: 0, predicted_away_score: 1, points_awarded: pa(false, false) };
   });
 }
 
@@ -53,24 +63,20 @@ let preds: CorePlayoffPred[] = profiles.flatMap(p => buildPreds(p.id, p.correctN
 const stressId = 'pct_stress';
 ledger.push({ userId: stressId, points: 40, r32Points: 5 });
 preds = preds.concat(matches.map((m, idx): CorePlayoffPred => {
-  if (m.round === 'FINAL') return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0 }; // winner right, not exact
-  if (m.round === 'R32' && idx < 14) return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0 }; // 14 winner-right
-  return { user_id: stressId, match_id: m.id, predicted_winner_id: AWAY(m), predicted_home_score: 0, predicted_away_score: 1 };
+  if (m.round === 'FINAL') return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0, points_awarded: pa(true, false) }; // winner right, not exact
+  if (m.round === 'R32' && idx < 14) return { user_id: stressId, match_id: m.id, predicted_winner_id: HOME(m), predicted_home_score: 3, predicted_away_score: 0, points_awarded: pa(true, false) }; // 14 winner-right
+  return { user_id: stressId, match_id: m.id, predicted_winner_id: AWAY(m), predicted_home_score: 0, predicted_away_score: 1, points_awarded: pa(false, false) };
 }));
 
 // ── Run the REAL core ──
 const result = computeFinalStandingsFromData(ledger, preds, matches);
 
 // ── Independent hand-calc (deliberately separate summation) ──
-// Flat scoring: +1 per correct winner in EVERY round (mirrors scoring-constants.ts).
-const ROUND_VAL: Record<string, number> = { R32: 1, R16: 1, QF: 1, SF: 1, FINAL: 1, THIRD: 1 };
-const matchById = new Map(matches.map(m => [m.id, m]));
+// Playoff total = SUM(points_awarded) (the authoritative value the core uses).
 function handCalc(userId: string, groupStage: number, r32proj: number): number {
   let playoff = 0;
   for (const p of preds.filter(x => x.user_id === userId)) {
-    const m = matchById.get(p.match_id)!;
-    if (p.predicted_winner_id === m.winner_team_id) playoff += ROUND_VAL[m.round];
-    if (p.predicted_home_score === m.home_score && p.predicted_away_score === m.away_score) playoff += 2;
+    playoff += Number(p.points_awarded ?? 0);
   }
   // points (group-stage only) + r32 projection + playoff round points.
   return groupStage + r32proj + playoff;

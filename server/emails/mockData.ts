@@ -150,7 +150,7 @@ export function renderMockEmail(type: EmailType): { subject: string; html: strin
         html: renderTemplate('finalStandings.html', {
           firstName: 'Alex', finalRank: 1, totalUsers: 26, totalPoints: 64,
           groupStagePoints: 22, r32ProjectionPoints: 9, r32Points: 12, r16Points: 6, qfPoints: 3, sfPoints: 2, finalPoints: 2,
-          exactScoreBonusPoints: 8, bestRound: 'Round of 32', correctPicksCount: 19, totalPicksCount: 31, exactScoreCount: 4,
+          exactScoreBonusPoints: 8, championPoints: 6, bestRound: 'Round of 32', correctPicksCount: 19, totalPicksCount: 31, exactScoreCount: 4,
           avgPoints: 38, pointsAboveAverage: 26, aboveOrBelowText: 'above', deltaColor: '#16a34a',
           rankCardBg: '#FFFBEB', rankCardBorder: '#FFD700', rankMedal: '🥇', rankNumColor: '#B45309',
           leaderboardUrl: `${base}/pickem`, ...L,

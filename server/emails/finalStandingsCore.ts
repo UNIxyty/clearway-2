@@ -1,20 +1,21 @@
 /*
  * Pure, dependency-free core for final tournament standings.
  *
- * This is the single source of truth for combining the two point stores and
- * ranking users. It takes plain data (no Supabase) so it can be unit-verified
- * against a synthetic dataset and reused by the email trigger unchanged.
+ * Single source of truth for combining the point stores and ranking users. Takes
+ * plain data (no Supabase) so it can be unit-verified and reused by the email
+ * trigger unchanged.
+ *
+ * Playoff points use the authoritative points_awarded written by the tiered
+ * calculate_playoff_points RPC (the both-teams-match tier can't be re-derived
+ * here without the full prediction graph). We split that total into a per-round
+ * "winner base" (correct winners × flat WINNER value) and a single combined
+ * "bonus" bucket (everything above the winner base) for the email breakdown.
  */
+import { PLAYOFF_WINNER_POINTS, SCORING } from '../../lib/playoffs/scoring-constants.ts';
 
-// Re-exported from the single source of truth. This core recomputes the per-round
-// base + exact-bonus SPLIT (which the folded points_awarded can't provide); its
-// total equals SUM(points_awarded) as long as these constants match the RPC,
-// which scripts/check-playoff-points-sync.ts enforces.
-// Relative .ts import (allowImportingTsExtensions) so this leaf resolves under
-// tsc, webpack, AND the bare-node verify harness identically.
-import { PLAYOFF_ROUND_POINTS, PLAYOFF_EXACT_BONUS } from '../../lib/playoffs/scoring-constants.ts';
-export const ROUND_POINTS = PLAYOFF_ROUND_POINTS;
-export const EXACT_BONUS = PLAYOFF_EXACT_BONUS;
+// Highest possible points on a single match (both-teams + winner + exact).
+const MAX_PER_MATCH = SCORING.BOTH_TEAMS_MATCH.EXACT_SCORE_AND_WINNER;
+
 export const ROUND_LABEL: Record<string, string> = {
   R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals',
   SF: 'Semi-Finals', FINAL: 'Final', THIRD: 'Third Place',
@@ -32,6 +33,7 @@ export interface CorePlayoffPred {
   predicted_winner_id: string | null;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
+  points_awarded: number | null; // authoritative, written by calculate_playoff_points
 }
 export interface CorePlayoffMatch {
   id: string;
@@ -49,11 +51,12 @@ export interface PerUser {
   r16Points: number;
   qfPoints: number;
   sfPoints: number;
-  finalPoints: number; // FINAL + THIRD base points
-  exactScoreBonusPoints: number;
+  finalPoints: number; // FINAL + THIRD winner base
+  exactScoreBonusPoints: number; // all playoff points above the winner base
   exactScoreCount: number;
   correctPicksCount: number;
   totalPicksCount: number;
+  championPoints: number;
   totalPoints: number;
   bestRound: string;
 }
@@ -76,50 +79,52 @@ export function computeFinalStandingsFromData(
   ledger: LedgerUser[],
   predRows: CorePlayoffPred[],
   matchRows: CorePlayoffMatch[],
+  championByUser: Map<string, number> = new Map(),
 ): FinalStandings {
   const ledgerByUser = new Map(ledger.map(r => [r.userId, r]));
   const matchById = new Map(matchRows.map(m => [m.id, m]));
 
   interface Acc {
-    base: Record<string, number>;
-    earned: Record<string, number>;     // base + exact bonus
-    available: Record<string, number>;  // ceiling: roundVal + EXACT_BONUS per scored match
+    base: Record<string, number>;       // winner base per round (#winners × WINNER)
+    earned: Record<string, number>;     // points_awarded per round
+    available: Record<string, number>;  // ceiling: MAX_PER_MATCH per scored pick
+    totalEarned: number; totalBase: number;
     exactCount: number; correctCount: number; totalPicks: number;
   }
   const acc = new Map<string, Acc>();
   const ensure = (uid: string): Acc => {
     let a = acc.get(uid);
-    if (!a) { a = { base: {}, earned: {}, available: {}, exactCount: 0, correctCount: 0, totalPicks: 0 }; acc.set(uid, a); }
+    if (!a) { a = { base: {}, earned: {}, available: {}, totalEarned: 0, totalBase: 0, exactCount: 0, correctCount: 0, totalPicks: 0 }; acc.set(uid, a); }
     return a;
   };
 
   for (const p of predRows) {
     const m = matchById.get(p.match_id);
     if (!m || !m.is_locked || m.home_score === null || m.away_score === null || !m.winner_team_id) continue;
-    const roundVal = ROUND_POINTS[m.round] ?? 0;
     const a = ensure(p.user_id);
     const winnerCorrect = !!p.predicted_winner_id && p.predicted_winner_id === m.winner_team_id;
     const exact = p.predicted_home_score === m.home_score && p.predicted_away_score === m.away_score;
-    const base = winnerCorrect ? roundVal : 0;
-    const bonus = exact ? EXACT_BONUS : 0;
+    const earned = Number(p.points_awarded ?? 0);
+    const base = winnerCorrect ? PLAYOFF_WINNER_POINTS : 0;
     a.base[m.round] = (a.base[m.round] ?? 0) + base;
-    a.earned[m.round] = (a.earned[m.round] ?? 0) + base + bonus;
-    a.available[m.round] = (a.available[m.round] ?? 0) + roundVal + EXACT_BONUS;
+    a.earned[m.round] = (a.earned[m.round] ?? 0) + earned;
+    a.available[m.round] = (a.available[m.round] ?? 0) + MAX_PER_MATCH;
+    a.totalEarned += earned;
+    a.totalBase += base;
     if (exact) a.exactCount += 1;
     if (winnerCorrect) a.correctCount += 1;
     a.totalPicks += 1;
   }
 
-  const participantIds = new Set<string>([...ledgerByUser.keys(), ...acc.keys()]);
+  const participantIds = new Set<string>([...ledgerByUser.keys(), ...acc.keys(), ...championByUser.keys()]);
   const perUser = new Map<string, PerUser>();
 
   for (const uid of participantIds) {
     const led = ledgerByUser.get(uid);
     const a = acc.get(uid);
     const r32ProjectionPoints = led?.r32Points ?? 0;
-    // getLeaderboard.points is now GROUP-STAGE only (r32 + playoff live in their
-    // own buckets), so it maps straight to groupStagePoints — no subtraction.
     const groupStagePoints = led?.points ?? 0;
+    const championPoints = championByUser.get(uid) ?? 0;
 
     const r32Points = a?.base['R32'] ?? 0;
     const r16Points = a?.base['R16'] ?? 0;
@@ -127,8 +132,9 @@ export function computeFinalStandingsFromData(
     const sfPoints = a?.base['SF'] ?? 0;
     const finalPoints = (a?.base['FINAL'] ?? 0) + (a?.base['THIRD'] ?? 0);
     const exactScoreCount = a?.exactCount ?? 0;
-    const exactScoreBonusPoints = exactScoreCount * EXACT_BONUS;
-    const playoffTotal = r32Points + r16Points + qfPoints + sfPoints + finalPoints + exactScoreBonusPoints;
+    const playoffTotal = a?.totalEarned ?? 0;
+    // Everything above the flat winner base = the exact/both-teams bonus bucket.
+    const exactScoreBonusPoints = playoffTotal - (a?.totalBase ?? 0);
 
     let bestRound = '—';
     let bestPct = -1;
@@ -147,13 +153,13 @@ export function computeFinalStandingsFromData(
       exactScoreBonusPoints, exactScoreCount,
       correctPicksCount: a?.correctCount ?? 0,
       totalPicksCount: a?.totalPicks ?? 0,
-      totalPoints: groupStagePoints + r32ProjectionPoints + playoffTotal,
+      championPoints,
+      totalPoints: groupStagePoints + r32ProjectionPoints + playoffTotal + championPoints,
       bestRound,
     });
   }
 
-  // Deterministic ranking with a defined tiebreaker chain so no two users get an
-  // ambiguous/duplicate rank: totalPoints desc → exactScoreCount desc →
+  // Deterministic ranking: totalPoints desc → exactScoreCount desc →
   // correctPicksCount desc → userId asc. Rank = position (1-based, distinct).
   const ordered = [...perUser.entries()].sort((x, y) => {
     const a = x[1], b = y[1];

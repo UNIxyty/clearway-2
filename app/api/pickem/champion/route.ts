@@ -23,14 +23,24 @@ export async function GET() {
   if (!comp) return NextResponse.json({ error: 'Competition not configured.' }, { status: 404 });
 
   const supabase = service();
-  const [teams, state, finalRes, predRes] = await Promise.all([
+  const [teams, state, finalRes, predRes, r32Res] = await Promise.all([
     listTeams(comp.id),
     getTournamentState(comp.id),
     supabase.from('playoff_matches').select('winner_team_id, is_locked').eq('round', 'FINAL').limit(1).maybeSingle(),
     supabase.from('pickem_champion_predictions')
       .select('predicted_team_id, points_awarded')
       .eq('competition_id', comp.id).eq('user_id', auth.user.id).maybeSingle(),
+    supabase.from('playoff_matches').select('home_team_id, away_team_id').eq('round', 'R32'),
   ]);
+
+  // Only teams that qualified to the playoffs (appear in the R32 bracket) can be
+  // picked as champion. If R32 isn't populated yet, fall back to all teams.
+  const qualifiedIds = new Set<string>();
+  for (const r of (r32Res.data ?? [])) {
+    if (r.home_team_id) qualifiedIds.add(r.home_team_id as string);
+    if (r.away_team_id) qualifiedIds.add(r.away_team_id as string);
+  }
+  const pickableTeams = qualifiedIds.size > 0 ? teams.filter(t => qualifiedIds.has(t.id)) : teams;
 
   const finalLocked = Boolean(finalRes.data?.is_locked);
   const championTeamId = (finalRes.data?.winner_team_id as string | null) ?? null;
@@ -39,7 +49,7 @@ export async function GET() {
 
   return NextResponse.json({
     competitionId: comp.id,
-    teams: teams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName })),
+    teams: pickableTeams.map(t => ({ id: t.id, name: t.name, shortName: t.shortName })),
     prediction: predRes.data
       ? {
           predictedTeamId: (predRes.data.predicted_team_id as string | null) ?? null,

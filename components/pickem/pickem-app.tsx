@@ -1015,16 +1015,6 @@ export function PickemApp() {
 
         {activeView === "groups" && (
           <section className="space-y-4">
-            {/* Testing banner */}
-            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-              <span className="mt-0.5 text-lg leading-none">🧪</span>
-              <p className="text-sm font-semibold text-amber-900">
-                <span className="font-extrabold">Testing group points.</span> We are currently testing how group placement
-                point distribution works. All points awarded during this test period will be{" "}
-                <span className="font-extrabold">reverted to normal</span> once testing is complete.
-              </p>
-            </div>
-
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-black" style={{ color: NAVY }}>
@@ -1270,15 +1260,17 @@ export function PickemApp() {
 
         {activeView === "standings" && (
           <section className="space-y-4">
-            {/* Testing banner */}
-            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-              <span className="mt-0.5 text-lg leading-none">🧪</span>
-              <p className="text-sm font-semibold text-amber-900">
-                <span className="font-extrabold">Testing group points.</span> We are currently testing how group placement
-                point distribution works. All points awarded during this test period will be{" "}
-                <span className="font-extrabold">reverted to normal</span> once testing is complete.
-              </p>
-            </div>
+            {/* Testing banner — playoffs points only */}
+            {standingsTab === "playoffs" && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+                <span className="mt-0.5 text-lg leading-none">🧪</span>
+                <p className="text-sm font-semibold text-amber-900">
+                  <span className="font-extrabold">Testing playoff points.</span> We are currently testing how playoff
+                  point distribution works, so you may sometimes see incorrect points. All points awarded during this
+                  test period will be <span className="font-extrabold">reverted to normal</span> once testing is complete.
+                </p>
+              </div>
+            )}
 
             {/* Group / Playoffs toggle */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.05] w-fit">

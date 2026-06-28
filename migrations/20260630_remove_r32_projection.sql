@@ -104,7 +104,10 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2) Regenerate the combined standings view WITHOUT r32_projection_points.
-CREATE OR REPLACE VIEW pickem_combined_standings AS
+--    DROP first: CREATE OR REPLACE VIEW cannot remove an existing column
+--    (Postgres 42P16 "cannot drop columns from view").
+DROP VIEW IF EXISTS pickem_combined_standings;
+CREATE VIEW pickem_combined_standings AS
 SELECT
   u.id AS user_id,
   u.email,

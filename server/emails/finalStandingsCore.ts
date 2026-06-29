@@ -14,7 +14,7 @@
 import { PLAYOFF_WINNER_POINTS, SCORING } from '../../lib/playoffs/scoring-constants.ts';
 
 // Highest possible points on a single match (both-teams + winner + exact).
-const MAX_PER_MATCH = SCORING.BOTH_TEAMS_MATCH.EXACT_SCORE_AND_WINNER;
+const MAX_PER_MATCH = SCORING.MATCHUP_MATCHES.SCORE_AND_PROGRESSOR;
 
 export const ROUND_LABEL: Record<string, string> = {
   R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarter-Finals',

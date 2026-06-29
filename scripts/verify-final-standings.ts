@@ -23,14 +23,10 @@ for (const [round, n] of ROUNDS) {
 const HOME = (m: CorePlayoffMatch) => m.winner_team_id!;
 const AWAY = (m: CorePlayoffMatch) => `AWAY_${m.id}`;
 
-// Authoritative points_awarded under the new tiered model. The synthetic data
-// carries no both-teams context, so it uses the ONE_OR_NO tier: winner+exact=4,
-// exact-only=2, winner-only=2.
+// Authoritative points_awarded. The synthetic data carries no matchup context,
+// so it uses the NO_MATCHUP tier: progressor OR score → 2, else 0.
 function pa(winnerCorrect: boolean, exact: boolean): number {
-  if (winnerCorrect && exact) return 4;
-  if (exact) return 2;
-  if (winnerCorrect) return 2;
-  return 0;
+  return (winnerCorrect || exact) ? 2 : 0;
 }
 
 // A user's playoff predictions: first `exactN` matches exact (2–1, winner right),

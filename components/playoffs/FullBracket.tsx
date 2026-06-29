@@ -15,7 +15,6 @@ import {
 } from '@/lib/playoffs/bracketData';
 import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction } from '@/lib/playoffs/types';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
-import { PLAYOFF_WINNER_POINTS } from '@/lib/playoffs/scoring-constants';
 import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
 import { useUnsavedBracketPicks, type SavedPick, type DraftPick } from '@/lib/hooks/useUnsavedBracketPicks';
 
@@ -344,9 +343,6 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   // winner is decided — gate on that, NOT on is_locked, so the badges stay in
   // sync with the "Actual X–Y" score (which also keys off home_score) and still
   // show even if a result was published without the lock flag.
-  // Fallback only — the card shows the authoritative pred.pointsAwarded; this is
-  // used when a points value somehow isn't present yet (flat winner base = 2).
-  const WINNER_BASE = PLAYOFF_WINNER_POINTS;
 
   // Results (correct/wrong) for the current user's prediction on scored matches.
   const results = useMemo<Record<string, 'correct' | 'wrong'>>(() => {
@@ -360,27 +356,20 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
     return out;
   }, [matches, userPredictions]);
 
-  // Points pill text per match code. Uses the authoritative points_awarded
-  // written by calculate_playoff_points; 'miss' when the user predicted but
-  // earned 0. '★' prefix marks an exact-score bonus.
+  // Points pill text per match code. Uses the authoritative points_awarded from
+  // calculate_playoff_points (matchup/score/progressor tiers). 'miss' = predicted
+  // but earned 0; '★' marks a score-matching tier (3 or 5 pts).
   const pointsLabels = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     matches.forEach(m => {
       if (!m.winnerTeamId || m.homeScore == null) return;
       const pred = userPredictions.find(p => p.matchId === m.id);
       if (!pred?.predictedWinnerId) return;
-      // "miss" is keyed strictly on winner correctness so the pill and the ✕
-      // circle always agree and "Missed" unambiguously means "wrong winner"
-      // (not merely "0 points") — a wrong winner that happened to fluke an
-      // exact-score bonus still reads as a miss on the card; the bonus still
-      // counts toward the user's authoritative total elsewhere.
-      const winnerCorrect = pred.predictedWinnerId === m.winnerTeamId;
-      if (!winnerCorrect) { out[m.matchCode] = 'miss'; return; }
-      const earned = (pred.pointsAwarded && pred.pointsAwarded > 0)
-        ? pred.pointsAwarded : WINNER_BASE;
-      const scoreCorrect = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null
-        && pred.predictedHomeScore === m.homeScore && pred.predictedAwayScore === m.awayScore;
-      out[m.matchCode] = `${scoreCorrect ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;
+      const earned = pred.pointsAwarded ?? 0;
+      if (earned <= 0) { out[m.matchCode] = 'miss'; return; }
+      // A score-matching tier is worth 3 (score only) or 5 (score + progressor).
+      const scoreMatched = earned === 3 || earned === 5;
+      out[m.matchCode] = `${scoreMatched ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;
     });
     return out;
   }, [matches, userPredictions]);

@@ -14,9 +14,35 @@ function normalizeApiBase() {
 
 const API_BASE = normalizeApiBase();
 
-function buildApiUrl(pathWithQuery) {
+export function buildApiUrl(pathWithQuery) {
   if (!API_BASE) return pathWithQuery;
   return `${API_BASE}${pathWithQuery}`;
+}
+
+/**
+ * Resolve the current session. Returns:
+ *  - { status: 'ok', user, authEnabled }  when signed in (or auth disabled)
+ *  - { status: 'unauthorized' }           when a Supabase sign-in is required
+ *  - { status: 'error', error }           when the backend is unreachable
+ */
+export async function fetchCurrentUser() {
+  let response;
+  try {
+    response = await fetch(buildApiUrl('/api/user'));
+  } catch (error) {
+    return { status: 'error', error: error instanceof Error ? error.message : String(error) };
+  }
+  if (response.status === 401) return { status: 'unauthorized' };
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    /* non-JSON error page */
+  }
+  if (!response.ok) {
+    return { status: 'error', error: payload.error || `Auth check failed (${response.status})` };
+  }
+  return { status: 'ok', user: payload.user || payload, authEnabled: payload.authEnabled !== false };
 }
 
 async function fetchJson(pathWithQuery, errorPrefix) {

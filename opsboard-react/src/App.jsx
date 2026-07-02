@@ -1,141 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
-import Header from './components/Header';
-import Board from './components/Board';
-import { fetchTimelineAircraft } from './services/timelineApi';
-import AircraftsPage from './components/AircraftsPage';
-import LimitationsPage from './components/LimitationsPage';
-import OperatorsPage from './components/OperatorsPage';
+import AuthGate from './AuthGate';
+import ConsoleApp from './ConsoleApp';
+import DisplayApp from './DisplayApp';
+import { useRoute } from './router';
 
-function getInitialView() {
-  if (typeof window === 'undefined') return 'timeline';
-  const last = window.location.pathname.replace(/\/+$/, '').split('/').pop()?.toLowerCase();
-  if (last === 'aircrafts' || last === 'limitations' || last === 'timeline' || last === 'operators') return last;
-  return 'timeline';
-}
-
+// Two surfaces share one SPA:
+//   /digital-wall/timeline       -> Display (the wall screen, read-only)
+//   /digital-wall/console/<page> -> Display Console (management app)
 export default function App() {
-  const [view, setView] = useState(getInitialView);
-  const [aircraft, setAircraft] = useState([]);
-  const [windowStartUtc, setWindowStartUtc] = useState('');
-  const [windowEndUtc, setWindowEndUtc] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [source, setSource] = useState('');
-  const [limitations, setLimitations] = useState([]);
-
-  async function loadTimeline() {
-    setLoading(true);
-    setError('');
-    try {
-      const result = await fetchTimelineAircraft();
-      setAircraft(result.aircraft);
-      setSource(result.source);
-      setWindowStartUtc(result.windowStartUtc || '');
-      setWindowEndUtc(result.windowEndUtc || '');
-      setLimitations(result.limitations || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setAircraft([]);
-      setLimitations([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadTimeline();
-    const id = setInterval(loadTimeline, 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!window.location.pathname.startsWith('/digital-wall/')) return;
-    const nextPath = `/digital-wall/${view}`;
-    if (window.location.pathname !== nextPath) {
-      window.history.replaceState({}, '', nextPath);
-    }
-  }, [view]);
-
-  const statusText = useMemo(() => {
-    if (loading) return 'Loading timeline from backend...';
-    if (error) return `Backend error: ${error}`;
-    return `Loaded ${aircraft.length} aircraft from ${source || 'backend'}.`;
-  }, [loading, error, aircraft.length, source]);
+  const { route, navigate } = useRoute();
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Header />
-      <div style={s.toolbar}>
-        <div style={s.leftTools}>
-          <button style={{ ...s.tab, ...(view === 'timeline' ? s.tabActive : {}) }} onClick={() => setView('timeline')}>Timeline</button>
-          <button style={{ ...s.tab, ...(view === 'aircrafts' ? s.tabActive : {}) }} onClick={() => setView('aircrafts')}>Aircrafts</button>
-          <button style={{ ...s.tab, ...(view === 'operators' ? s.tabActive : {}) }} onClick={() => setView('operators')}>Operators</button>
-          <button style={{ ...s.tab, ...(view === 'limitations' ? s.tabActive : {}) }} onClick={() => setView('limitations')}>Limitations</button>
-        </div>
-        <div style={s.rightTools}>
-          <div style={{ ...s.status, color: error ? '#ef9a9a' : '#7d88a8' }}>
-            {view === 'timeline' ? statusText : 'Connected to backend'}
-          </div>
-          <button style={s.btn} onClick={loadTimeline} disabled={loading}>
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-      {view === 'timeline' && (
-        <Board
-          aircraft={aircraft}
-          limitations={limitations}
-          windowStartUtc={windowStartUtc}
-          windowEndUtc={windowEndUtc}
-        />
+    <AuthGate>
+      {route.surface === 'console' ? (
+        <ConsoleApp page={route.page} navigate={navigate} />
+      ) : (
+        <DisplayApp />
       )}
-      {view === 'aircrafts' && <AircraftsPage />}
-      {view === 'operators' && <OperatorsPage />}
-      {view === 'limitations' && <LimitationsPage />}
-    </div>
+    </AuthGate>
   );
 }
-
-const s = {
-  toolbar: {
-    height: 36,
-    flexShrink: 0,
-    borderBottom: '1px solid #222840',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 12px',
-    background: '#141926',
-    gap: 10,
-  },
-  leftTools: { display: 'flex', alignItems: 'center', gap: 6 },
-  rightTools: { display: 'flex', alignItems: 'center', gap: 10 },
-  tab: {
-    fontSize: 11,
-    color: '#9bb0dd',
-    background: '#1a2030',
-    border: '1px solid #2a395c',
-    borderRadius: 6,
-    padding: '4px 10px',
-    cursor: 'pointer',
-  },
-  tabActive: {
-    color: '#e8f2ff',
-    background: '#223251',
-    borderColor: '#41639e',
-  },
-  status: {
-    fontSize: 11,
-    letterSpacing: '.2px',
-  },
-  btn: {
-    fontSize: 11,
-    color: '#d8e6ff',
-    background: '#1f2a43',
-    border: '1px solid #2a395c',
-    borderRadius: 6,
-    padding: '4px 10px',
-    cursor: 'pointer',
-  },
-};

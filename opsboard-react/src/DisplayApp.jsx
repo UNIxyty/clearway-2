@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
-import { fetchDisplayClocks, fetchTimelineAircraft } from './services/timelineApi';
+import { fetchDisplayClocks, fetchImportant, fetchTimelineAircraft } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
+
+// Important entries render in the same sidebar as limitations, as IMP items.
+function importantToSidebarItem(entry) {
+  return {
+    id: entry.id,
+    title: entry.title,
+    description: entry.body,
+    type: 'IMP',
+    airportIcaos: entry.match?.airportIcaos || [],
+    countries: entry.match?.countries || [],
+  };
+}
 
 const POLL_MS = 60_000;
 
@@ -23,6 +35,7 @@ export default function DisplayApp() {
   const [error, setError] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
+  const [important, setImportant] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const loadingRef = useRef(false);
 
@@ -56,9 +69,19 @@ export default function DisplayApp() {
     }
   }
 
+  async function loadImportant() {
+    try {
+      const payload = await fetchImportant({ includeInactive: false });
+      setImportant((payload.entries || []).map(importantToSidebarItem));
+    } catch {
+      /* keep current entries */
+    }
+  }
+
   useEffect(() => {
     loadTimeline();
     loadClocks();
+    loadImportant();
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
   }, []);
@@ -68,6 +91,10 @@ export default function DisplayApp() {
   useEffect(() => {
     const unsubscribers = [
       subscribeWallStream('limitations.changed', () => loadTimeline({ refresh: false })),
+      subscribeWallStream('important.changed', () => {
+        loadImportant();
+        loadTimeline({ refresh: false });
+      }),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
       }),
@@ -80,7 +107,7 @@ export default function DisplayApp() {
       <Header clocks={clocks} />
       <Board
         aircraft={aircraft}
-        limitations={limitations}
+        limitations={[...limitations, ...important]}
         windowStartUtc={windowStartUtc}
         windowEndUtc={windowEndUtc}
       />

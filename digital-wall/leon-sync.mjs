@@ -309,9 +309,14 @@ function gqlString(value) {
 }
 
 export class LeonTimelineService {
-  constructor({ staticRoot, operatorsStore = null }) {
+  constructor({ staticRoot, operatorsStore = null, importantStore = null, alertsStore = null }) {
     this.staticRoot = staticRoot;
     this.operatorsStore = operatorsStore;
+    // Optional extra decoration sources: Important entries (class IMP) and
+    // NOTAM/weather alert findings (classes NTM/WX). Both plug into the same
+    // limitation-chip pipeline the UI already renders.
+    this.importantStore = importantStore;
+    this.alertsStore = alertsStore;
     this.pollMs = Number(process.env.LEON_SYNC_POLL_MS || DEFAULT_POLL_MS);
     this.operatorId = process.env.LEON_OPR_ID || "";
     this.refreshToken = process.env.LEON_REFRESH_TOKEN || "";
@@ -918,12 +923,17 @@ export class LeonTimelineService {
         const registration = aircraft.registration ?? flight.aircraftRegistration ?? "UNKNOWN";
         if (hiddenKeys.has(this.aircraftHideKey(activeOprId, registration))) continue;
         const operator = operatorById.get(activeOprId);
+        const operatorName = flight.operatorName ?? operator.name ?? activeOprId;
         records.push({
           oprId: activeOprId,
-          operatorName: flight.operatorName ?? operator.name ?? activeOprId,
+          operatorName,
           aircraftNid: aircraft.aircraftNid ?? null,
           registration,
-          flight: this.decorateFlightWithLimitations(flight),
+          flight: this.decorateFlightWithLimitations(flight, {
+            oprId: activeOprId,
+            operatorName,
+            registration,
+          }),
         });
       }
 
@@ -952,12 +962,17 @@ export class LeonTimelineService {
       };
       const hideKey = this.aircraftHideKey(aircraft.oprId ?? this.operatorId, aircraft.registration);
       if (hiddenKeys.has(hideKey)) continue;
+      const fallbackOprId = aircraft.oprId ?? this.operatorId;
       records.push({
-        oprId: aircraft.oprId ?? this.operatorId,
-        operatorName: flight.operatorName ?? aircraft.oprId ?? this.operatorId,
+        oprId: fallbackOprId,
+        operatorName: flight.operatorName ?? fallbackOprId,
         aircraftNid: aircraft.aircraftNid,
         registration: aircraft.registration,
-        flight: this.decorateFlightWithLimitations(flight),
+        flight: this.decorateFlightWithLimitations(flight, {
+          oprId: fallbackOprId,
+          operatorName: flight.operatorName ?? fallbackOprId,
+          registration: aircraft.registration,
+        }),
       });
     }
     const grouped = groupFlights(records);
@@ -1265,11 +1280,22 @@ export class LeonTimelineService {
     return matched;
   }
 
-  decorateFlightWithLimitations(flight) {
+  buildFlightMatchContext(flight, context = {}) {
+    return {
+      depIcao: flight?.adep?.icao ?? "",
+      arrIcao: flight?.ades?.icao ?? "",
+      depCountry: this.getFlightCountryByIcao(flight?.adep?.icao),
+      arrCountry: this.getFlightCountryByIcao(flight?.ades?.icao),
+      oprId: context.oprId ?? flight?.oprId ?? "",
+      operatorName: context.operatorName ?? "",
+      registration: context.registration ?? flight?.aircraftRegistration ?? "",
+      startTimeUTC: flight?.startTimeUTC ?? null,
+      flightNid: flight?.flightNid ?? null,
+    };
+  }
+
+  decorateFlightWithLimitations(flight, context = {}) {
     const limitationIds = this.getMatchedLimitationIds(flight);
-    if (limitationIds.length === 0) {
-      return { ...flight, limitationIds: [], limitations: [], lim: null };
-    }
     const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
     const limitations = limitationIds
       .map((id) => limitationMap.get(id))
@@ -1279,7 +1305,39 @@ export class LeonTimelineService {
         title: item.title,
         description: item.description,
         type: item.type,
+        source: "custom",
       }));
+
+    const matchCtx = this.buildFlightMatchContext(flight, context);
+
+    if (this.importantStore?.loaded) {
+      for (const entry of this.importantStore.matchFlight(matchCtx)) {
+        limitations.push({
+          id: entry.id,
+          title: entry.title,
+          description: entry.body,
+          type: "IMP",
+          source: "important",
+        });
+      }
+    }
+
+    if (this.alertsStore) {
+      for (const finding of this.alertsStore.matchFlight(matchCtx)) {
+        limitations.push({
+          id: finding.id,
+          title: finding.title,
+          description: finding.description,
+          type: finding.badge,
+          source: "alert",
+        });
+      }
+    }
+
+    if (limitations.length === 0) {
+      return { ...flight, limitationIds: [], limitations: [], lim: null };
+    }
+    const allIds = limitations.map((item) => item.id);
     const primary = limitations[0] || null;
     const lim =
       primary
@@ -1288,7 +1346,34 @@ export class LeonTimelineService {
             msg: primary.description || primary.title,
           }
         : null;
-    return { ...flight, limitationIds, limitations, lim };
+    return { ...flight, limitationIds: allIds, limitations, lim };
+  }
+
+  /**
+   * Count, per custom limitation and per Important entry, how many cached
+   * flights in the given window currently match — used by the Console to
+   * show "affects N flights".
+   */
+  computeMatchCounts({ from, to } = {}) {
+    const limitationCounts = {};
+    const importantCounts = {};
+    for (const [nid, flight] of this.flightsByNid.entries()) {
+      if (!overlapsRange(flight, from, to)) continue;
+      const aircraft = this.aircraftByFlightNid.get(nid) ?? {};
+      for (const id of this.getMatchedLimitationIds(flight)) {
+        limitationCounts[id] = (limitationCounts[id] || 0) + 1;
+      }
+      if (this.importantStore?.loaded) {
+        const ctx = this.buildFlightMatchContext(flight, {
+          oprId: aircraft.oprId,
+          registration: aircraft.registration,
+        });
+        for (const entry of this.importantStore.matchFlight(ctx)) {
+          importantCounts[entry.id] = (importantCounts[entry.id] || 0) + 1;
+        }
+      }
+    }
+    return { limitations: limitationCounts, important: importantCounts };
   }
 
   listAirportMatches(query = "", limit = 50) {

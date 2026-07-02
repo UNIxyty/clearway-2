@@ -18,7 +18,12 @@ const LIM_TYPE_COLOR = {
   CREW: { bg: 'rgba(240,177,59,.15)',  text: '#f0c060', border: 'rgba(240,177,59,.3)'   },
   PAX:  { bg: 'rgba(58,165,122,.15)',  text: '#60c898', border: 'rgba(58,165,122,.3)'   },
   CTOT: { bg: 'rgba(184,140,255,.15)', text: '#c8a8ff', border: 'rgba(184,140,255,.3)'  },
+  // Alert scanner findings (Feature 6) and Important entries (Feature 7).
+  NTM:  { bg: 'rgba(255,145,80,.15)',  text: '#ffab73', border: 'rgba(255,145,80,.32)'  },
+  IMP:  { bg: 'rgba(255,105,180,.14)', text: '#ff8fc6', border: 'rgba(255,105,180,.32)' },
 };
+// The weather alert badge reuses the existing WX limitation color.
+LIM_TYPE_COLOR.WEATHER = LIM_TYPE_COLOR.WX;
 
 function nowFracUtc(nowMs, windowStartMs, windowDurationMs) {
   return clamp((nowMs - windowStartMs) / windowDurationMs);

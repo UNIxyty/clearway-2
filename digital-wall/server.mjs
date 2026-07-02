@@ -7,6 +7,7 @@ import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
+import { ImportantStore } from "./lib/important-store.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -27,7 +28,9 @@ if (!staticRoot) {
 }
 
 const operatorsStore = new OperatorsStore();
-const timelineService = new LeonTimelineService({ staticRoot, operatorsStore });
+const importantStore = new ImportantStore();
+await importantStore.load();
+const timelineService = new LeonTimelineService({ staticRoot, operatorsStore, importantStore });
 await timelineService.bootstrap();
 
 const sseHub = new SseHub();
@@ -303,11 +306,77 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/timeline/limitations" && req.method === "GET") {
       const includeInactive = url.searchParams.get("includeInactive") === "true";
+      const withMatches = url.searchParams.get("withMatches") === "true";
+      const limitations = timelineService.listCustomLimitations({ includeInactive });
+      let matchCounts = null;
+      if (withMatches) {
+        const now = new Date();
+        matchCounts = timelineService.computeMatchCounts({
+          from: new Date(now.getTime() - 24 * 3600_000).toISOString(),
+          to: new Date(now.getTime() + 4 * 24 * 3600_000).toISOString(),
+        }).limitations;
+      }
       sendJson(res, {
         ok: true,
         source: timelineService.getStatus().source,
-        limitations: timelineService.listCustomLimitations({ includeInactive }),
+        limitations: matchCounts
+          ? limitations.map((item) => ({ ...item, matchedFlightCount: matchCounts[item.id] || 0 }))
+          : limitations,
       });
+      return;
+    }
+
+    // ── Important entries (standing operational limitations, class IMP) ──
+    if (pathname === "/api/important" && req.method === "GET") {
+      const includeInactive = url.searchParams.get("includeInactive") !== "false";
+      const withMatches = url.searchParams.get("withMatches") === "true";
+      let entries = importantStore.list({ includeInactive });
+      if (withMatches) {
+        const now = new Date();
+        const counts = timelineService.computeMatchCounts({
+          from: new Date(now.getTime() - 24 * 3600_000).toISOString(),
+          to: new Date(now.getTime() + 4 * 24 * 3600_000).toISOString(),
+        }).important;
+        entries = entries.map((entry) => ({ ...entry, matchedFlightCount: counts[entry.id] || 0 }));
+      }
+      sendJson(res, { ok: true, entries });
+      return;
+    }
+
+    if (pathname === "/api/important" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const entry = await importantStore.upsert(body);
+        sseHub.broadcast({ type: "important.changed", action: "upsert", id: entry.id });
+        sendJson(res, { ok: true, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/important/") && req.method === "PATCH") {
+      const id = pathname.split("/").pop();
+      const body = await readJsonBody(req);
+      try {
+        const entry = await importantStore.setActive(id, Boolean(body.isActive));
+        sseHub.broadcast({ type: "important.changed", action: "toggle", id });
+        sendJson(res, { ok: true, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/important/") && req.method === "DELETE") {
+      const id = pathname.split("/").pop();
+      try {
+        await importantStore.remove(id);
+        sseHub.broadcast({ type: "important.changed", action: "delete", id });
+        sendJson(res, { ok: true, id });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
+      }
       return;
     }
 

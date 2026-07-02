@@ -1,8 +1,9 @@
 import { CONSOLE_PAGES } from './router';
 import { useAuth } from './AuthGate';
-import AircraftsPage from './components/AircraftsPage';
-import LimitationsPage from './components/LimitationsPage';
-import OperatorsPage from './components/OperatorsPage';
+import AircraftPage from './components/console/AircraftPage';
+import ImportantPage from './components/console/ImportantPage';
+import LimitationsPage from './components/console/LimitationsPage';
+import OperatorsPage from './components/console/OperatorsPage';
 import SettingsPage from './components/console/SettingsPage';
 
 const PAGE_LABELS = {
@@ -35,11 +36,11 @@ export default function ConsoleApp({ page, navigate }) {
       case 'operators':
         return <OperatorsPage />;
       case 'aircraft':
-        return <AircraftsPage />;
+        return <AircraftPage />;
       case 'limitations':
         return <LimitationsPage />;
       case 'important':
-        return <PlaceholderPage title="Important" />;
+        return <ImportantPage />;
       case 'settings':
         return <SettingsPage />;
       case 'flights':

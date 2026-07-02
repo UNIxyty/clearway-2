@@ -236,8 +236,68 @@ export async function setOperatorActive(id, isActive) {
   return payload;
 }
 
-export async function fetchLimitations() {
-  return fetchJson('/api/timeline/limitations?includeInactive=true', 'Limitations request failed');
+export async function fetchLimitations({ withMatches = false } = {}) {
+  const params = new URLSearchParams({ includeInactive: 'true' });
+  if (withMatches) params.set('withMatches', 'true');
+  return fetchJson(`/api/timeline/limitations?${params.toString()}`, 'Limitations request failed');
+}
+
+export async function fetchSyncStatus() {
+  return fetchJson('/api/timeline/sync-status', 'Sync status request failed');
+}
+
+export async function forceTimelineRefresh() {
+  const response = await fetch(buildApiUrl('/api/timeline/refresh'), { method: 'POST' });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to trigger sync (${response.status})`);
+  }
+  return payload;
+}
+
+// ── Important entries (class IMP) ───────────────────────────────────────────
+
+export async function fetchImportant({ includeInactive = true, withMatches = false } = {}) {
+  const params = new URLSearchParams({ includeInactive: includeInactive ? 'true' : 'false' });
+  if (withMatches) params.set('withMatches', 'true');
+  return fetchJson(`/api/important?${params.toString()}`, 'Important request failed');
+}
+
+export async function upsertImportant(entry) {
+  const response = await fetch(buildApiUrl('/api/important'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(entry || {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save Important entry (${response.status})`);
+  }
+  return payload;
+}
+
+export async function setImportantActive(id, isActive) {
+  const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ isActive }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update Important entry (${response.status})`);
+  }
+  return payload;
+}
+
+export async function deleteImportant(id) {
+  const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete Important entry (${response.status})`);
+  }
+  return payload;
 }
 
 export async function searchAirports(query, limit = 30) {

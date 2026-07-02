@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import Header from './components/Header';
+import { useEffect, useRef, useState } from 'react';
+import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
-import { fetchTimelineAircraft } from './services/timelineApi';
+import { fetchDisplayClocks, fetchTimelineAircraft } from './services/timelineApi';
+import { subscribeWallStream } from './services/wallStream';
 
 const POLL_MS = 60_000;
 
@@ -9,6 +10,11 @@ const POLL_MS = 60_000;
  * The Display surface — a pure wall screen. No tabs, no CRUD controls, no
  * management UI; just the clock bar, the timeline board and the limitation
  * sidebar. All management lives in the Display Console (/console).
+ *
+ * Updates arrive two ways: the 60s poll (fallback, forces a Leon sync) and
+ * SSE events (limitations.changed / config.changed) that trigger an
+ * immediate cheap refetch. Both paths replace whole state slices, so an
+ * event racing a poll is idempotent.
  */
 export default function DisplayApp() {
   const [aircraft, setAircraft] = useState([]);
@@ -17,10 +23,14 @@ export default function DisplayApp() {
   const [error, setError] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
+  const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
+  const loadingRef = useRef(false);
 
-  async function loadTimeline() {
+  async function loadTimeline({ refresh = true } = {}) {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
-      const result = await fetchTimelineAircraft();
+      const result = await fetchTimelineAircraft({ refresh });
       setAircraft(result.aircraft);
       setWindowStartUtc(result.windowStartUtc || '');
       setWindowEndUtc(result.windowEndUtc || '');
@@ -31,18 +41,43 @@ export default function DisplayApp() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadedOnce(true);
+      loadingRef.current = false;
+    }
+  }
+
+  async function loadClocks() {
+    try {
+      const payload = await fetchDisplayClocks();
+      if (Array.isArray(payload.clocks) && payload.clocks.length > 0) {
+        setClocks(payload.clocks);
+      }
+    } catch {
+      /* keep current clocks */
     }
   }
 
   useEffect(() => {
     loadTimeline();
+    loadClocks();
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
   }, []);
 
+  // Live pushes from the Console: limitations edits repaint the sidebar and
+  // flight chips within a second or two; clock config changes swap the bar.
+  useEffect(() => {
+    const unsubscribers = [
+      subscribeWallStream('limitations.changed', () => loadTimeline({ refresh: false })),
+      subscribeWallStream('config.changed', (event) => {
+        if (!event.section || event.section === 'clocks') loadClocks();
+      }),
+    ];
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, []);
+
   return (
     <div style={s.shell}>
-      <Header />
+      <Header clocks={clocks} />
       <Board
         aircraft={aircraft}
         limitations={limitations}

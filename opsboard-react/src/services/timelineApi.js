@@ -134,14 +134,16 @@ function mapAircraft(group) {
   };
 }
 
-export async function fetchTimelineAircraft() {
+export async function fetchTimelineAircraft({ refresh = true } = {}) {
   const now = new Date();
   // Ops window: 1 day before through next 3 days.
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0));
   const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 4, 0, 0, 0));
+  // refresh=false serves re-decorated cached flights without forcing a Leon
+  // sync — used for SSE-driven refetches so live events stay cheap.
   const query = new URLSearchParams({
     allOperators: 'true',
-    refresh: 'true',
+    refresh: refresh ? 'true' : 'false',
     from: from.toISOString(),
     to: to.toISOString(),
   });
@@ -161,6 +163,23 @@ export async function fetchTimelineAircraft() {
     windowStartUtc: from.toISOString(),
     windowEndUtc: to.toISOString(),
   };
+}
+
+export async function fetchDisplayClocks() {
+  return fetchJson('/api/display/clocks', 'Clocks request failed');
+}
+
+export async function saveDisplayClocks(clocks) {
+  const response = await fetch(buildApiUrl('/api/display/clocks'), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clocks }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save clocks (${response.status})`);
+  }
+  return payload;
 }
 
 export async function fetchAircraftSchedule() {

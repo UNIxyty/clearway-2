@@ -6,6 +6,7 @@ import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
+import { JsonFileStore } from "./lib/json-store.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -31,6 +32,43 @@ await timelineService.bootstrap();
 
 const sseHub = new SseHub();
 process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
+
+// ── Display configuration: city clocks shown above the timeline ─────────────
+const DEFAULT_CLOCKS = [
+  { label: "Riga", timeZone: "Europe/Riga", home: true },
+  { label: "Paris", timeZone: "Europe/Paris" },
+  { label: "New York", timeZone: "America/New_York" },
+  { label: "Istanbul", timeZone: "Europe/Istanbul" },
+  { label: "UTC", timeZone: "UTC" },
+];
+const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_CLOCKS });
+
+function isValidTimeZone(timeZone) {
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: String(timeZone) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeClocks(input) {
+  if (!Array.isArray(input)) {
+    throw new Error("Body must be { clocks: [{ label, timeZone }] }.");
+  }
+  if (input.length === 0 || input.length > 12) {
+    throw new Error("Configure between 1 and 12 clocks.");
+  }
+  return input.map((row) => {
+    const label = String(row?.label || "").trim().slice(0, 40);
+    const timeZone = String(row?.timeZone || "").trim();
+    if (!label) throw new Error("Every clock needs a label.");
+    if (!isValidTimeZone(timeZone)) {
+      throw new Error(`Unknown IANA time zone: ${timeZone || "(empty)"}.`);
+    }
+    return { label, timeZone, home: row?.home === true };
+  });
+}
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -179,6 +217,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/display/clocks" && req.method === "GET") {
+      const stored = await clocksStore.read();
+      sendJson(res, { ok: true, clocks: stored.clocks ?? DEFAULT_CLOCKS });
+      return;
+    }
+
+    if (pathname === "/api/display/clocks" && req.method === "PUT") {
+      const body = await readJsonBody(req);
+      let clocks;
+      try {
+        clocks = sanitizeClocks(body.clocks);
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+        return;
+      }
+      await clocksStore.write({ clocks, updatedAt: new Date().toISOString() });
+      sseHub.broadcast({ type: "config.changed", section: "clocks" });
+      sendJson(res, { ok: true, clocks });
+      return;
+    }
+
     if (pathname === "/api/operators" && req.method === "GET") {
       const includeInactive = url.searchParams.get("includeInactive") === "true";
       const operators = await operatorsStore.listOperators({ includeInactive });
@@ -255,6 +314,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/timeline/limitations" && req.method === "POST") {
       const body = await readJsonBody(req);
       const limitation = await timelineService.upsertCustomLimitation(body);
+      sseHub.broadcast({ type: "limitations.changed", action: "upsert", id: limitation.id });
       sendJson(res, { ok: true, limitation });
       return;
     }
@@ -263,6 +323,7 @@ const server = http.createServer(async (req, res) => {
       const id = pathname.split("/").pop();
       const body = await readJsonBody(req);
       const limitation = await timelineService.setCustomLimitationActive(id, Boolean(body.isActive));
+      sseHub.broadcast({ type: "limitations.changed", action: "toggle", id });
       sendJson(res, { ok: true, limitation });
       return;
     }
@@ -270,6 +331,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith("/api/timeline/limitations/") && req.method === "DELETE") {
       const id = pathname.split("/").pop();
       await timelineService.deleteCustomLimitation(id);
+      sseHub.broadcast({ type: "limitations.changed", action: "delete", id });
       sendJson(res, { ok: true, id });
       return;
     }

@@ -3,6 +3,7 @@ import { useAuth } from './AuthGate';
 import AircraftsPage from './components/AircraftsPage';
 import LimitationsPage from './components/LimitationsPage';
 import OperatorsPage from './components/OperatorsPage';
+import SettingsPage from './components/console/SettingsPage';
 
 const PAGE_LABELS = {
   flights: 'Flights',
@@ -40,7 +41,7 @@ export default function ConsoleApp({ page, navigate }) {
       case 'important':
         return <PlaceholderPage title="Important" />;
       case 'settings':
-        return <PlaceholderPage title="Settings" />;
+        return <SettingsPage />;
       case 'flights':
       default:
         return <PlaceholderPage title="Flights" />;

@@ -8,6 +8,7 @@ import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
+import { getNotams, getWeather, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -45,6 +46,10 @@ const DEFAULT_CLOCKS = [
   { label: "UTC", timeZone: "UTC" },
 ];
 const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_CLOCKS });
+
+// Current wall overlay — appliance-style shared state (one overlay for all
+// connected displays; deliberately in-memory, resets on restart).
+let overlayState = { open: false };
 
 function isValidTimeZone(timeZone) {
   try {
@@ -217,6 +222,85 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/presence" && req.method === "GET") {
       sendJson(res, { ok: true, users: sseHub.presenceUsers() });
+      return;
+    }
+
+    // ── Shared-appliance overlay: one authoritative state, pushed to walls ──
+    if (pathname === "/api/display/overlay" && req.method === "GET") {
+      sendJson(res, { ok: true, overlay: overlayState });
+      return;
+    }
+
+    if (pathname === "/api/display/overlay" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      const action = String(body.action || "").toLowerCase();
+      if (action === "open") {
+        const found = timelineService.getFlightByNid(body.flightNid, body.oprId);
+        if (!found) {
+          sendJson(res, { ok: false, error: `Flight ${body.flightNid} not found in the cache.` }, 404);
+          return;
+        }
+        overlayState = {
+          open: true,
+          flightNid: String(found.flight.flightNid),
+          oprId: found.aircraft?.oprId ?? String(body.oprId || "") ?? null,
+          by: requestUser ? { userId: requestUser.userId, name: requestUser.name } : null,
+          openedAt: new Date().toISOString(),
+        };
+        sseHub.broadcast({ type: "display.command", command: "overlay.open", overlay: overlayState });
+        sendJson(res, { ok: true, overlay: overlayState });
+        return;
+      }
+      if (action === "close") {
+        overlayState = { open: false };
+        sseHub.broadcast({ type: "display.command", command: "overlay.close", overlay: overlayState });
+        sendJson(res, { ok: true, overlay: overlayState });
+        return;
+      }
+      sendJson(res, { ok: false, error: 'action must be "open" or "close".' }, 400);
+      return;
+    }
+
+    // ── Flight info fan-out: timings + NOTAMs + weather + AIP availability ──
+    if (pathname === "/api/flight-info" && req.method === "GET") {
+      const flightNid = url.searchParams.get("flightNid");
+      const oprId = url.searchParams.get("oprId") || "";
+      const found = timelineService.getFlightByNid(flightNid, oprId);
+      if (!found) {
+        sendJson(res, { ok: false, error: `Flight ${flightNid} not found.` }, 404);
+        return;
+      }
+      const flight = timelineService.decorateFlightWithLimitations(found.flight, {
+        oprId: found.aircraft?.oprId,
+        registration: found.aircraft?.registration,
+      });
+      const depIcao = flight.adep?.icao ?? null;
+      const arrIcao = flight.ades?.icao ?? null;
+      const [depNotams, arrNotams, depWeather, arrWeather, depAip, arrAip] = await Promise.all([
+        depIcao ? getNotams(depIcao) : { ok: false, error: "No departure ICAO." },
+        arrIcao ? getNotams(arrIcao) : { ok: false, error: "No arrival ICAO." },
+        depIcao ? getWeather(depIcao) : { ok: false, error: "No departure ICAO." },
+        arrIcao ? getWeather(arrIcao) : { ok: false, error: "No arrival ICAO." },
+        depIcao ? resolveAipPdf(depIcao) : { available: false },
+        arrIcao ? resolveAipPdf(arrIcao) : { available: false },
+      ]);
+      sendJson(res, {
+        ok: true,
+        portalConfigured: portalConfigured(),
+        flight,
+        aircraft: found.aircraft,
+        notams: { dep: depNotams, arr: arrNotams },
+        weather: { dep: depWeather, arr: arrWeather },
+        aip: { dep: depAip, arr: arrAip },
+      });
+      return;
+    }
+
+    // ── AIP PDF proxy (resolves USA/EAD/scraper/ASECNA per ICAO) ──
+    if (pathname === "/api/aip-pdf" && (req.method === "GET" || req.method === "HEAD")) {
+      const icao = url.searchParams.get("icao") || "";
+      const inline = url.searchParams.get("inline") !== "0";
+      await streamAipPdf(icao, res, { inline });
       return;
     }
 

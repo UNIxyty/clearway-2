@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
+import FlightOverlay from './components/FlightOverlay';
+import PresencePills from './components/PresencePills';
 import { fetchDisplayClocks, fetchImportant, fetchTimelineAircraft } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
 
@@ -104,7 +106,8 @@ export default function DisplayApp() {
 
   return (
     <div style={s.shell}>
-      <Header clocks={clocks} />
+      <Header clocks={clocks} rightSlot={<PresencePills surface="display" compact />} />
+      <FlightOverlay />
       <Board
         aircraft={aircraft}
         limitations={[...limitations, ...important]}

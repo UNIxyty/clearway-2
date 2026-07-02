@@ -1,6 +1,8 @@
 import { CONSOLE_PAGES } from './router';
 import { useAuth } from './AuthGate';
+import PresencePills from './components/PresencePills';
 import AircraftPage from './components/console/AircraftPage';
+import FlightsPage from './components/console/FlightsPage';
 import ImportantPage from './components/console/ImportantPage';
 import LimitationsPage from './components/console/LimitationsPage';
 import OperatorsPage from './components/console/OperatorsPage';
@@ -14,14 +16,6 @@ const PAGE_LABELS = {
   important: 'Important',
   settings: 'Settings',
 };
-
-function PlaceholderPage({ title }) {
-  return (
-    <div style={{ padding: 24, color: '#8090b8', fontSize: 13 }}>
-      {title} — coming in a later phase of this rollout.
-    </div>
-  );
-}
 
 /**
  * The Display Console — the management app operators use on their own
@@ -45,7 +39,7 @@ export default function ConsoleApp({ page, navigate }) {
         return <SettingsPage />;
       case 'flights':
       default:
-        return <PlaceholderPage title="Flights" />;
+        return <FlightsPage />;
     }
   }
 
@@ -68,6 +62,7 @@ export default function ConsoleApp({ page, navigate }) {
           ))}
         </nav>
         <div style={s.rightTools}>
+          <PresencePills surface="console" compact />
           {user && <span style={s.userChip}>{user.name || user.email}</span>}
           <button
             style={s.tab}

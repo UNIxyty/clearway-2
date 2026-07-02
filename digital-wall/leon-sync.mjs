@@ -1376,6 +1376,31 @@ export class LeonTimelineService {
     return { limitations: limitationCounts, important: importantCounts };
   }
 
+  /**
+   * Find a cached flight by nid (and optionally operator). Returns
+   * { key, flight, aircraft } or null.
+   */
+  getFlightByNid(flightNid, oprId = "") {
+    const nid = String(flightNid ?? "").trim();
+    if (!nid) return null;
+    const candidates = oprId ? [`${oprId}:${nid}`, nid] : [nid];
+    for (const key of candidates) {
+      if (this.flightsByNid.has(key)) {
+        return {
+          key,
+          flight: this.flightsByNid.get(key),
+          aircraft: this.aircraftByFlightNid.get(key) ?? null,
+        };
+      }
+    }
+    for (const [key, flight] of this.flightsByNid.entries()) {
+      if (String(flight.flightNid) === nid) {
+        return { key, flight, aircraft: this.aircraftByFlightNid.get(key) ?? null };
+      }
+    }
+    return null;
+  }
+
   listAirportMatches(query = "", limit = 50) {
     const q = String(query || "").trim().toLowerCase();
     const max = Math.max(1, Math.min(200, Number(limit) || 50));

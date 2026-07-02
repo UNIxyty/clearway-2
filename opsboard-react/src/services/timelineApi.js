@@ -182,6 +182,65 @@ export async function saveDisplayClocks(clocks) {
   return payload;
 }
 
+/**
+ * Raw (unmapped) timeline feed for the Console's flight list — keeps every
+ * backend field (flightNid, timings, delays, limitations) that the board
+ * mapping strips.
+ */
+export async function fetchTimelineRaw({ refresh = false } = {}) {
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0));
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 4, 0, 0, 0));
+  const query = new URLSearchParams({
+    allOperators: 'true',
+    refresh: refresh ? 'true' : 'false',
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  return fetchJson(`/api/timeline/flights?${query.toString()}`, 'Timeline request failed');
+}
+
+// ── Presence + remote overlay (Feature 5) ───────────────────────────────────
+
+export async function fetchPresence() {
+  return fetchJson('/api/presence', 'Presence request failed');
+}
+
+export async function fetchOverlay() {
+  return fetchJson('/api/display/overlay', 'Overlay state request failed');
+}
+
+async function postOverlay(body) {
+  const response = await fetch(buildApiUrl('/api/display/overlay'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Overlay command failed (${response.status})`);
+  }
+  return payload;
+}
+
+export function openFlightOverlay({ flightNid, oprId }) {
+  return postOverlay({ action: 'open', flightNid, oprId });
+}
+
+export function closeFlightOverlay() {
+  return postOverlay({ action: 'close' });
+}
+
+export async function fetchFlightInfo({ flightNid, oprId }) {
+  const params = new URLSearchParams({ flightNid: String(flightNid) });
+  if (oprId) params.set('oprId', oprId);
+  return fetchJson(`/api/flight-info?${params.toString()}`, 'Flight info request failed');
+}
+
+export function aipPdfUrl(icao) {
+  return buildApiUrl(`/api/aip-pdf?icao=${encodeURIComponent(String(icao || '').toUpperCase())}`);
+}
+
 export async function fetchAircraftSchedule() {
   return fetchJson('/api/aircraft/schedule?days=7&refresh=true', 'Aircraft request failed');
 }

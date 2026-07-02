@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
   // the 90-min home_score/away_score). NULL clears it (match didn't go to ET).
   const otHomeScore = body.otHomeScore === null || body.otHomeScore === undefined ? null : Number(body.otHomeScore);
   const otAwayScore = body.otAwayScore === null || body.otAwayScore === undefined ? null : Number(body.otAwayScore);
+  // Penalty-shootout score (display only — decides the winner, never scored).
+  const penHomeScore = body.penHomeScore === null || body.penHomeScore === undefined ? null : Number(body.penHomeScore);
+  const penAwayScore = body.penAwayScore === null || body.penAwayScore === undefined ? null : Number(body.penAwayScore);
   const winnerTeamId = (body.winnerTeamId as string) || null;
   const publish = Boolean(body.publish);
 
@@ -100,6 +103,8 @@ export async function POST(req: NextRequest) {
     away_score: awayScore,
     ot_home_score: otHomeScore,
     ot_away_score: otAwayScore,
+    pen_home_score: penHomeScore,
+    pen_away_score: penAwayScore,
     winner_team_id: winnerTeamId,
   };
   if (publish) update.is_locked = true;

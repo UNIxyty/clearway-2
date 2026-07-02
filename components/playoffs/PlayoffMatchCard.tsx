@@ -114,11 +114,12 @@ interface ScoreRowProps {
   enabled: boolean;
   official?: { home: number; away: number } | null;
   ot?: { home: number; away: number } | null;
+  pen?: { home: number; away: number } | null;
   live?: boolean;
   onScore: (side: 'home' | 'away', v: string) => void;
 }
 
-function ScoreRow({ home, away, scores, enabled, official, ot, live, onScore }: ScoreRowProps) {
+function ScoreRow({ home, away, scores, enabled, official, ot, pen, live, onScore }: ScoreRowProps) {
   return (
     <div className={`px-3 pt-2 pb-2.5 transition-opacity duration-300 ${enabled ? 'opacity-100' : 'opacity-40 pointer-events-none select-none'}`}>
       <div className="flex items-center justify-center gap-1.5">
@@ -137,6 +138,9 @@ function ScoreRow({ home, away, scores, enabled, official, ot, live, onScore }: 
           {live ? `LIVE ${official.home}–${official.away}` : `Actual ${official.home}–${official.away}`}
           {!live && ot && (ot.home !== official.home || ot.away !== official.away) && (
             <span className="text-black/45 font-semibold"> · AET {ot.home}–{ot.away}</span>
+          )}
+          {!live && pen && (
+            <span className="text-black/45 font-semibold"> · pens {pen.home}–{pen.away}</span>
           )}
         </div>
       )}
@@ -159,6 +163,8 @@ export interface PlayoffMatchCardProps {
   official?: { home: number; away: number } | null;
   /** Extra-time / final score (display only) → shown as "· AET x–y". */
   otScore?: { home: number; away: number } | null;
+  /** Penalty-shootout score (display only) → shown as "· pens x–y". */
+  penScore?: { home: number; away: number } | null;
   result?: 'correct' | 'wrong' | null;
   pointsLabel?: string | null;
   /** Scoring breakdown for the points pill's hover/tap tooltip. When present the
@@ -180,7 +186,7 @@ export interface PlayoffMatchCardProps {
 }
 
 export function PlayoffMatchCard({
-  id, round, matchNumber, width, venue, date, home, away, pick, locked, official, otScore,
+  id, round, matchNumber, width, venue, date, home, away, pick, locked, official, otScore, penScore,
   result, pointsLabel, pointsBreakdown, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD', unsavedDraft = false, live = false,
 }: PlayoffMatchCardProps) {
@@ -291,7 +297,7 @@ export function PlayoffMatchCard({
       <div className="h-px bg-black/[0.08]" />
       <ScoreRow
         home={home} away={away} scores={scores}
-        enabled={scoresEnabled} official={official ?? null} ot={otScore ?? null} live={live}
+        enabled={scoresEnabled} official={official ?? null} ot={otScore ?? null} pen={penScore ?? null} live={live}
         onScore={onScore}
       />
     </motion.div>

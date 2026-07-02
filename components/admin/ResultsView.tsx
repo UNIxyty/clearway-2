@@ -43,6 +43,9 @@ interface MatchResult {
   // Extra-time / final score (optional — recorded, never used for scoring).
   otHomeScore: string;
   otAwayScore: string;
+  // Penalty-shootout score (optional — decides the winner, never used for scoring).
+  penHomeScore: string;
+  penAwayScore: string;
   winnerTeamId: string;
   isLocked: boolean;
   kickoffAt: string | null;
@@ -75,6 +78,7 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
       .from('playoff_matches')
       .select(`
         id, match_code, home_score, away_score, ot_home_score, ot_away_score,
+        pen_home_score, pen_away_score,
         winner_team_id, is_locked, kickoff_at, home_team_id, away_team_id,
         homeTeam:pickem_teams!home_team_id(name),
         awayTeam:pickem_teams!away_team_id(name)
@@ -104,6 +108,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           awayScore: row.away_score != null ? String(row.away_score) : '',
           otHomeScore: row.ot_home_score != null ? String(row.ot_home_score) : '',
           otAwayScore: row.ot_away_score != null ? String(row.ot_away_score) : '',
+          penHomeScore: row.pen_home_score != null ? String(row.pen_home_score) : '',
+          penAwayScore: row.pen_away_score != null ? String(row.pen_away_score) : '',
           winnerTeamId: (row.winner_team_id as string) ?? '',
           isLocked: locked,
           kickoffAt: (row.kickoff_at as string) ?? null,
@@ -173,6 +179,24 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
     });
   }, []);
 
+  // Penalty-shootout score. Recorded only (scoring uses the 90-min score); a
+  // shootout is always decisive, so it sets the advancing team.
+  const setPenScore = useCallback((code: string, side: 'penHomeScore' | 'penAwayScore', v: string) => {
+    setResults(prev => {
+      const row = prev[code];
+      if (!row) return prev;
+      const ph = side === 'penHomeScore' ? v : row.penHomeScore;
+      const pa = side === 'penAwayScore' ? v : row.penAwayScore;
+      let winnerId = row.winnerTeamId;
+      if (ph !== '' && pa !== '') {
+        const h = parseInt(ph, 10), a = parseInt(pa, 10);
+        if (h > a) winnerId = row.homeTeamId;
+        else if (a > h) winnerId = row.awayTeamId;
+      }
+      return { ...prev, [code]: { ...row, [side]: v, winnerTeamId: winnerId } };
+    });
+  }, []);
+
   const toggleLive = useCallback((code: string, checked: boolean) => {
     setResults(prev => ({ ...prev, [code]: { ...prev[code], liveChecked: checked } }));
   }, []);
@@ -193,6 +217,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
           otHomeScore: row.otHomeScore !== '' ? parseInt(row.otHomeScore, 10) : null,
           otAwayScore: row.otAwayScore !== '' ? parseInt(row.otAwayScore, 10) : null,
+          penHomeScore: row.penHomeScore !== '' ? parseInt(row.penHomeScore, 10) : null,
+          penAwayScore: row.penAwayScore !== '' ? parseInt(row.penAwayScore, 10) : null,
           winnerTeamId: row.winnerTeamId || null,
           publish: false,
         }),
@@ -223,6 +249,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
           otHomeScore: row.otHomeScore !== '' ? parseInt(row.otHomeScore, 10) : null,
           otAwayScore: row.otAwayScore !== '' ? parseInt(row.otAwayScore, 10) : null,
+          penHomeScore: row.penHomeScore !== '' ? parseInt(row.penHomeScore, 10) : null,
+          penAwayScore: row.penAwayScore !== '' ? parseInt(row.penAwayScore, 10) : null,
           winnerTeamId: row.winnerTeamId || null,
           publish: true,
         }),
@@ -395,6 +423,27 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
                     />
                     <span className="flex-1 text-[10px] font-semibold text-slate-400">optional</span>
                   </div>
+                  {/* Optional penalty shootout — decides the winner, never scored. */}
+                  <div className="mb-3 flex items-center gap-2 sm:gap-3">
+                    <span className="flex-1 text-right text-[11px] font-bold uppercase tracking-wide text-slate-500">Penalties</span>
+                    <input
+                      value={row.penHomeScore}
+                      onChange={e => setPenScore(code, 'penHomeScore', e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                      placeholder="–"
+                      className="h-9 w-11 rounded-lg border-2 border-black/15 bg-white text-center text-base font-extrabold tabular-nums text-navy outline-none focus:border-bk-blue"
+                      inputMode="numeric"
+                    />
+                    <span className="text-base font-black text-black/25">–</span>
+                    <input
+                      value={row.penAwayScore}
+                      onChange={e => setPenScore(code, 'penAwayScore', e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                      placeholder="–"
+                      className="h-9 w-11 rounded-lg border-2 border-black/15 bg-white text-center text-base font-extrabold tabular-nums text-navy outline-none focus:border-bk-blue"
+                      inputMode="numeric"
+                    />
+                    <span className="flex-1 text-[10px] font-semibold text-slate-400">sets winner</span>
+                  </div>
+                  <div className="mb-1.5 text-[10.5px] font-semibold text-slate-500">Advancing team:</div>
                   <div className="flex gap-3">
                     {[
                       { id: row.homeTeamId, name: row.homeTeamName },

@@ -22,6 +22,9 @@ export interface PlayoffMatch {
   /** Extra-time / final score (display only — scoring uses the 90-min home/away). */
   otHomeScore: number | null;
   otAwayScore: number | null;
+  /** Penalty-shootout score (display only — decides the winner). */
+  penHomeScore: number | null;
+  penAwayScore: number | null;
   winnerTeamId: string | null;
   kickoffAt: string | null;
   venue: string | null;

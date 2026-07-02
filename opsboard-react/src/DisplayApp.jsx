@@ -3,7 +3,7 @@ import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
 import FlightOverlay from './components/FlightOverlay';
 import PresencePills from './components/PresencePills';
-import { fetchDisplayClocks, fetchImportant, fetchTimelineAircraft } from './services/timelineApi';
+import { fetchAlertFindings, fetchDisplayClocks, fetchImportant, fetchTimelineAircraft } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
 
 // Important entries render in the same sidebar as limitations, as IMP items.
@@ -38,6 +38,7 @@ export default function DisplayApp() {
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
   const [important, setImportant] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const loadingRef = useRef(false);
 
@@ -80,10 +81,29 @@ export default function DisplayApp() {
     }
   }
 
+  async function loadAlerts() {
+    try {
+      const payload = await fetchAlertFindings();
+      setAlerts(
+        (payload.findings || []).map((finding) => ({
+          id: finding.id,
+          title: finding.title,
+          description: finding.description,
+          type: finding.type, // NTM | WX
+          airportIcaos: [finding.icao].filter(Boolean),
+          countries: [],
+        }))
+      );
+    } catch {
+      /* keep current alerts */
+    }
+  }
+
   useEffect(() => {
     loadTimeline();
     loadClocks();
     loadImportant();
+    loadAlerts();
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
   }, []);
@@ -95,6 +115,10 @@ export default function DisplayApp() {
       subscribeWallStream('limitations.changed', () => loadTimeline({ refresh: false })),
       subscribeWallStream('important.changed', () => {
         loadImportant();
+        loadTimeline({ refresh: false });
+      }),
+      subscribeWallStream('alerts.changed', () => {
+        loadAlerts();
         loadTimeline({ refresh: false });
       }),
       subscribeWallStream('config.changed', (event) => {
@@ -110,7 +134,7 @@ export default function DisplayApp() {
       <FlightOverlay />
       <Board
         aircraft={aircraft}
-        limitations={[...limitations, ...important]}
+        limitations={[...limitations, ...important, ...alerts]}
         windowStartUtc={windowStartUtc}
         windowEndUtc={windowEndUtc}
       />

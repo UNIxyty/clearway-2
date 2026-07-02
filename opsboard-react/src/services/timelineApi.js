@@ -237,6 +237,39 @@ export async function fetchFlightInfo({ flightNid, oprId }) {
   return fetchJson(`/api/flight-info?${params.toString()}`, 'Flight info request failed');
 }
 
+// ── Alert scanner (Feature 6) ───────────────────────────────────────────────
+
+export async function fetchAlertFindings({ includeInactive = false } = {}) {
+  const params = new URLSearchParams({ includeInactive: includeInactive ? 'true' : 'false' });
+  return fetchJson(`/api/alerts/findings?${params.toString()}`, 'Alert findings request failed');
+}
+
+export async function fetchAlertRules() {
+  return fetchJson('/api/alerts/rules', 'Alert rules request failed');
+}
+
+export async function saveAlertRules(rules) {
+  const response = await fetch(buildApiUrl('/api/alerts/rules'), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ rules }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save alert rules (${response.status})`);
+  }
+  return payload;
+}
+
+export async function triggerAlertScan() {
+  const response = await fetch(buildApiUrl('/api/alerts/scan'), { method: 'POST' });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || `Failed to run alert scan (${response.status})`);
+  }
+  return payload;
+}
+
 export function aipPdfUrl(icao) {
   return buildApiUrl(`/api/aip-pdf?icao=${encodeURIComponent(String(icao || '').toUpperCase())}`);
 }

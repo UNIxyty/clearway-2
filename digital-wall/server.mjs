@@ -9,6 +9,7 @@ import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
 import { getNotams, getWeather, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
+import { AlertsService } from "./lib/alerts.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -36,6 +37,14 @@ await timelineService.bootstrap();
 
 const sseHub = new SseHub();
 process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
+
+const alertsService = new AlertsService({ timelineService, sseHub });
+await alertsService.load();
+timelineService.alertsStore = alertsService;
+alertsService.startPolling();
+process.stdout.write(
+  `Alert scanner: ${portalConfigured() ? "active (portal proxy configured)" : "idle (set PORTAL_BASE_URL to enable)"}\n`
+);
 
 // ── Display configuration: city clocks shown above the timeline ─────────────
 const DEFAULT_CLOCKS = [
@@ -301,6 +310,43 @@ const server = http.createServer(async (req, res) => {
       const icao = url.searchParams.get("icao") || "";
       const inline = url.searchParams.get("inline") !== "0";
       await streamAipPdf(icao, res, { inline });
+      return;
+    }
+
+    // ── Alert scanner (NTM / WX findings + rules) ──
+    if (pathname === "/api/alerts/rules" && req.method === "GET") {
+      sendJson(res, { ok: true, rules: await alertsService.getRules() });
+      return;
+    }
+
+    if (pathname === "/api/alerts/rules" && req.method === "PUT") {
+      const body = await readJsonBody(req);
+      try {
+        const rules = await alertsService.setRules(body.rules ?? body);
+        sendJson(res, { ok: true, rules });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
+    if (pathname === "/api/alerts/findings" && req.method === "GET") {
+      const includeInactive = url.searchParams.get("includeInactive") === "true";
+      sendJson(res, {
+        ok: true,
+        lastScan: alertsService.lastScan,
+        findings: alertsService.listFindings({ includeInactive }),
+      });
+      return;
+    }
+
+    if (pathname === "/api/alerts/scan" && req.method === "POST") {
+      try {
+        const result = await alertsService.runScan();
+        sendJson(res, { ok: result?.ok !== false, lastScan: result });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
       return;
     }
 

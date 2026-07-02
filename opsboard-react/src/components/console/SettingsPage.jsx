@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchDisplayClocks, saveDisplayClocks } from '../../services/timelineApi';
-import { ui, Switch } from './ui';
+import {
+  fetchAlertRules,
+  fetchDisplayClocks,
+  saveAlertRules,
+  saveDisplayClocks,
+  triggerAlertScan,
+} from '../../services/timelineApi';
+import { ui } from './ui';
 
 // Settings — configurable city clocks for the wall display (Feature 1).
 // Timezone choices come from the browser's own IANA database
@@ -177,6 +183,92 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <AlertRulesEditor />
+    </div>
+  );
+}
+
+// Alert scanner rule editor (Feature 6): the keyword/regex sets and the
+// 7/3/1-day windows are stored server-side and editable here as JSON.
+export function AlertRulesEditor() {
+  const [text, setText] = useState('');
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const [scanInfo, setScanInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetchAlertRules()
+      .then((payload) => setText(JSON.stringify(payload.rules, null, 2)))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
+  async function save() {
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const parsed = JSON.parse(text);
+      const payload = await saveAlertRules(parsed);
+      setText(JSON.stringify(payload.rules, null, 2));
+      setStatus('Rules saved. They apply from the next scan.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function scanNow() {
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const payload = await triggerAlertScan();
+      setScanInfo(payload.lastScan || null);
+      if (payload.lastScan?.ok === false) setError(payload.lastScan.error || 'Scan failed.');
+      else setStatus('Scan complete.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ ...ui.card, marginTop: 14 }}>
+      <div style={ui.cardTitle}>NOTAM / Weather alert rules</div>
+      <div style={{ fontSize: 11, color: '#6f7fa8', marginBottom: 8 }}>
+        Look-ahead windows (days) plus keyword and regex sets for NOTAM and weather records.
+        Flights matching a rule get an NTM or WX badge and trigger one email per record.
+      </div>
+      {error && <div style={ui.error}>{error}</div>}
+      {status && <div style={ui.success}>{status}</div>}
+      <textarea
+        style={{
+          ...ui.input,
+          width: '100%',
+          boxSizing: 'border-box',
+          minHeight: 220,
+          fontFamily: "'IBM Plex Mono',monospace",
+          fontSize: 11,
+          resize: 'vertical',
+        }}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        spellCheck={false}
+      />
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+        <button style={ui.btnPrimary} onClick={save} disabled={busy}>Save rules</button>
+        <button style={ui.btn} onClick={scanNow} disabled={busy}>Run scan now</button>
+        {scanInfo && scanInfo.ok && (
+          <span style={{ fontSize: 11, color: '#8ea1cb' }}>
+            Scanned {scanInfo.flightsScanned} flights / {scanInfo.airportsQueried} airports —
+            {' '}{scanInfo.newFindings} new, {scanInfo.changedFindings} changed, {scanInfo.emailed} emailed.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

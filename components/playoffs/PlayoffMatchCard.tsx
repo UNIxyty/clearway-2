@@ -3,7 +3,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckIcon, XIcon, LockIcon } from './icons';
 import { FlagImg } from './FlagImg';
+import { PointsBreakdownTooltip } from './PointsBreakdownTooltip';
 import type { BracketTeam } from '@/lib/playoffs/types';
+import type { BreakdownLine } from '@/lib/playoffs/pointsBreakdown';
 
 interface ScoreInputProps {
   value: string;
@@ -153,6 +155,9 @@ export interface PlayoffMatchCardProps {
   official?: { home: number; away: number } | null;
   result?: 'correct' | 'wrong' | null;
   pointsLabel?: string | null;
+  /** Scoring breakdown for the points pill's hover/tap tooltip. When present the
+   *  pill becomes interactive; when null the pill is static. */
+  pointsBreakdown?: { lines: BreakdownLine[]; total: number } | null;
   scores: { home: string; away: string };
   flashing: boolean;
   index: number;
@@ -170,7 +175,7 @@ export interface PlayoffMatchCardProps {
 
 export function PlayoffMatchCard({
   id, round, matchNumber, width, venue, date, home, away, pick, locked, official,
-  result, pointsLabel, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
+  result, pointsLabel, pointsBreakdown, scores, flashing, index, onPick, onScore, big = false, fullWidth = false,
   homePlaceholder = 'TBD', awayPlaceholder = 'TBD', unsavedDraft = false, live = false,
 }: PlayoffMatchCardProps) {
   const scoresEnabled = !locked && !!home && !!away;
@@ -212,15 +217,20 @@ export function PlayoffMatchCard({
 
       {/* Points pill — top-left. Shown once the match is scored and the user had
           a prediction: green earned pill, or a muted "Missed" pill for 0 pts. */}
-      {pointsLabel && (
-        <div className="absolute top-2 left-2 z-20 pointer-events-none">
-          {pointsLabel === 'miss' ? (
-            <span className="px-1.5 py-0.5 rounded-full bg-black/[0.06] text-[9.5px] font-extrabold tracking-tight text-black/45">Missed</span>
-          ) : (
-            <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[9.5px] font-extrabold tracking-tight text-emerald-700">{pointsLabel}</span>
-          )}
-        </div>
-      )}
+      {pointsLabel && (() => {
+        const pill = pointsLabel === 'miss' ? (
+          <span className="px-1.5 py-0.5 rounded-full bg-black/[0.06] text-[9.5px] font-extrabold tracking-tight text-black/45">Missed</span>
+        ) : (
+          <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[9.5px] font-extrabold tracking-tight text-emerald-700">{pointsLabel}</span>
+        );
+        return (
+          <div className={`absolute top-2 left-2 z-20 ${pointsBreakdown ? '' : 'pointer-events-none'}`}>
+            {pointsBreakdown
+              ? <PointsBreakdownTooltip lines={pointsBreakdown.lines} total={pointsBreakdown.total}>{pill}</PointsBreakdownTooltip>
+              : pill}
+          </div>
+        );
+      })()}
 
       {/* Status circle — top-right. Green ✓ correct, gray ✕ miss, lock when
           still open. Distinct "miss" state ≠ the blank pre-match state. */}

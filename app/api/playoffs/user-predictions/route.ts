@@ -7,6 +7,7 @@ import {
   type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
 } from '@/lib/playoffs/resolveBracketServer';
 import { flagFor } from '@/lib/playoffs/flags';
+import { playoffBreakdown } from '@/lib/playoffs/pointsBreakdown';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,10 +112,44 @@ export async function GET(request: Request) {
     const m = matchExtraById.get(matchId);
     const code = (m?.match_code as string) ?? null;
 
-    // Resolve home/away through the bracket (R16+ have null DB team ids)
+    // Resolve home/away through the bracket (R16+ have null DB team ids). These
+    // are the TARGET USER's predicted teams for the slot (their feeder winners).
     const home = code ? resolveSlotServer(code, 'home', ctx) : null;
     const away = code ? resolveSlotServer(code, 'away', ctx) : null;
     const winner = code ? resolveWinnerServer(code, ctx) : null;
+
+    const predictedWinnerId = (row.predicted_winner_id as string) ?? null;
+    const predictedHomeScore = (row.predicted_home_score as number) ?? null;
+    const predictedAwayScore = (row.predicted_away_score as number) ?? null;
+    const actualHomeScore = (m?.home_score as number) ?? null;
+    const actualAwayScore = (m?.away_score as number) ?? null;
+    const winnerTeamId = (m?.winner_team_id as string) ?? null;
+    const pointsAwarded = (row.points_awarded as number) ?? null;
+
+    // Server-computed scoring breakdown (Option A) for the points tooltip. Uses the
+    // same certified evaluatePlayoffPrediction mirror as calculate_playoff_points and
+    // is dropped when it disagrees with the stored points_awarded — so the client
+    // shows the real reasons and can never contradict the awarded points.
+    const scored = actualHomeScore !== null && actualAwayScore !== null && !!winnerTeamId;
+    let breakdown: { lines: { ok: boolean; label: string }[]; total: number } | null = null;
+    if (scored && predictedWinnerId) {
+      const bd = playoffBreakdown(
+        {
+          actualHomeTeamId: (m?.home_team_id as string) ?? null,
+          actualAwayTeamId: (m?.away_team_id as string) ?? null,
+          actualHomeScore,
+          actualAwayScore,
+          winnerTeamId,
+          predHomeTeamId: home?.id ?? null,
+          predAwayTeamId: away?.id ?? null,
+          predHomeScore: predictedHomeScore,
+          predAwayScore: predictedAwayScore,
+          predictedWinnerId,
+        },
+        pointsAwarded ?? 0,
+      );
+      if (bd.reliable) breakdown = { lines: bd.lines, total: bd.total };
+    }
 
     return {
       matchCode: code,
@@ -124,16 +159,17 @@ export async function GET(request: Request) {
       homeTeamFlag: home?.flag ?? null,
       awayTeamName: away?.name ?? null,
       awayTeamFlag: away?.flag ?? null,
-      predictedWinnerId: (row.predicted_winner_id as string) ?? null,
+      predictedWinnerId,
       predictedWinnerName: winner?.name ?? null,
       predictedWinnerFlag: winner?.flag ?? null,
-      predictedHomeScore: (row.predicted_home_score as number) ?? null,
-      predictedAwayScore: (row.predicted_away_score as number) ?? null,
+      predictedHomeScore,
+      predictedAwayScore,
       isLocked: (m?.is_locked as boolean) ?? false,
-      actualHomeScore: (m?.home_score as number) ?? null,
-      actualAwayScore: (m?.away_score as number) ?? null,
-      winnerTeamId: (m?.winner_team_id as string) ?? null,
-      pointsAwarded: (row.points_awarded as number) ?? null,
+      actualHomeScore,
+      actualAwayScore,
+      winnerTeamId,
+      pointsAwarded,
+      breakdown,
     };
   });
 

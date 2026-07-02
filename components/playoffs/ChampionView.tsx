@@ -9,6 +9,7 @@ import { useChampionPrediction, type ChampionTeam } from '@/lib/hooks/useChampio
 import { FlagImage } from '@/components/FlagImage';
 import { flagCdnCodeFor, flagFor } from '@/lib/playoffs/flags';
 import { WORLD_CHAMPION_POINTS } from '@/lib/playoffs/scoring-constants';
+import { PointsBreakdownTooltip } from '@/components/playoffs/PointsBreakdownTooltip';
 
 function Flag({ shortName, size = 22 }: { shortName: string; size?: number }) {
   return <FlagImage countryCode={flagCdnCodeFor(shortName)} emoji={flagFor(shortName)} size={size} alt={shortName} />;
@@ -82,9 +83,11 @@ export function ChampionView({ embedded = false }: { embedded?: boolean }) {
           <div className="rounded-2xl border border-black/[0.08] bg-white p-6 text-center shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             {correct ? (
               <>
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-[15px] font-black text-emerald-700">
-                  🏆 Correct! +{WORLD_CHAMPION_POINTS} pts
-                </div>
+                <PointsBreakdownTooltip lines={[{ ok: true, label: 'Correct champion' }]} total={WORLD_CHAMPION_POINTS}>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-[15px] font-black text-emerald-700">
+                    🏆 Correct! +{WORLD_CHAMPION_POINTS} pts
+                  </div>
+                </PointsBreakdownTooltip>
                 {picked && (
                   <div className="mt-5 flex items-center justify-center gap-3">
                     <Flag shortName={picked.shortName} size={34} />
@@ -94,7 +97,9 @@ export function ChampionView({ embedded = false }: { embedded?: boolean }) {
               </>
             ) : (
               <>
-                <div className="rounded-xl bg-black/[0.04] px-4 py-3 text-[14px] font-bold text-black/55">Missed — +0 pts</div>
+                <PointsBreakdownTooltip lines={[{ ok: false, label: 'Champion missed' }]} total={0}>
+                  <div className="rounded-xl bg-black/[0.04] px-4 py-3 text-[14px] font-bold text-black/55">Missed — +0 pts</div>
+                </PointsBreakdownTooltip>
                 <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <div className="text-[11px] font-extrabold uppercase tracking-wide text-black/35 mb-1.5">Your pick</div>

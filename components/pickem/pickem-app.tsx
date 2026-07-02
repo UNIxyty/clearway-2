@@ -6,6 +6,7 @@ import { computePredictedGroupTable } from "@/lib/pickem-group-table";
 import { FlagImage } from "@/components/FlagImage";
 import { flagCdnCode } from "@/lib/playoffs/flags";
 import { usePlayoffMatches } from "@/lib/hooks/usePlayoffMatches";
+import { PointsBreakdownTooltip } from "@/components/playoffs/PointsBreakdownTooltip";
 
 const PLAYOFF_ROUND_LABEL: Record<string, string> = {
   R32: "Round of 32", R16: "Round of 16", QF: "Quarter-Final",
@@ -79,6 +80,7 @@ type PlayoffUserPrediction = {
   actualAwayScore: number | null;
   winnerTeamId: string | null;
   pointsAwarded: number;
+  breakdown: { lines: { ok: boolean; label: string }[]; total: number } | null;
 };
 
 type ActiveView = "home" | "groups" | "matches" | "standings" | "playoffs";
@@ -1735,27 +1737,42 @@ export function PickemApp() {
                         const winnerCorrect = pred.winnerTeamId && pred.predictedWinnerId === pred.winnerTeamId;
                         const scoreCorrect = winnerCorrect && pred.actualHomeScore !== null &&
                           pred.predictedHomeScore === pred.actualHomeScore && pred.predictedAwayScore === pred.actualAwayScore;
+                        const hasPredScore = pred.predictedHomeScore !== null && pred.predictedAwayScore !== null;
+                        const badge = (
+                          <span className={`text-[10.5px] font-extrabold ${winnerCorrect ? "text-emerald-600" : "text-red-500"}`}>
+                            {winnerCorrect ? `${scoreCorrect ? "★ " : ""}+${pred.pointsAwarded} ${pred.pointsAwarded === 1 ? "pt" : "pts"}` : "miss"}
+                          </span>
+                        );
                         return (
                           <div key={pred.matchCode} className={`rounded-lg border p-3 ${scored ? (winnerCorrect ? "border-emerald-200 bg-emerald-50/40" : "border-red-200 bg-red-50/30") : "border-black/[0.07] bg-white"}`}>
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-[10px] font-extrabold tracking-widest text-slate-400">{pred.round} · {pred.matchCode}</span>
                               {scored && (
-                                <span className={`text-[10.5px] font-extrabold ${winnerCorrect ? "text-emerald-600" : "text-red-500"}`}>
-                                  {winnerCorrect ? `${scoreCorrect ? "★ " : ""}+${pred.pointsAwarded} ${pred.pointsAwarded === 1 ? "pt" : "pts"}` : "miss"}
-                                </span>
+                                pred.breakdown
+                                  ? <PointsBreakdownTooltip lines={pred.breakdown.lines} total={pred.breakdown.total}>{badge}</PointsBreakdownTooltip>
+                                  : badge
                               )}
                             </div>
                             <div className="text-[12.5px] font-bold text-navy flex items-center gap-1.5">
                               <FlagImage countryCode={flagCdnCode(pred.predictedWinnerFlag)} emoji={pred.predictedWinnerFlag ?? ""} size={16} />
                               <span>{pred.predictedWinnerName ?? "—"}</span>
-                              {pred.predictedHomeScore !== null && pred.predictedAwayScore !== null && (
-                                <span className="text-slate-400 font-semibold">({pred.predictedHomeScore}–{pred.predictedAwayScore})</span>
-                              )}
                             </div>
                             <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                               <FlagImage countryCode={flagCdnCode(pred.homeTeamFlag)} emoji={pred.homeTeamFlag} size={13} /> {pred.homeTeamName}
                               <span className="mx-0.5">vs</span>
                               <FlagImage countryCode={flagCdnCode(pred.awayTeamFlag)} emoji={pred.awayTeamFlag} size={13} /> {pred.awayTeamName}
+                            </div>
+                            {/* Predicted vs actual score — actual (green) only once published. */}
+                            <div className="text-[11px] font-semibold mt-1 flex items-center gap-1.5">
+                              <span className="text-slate-500">
+                                Predicted: {hasPredScore ? `${pred.predictedHomeScore}–${pred.predictedAwayScore}` : "—"}
+                              </span>
+                              <span className="text-slate-300">·</span>
+                              {scored ? (
+                                <span className="text-emerald-600 font-bold">Actual: {pred.actualHomeScore}–{pred.actualAwayScore}</span>
+                              ) : (
+                                <span className="text-slate-400">Not played yet</span>
+                              )}
                             </div>
                           </div>
                         );

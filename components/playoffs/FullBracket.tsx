@@ -14,6 +14,7 @@ import {
   QF_LEFT_IDS, QF_RIGHT_IDS, downstreamOf, feederLabel,
 } from '@/lib/playoffs/bracketData';
 import type { BracketTeam, PickMap, PlayoffMatch, PlayoffPrediction } from '@/lib/playoffs/types';
+import { playoffBreakdown, type BreakdownLine } from '@/lib/playoffs/pointsBreakdown';
 import { teamInSlot } from '@/lib/hooks/usePlayoffBracket';
 import { usePlayoffsReadOnly } from '@/lib/playoffs/readonly-context';
 import { useUnsavedBracketPicks, type SavedPick, type DraftPick } from '@/lib/hooks/useUnsavedBracketPicks';
@@ -86,6 +87,7 @@ interface RoundColumnProps {
   matchesByCode: Record<string, PlayoffMatch>;
   results: Record<string, 'correct' | 'wrong'>;
   pointsLabels: Record<string, string>;
+  breakdowns: Record<string, { lines: BreakdownLine[]; total: number }>;
   draftCodes: Set<string>;
   readOnly: boolean;
   onPick: (id: string, side: 'home' | 'away') => void;
@@ -94,7 +96,7 @@ interface RoundColumnProps {
 
 function RoundColumn({
   label, ids, width, picks, scores, flash, startIndex,
-  matchesByCode, results, pointsLabels, draftCodes, readOnly, onPick, onScore,
+  matchesByCode, results, pointsLabels, breakdowns, draftCodes, readOnly, onPick, onScore,
 }: RoundColumnProps) {
   return (
     <div className="shrink-0 flex flex-col" style={{ width, height: BRACKET_H }}>
@@ -138,6 +140,7 @@ function RoundColumn({
                 flashing={!!flash[id]}
                 index={startIndex + i}
                 pointsLabel={pointsLabels[id] ?? null}
+                pointsBreakdown={breakdowns[id] ?? null}
                 unsavedDraft={draftCodes.has(id)}
                 live={!!official && !dbMatch?.isLocked}
                 onPick={s => onPick(id, s)}
@@ -373,6 +376,60 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
     });
     return out;
   }, [matches, userPredictions]);
+
+  // Points-breakdown per scored match for the pill tooltip. Derived from the same
+  // certified evaluatePlayoffPrediction mirror the SQL RPC agrees with, then guarded
+  // against the stored points_awarded — a mismatch drops the breakdown (falls back to
+  // a plain pill) rather than showing something that contradicts the awarded points.
+  const breakdowns = useMemo<Record<string, { lines: BreakdownLine[]; total: number }>>(() => {
+    // The user's predicted winner per match code — used to reconstruct which two
+    // teams they advanced into an R16+ slot (matchup flag).
+    const predWinnerByCode = new Map<string, string | null>();
+    matches.forEach(m => {
+      const p = userPredictions.find(up => up.matchId === m.id);
+      predWinnerByCode.set(m.matchCode, p?.predictedWinnerId ?? null);
+    });
+
+    // Team the user predicted for a given slot (0 = home feeder, 1 = away feeder).
+    // R32 leaves take the admin-fixed DB teams; R16+ take the user's feeder winner;
+    // the bronze match takes the user's predicted LOSER of the SF feeder.
+    const predictedTeamForSlot = (code: string, slot: 0 | 1): string | null => {
+      const def = MATCHES[code];
+      const m = matchesByCode[code];
+      if (!def?.feeders) return slot === 0 ? (m?.homeTeamId ?? null) : (m?.awayTeamId ?? null);
+      const feeder = def.feeders[slot];
+      const winner = predWinnerByCode.get(feeder) ?? null;
+      if (!def.losers) return winner;
+      if (!winner) return null;
+      const fa = predictedTeamForSlot(feeder, 0);
+      const fb = predictedTeamForSlot(feeder, 1);
+      return fa === winner ? fb : fa; // loser of the feeder semi
+    };
+
+    const out: Record<string, { lines: BreakdownLine[]; total: number }> = {};
+    matches.forEach(m => {
+      if (!m.winnerTeamId || m.homeScore == null || m.awayScore == null) return;
+      const pred = userPredictions.find(p => p.matchId === m.id);
+      if (!pred?.predictedWinnerId) return;
+      const bd = playoffBreakdown(
+        {
+          actualHomeTeamId: m.homeTeamId,
+          actualAwayTeamId: m.awayTeamId,
+          actualHomeScore: m.homeScore,
+          actualAwayScore: m.awayScore,
+          winnerTeamId: m.winnerTeamId,
+          predHomeTeamId: predictedTeamForSlot(m.matchCode, 0),
+          predAwayTeamId: predictedTeamForSlot(m.matchCode, 1),
+          predHomeScore: pred.predictedHomeScore,
+          predAwayScore: pred.predictedAwayScore,
+          predictedWinnerId: pred.predictedWinnerId,
+        },
+        pred.pointsAwarded ?? 0,
+      );
+      if (bd.reliable) out[m.matchCode] = { lines: bd.lines, total: bd.total };
+    });
+    return out;
+  }, [matches, userPredictions, matchesByCode]);
 
   const unlockedMatches = useMemo(() => matches.filter(m => !m.isLocked), [matches]);
 
@@ -716,7 +773,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
   const bAway = teamInSlot('THIRD_M01', 'away', picks, matchesByCode);
 
   const draftCodes = useMemo(() => new Set(Object.keys(draftPicks)), [draftPicks]);
-  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, draftCodes, readOnly, onPick, onScore };
+  const colProps = { picks, scores, flash, matchesByCode, results, pointsLabels, breakdowns, draftCodes, readOnly, onPick, onScore };
 
   // ---- Mobile round data ----
   const MOBILE_ROUNDS = [
@@ -798,6 +855,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 official={official}
                 result={results[id] ?? null}
                 pointsLabel={pointsLabels[id] ?? null}
+                pointsBreakdown={breakdowns[id] ?? null}
                 scores={scores[id] ?? { home: '', away: '' }}
                 flashing={!!flash[id]}
                 index={i}
@@ -879,6 +937,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       official={matchesByCode['FINAL_M01']?.homeScore != null ? { home: matchesByCode['FINAL_M01'].homeScore!, away: matchesByCode['FINAL_M01'].awayScore! } : null}
                       result={results['FINAL_M01'] ?? null}
                       pointsLabel={pointsLabels['FINAL_M01'] ?? null}
+                      pointsBreakdown={breakdowns['FINAL_M01'] ?? null}
                       scores={scores['FINAL_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['FINAL_M01']}
                       index={15}
@@ -903,6 +962,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       locked={(matchesByCode['THIRD_M01']?.isLocked ?? false) || readOnly}
                       result={results['THIRD_M01'] ?? null}
                       pointsLabel={pointsLabels['THIRD_M01'] ?? null}
+                      pointsBreakdown={breakdowns['THIRD_M01'] ?? null}
                       scores={scores['THIRD_M01'] ?? { home: '', away: '' }}
                       flashing={!!flash['THIRD_M01']}
                       index={16}

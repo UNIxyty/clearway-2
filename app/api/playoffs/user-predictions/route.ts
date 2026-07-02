@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const [{ data: matchRows, error: matchErr }, { data: predRows, error: predErr }] = await Promise.all([
     serviceClient
       .from('playoff_matches')
-      .select('id, match_code, round, match_number, home_team_id, away_team_id, home_score, away_score, winner_team_id, is_locked'),
+      .select('id, match_code, round, match_number, home_team_id, away_team_id, home_score, away_score, ot_home_score, ot_away_score, pen_home_score, pen_away_score, winner_team_id, is_locked'),
     serviceClient
       .from('playoff_predictions')
       .select('match_id, predicted_winner_id, predicted_home_score, predicted_away_score, points_awarded')
@@ -123,6 +123,10 @@ export async function GET(request: Request) {
     const predictedAwayScore = (row.predicted_away_score as number) ?? null;
     const actualHomeScore = (m?.home_score as number) ?? null;
     const actualAwayScore = (m?.away_score as number) ?? null;
+    const otHomeScore = (m?.ot_home_score as number) ?? null;
+    const otAwayScore = (m?.ot_away_score as number) ?? null;
+    const penHomeScore = (m?.pen_home_score as number) ?? null;
+    const penAwayScore = (m?.pen_away_score as number) ?? null;
     const winnerTeamId = (m?.winner_team_id as string) ?? null;
     const pointsAwarded = (row.points_awarded as number) ?? null;
 
@@ -167,6 +171,10 @@ export async function GET(request: Request) {
       isLocked: (m?.is_locked as boolean) ?? false,
       actualHomeScore,
       actualAwayScore,
+      otHomeScore,
+      otAwayScore,
+      penHomeScore,
+      penAwayScore,
       winnerTeamId,
       pointsAwarded,
       breakdown,

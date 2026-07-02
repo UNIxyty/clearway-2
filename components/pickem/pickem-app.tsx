@@ -78,6 +78,10 @@ type PlayoffUserPrediction = {
   isLocked: boolean;
   actualHomeScore: number | null;
   actualAwayScore: number | null;
+  otHomeScore: number | null;
+  otAwayScore: number | null;
+  penHomeScore: number | null;
+  penAwayScore: number | null;
   winnerTeamId: string | null;
   pointsAwarded: number;
   breakdown: { lines: { ok: boolean; label: string }[]; total: number } | null;
@@ -1769,7 +1773,16 @@ export function PickemApp() {
                               </span>
                               <span className="text-slate-300">·</span>
                               {scored ? (
-                                <span className="text-emerald-600 font-bold">Actual: {pred.actualHomeScore}–{pred.actualAwayScore}</span>
+                                <span className="text-emerald-600 font-bold">
+                                  Actual: {pred.actualHomeScore}–{pred.actualAwayScore}
+                                  {pred.otHomeScore !== null && pred.otAwayScore !== null &&
+                                    (pred.otHomeScore !== pred.actualHomeScore || pred.otAwayScore !== pred.actualAwayScore) && (
+                                    <span className="text-slate-400 font-semibold"> · AET {pred.otHomeScore}–{pred.otAwayScore}</span>
+                                  )}
+                                  {pred.penHomeScore !== null && pred.penAwayScore !== null && (
+                                    <span className="text-slate-400 font-semibold"> · pens {pred.penHomeScore}–{pred.penAwayScore}</span>
+                                  )}
+                                </span>
                               ) : (
                                 <span className="text-slate-400">Not played yet</span>
                               )}

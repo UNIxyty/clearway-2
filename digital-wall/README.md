@@ -90,3 +90,16 @@ Then test quickly in browser at:
 ```bash
 npm run build
 ```
+
+## 2026-07 feature rollout (Display/Console split, SSE, auth, alerts)
+
+The wall is now two surfaces: the read-only **Display** (`/digital-wall/timeline`)
+and the **Display Console** (`/digital-wall/console/...`) for management
+(Flights / Operators / Aircraft / Limitations / Important / Settings).
+The backend gained an SSE channel (`/api/stream`), real Supabase auth on all
+`/api/*` routes, presence, a remote flight-detail overlay, configurable wall
+clocks, Important (IMP) entries imported from IMPORTANT.docx, and a NOTAM/
+weather alert scanner (NTM/WX badges + emails).
+
+See **IMPLEMENTATION-NOTES.md** for the full endpoint list, new env vars
+(`.env.example`), decisions, and run/verify instructions.

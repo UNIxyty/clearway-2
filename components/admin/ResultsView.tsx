@@ -40,6 +40,9 @@ interface MatchResult {
   awayTeamId: string;
   homeScore: string;
   awayScore: string;
+  // Extra-time / final score (optional — recorded, never used for scoring).
+  otHomeScore: string;
+  otAwayScore: string;
   winnerTeamId: string;
   isLocked: boolean;
   kickoffAt: string | null;
@@ -71,8 +74,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
     const { data, error } = await supabase
       .from('playoff_matches')
       .select(`
-        id, match_code, home_score, away_score, winner_team_id, is_locked,
-        kickoff_at, home_team_id, away_team_id,
+        id, match_code, home_score, away_score, ot_home_score, ot_away_score,
+        winner_team_id, is_locked, kickoff_at, home_team_id, away_team_id,
         homeTeam:pickem_teams!home_team_id(name),
         awayTeam:pickem_teams!away_team_id(name)
       `);
@@ -99,6 +102,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           awayTeamId: (row.away_team_id as string) ?? '',
           homeScore: row.home_score != null ? String(row.home_score) : '',
           awayScore: row.away_score != null ? String(row.away_score) : '',
+          otHomeScore: row.ot_home_score != null ? String(row.ot_home_score) : '',
+          otAwayScore: row.ot_away_score != null ? String(row.ot_away_score) : '',
           winnerTeamId: (row.winner_team_id as string) ?? '',
           isLocked: locked,
           kickoffAt: (row.kickoff_at as string) ?? null,
@@ -149,6 +154,25 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
     setResults(prev => ({ ...prev, [code]: { ...prev[code], winnerTeamId: teamId } }));
   }, []);
 
+  // Extra-time / final score. Recorded only (scoring uses the 90-min score). A
+  // decisive ET score auto-selects the winner; a still-level ET (→ penalties)
+  // leaves the winner for the admin to pick.
+  const setOtScore = useCallback((code: string, side: 'otHomeScore' | 'otAwayScore', v: string) => {
+    setResults(prev => {
+      const row = prev[code];
+      if (!row) return prev;
+      const oh = side === 'otHomeScore' ? v : row.otHomeScore;
+      const oa = side === 'otAwayScore' ? v : row.otAwayScore;
+      let winnerId = row.winnerTeamId;
+      if (oh !== '' && oa !== '') {
+        const h = parseInt(oh, 10), a = parseInt(oa, 10);
+        if (h > a) winnerId = row.homeTeamId;
+        else if (a > h) winnerId = row.awayTeamId;
+      }
+      return { ...prev, [code]: { ...row, [side]: v, winnerTeamId: winnerId } };
+    });
+  }, []);
+
   const toggleLive = useCallback((code: string, checked: boolean) => {
     setResults(prev => ({ ...prev, [code]: { ...prev[code], liveChecked: checked } }));
   }, []);
@@ -167,6 +191,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           matchCode: code,
           homeScore: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
           awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
+          otHomeScore: row.otHomeScore !== '' ? parseInt(row.otHomeScore, 10) : null,
+          otAwayScore: row.otAwayScore !== '' ? parseInt(row.otAwayScore, 10) : null,
           winnerTeamId: row.winnerTeamId || null,
           publish: false,
         }),
@@ -195,6 +221,8 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
           matchCode: code,
           homeScore: row.homeScore !== '' ? parseInt(row.homeScore, 10) : null,
           awayScore: row.awayScore !== '' ? parseInt(row.awayScore, 10) : null,
+          otHomeScore: row.otHomeScore !== '' ? parseInt(row.otHomeScore, 10) : null,
+          otAwayScore: row.otAwayScore !== '' ? parseInt(row.otAwayScore, 10) : null,
           winnerTeamId: row.winnerTeamId || null,
           publish: true,
         }),
@@ -343,9 +371,29 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
               {isDraw && canEdit && (
                 <div className="mt-3 rounded-lg border border-bk-amber/30 bg-bk-amber/10 p-3">
                   <div className="mb-2 text-[11.5px] font-bold text-bk-amber-dark">
-                    Draw at 90 min — enter the 90-minute score above, then pick who
-                    advanced after extra time / penalties. Do NOT add extra-time goals
-                    to the score.
+                    Draw at 90 min — the score above (used for points) stays the
+                    90-minute result. If the match went to extra time, enter the
+                    final score below and/or pick who advanced (penalties).
+                  </div>
+                  {/* Optional extra-time / final score — display only, never scored. */}
+                  <div className="mb-3 flex items-center gap-2 sm:gap-3">
+                    <span className="flex-1 text-right text-[11px] font-bold uppercase tracking-wide text-slate-500">After ET</span>
+                    <input
+                      value={row.otHomeScore}
+                      onChange={e => setOtScore(code, 'otHomeScore', e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                      placeholder="–"
+                      className="h-9 w-11 rounded-lg border-2 border-black/15 bg-white text-center text-base font-extrabold tabular-nums text-navy outline-none focus:border-bk-blue"
+                      inputMode="numeric"
+                    />
+                    <span className="text-base font-black text-black/25">–</span>
+                    <input
+                      value={row.otAwayScore}
+                      onChange={e => setOtScore(code, 'otAwayScore', e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                      placeholder="–"
+                      className="h-9 w-11 rounded-lg border-2 border-black/15 bg-white text-center text-base font-extrabold tabular-nums text-navy outline-none focus:border-bk-blue"
+                      inputMode="numeric"
+                    />
+                    <span className="flex-1 text-[10px] font-semibold text-slate-400">optional</span>
                   </div>
                   <div className="flex gap-3">
                     {[

@@ -66,6 +66,10 @@ export async function POST(req: NextRequest) {
   }
   const homeScore = body.homeScore === null || body.homeScore === undefined ? null : Number(body.homeScore);
   const awayScore = body.awayScore === null || body.awayScore === undefined ? null : Number(body.awayScore);
+  // Extra-time / final score (display only — NEVER used by scoring, which keys off
+  // the 90-min home_score/away_score). NULL clears it (match didn't go to ET).
+  const otHomeScore = body.otHomeScore === null || body.otHomeScore === undefined ? null : Number(body.otHomeScore);
+  const otAwayScore = body.otAwayScore === null || body.otAwayScore === undefined ? null : Number(body.otAwayScore);
   const winnerTeamId = (body.winnerTeamId as string) || null;
   const publish = Boolean(body.publish);
 
@@ -94,6 +98,8 @@ export async function POST(req: NextRequest) {
   const update: Record<string, unknown> = {
     home_score: homeScore,
     away_score: awayScore,
+    ot_home_score: otHomeScore,
+    ot_away_score: otAwayScore,
     winner_team_id: winnerTeamId,
   };
   if (publish) update.is_locked = true;

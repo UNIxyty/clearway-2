@@ -9,7 +9,7 @@ export async function GET() {
   // Fetch matches
   const { data: matchRows, error } = await supabase
     .from('playoff_matches')
-    .select('id, match_code, round, match_number, kickoff_at, venue, city, is_locked, home_score, away_score, winner_team_id, home_team_id, away_team_id')
+    .select('id, match_code, round, match_number, kickoff_at, venue, city, is_locked, home_score, away_score, ot_home_score, ot_away_score, winner_team_id, home_team_id, away_team_id')
     .order('match_number');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

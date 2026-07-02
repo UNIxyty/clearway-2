@@ -19,6 +19,9 @@ export interface PlayoffMatch {
   awayTeamId: string | null;
   homeScore: number | null;
   awayScore: number | null;
+  /** Extra-time / final score (display only — scoring uses the 90-min home/away). */
+  otHomeScore: number | null;
+  otAwayScore: number | null;
   winnerTeamId: string | null;
   kickoffAt: string | null;
   venue: string | null;

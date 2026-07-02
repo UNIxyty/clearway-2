@@ -135,6 +135,7 @@ function RoundColumn({
                 pick={pick}
                 locked={isLocked}
                 official={official}
+                otScore={dbMatch?.otHomeScore != null && dbMatch?.otAwayScore != null ? { home: dbMatch.otHomeScore, away: dbMatch.otAwayScore } : null}
                 result={results[id] ?? null}
                 scores={scores[id] ?? { home: '', away: '' }}
                 flashing={!!flash[id]}
@@ -853,6 +854,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                 pick={pick}
                 locked={isLocked}
                 official={official}
+                otScore={dbMatch?.otHomeScore != null && dbMatch?.otAwayScore != null ? { home: dbMatch.otHomeScore, away: dbMatch.otAwayScore } : null}
                 result={results[id] ?? null}
                 pointsLabel={pointsLabels[id] ?? null}
                 pointsBreakdown={breakdowns[id] ?? null}
@@ -935,6 +937,7 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       pick={picks['FINAL_M01'] ?? null}
                       locked={(matchesByCode['FINAL_M01']?.isLocked ?? false) || readOnly}
                       official={matchesByCode['FINAL_M01']?.homeScore != null ? { home: matchesByCode['FINAL_M01'].homeScore!, away: matchesByCode['FINAL_M01'].awayScore! } : null}
+                      otScore={matchesByCode['FINAL_M01']?.otHomeScore != null && matchesByCode['FINAL_M01']?.otAwayScore != null ? { home: matchesByCode['FINAL_M01'].otHomeScore!, away: matchesByCode['FINAL_M01'].otAwayScore! } : null}
                       result={results['FINAL_M01'] ?? null}
                       pointsLabel={pointsLabels['FINAL_M01'] ?? null}
                       pointsBreakdown={breakdowns['FINAL_M01'] ?? null}
@@ -960,6 +963,8 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
                       home={bHome} away={bAway}
                       pick={picks['THIRD_M01'] ?? null}
                       locked={(matchesByCode['THIRD_M01']?.isLocked ?? false) || readOnly}
+                      official={matchesByCode['THIRD_M01']?.homeScore != null ? { home: matchesByCode['THIRD_M01'].homeScore!, away: matchesByCode['THIRD_M01'].awayScore! } : null}
+                      otScore={matchesByCode['THIRD_M01']?.otHomeScore != null && matchesByCode['THIRD_M01']?.otAwayScore != null ? { home: matchesByCode['THIRD_M01'].otHomeScore!, away: matchesByCode['THIRD_M01'].otAwayScore! } : null}
                       result={results['THIRD_M01'] ?? null}
                       pointsLabel={pointsLabels['THIRD_M01'] ?? null}
                       pointsBreakdown={breakdowns['THIRD_M01'] ?? null}

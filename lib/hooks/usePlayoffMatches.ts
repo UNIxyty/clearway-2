@@ -69,6 +69,8 @@ export function usePlayoffMatches(): UsePlayoffMatchesResult {
           awayTeamId: row.away_team_id as string | null,
           homeScore: row.home_score as number | null,
           awayScore: row.away_score as number | null,
+          otHomeScore: (row.ot_home_score as number | null) ?? null,
+          otAwayScore: (row.ot_away_score as number | null) ?? null,
           winnerTeamId: row.winner_team_id as string | null,
           kickoffAt: row.kickoff_at as string | null,
           venue: row.venue as string | null,

@@ -14,10 +14,14 @@ interface Case {
 // Team ids are just names here.
 const cases: Case[] = [
   {
-    name: 'A1 matchup+score+prog',
+    // A1 (OT edge): 90-min ended 1-1, Germany then won 2-1 in extra time. The
+    // STORED score must be the 90-min 1-1 (ET resolved only via winner_team_id),
+    // so the ET goal is invisible to scoring. pred 1-1 prog Germany → 5.
+    // This only yields 5 if the ET goal is ignored — the whole point of the case.
+    name: 'A1 matchup+score+prog (ET goal ignored, stored=90min 1-1)',
     input: {
-      actualHomeTeamId: 'Germany', actualAwayTeamId: 'Paraguay', actualHomeScore: 2, actualAwayScore: 1, winnerTeamId: 'Germany',
-      predHomeTeamId: 'Germany', predAwayTeamId: 'Paraguay', predHomeScore: 2, predAwayScore: 1, predictedWinnerId: 'Germany',
+      actualHomeTeamId: 'Germany', actualAwayTeamId: 'Paraguay', actualHomeScore: 1, actualAwayScore: 1, winnerTeamId: 'Germany',
+      predHomeTeamId: 'Germany', predAwayTeamId: 'Paraguay', predHomeScore: 1, predAwayScore: 1, predictedWinnerId: 'Germany',
     },
     expected: 5,
   },

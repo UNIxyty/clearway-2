@@ -343,7 +343,9 @@ export function ResultsView({ embedded = false }: { embedded?: boolean }) {
               {isDraw && canEdit && (
                 <div className="mt-3 rounded-lg border border-bk-amber/30 bg-bk-amber/10 p-3">
                   <div className="mb-2 text-[11.5px] font-bold text-bk-amber-dark">
-                    Draw — select winner (e.g. via penalties)
+                    Draw at 90 min — enter the 90-minute score above, then pick who
+                    advanced after extra time / penalties. Do NOT add extra-time goals
+                    to the score.
                   </div>
                   <div className="flex gap-3">
                     {[

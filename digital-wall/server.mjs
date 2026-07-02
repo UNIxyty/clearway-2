@@ -4,6 +4,8 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
+import { SseHub } from "./lib/sse.mjs";
+import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -26,6 +28,9 @@ if (!staticRoot) {
 const operatorsStore = new OperatorsStore();
 const timelineService = new LeonTimelineService({ staticRoot, operatorsStore });
 await timelineService.bootstrap();
+
+const sseHub = new SseHub();
+process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -128,8 +133,49 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── Authentication gate ─────────────────────────────────────────────
+    // Every /api/* endpoint requires a Supabase session (verified from the
+    // portal's cookies through the shared gateway). When auth is disabled
+    // for local dev, authenticateRequest() returns the mock ADMIN user.
+    let requestUser = null;
+    if (pathname.startsWith("/api/")) {
+      requestUser = await authenticateRequest(req);
+      if (!requestUser) {
+        sendJson(
+          res,
+          { ok: false, error: "Unauthorized. Sign in through the Clearway portal first." },
+          401
+        );
+        return;
+      }
+    }
+
     if (pathname.startsWith("/api/auth/")) {
+      if (authEnabled()) {
+        sendJson(res, {
+          ...mockAuthPayload,
+          user: {
+            userId: requestUser.userId,
+            email: requestUser.email,
+            firstname: requestUser.name.split(" ")[0] ?? "",
+            lastname: requestUser.name.split(" ").slice(1).join(" "),
+            role: requestUser.role,
+          },
+        });
+        return;
+      }
       sendJson(res, mockAuthPayload);
+      return;
+    }
+
+    if (pathname === "/api/stream" && req.method === "GET") {
+      const surface = url.searchParams.get("surface") === "console" ? "console" : "display";
+      sseHub.addClient({ req, res, user: requestUser, surface });
+      return;
+    }
+
+    if (pathname === "/api/presence" && req.method === "GET") {
+      sendJson(res, { ok: true, users: sseHub.presenceUsers() });
       return;
     }
 
@@ -306,7 +352,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/user" || pathname === "/api/users/me" || pathname === "/api/profile") {
-      sendJson(res, mockAuthPayload.user);
+      sendJson(res, { ok: true, authEnabled: authEnabled(), user: requestUser ?? MOCK_USER });
       return;
     }
 

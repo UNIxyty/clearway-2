@@ -106,70 +106,82 @@ export async function getWeather(icao) {
   return result;
 }
 
-// AIP PDF source precedence per ICAO (documented in the AIP report):
-// USA static for K*/P*, then EAD, then national scraper, then ASECNA.
-const AIP_SOURCES = [
-  { source: "usa", path: (icao) => `/api/aip/usa/pdf?icao=${icao}`, applies: (icao) => /^[KP]/.test(icao) },
-  { source: "ead", path: (icao) => `/api/aip/ead/pdf?icao=${icao}`, applies: () => true },
-  { source: "scraper", path: (icao) => `/api/aip/scraper/pdf?icao=${icao}`, applies: () => true },
-  { source: "asecna", path: (icao) => `/api/aip/asecna/pdf?icao=${icao}`, applies: () => true },
-];
+// AIP source resolution is delegated to the portal's own logic
+// (GET /api/aip/resolve — the same ASECNA -> scraper -> USA -> EAD selection
+// the AIP page uses), so page and wall never disagree. The wall keeps NO
+// AIP cache of its own: cached PDFs are read from the portal's shared
+// /storage volume via /files/<key> (a copy fetched earlier by ANY user,
+// page or overlay, is reused), and only a genuine miss goes through the
+// portal's normal per-source PDF route — which performs the download and
+// writes the same shared cache for the next reader.
+//
+// We deliberately do NOT probe or call sync-triggering routes just to test
+// availability: live EAD syncs can hang or fail from datacenter IPs
+// (EUROCONTROL blocks them with IB-101), so availability checks must be
+// storage-existence checks only.
 
 /**
- * Resolve which AIP source serves an ICAO by HEAD-probing in precedence
- * order. Returns { available, source?, path? }; cached for 6h.
+ * Ask the portal which source serves an ICAO and whether the AD-2 PDF is
+ * already in the shared cache. Returns
+ * { available, source, cached, filesPath, pdfPath } (available=false only
+ * when the portal is unreachable/unresolvable). Cached results: 6h when the
+ * PDF is cached (it stays on disk), 5min when not (someone may fetch it).
  */
 export async function resolveAipPdf(icao) {
   const code = String(icao || "").toUpperCase();
-  if (!validIcao(code)) return { available: false };
+  if (!validIcao(code) || !portalConfigured()) return { available: false };
   const key = `aip:${code}`;
   const cached = cacheGet(key);
   if (cached) return cached;
-  if (!portalConfigured()) return { available: false };
 
-  for (const candidate of AIP_SOURCES) {
-    if (!candidate.applies(code)) continue;
-    try {
-      const response = await fetch(`${portalBaseUrl()}${candidate.path(code)}`, {
-        method: "HEAD",
-        headers: portalHeaders(),
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (response.ok) {
-        const value = { available: true, source: candidate.source, path: candidate.path(code) };
-        cacheSet(key, value, 6 * 3600_000);
-        return value;
-      }
-    } catch {
-      /* try the next source */
-    }
+  const result = await portalJson(`/api/aip/resolve?icao=${code}`, { timeoutMs: 20_000 });
+  if (!result.ok) {
+    const value = { available: false, error: result.error };
+    cacheSet(key, value, 60_000);
+    return value;
   }
-  const value = { available: false };
-  cacheSet(key, value, 30 * 60_000);
+  const value = {
+    available: true,
+    source: result.data.source,
+    cached: Boolean(result.data.cached),
+    filesPath: result.data.filesPath,
+    pdfPath: result.data.pdfPath,
+  };
+  cacheSet(key, value, value.cached ? 6 * 3600_000 : 5 * 60_000);
   return value;
 }
 
 /**
- * Stream an AIP PDF from the portal to the given response. Resolves the
- * source first (cached), then pipes bytes through.
+ * Stream an AIP PDF to the given response. Cached copy -> served straight
+ * from the shared /files/<key> (never triggers a sync). Miss -> the portal's
+ * normal per-source route fetches it and populates the shared cache.
  */
 export async function streamAipPdf(icao, res, { inline = true } = {}) {
   const code = String(icao || "").toUpperCase();
   const resolved = await resolveAipPdf(code);
   if (!resolved.available) {
     res.writeHead(404, { "content-type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ ok: false, error: `No AIP PDF available for ${code}.` }));
+    res.end(
+      JSON.stringify({ ok: false, error: `AIP unavailable for ${code}: ${resolved.error || "source could not be resolved."}` })
+    );
     return;
   }
+
+  const path = resolved.cached && resolved.filesPath
+    ? resolved.filesPath
+    : `${resolved.pdfPath}&inline=${inline ? "1" : "0"}`;
+
   try {
-    const separator = resolved.path.includes("?") ? "&" : "?";
-    const response = await fetch(
-      `${portalBaseUrl()}${resolved.path}${separator}inline=${inline ? "1" : "0"}`,
-      { headers: portalHeaders(), signal: AbortSignal.timeout(120_000) }
-    );
+    const response = await fetch(`${portalBaseUrl()}${path}`, {
+      headers: portalHeaders(),
+      // Cached /files reads are quick; a real download (EAD login etc.) is not.
+      signal: AbortSignal.timeout(resolved.cached ? 30_000 : 180_000),
+    });
     if (!response.ok || !response.body) {
       res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: false, error: `Portal PDF fetch failed (${response.status}).` }));
+      res.end(
+        JSON.stringify({ ok: false, error: `AIP unavailable for ${code}: portal returned ${response.status} from ${resolved.source}.` })
+      );
       return;
     }
     res.writeHead(200, {
@@ -184,10 +196,14 @@ export async function streamAipPdf(icao, res, { inline = true } = {}) {
       res.write(chunk);
     }
     res.end();
+    // The portal route just wrote the PDF into the shared cache — remember.
+    if (!resolved.cached) cache.delete(`aip:${code}`);
   } catch (error) {
     if (!res.headersSent) {
       res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }));
+      res.end(
+        JSON.stringify({ ok: false, error: `AIP unavailable for ${code}: ${error instanceof Error ? error.message : String(error)}` })
+      );
     } else {
       res.end();
     }

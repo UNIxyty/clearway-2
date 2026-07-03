@@ -73,5 +73,5 @@ const s = {
   city: { fontSize: 10, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: '#404d6e', marginBottom: 5, whiteSpace: 'nowrap' },
   time: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 34, fontWeight: 500, letterSpacing: '-1.5px', color: '#e8ebf5', lineHeight: 1 },
   timeHome: { color: '#6dc4ff' },
-  rightSlot: { width: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
+  rightSlot: { minWidth: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 },
 };

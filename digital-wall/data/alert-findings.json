@@ -1,0 +1,197 @@
+{
+  "findings": [
+    {
+      "id": "NTM:test:9001:EVRA:A3577/26",
+      "type": "NTM",
+      "flightKey": "test:9001",
+      "flightNid": "9001",
+      "oprId": "test",
+      "flightNo": "TST101",
+      "registration": "YL-TST",
+      "icao": "EVRA",
+      "airportRole": "departure",
+      "title": "A3577/26 at EVRA (departure)",
+      "description": "NOTAM A3577/26  class N\nLocation: EVRA\nValid: 2606010000 -> 2612310000\n\nRWY06R/24L CLSD DUE WIP.",
+      "matchedKeywords": [
+        "CLSD",
+        "WIP",
+        "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+        "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/"
+      ],
+      "matches": [
+        {
+          "label": "CLSD",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "WIP",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/",
+          "group": "Runway / taxiway / infra",
+          "color": "#2563eb"
+        }
+      ],
+      "windowLabel": "1 day",
+      "recordTitle": "A3577/26",
+      "departureUtc": "2026-07-04T00:09:03.000Z",
+      "route": "EVRA -> EGLL",
+      "recordHash": "299e475679683f2d",
+      "isActive": true,
+      "emailedAt": null,
+      "emailedHash": null,
+      "createdAt": "2026-07-03T23:57:24.553Z",
+      "updatedAt": "2026-07-03T23:57:24.553Z"
+    },
+    {
+      "id": "NTM:test:9001:EGLL:B1122/26",
+      "type": "NTM",
+      "flightKey": "test:9001",
+      "flightNid": "9001",
+      "oprId": "test",
+      "flightNo": "TST101",
+      "registration": "YL-TST",
+      "icao": "EGLL",
+      "airportRole": "arrival",
+      "title": "B1122/26 at EGLL (arrival)",
+      "description": "NOTAM B1122/26  class N\nLocation: EGLL\nValid: 2607010000 -> 2608010000\n\nRWY 09L/27R SHALL BE TEMPORARILY CLSD 2200-0430 DAILY.",
+      "matchedKeywords": [
+        "CLSD",
+        "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+        "RWY",
+        "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/"
+      ],
+      "matches": [
+        {
+          "label": "CLSD",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "RWY",
+          "group": "Runway / taxiway / infra",
+          "color": "#2563eb"
+        },
+        {
+          "label": "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/",
+          "group": "Runway / taxiway / infra",
+          "color": "#2563eb"
+        }
+      ],
+      "windowLabel": "1 day",
+      "recordTitle": "B1122/26",
+      "departureUtc": "2026-07-04T00:09:03.000Z",
+      "route": "EVRA -> EGLL",
+      "recordHash": "8b7036db6fe64f55",
+      "isActive": true,
+      "emailedAt": null,
+      "emailedHash": null,
+      "createdAt": "2026-07-03T23:57:24.554Z",
+      "updatedAt": "2026-07-03T23:57:24.554Z"
+    },
+    {
+      "id": "NTM:test:9002:LFPG:C0771/26",
+      "type": "NTM",
+      "flightKey": "test:9002",
+      "flightNid": "9002",
+      "oprId": "test",
+      "flightNo": "TST102",
+      "registration": "YL-TSU",
+      "icao": "LFPG",
+      "airportRole": "departure",
+      "title": "C0771/26 at LFPG (departure)",
+      "description": "NOTAM C0771/26  class N\nLocation: LFPG\nValid: 2607010000 -> 2607310000\n\nPPR REQUIRED FOR ALL GA PARKING STANDS.",
+      "matchedKeywords": [
+        "PPR",
+        "PARKING"
+      ],
+      "matches": [
+        {
+          "label": "PPR",
+          "group": "Restriction / conditional",
+          "color": "#ea8a4e"
+        },
+        {
+          "label": "PARKING",
+          "group": "Restriction / conditional",
+          "color": "#ea8a4e"
+        }
+      ],
+      "windowLabel": "1 day",
+      "recordTitle": "C0771/26",
+      "departureUtc": "2026-07-04T00:57:03.000Z",
+      "route": "LFPG -> EVRA",
+      "recordHash": "6a519ebb44b8591b",
+      "isActive": true,
+      "emailedAt": null,
+      "emailedHash": null,
+      "createdAt": "2026-07-03T23:57:24.554Z",
+      "updatedAt": "2026-07-03T23:57:24.554Z"
+    },
+    {
+      "id": "NTM:test:9002:EVRA:A3577/26",
+      "type": "NTM",
+      "flightKey": "test:9002",
+      "flightNid": "9002",
+      "oprId": "test",
+      "flightNo": "TST102",
+      "registration": "YL-TSU",
+      "icao": "EVRA",
+      "airportRole": "arrival",
+      "title": "A3577/26 at EVRA (arrival)",
+      "description": "NOTAM A3577/26  class N\nLocation: EVRA\nValid: 2606010000 -> 2612310000\n\nRWY06R/24L CLSD DUE WIP.",
+      "matchedKeywords": [
+        "CLSD",
+        "WIP",
+        "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+        "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/"
+      ],
+      "matches": [
+        {
+          "label": "CLSD",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "WIP",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "/RWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?)?…/",
+          "group": "Closure / prohibition",
+          "color": "#e5484d"
+        },
+        {
+          "label": "/\\bRWY\\s*[0-9]{2}[LRC]?(?:/[0-9]{2}[LRC]?…/",
+          "group": "Runway / taxiway / infra",
+          "color": "#2563eb"
+        }
+      ],
+      "windowLabel": "1 day",
+      "recordTitle": "A3577/26",
+      "departureUtc": "2026-07-04T00:57:03.000Z",
+      "route": "LFPG -> EVRA",
+      "recordHash": "299e475679683f2d",
+      "isActive": true,
+      "emailedAt": null,
+      "emailedHash": null,
+      "createdAt": "2026-07-03T23:57:24.554Z",
+      "updatedAt": "2026-07-03T23:57:24.554Z"
+    }
+  ],
+  "updatedAt": "2026-07-03T23:57:24.554Z"
+}

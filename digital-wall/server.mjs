@@ -10,6 +10,7 @@ import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
 import { getNotams, getWeather, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
+import { NotamCheckService } from "./lib/notam-check.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -42,6 +43,10 @@ const alertsService = new AlertsService({ timelineService, sseHub });
 await alertsService.load();
 timelineService.alertsStore = alertsService;
 alertsService.startPolling();
+
+const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub });
+await notamCheck.load();
+notamCheck.startScheduler();
 process.stdout.write(
   `Alert scanner: ${portalConfigured() ? "active (portal proxy configured)" : "idle (set PORTAL_BASE_URL to enable)"}\n`
 );
@@ -337,6 +342,33 @@ const server = http.createServer(async (req, res) => {
         lastScan: alertsService.lastScan,
         findings: alertsService.listFindings({ includeInactive }),
       });
+      return;
+    }
+
+    // ── Daily NOTAM check (wall sign + per-airport acknowledgments) ──
+    if (pathname === "/api/notam-check/today" && req.method === "GET") {
+      sendJson(res, { ok: true, ...notamCheck.publicState() });
+      return;
+    }
+
+    if (pathname === "/api/notam-check/ack" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const state = await notamCheck.ack(body.icao, requestUser);
+        sendJson(res, { ok: true, ...state });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
+    if (pathname === "/api/notam-check/run" && req.method === "POST") {
+      try {
+        const state = await notamCheck.runDailyCheck({ reason: "manual" });
+        sendJson(res, { ok: true, ...state });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
       return;
     }
 

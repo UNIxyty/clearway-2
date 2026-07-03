@@ -13,22 +13,23 @@ import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, getWeather, portalConfigured } from "./portal-client.mjs";
 import { escapeHtml, mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
+import {
+  compileNotamGroups,
+  DEFAULT_NOTAM_GROUPS,
+  matchNotamText,
+  notamExpired,
+  sanitizeNotamGroups,
+} from "./notam-rules.mjs";
 
 const DEFAULT_SCAN_INTERVAL_MS = 30 * 60 * 1000;
 
-// Starting rule set — editable at runtime via GET/PUT /api/alerts/rules
-// (persisted in data/alert-rules.json). `keywords` match as whole words,
-// case-insensitive; `regexes` are raw JS regex sources compiled with /i.
+// Rule set — editable at runtime via GET/PUT /api/alerts/rules (persisted in
+// data/alert-rules.json). NOTAM rules are the OPS keyword filter: colored
+// groups of whole-token terms + bounded wildcard patterns (lib/notam-rules).
+// Weather keeps the flat keywords/regexes shape.
 export const DEFAULT_RULES = {
   windowsDays: [7, 3, 1],
-  notam: {
-    keywords: [
-      "CLSD", "CLOSED", "U/S", "UNSERVICEABLE", "OBST", "OBSTACLE",
-      "GPS", "RAIM", "RESTRICTED", "RESTRICTION", "CURFEW", "PROHIBITED",
-      "FUEL NOT AVBL", "FUEL NOT AVAILABLE", "SNOW CLOSURE",
-    ],
-    regexes: ["RWY[^.]{0,40}CLSD", "AD\\s+CLSD", "AERODROME\\s+CLOSED"],
-  },
+  notamGroups: DEFAULT_NOTAM_GROUPS,
   weather: {
     keywords: ["TS", "TSRA", "FZRA", "FZDZ", "FZFG", "SN", "GR", "SQ", "FC", "VA"],
     regexes: [
@@ -113,7 +114,19 @@ export class AlertsService {
   }
 
   async getRules() {
-    return this.rulesStore.read();
+    const stored = await this.rulesStore.read();
+    // Migrate pre-OPS-filter rule files (flat notam.keywords/regexes) to the
+    // grouped filter; the weather section and windows carry over.
+    if (!Array.isArray(stored.notamGroups) || stored.notamGroups.length === 0) {
+      const migrated = {
+        windowsDays: Array.isArray(stored.windowsDays) && stored.windowsDays.length ? stored.windowsDays : DEFAULT_RULES.windowsDays,
+        notamGroups: DEFAULT_NOTAM_GROUPS,
+        weather: stored.weather && Array.isArray(stored.weather.keywords) ? stored.weather : DEFAULT_RULES.weather,
+      };
+      await this.rulesStore.write(migrated);
+      return migrated;
+    }
+    return stored;
   }
 
   async setRules(input) {
@@ -139,7 +152,7 @@ export class AlertsService {
     };
     const rules = {
       windowsDays,
-      notam: cleanSection(input.notam, DEFAULT_RULES.notam),
+      notamGroups: sanitizeNotamGroups(input.notamGroups ?? DEFAULT_NOTAM_GROUPS),
       weather: cleanSection(input.weather, DEFAULT_RULES.weather),
     };
     await this.rulesStore.write(rules);
@@ -213,7 +226,7 @@ export class AlertsService {
     const startedAt = new Date().toISOString();
     try {
       const rules = await this.getRules();
-      const notamTests = compileRules(rules.notam);
+      const notamGroups = compileNotamGroups(rules.notamGroups);
       const weatherTests = compileRules(rules.weather);
       const windows = rules.windowsDays?.length ? rules.windowsDays : DEFAULT_RULES.windowsDays;
       const maxWindow = Math.max(...windows);
@@ -256,8 +269,10 @@ export class AlertsService {
           const notamResult = notamsByIcao.get(icao);
           if (notamResult?.ok) {
             for (const notam of notamResult.data?.notams ?? []) {
+              // Validity gate: an expired NOTAM (C) in the past) is never flagged.
+              if (notamExpired(notam, nowMs)) continue;
               const text = `${notam.number ?? ""} ${notam.condition ?? ""}`;
-              const hits = matchedLabels(text, notamTests);
+              const hits = matchNotamText(text, notamGroups);
               if (hits.length === 0) continue;
               const recordText = [
                 `NOTAM ${notam.number ?? "(no number)"}  class ${notam.class ?? "-"}`,
@@ -279,7 +294,8 @@ export class AlertsService {
                 airportRole: airport.role,
                 title: `${notam.number ?? "NOTAM"} at ${icao} (${airport.role})`,
                 description: recordText,
-                matchedKeywords: hits,
+                matchedKeywords: hits.map((h) => h.label),
+                matches: hits,
                 windowLabel,
                 recordTitle: notam.number ?? "NOTAM",
                 departureUtc: flight.startTimeUTC,

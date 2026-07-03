@@ -3,8 +3,44 @@ import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
 import FlightOverlay from './components/FlightOverlay';
 import PresencePills from './components/PresencePills';
-import { fetchAlertFindings, fetchDisplayClocks, fetchImportant, fetchTimelineAircraft } from './services/timelineApi';
+import {
+  fetchAlertFindings,
+  fetchDisplayClocks,
+  fetchImportant,
+  fetchNotamCheckToday,
+  fetchTimelineAircraft,
+} from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
+
+// Daily NOTAM-check wall sign (view-only: the display just renders the state
+// the backend pushes; acknowledgments happen in the Console).
+function NotamSign({ sign }) {
+  if (sign !== 'CHECK' && sign !== 'CHECKED') return null;
+  const isCheck = sign === 'CHECK';
+  return (
+    <>
+      <style>{'@keyframes cwsignpulse{0%,100%{opacity:1}50%{opacity:.55}}'}</style>
+      <div
+        style={{
+          fontFamily: "'IBM Plex Mono',monospace",
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: '1px',
+          color: '#fff',
+          background: isCheck ? '#c62828' : '#1f7a3f',
+          border: `1px solid ${isCheck ? '#ff8a80' : '#66bb6a'}`,
+          borderRadius: 8,
+          padding: '8px 14px',
+          whiteSpace: 'nowrap',
+          animation: isCheck ? 'cwsignpulse 1.6s ease-in-out infinite' : 'none',
+          boxShadow: isCheck ? '0 0 18px rgba(198,40,40,.55)' : '0 0 12px rgba(31,122,63,.4)',
+        }}
+      >
+        {isCheck ? '!!! CHECK NOTAM !!!' : 'NOTAM CHECKED'}
+      </div>
+    </>
+  );
+}
 
 // Important entries render in the same sidebar as limitations, as IMP items.
 function importantToSidebarItem(entry) {
@@ -40,6 +76,7 @@ export default function DisplayApp() {
   const [important, setImportant] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
+  const [notamSign, setNotamSign] = useState('NONE');
   const loadingRef = useRef(false);
 
   async function loadTimeline({ refresh = true } = {}) {
@@ -104,6 +141,7 @@ export default function DisplayApp() {
     loadClocks();
     loadImportant();
     loadAlerts();
+    fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
   }, []);
@@ -121,6 +159,7 @@ export default function DisplayApp() {
         loadAlerts();
         loadTimeline({ refresh: false });
       }),
+      subscribeWallStream('notam-check.changed', (event) => setNotamSign(event.sign || 'NONE')),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
       }),
@@ -130,7 +169,15 @@ export default function DisplayApp() {
 
   return (
     <div style={s.shell}>
-      <Header clocks={clocks} rightSlot={<PresencePills surface="display" compact />} />
+      <Header
+        clocks={clocks}
+        rightSlot={
+          <>
+            <NotamSign sign={notamSign} />
+            <PresencePills surface="display" compact />
+          </>
+        }
+      />
       <FlightOverlay />
       <Board
         aircraft={aircraft}

@@ -261,6 +261,34 @@ export async function saveAlertRules(rules) {
   return payload;
 }
 
+// ── Daily NOTAM check (wall sign + per-airport acknowledgments) ────────────
+
+export async function fetchNotamCheckToday() {
+  return fetchJson('/api/notam-check/today', 'NOTAM check request failed');
+}
+
+export async function ackNotamCheck(icao) {
+  const response = await fetch(buildApiUrl('/api/notam-check/ack'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ icao }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to acknowledge ${icao} (${response.status})`);
+  }
+  return payload;
+}
+
+export async function runNotamCheck() {
+  const response = await fetch(buildApiUrl('/api/notam-check/run'), { method: 'POST' });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to run NOTAM check (${response.status})`);
+  }
+  return payload;
+}
+
 export async function triggerAlertScan() {
   const response = await fetch(buildApiUrl('/api/alerts/scan'), { method: 'POST' });
   const payload = await response.json();

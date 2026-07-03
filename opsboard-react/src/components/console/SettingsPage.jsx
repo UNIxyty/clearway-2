@@ -215,12 +215,57 @@ function ClocksCard() {
 }
 
 // ── NOTAM / alert filter card ────────────────────────────────────────────────
-const GROUPS = [
-  { key: 'notamKeywords', name: 'NOTAM keywords', path: ['notam', 'keywords'], color: '#e5484d', bg: '#fdecec' },
-  { key: 'notamRegexes', name: 'NOTAM patterns (regex)', path: ['notam', 'regexes'], color: '#ea8a4e', bg: '#fdf1e8' },
+// NOTAM rules are colored keyword groups (OPS filter): {group, color,
+// terms[], patterns[]} — terms and wildcard patterns are editable per group.
+// Weather keeps its flat keywords/regexes shape.
+const WEATHER_GROUPS = [
   { key: 'weatherKeywords', name: 'Weather keywords', path: ['weather', 'keywords'], color: '#2563eb', bg: '#e8effe' },
   { key: 'weatherRegexes', name: 'Weather patterns (regex)', path: ['weather', 'regexes'], color: '#6c7079', bg: '#eef1f5' },
 ];
+
+function tint(color) {
+  return `${color}1a`;
+}
+
+function KeywordChipRow({ words, color, bg, mono = true, onRemove, onAdd, addKey, adding, setAdding, newWord, setNewWord }) {
+  return (
+    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+      {words.map((word) => (
+        <MonoChip key={word} color={color} bg={bg} onRemove={() => onRemove(word)}>
+          {word}
+        </MonoChip>
+      ))}
+      {adding === addKey ? (
+        <input
+          autoFocus
+          value={newWord}
+          onChange={(e) => setNewWord(e.target.value)}
+          onBlur={() => {
+            if (newWord.trim()) onAdd(newWord.trim());
+            setAdding(null);
+            setNewWord('');
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') {
+              setNewWord('');
+              setAdding(null);
+            }
+          }}
+          style={{ fontFamily: mono ? t.mono : 'inherit', fontSize: 12.5, border: `1px solid ${color}`, borderRadius: 7, padding: '5px 10px', outline: 'none', width: 160 }}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(addKey)}
+          style={{ fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: t.faint, background: t.surface, border: `1px dashed ${t.borderInput}`, padding: '5px 11px', borderRadius: 7, cursor: 'pointer' }}
+        >
+          + Add
+        </button>
+      )}
+    </div>
+  );
+}
 
 function AlertFilterCard() {
   const [rules, setRules] = useState(null);
@@ -247,6 +292,16 @@ function AlertFilterCard() {
     setRules((prev) => {
       const copy = structuredClone(prev);
       copy[path[0]][path[1]] = next;
+      setRawText(JSON.stringify(copy, null, 2));
+      return copy;
+    });
+    setDirty(true);
+  }
+
+  function mutateGroup(index, field, next) {
+    setRules((prev) => {
+      const copy = structuredClone(prev);
+      copy.notamGroups[index][field] = next;
       setRawText(JSON.stringify(copy, null, 2));
       return copy;
     });
@@ -343,7 +398,53 @@ function AlertFilterCard() {
 
       {rules && !rawMode && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
-          {GROUPS.map((group) => {
+          {(rules.notamGroups || []).map((group, index) => (
+            <div key={group.group} style={{ border: `1px solid ${t.borderInner}`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: group.color }} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{group.group}</span>
+                <span style={{ fontSize: 11.5, color: t.faint }}>NOTAM · keywords</span>
+              </div>
+              <KeywordChipRow
+                words={group.terms || []}
+                color={group.color}
+                bg={tint(group.color)}
+                onRemove={(word) => mutateGroup(index, 'terms', (group.terms || []).filter((w) => w !== word))}
+                onAdd={(word) => mutateGroup(index, 'terms', [...new Set([...(group.terms || []), word.toUpperCase()])])}
+                addKey={`g${index}-terms`}
+                adding={adding}
+                setAdding={setAdding}
+                newWord={newWord}
+                setNewWord={setNewWord}
+              />
+              {(group.patterns || []).length > 0 || adding === `g${index}-patterns` ? (
+                <>
+                  <div style={{ fontSize: 11.5, color: t.faint, margin: '10px 0 7px' }}>Wildcard patterns (regex — e.g. RWY…CLSD)</div>
+                  <KeywordChipRow
+                    words={group.patterns || []}
+                    color={t.muted}
+                    bg={t.wash}
+                    onRemove={(word) => mutateGroup(index, 'patterns', (group.patterns || []).filter((w) => w !== word))}
+                    onAdd={(word) => mutateGroup(index, 'patterns', [...new Set([...(group.patterns || []), word])])}
+                    addKey={`g${index}-patterns`}
+                    adding={adding}
+                    setAdding={setAdding}
+                    newWord={newWord}
+                    setNewWord={setNewWord}
+                  />
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAdding(`g${index}-patterns`)}
+                  style={{ fontFamily: 'inherit', fontSize: 11.5, fontWeight: 600, color: t.faint, background: 'transparent', border: 'none', padding: '8px 0 0', cursor: 'pointer' }}
+                >
+                  + Add wildcard pattern
+                </button>
+              )}
+            </div>
+          ))}
+          {WEATHER_GROUPS.map((group) => {
             const words = rules[group.path[0]]?.[group.path[1]] || [];
             return (
               <div key={group.key} style={{ border: `1px solid ${t.borderInner}`, borderRadius: 12, padding: '14px 16px' }}>
@@ -351,44 +452,24 @@ function AlertFilterCard() {
                   <span style={{ width: 12, height: 12, borderRadius: 3, background: group.color }} />
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{group.name}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                  {words.map((word) => (
-                    <MonoChip key={word} color={group.color} bg={group.bg} onRemove={() => mutate(group.path, words.filter((w) => w !== word))}>
-                      {word}
-                    </MonoChip>
-                  ))}
-                  {adding === group.key ? (
-                    <input
-                      autoFocus
-                      value={newWord}
-                      onChange={(e) => setNewWord(e.target.value)}
-                      onBlur={() => {
-                        if (newWord.trim()) mutate(group.path, [...new Set([...words, newWord.trim()])]);
-                        setAdding(null);
-                        setNewWord('');
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.currentTarget.blur();
-                        if (e.key === 'Escape') {
-                          setNewWord('');
-                          setAdding(null);
-                        }
-                      }}
-                      style={{ fontFamily: t.mono, fontSize: 12.5, border: `1px solid ${group.color}`, borderRadius: 7, padding: '5px 10px', outline: 'none', width: 130 }}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setAdding(group.key)}
-                      style={{ fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: t.faint, background: t.surface, border: `1px dashed ${t.borderInput}`, padding: '5px 11px', borderRadius: 7, cursor: 'pointer' }}
-                    >
-                      + Add
-                    </button>
-                  )}
-                </div>
+                <KeywordChipRow
+                  words={words}
+                  color={group.color}
+                  bg={group.bg}
+                  onRemove={(word) => mutate(group.path, words.filter((w) => w !== word))}
+                  onAdd={(word) => mutate(group.path, [...new Set([...words, word])])}
+                  addKey={group.key}
+                  adding={adding}
+                  setAdding={setAdding}
+                  newWord={newWord}
+                  setNewWord={setNewWord}
+                />
               </div>
             );
           })}
+          <PendingNote>
+            Group names and colors are editable in the raw JSON view; terms and patterns edit inline here.
+          </PendingNote>
         </div>
       )}
 

@@ -5,3 +5,6 @@ data/aircraft-visibility.json
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+.env.save
+investigations.tar.gz
+data/timeline-cache.json

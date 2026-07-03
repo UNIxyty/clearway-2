@@ -1,7 +1,13 @@
 # Digital Wall — Feature Rollout Implementation Notes
 
-> Branch: `digital-wall-features` (6 commits, one per phase A–F).
+> Branch: `digital-wall-features` (one commit per phase A–F, plus three follow-up corrections).
 > Companion context: `digital-screen-investigation.md`, `aip-notam-investigation.md`.
+
+## Follow-up corrections (2026-07-03)
+
+1. **NOTAMs come from CrewBriefing only.** The wall proxy sends `scraper=crewbriefing` on every `/api/notams` call, and the portal service env now pins `NOTAM_SCRAPER=crewbriefing` (compose) so the portal's cache-miss local-spawn path can't drift back to the SkyLink route default. If `CREWBRIEFING_USERNAME` / `CREWBRIEFING_PASSWORD` are unset (note: **USERNAME**, not the `CREWBRIEFING_USER` the AWS doc lists), the portal returns **503 "NOTAM source unavailable"** — no silent source fallback. CrewBriefing's upstream "CLEARWAY company policy" + military exclusions are the intended filter. It's Playwright-based and slow, so the wall keeps its per-ICAO TTL cache and the scanner keeps one lookup per ICAO per scan.
+2. **AIP PDFs resolve like the AIP page and share one cache.** New portal route `GET /api/aip/resolve?icao=` exposes the page's exact source selection (ASECNA → national scraper → USA → EAD, via the portal's own libs) plus a **no-sync** cached-copy check over the shared `/storage` keyspaces. The wall's `/api/aip-pdf` now: cached → streams straight from `/files/<key>` (a copy fetched earlier by any user, page or overlay); miss → the portal's normal per-source PDF route, which downloads and writes the same shared cache. The old HEAD-probe precedence guessing is gone (it risked triggering live EAD syncs, which datacenter IPs can't do — IB-101). Failures surface as "AIP unavailable: <reason>".
+3. **IMPORTANT.docx entries imported.** `seeds/important-seed.json` (65 pre-classified entries) loads via `scripts/import-important-seed.mjs` → `data/important.json` (committed): 63 active, 13 flagged needs-review, 2 dated May-2026 entries inactive, bodies verbatim. Matching was fixed to make them fire: **ISO-code countries resolve from the flight's ICAO prefix** (`lib/icao-country.mjs`) because the airport directory stores `"France (LF)"`-style names and lacks most non-EAD airports (EGLL, UACC…); operator matching is equality-or-containment ("Panaviatic" ↔ "Panaviatic AS"); direction `overfly` is accepted but matches no flights (no route data) while staying visible on the page. **Decisions:** seasonal windows stay absolute (IMP-001 LFTZ Jul 1–Oct 15 needs an annual bump — no year-agnostic recurrence); date-only `validTo` is widened to end-of-day; IMP-038 (KZ weekend permits) stays active-but-needs-review per the seed. Spot-checks verified: FR entries flag a UUEE→LFPG flight, the GB entry flags EGLL, LFTZ flags only inside its window (incl. the last day), Panaviatic/T7-LASER/EYVI-arr-only all behave, and UACC resolves to KZ despite being absent from the directory. Caveat worth a review pass: entries mixing airport + country criteria (e.g. IMP-053: `[EGLF]` + `[IT, CH]`) require **both** groups to match under the AND-across-groups semantics — split them if the intent was "either".
 
 ## What changed, per feature
 
@@ -69,6 +75,13 @@
 | GET | `/api/timeline/limitations?withMatches=true` | (extended) match counts |
 | GET | `/api/user` | (changed) real session user + `authEnabled` |
 
+Portal-side additions/changes (main Next.js app):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/aip/resolve?icao=` | Source + shared-cache status for an ICAO (no sync) — used by the wall's AIP proxy |
+| GET | `/api/notams?icao=&scraper=` | (extended) `scraper=` pins the cache-miss scrape source; 503 when CrewBriefing creds are missing |
+
 ## New environment variables (documented in `.env.example`)
 
 | Var | Purpose |
@@ -83,6 +96,13 @@
 | `ALERT_EMAIL_TO` | Comma-separated alert recipients |
 | `ALERT_SCAN_INTERVAL_MS` | Scanner cadence (default 1800000) |
 
+Portal-side env (confirmed / newly pinned):
+
+| Var | Purpose |
+|---|---|
+| `NOTAM_SCRAPER=crewbriefing` | Pinned on the portal service in compose (workers already had it) |
+| `CREWBRIEFING_USERNAME` / `CREWBRIEFING_PASSWORD` | Required for the CrewBriefing NOTAM source — **USERNAME**, not the `CREWBRIEFING_USER` the AWS setup doc lists; missing creds → 503, no fallback |
+
 ## Decisions made (where the brief left it open)
 - **Real-time transport: SSE** over WebSocket — one-way broadcast onto a raw-http server; EventSource reconnects for free; poll stays as fallback.
 - **Routing: no router library** — extended the existing history/segment convention (`src/router.js`); bundle stays lean, base path untouched.
@@ -93,7 +113,7 @@
 - **Overlay state is in-memory** — it's shared-appliance state; a backend restart simply closes the overlay.
 
 ## Left as TODO
-- Run the IMPORTANT.docx import on the server (docx absent locally) and review the proposed criteria on the Important page.
+- ~~Run the IMPORTANT.docx import on the server~~ — done via the pre-classified seed (see correction 3); remaining: review the 13 needs-review entries on the Important page, decide the IMP-038 Kazakhstan weekend contradiction, and bump IMP-001's seasonal window annually.
 - Replace `templates/alert-email.html` with the designed template (placeholders documented in the file header).
 - The `digital-wall-backend` compose service has no volume for `./digital-wall/data` — the JSON stores (clocks, important, alert state) live inside the container. **Add a bind mount (e.g. `./digital-wall/data:/app/data`) before deploying** so config survives container rebuilds.
 - Per-operator `last_sync_*` columns are surfaced in the Operators UI but the live backend still only tracks global sync state; wiring per-operator status into `runSyncCycle()` is a small follow-up.

@@ -18,6 +18,11 @@ services:
       WEATHER_SYNC_URL: http://weather-sync:3001
       AIP_SYNC_URL: http://aip-sync:3002
       LITHUANIA_SELENIUM_URL: http://lithuania-browser:4444/wd/hub
+      # NOTAMs must come from CrewBriefing only (matches the sync workers;
+      # without this the portal's cache-miss local spawn defaults to skylink).
+      # Requires CREWBRIEFING_USERNAME / CREWBRIEFING_PASSWORD in .env
+      # (USERNAME, not USER — the AWS setup doc is wrong).
+      NOTAM_SCRAPER: crewbriefing
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage

@@ -8,15 +8,26 @@ import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const NOTAM_SCRAPER = (process.env.NOTAM_SCRAPER || "skylink").toLowerCase();
-const SCRIPT_PATH = join(
-  process.cwd(),
-  "scripts",
-  NOTAM_SCRAPER === "faa"
-    ? "notam-scraper.mjs"
-    : NOTAM_SCRAPER === "crewbriefing"
-      ? "crewbriefing-opmet-notams.mjs"
-      : "skylink-notams.mjs"
-);
+
+const SCRAPER_SCRIPTS: Record<string, string> = {
+  faa: "notam-scraper.mjs",
+  crewbriefing: "crewbriefing-opmet-notams.mjs",
+  skylink: "skylink-notams.mjs",
+};
+
+// Callers may pin the NOTAM source with ?scraper= (the Digital Wall always
+// sends scraper=crewbriefing — CrewBriefing output is the operationally
+// intended set: it already applies the "CLEARWAY company policy" and
+// military-NOTAM exclusions upstream). Without the param, the env-configured
+// scraper is used (route default: skylink).
+function resolveScraper(requested: string | null): string {
+  const value = (requested || "").trim().toLowerCase();
+  return value && SCRAPER_SCRIPTS[value] ? value : NOTAM_SCRAPER;
+}
+
+function scraperScriptPath(scraper: string): string {
+  return join(process.cwd(), "scripts", SCRAPER_SCRIPTS[scraper] ?? SCRAPER_SCRIPTS.skylink);
+}
 const RUN_TIMEOUT_MS = 90_000;
 const SYNC_TIMEOUT_MS = 120_000;
 const NOTAMS_PREFIX = "notam";
@@ -60,6 +71,7 @@ export async function GET(request: NextRequest) {
   const icao = searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = searchParams.get("sync") === "1" || searchParams.get("sync") === "true";
   const stream = searchParams.get("stream") === "1" || searchParams.get("stream") === "true";
+  const scraper = resolveScraper(searchParams.get("scraper"));
 
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json(
@@ -143,16 +155,33 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (!existsSync(SCRIPT_PATH)) {
+  const scriptPath = scraperScriptPath(scraper);
+  if (!existsSync(scriptPath)) {
     return NextResponse.json(
       { error: "NOTAM sync script not found.", detail: "Run NOTAM test locally: node scripts/skylink-notams.mjs --json " + icao },
       { status: 503 }
     );
   }
 
+  // Never silently fall back to a different source: if the pinned scraper is
+  // CrewBriefing and its credentials are absent, fail loudly instead.
+  if (
+    scraper === "crewbriefing" &&
+    (!process.env.CREWBRIEFING_USERNAME || !process.env.CREWBRIEFING_PASSWORD)
+  ) {
+    return NextResponse.json(
+      {
+        error: "NOTAM source unavailable",
+        detail:
+          "CrewBriefing NOTAM source requested but CREWBRIEFING_USERNAME / CREWBRIEFING_PASSWORD are not configured (note: the variable is CREWBRIEFING_USERNAME, not CREWBRIEFING_USER).",
+      },
+      { status: 503 }
+    );
+  }
+
   return new Promise<NextResponse>((resolve) => {
-    const args = [SCRIPT_PATH, "--json", icao];
-    if (NOTAM_SCRAPER === "crewbriefing") args.push("--mode", "notam");
+    const args = [scriptPath, "--json", icao];
+    if (scraper === "crewbriefing") args.push("--mode", "notam");
     const child = spawn(
       process.execPath,
       args,

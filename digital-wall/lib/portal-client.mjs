@@ -69,14 +69,26 @@ async function portalJson(path, { timeoutMs = 45_000 } = {}) {
   }
 }
 
-/** NOTAMs for one ICAO: { ok, data: { icao, notams[], updatedAt } } | { ok:false, error } */
+/**
+ * NOTAMs for one ICAO: { ok, data: { icao, notams[], updatedAt } } | { ok:false, error }.
+ *
+ * Source policy: CrewBriefing ONLY — never SkyLink/FAA. `scraper=crewbriefing`
+ * pins the portal's cache-miss scrape path (the portal env should also set
+ * NOTAM_SCRAPER=crewbriefing; both are in place so neither default drifts).
+ * CrewBriefing already applies the "CLEARWAY company policy" and US-military
+ * NOTAM exclusions upstream — that filtered set is intended. It is
+ * Playwright-based and slow, hence the per-ICAO TTL cache here and the
+ * scanner's one-lookup-per-ICAO-per-scan throttle; do not parallelize hard.
+ * If CrewBriefing credentials are missing the portal replies 503
+ * "NOTAM source unavailable" — surfaced as-is, no silent fallback.
+ */
 export async function getNotams(icao) {
   const code = String(icao || "").toUpperCase();
   if (!validIcao(code)) return { ok: false, error: `Invalid ICAO: ${icao}` };
   const key = `notam:${code}`;
   const cached = cacheGet(key);
   if (cached) return cached;
-  const result = await portalJson(`/api/notams?icao=${code}`);
+  const result = await portalJson(`/api/notams?icao=${code}&scraper=crewbriefing`);
   // Cache failures briefly too, so a down portal isn't re-hit on every call.
   cacheSet(key, result, result.ok ? ttlMs() : 60_000);
   return result;

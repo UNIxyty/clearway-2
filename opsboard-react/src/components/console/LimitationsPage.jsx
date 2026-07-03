@@ -8,39 +8,80 @@ import {
   upsertLimitation,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
-import { ui, Switch } from './ui';
+import {
+  Button,
+  Card,
+  ChipInput,
+  EmptyState,
+  ErrorBanner,
+  FieldLabel,
+  IconButton,
+  InfoBanner,
+  limChip,
+  LoadingState,
+  PageHeader,
+  StatusPill,
+  t,
+  TextArea,
+  TextInput,
+  TypeChip,
+  Toggle,
+  useToast,
+} from './ui';
 
-// Keep the existing taxonomy; NTM / WX-alert / IMP badges are produced by the
-// alert scanner and Important entries, not created by hand here.
-const LIMITATION_TYPES = ['OPS', 'AOG', 'WX', 'CTOT', 'PAX', 'CREW'];
+// Limitations — manual text limitations for the wall sidebar (approved
+// design). NOTAM/weather (NTM/WX) and IMP markers are generated automatically
+// and managed elsewhere; this page intentionally lists only the hand-written
+// ones.
 
-const TYPE_COLOR = {
-  AOG: '#ef8080', WX: '#7ec8ff', CREW: '#f0c060', PAX: '#60c898',
-  CTOT: '#c8a8ff', OPS: '#9db3dd', NTM: '#ffab73', IMP: '#ff8fc6',
-};
-
+const LIM_TYPES = ['OPS', 'AOG', 'WX', 'CTOT', 'PAX', 'CREW'];
 const EMPTY_FORM = { title: '', description: '', type: 'OPS', airportIcaos: [], countries: [] };
+
+function WallPreview({ type, title, desc, scope }) {
+  const chip = limChip(type);
+  return (
+    <div style={{ width: 340, flex: 'none', position: 'sticky', top: 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
+        WALL SIDEBAR PREVIEW
+      </div>
+      <div style={{ background: t.dark, borderRadius: 16, padding: 18, boxShadow: t.shadowPop }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#6b7280', marginBottom: 14 }}>
+          LIMITATIONS
+        </div>
+        <div style={{ background: t.darkCard, borderRadius: 12, padding: 18, borderLeft: `5px solid ${chip.c}` }}>
+          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.05em', color: chip.c }}>{type}</span>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: '8px 0 10px', lineHeight: 1.15 }}>
+            {title || 'EGLL slot enforcement'}
+          </div>
+          <div style={{ fontSize: 16, lineHeight: 1.5, color: '#c9ced6' }}>
+            {desc || 'Heathrow CTOT strictly enforced — confirm slot with delivery before pushback. No tolerance beyond -5/+10.'}
+          </div>
+          <div style={{ fontSize: 14, fontFamily: t.mono, color: '#7a828d', marginTop: 12 }}>{scope || 'EGLL · GB'}</div>
+        </div>
+        <div style={{ fontSize: 11, color: '#4b5560', marginTop: 12, textAlign: 'center' }}>
+          Rendered at wall scale · fully legible at distance
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LimitationsPage() {
   const [items, setItems] = useState([]);
   const [countries, setCountries] = useState([]);
-  const [airportQuery, setAirportQuery] = useState('');
-  const [airportResults, setAirportResults] = useState([]);
-  const [countryQuery, setCountryQuery] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
+  const flash = useToast();
 
   async function load() {
-    setLoading(true);
     setError('');
     try {
       const payload = await fetchLimitations({ withMatches: true });
-      setItems(payload.limitations || []);
-      const countryPayload = await fetchCountries('', 300);
-      setCountries(countryPayload.countries || []);
+      // This page manages the manual limitations only.
+      setItems((payload.limitations || []).filter((item) => item.source === 'custom' || !item.source));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setItems([]);
@@ -51,53 +92,23 @@ export default function LimitationsPage() {
 
   useEffect(() => {
     load();
-    // Reconcile with edits made elsewhere (other console users).
+    fetchCountries('', 300).then((p) => setCountries(p.countries || [])).catch(() => {});
     return subscribeWallStream('limitations.changed', load, { surface: 'console' });
   }, []);
 
-  useEffect(() => {
-    const id = setTimeout(async () => {
-      const q = airportQuery.trim();
-      if (!q) {
-        setAirportResults([]);
-        return;
-      }
-      try {
-        const payload = await searchAirports(q, 20);
-        setAirportResults(payload.airports || []);
-      } catch {
-        setAirportResults([]);
-      }
-    }, 180);
-    return () => clearTimeout(id);
-  }, [airportQuery]);
+  const scopeText = useMemo(() => {
+    const parts = [...form.airportIcaos, ...form.countries];
+    return parts.join(' · ');
+  }, [form.airportIcaos, form.countries]);
 
-  const unselectedCountries = useMemo(
-    () =>
-      countries.filter(
-        (country) =>
-          !form.countries.includes(country) &&
-          (!countryQuery || country.toLowerCase().includes(countryQuery.toLowerCase()))
-      ),
-    [countries, form.countries, countryQuery]
-  );
-
-  function addAirport(icao) {
-    const normalized = String(icao || '').trim().toUpperCase();
-    if (!normalized) return;
-    setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, normalized])] }));
-    setAirportQuery('');
-    setAirportResults([]);
-  }
-
-  async function createLimitation(event) {
+  async function save(event) {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
       await upsertLimitation(form);
       setForm(EMPTY_FORM);
-      setCountryQuery('');
+      flash('Limitation saved · now on wall sidebar');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -108,7 +119,6 @@ export default function LimitationsPage() {
 
   async function toggleActive(item, nextValue) {
     setBusyId(item.id);
-    setError('');
     setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, isActive: nextValue } : row)));
     try {
       await setLimitationActive(item.id, nextValue);
@@ -120,12 +130,12 @@ export default function LimitationsPage() {
     }
   }
 
-  async function removeLimitation(id) {
-    setBusyId(id);
-    setError('');
+  async function remove(item) {
+    setBusyId(item.id);
     try {
-      await deleteLimitation(id);
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      await deleteLimitation(item.id);
+      setItems((prev) => prev.filter((row) => row.id !== item.id));
+      flash('Limitation deleted', '#f87171');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       await load();
@@ -135,181 +145,160 @@ export default function LimitationsPage() {
   }
 
   return (
-    <div style={ui.page}>
-      <div style={ui.top}>
-        <div>
-          <div style={ui.title}>Limitations</div>
-          <div style={ui.subtitle}>
-            Custom operational warnings; the wall sidebar and matching flight chips update within seconds.
-          </div>
-        </div>
-        <button style={ui.btn} onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
-      {error && <div style={ui.error}>{error}</div>}
+    <div>
+      <PageHeader
+        title="Limitations"
+        desc="Write the manual text limitations shown on the wall sidebar. These are human-authored — NOTAM, weather and IMP markers are generated automatically and managed elsewhere."
+        descMax={620}
+      />
 
-      <form style={s.form} onSubmit={createLimitation}>
-        <input
-          style={ui.input}
-          placeholder="Title (e.g. UK handling strike)"
-          value={form.title}
-          onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-          required
-        />
-        <input
-          style={ui.input}
-          placeholder="Description shown on the wall"
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-        />
-        <select
-          style={ui.select}
-          value={form.type}
-          onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
-        >
-          {LIMITATION_TYPES.map((type) => (
-            <option key={type} value={type}>{type}</option>
-          ))}
-        </select>
-        <button style={ui.btnPrimary} disabled={saving || loading} type="submit">
-          {saving ? 'Saving…' : 'Add limitation'}
-        </button>
-      </form>
+      <InfoBanner>
+        Each active limitation renders as a large card on the wall sidebar with its full text visible — no clicking,
+        readable from across the ops room. Use the live preview to see exactly how it will read.
+      </InfoBanner>
 
-      <div style={s.selectorGrid}>
-        <div style={ui.card}>
-          <div style={ui.cardTitle}>Airports</div>
-          <input
-            style={{ ...ui.input, width: '100%', boxSizing: 'border-box' }}
-            placeholder="Search by ICAO / name / country"
-            value={airportQuery}
-            onChange={(event) => setAirportQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                addAirport(airportQuery);
-              }
-            }}
-          />
-          {airportResults.length > 0 && (
-            <div style={ui.resultList}>
-              {airportResults.map((row) => (
-                <button type="button" key={row.icao} style={ui.resultItem} onClick={() => addAirport(row.icao)}>
-                  <b>{row.icao}</b> {row.name ? `· ${row.name}` : ''} {row.country ? `· ${row.country}` : ''}
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={s.chipList}>
-            {form.airportIcaos.map((icao) => (
-              <button
-                type="button"
-                key={icao}
-                style={ui.chip}
-                onClick={() => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((i) => i !== icao) }))}
-              >
-                {icao} ×
-              </button>
-            ))}
-          </div>
-        </div>
+      <ErrorBanner>{error}</ErrorBanner>
 
-        <div style={ui.card}>
-          <div style={ui.cardTitle}>Countries</div>
-          <input
-            style={{ ...ui.input, width: '100%', boxSizing: 'border-box' }}
-            placeholder="Search and add country"
-            value={countryQuery}
-            onChange={(event) => setCountryQuery(event.target.value)}
-          />
-          {countryQuery && unselectedCountries.length > 0 && (
-            <div style={ui.resultList}>
-              {unselectedCountries.slice(0, 30).map((country) => (
-                <button
-                  type="button"
-                  key={country}
-                  style={ui.resultItem}
-                  onClick={() => {
-                    setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, country])] }));
-                    setCountryQuery('');
+      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {loading && <Card style={{ padding: 0 }}><LoadingState>Loading limitations…</LoadingState></Card>}
+            {!loading && items.length === 0 && (
+              <Card style={{ padding: 0 }}>
+                <EmptyState icon="alert-triangle" title="No limitations yet">
+                  Write the first one below — it appears on the wall the moment it's saved.
+                </EmptyState>
+              </Card>
+            )}
+            {items.map((item) => {
+              const active = item.isActive !== false;
+              const matches = item.matchedFlightCount ?? 0;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    background: '#fff',
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 13,
+                    padding: '16px 18px',
+                    boxShadow: t.shadow,
+                    opacity: active ? 1 : 0.65,
                   }}
                 >
-                  {country}
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={s.chipList}>
-            {form.countries.map((country) => (
-              <button
-                type="button"
-                key={country}
-                style={ui.chip}
-                onClick={() => setForm((prev) => ({ ...prev, countries: prev.countries.filter((c) => c !== country) }))}
-              >
-                {country} ×
-              </button>
-            ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <TypeChip type={item.type || 'OPS'} />
+                    <span style={{ fontSize: 15.5, fontWeight: 700 }}>{item.title}</span>
+                    <div style={{ flex: 1 }} />
+                    <StatusPill
+                      color={matches > 0 ? t.blueDeep : t.faint}
+                      bg={matches > 0 ? t.blueChip : '#f1f2f4'}
+                    >
+                      {matches > 0 ? `matches ${matches} flight${matches > 1 ? 's' : ''}` : 'no current matches'}
+                    </StatusPill>
+                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
+                    <IconButton icon="trash-2" title="Delete limitation" onClick={() => remove(item)} />
+                  </div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: t.body, marginBottom: 6 }}>{item.description || '—'}</div>
+                  <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono }}>
+                    {[...(item.airportIcaos || []), ...(item.countries || [])].join(' · ') || 'global'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      </div>
 
-      {!loading && items.length === 0 && <div style={ui.empty}>No limitations yet.</div>}
-      <div style={ui.grid}>
-        {items.map((item) => (
-          <div key={item.id} style={{ ...ui.card, opacity: item.isActive === false ? 0.55 : 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-              <div style={ui.cardTitle}>{item.title || 'Limitation'}</div>
-              <span style={{ ...ui.tag, color: TYPE_COLOR[item.type] || '#9db3dd', flexShrink: 0 }}>
-                {item.type || 'OPS'}
-              </span>
-            </div>
-            <div style={s.cardDesc}>{item.description || '—'}</div>
-            <div style={s.tagRow}>
-              {(item.airportIcaos || []).slice(0, 6).map((icao) => (
-                <span key={icao} style={ui.tag}>{icao}</span>
-              ))}
-              {(item.countries || []).slice(0, 3).map((country) => (
-                <span key={country} style={ui.tag}>{country}</span>
-              ))}
-            </div>
-            <div style={s.matchLine}>
-              {typeof item.matchedFlightCount === 'number'
-                ? item.matchedFlightCount > 0
-                  ? `Currently matches ${item.matchedFlightCount} flight${item.matchedFlightCount === 1 ? '' : 's'} on the board`
-                  : 'Matches no flights in the current window'
-                : ''}
-            </div>
-            <div style={s.cardMeta}>
-              <Switch
-                on={item.isActive !== false}
-                disabled={busyId === item.id}
-                onToggle={() => toggleActive(item, item.isActive === false)}
-                labels={['Active', 'Inactive']}
-              />
-              <button
-                type="button"
-                style={ui.btnDanger}
-                disabled={busyId === item.id}
-                onClick={() => removeLimitation(item.id)}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+          <Card style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 16px' }}>New limitation</h3>
+            <form onSubmit={save}>
+              <div style={{ marginBottom: 14 }}>
+                <FieldLabel>Title</FieldLabel>
+                <TextInput
+                  placeholder="Short headline shown on the wall"
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <FieldLabel>Description</FieldLabel>
+                <TextArea
+                  placeholder="Full instruction text — this appears in full on the wall"
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <FieldLabel>Type</FieldLabel>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {LIM_TYPES.map((type) => {
+                    const chip = limChip(type);
+                    const on = form.type === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, type }))}
+                        style={{
+                          fontFamily: 'inherit',
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          border: `1px solid ${on ? chip.c : t.borderInput}`,
+                          background: on ? chip.b : '#fff',
+                          color: on ? chip.c : t.muted,
+                          padding: '7px 13px',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                <div>
+                  <FieldLabel>Airports (ICAO)</FieldLabel>
+                  <ChipInput
+                    values={form.airportIcaos}
+                    placeholder="Add ICAO…"
+                    onAdd={(v) => setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, v.toUpperCase()])] }))}
+                    onRemove={(v) => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((x) => x !== v) }))}
+                    suggest={async (q) => {
+                      const payload = await searchAirports(q, 12);
+                      return (payload.airports || []).map((a) => ({
+                        value: a.icao,
+                        label: `${a.icao}${a.name ? ` · ${a.name}` : ''}${a.country ? ` · ${a.country}` : ''}`,
+                      }));
+                    }}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Countries</FieldLabel>
+                  <ChipInput
+                    values={form.countries}
+                    placeholder="Add country…"
+                    onAdd={(v) => setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, v])] }))}
+                    onRemove={(v) => setForm((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== v) }))}
+                    suggest={async (q) =>
+                      countries
+                        .filter((c) => c.toLowerCase().includes(q.toLowerCase()))
+                        .slice(0, 12)
+                        .map((c) => ({ value: c, label: c }))
+                    }
+                  />
+                </div>
+              </div>
+              <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
+                Save limitation
+              </Button>
+            </form>
+          </Card>
+        </div>
+
+        <WallPreview type={form.type} title={form.title} desc={form.description} scope={scopeText} />
       </div>
     </div>
   );
 }
-
-const s = {
-  form: { display: 'grid', gridTemplateColumns: '1.2fr 1.6fr 110px auto', gap: 8, marginBottom: 12 },
-  selectorGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 },
-  chipList: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  cardDesc: { color: '#95a6cc', fontSize: 11, lineHeight: 1.4, minHeight: 30, marginTop: 4 },
-  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 },
-  matchLine: { fontSize: 10.5, color: '#6f7fa8', marginTop: 8, minHeight: 13 },
-  cardMeta: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 6 },
-};

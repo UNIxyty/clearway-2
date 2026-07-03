@@ -3,6 +3,66 @@
 > Branch: `digital-wall-features` (one commit per phase A–F, plus three follow-up corrections).
 > Companion context: `digital-screen-investigation.md`, `aip-notam-investigation.md`.
 
+## Console redesign from the approved Claude Design (2026-07-04)
+
+The Display Console was rebuilt to match the finalized Claude Design project
+("Display Console.dc.html" + "Console Shell & Style Tile", delivered as a
+design handoff bundle). The wall display is untouched; no backend contract
+changed — every control wires to the existing `timelineApi.js` actions and SSE
+events.
+
+**Design screens imported → pages rebuilt (all six were present in the file;
+nothing extrapolated):** Flights, Operators, Aircraft, Limitations, Important,
+Settings, plus the shared shell (top bar + left nav).
+
+**UI kit** (`src/components/console/ui.jsx`, full rewrite): design tokens
+(light surfaces, Public Sans / IBM Plex Mono via Google Fonts with system
+fallbacks, blue `#2563eb` primary, the design's status/limitation chip
+palettes), and components: Button (primary/secondary/ghost/soft/danger
+variants), Toggle, StatusPill, TypeChip, ImpMark, MonoChip, ChipInput (with
+async suggestions), SearchBox, Dropdown, Segmented, Card, PageHeader,
+InfoBanner, HelpBanner, TableShell (sortable headers), Loading/Empty/Error
+states, PendingNote (TODO seams), dark-toast ToastProvider, Avatar/presence
+colors. `icons.jsx` inlines the needed lucide v0.454 vector data (the icon set
+the design uses) — zero new dependencies.
+
+**Shell** (`ConsoleApp.jsx`): clearway top bar with live wall pill
+(overlay state + SSE), presence avatar stack, account chip; left nav with
+Important needs-review badge and the sync-status card (live "ago" ticks).
+
+**Per-page notes / adaptations:**
+- **Flights**: wall banner with opened-by/ago, Show/Close on wall, Today/All
+  segment, operator+airport dropdowns, sortable table, detail panel (timings
+  grid, delay chip, IMP verbatim section, AIP/GEN send controls).
+  *Seams for in-flight fixes:* NOTAM-check panel derives today's dedup'd
+  airports from real flights and shows keyword-coloured flagged records from
+  the live alert scanner; per-airport CHECKED is session-local and "show all
+  NOTAMs" + wall-sign mirroring are marked pending their backend. The AIP/GEN
+  send UI (dep/arr · AIP/GEN/Both · progress affordance) is fully built but
+  the Send button is disabled with a pending note until the email backend
+  merges.
+- **Operators**: sync-health card with 6 stat tiles + force sync; add-operator
+  form with write-only token field (eye toggle); status pills + error strips.
+- **Aircraft**: design's TYPE column replaced with "UPCOMING (7 DAYS)" — the
+  schedule endpoint has no aircraft-type data; Show all / Hide all run the
+  one-row visibility endpoint sequentially.
+- **Limitations**: manual text limitations only (NTM/IMP stay off this page,
+  per the fixes prompt); live dark wall-sidebar preview; matched-flight pills.
+- **Important**: list + editor split with reviewed/needs-review + active/
+  expired chips, criteria chip editors, direction + valid-window, Mark
+  reviewed; needs-review filter; verbatim body.
+- **Settings**: clocks with native drag-reorder, home star, live dark clock-
+  bar preview; alert filter with friendly keyword-group editor (NOTAM/weather
+  keywords + regex groups mapped onto the existing rules schema) and raw-JSON
+  mode; scan-windows tile from real rules; daily-check-time tile marked
+  pending (NOTAM-check backend).
+
+Verified by driving the dev stack (backend :5174 + vite :5175) with Playwright
+screenshots of all pages — real data for Important (65 entries), Settings
+(rules + clocks), Operators, and stubbed API responses to exercise the flights
+table states, detail panel, IMP section and NOTAM panel. `npm run build`
+clean.
+
 ## Follow-up corrections (2026-07-03)
 
 1. **NOTAMs come from CrewBriefing only.** The wall proxy sends `scraper=crewbriefing` on every `/api/notams` call, and the portal service env now pins `NOTAM_SCRAPER=crewbriefing` (compose) so the portal's cache-miss local-spawn path can't drift back to the SkyLink route default. If `CREWBRIEFING_USERNAME` / `CREWBRIEFING_PASSWORD` are unset (note: **USERNAME**, not the `CREWBRIEFING_USER` the AWS doc lists), the portal returns **503 "NOTAM source unavailable"** — no silent source fallback. CrewBriefing's upstream "CLEARWAY company policy" + military exclusions are the intended filter. It's Playwright-based and slow, so the wall keeps its per-ICAO TTL cache and the scanner keeps one lookup per ICAO per scan.

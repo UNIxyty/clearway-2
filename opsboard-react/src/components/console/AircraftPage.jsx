@@ -1,17 +1,39 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchAircraftSchedule, setAircraftVisibility } from '../../services/timelineApi';
-import { ui, Switch } from './ui';
+import {
+  Button,
+  Dropdown,
+  EmptyState,
+  ErrorBanner,
+  LoadingState,
+  PageHeader,
+  SearchBox,
+  t,
+  TableShell,
+  Toggle,
+  useToast,
+} from './ui';
+
+// Aircraft — choose which tails render on the wall (approved design).
+
+function fmtNext(row) {
+  if (!row.nextFlightStart) return '—';
+  const dt = new Date(row.nextFlightStart);
+  if (!Number.isFinite(dt.getTime())) return '—';
+  return `${dt.toISOString().slice(5, 10)} · ${dt.toISOString().slice(11, 16)}Z`;
+}
 
 export default function AircraftPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingKey, setSavingKey] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [operatorFilter, setOperatorFilter] = useState('');
+  const flash = useToast();
 
   async function load() {
-    setLoading(true);
     setError('');
     try {
       const payload = await fetchAircraftSchedule();
@@ -28,8 +50,11 @@ export default function AircraftPage() {
     load();
   }, []);
 
-  const operators = useMemo(
-    () => [...new Set(data.map((row) => row.operatorName || row.oprId).filter(Boolean))].sort(),
+  const operatorOptions = useMemo(
+    () => [
+      { value: '', label: 'All operators' },
+      ...[...new Set(data.map((row) => row.operatorName || row.oprId).filter(Boolean))].sort().map((name) => ({ value: name, label: name })),
+    ],
     [data]
   );
 
@@ -42,20 +67,20 @@ export default function AircraftPage() {
     });
   }, [data, search, operatorFilter]);
 
-  async function toggleEnabled(row, enabled) {
+  const shownCount = data.filter((row) => !row.isHidden).length;
+  const hiddenCount = data.length - shownCount;
+
+  async function toggle(row, showOnWall) {
     const key = `${row.oprId}:${row.registration}`;
     setSavingKey(key);
-    setError('');
-    // Optimistic; reload reconciles on failure.
     setData((prev) =>
       prev.map((item) =>
-        item.oprId === row.oprId && item.registration === row.registration
-          ? { ...item, isHidden: !enabled }
-          : item
+        item.oprId === row.oprId && item.registration === row.registration ? { ...item, isHidden: !showOnWall } : item
       )
     );
     try {
-      await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled });
+      await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled: showOnWall });
+      flash(showOnWall ? `Showing ${row.registration} on wall` : `Hidden ${row.registration} — lane removed`, showOnWall ? '#4ade80' : '#f87171');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       await load();
@@ -64,72 +89,112 @@ export default function AircraftPage() {
     }
   }
 
-  return (
-    <div style={ui.page}>
-      <div style={ui.top}>
-        <div>
-          <div style={ui.title}>Aircraft</div>
-          <div style={ui.subtitle}>Flight counts for the next 7 days; toggle which tails render on the wall.</div>
-        </div>
-        <button style={ui.btn} onClick={load} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+  async function setAll(showOnWall) {
+    if (bulkBusy) return;
+    setBulkBusy(true);
+    const targets = visible.filter((row) => Boolean(row.isHidden) === showOnWall);
+    setData((prev) =>
+      prev.map((item) =>
+        targets.some((row) => row.oprId === item.oprId && row.registration === item.registration)
+          ? { ...item, isHidden: !showOnWall }
+          : item
+      )
+    );
+    try {
+      for (const row of targets) {
+        // Sequential on purpose — the visibility endpoint is one-row-at-a-time.
+        await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled: showOnWall });
+      }
+      flash(showOnWall ? 'All aircraft shown on wall' : 'All aircraft hidden', showOnWall ? '#4ade80' : '#f87171');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      await load();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input
-          style={{ ...ui.input, flex: 1 }}
-          placeholder="Search by registration or operator…"
+  return (
+    <div>
+      <PageHeader
+        title="Aircraft"
+        desc="Choose which aircraft appear on the wall. Hiding an aircraft removes its lane from the timeline immediately."
+        descMax={600}
+      />
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <SearchBox
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search registration or operator…"
+          style={{ flex: 1, minWidth: 240 }}
         />
-        <select style={ui.select} value={operatorFilter} onChange={(e) => setOperatorFilter(e.target.value)}>
-          <option value="">All operators</option>
-          {operators.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
+        <Dropdown icon="sliders-horizontal" label="Operator" value={operatorFilter} options={operatorOptions} onChange={setOperatorFilter} />
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 13, color: t.muted }}>
+          <strong style={{ color: t.greenDeep }}>{shownCount}</strong> on wall ·{' '}
+          <strong style={{ color: t.faint }}>{hiddenCount}</strong> hidden
+        </span>
+        <Button variant="softBlue" size="sm" disabled={bulkBusy} onClick={() => setAll(true)} style={{ height: 42 }}>
+          Show all
+        </Button>
+        <Button variant="soft" size="sm" disabled={bulkBusy} onClick={() => setAll(false)} style={{ height: 42, color: t.muted }}>
+          Hide all
+        </Button>
       </div>
 
-      {error && <div style={ui.error}>{error}</div>}
+      <ErrorBanner>{error}</ErrorBanner>
 
-      <div style={ui.tableWrap}>
-        <table style={ui.table}>
-          <thead>
-            <tr>
-              <th style={ui.th}>Registration</th>
-              <th style={ui.th}>Operator</th>
-              <th style={ui.th}>Flights (7d)</th>
-              <th style={ui.th}>Next flight</th>
-              <th style={ui.th}>Visible on wall</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <tr key={`${row.oprId}:${row.registration}`}>
-                <td style={{ ...ui.td, fontFamily: "'IBM Plex Mono',monospace" }}>{row.registration}</td>
-                <td style={ui.td}>{row.operatorName || row.oprId || '—'}</td>
-                <td style={ui.td}>{row.flightCount ?? 0}</td>
-                <td style={ui.td}>
-                  {row.nextFlightStart
-                    ? new Date(row.nextFlightStart).toISOString().replace('T', ' ').slice(0, 16) + 'Z'
-                    : '—'}
-                </td>
-                <td style={ui.td}>
-                  <Switch
-                    on={!row.isHidden}
-                    disabled={savingKey === `${row.oprId}:${row.registration}` || loading}
-                    onToggle={() => toggleEnabled(row, row.isHidden)}
-                    labels={['Visible', 'Hidden']}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!loading && visible.length === 0 && <div style={ui.empty}>No aircraft match the current filter.</div>}
-        {loading && <div style={ui.loading}>Loading aircraft…</div>}
-      </div>
+      <TableShell
+        columns="1fr 1.2fr 1.3fr 1.2fr .9fr"
+        header={[
+          { label: 'REGISTRATION' },
+          { label: 'OPERATOR' },
+          { label: 'UPCOMING (7 DAYS)' },
+          { label: 'NEXT FLIGHT' },
+          { label: 'SHOW ON WALL', align: 'right' },
+        ]}
+      >
+        {loading && <LoadingState>Loading aircraft…</LoadingState>}
+        {!loading && visible.length === 0 && (
+          <EmptyState icon="navigation" title="No aircraft match">
+            Adjust the search or operator filter.
+          </EmptyState>
+        )}
+        {visible.map((row) => {
+          const shown = !row.isHidden;
+          return (
+            <div
+              key={`${row.oprId}:${row.registration}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1.2fr 1.3fr 1.2fr .9fr',
+                padding: '15px 18px',
+                borderBottom: `1px solid ${t.rowLine}`,
+                alignItems: 'center',
+                background: shown ? '#fff' : t.subtle,
+              }}
+            >
+              <div style={{ fontFamily: t.mono, fontSize: 15, fontWeight: 600 }}>{row.registration}</div>
+              <div style={{ fontSize: 14, color: t.body }}>{row.operatorName || row.oprId || '—'}</div>
+              <div style={{ fontSize: 13.5, color: (row.flightCount ?? 0) > 0 ? t.body : t.faint }}>
+                {(row.flightCount ?? 0) > 0 ? `${row.flightCount} upcoming` : 'No upcoming'}
+              </div>
+              <div style={{ fontFamily: t.mono, fontSize: 13.5, color: row.nextFlightStart ? t.body : t.faint }}>{fmtNext(row)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: shown ? t.greenDeep : t.faint }}>
+                  {shown ? 'On wall' : 'Hidden'}
+                </span>
+                <Toggle
+                  on={shown}
+                  disabled={savingKey === `${row.oprId}:${row.registration}` || bulkBusy}
+                  onToggle={() => toggle(row, !shown)}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </TableShell>
     </div>
   );
 }

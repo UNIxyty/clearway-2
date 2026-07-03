@@ -9,29 +9,42 @@ import {
   upsertImportant,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
-import { ui, Switch } from './ui';
+import Icon from './icons';
+import {
+  Button,
+  ChipInput,
+  EmptyState,
+  ErrorBanner,
+  FieldLabel,
+  IconButton,
+  InfoBanner,
+  LoadingState,
+  PageHeader,
+  SearchBox,
+  StatusPill,
+  t,
+  TextArea,
+  TextInput,
+  Toggle,
+  useToast,
+} from './ui';
 
-// "Important" standing operational limitations (badge class IMP), imported
-// from IMPORTANT.docx (scripts/import-important-docx.mjs) or added here.
-// A flight is flagged when it matches ALL the criteria groups an entry
-// specifies (within a group, any listed value matches).
+// Important — standing IMP limitations from the ops bulletin (approved
+// design): list on the left, criteria editor on the right. A matching flight
+// shows only the "!" icon on the wall; the full text is read here.
 
-const EMPTY_FORM = {
-  id: '',
-  title: '',
-  body: '',
-  isActive: true,
-  reviewed: true,
-  match: {
-    countries: [],
-    airportIcaos: [],
-    operators: [],
-    registrations: [],
-    direction: 'any',
-    validFrom: '',
-    validTo: '',
-  },
+const CHIP_STYLES = {
+  countries: { color: '#6d28d9', bg: '#ede9fe' },
+  airports: { color: '#0369a1', bg: '#e0f2fe' },
+  operators: { color: '#475569', bg: '#eef1f5' },
+  registrations: { color: '#334155', bg: '#f1f5f9' },
 };
+
+const DIRECTIONS = [
+  { value: 'any', label: 'Any' },
+  { value: 'dep', label: 'Departure' },
+  { value: 'arr', label: 'Arrival' },
+];
 
 function toDateInput(value) {
   if (!value) return '';
@@ -39,139 +52,57 @@ function toDateInput(value) {
   return Number.isFinite(dt.getTime()) ? dt.toISOString().slice(0, 10) : '';
 }
 
-function ChipEditor({ label, values, onChange, suggestions = [], placeholder }) {
-  const [query, setQuery] = useState('');
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return suggestions.filter((sug) => sug.toLowerCase().includes(q) && !values.includes(sug)).slice(0, 15);
-  }, [query, suggestions, values]);
-
-  function add(value) {
-    const v = String(value || '').trim();
-    if (!v) return;
-    onChange([...new Set([...values, v])]);
-    setQuery('');
-  }
-
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={cs.fieldLabel}>{label}</div>
-      <input
-        style={{ ...ui.input, width: '100%', boxSizing: 'border-box' }}
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            add(query);
-          }
-        }}
-      />
-      {matches.length > 0 && (
-        <div style={ui.resultList}>
-          {matches.map((sug) => (
-            <button key={sug} type="button" style={ui.resultItem} onClick={() => add(sug)}>
-              {sug}
-            </button>
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-        {values.map((value) => (
-          <button
-            key={value}
-            type="button"
-            style={ui.chip}
-            onClick={() => onChange(values.filter((v) => v !== value))}
-          >
-            {value} ×
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+function isExpired(entry) {
+  const to = entry.match?.validTo;
+  return Boolean(to && new Date(to).getTime() < Date.now());
 }
 
-function AirportChipEditor({ values, onChange }) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
-
-  useEffect(() => {
-    const id = setTimeout(async () => {
-      const q = query.trim();
-      if (!q) {
-        setResults([]);
-        return;
-      }
-      try {
-        const payload = await searchAirports(q, 15);
-        setResults(payload.airports || []);
-      } catch {
-        setResults([]);
-      }
-    }, 180);
-    return () => clearTimeout(id);
-  }, [query]);
-
-  function add(icao) {
-    const v = String(icao || '').trim().toUpperCase();
-    if (!v) return;
-    onChange([...new Set([...values, v])]);
-    setQuery('');
-    setResults([]);
-  }
-
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={cs.fieldLabel}>Airports (ICAO)</div>
-      <input
-        style={{ ...ui.input, width: '100%', boxSizing: 'border-box' }}
-        placeholder="Search ICAO / airport name…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            add(query);
-          }
-        }}
-      />
-      {results.length > 0 && (
-        <div style={ui.resultList}>
-          {results.map((row) => (
-            <button key={row.icao} type="button" style={ui.resultItem} onClick={() => add(row.icao)}>
-              <b>{row.icao}</b> {row.name ? `· ${row.name}` : ''} {row.country ? `· ${row.country}` : ''}
-            </button>
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-        {values.map((icao) => (
-          <button key={icao} type="button" style={ui.chip} onClick={() => onChange(values.filter((v) => v !== icao))}>
-            {icao} ×
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+function entryToForm(entry) {
+  return {
+    id: entry.id,
+    title: entry.title,
+    body: entry.body || '',
+    isActive: entry.isActive !== false,
+    reviewed: entry.reviewed === true,
+    countries: entry.match?.countries || [],
+    airportIcaos: entry.match?.airportIcaos || [],
+    operators: entry.match?.operators || [],
+    registrations: entry.match?.registrations || [],
+    direction: entry.match?.direction || 'any',
+    validFrom: toDateInput(entry.match?.validFrom),
+    validTo: toDateInput(entry.match?.validTo),
+  };
 }
+
+const NEW_FORM = {
+  id: '',
+  title: '',
+  body: '',
+  isActive: true,
+  reviewed: true,
+  countries: [],
+  airportIcaos: [],
+  operators: [],
+  registrations: [],
+  direction: 'any',
+  validFrom: '',
+  validTo: '',
+};
 
 export default function ImportantPage() {
   const [entries, setEntries] = useState([]);
   const [countries, setCountries] = useState([]);
   const [operatorSuggestions, setOperatorSuggestions] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [form, setForm] = useState(null);
   const [search, setSearch] = useState('');
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false);
-  const [form, setForm] = useState(null); // null = editor closed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
+  const flash = useToast();
 
   async function load() {
-    setLoading(true);
     setError('');
     try {
       const payload = await fetchImportant({ includeInactive: true, withMatches: true });
@@ -203,45 +134,37 @@ export default function ImportantPage() {
     });
   }, [entries, search, onlyUnreviewed]);
 
-  function openEditor(entry = null) {
-    if (!entry) {
-      setForm(structuredClone(EMPTY_FORM));
-      return;
-    }
-    setForm({
-      id: entry.id,
-      title: entry.title,
-      body: entry.body || '',
-      isActive: entry.isActive !== false,
-      reviewed: entry.reviewed === true,
-      match: {
-        countries: entry.match?.countries || [],
-        airportIcaos: entry.match?.airportIcaos || [],
-        operators: entry.match?.operators || [],
-        registrations: entry.match?.registrations || [],
-        direction: entry.match?.direction || 'any',
-        validFrom: toDateInput(entry.match?.validFrom),
-        validTo: toDateInput(entry.match?.validTo),
-      },
-    });
-  }
+  const selected = entries.find((entry) => entry.id === selectedId) || null;
 
-  async function save(event) {
-    event.preventDefault();
+  useEffect(() => {
+    if (selected) setForm(entryToForm(selected));
+    else if (selectedId === '__new__') setForm(structuredClone(NEW_FORM));
+    else setForm(null);
+  }, [selectedId, selected]);
+
+  async function save({ markReviewed = false } = {}) {
+    if (!form) return;
     setSaving(true);
     setError('');
     try {
-      await upsertImportant({
-        ...form,
+      const payload = await upsertImportant({
         id: form.id || undefined,
-        reviewed: true, // saving from the editor counts as human review
+        title: form.title,
+        body: form.body,
+        isActive: form.isActive,
+        reviewed: markReviewed ? true : form.reviewed,
         match: {
-          ...form.match,
-          validFrom: form.match.validFrom || null,
-          validTo: form.match.validTo ? `${form.match.validTo}T23:59:59Z` : null,
+          countries: form.countries,
+          airportIcaos: form.airportIcaos,
+          operators: form.operators,
+          registrations: form.registrations,
+          direction: form.direction,
+          validFrom: form.validFrom || null,
+          validTo: form.validTo ? `${form.validTo}T23:59:59Z` : null,
         },
       });
-      setForm(null);
+      flash(markReviewed ? 'Marked reviewed' : 'Important entry saved');
+      setSelectedId(payload.entry?.id || '');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -251,243 +174,306 @@ export default function ImportantPage() {
   }
 
   async function toggleActive(entry, nextValue) {
-    setBusyId(entry.id);
     setEntries((prev) => prev.map((row) => (row.id === entry.id ? { ...row, isActive: nextValue } : row)));
     try {
       await setImportantActive(entry.id, nextValue);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       await load();
-    } finally {
-      setBusyId('');
     }
   }
 
-  async function remove(id) {
-    setBusyId(id);
+  async function remove(entry) {
     try {
-      await deleteImportant(id);
-      setEntries((prev) => prev.filter((entry) => entry.id !== id));
+      await deleteImportant(entry.id);
+      flash('Important entry deleted', '#f87171');
+      if (selectedId === entry.id) setSelectedId('');
+      setEntries((prev) => prev.filter((row) => row.id !== entry.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       await load();
-    } finally {
-      setBusyId('');
     }
   }
 
   const unreviewedCount = entries.filter((entry) => !entry.reviewed).length;
 
-  return (
-    <div style={ui.page}>
-      <div style={ui.top}>
-        <div>
-          <div style={ui.title}>Important</div>
-          <div style={ui.subtitle}>
-            Standing operational notes from IMPORTANT.docx — flights matching an entry's criteria get an IMP badge.
-            {unreviewedCount > 0 && ` ${unreviewedCount} auto-imported entr${unreviewedCount === 1 ? 'y' : 'ies'} awaiting review.`}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button style={ui.btnPrimary} onClick={() => openEditor()}>+ New entry</button>
-          <button style={ui.btn} onClick={load} disabled={loading}>
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
-      {error && <div style={ui.error}>{error}</div>}
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-        <input
-          style={{ ...ui.input, flex: 1 }}
-          placeholder="Search title, text, ICAO, country, operator, registration…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+  function chipEditor(field, label, suggest) {
+    const styleFor = CHIP_STYLES[field === 'airportIcaos' ? 'airports' : field];
+    return (
+      <div>
+        <FieldLabel>{label}</FieldLabel>
+        <ChipInput
+          values={form[field]}
+          placeholder="Add…"
+          chipColor={styleFor.color}
+          chipBg={styleFor.bg}
+          onAdd={(v) =>
+            setForm((prev) => ({
+              ...prev,
+              [field]: [...new Set([...prev[field], field === 'airportIcaos' || field === 'registrations' ? v.toUpperCase() : v])],
+            }))
+          }
+          onRemove={(v) => setForm((prev) => ({ ...prev, [field]: prev[field].filter((x) => x !== v) }))}
+          suggest={suggest}
         />
-        <label style={{ fontSize: 11.5, color: '#8ea1cb', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={onlyUnreviewed}
-            onChange={(e) => setOnlyUnreviewed(e.target.checked)}
-          />
-          Needs review only
-        </label>
       </div>
+    );
+  }
 
-      {form && (
-        <form style={{ ...ui.card, marginBottom: 14 }} onSubmit={save}>
-          <div style={ui.cardTitle}>{form.id ? `Edit ${form.id}` : 'New Important entry'}</div>
-          <input
-            style={{ ...ui.input, width: '100%', boxSizing: 'border-box', marginBottom: 8 }}
-            placeholder="Title"
-            value={form.title}
-            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-            required
+  return (
+    <div>
+      <PageHeader
+        title="Important"
+        desc={
+          <>
+            Standing IMP limitations imported from the ops bulletin. A flight shows the “!” icon on the wall when it
+            matches an entry's criteria.
+            {unreviewedCount > 0 && ` ${unreviewedCount} auto-imported entr${unreviewedCount === 1 ? 'y' : 'ies'} awaiting review.`}
+          </>
+        }
+        descMax={600}
+        actions={
+          <Button variant="primary" icon="plus" onClick={() => setSelectedId('__new__')}>
+            New entry
+          </Button>
+        }
+      />
+
+      <InfoBanner>
+        An entry matches a flight when the flight fits its criteria — country, airport, operator or registration —
+        respecting the direction and date window. Auto-imported entries need a human review before they're trusted.
+      </InfoBanner>
+
+      <ErrorBanner>{error}</ErrorBanner>
+
+      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
+        {/* list */}
+        <div style={{ width: 360, flex: 'none' }}>
+          <SearchBox
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search important limitations…"
+            style={{ marginBottom: 10 }}
           />
-          <textarea
-            style={{ ...ui.input, width: '100%', boxSizing: 'border-box', minHeight: 110, marginBottom: 10, fontFamily: 'inherit', resize: 'vertical' }}
-            placeholder="Full text of the entry (kept verbatim — this is the operational/legal wording)"
-            value={form.body}
-            onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div>
-              <AirportChipEditor
-                values={form.match.airportIcaos}
-                onChange={(airportIcaos) => setForm((prev) => ({ ...prev, match: { ...prev.match, airportIcaos } }))}
-              />
-              <ChipEditor
-                label="Countries"
-                placeholder="Search / add country…"
-                values={form.match.countries}
-                suggestions={countries}
-                onChange={(list) => setForm((prev) => ({ ...prev, match: { ...prev.match, countries: list } }))}
-              />
-            </div>
-            <div>
-              <ChipEditor
-                label="Operators (name or Leon prefix)"
-                placeholder="e.g. Panaviatic — Enter to add"
-                values={form.match.operators}
-                suggestions={operatorSuggestions}
-                onChange={(list) => setForm((prev) => ({ ...prev, match: { ...prev.match, operators: list } }))}
-              />
-              <ChipEditor
-                label="Registrations"
-                placeholder="e.g. T7-LASER — Enter to add"
-                values={form.match.registrations}
-                onChange={(list) => setForm((prev) => ({ ...prev, match: { ...prev.match, registrations: list } }))}
-              />
-            </div>
+          <label style={{ fontSize: 12.5, color: t.muted, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', marginBottom: 12 }}>
+            <input type="checkbox" checked={onlyUnreviewed} onChange={(e) => setOnlyUnreviewed(e.target.checked)} />
+            Needs review only {unreviewedCount > 0 && `(${unreviewedCount})`}
+          </label>
+          {loading && <LoadingState>Loading entries…</LoadingState>}
+          {!loading && visible.length === 0 && (
+            <EmptyState icon="star" title="No entries match">
+              {entries.length === 0 ? 'Import the ops bulletin or add an entry manually.' : 'Adjust the search or filter.'}
+            </EmptyState>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {visible.map((entry) => {
+              const isSel = entry.id === selectedId;
+              const active = entry.isActive !== false;
+              const expired = isExpired(entry);
+              const criteria = [
+                ...(entry.match?.countries || []),
+                ...(entry.match?.airportIcaos || []),
+                ...(entry.match?.operators || []),
+                ...(entry.match?.registrations || []),
+              ];
+              return (
+                <div
+                  key={entry.id}
+                  onClick={() => setSelectedId(entry.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedId(entry.id)}
+                  role="button"
+                  tabIndex={0}
+                  className={isSel ? '' : 'cw-hover-row'}
+                  style={{
+                    background: isSel ? '#f6faff' : '#fff',
+                    border: `1px solid ${t.border}`,
+                    borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    boxShadow: t.shadow,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: entry.reviewed ? t.greenDeep : t.amber, background: entry.reviewed ? t.greenTint : t.amberTint, padding: '3px 9px', borderRadius: 6 }}>
+                      {entry.reviewed ? 'Reviewed' : 'Needs review'}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? '#f1f2f4' : active ? t.greenTint : '#eef1f5', padding: '3px 9px', borderRadius: 6 }}>
+                      {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, marginBottom: 9 }}>{entry.title}</div>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    {criteria.slice(0, 6).map((c) => (
+                      <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: 6 }}>
+                        {c}
+                      </span>
+                    ))}
+                    {criteria.length > 6 && <span style={{ fontSize: 11, color: t.faint }}>+{criteria.length - 6}</span>}
+                    {criteria.length === 0 && <span style={{ fontSize: 11.5, color: t.faint }}>no criteria — matches nothing</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-            <label style={cs.inline}>
-              Direction
-              <select
-                style={ui.select}
-                value={form.match.direction}
-                onChange={(e) => setForm((prev) => ({ ...prev, match: { ...prev.match, direction: e.target.value } }))}
-              >
-                <option value="any">Departure or arrival</option>
-                <option value="dep">Departure only</option>
-                <option value="arr">Arrival only</option>
-              </select>
-            </label>
-            <label style={cs.inline}>
-              Valid from
-              <input
-                type="date"
-                style={ui.input}
-                value={form.match.validFrom}
-                onChange={(e) => setForm((prev) => ({ ...prev, match: { ...prev.match, validFrom: e.target.value } }))}
-              />
-            </label>
-            <label style={cs.inline}>
-              Valid to
-              <input
-                type="date"
-                style={ui.input}
-                value={form.match.validTo}
-                onChange={(e) => setForm((prev) => ({ ...prev, match: { ...prev.match, validTo: e.target.value } }))}
-              />
-            </label>
-            <label style={{ ...cs.inline, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
-              />
-              Active
-            </label>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button style={ui.btnPrimary} type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save entry'}
-            </button>
-            <button style={ui.btn} type="button" onClick={() => setForm(null)}>Cancel</button>
-          </div>
-        </form>
-      )}
-
-      {!loading && visible.length === 0 && (
-        <div style={ui.empty}>
-          {entries.length === 0
-            ? 'No Important entries yet. Import IMPORTANT.docx with scripts/import-important-docx.mjs or add entries manually.'
-            : 'No entries match the current filter.'}
         </div>
-      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {visible.map((entry) => (
-          <div key={entry.id} style={{ ...ui.card, opacity: entry.isActive === false ? 0.55 : 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-              <div style={ui.cardTitle}>
-                <span style={{ ...ui.tag, color: '#ff8fc6', marginRight: 8 }}>IMP</span>
-                {entry.title}
-                {!entry.reviewed && (
-                  <span style={{ ...ui.tag, color: '#f0c060', marginLeft: 8 }}>needs review</span>
+        {/* editor */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {!form && (
+            <div style={{ border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '40px 24px', textAlign: 'center', color: t.faint }}>
+              <Icon name="mouse-pointer-click" size={26} color={t.ghost} />
+              <div style={{ fontSize: 15, fontWeight: 600, color: t.muted, marginTop: 12 }}>Select an entry</div>
+              <div style={{ fontSize: 13, marginTop: 5, lineHeight: 1.5 }}>The verbatim body and match criteria appear here.</div>
+            </div>
+          )}
+          {form && (
+            <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
+              <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {form.id ? (
+                    <h3 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px', lineHeight: 1.25 }}>{form.title}</h3>
+                  ) : (
+                    <TextInput
+                      placeholder="Entry title"
+                      value={form.title}
+                      onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                      style={{ marginBottom: 8, fontWeight: 700, fontSize: 16 }}
+                    />
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <StatusPill
+                      color={form.reviewed ? t.greenDeep : t.amber}
+                      bg={form.reviewed ? t.greenTint : t.amberTint}
+                    >
+                      <Icon name={form.reviewed ? 'user-check' : 'download-cloud'} size={14} />
+                      {form.reviewed ? 'Human-reviewed' : 'Auto-imported — needs review'}
+                    </StatusPill>
+                    {selected && typeof selected.matchedFlightCount === 'number' && (
+                      <span style={{ fontSize: 13, color: t.muted }}>
+                        Affects <strong style={{ color: t.blueDeep }}>{selected.matchedFlightCount}</strong> of the board's flights
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {form.id && selected && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <Toggle
+                      on={form.isActive}
+                      onToggle={() => {
+                        setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
+                        toggleActive(selected, !form.isActive);
+                      }}
+                    />
+                    <IconButton icon="trash-2" title="Delete entry" onClick={() => remove(selected)} />
+                  </div>
                 )}
               </div>
-              <span style={{ fontSize: 10.5, color: '#6f7fa8', flexShrink: 0 }}>
-                {typeof entry.matchedFlightCount === 'number' &&
-                  (entry.matchedFlightCount > 0
-                    ? `matches ${entry.matchedFlightCount} flight${entry.matchedFlightCount === 1 ? '' : 's'}`
-                    : 'matches no current flights')}
-              </span>
-            </div>
 
-            <div style={cs.body}>{entry.body || '—'}</div>
+              <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 8 }}>
+                  BODY TEXT (VERBATIM FROM BULLETIN)
+                </div>
+                {form.id ? (
+                  <div style={{ fontSize: 14.5, lineHeight: 1.6, color: '#2b2e34', background: t.subtle, border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '14px 16px', whiteSpace: 'pre-wrap', maxHeight: 260, overflowY: 'auto' }}>
+                    {form.body || '—'}
+                  </div>
+                ) : (
+                  <TextArea
+                    placeholder="Full text of the entry (kept verbatim — this is the operational wording)"
+                    value={form.body}
+                    onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+                    style={{ minHeight: 120 }}
+                  />
+                )}
+              </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-              {(entry.match?.airportIcaos || []).map((icao) => <span key={icao} style={ui.tag}>{icao}</span>)}
-              {(entry.match?.countries || []).map((c) => <span key={c} style={ui.tag}>{c}</span>)}
-              {(entry.match?.operators || []).map((o) => <span key={o} style={{ ...ui.tag, color: '#8ec4ff' }}>op: {o}</span>)}
-              {(entry.match?.registrations || []).map((r) => <span key={r} style={{ ...ui.tag, color: '#8fdcae' }}>reg: {r}</span>)}
-              {entry.match?.direction && entry.match.direction !== 'any' && (
-                <span style={ui.tag}>{entry.match.direction === 'dep' ? 'departures only' : 'arrivals only'}</span>
-              )}
-              {(entry.match?.validFrom || entry.match?.validTo) && (
-                <span style={ui.tag}>
-                  {toDateInput(entry.match.validFrom) || '…'} → {toDateInput(entry.match.validTo) || '…'}
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-              <Switch
-                on={entry.isActive !== false}
-                disabled={busyId === entry.id}
-                onToggle={() => toggleActive(entry, entry.isActive === false)}
-                labels={['Active', 'Inactive']}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button style={ui.softBtn} onClick={() => openEditor(entry)}>Edit</button>
-                <button style={ui.btnDanger} disabled={busyId === entry.id} onClick={() => remove(entry.id)}>
-                  Delete
-                </button>
+              <div style={{ padding: '18px 22px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 14 }}>
+                  MATCH CRITERIA
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  {chipEditor('countries', 'Countries', async (q) =>
+                    countries.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 10).map((c) => ({ value: c, label: c }))
+                  )}
+                  {chipEditor('airportIcaos', 'Airports (ICAO)', async (q) => {
+                    const payload = await searchAirports(q, 10);
+                    return (payload.airports || []).map((a) => ({ value: a.icao, label: `${a.icao}${a.name ? ` · ${a.name}` : ''}` }));
+                  })}
+                  {chipEditor('operators', 'Operators', async (q) =>
+                    operatorSuggestions.filter((o) => o.toLowerCase().includes(q.toLowerCase())).slice(0, 10).map((o) => ({ value: o, label: o }))
+                  )}
+                  {chipEditor('registrations', 'Registrations')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <FieldLabel>Direction</FieldLabel>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {DIRECTIONS.map((direction) => {
+                        const on = form.direction === direction.value;
+                        return (
+                          <button
+                            key={direction.value}
+                            type="button"
+                            onClick={() => setForm((prev) => ({ ...prev, direction: direction.value }))}
+                            style={{
+                              fontFamily: 'inherit',
+                              flex: 1,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              border: `1px solid ${on ? t.blue : t.borderInput}`,
+                              background: on ? t.blueTint : '#fff',
+                              color: on ? t.blueDeep : t.muted,
+                              padding: 9,
+                              borderRadius: 9,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {direction.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {form.direction === 'overfly' && (
+                      <div style={{ fontSize: 12, color: t.faint, marginTop: 7 }}>
+                        Overfly-scoped — matches no flights until route data exists.
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <FieldLabel>Valid window</FieldLabel>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        value={form.validFrom}
+                        onChange={(e) => setForm((prev) => ({ ...prev, validFrom: e.target.value }))}
+                        style={{ flex: 1, border: `1px solid ${t.borderInput}`, borderRadius: 9, padding: '9px 11px', fontFamily: 'inherit', fontSize: 13, outline: 'none', color: t.body }}
+                      />
+                      <span style={{ color: t.faint }}>→</span>
+                      <input
+                        type="date"
+                        value={form.validTo}
+                        onChange={(e) => setForm((prev) => ({ ...prev, validTo: e.target.value }))}
+                        style={{ flex: 1, border: `1px solid ${t.borderInput}`, borderRadius: 9, padding: '9px 11px', fontFamily: 'inherit', fontSize: 13, outline: 'none', color: t.body }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                  <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={() => save()}>
+                    Save changes
+                  </Button>
+                  {!form.reviewed && (
+                    <Button variant="successSoft" size="lg" icon="check" disabled={saving} onClick={() => save({ markReviewed: true })}>
+                      Mark reviewed
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-const cs = {
-  fieldLabel: { fontSize: 11, color: '#8ea1cb', marginBottom: 5 },
-  inline: { fontSize: 11.5, color: '#8ea1cb', display: 'flex', alignItems: 'center', gap: 7 },
-  body: {
-    color: '#95a6cc',
-    fontSize: 11.5,
-    lineHeight: 1.55,
-    marginTop: 6,
-    whiteSpace: 'pre-wrap',
-    maxHeight: 130,
-    overflowY: 'auto',
-  },
-};

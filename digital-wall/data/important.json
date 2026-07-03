@@ -1,0 +1,1498 @@
+{
+  "entries": [
+    {
+      "id": "IMP-001",
+      "title": "LFTZ — seasonal opening & non-Schengen customs",
+      "body": "LFTZ is only open 01 July – 15 October for flights from/to the UK and any country outside the Schengen area. Customs for flights from outside Schengen available 09:00–19:00 LT / 07:00–17:00 UTC with at least 24 hrs prior notice and full GENDEC mandatory.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "LFTZ"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": "2026-07-01T00:00:00.000Z",
+        "validTo": "2026-10-15T23:59:59.000Z"
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.886Z",
+      "updatedAt": "2026-07-03T00:32:45.886Z"
+    },
+    {
+      "id": "IMP-002",
+      "title": "OMDB — GA operations restricted",
+      "body": "Since 27 October 2024, General Aviation operations are restricted at OMDB. See OMDB GA Restriction 2024 file.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "OMDB"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-003",
+      "title": "LLBG — landing permit correction lead time",
+      "body": "Israel landing permit revision: for flights that already hold a landing permit, ASOC does not allow correction earlier than 12 hours prior to departure to LLBG.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "IL"
+        ],
+        "airportIcaos": [
+          "LLBG"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "arr",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-004",
+      "title": "EYVI — PPR on arrival only",
+      "body": "EYVI PPR required only for arrival. If departure is a parked aircraft, no PPR form needed for departure.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "EYVI"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "arr",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-005",
+      "title": "France — conflict-zone origin security notification",
+      "body": "Inform the security department (DGAC/DTA/SRD/PARAC) at least 2 working days before flights to France from a conflict zone listed by France (e.g. Libya, Afghanistan, Sudan, Iraq, Syria), by e-mail to dta-parac-bf@aviation-civile.gouv.fr. The conflict-zone list changes; check the DGAC restrictions page.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "arr",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-006",
+      "title": "France — customs still required even from BE/GR/ES/IT",
+      "body": "If a flight arrives in France from Belgium, Greece, Spain or Italy, customs/immigration control is still needed (local France regulation).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "arr",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-007",
+      "title": "France — SAGA permit rules (incl. LFPG/LFPO)",
+      "body": "EU-registered aircraft with fewer than 20 seats OR MTOW under 10 t no longer require a SAGA permit for intra/extra-European non-scheduled flights. SAGA permit/exemption still required for flights to/from LFPO/LFPG for aircraft under 25 seats, via https://saga.sigp.aviation-civile.gouv.fr. French CAA (SAGA) does not work weekends; emergencies to permanent.dgac@aviation-civile.gouv.fr.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FR"
+        ],
+        "airportIcaos": [
+          "LFPG",
+          "LFPO"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-008",
+      "title": "United Kingdom — foreign carrier permit (third-country/EU)",
+      "body": "For IN flights to/from third countries (and to/from EU for EU-registered operators) a UK permit application is required. Official lead time: two full working days before departure. Internal CWY procedure: submit three days before departure, always allowing two full working days for processing, not counting the day of flight. Max 9 flights per application; do not split same-passenger trips across applications; max 14 days in advance (exceptions via shift leader). Two-step process: online payment form (CPG3200 + card) then submit to foreigncarrierpermits@caa.co.uk with insurance, docs and payment receipt. Permit valid +48 h; ferry-leg correction not necessary; two free corrections then £80 per further amendment.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "GB"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-009",
+      "title": "Switzerland — flights to the UK under 1956 Multilateral Agreement",
+      "body": "Flights from/to the UK may be performed under the Paris 1956 Multilateral Agreement without Swiss CAA permission, when operated between signatory states (Switzerland–UK) by an operator of a signatory state (Estonia, Austria, etc.).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "CH"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-010",
+      "title": "Switzerland — landing permit for third-country IN flights",
+      "body": "For IN flights from third countries to/from Switzerland, apply for a landing permit via _BAZL-TrafficRights@bazl.admin.ch. For 5th–7th freedom charter flights between Switzerland and non-EEA states, Non-EU/EFTA carrier conditions apply and a separate application is always required (including EU operators performing flights from the UK).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "CH"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-011",
+      "title": "Spain — permit & slot coordination",
+      "body": "Permit required for commercial non-scheduled flights to/from third countries even by EU operators; ferry/tech-stops exempt; apply at least two working days before (permisos_comerciales@seguridadaerea.es). Update: since 01 June 2023, non-scheduled commercial ops with third countries by operators licensed under Reg (EC) 1008/2008 no longer need authorization. Slots: next-day and beyond coordinated by AECFA (slots@aecfa.es); current-day and weekends (incl. revisions) apply directly to the airport slot coordinator (addresses in AIP AD section).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "ES"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-012",
+      "title": "Portugal — permit via appointed agent",
+      "body": "Permit required for commercial non-scheduled flights to/from third countries even by EU operators, and also for ferry and tech-stop flights. Must be requested through an appointed agent in Portugal (e.g. OMNI) together with handling and slot. Portuguese CAA does not work weekends/holidays; request within 48 working hours, 0900–1700 LT only.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "PT"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-013",
+      "title": "Austria — landing permit for third countries",
+      "body": "Landing permit required for all flights to/from third countries. Not required if aircraft MTOW under 14,000 kg. Requests to flight_permission@austrocontrol.at / flightpermission@austrocontrol.at with the special form.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "AT"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-014",
+      "title": "Croatia — intra-community notification",
+      "body": "EU member-state operators may operate intra-community air services without authorization. Written notification of the intended flight must be submitted to the Croatian CAA (Flight-authorization@ccaa.hr) with subject 'Flight notification' — notification does not require CAA confirmation. Working hours Mon–Fri 0600–1400 UTC (summer) / 0700–1500 UTC (winter).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "HR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-015",
+      "title": "Montenegro — permit thresholds",
+      "body": "Permit not required for commercial flights of EU-registered operators if aircraft seat capacity is under 10, or for private flights (any country). Otherwise complete and send the CAA form (flightapproval@caa.me).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "ME"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-016",
+      "title": "Moldova — permit / notification rules",
+      "body": "Working hours Mon–Fri 07:30–16:30 LT. A written reply from the CAA is required even when only a notification is needed. For EU operators: PAX/ferry within EU = notification only; non-EU ferry = notification only; PAX outside EU = e-permit. E-permit: at least 2 working days before (actpermisiv.gov.md; alt dri@caa.gov.md), docs AOC+specs, REG, NOISE, RADIO, Airworthiness+REW, Insurance, validity +72 h. Notification: dri@caa.gov.md, no time limit, validity +72 h.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "MD"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-017",
+      "title": "Serbia — landing permit for commercial flights",
+      "body": "Landing permit required for all commercial flights (taxi, charter, ambulance, general cargo); not required for private flights; ferry flights need only a filed FPL. CAA Directorate hours Mon–Fri 0630–1430 (0530–1330 summer), holidays excluded; no approvals for international commercial services on public holidays. Urgent medical: +381 64 803 3579 / +381 64 803 3573.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "RS"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-018",
+      "title": "Latvia — landing permit for non-EU IN flights",
+      "body": "Landing permit/notification required for each IN flight with commercial load arriving/departing to/from non-EU countries (even EU-registered aircraft). Not required for aircraft not exceeding 10 passengers and 5700 kg. Send to aviacija@sam.gov.lv; fmfdu@lgs.lv.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "LV"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-019",
+      "title": "Lithuania — landing permit for non-EU IN flights",
+      "body": "Landing permit required for each IN flight with commercial load to/from non-EU countries (even EU-registered), except political stops with no disembarkation (use RMK/TECH STOP). Not required for EU carriers operating within EU/EEA/Switzerland. Ferry flights: indicate RMK/FERRY FLIGHT in FPL. Send to flightpermit@ltsa.lt; if not granted, inform OPR and propose operating as private (IG). Do not release aircraft without permit.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "LT"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-020",
+      "title": "Estonia — landing permit only for TCO",
+      "body": "Landing permit required only for Third Country Operators (TCO).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "EE"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-021",
+      "title": "Romania — landing permit (notification) + GenDec",
+      "body": "Landing permit in the form of a notification required for all commercial flights; not required for private flights; overflight by FPL. Apply to overflight@caa.ro and sris@caa.ro. Additionally, send GenDec to the handling agent for each flight to Romania before departure (local police requirement).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "RO"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-022",
+      "title": "Netherlands — permit thresholds",
+      "body": "Traffic Rights Coordinator hours 09:00–17:00 LT Mon–Fri. No permit for EU operators flying within EU; no permit for ferry flights; no permit for private flights with MTOW under 45 t and max 19 passengers. Permit required for EU operators flying to/from a third country commercially (consult a shift leader before requesting).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "NL"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-023",
+      "title": "Slovenia — API/PNR requirement",
+      "body": "API/PNR data transfer required for all flights arriving from third countries or from EU member states to Slovenia and vice versa, and for flights with a stopover in Slovenia. Both registration and API submission must be completed by the operator; failure leads to administrative sanctions.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "SI"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-024",
+      "title": "Albania — landing permission via webpage",
+      "body": "For all flights to/from Albania submit the landing permission request on the ACAA webpage (required for airport confirmation). Contacts: Support.TrafficRights@acaa.gov.al; Info-TrafficRights@acaa.gov.al; +355 42251220 Ext 135.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "AL"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-025",
+      "title": "Norway — EEA internal-market access",
+      "body": "Norway is not an EU member but mainland Norway is part of the EEA and the internal market for air services. Any airline licensed by an EU/EEA country may operate passenger/cargo routes within the EU/EEA without prior permission of CAA Norway (some public-service-obligation restrictions apply). Note the Multilateral Agreement on Commercial Rights of Non-Scheduled Air Services in Europe — recheck AIP.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "NO"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-026",
+      "title": "Finland — permit request & corrections",
+      "body": "Send permit requests to flightpermissions@traficom.fi. Office hours 08:00–16:15 LT Mon–Fri, national holidays excluded; not handled outside office hours; ordinary approval delivery 48 hours. Urgent (ambulance/humanitarian/disaster): ops-paivystys@traficom.fi. For corrections, no need to notify if only schedule/date changes; passenger/destination/tail changes must be notified.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FI"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-027",
+      "title": "Finland — API + Russian-citizen documentation",
+      "body": "API required for flights between non-Schengen and Schengen; send straight to pre@raja.fi. For flights with Russian citizens (even dual citizenship or EU residence) to Finland, always send the CAA (Traficom) a copy of the charter agreement, invoice/payment slip and passport copies.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FI"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-028",
+      "title": "Armenia — landing permission portal",
+      "body": "Apply for Armenian landing permission at aviation.e-gov.am (working hours Mon–Fri 09:00–18:00 LT, excluding holidays). After adding the schedule, save a screenshot to the flight folder. For updates with a permit number, email armairtransport@gmail.com; without a number, call +374 10-51-51-67. UPD 04 Dec 2025: no restrictions from the Armenian side for direct flights to/from Turkey.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "AM"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-029",
+      "title": "Morocco — landing permission for private flights (certain airports)",
+      "body": "Landing permission not required for private/non-commercial flights, unless operating to/from GMMH, GMML, GMAG, GMAT, GMMA or GMFB — even private flights to/from those airports require landing permission.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "MA"
+        ],
+        "airportIcaos": [
+          "GMMH",
+          "GMML",
+          "GMAG",
+          "GMAT",
+          "GMMA",
+          "GMFB"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-030",
+      "title": "Canada — private vs commercial permit",
+      "body": "For private (GA) flights no permit is required — only a Canpass notification to customs plus reporting to CBSA by telephone (advise captain to do the same). Commercial IN operations require a special permit.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "CA"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-031",
+      "title": "Bulgaria — overflight permit cases",
+      "body": "Overflight permits required for: all scheduled overfly of non-EU operators; all scheduled extra-Community overfly of EU operators; all cargo overfly of non-EU registered aircraft/operators; all air-taxi/business overfly of non-EU registered aircraft; all extra-Community air-taxi/business overfly of EU-registered aircraft. CAA hours 09:00–17:30 LT Mon–Fri.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "BG"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "overfly",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-032",
+      "title": "Bulgaria — landing permit matrix",
+      "body": "Landing permit or CAA response required (without it FPL may be rejected). EU operator PAX to/from outside EU: YES. EU operator PAX within EU: NOTIFICATION/PAX CHECK. Non-EU operator PAX (either direction): YES. EU or non-EU ferry from/to outside EU: NO. Private/non-commercial (EU or non-EU, within or outside EU): NOTIFICATION/PAX CHECK.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "BG"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-033",
+      "title": "Bulgaria — Slavic-name PAX overfly caution",
+      "body": "For Bulgaria CAA: if passengers with Slavic names are onboard, always double-check with the senior on shift whether to avoid Bulgaria overfly — usually avoid unless the operator directly specifies otherwise or complications are present.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "BG"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "overfly",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-034",
+      "title": "Turkey — overflight/landing default permit providers",
+      "body": "Default Turkey overfly/landing permit providers: Klasjet → Adriyatik; Clearway → Adriyatik; Panaviatic → Fly Service; Jetology → Gozen; 2-CHAL → Gozen.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "TR"
+        ],
+        "airportIcaos": [],
+        "operators": [
+          "Klasjet",
+          "Clearway",
+          "Panaviatic",
+          "Jetology"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-035",
+      "title": "Turkey — overfly permit conditions",
+      "body": "Turkey overfly permission is usually confirmed on the basis of the filed FPL and RMK. It may be required depending on destination (e.g. Syria requires a permit regardless of registration) and on aircraft registration — usually non-ECAC states and/or countries without a bilateral agreement with Türkiye. Common registrations requiring a permit: VP & VQ (Bermuda, Cayman), M (Isle of Man), P4 (Aruba).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "TR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "overfly",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-036",
+      "title": "Turkey — Armenia flight handling (UPD 04 Dec 2025)",
+      "body": "Private flights to/from Armenia (from/to Turkey or other countries) may operate with remark 'PRIVATE FLIGHT' or 'FERRY FLIGHT' as long as the aircraft is registered in the DGCA system. Commercial flights to/from Armenia CAN use Turkish airspace. Commercial flights to/from Armenia from/to Turkey can operate as long as the airline/fleet are registered in DGCA and a permit is obtained.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "TR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-037",
+      "title": "Turkey — GA local slot procedure (8 stations)",
+      "body": "Local slot procedure changed for General Aviation flights at Turkish airports; Slot ID is shared by local handlers. Stations: LTAI (AYT), LTBS (DLM), LTFE (BJV), LTAC (ESB), LTBJ (ADB), LTFM (IST), LTBA (ISL), LTFJ (SAW).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "TR"
+        ],
+        "airportIcaos": [
+          "LTAI",
+          "LTBS",
+          "LTFE",
+          "LTAC",
+          "LTBJ",
+          "LTFM",
+          "LTBA",
+          "LTFJ"
+        ],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-038",
+      "title": "Kazakhstan — permits not issued on weekends (Sep 2022)",
+      "body": "Since September 2022 Kazakhstan will not issue permits on weekends. If a request is received outside Kazakhstan CAA working hours, advise the client that a permit cannot be granted during the weekend. NOTE: a separate later note states that since January 2025 Kazakhstan can confirm new permissions and updates on weekends — verify current status.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-039",
+      "title": "Kazakhstan — API/PNR via IS APCAS portal",
+      "body": "Effective 01 March 2024, all air carriers operating non-scheduled charters must submit API/PNR data for all arriving and departing passengers and crew through the IS APCAS web portal (https://dpprod.apipnr.kz). See the Kazakhstan uploading guideline.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-040",
+      "title": "Kazakhstan — overfly/landing permit timing & POA",
+      "body": "Request Kazakhstan overflight permit on the day of flight; call KAZ CAA to check the request one day before. Landing should be requested -24 hours from the original schedule (if possible). A valid POA from the operator is required to apply for a landing permit. No PAX details are required for the Kazakhstani permission arrangement.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-041",
+      "title": "Kazakhstan — sport-team documentation",
+      "body": "When sport teams fly to Kazakhstan, provide the CAA a copy of the charter agreement plus the agreement between the sport team and the broker (if not a direct agreement with the operator). Request these along with other documents.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-042",
+      "title": "Overflight permit request lead times (BY/RU/KZ/TM)",
+      "body": "Request all overflight permits at -6 hrs from the original schedule where possible, except: Belarus -3 hr plus check urgency; before requesting Belarus, search Leon for previous permits (last 2 weeks) and correct a still-valid one; always add a fake leg +1 week. Russia -24 hr. Kazakhstan according to schedule (if departure moves earlier same day, re-file FPL and call CAA to confirm acceptance). Turkmenistan -24 hr (check urgency).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "BY",
+          "RU",
+          "KZ",
+          "TM"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "overfly",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-043",
+      "title": "Belarus — permit fake leg",
+      "body": "Do not forget to add a fake leg (+1 week) to the Belarus permit.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "BY"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-044",
+      "title": "Russia — landing permit revision on country change",
+      "body": "If the departure or destination country changes for flights to/from Russia, the landing permit must be revised. An airport change within the same departure/destination country is possible without permit revision.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "RU"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-045",
+      "title": "Uzbekistan — initial permit via webpage",
+      "body": "Initial Uzbekistan landing permit should be requested via the web page http://www.uzcaa.uz/ru/permission. Permit revisions should be sent by e-mail as usual.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "UZ"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-046",
+      "title": "Qatar — overfly request",
+      "body": "Qatar overfly request form added. Ensure the full route and flight levels over the Qatar FIR are provided.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "QA"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "overfly",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-047",
+      "title": "Jordan — permit via supervision agent",
+      "body": "Jordan permit must be requested via an agent — see the Jordan supervision agents list in files.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "JO"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-048",
+      "title": "Mongolia — permit Form 'B'",
+      "body": "Mongolian permit requests require Form 'B' (added to files).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "MN"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-049",
+      "title": "T7-LASER — refuelling & ground time",
+      "body": "T7-LASER always requests refuelling on arrival (per Marcuz). Always plan 15 min on ground without refuelling and 30 min with refuelling; check fuel prices and advise the operator where it is cheaper to refuel.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [
+          "T7-LASER"
+        ],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-050",
+      "title": "ES-KAG — hangarage on arrival at LBSF (homebase)",
+      "body": "ES-KAG always has hangarage arranged upon arrival to LBSF (homebase). When sending the request, always mention to the handler: AIRCRAFT OPERATING TO HOMEBASE AND WILL BE TOWED TO HANGAR ON THE DAY OF ARRIVAL.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "LBSF"
+        ],
+        "operators": [],
+        "registrations": [
+          "ES-KAG"
+        ],
+        "direction": "arr",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-051",
+      "title": "OK-OZZ — payer at LFTZ",
+      "body": "For OK-OZZ flights to LFTZ always use Alpha Aviation as payer.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "LFTZ"
+        ],
+        "operators": [],
+        "registrations": [
+          "OK-OZZ"
+        ],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-052",
+      "title": "OK-OZZ — fuel tender (WFS / EuroJet only)",
+      "body": "For OK-OZZ use fuel tender only from WFS and EuroJet (the only providers able to waive VAT). Insert fuel price into the Leon fuel section for accounting visibility. See Alpha Aviation procedures.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [
+          "OK-OZZ"
+        ],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-053",
+      "title": "Panaviatic — fuel routing (Italy / Switzerland / EGLF)",
+      "body": "Panaviatic AS fuel routing: Italy airports via AEG and Jetex (on credit to Panaviatic). Switzerland airports must NOT be requested from Britannium (on credit to Panaviatic) — UFN. EGLF must be requested from Farnborough Airport on credit to Panaviatic. Do not use Britannium for refuelling in Switzerland for Panaviatic.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "IT",
+          "CH"
+        ],
+        "airportIcaos": [
+          "EGLF"
+        ],
+        "operators": [
+          "Panaviatic"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-054",
+      "title": "Panaviatic — LJ60 substitute aircraft on permits",
+      "body": "For all Panaviatic LJ60 aircraft, request permits with substitute aircraft mentioned (ES-PVP / ES-PVN).",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [
+          "Panaviatic"
+        ],
+        "registrations": [
+          "ES-PVP",
+          "ES-PVN"
+        ],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-055",
+      "title": "Panaviatic ES-PVN — fuel via ICS (except EETN/EVRA)",
+      "body": "For ES-PVN flights all fuel requests go to partners ops@ics-handling.com / mikhail.ivankevich@ics-handling.com, and the fuel release is brought to us — except at EETN and EVRA where we have special conditions.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [
+          "Panaviatic"
+        ],
+        "registrations": [
+          "ES-PVN"
+        ],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-056",
+      "title": "Panaviatic — crew training flights filing",
+      "body": "Panaviatic crew training flights should be filed under the aircraft registration (not the VPC callsign) and as IG.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [
+          "Panaviatic"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-057",
+      "title": "BySky — peripheral Russian airports via RusAero",
+      "body": "Since 10 Sep 2022, all peripheral-airport requests for BySky in Russia must go through RusAero, on credit to the operator (Vnukovo — Vipport; SVO — Skyatlas; DME — UTG private aviation). For BySky flights outside Russia, providing services on credit to CWY needs MC approval. BySky will advise when fuel is required (on arrival or before departure by default; if on arrival, they inform 1 hr in advance).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "RU"
+        ],
+        "airportIcaos": [],
+        "operators": [
+          "BySky"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-058",
+      "title": "NV Jets — Kazakhstan handling & fuel",
+      "body": "For NV Jets, all passenger handling in Kazakhstan is via VIP terminals; all fuel in Kazakhstan is via Tengri Handling (UFN).",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [],
+        "operators": [
+          "NV Jets"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-059",
+      "title": "Sunway — VIP/CIP handling at UAKK & UGTB",
+      "body": "For Sunway, default PAX handling at UAKK and UGTB is via VIP/CIP terminals, arranged directly by the passenger (Ivan will advise on changes).",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "UAKK",
+          "UGTB"
+        ],
+        "operators": [
+          "Sunway"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-060",
+      "title": "ART Line Wings — CIP at UATG",
+      "body": "Always arrange CIP for PAX at UATG for ART Line Wings (UPAV001).",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [
+          "UATG"
+        ],
+        "operators": [
+          "ART Line Wings"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-061",
+      "title": "ART Line Wings & Sunway — fixed fuel in Kazakhstan",
+      "body": "Fuel supplier is fixed for ART Line Wings and Sunway at Kazakhstan locations UATG, UATT, UAUU, UAKK, UASK, UAOO, UACC — United Aviation Services, payment on credit to the operator, no tender required.",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "KZ"
+        ],
+        "airportIcaos": [
+          "UATG",
+          "UATT",
+          "UAUU",
+          "UAKK",
+          "UASK",
+          "UAOO",
+          "UACC"
+        ],
+        "operators": [
+          "ART Line Wings",
+          "Sunway"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-062",
+      "title": "Skybridge — fuel via Zodiac",
+      "body": "For Skybridge, use Zodiac (ISO Euro Jet): ops@zodiaclimited.net.",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [
+          "Skybridge"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": true,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-063",
+      "title": "Clearway (CWY) — commercial fuel tender VAT rule",
+      "body": "For CWY customers' commercial flights do not use Jetex, AEG, Evo or Universal for fuel tender (they cannot waive VAT). Use only Euro Jet or WFS (for new clients, coordinate for CAT).",
+      "class": "IMP",
+      "match": {
+        "countries": [],
+        "airportIcaos": [],
+        "operators": [
+          "Clearway"
+        ],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": null,
+        "validTo": null
+      },
+      "isActive": true,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-064",
+      "title": "[DATED 2026] UK — Spring Bank Holiday permit cutoffs",
+      "body": "UK Airline Licensing & Foreign Registered Aircraft Permit Dept hours over the Early May Bank Holiday: Fri 22 May 2026 early close 09:00–15:00; Mon 25 May 2026 closed (public holiday); Tue 26 May 2026 normal 09:00–17:00. A new Foreign Carrier Permit application for flights before 17:00 BST Tue 26 May 2026 will not be considered if submitted after 13:00 BST Thu 21 May 2026 until offices reopen. [Imported inactive — dated window has passed.]",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "GB"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": "2026-05-21T00:00:00.000Z",
+        "validTo": "2026-05-26T23:59:59.000Z"
+      },
+      "isActive": false,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    },
+    {
+      "id": "IMP-065",
+      "title": "[DATED 2026] France — SAGA May closure dates",
+      "body": "French CAA/SAGA service closed on 1, 8, 14 and 25 May 2026 (public holidays). [Imported inactive — dated window has passed.]",
+      "class": "IMP",
+      "match": {
+        "countries": [
+          "FR"
+        ],
+        "airportIcaos": [],
+        "operators": [],
+        "registrations": [],
+        "direction": "any",
+        "validFrom": "2026-05-01T00:00:00.000Z",
+        "validTo": "2026-05-25T23:59:59.000Z"
+      },
+      "isActive": false,
+      "reviewed": false,
+      "source": "important.docx",
+      "createdAt": "2026-07-03T00:32:45.893Z",
+      "updatedAt": "2026-07-03T00:32:45.893Z"
+    }
+  ],
+  "updatedAt": "2026-07-03T00:32:45.893Z"
+}

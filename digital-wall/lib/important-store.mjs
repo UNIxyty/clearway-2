@@ -10,8 +10,32 @@
 // page (flagged for review) without flagging every flight.
 
 import { JsonFileStore } from "./json-store.mjs";
+import { icaoToIso2 } from "./icao-country.mjs";
 
-const DIRECTIONS = new Set(["any", "dep", "arr"]);
+// "overfly" is accepted for entries that concern overflight permits
+// (imported from IMPORTANT.docx). The wall only knows departure/arrival
+// airports — not the filed route — so overfly-scoped entries are kept
+// visible on the Important page but deliberately match no flights until
+// route data exists to match against.
+const DIRECTIONS = new Set(["any", "dep", "arr", "overfly"]);
+
+/**
+ * Entry countries may be ISO 3166-1 alpha-2 codes ("FR", "GB" — the
+ * important-seed.json convention) or display names ("France"). ISO codes are
+ * matched against the country derived from the flight's ICAO prefix (works
+ * for every airport); names are matched against the airport-directory
+ * country string, which looks like "France (LF)" — hence the suffix strip.
+ */
+function normalizeCountryName(value) {
+  return String(value || "")
+    .replace(/\s*\([A-Z0-9]{1,2}\)\s*$/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isIsoCode(value) {
+  return /^[A-Z]{2}$/.test(String(value || "").trim());
+}
 
 function normalizeList(values, { upper = false } = {}) {
   const list = (Array.isArray(values) ? values : [])
@@ -119,10 +143,12 @@ export class ImportantStore {
   matchFlight(ctx) {
     const depIcao = String(ctx.depIcao || "").toUpperCase();
     const arrIcao = String(ctx.arrIcao || "").toUpperCase();
-    const depCountry = String(ctx.depCountry || "").toLowerCase();
-    const arrCountry = String(ctx.arrCountry || "").toLowerCase();
+    const depIso = icaoToIso2(depIcao);
+    const arrIso = icaoToIso2(arrIcao);
+    const depCountryName = normalizeCountryName(ctx.depCountry);
+    const arrCountryName = normalizeCountryName(ctx.arrCountry);
     const operatorNames = [ctx.oprId, ctx.operatorName]
-      .map((v) => String(v || "").toLowerCase())
+      .map((v) => String(v || "").trim().toLowerCase())
       .filter(Boolean);
     const registration = String(ctx.registration || "").toUpperCase();
     const flightMs = ctx.startTimeUTC ? new Date(ctx.startTimeUTC).getTime() : NaN;
@@ -131,6 +157,8 @@ export class ImportantStore {
     for (const entry of this.activeEntries()) {
       const m = entry.match || {};
       const direction = m.direction || "any";
+      // Overfly-scoped entries need route data the wall doesn't have.
+      if (direction === "overfly") continue;
       const groups = [];
 
       if ((m.airportIcaos || []).length > 0) {
@@ -140,14 +168,32 @@ export class ImportantStore {
         groups.push(depHit || arrHit);
       }
       if ((m.countries || []).length > 0) {
-        const set = new Set(m.countries.map((v) => v.toLowerCase()));
-        const depHit = direction !== "arr" && depCountry && set.has(depCountry);
-        const arrHit = direction !== "dep" && arrCountry && set.has(arrCountry);
+        const isoSet = new Set(m.countries.filter(isIsoCode).map((v) => v.trim().toUpperCase()));
+        const nameSet = new Set(
+          m.countries.filter((v) => !isIsoCode(v)).map(normalizeCountryName).filter(Boolean)
+        );
+        const depHit =
+          direction !== "arr" &&
+          ((depIso && isoSet.has(depIso)) || (depCountryName && nameSet.has(depCountryName)));
+        const arrHit =
+          direction !== "dep" &&
+          ((arrIso && isoSet.has(arrIso)) || (arrCountryName && nameSet.has(arrCountryName)));
         groups.push(depHit || arrHit);
       }
       if ((m.operators || []).length > 0) {
-        const set = new Set(m.operators.map((v) => v.toLowerCase()));
-        groups.push(operatorNames.some((name) => set.has(name)));
+        // Equality or containment either way, so the seed's display names
+        // ("Panaviatic") match Leon operator names like "Panaviatic AS".
+        const entryNames = m.operators.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
+        groups.push(
+          operatorNames.some((flightName) =>
+            entryNames.some(
+              (entryName) =>
+                flightName === entryName ||
+                (entryName.length >= 3 && flightName.includes(entryName)) ||
+                (flightName.length >= 3 && entryName.includes(flightName))
+            )
+          )
+        );
       }
       if ((m.registrations || []).length > 0) {
         const set = new Set(m.registrations.map((v) => v.toUpperCase()));

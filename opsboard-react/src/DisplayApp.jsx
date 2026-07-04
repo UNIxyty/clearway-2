@@ -124,6 +124,10 @@ export default function DisplayApp() {
       // decorated flights is all these events need.
       subscribeWallStream('important.changed', () => loadTimeline({ refresh: false })),
       subscribeWallStream('alerts.changed', () => loadTimeline({ refresh: false })),
+      // Operator activated/deactivated or aircraft shown/hidden: lanes
+      // appear/disappear within ~1-2s (cache read; whole-slice replace keeps
+      // it idempotent with the 60s poll).
+      subscribeWallStream('roster.changed', () => loadTimeline({ refresh: false })),
       subscribeWallStream('notam-check.changed', (event) => setNotamSign(event.sign || 'NONE')),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();

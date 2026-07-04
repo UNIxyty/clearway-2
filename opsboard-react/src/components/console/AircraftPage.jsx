@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAircraftSchedule, setAircraftVisibility } from '../../services/timelineApi';
+import { subscribeWallStream } from '../../services/wallStream';
 import {
   Button,
   Dropdown,
@@ -29,6 +30,10 @@ export default function AircraftPage() {
   const [error, setError] = useState('');
   const [savingKey, setSavingKey] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
+  const savingKeyRef = useRef('');
+  const bulkBusyRef = useRef(false);
+  savingKeyRef.current = savingKey;
+  bulkBusyRef.current = bulkBusy;
   const [search, setSearch] = useState('');
   const [operatorFilter, setOperatorFilter] = useState('');
   const flash = useToast();
@@ -48,6 +53,15 @@ export default function AircraftPage() {
 
   useEffect(() => {
     load();
+    // Live-reconcile with toggles made by other console users; skip while a
+    // local optimistic update is in flight (our own broadcast echoes back).
+    return subscribeWallStream(
+      'roster.changed',
+      () => {
+        if (!savingKeyRef.current && !bulkBusyRef.current) load();
+      },
+      { surface: 'console' }
+    );
   }, []);
 
   const operatorOptions = useMemo(

@@ -488,6 +488,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const operator = await operatorsStore.upsertOperator(body);
       await timelineService.refreshNow().catch(() => {});
+      sseHub.broadcast({ type: "roster.changed", action: "operator-upsert", oprId: operator.oprId });
       sendJson(res, { ok: true, operator });
       return;
     }
@@ -497,6 +498,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const operator = await operatorsStore.setOperatorActive(id, Boolean(body.isActive));
       await timelineService.refreshNow().catch(() => {});
+      sseHub.broadcast({ type: "roster.changed", action: "operator-toggle", oprId: operator.oprId });
       sendJson(res, { ok: true, operator });
       return;
     }
@@ -520,6 +522,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/aircraft/visibility" && req.method === "PUT") {
       const body = await readJsonBody(req);
       const result = await operatorsStore.setAircraftHidden(body);
+      sseHub.broadcast({ type: "roster.changed", action: "aircraft-visibility", key: result.key, isHidden: result.isHidden });
       sendJson(res, { ok: true, ...result });
       return;
     }

@@ -6,6 +6,7 @@ import {
   setOperatorActive,
   upsertOperator,
 } from '../../services/timelineApi';
+import { subscribeWallStream } from '../../services/wallStream';
 import Icon from './icons';
 import {
   Button,
@@ -158,6 +159,8 @@ export default function OperatorsPage() {
 
   useEffect(() => {
     load();
+    // Reconcile with operator changes made by other console users.
+    return subscribeWallStream('roster.changed', load, { surface: 'console' });
   }, []);
 
   async function toggleOperator(operator, isActive) {

@@ -106,18 +106,24 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
   const headerScrollRef = useRef(null);
   const bodyScrollRef = useRef(null);
   const hasCenteredInitiallyRef = useRef(false);
-  const END_PAD_PX = 260;
-  const VIEWPORT_HOURS = 10;
-  const BEFORE_NOW_HOURS = 3;
-  const FLIGHT_PILL_HEIGHT = 52;
-  const FLIGHT_LANE_GAP = 10;
+  // Ops-room legibility: all metrics scale with the display scale setting;
+  // a larger scale also shows fewer hours per viewport, so pills get wider
+  // and their bigger labels still fit.
+  const sz = (v) => Math.round(v * scale);
+  const s = makeStyles(sz);
+  const AC_LABEL_W = sz(150);
+  const END_PAD_PX = sz(260);
+  const VIEWPORT_HOURS = 10 / scale;
+  const BEFORE_NOW_HOURS = 3 / scale;
+  const FLIGHT_PILL_HEIGHT = sz(70);
+  const FLIGHT_LANE_GAP = sz(12);
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -132,7 +138,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const timelinePx = timelineHours * pxPerHour;
   const nowStr = nowTimeStr(nowMs);
   const nowX = nowFracUtc(nowMs, windowStartMs, windowDurationMs) * timelinePx;
-  const nowMarkerLeft = 130 + BEFORE_NOW_HOURS * pxPerHour;
+  const nowMarkerLeft = AC_LABEL_W + BEFORE_NOW_HOURS * pxPerHour;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -146,7 +152,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     if (!body) return;
 
     const updateSize = () => {
-      const next = Math.max(200, body.clientWidth - 130);
+      const next = Math.max(200, body.clientWidth - AC_LABEL_W);
       setVisibleTimelineWidth(next);
     };
     updateSize();
@@ -159,7 +165,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale]);
 
   useEffect(() => {
     hasCenteredInitiallyRef.current = false;
@@ -196,7 +203,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const header = headerScrollRef.current;
     const body = bodyScrollRef.current;
     if (!header || !body) return;
-    const width = Math.max(0, body.clientWidth - 130);
+    const width = Math.max(0, body.clientWidth - AC_LABEL_W);
     const maxScroll = Math.max(0, (timelinePx + END_PAD_PX) - width);
     const nextScroll = Math.max(0, Math.min(maxScroll, nowX - BEFORE_NOW_HOURS * pxPerHour));
     body.scrollLeft = nextScroll;
@@ -291,7 +298,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         </div>
 
         <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
-          <div style={{ width: 130 + timelinePx + END_PAD_PX, position: 'relative' }}>
+          <div style={{ width: AC_LABEL_W + timelinePx + END_PAD_PX, position: 'relative' }}>
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
                 const laneData = assignFlightLanes(ac.flights || [], {
@@ -299,7 +306,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                   windowDurationMs,
                   timelinePx,
                 });
-                const rowHeight = Math.max(80, 18 + laneData.lanes * FLIGHT_LANE_STEP);
+                const rowHeight = Math.max(sz(96), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
                 <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
 
@@ -357,6 +364,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}
                         timelinePx={timelinePx}
+                        scale={scale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                       />
                     ))}
@@ -377,72 +385,72 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   );
 }
 
-const s = {
+function makeStyles(sz) {
+  return {
   outer: {
-    display: 'flex', flex: 1, overflow: 'hidden',
-    height: 'calc(100vh - 76px)',
+    display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0,
   },
 
   // Left panel — sized for reading the full limitation text from across the
   // ops room; the panel scrolls when entries exceed the height.
   leftPanel: {
-    width: 300, flexShrink: 0, background: '#141926',
+    width: sz(330), flexShrink: 0, background: '#141926',
     borderRight: '1px solid #222840',
     display: 'flex', flexDirection: 'column',
     padding: '14px 0', overflowY: 'auto',
   },
   panelTitle: {
-    fontSize: 10, fontWeight: 700, letterSpacing: '2.5px',
-    color: '#404d6e', padding: '0 16px', marginBottom: 10,
+    fontSize: sz(11), fontWeight: 700, letterSpacing: '2.5px',
+    color: '#5a6a94', padding: '0 16px', marginBottom: 10,
   },
   legendGrid: {
     display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 8px',
     padding: '0 12px', marginBottom: 4,
   },
   legendItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px' },
-  legendSwatch: { width: 22, height: 10, borderRadius: 3, flexShrink: 0 },
-  legendLabel: { fontSize: 11, color: '#8090b8', whiteSpace: 'nowrap' },
+  legendSwatch: { width: sz(24), height: sz(11), borderRadius: 3, flexShrink: 0 },
+  legendLabel: { fontSize: sz(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
   limList: { display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px 14px' },
-  limEmpty: { fontSize: 13, color: '#404d6e', padding: '6px 4px' },
+  limEmpty: { fontSize: sz(14), color: '#5a6a94', padding: '6px 4px' },
   limCard: {
     background: '#1a2130',
     borderRadius: 12,
     padding: '14px 16px',
   },
   limBadgeNum: {
-    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+    width: sz(24), height: sz(24), borderRadius: '50%', flexShrink: 0,
     border: '1px solid',
     background: 'rgba(255,255,255,.06)',
-    fontSize: 12, fontWeight: 700,
+    fontSize: sz(13), fontWeight: 700,
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  limType: { fontSize: 13, fontWeight: 800, letterSpacing: '1.5px' },
+  limType: { fontSize: sz(14), fontWeight: 800, letterSpacing: '1.5px' },
   limTitle: {
-    fontSize: 19, fontWeight: 800, color: '#f2f5fb',
+    fontSize: sz(21), fontWeight: 800, color: '#f6f8fd',
     lineHeight: 1.2, marginBottom: 7,
   },
-  limDesc: { fontSize: 15, lineHeight: 1.45, color: '#c9ced6', whiteSpace: 'pre-wrap' },
+  limDesc: { fontSize: sz(17), lineHeight: 1.45, color: '#d7dce6', whiteSpace: 'pre-wrap' },
   limScope: {
-    fontSize: 12, fontFamily: "'IBM Plex Mono',monospace",
-    color: '#7a828d', marginTop: 9,
+    fontSize: sz(13), fontFamily: "'IBM Plex Mono',monospace",
+    color: '#8f99ab', marginTop: 9,
   },
 
   // Main
   main: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative' },
 
   timeHeader: {
-    display: 'flex', height: 34, flexShrink: 0,
+    display: 'flex', height: sz(42), flexShrink: 0,
     borderBottom: '1px solid #222840', background: '#161b26',
     position: 'relative',
   },
-  acSpacer: { width: 130, flexShrink: 0, borderRight: '1px solid #222840' },
+  acSpacer: { width: sz(150), flexShrink: 0, borderRight: '1px solid #222840' },
   timeScroll: { flex: 1, overflowX: 'auto', overflowY: 'hidden' },
   timeInner: { position: 'relative', display: 'flex', minWidth: '100%' },
   tick: {
     width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
     borderRight: '1px solid #222840',
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#404d6e',
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 600, color: '#8794b8',
   },
 
   // NOW header marker
@@ -454,7 +462,7 @@ const s = {
     zIndex: 40, pointerEvents: 'none',
   },
   nowTimeLabel: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, fontWeight: 500,
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11.5), fontWeight: 600,
     color: '#6dc4ff', letterSpacing: '.5px',
     background: '#161b26', padding: '1px 5px', borderRadius: 3,
     border: '1px solid rgba(95,181,255,.3)',
@@ -467,7 +475,7 @@ const s = {
   },
   nowFixedLine: {
     position: 'absolute',
-    top: 34,
+    top: sz(42),
     bottom: 0,
     width: 2,
     background: 'linear-gradient(to bottom, rgba(95,181,255,.98) 0%, rgba(95,181,255,.55) 100%)',
@@ -481,7 +489,7 @@ const s = {
   board: { minHeight: '100%' },
   row: { display: 'flex', height: 64, borderBottom: '1px solid #1e243580' },
   acLabel: {
-    width: 130, flexShrink: 0,
+    width: sz(150), flexShrink: 0,
     position: 'sticky',
     left: 0,
     zIndex: 35,
@@ -489,13 +497,13 @@ const s = {
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
     padding: '0 12px', borderRight: '1px solid #222840',
   },
-  reg:    { fontSize: 12.5, fontWeight: 600, letterSpacing: '.3px', color: '#e8ebf5' },
-  acType: { fontSize: 9.5, color: '#404d6e', marginTop: 2 },
+  reg:    { fontSize: sz(15), fontWeight: 700, letterSpacing: '.3px', color: '#f2f5fb' },
+  acType: { fontSize: sz(11.5), color: '#8090b8', marginTop: 2 },
   timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
-  timelineEndPad: { width: 260, flexShrink: 0 },
+  timelineEndPad: { width: sz(260), flexShrink: 0 },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-    left: 10, fontSize: 9, color: 'rgba(210,100,100,.65)',
+    left: 10, fontSize: sz(12), color: 'rgba(220,120,120,.8)',
     whiteSpace: 'nowrap', pointerEvents: 'none',
   },
   limBadgeInline: {
@@ -512,10 +520,11 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#647196',
-    fontSize: 13,
+    color: '#8b98bb',
+    fontSize: sz(15),
     background: 'rgba(16,20,30,.35)',
     zIndex: 5,
     pointerEvents: 'none',
   },
 };
+}

@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchAlertRules,
   fetchDisplayClocks,
+  fetchDisplaySettings,
   saveAlertRules,
   saveDisplayClocks,
+  saveDisplaySettings,
   triggerAlertScan,
 } from '../../services/timelineApi';
 import Icon from './icons';
@@ -209,6 +211,68 @@ function ClocksCard() {
             <div style={{ fontFamily: t.mono, fontSize: 26, fontWeight: 600, color: '#fff' }}>{zoneTime(clock.timeZone)}</div>
           </div>
         ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── Display scale card (ops-room legibility) ─────────────────────────────────
+function DisplayScaleCard() {
+  const [scale, setScale] = useState(1.3);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings()
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function onChange(value) {
+    const next = Number(value);
+    setScale(next);
+    // Debounced persist — the wall re-renders live via config.changed.
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings({ scale: next });
+        flash(`Display scale ${next.toFixed(2)}× — wall updates in seconds`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Display scale</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Global text/density scale for the wall — dial it up until timings are readable from across the ops room.
+        Larger scale also shows fewer hours per screen so labels keep fitting.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontSize: 12, color: t.faint }}>1.0×</span>
+        <input
+          type="range"
+          min="1"
+          max="2"
+          step="0.05"
+          value={scale}
+          disabled={!loaded}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ flex: 1, accentColor: t.blue }}
+        />
+        <span style={{ fontSize: 12, color: t.faint }}>2.0×</span>
+        <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
+          {Number(scale).toFixed(2)}×
+        </span>
       </div>
     </Card>
   );
@@ -510,6 +574,7 @@ export default function SettingsPage() {
         desc="Configure the wall clocks and the NOTAM / alert filter that drives automatic flagging."
         descMax={600}
       />
+      <DisplayScaleCard />
       <ClocksCard />
       <AlertFilterCard />
     </div>

@@ -23,7 +23,9 @@ function fmtDate() {
   return new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase();
 }
 
-export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null }) {
+export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, scale = 1 }) {
+  const sz = (v) => Math.round(v * scale);
+  const s = makeStyles(sz);
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
@@ -56,22 +58,24 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null }) {
   );
 }
 
-const s = {
+function makeStyles(sz) {
+  return {
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    height: 76, padding: '0 20px', flexShrink: 0,
+    height: sz(92), padding: '0 20px', flexShrink: 0,
     borderBottom: '1px solid #222840', background: '#161b26',
   },
   brand: { width: 150, display: 'flex', flexDirection: 'column', gap: 4 },
-  brandName: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: '#404d6e', letterSpacing: '1px' },
-  brandSub:  { fontFamily: "'IBM Plex Mono',monospace", fontSize: 9,  color: '#2e3a56', letterSpacing: '0.5px' },
+  brandName: { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11), color: '#5a6a94', letterSpacing: '1px' },
+  brandSub:  { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(10),  color: '#48547a', letterSpacing: '0.5px' },
   clocks: { display: 'flex', alignItems: 'stretch', flex: 1, justifyContent: 'center', overflow: 'hidden' },
   cell: {
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     padding: '0 28px', borderRight: '1px solid #222840',
   },
-  city: { fontSize: 10, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: '#404d6e', marginBottom: 5, whiteSpace: 'nowrap' },
-  time: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 34, fontWeight: 500, letterSpacing: '-1.5px', color: '#e8ebf5', lineHeight: 1 },
+  city: { fontSize: sz(12), fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: '#7f8cb0', marginBottom: 5, whiteSpace: 'nowrap' },
+  time: { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(42), fontWeight: 600, letterSpacing: '-1.5px', color: '#f2f5fb', lineHeight: 1 },
   timeHome: { color: '#6dc4ff' },
   rightSlot: { minWidth: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 },
 };
+}

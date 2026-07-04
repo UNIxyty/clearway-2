@@ -176,6 +176,23 @@ export async function fetchDisplayClocks() {
   return fetchJson('/api/display/clocks', 'Clocks request failed');
 }
 
+export async function fetchDisplaySettings() {
+  return fetchJson('/api/display/settings', 'Display settings request failed');
+}
+
+export async function saveDisplaySettings(settings) {
+  const response = await fetch(buildApiUrl('/api/display/settings'), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save display settings (${response.status})`);
+  }
+  return payload;
+}
+
 export async function saveDisplayClocks(clocks) {
   const response = await fetch(buildApiUrl('/api/display/clocks'), {
     method: 'PUT',

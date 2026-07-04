@@ -54,7 +54,7 @@ function AirportWeather({ label, result }) {
   );
 }
 
-export default function FlightOverlay() {
+export default function FlightOverlay({ topOffset = 76 }) {
   const [overlay, setOverlay] = useState({ open: false });
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -96,7 +96,7 @@ export default function FlightOverlay() {
   const arr = flight?.ades;
 
   return (
-    <div style={s.panel}>
+    <div style={{ ...s.panel, top: topOffset }}>
       <div style={s.head}>
         <div>
           <div style={s.fn}>{flight?.flightNo || `Flight ${overlay.flightNid}`}</div>
@@ -174,7 +174,7 @@ export default function FlightOverlay() {
 const s = {
   panel: {
     position: 'fixed',
-    top: 76,
+    top: 'var(--overlay-top, 76px)',
     right: 0,
     bottom: 0,
     width: 420,

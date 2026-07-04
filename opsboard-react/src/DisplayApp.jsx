@@ -5,6 +5,7 @@ import FlightOverlay from './components/FlightOverlay';
 import PresencePills from './components/PresencePills';
 import {
   fetchDisplayClocks,
+  fetchDisplaySettings,
   fetchNotamCheckToday,
   fetchTimelineAircraft,
 } from './services/timelineApi';
@@ -12,7 +13,7 @@ import { subscribeWallStream } from './services/wallStream';
 
 // Daily NOTAM-check wall sign (view-only: the display just renders the state
 // the backend pushes; acknowledgments happen in the Console).
-function NotamSign({ sign }) {
+function NotamSign({ sign, scale = 1 }) {
   if (sign !== 'CHECK' && sign !== 'CHECKED') return null;
   const isCheck = sign === 'CHECK';
   return (
@@ -21,7 +22,7 @@ function NotamSign({ sign }) {
       <div
         style={{
           fontFamily: "'IBM Plex Mono',monospace",
-          fontSize: 13,
+          fontSize: Math.round(14 * scale),
           fontWeight: 700,
           letterSpacing: '1px',
           color: '#fff',
@@ -62,6 +63,7 @@ export default function DisplayApp() {
   const [limitations, setLimitations] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const [notamSign, setNotamSign] = useState('NONE');
+  const [scale, setScale] = useState(1.3); // display scale (ops-room legibility)
   const loadingRef = useRef(false);
 
   async function loadTimeline({ refresh = true } = {}) {
@@ -94,9 +96,19 @@ export default function DisplayApp() {
     }
   }
 
+  async function loadSettings() {
+    try {
+      const payload = await fetchDisplaySettings();
+      if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
+    } catch {
+      /* keep current scale */
+    }
+  }
+
   useEffect(() => {
     loadTimeline();
     loadClocks();
+    loadSettings();
     fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
@@ -115,6 +127,7 @@ export default function DisplayApp() {
       subscribeWallStream('notam-check.changed', (event) => setNotamSign(event.sign || 'NONE')),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
+        if (!event.section || event.section === 'settings') loadSettings();
       }),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -124,14 +137,15 @@ export default function DisplayApp() {
     <div style={s.shell}>
       <Header
         clocks={clocks}
+        scale={scale}
         rightSlot={
           <>
-            <NotamSign sign={notamSign} />
+            <NotamSign sign={notamSign} scale={scale} />
             <PresencePills surface="display" compact />
           </>
         }
       />
-      <FlightOverlay />
+      <FlightOverlay topOffset={Math.round(92 * scale)} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
       <Board
@@ -139,6 +153,7 @@ export default function DisplayApp() {
         limitations={limitations}
         windowStartUtc={windowStartUtc}
         windowEndUtc={windowEndUtc}
+        scale={scale}
       />
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}

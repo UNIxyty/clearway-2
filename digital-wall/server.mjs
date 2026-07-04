@@ -64,6 +64,20 @@ const DEFAULT_CLOCKS = [
 ];
 const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_CLOCKS });
 
+// Display settings — global scale/density for ops-room legibility. The wall
+// multiplies its typography and pill metrics by `scale`, so the room can
+// dial text size up without a rebuild.
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3 };
+const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
+
+function sanitizeDisplaySettings(input = {}) {
+  const scale = Number(input.scale);
+  if (!Number.isFinite(scale) || scale < 1 || scale > 2) {
+    throw new Error("scale must be a number between 1.0 and 2.0.");
+  }
+  return { scale: Math.round(scale * 100) / 100 };
+}
+
 // Current wall overlay — appliance-style shared state (one overlay for all
 // connected displays; deliberately in-memory, resets on restart).
 let overlayState = { open: false };
@@ -418,6 +432,27 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
       }
+      return;
+    }
+
+    if (pathname === "/api/display/settings" && req.method === "GET") {
+      const stored = await displaySettingsStore.read();
+      sendJson(res, { ok: true, settings: { ...DEFAULT_DISPLAY_SETTINGS, ...stored } });
+      return;
+    }
+
+    if (pathname === "/api/display/settings" && req.method === "PUT") {
+      const body = await readJsonBody(req);
+      let settings;
+      try {
+        settings = sanitizeDisplaySettings(body.settings ?? body);
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+        return;
+      }
+      await displaySettingsStore.write({ ...settings, updatedAt: new Date().toISOString() });
+      sseHub.broadcast({ type: "config.changed", section: "settings" });
+      sendJson(res, { ok: true, settings });
       return;
     }
 

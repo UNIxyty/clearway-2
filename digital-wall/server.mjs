@@ -11,6 +11,7 @@ import { ImportantStore } from "./lib/important-store.mjs";
 import { getNotams, getWeather, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
 import { NotamCheckService } from "./lib/notam-check.mjs";
+import { AipSendService } from "./lib/aip-send.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -47,6 +48,8 @@ alertsService.startPolling();
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub });
 await notamCheck.load();
 notamCheck.startScheduler();
+
+const aipSend = new AipSendService({ sseHub });
 process.stdout.write(
   `Alert scanner: ${portalConfigured() ? "active (portal proxy configured)" : "idle (set PORTAL_BASE_URL to enable)"}\n`
 );
@@ -315,6 +318,42 @@ const server = http.createServer(async (req, res) => {
       const icao = url.searchParams.get("icao") || "";
       const inline = url.searchParams.get("inline") !== "0";
       await streamAipPdf(icao, res, { inline });
+      return;
+    }
+
+    // ── Console-initiated AIP/GEN send: emailed to the signed-in user ──
+    if (pathname === "/api/aip/send" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      const found = timelineService.getFlightByNid(body.flightNid, body.oprId);
+      if (!found) {
+        sendJson(res, { ok: false, error: `Flight ${body.flightNid} not found.` }, 404);
+        return;
+      }
+      const airports = (Array.isArray(body.airports) ? body.airports : []).filter((a) => a === "dep" || a === "arr");
+      const docs = (Array.isArray(body.docs) ? body.docs : []).filter((d) => d === "aip" || d === "gen");
+      const requests = [];
+      for (const role of airports) {
+        const icao = String((role === "dep" ? found.flight.adep?.icao : found.flight.ades?.icao) || "").toUpperCase();
+        if (!/^[A-Z0-9]{4}$/.test(icao)) continue;
+        for (const doc of docs) requests.push({ icao, role, doc });
+      }
+      try {
+        const jobId = aipSend.start({ flight: found.flight, requests, user: requestUser });
+        sendJson(res, { ok: true, jobId, job: aipSend.publicJob(aipSend.getJob(jobId)) });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/aip/send/") && req.method === "GET") {
+      const jobId = pathname.split("/").pop();
+      const job = aipSend.getJob(jobId);
+      if (!job) {
+        sendJson(res, { ok: false, error: "Job not found." }, 404);
+        return;
+      }
+      sendJson(res, { ok: true, job: aipSend.publicJob(job) });
       return;
     }
 

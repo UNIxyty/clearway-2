@@ -286,9 +286,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
               <div style={s.nowTriangle} />
             </div>
           )}
-          <button style={s.nowBtn} onClick={centerNowInView} type="button">
-            Now
-          </button>
+          {/* The wall is strictly view-only: no interactive controls. The
+              view auto-centers on "now" whenever the window changes. */}
         </div>
 
         <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
@@ -465,20 +464,6 @@ const s = {
     borderLeft: '4px solid transparent',
     borderRight: '4px solid transparent',
     borderTop: '5px solid rgba(95,181,255,.6)',
-  },
-  nowBtn: {
-    position: 'absolute',
-    right: 8,
-    top: 5,
-    height: 22,
-    padding: '0 8px',
-    borderRadius: 6,
-    border: '1px solid #2b3f68',
-    background: '#1a2740',
-    color: '#b8d9ff',
-    fontSize: 11,
-    cursor: 'pointer',
-    zIndex: 50,
   },
   nowFixedLine: {
     position: 'absolute',

@@ -9,6 +9,7 @@ import {
   fetchTimelineRaw,
   openFlightOverlay,
   runNotamCheck,
+  sendFlightDocs,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
 import NotamText, { buildHighlightGroups } from '../NotamText';
@@ -270,35 +271,89 @@ function NotamCheckPanel() {
 }
 
 // ── AIP / GEN send section (detail panel) ────────────────────────────────────
+// Real progress: the backend broadcasts aip-send.progress per job over SSE
+// (fetching → ready → emailing → sent/error); the UI renders those states.
 function SendSection({ flight }) {
   const { user } = useAuth();
   const [dep, setDep] = useState(true);
   const [arr, setArr] = useState(false);
   const [doc, setDoc] = useState('AIP');
-  // TODO(backend): send stages ('fetching' → 'preparing' → 'sent'/'error')
-  // activate once the email-delivery endpoint lands; the affordance below
-  // already renders each stage.
-  const [stage] = useState('idle');
+  const [job, setJob] = useState(null);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState('');
+  const jobIdRef = useRef('');
 
+  useEffect(() => {
+    return subscribeWallStream(
+      'aip-send.progress',
+      (event) => {
+        if (event.jobId === jobIdRef.current) setJob(event);
+      },
+      { surface: 'console' }
+    );
+  }, []);
+
+  // Selecting a different flight resets the flow.
+  useEffect(() => {
+    jobIdRef.current = '';
+    setJob(null);
+    setStartError('');
+  }, [flight.flightNid]);
+
+  async function send() {
+    if (starting) return;
+    setStarting(true);
+    setStartError('');
+    try {
+      const airports = [...(dep ? ['dep'] : []), ...(arr ? ['arr'] : [])];
+      const docs = doc === 'Both' ? ['aip', 'gen'] : [doc.toLowerCase()];
+      const payload = await sendFlightDocs({ flightNid: flight.flightNid, oprId: flight.oprId, airports, docs });
+      jobIdRef.current = payload.jobId;
+      setJob(payload.job);
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const stage = job?.stage || 'idle';
+  const working = stage === 'fetching' || stage === 'ready' || stage === 'emailing';
+  const docRows = (job?.docs || []).map((d) => ({
+    key: d.label,
+    spin: d.status === 'fetching',
+    icon: d.status === 'ready' ? 'check' : d.status === 'unavailable' ? 'alert-triangle' : null,
+    iconColor: d.status === 'ready' ? t.green : t.red,
+    text: d.status === 'unavailable' ? `${d.label} — unavailable: ${d.error}` : `${d.label}${d.source ? ` (${d.source})` : ''}`,
+    weight: 600,
+    color: d.status === 'unavailable' ? t.red : t.body,
+  }));
   const stageRows = {
-    fetching: [{ spin: true, text: 'Fetching document (checking cache, then source)…', weight: 700, color: t.blueDeep }],
-    preparing: [
-      { icon: 'check', iconColor: t.green, text: 'Document ready', weight: 600, color: t.body },
-      { spin: true, text: 'Preparing email…', weight: 700, color: t.blueDeep },
-    ],
-    sent: [
-      { icon: 'check', iconColor: t.green, text: 'Document ready', weight: 600, color: t.body },
-      { icon: 'mail-check', iconColor: t.green, text: `Sent to ${user?.email || 'your inbox'}`, weight: 700, color: t.greenDeep },
-    ],
-    error: [{ icon: 'alert-triangle', iconColor: t.red, text: 'Source timed out — no document produced', weight: 700, color: t.red }],
+    fetching: [...docRows, { key: 'st', spin: true, text: 'Fetching documents (checking shared cache, then source)…', weight: 700, color: t.blueDeep }],
+    ready: [...docRows, { key: 'st', icon: 'check', iconColor: t.green, text: 'Documents ready — preparing email…', weight: 700, color: t.blueDeep }],
+    emailing: [...docRows, { key: 'st', spin: true, text: 'Sending email…', weight: 700, color: t.blueDeep }],
+    sent: [...docRows, { key: 'st', icon: 'mail-check', iconColor: t.green, text: `Sent to ${job?.to || user?.email || 'your inbox'}`, weight: 700, color: t.greenDeep }],
+    error: [...docRows, { key: 'st', icon: 'alert-triangle', iconColor: t.red, text: job?.error || 'Send failed', weight: 700, color: t.red }],
   }[stage];
 
   const boxTone = {
     fetching: [t.blueBorder, t.blueWash],
-    preparing: [t.blueBorder, t.blueWash],
+    ready: [t.blueBorder, t.blueWash],
+    emailing: [t.blueBorder, t.blueWash],
     sent: [t.greenBorder, '#f1faf4'],
     error: [t.redBorder, '#fdf0f0'],
   }[stage] || [t.borderInner, t.subtle];
+
+  const buttonByStage = {
+    idle: { label: 'Send document', icon: 'send', variant: 'primary' },
+    fetching: { label: 'Working…', icon: null, variant: 'primary' },
+    ready: { label: 'Working…', icon: null, variant: 'primary' },
+    emailing: { label: 'Working…', icon: null, variant: 'primary' },
+    sent: { label: 'Send again', icon: 'rotate-cw', variant: 'secondary' },
+    error: { label: 'Retry send', icon: 'rotate-cw', variant: 'danger' },
+  }[stage];
+
+  const nothingPicked = !dep && !arr;
 
   const pick = (on) => ({
     fontFamily: 'inherit',
@@ -337,6 +392,7 @@ function SendSection({ flight }) {
           </button>
         ))}
       </div>
+      {startError && <ErrorBanner>{startError}</ErrorBanner>}
       {stageRows && (
         <div
           style={{
@@ -351,19 +407,28 @@ function SendSection({ flight }) {
           }}
         >
           {stageRows.map((row) => (
-            <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {row.spin ? <Spinner /> : <Icon name={row.icon} size={16} color={row.iconColor} />}
-              <span style={{ fontSize: 13, fontWeight: row.weight, color: row.color }}>{row.text}</span>
+            <div key={row.key || row.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {row.spin ? <Spinner /> : row.icon ? <Icon name={row.icon} size={16} color={row.iconColor} /> : <span style={{ width: 16 }} />}
+              <span style={{ fontSize: 13, fontWeight: row.weight, color: row.color, lineHeight: 1.4 }}>{row.text}</span>
             </div>
           ))}
         </div>
       )}
-      <Button variant="primary" icon="send" disabled style={{ width: '100%', fontWeight: 700, padding: 12, borderRadius: 11 }}>
-        Send document
+      <Button
+        variant={buttonByStage.variant}
+        icon={buttonByStage.icon}
+        spin={working || starting}
+        disabled={working || starting || nothingPicked}
+        onClick={send}
+        style={{ width: '100%', fontWeight: 700, padding: 12, borderRadius: 11 }}
+      >
+        {buttonByStage.label}
       </Button>
-      <div style={{ marginTop: 9 }}>
-        <PendingNote>Email delivery backend is in flight — this control activates when it merges.</PendingNote>
-      </div>
+      {nothingPicked && (
+        <div style={{ marginTop: 9 }}>
+          <PendingNote>Pick departure and/or arrival first.</PendingNote>
+        </div>
+      )}
     </div>
   );
 }

@@ -298,6 +298,25 @@ export async function triggerAlertScan() {
   return payload;
 }
 
+// ── Console-initiated AIP/GEN send (emailed to the signed-in user) ─────────
+
+export async function sendFlightDocs({ flightNid, oprId, airports, docs }) {
+  const response = await fetch(buildApiUrl('/api/aip/send'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ flightNid, oprId, airports, docs }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to start document send (${response.status})`);
+  }
+  return payload;
+}
+
+export async function fetchAipSendJob(jobId) {
+  return fetchJson(`/api/aip/send/${encodeURIComponent(jobId)}`, 'Send job request failed');
+}
+
 export function aipPdfUrl(icao) {
   return buildApiUrl(`/api/aip-pdf?icao=${encodeURIComponent(String(icao || '').toUpperCase())}`);
 }

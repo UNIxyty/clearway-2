@@ -152,6 +152,67 @@ export async function resolveAipPdf(icao) {
 }
 
 /**
+ * Fetch an AD-2 AIP PDF into a Buffer (for email attachments): resolve via
+ * the portal, serve the shared-cache copy when present, otherwise go through
+ * the portal's normal per-source route (which downloads and writes the same
+ * shared cache). Returns { ok, buffer, source, cached, filename } |
+ * { ok:false, error }.
+ */
+export async function fetchAipPdfBuffer(icao) {
+  const code = String(icao || "").toUpperCase();
+  const resolved = await resolveAipPdf(code);
+  if (!resolved.available) {
+    return { ok: false, error: resolved.error || `AIP source for ${code} could not be resolved.` };
+  }
+  const path = resolved.cached && resolved.filesPath ? resolved.filesPath : `${resolved.pdfPath}&inline=1`;
+  try {
+    const response = await fetch(`${portalBaseUrl()}${path}`, {
+      headers: portalHeaders(),
+      signal: AbortSignal.timeout(resolved.cached ? 30_000 : 180_000),
+    });
+    if (!response.ok) {
+      return { ok: false, error: `AIP unavailable for ${code}: portal returned ${response.status} from ${resolved.source}.` };
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length < 500) {
+      return { ok: false, error: `AIP unavailable for ${code}: ${resolved.source} returned no usable PDF.` };
+    }
+    if (!resolved.cached) cache.delete(`aip:${code}`);
+    return { ok: true, buffer, source: resolved.source, cached: Boolean(resolved.cached), filename: `${code}-AD2.pdf` };
+  } catch (error) {
+    return { ok: false, error: `AIP unavailable for ${code}: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+/**
+ * Fetch the country-level GEN 1.2 PDF for an airport into a Buffer, via the
+ * portal's normal GEN-by-ICAO route (cache-first in shared /storage,
+ * download on genuine miss — same shared-cache model as AIP).
+ */
+export async function fetchGenPdfBuffer(icao) {
+  const code = String(icao || "").toUpperCase();
+  if (!validIcao(code)) return { ok: false, error: `Invalid ICAO: ${icao}` };
+  if (!portalConfigured()) return { ok: false, error: "PORTAL_BASE_URL is not configured." };
+  try {
+    const response = await fetch(`${portalBaseUrl()}/api/aip/gen/pdf?icao=${code}`, {
+      headers: portalHeaders(),
+      signal: AbortSignal.timeout(180_000),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      return { ok: false, error: `GEN 1.2 unavailable for ${code}: portal returned ${response.status}. ${body.slice(0, 140)}` };
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length < 500) {
+      return { ok: false, error: `GEN 1.2 unavailable for ${code}: no usable PDF produced.` };
+    }
+    return { ok: true, buffer, source: "gen", cached: null, filename: `${code.slice(0, 2)}-GEN-1.2.pdf` };
+  } catch (error) {
+    return { ok: false, error: `GEN 1.2 unavailable for ${code}: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+/**
  * Stream an AIP PDF to the given response. Cached copy -> served straight
  * from the shared /files/<key> (never triggers a sync). Miss -> the portal's
  * normal per-source route fetches it and populates the shared cache.

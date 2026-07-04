@@ -50,15 +50,22 @@ export async function renderTemplateFile(templatePath, vars = {}) {
   return fillTemplate(template, vars);
 }
 
-async function deliverViaResend({ from, to, subject, html }) {
+async function deliverViaResend({ from, to, subject, html, attachments }) {
+  const payload = { from, to, subject, html };
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    payload.attachments = attachments.map((a) => ({
+      filename: a.filename,
+      content: Buffer.isBuffer(a.content) ? a.content.toString("base64") : a.content,
+    }));
+  }
   const response = await fetch(RESEND_ENDPOINT, {
     method: "POST",
     headers: {
       authorization: `Bearer ${String(process.env.RESEND_API_KEY).trim()}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ from, to, subject, html }),
-    signal: AbortSignal.timeout(15000),
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(60000),
   });
   const body = await response.text();
   if (!response.ok) {
@@ -72,10 +79,11 @@ async function deliverViaResend({ from, to, subject, html }) {
 }
 
 /**
- * Send an HTML email. Never throws — returns { ok, id?, error? } so callers
- * (the alert scanner) can log failures without crashing the wall.
+ * Send an HTML email (optionally with PDF attachments: [{filename, content:
+ * Buffer|base64}]). Never throws — returns { ok, id?, error? } so callers
+ * can report failures without crashing the wall.
  */
-export async function sendEmail({ to, subject, html, from = defaultFrom() }) {
+export async function sendEmail({ to, subject, html, from = defaultFrom(), attachments }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
   if (recipients.length === 0) {
     return { ok: false, error: "No recipients configured." };
@@ -84,7 +92,7 @@ export async function sendEmail({ to, subject, html, from = defaultFrom() }) {
     return { ok: false, error: "RESEND_API_KEY is not configured; email skipped." };
   }
   try {
-    const result = await deliverViaResend({ from, to: recipients, subject, html });
+    const result = await deliverViaResend({ from, to: recipients, subject, html, attachments });
     return { ok: true, id: result?.id ?? null };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };

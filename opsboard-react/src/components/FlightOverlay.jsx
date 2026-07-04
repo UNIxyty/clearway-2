@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { aipPdfUrl, fetchFlightInfo, fetchOverlay } from '../services/timelineApi';
+import { fetchFlightInfo, fetchOverlay } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
 
 // Remote-controlled flight-detail side overlay (Feature 5.2). A Console user
@@ -154,28 +154,9 @@ export default function FlightOverlay() {
             </div>
           )}
 
-          {/* 6: AIP downloads */}
-          <div style={s.section}>
-            <div style={s.sectionTitle}>AIP (AD-2)</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[
-                { icao: dep?.icao, aip: info?.aip?.dep, label: 'Departure' },
-                { icao: arr?.icao, aip: info?.aip?.arr, label: 'Arrival' },
-              ].map(({ icao, aip, label }) => (
-                <span key={label}>
-                  {aip?.available ? (
-                    <a style={s.aipBtn} href={aipPdfUrl(icao)} target="_blank" rel="noreferrer">
-                      ⬇ {label} {icao} ({aip.source})
-                    </a>
-                  ) : (
-                    <span style={{ ...s.aipBtn, opacity: 0.45, cursor: 'default' }}>
-                      {label} {icao || '—'}: not available
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          </div>
+          {/* AIP/GEN documents are console-initiated and emailed to the
+              requesting user (Flights page) — the wall is view-only, so no
+              download controls render here. */}
 
           {/* 4: NOTAMs, grouped by airport */}
           <AirportNotams label={dep?.icao || 'departure'} result={info?.notams?.dep} />
@@ -288,15 +269,4 @@ const s = {
     lineHeight: 1.45,
   },
   unavailable: { fontSize: 11, color: '#6f7fa8', padding: '6px 0' },
-  aipBtn: {
-    display: 'inline-block',
-    fontSize: 11,
-    color: '#b8d9ff',
-    background: '#1a2740',
-    border: '1px solid #2b3f68',
-    borderRadius: 6,
-    padding: '6px 10px',
-    textDecoration: 'none',
-    cursor: 'pointer',
-  },
 };

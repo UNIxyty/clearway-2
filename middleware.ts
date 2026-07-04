@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -104,10 +105,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Public routes when maintenance mode is not active.
+  // Public routes when maintenance mode is not active. Login/signup are
+  // handled below so an already-signed-in user bounces straight to `next`.
   if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/auth/") ||  // Auth API routes used during signup/password-reset (unauthenticated)
     pathname === "/api/pickem/health" ||
@@ -117,13 +117,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const isAuthEntryPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (isAuthEntryPage) {
+    if (user) {
+      // Already authenticated: skip the form and return to the origin page.
+      // safeNextPath only ever yields a same-origin relative path.
+      const destination = safeNextPath(request.nextUrl.searchParams.get("next"));
+      return NextResponse.redirect(new URL(destination, request.nextUrl.origin));
+    }
+    return response;
+  }
+
   if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
+    // Carry only `next`; inheriting the original query could smuggle stray
+    // error/message params onto the login card.
+    loginUrl.search = "";
     loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }

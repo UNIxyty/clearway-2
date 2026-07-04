@@ -8,6 +8,19 @@ export function useAuth() {
 }
 
 /**
+ * Builds the portal sign-in URL with a `next` parameter pointing back at the
+ * page the user is on right now (path + query + hash), so after signing in
+ * they land exactly where they started — including when a session expires
+ * mid-use and this gate re-appears on the current view. The path is read at
+ * render time, is same-origin by construction, and the portal re-validates
+ * it server-side (lib/auth-next-path.mjs) before honouring it.
+ */
+function loginHref() {
+  const here = window.location.pathname + window.location.search + window.location.hash;
+  return `/login?next=${encodeURIComponent(here)}`;
+}
+
+/**
  * Gates both surfaces behind the shared Clearway sign-in. The display keeps
  * rendering through transient backend errors (it only blocks on an explicit
  * 401), so a flaky auth service can't take the wall down.
@@ -50,9 +63,9 @@ export default function AuthGate({ children }) {
           <div style={s.title}>Sign in required</div>
           <div style={s.text}>
             The Digital Wall is available to signed-in Clearway users only.
-            Sign in through the main portal, then reload this page.
+            Sign in through the main portal — you will be returned to this page.
           </div>
-          <a style={s.btn} href="/login">Go to Clearway sign-in</a>
+          <a style={s.btn} href={loginHref()}>Go to Clearway sign-in</a>
         </div>
       </div>
     );

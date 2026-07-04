@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import {
   Card,
   CardContent,
@@ -17,7 +18,8 @@ import { Mail } from "lucide-react";
 
 export default function LoginCard() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  // Only same-origin relative paths survive; anything else falls back to "/".
+  const next = safeNextPath(searchParams.get("next"));
   const urlError = searchParams.get("error");
   const urlMessage = searchParams.get("message");
 

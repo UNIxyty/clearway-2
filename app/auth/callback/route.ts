@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
 
 function getPublicOrigin(requestUrl: URL, headers: Headers): string {
   const siteUrl = String(process.env.PORTAL_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
@@ -27,9 +28,11 @@ export async function GET(request: Request) {
   const nextRaw =
     requestUrl.searchParams.get("next") ||
     (signupToken ? `/auth/confirm?token=${encodeURIComponent(signupToken)}` : "/");
-  const next = nextRaw.startsWith("/") ? nextRaw : "/";
+  // safeNextPath blocks external/protocol-relative values ("//evil.com"
+  // would otherwise resolve off-origin via `new URL(next, origin)` below).
+  const next = safeNextPath(nextRaw);
   const continueRaw = requestUrl.searchParams.get("continue");
-  const continuePath = continueRaw && continueRaw.startsWith("/") ? continueRaw : null;
+  const continuePath = safeNextPath(continueRaw, "") || null;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

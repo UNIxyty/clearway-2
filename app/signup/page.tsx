@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
 
 export default function SignupPage() {
   const [nextPath, setNextPath] = useState("/signup");
@@ -19,8 +20,8 @@ export default function SignupPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const nextParam = params.get("next");
-    if (nextParam && nextParam.startsWith("/")) {
+    const nextParam = safeNextPath(params.get("next"), "");
+    if (nextParam) {
       setNextPath(nextParam);
     }
   }, []);
@@ -159,7 +160,10 @@ export default function SignupPage() {
 
             <p className="text-xs text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="underline underline-offset-4 hover:text-foreground">
+              <Link
+                href={nextPath !== "/signup" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
+                className="underline underline-offset-4 hover:text-foreground"
+              >
                 Back to sign in
               </Link>
             </p>

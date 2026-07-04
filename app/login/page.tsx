@@ -1,5 +1,6 @@
 import LoginCard from "./ui/LoginCard";
 import Link from "next/link";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
 
 // This page uses useSearchParams() in a client component; force dynamic rendering
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export default function LoginPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const nextRaw = searchParams?.next;
-  const next = Array.isArray(nextRaw) ? nextRaw[0] : nextRaw;
-  const signupHref = next && next.startsWith("/") ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
+  const next = safeNextPath(Array.isArray(nextRaw) ? nextRaw[0] : nextRaw, "");
+  const signupHref = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">

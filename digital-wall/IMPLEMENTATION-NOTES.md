@@ -363,3 +363,48 @@ curl -X POST http://localhost:5174/api/alerts/scan
 node scripts/import-important-docx.mjs /path/to/IMPORTANT.docx   # propose
 node scripts/import-important-docx.mjs --apply                    # after review
 ```
+
+## Auth: redirect back to the originating page (cc-3)
+
+Signing in now returns the user to exactly where they started (path + query +
+hash) instead of a generic landing page. The mechanics live entirely in the
+query/session layer, so the upcoming visual redesign of the auth pages can
+replace the markup freely without touching them.
+
+**Where `next` is set**
+- Portal middleware (`middleware.ts`): unauthenticated hit on a protected
+  route redirects to `/login?next=<pathname+search>` (was already the case).
+- Digital Wall `AuthGate` (`opsboard-react/src/AuthGate.jsx`): the gateway
+  serves `/digital-wall/*` directly (portal middleware never sees it), so the
+  gate's "Go to Clearway sign-in" link is the capture point for wall/console
+  deep links. `loginHref()` builds `/login?next=<encoded path+query+hash>` at
+  render time — so a session that expires mid-use (the 5-minute re-check
+  flips the gate to `unauthorized`) captures the view the user is on *then*.
+- Signup keeps the chain: login page forwards `next` to `/signup?next=…`,
+  signup's "Back to sign in" link carries it back, and the confirmation-email
+  request posts it along (pre-existing).
+
+**How it is validated — `lib/auth-next-path.mjs` (portal `lib/`, plain .mjs +
+`.d.ts`, unit-tested in `tests/auth-next-path.test.mjs`)**
+`safeNextPath(raw, fallback = "/")` accepts only same-origin relative paths:
+must start with `/`, must not start with `//` (protocol-relative), no `\`
+anywhere (browsers treat it as `/` when resolving), no control characters or
+raw whitespace. Anything else — absolute URLs, `javascript:`, empty/missing —
+returns the fallback. Every consumer goes through it; nothing trusts the raw
+query value.
+
+**Where it is consumed**
+- `app/login/ui/LoginCard.tsx`: after a successful password sign-in,
+  `window.location.href = safeNextPath(next)` (was unvalidated → open
+  redirect, now closed).
+- `middleware.ts`: an **already-authenticated** user hitting `/login` or
+  `/signup` is bounced straight to `safeNextPath(next)` without seeing the
+  form (login/signup moved out of the blanket public-route early-return so
+  the session is checked there).
+- `app/auth/callback/route.ts`: `next`/`continue` are validated with the same
+  helper before `new URL(next, origin)` — previously `//evil.com` passed the
+  old `startsWith("/")` check and resolved off-origin (real open redirect,
+  now closed).
+
+Sign-out flows intentionally link to bare `/login` (no `next`) — returning to
+the page you just signed out of would bounce you right back to the login wall.

@@ -3,6 +3,39 @@
 > Branch: `digital-wall-features` (one commit per phase A–F, plus three follow-up corrections).
 > Companion context: `digital-screen-investigation.md`, `aip-notam-investigation.md`.
 
+## Wall timeline: Leon-driven pills + ops-room legibility (2026-07-05)
+
+Two commits (A, B). Leon API investigated first (public
+`bitbucket.org/leondevteam/api-documentation`); the full field → meaning →
+normalized-field map lives in **`digital-wall/LEON-PILL-MAPPING.md`**.
+
+**A — pill semantics from real Leon data.** `leon-sync.mjs` now builds its
+`flightList` selection from **schema introspection** per operator (an
+unknown field can never break the sync; introspection failure falls back to
+the legacy selection) and normalizes: block-off/take-off/landing/block-on,
+`isAirborne`/`hasArrived`, `ctot`, `tripStatus` (Leon `FlightStatus`:
+CONFIRMED/OPTION/OPPORTUNITY) → `isConfirmed`, `checklistColor` (aggregated
+from the flight's checklist items via the OPS `getAvailableDefinitions`
+colors — least-complete item wins), and a derived `movementState`. Pills:
+**white** scheduled · **yellow** delayed-not-departed · **purple** active
+CTOT · **blue** flying · **pink** arrived; delay renders as a **dashed
+leading segment** sized to the delay (scheduled ETD label at its start,
+actual/estimated departure where solid begins); the flight ID takes the Leon
+checklist color (luminance-guarded on the dark board) and is *italic* when
+the trip isn't CONFIRMED. ⚠ **CTOT+delayed renders purple (CTOT wins)** —
+confirm with ops; one-line swap in `movementStateOf()` flips it.
+
+**B — legibility at 3–5 m.** Everything on the display scales with a global
+**display scale** setting (`GET/PUT /api/display/settings`, default 1.3,
+range 1.0–2.0, `data/display-settings.json`, live via `config.changed`;
+slider on the Console Settings page). Typography roughly ×1.3–1.7 vs before
+at default (clock bar 42px+ mono, timing labels 11px+ semibold and brighter,
+ICAO 12px+, sidebar 21px titles / 17px text), contrast raised across ticks/
+labels/sidebar, and a larger scale shows fewer hours per viewport so wider
+pills keep fitting their bigger labels. Anti-overlap thresholds derive from
+the actual label metrics; audit at scale 1.3 over a board with every state:
+0 collisions across 132 labels.
+
 ## Digital Wall fixes — 5 items (2026-07-04)
 
 One commit per item. NOTAMs stay CrewBriefing-only; AIP/GEN stays on the

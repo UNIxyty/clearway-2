@@ -3,6 +3,89 @@
 > Branch: `digital-wall-features` (one commit per phase A–F, plus three follow-up corrections).
 > Companion context: `digital-screen-investigation.md`, `aip-notam-investigation.md`.
 
+## Digital Wall fixes — 5 items (2026-07-04)
+
+One commit per item. NOTAMs stay CrewBriefing-only; AIP/GEN stays on the
+portal resolve → shared `/storage` cache path.
+
+**1. Full OPS NOTAM filter + daily check.** `lib/notam-rules.mjs` holds the
+complete OPS keyword set (incl. the intentional `RESTRICITON` misspelling) as
+editable colored groups `{group, color, terms[], patterns[]}` — closure/red,
+restriction/orange, availability/green, runway-infra/blue, info/neutral —
+with bounded wildcard regexes covering all three real runway forms
+(`RWY06R/24L CLSD`, `RWY 06L/24R SHALL BE TEMPORARILY CLSD`, `RWY 11/29
+CLSD`, same for `AVBL`). Matched substrings highlight in group colors
+wherever NOTAM text renders (console panel + wall overlay, shared
+`NotamText` component). Validity: `B)`/`C)` parse as `YYMMDDHHmm` UTC with
+`PERM` = never expires; the daily check filters to now→+24 h (PERM included)
+and the 7/3/1 scanner never flags expired NOTAMs. **Daily job** at
+`NOTAM_CHECK_HOUR` (10) `NOTAM_CHECK_TZ` (Europe/Riga), self-healing after
+downtime (`lib/notam-check.mjs`): today's flights → deduplicated airports →
+one CrewBriefing fetch per ICAO → wall sign `!!! CHECK NOTAM !!!` (pulsing,
+display renders SSE state only) → digest email to `NOTAM_DIGEST_TO` (default
+ops@clearway.aero) grouped by airport with number/class/parsed+raw validity/
+full E) text/matched keywords. Console: per-airport **CHECKED** acks (who +
+when, toggleable), collapsible full NOTAM list per airport, run-now; all
+airports checked → sign flips to `NOTAM CHECKED`; state resets at the next
+daily run. Endpoints: `GET /api/notam-check/today`, `POST
+/api/notam-check/ack {icao}`, `POST /api/notam-check/run`; SSE
+`notam-check.changed`; per-day state in `data/notam-check.json`. Legacy flat
+rule files migrate automatically to the grouped schema.
+
+**2. Wall sidebar.** Lists ONLY the manual text limitations from the
+Limitations page (NTM/WX/IMP removed). Remade for distance reading: 300px
+panel, type-color bar, 19px titles, 15px full description always visible (no
+truncation or click-to-expand), scrolling panel, compact two-column legend.
+Sidebar and pill badges are non-interactive (view-only wall).
+
+**3. Flight pills.** Pixel-aware layout: narrow pills (<110px) swap the
+absolute timing labels for one combined `ETD–ETA` label; delay-boundary
+labels position by real times and drop instead of colliding (≥34px from
+endpoints, ≥40px between the two boundary labels); ADEP/ADES render
+both→dep-only→none by measured width so codes never touch; inside badges
+move out below 90px. Verified by an automated bounding-box overlap audit
+(0 overlaps) over back-to-back 45-min pills and dep+arr-delayed narrow pills.
+
+**4. AIP/GEN send, wall strictly view-only.** All interactive controls
+removed from the display (overlay AIP buttons, sidebar/pill clicks, the
+board's Now button — the view auto-centers). Console Flights detail panel:
+pick dep/arr + AIP/GEN/Both → `POST /api/aip/send` → documents fetched
+through the portal's normal shared-cache routes (AIP: resolve → cached
+`/files/<key>` → per-source route on genuine miss; GEN 1.2: the portal's
+country-level GEN-by-ICAO route) → **emailed to the signed-in user's session
+email** with the PDFs attached (`lib/aip-send.mjs`; Resend attachments added
+to `lib/mailer.mjs`). Progress is real backend state broadcast per job over
+SSE `aip-send.progress` (fetching w/ per-doc status → ready → emailing →
+sent/error; `GET /api/aip/send/:jobId` for polling); per-doc failures show
+"unavailable: <reason>" while the rest still send.
+
+**5. IMP presentation.** Wall pills show IMP as a single amber `!` icon —
+no count, no text. Full details are read in the console: the Flights detail
+panel lists each matched entry's title, verbatim body, and criteria chips
+with the actually-matching criteria checked. NTM/WX pill markers
+intentionally remain small type badges (flagged, not silently changed).
+
+**New env vars:** `NOTAM_DIGEST_TO` (default ops@clearway.aero),
+`NOTAM_CHECK_HOUR` (10), `NOTAM_CHECK_TZ` (Europe/Riga). AIP send reuses
+`RESEND_API_KEY` / `PORTAL_BASE_URL` / `PORTAL_INTERNAL_SECRET`.
+
+**How to test:**
+```bash
+# daily NOTAM check: trigger manually, then ack airports and watch the sign
+curl -X POST localhost:5174/api/notam-check/run
+curl -X POST localhost:5174/api/notam-check/ack -H 'content-type: application/json' -d '{"icao":"EVRA"}'
+curl localhost:5174/api/notam-check/today   # sign flips to CHECKED when all acked
+# (wall renders the sign top-right; console panel = Flights → Today's NOTAM check)
+
+# AIP+GEN email for a flight (progress streams over /api/stream)
+curl -X POST localhost:5174/api/aip/send -H 'content-type: application/json' \
+  -d '{"flightNid":"<nid>","airports":["dep","arr"],"docs":["aip","gen"]}'
+curl localhost:5174/api/aip/send/<jobId>
+
+# pill layout: put a short (45-min) delayed flight on the board and check
+# the combined ETD–ETA label + non-colliding boundary labels
+```
+
 ## Console redesign from the approved Claude Design (2026-07-04)
 
 The Display Console was rebuilt to match the finalized Claude Design project

@@ -142,6 +142,9 @@ services:
       - "5174"
     volumes:
       - ./data:/app/shared-data:ro
+      # Persist the wall's local-JSON stores (clocks, Important entries,
+      # alert rules/findings, NOTAM-check state) across container rebuilds.
+      - ./digital-wall/data:/app/data
 
   digital-wall-frontend:
     build:

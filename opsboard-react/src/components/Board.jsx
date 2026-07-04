@@ -357,6 +357,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         laneStep={FLIGHT_LANE_STEP}
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}
+                        timelinePx={timelinePx}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                       />
                     ))}

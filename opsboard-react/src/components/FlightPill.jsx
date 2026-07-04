@@ -30,6 +30,7 @@ export default function FlightPill({
   limIndices = [],
   windowStartMs,
   windowDurationMs,
+  timelinePx = 0,
   lane = 0,
   laneStep = 42,
 }) {
@@ -83,8 +84,40 @@ export default function FlightPill({
     rgba(124,132,146,.88) 2px, rgba(124,132,146,.88) 8px
   )`;
 
-  const showRoute = (mainSectionF / totalF) > 0.08;
-  const showFull = (mainSectionF / totalF) > 0.14;
+  // ── Pixel-aware layout (anti-overlap) ──────────────────────────────────
+  // The pill knows its rendered width, so narrow pills switch layout instead
+  // of letting text collide: below COMPACT_PX the timing labels leave the
+  // absolute-positioned row for one combined label, and the ICAO codes drop
+  // from "ADEP | ADES" to ADEP-only to none as space runs out. Boundary
+  // (delay-crossing) labels render only when their segment is wide enough to
+  // keep a real gap from the endpoint labels.
+  const pillPx = totalF * timelinePx;
+  // Rendered width of the pill's main (non-hatched) section. The render uses
+  // a floored fraction so hairline sections stay visible; label GEOMETRY
+  // below must use the real time positions instead.
+  const mainPx = (mainSectionF / totalF) * pillPx;
+
+  const COMPACT_PX = 110;
+  const compactTimes = timelinePx > 0 && pillPx < COMPACT_PX;
+  const showBadgesInside = mainPx >= 90;
+  const showFull = timelinePx > 0 ? mainPx >= (showBadgesInside && limIndices.length > 0 ? 100 : 74) : (mainSectionF / totalF) > 0.14;
+  const showRoute = timelinePx > 0 ? mainPx >= 34 : (mainSectionF / totalF) > 0.08;
+
+  // Boundary (delay-crossing) labels position by REAL times. Each label is
+  // ~24px wide, so it needs ~34px from the pill's endpoint labels and the
+  // two boundary labels need ~40px from each other — otherwise the label is
+  // dropped rather than allowed to collide. Compact mode replaces the whole
+  // row with one combined label.
+  const depBoundaryPx = ((depCrossF - depF) / totalF) * pillPx;
+  const arrBoundaryPx = ((arrCrossStartF - depF) / totalF) * pillPx;
+  const showDepBoundaryLabel =
+    !compactTimes && depDelayMin > 0 && depBoundaryPx >= 34 && pillPx - depBoundaryPx >= 34;
+  const showArrBoundaryLabel =
+    !compactTimes &&
+    arrDelayMin > 0 &&
+    arrBoundaryPx >= 34 &&
+    pillPx - arrBoundaryPx >= 34 &&
+    (!showDepBoundaryLabel || arrBoundaryPx - depBoundaryPx >= 40);
   const depBoundaryPct = `${((depCrossF - depF) / totalF) * 100}%`;
   const arrBoundaryPct = `${((arrCrossStartF - depF) / totalF) * 100}%`;
 
@@ -165,7 +198,7 @@ export default function FlightPill({
               )}
             </div>
 
-            {Array.isArray(limIndices) && limIndices.length > 0 && (
+            {showBadgesInside && Array.isArray(limIndices) && limIndices.length > 0 && (
               <div style={s.limBadgeRow}>
                 {limIndices.slice(0, 3).map((indexValue, idx) => (
                   <div key={`${fn}-lim-${indexValue}-${idx}`} style={s.limBadgeInline} title="Limitation">
@@ -190,18 +223,25 @@ export default function FlightPill({
           )}
         </div>
       </div>
-      <div style={s.timesRow}>
-        <span style={{ ...s.time, left: 0, transform: 'none' }}>{etd}</span>
-        {depDelayMin > 0 && <span style={{ ...s.time, left: depBoundaryPct }}>{hmUtc(depCrossEndMs)}</span>}
-        {arrDelayMin > 0 ? (
-          <>
-            <span style={{ ...s.time, left: arrBoundaryPct }}>{eta}</span>
-            <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{hmUtc(renderEndMs)}</span>
-          </>
-        ) : (
-          <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{eta}</span>
-        )}
-      </div>
+      {compactTimes ? (
+        // Narrow pill: one combined label instead of colliding absolute ones.
+        <div style={s.timesRowCompact}>
+          {etd}–{arrDelayMin > 0 ? hmUtc(renderEndMs) : eta}
+        </div>
+      ) : (
+        <div style={s.timesRow}>
+          <span style={{ ...s.time, left: 0, transform: 'none' }}>{etd}</span>
+          {showDepBoundaryLabel && <span style={{ ...s.time, left: depBoundaryPct }}>{hmUtc(depCrossEndMs)}</span>}
+          {arrDelayMin > 0 ? (
+            <>
+              {showArrBoundaryLabel && <span style={{ ...s.time, left: arrBoundaryPct }}>{eta}</span>}
+              <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{hmUtc(renderEndMs)}</span>
+            </>
+          ) : (
+            <span style={{ ...s.time, right: 0, left: 'auto', transform: 'none' }}>{eta}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -289,6 +329,15 @@ const s = {
     position: 'relative',
     height: 14,
     marginTop: 2,
+  },
+  timesRowCompact: {
+    height: 14,
+    marginTop: 2,
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 8,
+    color: '#5d709e',
+    lineHeight: '14px',
+    whiteSpace: 'nowrap',
   },
   time: {
     position: 'absolute',

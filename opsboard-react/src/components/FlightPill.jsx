@@ -10,6 +10,13 @@ const STATUS = {
   slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
 };
 
+// Auto-derived per-flight markers (Feature 6 alerts). These render as small
+// type badges on the pill — they are NOT sidebar entries.
+const ALERT_MARK = {
+  NTM: { text: '#ffab73', border: 'rgba(255,145,80,.5)', bg: 'rgba(255,145,80,.18)' },
+  WX:  { text: '#7ec8ff', border: 'rgba(95,181,255,.5)', bg: 'rgba(95,181,255,.16)' },
+};
+
 function hmUtc(ms) {
   const dt = new Date(ms);
   if (!Number.isFinite(dt.getTime())) return '--:--';
@@ -21,13 +28,20 @@ function hmUtc(ms) {
 export default function FlightPill({
   flight,
   limIndices = [],
-  onLimClick,
   windowStartMs,
   windowDurationMs,
   lane = 0,
   laneStep = 42,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
+  // NTM / WX markers come from the flight's own decorated limitations.
+  const alertTypes = [
+    ...new Set(
+      (flight.limitations || [])
+        .filter((lim) => lim.source === 'alert' && ALERT_MARK[lim.type])
+        .map((lim) => lim.type)
+    ),
+  ];
 
   const isDelayed = depDelayMin > 0 || arrDelayMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
@@ -88,9 +102,25 @@ export default function FlightPill({
     }}>
       <div style={s.fnOutsideRow}>
         <span style={s.fnOutside}>{fn}</span>
-        {Array.isArray(limIndices) && limIndices.length > 0 && (
-          <span style={s.fnLimCount}>LIM {limIndices.join(',')}</span>
-        )}
+        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+          {alertTypes.map((type) => (
+            <span
+              key={type}
+              title={type === 'NTM' ? 'NOTAM alert' : 'Weather alert'}
+              style={{
+                ...s.alertMark,
+                color: ALERT_MARK[type].text,
+                borderColor: ALERT_MARK[type].border,
+                background: ALERT_MARK[type].bg,
+              }}
+            >
+              {type}
+            </span>
+          ))}
+          {Array.isArray(limIndices) && limIndices.length > 0 && (
+            <span style={s.fnLimCount}>LIM {limIndices.join(',')}</span>
+          )}
+        </span>
       </div>
       <div style={s.frame}>
         <div style={{ display: 'flex', width: '100%', alignItems: 'center', overflow: 'hidden' }}>
@@ -137,19 +167,11 @@ export default function FlightPill({
 
             {Array.isArray(limIndices) && limIndices.length > 0 && (
               <div style={s.limBadgeRow}>
-                {limIndices.slice(0, 3).map((indexValue, idx) => {
-                  const limitationId = flight?.limitationIds?.[idx];
-                  return (
-                    <div
-                      key={`${fn}-lim-${indexValue}-${idx}`}
-                      style={s.limBadgeInline}
-                      onClick={() => onLimClick && limitationId && onLimClick(limitationId)}
-                      title={flight?.limitations?.[idx]?.title || 'Limitation'}
-                    >
-                      {indexValue}
-                    </div>
-                  );
-                })}
+                {limIndices.slice(0, 3).map((indexValue, idx) => (
+                  <div key={`${fn}-lim-${indexValue}-${idx}`} style={s.limBadgeInline} title="Limitation">
+                    {indexValue}
+                  </div>
+                ))}
                 {limIndices.length > 3 && <span style={s.moreLim}>+{limIndices.length - 3}</span>}
               </div>
             )}
@@ -208,6 +230,16 @@ const s = {
     borderRadius: 999,
     padding: '1px 6px',
     lineHeight: '10px',
+  },
+  alertMark: {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 8,
+    fontWeight: 700,
+    border: '1px solid',
+    borderRadius: 4,
+    padding: '1px 4px',
+    lineHeight: '10px',
+    letterSpacing: '.5px',
   },
   frame: {
     width: '100%',

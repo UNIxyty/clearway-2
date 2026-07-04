@@ -4,9 +4,7 @@ import Board from './components/Board';
 import FlightOverlay from './components/FlightOverlay';
 import PresencePills from './components/PresencePills';
 import {
-  fetchAlertFindings,
   fetchDisplayClocks,
-  fetchImportant,
   fetchNotamCheckToday,
   fetchTimelineAircraft,
 } from './services/timelineApi';
@@ -42,17 +40,6 @@ function NotamSign({ sign }) {
   );
 }
 
-// Important entries render in the same sidebar as limitations, as IMP items.
-function importantToSidebarItem(entry) {
-  return {
-    id: entry.id,
-    title: entry.title,
-    description: entry.body,
-    type: 'IMP',
-    airportIcaos: entry.match?.airportIcaos || [],
-    countries: entry.match?.countries || [],
-  };
-}
 
 const POLL_MS = 60_000;
 
@@ -73,8 +60,6 @@ export default function DisplayApp() {
   const [error, setError] = useState('');
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
-  const [important, setImportant] = useState([]);
-  const [alerts, setAlerts] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const [notamSign, setNotamSign] = useState('NONE');
   const loadingRef = useRef(false);
@@ -109,38 +94,9 @@ export default function DisplayApp() {
     }
   }
 
-  async function loadImportant() {
-    try {
-      const payload = await fetchImportant({ includeInactive: false });
-      setImportant((payload.entries || []).map(importantToSidebarItem));
-    } catch {
-      /* keep current entries */
-    }
-  }
-
-  async function loadAlerts() {
-    try {
-      const payload = await fetchAlertFindings();
-      setAlerts(
-        (payload.findings || []).map((finding) => ({
-          id: finding.id,
-          title: finding.title,
-          description: finding.description,
-          type: finding.type, // NTM | WX
-          airportIcaos: [finding.icao].filter(Boolean),
-          countries: [],
-        }))
-      );
-    } catch {
-      /* keep current alerts */
-    }
-  }
-
   useEffect(() => {
     loadTimeline();
     loadClocks();
-    loadImportant();
-    loadAlerts();
     fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
     const id = setInterval(loadTimeline, POLL_MS);
     return () => clearInterval(id);
@@ -151,14 +107,11 @@ export default function DisplayApp() {
   useEffect(() => {
     const unsubscribers = [
       subscribeWallStream('limitations.changed', () => loadTimeline({ refresh: false })),
-      subscribeWallStream('important.changed', () => {
-        loadImportant();
-        loadTimeline({ refresh: false });
-      }),
-      subscribeWallStream('alerts.changed', () => {
-        loadAlerts();
-        loadTimeline({ refresh: false });
-      }),
+      // IMP entries and NTM/WX findings no longer render in the sidebar —
+      // they only affect per-flight pill markers, so a cheap re-read of the
+      // decorated flights is all these events need.
+      subscribeWallStream('important.changed', () => loadTimeline({ refresh: false })),
+      subscribeWallStream('alerts.changed', () => loadTimeline({ refresh: false })),
       subscribeWallStream('notam-check.changed', (event) => setNotamSign(event.sign || 'NONE')),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
@@ -179,9 +132,11 @@ export default function DisplayApp() {
         }
       />
       <FlightOverlay />
+      {/* Sidebar shows ONLY the manual text limitations from the Limitations
+          page — NTM/WX/IMP markers live on the flight pills instead. */}
       <Board
         aircraft={aircraft}
-        limitations={[...limitations, ...important, ...alerts]}
+        limitations={limitations}
         windowStartUtc={windowStartUtc}
         windowEndUtc={windowEndUtc}
       />

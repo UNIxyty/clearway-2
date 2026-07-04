@@ -108,7 +108,6 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
 
 export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [activeLimId, setActiveLimId] = useState('');
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
   const headerScrollRef = useRef(null);
@@ -212,25 +211,24 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     hasCenteredInitiallyRef.current = true;
   }, [timelinePx, END_PAD_PX, windowStartMs, windowDurationMs, nowX]);
 
+  // Sidebar list = the manual text limitations only (NTM/WX/IMP are pill
+  // markers, not sidebar entries). Numbers link sidebar cards to pill badges.
   const allLims = Array.isArray(limitations) ? limitations : [];
   const limIndexMap = {};
   allLims.forEach((l, i) => {
     limIndexMap[l.id] = i + 1;
   });
 
-  function handleLimClick(id) {
-    setActiveLimId((prev) => (prev === id ? '' : id));
-  }
-
   const showNow = true;
 
   return (
     <div style={s.outer}>
 
-      {/* ── LEFT PANEL: STATUS LEGEND + LIMITATIONS ── */}
+      {/* ── LEFT PANEL: STATUS LEGEND + LIMITATIONS (view-only, readable at
+             distance: full text always visible, no click-to-expand) ── */}
       <div style={s.leftPanel}>
         <div style={s.panelTitle}>STATUS</div>
-        <div style={s.legendList}>
+        <div style={s.legendGrid}>
           {LEGEND.map(l => (
             <div key={l.status} style={s.legendItem}>
               <div style={{
@@ -245,38 +243,21 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           ))}
         </div>
 
-        <div style={{ ...s.panelTitle, marginTop: 20 }}>LIMITATIONS</div>
+        <div style={{ ...s.panelTitle, marginTop: 22 }}>LIMITATIONS</div>
         <div style={s.limList}>
           {allLims.length === 0 && <div style={s.limEmpty}>None active</div>}
           {allLims.map((l, i) => {
-            const theme    = LIM_TYPE_COLOR[l.type] || LIM_TYPE_COLOR.AOG;
-            const isActive = activeLimId === l.id;
+            const theme = LIM_TYPE_COLOR[l.type] || LIM_TYPE_COLOR.AOG;
+            const scope = [...(l.airportIcaos || []), ...(l.countries || [])].join(' · ');
             return (
-              <div
-                key={l.id}
-                style={{
-                  ...s.limItem,
-                  background: isActive ? theme.bg : 'transparent',
-                  border: `1px solid ${isActive ? theme.border : 'rgba(255,255,255,.06)'}`,
-                  opacity: isActive ? 1 : 0.45,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleLimClick(l.id)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <span style={{
-                    width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
-                    background: isActive ? theme.bg : 'rgba(255,255,255,.08)',
-                    border: `1px solid ${theme.border}`,
-                    color: theme.text, fontSize: 9, fontWeight: 700,
-                    fontFamily: "'IBM Plex Mono',monospace",
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{i + 1}</span>
+              <div key={l.id} style={{ ...s.limCard, borderLeft: `5px solid ${theme.text}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
+                  <span style={{ ...s.limBadgeNum, borderColor: theme.border, color: theme.text }}>{i + 1}</span>
                   <span style={{ ...s.limType, color: theme.text }}>{l.type}</span>
-                  <span style={s.limAc}>{l.airportIcaos?.length || 0} AP / {l.countries?.length || 0} CTR</span>
                 </div>
-                <div style={s.limFn}>{l.title}</div>
-                {isActive && <div style={{ ...s.limMsg, color: theme.text }}>{l.description || '-'}</div>}
+                <div style={s.limTitle}>{l.title}</div>
+                {l.description && <div style={s.limDesc}>{l.description}</div>}
+                {scope && <div style={s.limScope}>{scope}</div>}
               </div>
             );
           })}
@@ -351,16 +332,14 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                           borderRight: '1px dashed rgba(200,80,80,.35)',
                         }}>
                           <span style={s.aogLabel}>AOG</span>
-                          {Array.isArray(fl.limitationIds) && fl.limitationIds.length > 0 && (
+                          {Array.isArray(fl.limitationIds) && limIndexMap[fl.limitationIds[0]] && (
                             <div
                               style={{
                                 position: 'absolute', top: '50%', right: 8,
                                 transform: 'translateY(-50%)',
                                 ...s.limBadgeInline,
-                                background: activeLimId
-                                  ? 'rgba(240,177,59,.35)' : 'rgba(240,177,59,.2)',
+                                background: 'rgba(240,177,59,.2)',
                               }}
-                              onClick={() => handleLimClick(fl.limitationIds[0])}
                             >
                               {limIndexMap[fl.limitationIds[0]]}
                             </div>
@@ -379,7 +358,6 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
-                        onLimClick={handleLimClick}
                       />
                     ))}
                   </div>
@@ -405,28 +383,50 @@ const s = {
     height: 'calc(100vh - 76px)',
   },
 
-  // Left panel
+  // Left panel — sized for reading the full limitation text from across the
+  // ops room; the panel scrolls when entries exceed the height.
   leftPanel: {
-    width: 170, flexShrink: 0, background: '#141926',
+    width: 300, flexShrink: 0, background: '#141926',
     borderRight: '1px solid #222840',
     display: 'flex', flexDirection: 'column',
     padding: '14px 0', overflowY: 'auto',
   },
   panelTitle: {
-    fontSize: 9, fontWeight: 600, letterSpacing: '2px',
-    color: '#404d6e', padding: '0 14px', marginBottom: 10,
+    fontSize: 10, fontWeight: 700, letterSpacing: '2.5px',
+    color: '#404d6e', padding: '0 16px', marginBottom: 10,
   },
-  legendList: { display: 'flex', flexDirection: 'column', gap: 2, padding: '0 10px', marginBottom: 4 },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px' },
-  legendSwatch: { width: 24, height: 10, borderRadius: 3, flexShrink: 0 },
-  legendLabel: { fontSize: 10.5, color: '#8090b8' },
-  limList: { display: 'flex', flexDirection: 'column', gap: 4, padding: '0 10px' },
-  limEmpty: { fontSize: 10, color: '#404d6e', padding: '4px 4px' },
-  limItem: { borderRadius: 7, padding: '7px 8px', transition: 'all .18s' },
-  limType: { fontSize: 9, fontWeight: 700, letterSpacing: '1px' },
-  limAc:   { fontSize: 9, color: '#505d80', fontFamily: "'IBM Plex Mono',monospace", marginLeft: 'auto' },
-  limFn:   { fontSize: 9, color: '#505d80', fontFamily: "'IBM Plex Mono',monospace" },
-  limMsg:  { fontSize: 10, lineHeight: 1.5, marginTop: 5 },
+  legendGrid: {
+    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 8px',
+    padding: '0 12px', marginBottom: 4,
+  },
+  legendItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px' },
+  legendSwatch: { width: 22, height: 10, borderRadius: 3, flexShrink: 0 },
+  legendLabel: { fontSize: 11, color: '#8090b8', whiteSpace: 'nowrap' },
+  limList: { display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px 14px' },
+  limEmpty: { fontSize: 13, color: '#404d6e', padding: '6px 4px' },
+  limCard: {
+    background: '#1a2130',
+    borderRadius: 12,
+    padding: '14px 16px',
+  },
+  limBadgeNum: {
+    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+    border: '1px solid',
+    background: 'rgba(255,255,255,.06)',
+    fontSize: 12, fontWeight: 700,
+    fontFamily: "'IBM Plex Mono',monospace",
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  limType: { fontSize: 13, fontWeight: 800, letterSpacing: '1.5px' },
+  limTitle: {
+    fontSize: 19, fontWeight: 800, color: '#f2f5fb',
+    lineHeight: 1.2, marginBottom: 7,
+  },
+  limDesc: { fontSize: 15, lineHeight: 1.45, color: '#c9ced6', whiteSpace: 'pre-wrap' },
+  limScope: {
+    fontSize: 12, fontFamily: "'IBM Plex Mono',monospace",
+    color: '#7a828d', marginTop: 9,
+  },
 
   // Main
   main: { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative' },

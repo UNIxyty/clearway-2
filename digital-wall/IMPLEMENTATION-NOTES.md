@@ -3,6 +3,42 @@
 > Branch: `digital-wall-features` (one commit per phase A–F, plus three follow-up corrections).
 > Companion context: `digital-screen-investigation.md`, `aip-notam-investigation.md`.
 
+## Console fixes: live updates, NOTAM notification-only, NOTAM page, logos (2026-07-05)
+
+Four commits, one per item.
+
+**1. Live roster updates.** Operator activate/deactivate/upsert and aircraft
+visibility writes broadcast `roster.changed`; the wall refetches with the
+cheap cache read and lanes appear/disappear in ~1–2 s (60 s poll stays as the
+idempotent fallback). Operators/Aircraft console pages live-reconcile too.
+
+**2. NOTAM notification-only, one daily run.** The 10:00 Europe/Riga check
+now emails ONLY a notification ("NOTAMs need to be checked for today's
+flights") with a link to the NOTAM Check page — `templates/notam-notify.html`
+(simple by design; styled version can replace it); recipient
+`NOTAM_DIGEST_TO`, link base `DIGITAL_WALL_PUBLIC_URL` (default
+`https://clearway.verxyl.com/digital-wall`). **No NOTAM content in any email**
+(verified by capturing the sent payload). Continuous scanning is gone: the
+NTM/WX flight markers come from ONE 24 h-look-ahead scan triggered by the
+daily check (portal cache still warm) or `POST /api/alerts/scan`.
+**Decision: weather was folded into this same daily run** (not left on its
+own cadence). Per-finding record emails were removed entirely — this also
+stops the old full-record WEATHER emails (flagged, not silent). Retired:
+`ALERT_SCAN_INTERVAL_MS`, `ALERT_EMAIL_TO`, rules `windowsDays` (stripped
+from stored files on read), `templates/alert-email.html`.
+
+**3. NOTAM Check page.** Moved from the Flights detail area to
+`/digital-wall/console/notam-check` with its own left-nav entry carrying the
+live check-state indicator (red `!` while the sign is raised, green ✓ when
+all airports are acked). Endpoints/SSE unchanged; functional build on the
+current UI kit, ready for the Claude Design re-skin.
+
+**4. Logos.** Top bar renders `public/assets/clearway-logo.svg`; a subtle
+centered "Built by VERXYL" footer renders `verxyl-logo.svg` below the page
+content (never overlapping). Both fall back to text until the SVGs are
+dropped into `opsboard-react/public/assets/`; footer links when `VERXYL_URL`
+is set in `ConsoleApp.jsx`.
+
 ## Wall timeline: Leon-driven pills + ops-room legibility (2026-07-05)
 
 Two commits (A, B). Leon API investigated first (public

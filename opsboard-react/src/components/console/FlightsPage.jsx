@@ -1,23 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../AuthGate';
 import {
-  ackNotamCheck,
   closeFlightOverlay,
-  fetchAlertRules,
   fetchImportant,
-  fetchNotamCheckToday,
   fetchOverlay,
   fetchTimelineRaw,
   openFlightOverlay,
-  runNotamCheck,
   sendFlightDocs,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
-import NotamText, { buildHighlightGroups } from '../NotamText';
 import Icon from './icons';
 import {
   Button,
-  Card,
   Dropdown,
   EmptyState,
   ErrorBanner,
@@ -67,208 +61,6 @@ function flightKey(flight) {
 function isToday(iso) {
   if (!iso) return false;
   return String(iso).slice(0, 10) === new Date().toISOString().slice(0, 10);
-}
-
-// ── NOTAM check panel (daily 10:00 Riga workflow, backend-driven) ────────────
-function NotamRecord({ notam, groups, muted = false }) {
-  const color = notam.matches?.[0]?.color || '#9aa0a8';
-  return (
-    <div
-      style={{
-        fontFamily: t.mono,
-        fontSize: 12.5,
-        lineHeight: 1.5,
-        background: '#fff',
-        border: `1px solid ${t.borderInner}`,
-        borderLeft: `3px solid ${muted ? t.border : color}`,
-        borderRadius: 8,
-        padding: '9px 12px',
-        color: t.body,
-        opacity: muted ? 0.75 : 1,
-      }}
-    >
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline', marginBottom: 4 }}>
-        <span style={{ fontWeight: 700, color: t.ink }}>{notam.number || '(no number)'}</span>
-        <span style={{ color: t.faint, fontSize: 11 }}>class {notam.class || '—'}</span>
-        <span style={{ color: t.faint, fontSize: 11 }}>
-          {notam.validFrom} → {notam.validTill}
-        </span>
-        {!notam.inWindow && <span style={{ color: t.faint, fontSize: 11 }}>outside today +24h</span>}
-      </div>
-      <NotamText text={notam.condition} groups={groups} />
-    </div>
-  );
-}
-
-function NotamCheckPanel() {
-  const [state, setState] = useState(null);
-  const [groups, setGroups] = useState([]);
-  const [showAll, setShowAll] = useState({});
-  const [running, setRunning] = useState(false);
-  const [ackBusy, setAckBusy] = useState('');
-  const [error, setError] = useState('');
-  const flash = useToast();
-
-  async function load() {
-    try {
-      setState(await fetchNotamCheckToday());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  useEffect(() => {
-    load();
-    fetchAlertRules()
-      .then((payload) => setGroups(buildHighlightGroups(payload.rules?.notamGroups)))
-      .catch(() => {});
-    return subscribeWallStream('notam-check.changed', load, { surface: 'console' });
-  }, []);
-
-  async function runNow() {
-    setRunning(true);
-    setError('');
-    try {
-      const payload = await runNotamCheck();
-      setState(payload);
-      flash(`NOTAM check complete · ${payload.total} airports, notification ${payload.emailedTo ? `sent to ${payload.emailedTo}` : 'not sent'}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  async function ack(icao) {
-    setAckBusy(icao);
-    setError('');
-    try {
-      const payload = await ackNotamCheck(icao);
-      setState(payload);
-      if (payload.sign === 'CHECKED') flash('All airports checked — wall sign flipped to NOTAM CHECKED');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setAckBusy('');
-    }
-  }
-
-  const airports = state?.airports || [];
-  const sign = state?.sign || 'NONE';
-
-  return (
-    <Card className="cw-fade" style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Today's NOTAM check</h3>
-          {sign !== 'NONE' && (
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                color: sign === 'CHECKED' ? t.greenDeep : t.red,
-                background: sign === 'CHECKED' ? t.greenTint : t.redTint,
-                padding: '6px 12px',
-                borderRadius: 8,
-              }}
-            >
-              {sign === 'CHECKED' ? 'NOTAM CHECKED' : '!!! CHECK NOTAM !!!'}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: t.faint }}>
-            {state ? `${state.done} of ${state.total} airports checked · wall mirrors this state` : 'Loading…'}
-          </span>
-          <Button size="sm" icon="radar" spin={running} onClick={runNow}>
-            {running ? 'Checking…' : 'Run check now'}
-          </Button>
-        </div>
-      </div>
-      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Runs automatically at {state?.checkHour ?? 10}:00 {state?.timeZone || 'Europe/Riga'} over today's flights
-        (airports deduplicated), filters by the OPS keyword set and validity (now → +24 h, PERM included), raises the
-        wall sign and sends a notification email — no NOTAM content leaves this page
-        {state?.emailedTo ? ` (last notified: ${state.emailedTo})` : ''}. Press CHECKED per airport once reviewed.
-      </p>
-      <ErrorBanner>{error}</ErrorBanner>
-      {state && !state.day && (
-        <EmptyState icon="clipboard-check" title="No check has run today yet">
-          It runs automatically at {state.checkHour}:00 {state.timeZone} — or run it now.
-        </EmptyState>
-      )}
-      {state && state.day && airports.length === 0 && (
-        <EmptyState icon="clipboard-check" title="No flights today">No airports to check.</EmptyState>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {airports.map((airport) => {
-          const checked = Boolean(airport.checked);
-          const expanded = Boolean(showAll[airport.icao]);
-          const visible = expanded ? airport.all : airport.filtered;
-          return (
-            <div
-              key={airport.icao}
-              style={{
-                border: `1px solid ${checked ? t.greenBorder : t.amberBorder}`,
-                borderRadius: 12,
-                overflow: 'hidden',
-                background: checked ? '#f4faf6' : t.amberWash,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700 }}>{airport.icao}</span>
-                <span style={{ fontSize: 13, color: t.muted }}>{airport.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: t.amber, background: t.amberTint, padding: '3px 9px', borderRadius: 999 }}>
-                  {airport.filtered.length} flagged
-                </span>
-                {checked && (
-                  <span style={{ fontSize: 11.5, color: t.greenDeep }}>
-                    checked by {airport.checked.by}
-                  </span>
-                )}
-                <div style={{ flex: 1 }} />
-                <button
-                  type="button"
-                  onClick={() => setShowAll((prev) => ({ ...prev, [airport.icao]: !expanded }))}
-                  style={{ fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: t.blue, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  {expanded ? 'Show flagged only' : `Show all NOTAMs (${airport.all.length})`}
-                  <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} />
-                </button>
-                <Button
-                  variant={checked ? 'successSoft' : 'primary'}
-                  size="sm"
-                  icon={checked ? 'check-check' : 'check'}
-                  spin={ackBusy === airport.icao}
-                  style={{ fontWeight: 700 }}
-                  onClick={() => ack(airport.icao)}
-                >
-                  {checked ? 'CHECKED' : 'Mark checked'}
-                </Button>
-              </div>
-              <div style={{ padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {airport.error && <ErrorBanner>Fetch error: {airport.error}</ErrorBanner>}
-                {visible.length === 0 && (
-                  <div style={{ fontSize: 12.5, color: t.faint }}>
-                    {expanded ? 'No NOTAMs on file for this airport.' : 'No keyword-flagged NOTAMs in the next 24 h.'}
-                  </div>
-                )}
-                {visible.map((notam, index) => (
-                  <NotamRecord
-                    key={`${notam.number || index}`}
-                    notam={notam}
-                    groups={groups}
-                    muted={expanded && notam.matches.length === 0}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
 }
 
 // ── AIP / GEN send section (detail panel) ────────────────────────────────────
@@ -627,7 +419,6 @@ export default function FlightsPage() {
   const [airportFilter, setAirportFilter] = useState('');
   const [range, setRange] = useState('today');
   const [selectedKey, setSelectedKey] = useState('');
-  const [notamOpen, setNotamOpen] = useState(false);
   const [sort, setSort] = useState({ key: 'etd', dir: 1 });
   const flash = useToast();
   const loadedRef = useRef(false);
@@ -739,18 +530,13 @@ export default function FlightsPage() {
     <div>
       <PageHeader
         title="Flights"
-        desc="Pick a flight to control what the wall shows, run the daily NOTAM check, and send AIP / GEN documents to your inbox."
-        actions={
-          <Button icon="clipboard-check" onClick={() => setNotamOpen((v) => !v)}>
-            Today's NOTAM check
-          </Button>
-        }
+        desc="Pick a flight to control what the wall shows and send AIP / GEN documents to your inbox. The daily NOTAM check lives on its own page."
       />
 
       <HelpBanner
         items={[
           { title: 'Show / Close on wall', body: 'sends the selected flight to the digital wall. Only one flight is live at a time; the banner shows who opened it.' },
-          { title: 'NOTAM check', body: 'review today\'s airports and press CHECKED per airport. The wall sign flips from CHECK NOTAM to NOTAM CHECKED once all are done.' },
+          { title: 'NOTAM check', body: 'lives on the NOTAM Check page (left nav) — review today\'s airports there; the wall sign flips once all are checked.' },
           { title: 'Send AIP / GEN', body: 'pick departure and/or arrival + document type; it\'s emailed to you, never downloaded to the wall.' },
         ]}
       />
@@ -788,8 +574,6 @@ export default function FlightsPage() {
           </Button>
         </div>
       )}
-
-      {notamOpen && <NotamCheckPanel />}
 
       <ErrorBanner>{error}</ErrorBanner>
 

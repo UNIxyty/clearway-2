@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 // In dev (vite, no /digital-wall prefix) the same shapes work without the
 // prefix: /timeline, /console/operators, ...
 
-export const CONSOLE_PAGES = ['flights', 'operators', 'aircraft', 'limitations', 'important', 'settings'];
+export const CONSOLE_PAGES = ['flights', 'notam-check', 'operators', 'aircraft', 'limitations', 'important', 'settings'];
 const LEGACY_CONSOLE_ALIASES = {
   aircrafts: 'aircraft',
   operators: 'operators',

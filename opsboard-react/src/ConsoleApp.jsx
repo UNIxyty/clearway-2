@@ -9,6 +9,7 @@ import {
   ToastProvider,
 } from './components/console/ui';
 import AircraftPage from './components/console/AircraftPage';
+import NotamCheckPage from './components/console/NotamCheckPage';
 import FlightsPage from './components/console/FlightsPage';
 import ImportantPage from './components/console/ImportantPage';
 import LimitationsPage from './components/console/LimitationsPage';
@@ -16,6 +17,7 @@ import OperatorsPage from './components/console/OperatorsPage';
 import SettingsPage from './components/console/SettingsPage';
 import {
   fetchImportant,
+  fetchNotamCheckToday,
   fetchOverlay,
   fetchPresence,
   fetchSyncStatus,
@@ -25,6 +27,7 @@ import { subscribeWallStream } from './services/wallStream';
 
 const NAV = [
   { key: 'flights', label: 'Flights', icon: 'plane' },
+  { key: 'notam-check', label: 'NOTAM Check', icon: 'clipboard-check' },
   { key: 'operators', label: 'Operators', icon: 'users' },
   { key: 'aircraft', label: 'Aircraft', icon: 'navigation' },
   { key: 'limitations', label: 'Limitations', icon: 'alert-triangle' },
@@ -56,6 +59,7 @@ export default function ConsoleApp({ page, navigate }) {
   const [wallFlight, setWallFlight] = useState(null);
   const [presence, setPresence] = useState([]);
   const [needsReview, setNeedsReview] = useState(0);
+  const [notamSign, setNotamSign] = useState('NONE');
   const [sync, setSync] = useState(null);
   const [, setTick] = useState(0); // re-render "ago" labels
 
@@ -133,6 +137,14 @@ export default function ConsoleApp({ page, navigate }) {
     return subscribeWallStream('important.changed', load, { surface: 'console' });
   }, []);
 
+  // NOTAM check-state indicator on the nav entry.
+  useEffect(() => {
+    fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
+    return subscribeWallStream('notam-check.changed', (event) => setNotamSign(event.sign || 'NONE'), {
+      surface: 'console',
+    });
+  }, []);
+
   // Sync status card (poll lightly; "ago" label ticks every 15s).
   useEffect(() => {
     const load = () => fetchSyncStatus().then(setSync).catch(() => {});
@@ -170,6 +182,8 @@ export default function ConsoleApp({ page, navigate }) {
 
   function renderPage() {
     switch (page) {
+      case 'notam-check':
+        return <NotamCheckPage />;
       case 'operators':
         return <OperatorsPage />;
       case 'aircraft':
@@ -260,6 +274,7 @@ export default function ConsoleApp({ page, navigate }) {
               {NAV.map((item) => {
                 const on = item.key === page;
                 const badge = item.key === 'important' && needsReview > 0 ? needsReview : null;
+                const notamDot = item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
                 return (
                   <button
                     key={item.key}
@@ -296,6 +311,21 @@ export default function ConsoleApp({ page, navigate }) {
                         }}
                       >
                         {badge}
+                      </span>
+                    )}
+                    {notamDot && (
+                      <span
+                        title={notamDot === 'CHECKED' ? 'All airports checked' : 'NOTAMs need checking'}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: notamDot === 'CHECKED' ? t.greenDeep : t.red,
+                          background: notamDot === 'CHECKED' ? t.greenTint : t.redTint,
+                          padding: '2px 7px',
+                          borderRadius: 6,
+                        }}
+                      >
+                        {notamDot === 'CHECKED' ? '✓' : '!'}
                       </span>
                     )}
                   </button>

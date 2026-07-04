@@ -1,14 +1,38 @@
 import { clamp } from '../data';
 
 // Brighter pill colors
+// Pill body fill = flight state, derived from real Leon semantics
+// (digital-wall/LEON-PILL-MAPPING.md):
+//   white  = scheduled (not flying, on time)     yellow = delayed, not departed
+//   purple = active CTOT/slot, not yet airborne  blue   = flying
+//   pink   = arrived (landed / block-on)
 const STATUS = {
-  scheduled: { bg: 'rgba(72,82,115,.95)',   text: '#a8b4d8', hatch: 'rgba(100,112,155,.8)' },
-  boarding:  { bg: 'rgba(170,125,35,.9)',   text: '#ffe0a0', hatch: 'rgba(200,155,45,.8)'  },
-  airborne:  { bg: 'rgba(48,110,175,.9)',   text: '#b8e0ff', hatch: 'rgba(65,135,205,.8)'  },
-  arrived:   { bg: 'rgba(38,108,78,.9)',    text: '#96e8c0', hatch: 'rgba(50,130,95,.8)'   },
-  delayed:   { bg: 'rgba(132,118,74,.9)',   text: '#f3dfaf', hatch: 'rgba(168,146,90,.8)'  },
-  slot:      { bg: 'rgba(112,82,168,.9)',   text: '#dcc8ff', hatch: 'rgba(135,100,195,.8)' },
+  scheduled: { bg: '#eef1f8', text: '#151a26' },
+  delayed:   { bg: '#e7c443', text: '#221a04' },
+  ctot:      { bg: '#8b5cf6', text: '#f6f1ff' },
+  airborne:  { bg: '#3b82f6', text: '#ecf4ff' },
+  arrived:   { bg: '#ef7fae', text: '#2b0e1c' },
+  cancelled: { bg: 'rgba(90,97,120,.45)', text: '#a7aec4' },
+  // legacy aliases (older cached data)
+  boarding:  { bg: '#eef1f8', text: '#151a26' },
+  slot:      { bg: '#8b5cf6', text: '#f6f1ff' },
 };
+
+// Leon checklist colors can be arbitrary; on the dark board a too-dark ID
+// would vanish, so guard minimum luminance and fall back to the default.
+function readableIdColor(hex, fallback) {
+  const value = String(hex || '').trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(value.replace('#', '').length === 3
+    ? value.replace('#', '').split('').map((c) => c + c).join('')
+    : value);
+  if (!m) return fallback;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance < 0.35 ? fallback : `#${m[1]}`;
+}
 
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small
 // type badges on the pill — they are NOT sidebar entries.
@@ -47,9 +71,10 @@ export default function FlightPill({
   // important limitations apply; the full text is read in the Console.
   const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
 
-  const isDelayed = depDelayMin > 0 || arrDelayMin > 0;
-  const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
-  const theme = STATUS[baseStatus] || STATUS.scheduled;
+  // The fill comes straight from the Leon-derived movement state — a delayed
+  // AIRBORNE flight is blue (the leading dashed segment still shows the
+  // delay); "delayed" (yellow) means delayed and not yet departed.
+  const theme = STATUS[status] || STATUS.scheduled;
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -76,16 +101,20 @@ export default function FlightPill({
   const mainPct = ((mainSectionF / totalF) * 100).toFixed(2) + '%';
   const arrCrossPct = ((arrCrossSectionF / totalF) * 100).toFixed(2) + '%';
 
-  const defaultHatchBg = `repeating-linear-gradient(
-    -45deg,
-    ${theme.hatch} 0px, ${theme.hatch} 3px,
-    rgba(8,10,18,.7) 3px, rgba(8,10,18,.7) 8px
+  // Delay renders as a DASHED leading segment sized to the delay magnitude:
+  // the span between the scheduled time and the actual/estimated departure
+  // (or between STA and the delayed arrival on the trailing side). Dashes
+  // use the state color so the delay reads as "this pill, not yet solid".
+  const delayDashBg = `repeating-linear-gradient(
+    90deg,
+    ${theme.bg} 0px, ${theme.bg} 8px,
+    rgba(10,13,22,.15) 8px, rgba(10,13,22,.15) 15px
   )`;
-  const delayedHatchBg = `repeating-linear-gradient(
-    -45deg,
-    rgba(255,255,255,.72) 0px, rgba(255,255,255,.72) 2px,
-    rgba(124,132,146,.88) 2px, rgba(124,132,146,.88) 8px
-  )`;
+
+  // ID text: Leon checklist color (contrast-guarded on the dark board),
+  // italic when the trip is not CONFIRMED (Option/Opportunity).
+  const idColor = readableIdColor(flight.checklistColor, '#c3cde8');
+  const idStyle = flight.isConfirmed === false ? 'italic' : 'normal';
 
   // ── Pixel-aware layout (anti-overlap) ──────────────────────────────────
   // The pill knows its rendered width, so narrow pills switch layout instead
@@ -137,7 +166,7 @@ export default function FlightPill({
       alignItems: 'stretch',
     }}>
       <div style={s.fnOutsideRow}>
-        <span style={s.fnOutside}>{fn}</span>
+        <span style={{ ...s.fnOutside, color: idColor, fontStyle: idStyle }}>{fn}</span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
           {hasImp && (
             <span title="Important limitation — details in the Console" style={s.impMark}>
@@ -170,7 +199,7 @@ export default function FlightPill({
             <div style={{
               width: depCrossPct, height: 24, flexShrink: 0,
               borderRadius: '99px 0 0 99px',
-              background: delayedHatchBg,
+              background: delayDashBg,
               boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)',
               overflow: 'hidden',
             }} />
@@ -224,7 +253,7 @@ export default function FlightPill({
               height: 24,
               flexShrink: 0,
               borderRadius: '0 99px 99px 0',
-              background: delayedHatchBg,
+              background: delayDashBg,
               boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)',
               overflow: 'hidden',
             }} />

@@ -83,7 +83,24 @@ function toUniqueSorted(values = []) {
   );
 }
 
-const LEON_FLIGHT_FIELDS = `
+// Baseline selection — known-good on every tenant (this is what production
+// synced with before the pill work). The richer movement/CTOT/checklist
+// fields are added dynamically after schema introspection (see
+// resolveFlightSelection): a GraphQL query naming a non-existent field fails
+// whole, so we only request what the tenant's schema actually has.
+const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
+// Wanted flightWatch fields, superset across known Leon schemas
+// (flight-support documents: tobt ctotIso etdIso offBlock toIso eetIso
+// etaIso ldgIso blonIso; plain tenants often expose etd/eta/ctot variants).
+const WANTED_FLIGHTWATCH_FIELDS = [
+  "atd", "ata", "toIso", "ldgIso",
+  "etd", "etdIso", "eta", "etaIso",
+  "ctot", "ctotIso", "tobt",
+  "offBlock", "bloffIso", "blonIso",
+];
+
+function buildFlightSelection({ flightWatchFields, includeChecklist }) {
+  return `
   flightNid
   flightNo
   status
@@ -99,12 +116,8 @@ const LEON_FLIGHT_FIELDS = `
     aircraftNid
     registration
   }
-  flightWatch {
-    atd
-    ata
-    toIso
-    ldgIso
-  }
+  ${flightWatchFields.length > 0 ? `flightWatch {\n    ${flightWatchFields.join("\n    ")}\n  }` : ""}
+  ${includeChecklist ? "checklist {\n    allItems { cdNid csId }\n  }" : ""}
   passengerList {
     count
   }
@@ -112,6 +125,7 @@ const LEON_FLIGHT_FIELDS = `
     loginNid
   }
 `;
+}
 
 function addDays(baseDate, days) {
   const dt = new Date(baseDate.getTime());
@@ -164,7 +178,22 @@ function mapStaticFlight(rawFlight) {
   const delayedDepartureUTC = addDelayIso(etd ?? plannedDeparture, departureDelayMin);
   const delayedArrivalUTC = addDelayIso(eta ?? plannedArrival, arrivalDelayMin);
 
+  const hasArrived = Boolean(ata);
+  const isAirborne = Boolean(atd) && !hasArrived;
+
   return {
+    // Pill-semantics defaults for static seeds (no Leon extras available).
+    blockOff: null,
+    takeOff: null,
+    landing: null,
+    blockOn: null,
+    hasArrived,
+    isAirborne,
+    ctot: null,
+    tripStatus: rawFlight.tripStatus ?? rawFlight.status ?? null,
+    isConfirmed: true,
+    checklistColor: null,
+    movementState: movementStateOf({ hasArrived, isAirborne, ctot: null, departureDelayMin }),
     flightNid: rawFlight.flightNid ?? rawFlight.id,
     flightNo: rawFlight.flightNo ?? "UNKNOWN",
     tripNo: rawFlight.tripNo ?? null,
@@ -207,21 +236,82 @@ function mapStaticFlight(rawFlight) {
   };
 }
 
-function mapLeonFlight(rawFlight) {
+/**
+ * Movement state for the wall pill fill (LEON-PILL-MAPPING.md):
+ * arrived → airborne → ctot → delayed → scheduled.
+ * NOTE: a flight that has both an active CTOT and a delay renders "ctot"
+ * (CTOT wins) — flagged for ops confirmation; swap the two checks to change.
+ */
+function movementStateOf({ hasArrived, isAirborne, ctot, departureDelayMin }) {
+  if (hasArrived) return "arrived";
+  if (isAirborne) return "airborne";
+  if (ctot) return "ctot";
+  if ((departureDelayMin ?? 0) > 0) return "delayed";
+  return "scheduled";
+}
+
+/**
+ * One color per flight from its checklist items: the least-complete item
+ * (earliest position in its definition's ordered status list) wins.
+ */
+function aggregateChecklistColor(rawChecklist, defs) {
+  const items = rawChecklist?.allItems;
+  if (!Array.isArray(items) || items.length === 0 || !defs) return null;
+  let worst = null;
+  for (const item of items) {
+    const def = defs.get(item?.cdNid);
+    if (!def) continue;
+    const index = def.order.indexOf(item.csId);
+    if (index < 0) continue;
+    const progress = def.order.length > 1 ? index / (def.order.length - 1) : 1;
+    if (!worst || progress < worst.progress) {
+      worst = { progress, color: def.colorByStatus[item.csId] ?? null };
+    }
+  }
+  return worst?.color ?? null;
+}
+
+function mapLeonFlight(rawFlight, checklistDefs = null) {
   const fw = rawFlight.flightWatch ?? {};
   const jl = rawFlight.journeyLog ?? {};
   const plannedDeparture = normalizeDateLike(rawFlight.startTimeUTC ?? null);
   const plannedArrival = normalizeDateLike(rawFlight.endTimeUTC ?? null);
   const etd = normalizeDateLike(fw.etd ?? fw.etdIso ?? rawFlight.startTimeUTC ?? null);
   const eta = normalizeDateLike(fw.eta ?? fw.etaIso ?? rawFlight.endTimeUTC ?? null);
-  const atd = normalizeDateLike(fw.atd ?? fw.toIso ?? jl.atd ?? jl.toTimeUTC ?? jl.bloffUTC ?? null);
-  const ata = normalizeDateLike(fw.ata ?? fw.ldgIso ?? jl.ata ?? jl.ldgTimeUTC ?? jl.blonUTC ?? null);
+  // Movement chain: block-off → take-off → landing → block-on.
+  const blockOff = normalizeDateLike(fw.offBlock ?? fw.bloffIso ?? jl.bloffUTC ?? null);
+  const takeOff = normalizeDateLike(fw.toIso ?? jl.toTimeUTC ?? null);
+  const landing = normalizeDateLike(fw.ldgIso ?? jl.ldgTimeUTC ?? null);
+  const blockOn = normalizeDateLike(fw.blonIso ?? jl.blonUTC ?? null);
+  const atd = normalizeDateLike(fw.atd ?? null) ?? takeOff ?? normalizeDateLike(jl.atd ?? null) ?? blockOff;
+  const ata = normalizeDateLike(fw.ata ?? null) ?? landing ?? normalizeDateLike(jl.ata ?? null) ?? blockOn;
   const departureDelayMin = diffMinutes(atd ?? etd, plannedDeparture);
   const arrivalDelayMin = diffMinutes(ata ?? eta, plannedArrival);
   const delayedDepartureUTC = addDelayIso(etd ?? plannedDeparture, departureDelayMin);
   const delayedArrivalUTC = addDelayIso(eta ?? plannedArrival, arrivalDelayMin);
+  const ctot = normalizeDateLike(fw.ctotIso ?? fw.ctot ?? fw.tobt ?? null);
+  const hasArrived = Boolean(ata);
+  const isAirborne = Boolean(atd) && !hasArrived;
+  const tripStatus = rawFlight.status ?? null;
 
   return {
+    // ── Leon-driven pill semantics (see LEON-PILL-MAPPING.md) ──
+    blockOff,
+    takeOff,
+    landing,
+    blockOn,
+    hasArrived,
+    isAirborne,
+    ctot,
+    tripStatus,
+    isConfirmed: tripStatus == null ? true : String(tripStatus).toUpperCase() === "CONFIRMED",
+    checklistColor: aggregateChecklistColor(rawFlight.checklist, checklistDefs),
+    movementState: movementStateOf({
+      hasArrived,
+      isAirborne,
+      ctot,
+      departureDelayMin,
+    }),
     flightNid: rawFlight.flightNid ?? rawFlight.id ?? null,
     flightNo: rawFlight.flightNo ?? rawFlight.flightNumber ?? "UNKNOWN",
     tripNo: rawFlight.trip?.tripNumber ?? rawFlight.tripNo ?? null,
@@ -334,6 +424,8 @@ export class LeonTimelineService {
     this.flightsByNid = new Map();
     this.aircraftByFlightNid = new Map();
     this.aircraftCacheByOperator = new Map();
+    this.flightSelectionByOperator = new Map(); // oprId -> GraphQL selection string
+    this.checklistDefsByOperator = new Map(); // oprId -> Map(cdNid -> {order[], colorByStatus{}})
     this.syncStateByOperator = new Map();
     this.limitations = [];
     this.rawLimitations = [];
@@ -714,6 +806,78 @@ export class LeonTimelineService {
     return payload.data;
   }
 
+  async introspectTypeFields(typeName, oprId) {
+    const data = await this.graphqlRequest(
+      `query { __type(name: ${JSON.stringify(typeName)}) { fields { name } } }`,
+      undefined,
+      oprId
+    );
+    return new Set((data.__type?.fields ?? []).map((field) => field.name));
+  }
+
+  /**
+   * Build the flightList selection for this tenant from what its schema
+   * actually exposes (introspected once per operator per process). Falls
+   * back to the legacy minimal selection when introspection fails, so a
+   * schema quirk can never take the sync down.
+   */
+  async resolveFlightSelection(oprId) {
+    if (this.flightSelectionByOperator.has(oprId)) {
+      return this.flightSelectionByOperator.get(oprId);
+    }
+    let selection;
+    try {
+      const [fwFields, flightFields] = await Promise.all([
+        this.introspectTypeFields("FlightWatch", oprId),
+        this.introspectTypeFields("Flight", oprId),
+      ]);
+      const flightWatchFields = flightFields.has("flightWatch")
+        ? WANTED_FLIGHTWATCH_FIELDS.filter((name) => fwFields.has(name))
+        : [];
+      selection = buildFlightSelection({
+        flightWatchFields: flightWatchFields.length > 0 ? flightWatchFields : LEGACY_FLIGHTWATCH_FIELDS,
+        includeChecklist: flightFields.has("checklist"),
+      });
+    } catch {
+      selection = buildFlightSelection({
+        flightWatchFields: LEGACY_FLIGHTWATCH_FIELDS,
+        includeChecklist: false,
+      });
+    }
+    this.flightSelectionByOperator.set(oprId, selection);
+    return selection;
+  }
+
+  /** Checklist status definitions (id -> ordered statuses + colors), cached. */
+  async ensureChecklistDefs(oprId) {
+    if (this.checklistDefsByOperator.has(oprId)) {
+      return this.checklistDefsByOperator.get(oprId);
+    }
+    let defs = null;
+    try {
+      const data = await this.graphqlRequest(
+        `query { checklist { getAvailableDefinitions(groupId: OPS) { nid statuses { status color } } } }`,
+        undefined,
+        oprId
+      );
+      const definitions = data.checklist?.getAvailableDefinitions ?? [];
+      defs = new Map(
+        definitions.map((definition) => [
+          definition.nid,
+          {
+            order: (definition.statuses ?? []).map((s) => s.status),
+            colorByStatus: Object.fromEntries((definition.statuses ?? []).map((s) => [s.status, s.color])),
+          },
+        ])
+      );
+      if (defs.size === 0) defs = null;
+    } catch {
+      defs = null; // tenant without OPS checklist definitions — IDs use default color
+    }
+    this.checklistDefsByOperator.set(oprId, defs);
+    return defs;
+  }
+
   async fetchAircraftForOperator(oprId = this.operatorId) {
     if (!oprId) return [];
     const data = await this.graphqlRequest(
@@ -753,6 +917,7 @@ export class LeonTimelineService {
 
   async fetchFlightsForOperatorRange(oprId, fromDate, toDate) {
     const allRawFlights = [];
+    const selection = await this.resolveFlightSelection(oprId);
     let chunkStart = new Date(fromDate);
 
     while (chunkStart <= toDate) {
@@ -765,7 +930,7 @@ export class LeonTimelineService {
         `
           query {
             flightList(filter: { timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
-              ${LEON_FLIGHT_FIELDS}
+              ${selection}
             }
           }
         `,
@@ -784,6 +949,8 @@ export class LeonTimelineService {
     const start = parseDate(process.env.LEON_SYNC_RANGE_START) ?? addDays(now, -7);
     const end = parseDate(process.env.LEON_SYNC_RANGE_END) ?? addDays(now, 30);
     const checkpointBeforeStart = new Date().toISOString();
+    const selection = await this.resolveFlightSelection(oprId);
+    const checklistDefs = await this.ensureChecklistDefs(oprId);
 
     const stats = { updated: 0, skipped: 0, deleted: 0 };
     let chunkStart = start;
@@ -795,7 +962,7 @@ export class LeonTimelineService {
         `
           query {
             flightList(filter: { timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
-              ${LEON_FLIGHT_FIELDS}
+              ${selection}
             }
           }
         `,
@@ -804,7 +971,7 @@ export class LeonTimelineService {
       );
 
       for (const rawFlight of data.flightList ?? []) {
-        const mapped = mapLeonFlight(rawFlight);
+        const mapped = mapLeonFlight(rawFlight, checklistDefs);
         mapped.oprId = oprId;
         const nid = this.flightCacheKey(oprId, mapped.flightNid);
         this.flightsByNid.set(nid, mapped);
@@ -827,6 +994,8 @@ export class LeonTimelineService {
   async incrementalSync(oprId = this.operatorId) {
     const operatorState = this.syncStateByOperator.get(oprId);
     const dateTime = operatorState?.lastSyncTimestamp ?? new Date().toISOString();
+    const selection = await this.resolveFlightSelection(oprId);
+    const checklistDefs = await this.ensureChecklistDefs(oprId);
     const data = await this.graphqlRequest(
       `
         query {
@@ -834,10 +1003,10 @@ export class LeonTimelineService {
             getModifiedFlightList(dateTime: "${gqlString(dateTime)}") {
               timestamp
               created {
-                ${LEON_FLIGHT_FIELDS}
+                ${selection}
               }
               changed {
-                ${LEON_FLIGHT_FIELDS}
+                ${selection}
               }
               deleted
             }
@@ -855,7 +1024,7 @@ export class LeonTimelineService {
     }
 
     for (const row of [...(delta.created ?? []), ...(delta.changed ?? [])]) {
-      const mapped = mapLeonFlight(row);
+      const mapped = mapLeonFlight(row, checklistDefs);
       mapped.oprId = oprId;
       const nid = this.flightCacheKey(oprId, mapped.flightNid);
       this.flightsByNid.set(nid, mapped);

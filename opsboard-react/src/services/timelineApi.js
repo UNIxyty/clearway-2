@@ -75,13 +75,16 @@ function toHm(value) {
   return `${hh}:${mm}`;
 }
 
+// Pill fill state. The backend derives movementState from real Leon
+// semantics (flight watch movement chain, CTOT, delay — see
+// digital-wall/LEON-PILL-MAPPING.md); older cached flights without it fall
+// back to a client-side derivation.
 function statusFromFlight(flight) {
-  if (flight?.isCnl) return 'slot';
+  if (flight?.isCnl) return 'cancelled';
+  if (flight?.movementState) return flight.movementState;
   if (flight?.ata) return 'arrived';
   if (flight?.atd) return 'airborne';
   if ((flight?.delayMin ?? 0) > 0) return 'delayed';
-  if (flight?.status && /airborne/i.test(flight.status)) return 'airborne';
-  if (flight?.status && /arrived/i.test(flight.status)) return 'arrived';
   return 'scheduled';
 }
 
@@ -115,6 +118,10 @@ function mapFlight(flight) {
     depDelayMin,
     arrDelayMin,
     status: statusFromFlight(flight),
+    // Leon-driven pill semantics (Part A):
+    isConfirmed: flight.isConfirmed !== false,
+    checklistColor: flight.checklistColor || null,
+    ctot: flight.ctot || null,
     startUtcMs: start.getTime(),
     delayedStartUtcMs: delayedDep.getTime(),
     scheduledEndUtcMs: scheduledEnd.getTime(),

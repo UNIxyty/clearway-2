@@ -2,14 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { p2, clamp } from '../data';
 import FlightPill from './FlightPill';
 
+// Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 const LEGEND = [
-  { status: 'scheduled', label: 'Scheduled',   color: 'rgba(72,82,115,.95)'  },
-  { status: 'boarding',  label: 'Boarding',    color: 'rgba(170,125,35,.9)'  },
-  { status: 'airborne',  label: 'Airborne',    color: 'rgba(48,110,175,.9)'  },
-  { status: 'arrived',   label: 'Arrived',     color: 'rgba(38,108,78,.9)'   },
-  { status: 'delayed',   label: 'Delayed',     color: 'rgba(145,62,62,.9)'   },
-  { status: 'slot',      label: 'Slot / CTOT', color: 'rgba(112,82,168,.9)'  },
-  { status: 'aog',       label: 'AOG',         color: 'rgba(180,60,60,.4)',   hatch: true },
+  { status: 'scheduled', label: 'Scheduled',   color: '#eef1f8' },
+  { status: 'delayed',   label: 'Delayed',     color: '#e7c443' },
+  { status: 'ctot',      label: 'CTOT / slot', color: '#8b5cf6' },
+  { status: 'airborne',  label: 'Flying',      color: '#3b82f6' },
+  { status: 'arrived',   label: 'Arrived',     color: '#ef7fae' },
+  { status: 'aog',       label: 'AOG',         color: 'rgba(180,60,60,.4)', hatch: true },
 ];
 
 const LIM_TYPE_COLOR = {

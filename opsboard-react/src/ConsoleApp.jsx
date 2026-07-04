@@ -25,6 +25,25 @@ import {
 } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
 
+// Brand assets — dropped into opsboard-react/public/assets/ (SVG, crisp on
+// retina). Until the files exist, the components fall back to text.
+const CLEARWAY_LOGO = `${import.meta.env.BASE_URL}assets/clearway-logo.svg`;
+const VERXYL_LOGO = `${import.meta.env.BASE_URL}assets/verxyl-logo.svg`;
+const VERXYL_URL = ''; // set when a link target is provided
+
+function BrandLogo({ src, alt, height, fallback }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return fallback;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      style={{ height, width: 'auto', display: 'block' }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const NAV = [
   { key: 'flights', label: 'Flights', icon: 'plane' },
   { key: 'notam-check', label: 'NOTAM Check', icon: 'clipboard-check' },
@@ -208,10 +227,19 @@ export default function ConsoleApp({ page, navigate }) {
         {/* ── Top bar ── */}
         <div style={s.topBar}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={s.logoMark}>
-              <div style={s.logoDot} />
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.01em' }}>clearway</span>
+            <BrandLogo
+              src={CLEARWAY_LOGO}
+              alt="Clearway"
+              height={30}
+              fallback={
+                <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={s.logoMark}>
+                    <span style={s.logoDot} />
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.01em' }}>clearway</span>
+                </span>
+              }
+            />
             <span style={{ width: 1, height: 22, background: t.border, margin: '0 4px' }} />
             <span style={{ fontSize: 14, fontWeight: 600, color: t.muted }}>Display Console</span>
           </div>
@@ -352,11 +380,33 @@ export default function ConsoleApp({ page, navigate }) {
           </div>
 
           {/* ── Content ── */}
-          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface }}>
-            <div style={{ padding: '30px 34px', maxWidth: 1240 }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '30px 34px', maxWidth: 1240, flex: 1 }}>
               <div key={page} className="cw-fade">
                 {renderPage()}
               </div>
+            </div>
+            {/* "Built by" footer — subtle, never overlaps content (own row
+                below the page, inside the scroll container). */}
+            <div style={s.footer}>
+              <span style={{ fontSize: 11.5, color: t.faint }}>Built by</span>
+              {VERXYL_URL ? (
+                <a href={VERXYL_URL} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+                  <BrandLogo
+                    src={VERXYL_LOGO}
+                    alt="Verxyl"
+                    height={16}
+                    fallback={<span style={s.footerBrand}>VERXYL</span>}
+                  />
+                </a>
+              ) : (
+                <BrandLogo
+                  src={VERXYL_LOGO}
+                  alt="Verxyl"
+                  height={16}
+                  fallback={<span style={s.footerBrand}>VERXYL</span>}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -424,5 +474,23 @@ const s = {
     borderRadius: 12,
     padding: '13px 14px',
     background: t.subtle,
+  },
+  footer: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '18px 34px 22px',
+    borderTop: `1px solid ${t.borderInner}`,
+    marginTop: 24,
+    opacity: 0.85,
+  },
+  footerBrand: {
+    fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: '2.5px',
+    color: t.muted,
   },
 };

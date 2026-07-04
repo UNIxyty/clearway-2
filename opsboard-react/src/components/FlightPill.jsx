@@ -43,6 +43,9 @@ export default function FlightPill({
         .map((lim) => lim.type)
     ),
   ];
+  // IMP renders as ONE icon with no count — the wall only signals that
+  // important limitations apply; the full text is read in the Console.
+  const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
 
   const isDelayed = depDelayMin > 0 || arrDelayMin > 0;
   const baseStatus = isDelayed ? 'delayed' : (status || 'scheduled');
@@ -136,6 +139,11 @@ export default function FlightPill({
       <div style={s.fnOutsideRow}>
         <span style={s.fnOutside}>{fn}</span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+          {hasImp && (
+            <span title="Important limitation — details in the Console" style={s.impMark}>
+              !
+            </span>
+          )}
           {alertTypes.map((type) => (
             <span
               key={type}
@@ -280,6 +288,20 @@ const s = {
     padding: '1px 4px',
     lineHeight: '10px',
     letterSpacing: '.5px',
+  },
+  impMark: {
+    width: 13,
+    height: 13,
+    borderRadius: 4,
+    background: 'rgba(240,177,59,.22)',
+    border: '1px solid rgba(240,177,59,.55)',
+    color: '#f0b13b',
+    fontSize: 9,
+    fontWeight: 800,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
   },
   frame: {
     width: '100%',

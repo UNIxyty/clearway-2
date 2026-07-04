@@ -4,6 +4,7 @@ import {
   ackNotamCheck,
   closeFlightOverlay,
   fetchAlertRules,
+  fetchImportant,
   fetchNotamCheckToday,
   fetchOverlay,
   fetchTimelineRaw,
@@ -433,6 +434,94 @@ function SendSection({ flight }) {
   );
 }
 
+// ── IMP details (console-side reading of what the wall only marks with "!") ──
+function ImpDetails({ flight, impEntries }) {
+  const [criteriaById, setCriteriaById] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchImportant({ includeInactive: false })
+      .then((payload) => {
+        if (cancelled) return;
+        const map = {};
+        for (const entry of payload.entries || []) map[entry.id] = entry.match || {};
+        setCriteriaById(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const depIcao = flight.adep?.icao;
+  const arrIcao = flight.ades?.icao;
+  const operatorNames = [flight.oprId, flight.operatorName].filter(Boolean).map((v) => v.toLowerCase());
+  const registration = String(flight.registration || '').toUpperCase();
+
+  function criteriaChips(entryId) {
+    const match = criteriaById[entryId];
+    if (!match) return null;
+    const chips = [];
+    for (const icao of match.airportIcaos || []) {
+      chips.push({ label: icao, hit: icao === depIcao || icao === arrIcao });
+    }
+    for (const country of match.countries || []) chips.push({ label: country, hit: null });
+    for (const operator of match.operators || []) {
+      const low = operator.toLowerCase();
+      chips.push({ label: `op: ${operator}`, hit: operatorNames.some((n) => n.includes(low) || low.includes(n)) });
+    }
+    for (const reg of match.registrations || []) chips.push({ label: `reg: ${reg}`, hit: reg.toUpperCase() === registration });
+    if (match.direction && match.direction !== 'any') chips.push({ label: match.direction === 'dep' ? 'departures' : 'arrivals', hit: null });
+    return chips;
+  }
+
+  return (
+    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.borderInner}`, background: t.amberWash }}>
+      {impEntries.map((imp, index) => {
+        const chips = criteriaChips(imp.id);
+        return (
+          <div key={imp.id} style={{ marginBottom: index === impEntries.length - 1 ? 0 : 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+              <ImpMark size={20} />
+              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', color: t.amber }}>
+                IMPORTANT — {imp.title}
+              </span>
+            </div>
+            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: t.body, margin: 0, whiteSpace: 'pre-wrap' }}>{imp.description}</p>
+            {chips && chips.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: t.faint }}>criteria:</span>
+                {chips.map((chip) => (
+                  <span
+                    key={chip.label}
+                    title={chip.hit ? 'Matched this flight' : undefined}
+                    style={{
+                      fontFamily: t.mono,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: chip.hit ? t.amberTint : '#fff',
+                      color: chip.hit ? t.amber : t.muted,
+                      border: `1px solid ${chip.hit ? 'rgba(180,83,9,.45)' : t.borderInner}`,
+                    }}
+                  >
+                    {chip.label}
+                    {chip.hit && ' ✓'}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ fontSize: 12, color: t.faint, marginTop: 10 }}>
+        The wall shows only the "!" icon — the full text is read here.
+      </div>
+    </div>
+  );
+}
+
 // ── Detail panel ─────────────────────────────────────────────────────────────
 function TimingBox({ label, rows }) {
   return (
@@ -519,24 +608,7 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
         )}
       </div>
 
-      {impEntries.length > 0 && (
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.borderInner}`, background: t.amberWash }}>
-          {impEntries.map((imp, index) => (
-            <div key={imp.id} style={{ marginBottom: index === impEntries.length - 1 ? 0 : 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
-                <ImpMark size={20} />
-                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', color: t.amber }}>
-                  IMPORTANT — {imp.title}
-                </span>
-              </div>
-              <p style={{ fontSize: 13.5, lineHeight: 1.55, color: t.body, margin: 0, whiteSpace: 'pre-wrap' }}>{imp.description}</p>
-            </div>
-          ))}
-          <div style={{ fontSize: 12, color: t.faint, marginTop: 8 }}>
-            The wall shows only the "!" icon — the full text is read here.
-          </div>
-        </div>
-      )}
+      {impEntries.length > 0 && <ImpDetails flight={flight} impEntries={impEntries} />}
 
       <SendSection flight={flight} />
     </div>

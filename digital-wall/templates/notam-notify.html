@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f6f7;font-family:system-ui,Arial,sans-serif;">
+  <!--
+    SIMPLE NOTIFICATION TEMPLATE — deliberately minimal; a styled version can
+    replace this file later. NO NOTAM CONTENT belongs in this email.
+    Placeholders: {{subject}} {{day}} {{airportCount}} {{link}} {{generatedAt}}
+  -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e6e7ea;border-radius:12px;">
+          <tr>
+            <td style="padding:24px 28px;">
+              <div style="font-size:11px;letter-spacing:2px;color:#9aa0a8;margin-bottom:10px;">CLEARWAY DISPLAY CONSOLE</div>
+              <div style="font-size:17px;font-weight:700;color:#17181c;margin-bottom:10px;">NOTAMs need to be checked for today's flights</div>
+              <div style="font-size:13.5px;color:#3a3d44;line-height:1.55;margin-bottom:18px;">
+                The daily NOTAM check for <strong>{{day}}</strong> is ready — {{airportCount}} airport(s) to review.
+                Open the NOTAM Check page, review each airport and press CHECKED; the wall sign clears when all are done.
+              </div>
+              <a href="{{link}}" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:11px 20px;border-radius:9px;">Open NOTAM Check</a>
+              <div style="font-size:11px;color:#9aa0a8;margin-top:20px;">Generated {{generatedAt}} · this notification contains no NOTAM content by design.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

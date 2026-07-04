@@ -399,7 +399,7 @@ function AlertFilterCard() {
       if (scan?.ok === false) setError(scan.error || 'Scan failed.');
       else
         flash(
-          `Scan complete · ${scan?.flightsScanned ?? 0} flights, ${scan?.newFindings ?? 0} new finding${(scan?.newFindings ?? 0) === 1 ? '' : 's'}${scan?.emailed ? `, ${scan.emailed} emailed` : ''}`
+          `Scan complete · ${scan?.flightsScanned ?? 0} flights, ${scan?.newFindings ?? 0} new finding${(scan?.newFindings ?? 0) === 1 ? '' : 's'}`
         );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -427,8 +427,8 @@ function AlertFilterCard() {
         </div>
       </div>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 18px' }}>
-        Keywords are matched against incoming NOTAM and weather records; matching flights get NTM / WX badges on the
-        wall.
+        Keywords drive both the daily NOTAM check filtering and the NTM / WX flight badges — matched once per day
+        alongside the 10:00 check.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       {!rules && !error && <LoadingState>Loading rules…</LoadingState>}
@@ -538,26 +538,17 @@ function AlertFilterCard() {
       )}
 
       {rules && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14 }}>
           <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Scan windows</div>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {(rules.windowsDays || []).map((days) => (
-                <span key={days} style={{ fontSize: 12.5, fontWeight: 700, color: t.blueDeep, background: t.blueChip, padding: '5px 11px', borderRadius: 8 }}>
-                  {days} day{days === 1 ? '' : 's'}
-                </span>
-              ))}
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Scan cadence</div>
+            <div style={{ fontSize: 13, color: t.body, lineHeight: 1.45 }}>
+              Once daily with the 10:00 NOTAM check (24 h look-ahead) — plus “Run scan now”.
             </div>
           </div>
           <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Daily check time</div>
-            {/* TODO(backend): scheduled daily NOTAM-check digest is part of the in-flight fixes. */}
-            <PendingNote>Scheduled check lands with the NOTAM-check backend.</PendingNote>
-          </div>
-          <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Alert recipient</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Notification recipient</div>
             <div style={{ fontSize: 13, color: t.body, lineHeight: 1.45 }}>
-              Configured server-side via <span style={{ fontFamily: t.mono, fontSize: 12 }}>ALERT_EMAIL_TO</span>.
+              Daily notification (no NOTAM content) via <span style={{ fontFamily: t.mono, fontSize: 12 }}>NOTAM_DIGEST_TO</span>.
             </div>
           </div>
         </div>

@@ -131,7 +131,7 @@ function NotamCheckPanel() {
     try {
       const payload = await runNotamCheck();
       setState(payload);
-      flash(`NOTAM check complete · ${payload.total} airports, digest ${payload.emailedTo ? `emailed to ${payload.emailedTo}` : 'not emailed'}`);
+      flash(`NOTAM check complete · ${payload.total} airports, notification ${payload.emailedTo ? `sent to ${payload.emailedTo}` : 'not sent'}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -189,8 +189,8 @@ function NotamCheckPanel() {
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
         Runs automatically at {state?.checkHour ?? 10}:00 {state?.timeZone || 'Europe/Riga'} over today's flights
         (airports deduplicated), filters by the OPS keyword set and validity (now → +24 h, PERM included), raises the
-        wall sign and emails the digest{state?.emailedTo ? ` (last sent to ${state.emailedTo})` : ''}. Press CHECKED per
-        airport once reviewed.
+        wall sign and sends a notification email — no NOTAM content leaves this page
+        {state?.emailedTo ? ` (last notified: ${state.emailedTo})` : ''}. Press CHECKED per airport once reviewed.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       {state && !state.day && (

@@ -43,7 +43,8 @@ process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
 const alertsService = new AlertsService({ timelineService, sseHub });
 await alertsService.load();
 timelineService.alertsStore = alertsService;
-alertsService.startPolling();
+// No continuous scanning: the NTM/WX scan runs once per day, driven by the
+// daily NOTAM check (and on demand via POST /api/alerts/scan).
 
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub });
 await notamCheck.load();

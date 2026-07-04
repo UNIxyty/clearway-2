@@ -1,18 +1,13 @@
-// NOTAM ("NTM") and WEATHER ("WX") alert scanner (Feature 6).
+// NOTAM ("NTM") and WEATHER ("WX") flight markers.
 //
-// On a configurable cadence, looks at upcoming flights inside 7/3/1-day
-// look-ahead windows, fetches NOTAMs + weather for ADEP and ADES through the
-// cached portal proxy (lib/portal-client.mjs — never hammers the scrape-backed
-// upstream), flags flights whose records match a configurable keyword/regex
-// rule set, decorates them exactly like limitations (badge classes NTM / WX),
-// and emails the full record once per (flight, record) — re-sending only when
-// the record text materially changes.
+// Looks at flights departing within the next 24h, fetches NOTAMs + weather
+// for ADEP and ADES through the cached portal proxy (lib/portal-client.mjs),
+// flags flights whose records match the configurable keyword/regex rule set,
+// and decorates them exactly like limitations (badge classes NTM / WX).
 
 import crypto from "node:crypto";
-import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, getWeather, portalConfigured } from "./portal-client.mjs";
-import { escapeHtml, mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
 import {
   compileNotamGroups,
   DEFAULT_NOTAM_GROUPS,
@@ -21,14 +16,19 @@ import {
   sanitizeNotamGroups,
 } from "./notam-rules.mjs";
 
-const DEFAULT_SCAN_INTERVAL_MS = 30 * 60 * 1000;
+// The scan looks 24h ahead — it runs ONCE per day, invoked by the daily
+// NOTAM check (lib/notam-check.mjs) right after it fetched today's airports
+// (the per-ICAO responses are still warm in the portal proxy cache), plus on
+// demand via POST /api/alerts/scan. There is no continuous interval anymore,
+// and findings are never emailed — the daily notification email is the only
+// email (Item 2 of the console fixes).
+const SCAN_HORIZON_HOURS = 24;
 
 // Rule set — editable at runtime via GET/PUT /api/alerts/rules (persisted in
 // data/alert-rules.json). NOTAM rules are the OPS keyword filter: colored
 // groups of whole-token terms + bounded wildcard patterns (lib/notam-rules).
 // Weather keeps the flat keywords/regexes shape.
 export const DEFAULT_RULES = {
-  windowsDays: [7, 3, 1],
   notamGroups: DEFAULT_NOTAM_GROUPS,
   weather: {
     keywords: ["TS", "TSRA", "FZRA", "FZDZ", "FZFG", "SN", "GR", "SQ", "FC", "VA"],
@@ -70,14 +70,6 @@ function matchedLabels(text, tests) {
   return hits;
 }
 
-function windowLabelFor(departureMs, nowMs, windowsDays) {
-  const days = (departureMs - nowMs) / 86_400_000;
-  const sorted = [...windowsDays].sort((a, b) => a - b);
-  for (const window of sorted) {
-    if (days <= window) return `${window} day${window === 1 ? "" : "s"}`;
-  }
-  return null; // outside every window
-}
 
 export class AlertsService {
   constructor({ timelineService, sseHub = null }) {
@@ -119,21 +111,21 @@ export class AlertsService {
     // grouped filter; the weather section and windows carry over.
     if (!Array.isArray(stored.notamGroups) || stored.notamGroups.length === 0) {
       const migrated = {
-        windowsDays: Array.isArray(stored.windowsDays) && stored.windowsDays.length ? stored.windowsDays : DEFAULT_RULES.windowsDays,
         notamGroups: DEFAULT_NOTAM_GROUPS,
         weather: stored.weather && Array.isArray(stored.weather.keywords) ? stored.weather : DEFAULT_RULES.weather,
       };
       await this.rulesStore.write(migrated);
       return migrated;
     }
+    // windowsDays is retired (one 24h scan per day) — strip it from old files.
+    if (stored.windowsDays) {
+      delete stored.windowsDays;
+      await this.rulesStore.write(stored);
+    }
     return stored;
   }
 
   async setRules(input) {
-    const windowsDays = (Array.isArray(input.windowsDays) ? input.windowsDays : DEFAULT_RULES.windowsDays)
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n > 0 && n <= 60);
-    if (windowsDays.length === 0) throw new Error("windowsDays needs at least one window (1-60).");
     const cleanSection = (section, fallback) => {
       const keywords = (Array.isArray(section?.keywords) ? section.keywords : fallback.keywords)
         .map((k) => String(k).trim())
@@ -151,7 +143,6 @@ export class AlertsService {
       return { keywords, regexes };
     };
     const rules = {
-      windowsDays,
       notamGroups: sanitizeNotamGroups(input.notamGroups ?? DEFAULT_NOTAM_GROUPS),
       weather: cleanSection(input.weather, DEFAULT_RULES.weather),
     };
@@ -186,25 +177,9 @@ export class AlertsService {
     return result;
   }
 
-  startPolling() {
-    const parsed = Number(process.env.ALERT_SCAN_INTERVAL_MS);
-    const intervalMs = Number.isFinite(parsed) && parsed >= 60_000 ? parsed : DEFAULT_SCAN_INTERVAL_MS;
-    if (this.interval) clearInterval(this.interval);
-    this.interval = setInterval(() => {
-      this.runScan().catch((error) => {
-        this.lastScan = { at: new Date().toISOString(), ok: false, error: String(error?.message || error) };
-      });
-    }, intervalMs);
-    if (typeof this.interval.unref === "function") this.interval.unref();
-    // First scan shortly after boot, once the Leon cache has settled.
-    setTimeout(() => {
-      this.runScan().catch(() => {});
-    }, 20_000).unref?.();
-  }
-
-  collectUpcomingFlights(maxWindowDays) {
+  collectUpcomingFlights(horizonHours = SCAN_HORIZON_HOURS) {
     const nowMs = Date.now();
-    const horizonMs = nowMs + maxWindowDays * 86_400_000;
+    const horizonMs = nowMs + horizonHours * 3600_000;
     const flights = [];
     for (const [key, flight] of this.timelineService.flightsByNid.entries()) {
       if (flight.isCnl) continue;
@@ -228,11 +203,9 @@ export class AlertsService {
       const rules = await this.getRules();
       const notamGroups = compileNotamGroups(rules.notamGroups);
       const weatherTests = compileRules(rules.weather);
-      const windows = rules.windowsDays?.length ? rules.windowsDays : DEFAULT_RULES.windowsDays;
-      const maxWindow = Math.max(...windows);
       const nowMs = Date.now();
 
-      const flights = this.collectUpcomingFlights(maxWindow);
+      const flights = this.collectUpcomingFlights();
 
       // One portal lookup per unique airport, sequential to stay gentle on
       // the scrape-backed upstream (responses are TTL-cached anyway).
@@ -251,12 +224,10 @@ export class AlertsService {
 
       let newFindings = 0;
       let changedFindings = 0;
-      const emailQueue = [];
       const byId = new Map(this.findings.map((f) => [f.id, f]));
 
-      for (const { key, flight, aircraft, depMs } of flights) {
-        const windowLabel = windowLabelFor(depMs, nowMs, windows);
-        if (!windowLabel) continue;
+      for (const { key, flight, aircraft } of flights) {
+        const windowLabel = "24 h";
         const airports = [
           { icao: flight.adep?.icao, role: "departure" },
           { icao: flight.ades?.icao, role: "arrival" },
@@ -303,7 +274,6 @@ export class AlertsService {
               });
               if (outcome === "new") newFindings += 1;
               if (outcome === "changed") changedFindings += 1;
-              if (outcome !== "unchanged") emailQueue.push(byId.get(id));
             }
           }
 
@@ -335,7 +305,6 @@ export class AlertsService {
               });
               if (outcome === "new") newFindings += 1;
               if (outcome === "changed") changedFindings += 1;
-              if (outcome !== "unchanged") emailQueue.push(byId.get(id));
             }
           }
         }
@@ -354,12 +323,6 @@ export class AlertsService {
       this.rebuildIndex();
       await this.persist();
 
-      let emailed = 0;
-      for (const finding of emailQueue) {
-        if (await this.emailFinding(finding)) emailed += 1;
-      }
-      if (emailed > 0) await this.persist();
-
       if ((newFindings > 0 || changedFindings > 0 || pruned !== 0) && this.sseHub) {
         this.sseHub.broadcast({ type: "alerts.changed", newFindings, changedFindings });
       }
@@ -371,7 +334,6 @@ export class AlertsService {
         airportsQueried: icaos.size,
         newFindings,
         changedFindings,
-        emailed,
         totalActiveFindings: this.findings.filter((f) => f.isActive !== false).length,
       };
       return this.lastScan;
@@ -407,44 +369,4 @@ export class AlertsService {
     return "changed"; // material change -> eligible for re-email
   }
 
-  async emailFinding(finding) {
-    const to = String(process.env.ALERT_EMAIL_TO || "")
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
-    if (to.length === 0 || !mailerConfigured()) return false;
-    if (finding.emailedHash === finding.recordHash) return false; // already sent this exact record
-
-    const alertType = finding.type === "NTM" ? "NOTAM" : "WEATHER";
-    const subject = `[${finding.type}] ${finding.flightNo} ${finding.route} — ${finding.recordTitle} at ${finding.icao} (${finding.windowLabel} window)`;
-    let html;
-    try {
-      html = await renderTemplateFile(path.resolve(process.cwd(), "templates", "alert-email.html"), {
-        subject,
-        alertType,
-        badgeClass: finding.type,
-        flightNo: finding.flightNo ?? "",
-        route: finding.route ?? "",
-        departureUtc: finding.departureUtc ?? "",
-        windowLabel: finding.windowLabel ?? "",
-        airportIcao: finding.icao ?? "",
-        airportRole: finding.airportRole ?? "",
-        recordTitle: finding.recordTitle ?? "",
-        matchedKeywords: (finding.matchedKeywords ?? []).join(", "),
-        recordHtml: escapeHtml(finding.description ?? ""),
-        generatedAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("alert email template failed:", error?.message || error);
-      return false;
-    }
-    const result = await sendEmail({ to, subject, html });
-    if (result.ok) {
-      finding.emailedAt = new Date().toISOString();
-      finding.emailedHash = finding.recordHash;
-      return true;
-    }
-    console.error(`alert email failed for ${finding.id}: ${result.error}`);
-    return false;
-  }
 }

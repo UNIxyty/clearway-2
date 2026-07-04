@@ -15,9 +15,10 @@
 // "NOTAM CHECKED". State persists per Riga-day in data/notam-check.json and
 // resets at the next daily run.
 
+import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
-import { escapeHtml, mailerConfigured, sendEmail } from "./mailer.mjs";
+import { mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
 import {
   compileNotamGroups,
   formatNotamTime,
@@ -194,8 +195,17 @@ export class NotamCheckService {
       await this.store.write(this.state);
       this.broadcast();
 
-      const emailed = await this.emailDigest();
+      const emailed = await this.emailNotification();
       if (emailed) await this.store.write(this.state);
+
+      // Single daily source of truth for NTM/WX flight markers: the alert
+      // scan (NOTAM + weather, 24h ahead) runs right after the check, reusing
+      // the per-ICAO responses just cached by the portal proxy.
+      if (this.alertsService) {
+        await this.alertsService.runScan().catch((error) => {
+          console.error("post-check alert scan failed:", error?.message || error);
+        });
+      }
       return this.publicState();
     } finally {
       this.running = false;
@@ -213,49 +223,39 @@ export class NotamCheckService {
     return this.publicState();
   }
 
-  async emailDigest() {
+  /**
+   * Notification-only email: "NOTAMs need to be checked" + a link to the
+   * NOTAM Check page. Deliberately contains NO NOTAM records — the reading
+   * and acknowledging happen in the console.
+   */
+  async emailNotification() {
     const to = digestRecipients();
     if (to.length === 0 || !mailerConfigured()) return false;
     const s = this.state;
-    const sections = s.airports
-      .map((airport) => {
-        const rows = airport.filtered
-          .map(
-            (n) => `
-        <div style="border:1px solid #eef0f2;border-left:3px solid ${escapeHtml(n.matches[0]?.color || "#9aa0a8")};border-radius:8px;padding:10px 12px;margin:0 0 8px;">
-          <div style="font-family:monospace;font-size:13px;font-weight:700;">${escapeHtml(n.number || "(no number)")} <span style="font-weight:400;color:#6c7079;">· class ${escapeHtml(n.class || "—")}</span></div>
-          <div style="font-size:12px;color:#6c7079;margin:3px 0 6px;">Valid ${escapeHtml(n.validFrom)} → ${escapeHtml(n.validTill)} <span style="color:#9aa0a8;">(raw B) ${escapeHtml(n.startDateUtc || "—")} C) ${escapeHtml(n.endDateUtc || "—")})</span></div>
-          <div style="font-family:monospace;font-size:12px;white-space:pre-wrap;color:#3a3d44;">${escapeHtml(n.condition)}</div>
-          <div style="font-size:11px;color:#9aa0a8;margin-top:6px;">Matched: ${n.matches.map((m) => `<span style="color:${escapeHtml(m.color)};font-weight:700;">${escapeHtml(m.label)}</span>`).join(", ")}</div>
-        </div>`
-          )
-          .join("");
-        return `
-      <h3 style="font-size:15px;margin:18px 0 8px;">${escapeHtml(airport.icao)}${airport.name ? ` · ${escapeHtml(airport.name)}` : ""} <span style="font-weight:400;color:#6c7079;font-size:12px;">(${airport.filtered.length} flagged of ${airport.all.length}; flights: ${escapeHtml(airport.flights.join(", ") || "—")})</span></h3>
-      ${rows || '<div style="font-size:12px;color:#9aa0a8;">No keyword-matched NOTAMs in the next 24 h.</div>'}
-      ${airport.error ? `<div style="font-size:12px;color:#e5484d;">Fetch error: ${escapeHtml(airport.error)}</div>` : ""}`;
-      })
-      .join("");
-
-    const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:680px;">
-      <h2 style="font-size:18px;">Daily NOTAM check — ${escapeHtml(s.day)}</h2>
-      <div style="font-size:13px;color:#6c7079;">Today's airports (deduplicated across today's flights), filtered by the OPS keyword set, validity window now → +24 h (PERM included). Acknowledge each airport in the Display Console.</div>
-      ${sections || '<div style="font-size:13px;color:#9aa0a8;">No flights today — nothing to check.</div>'}
-      <div style="font-size:11px;color:#9aa0a8;margin-top:18px;">Generated ${escapeHtml(s.ranAt)} by the Digital Wall NOTAM check (${escapeHtml(checkTz())} ${checkHour()}:00).</div>
-    </div>`;
-
-    const result = await sendEmail({
-      to,
-      subject: `[NOTAM CHECK] ${s.day} — ${s.airports.length} airports, ${s.airports.reduce((n, a) => n + a.filtered.length, 0)} flagged NOTAMs`,
-      html,
-    });
+    const base = String(process.env.DIGITAL_WALL_PUBLIC_URL || "https://clearway.verxyl.com/digital-wall")
+      .trim()
+      .replace(/\/+$/, "");
+    const subject = `[NOTAM CHECK] ${s.day} — NOTAMs need to be checked for today's flights`;
+    let html;
+    try {
+      html = await renderTemplateFile(path.resolve(process.cwd(), "templates", "notam-notify.html"), {
+        subject,
+        day: s.day,
+        airportCount: String(s.airports.length),
+        link: `${base}/console/notam-check`,
+        generatedAt: s.ranAt,
+      });
+    } catch (error) {
+      console.error("notam-notify template failed:", error?.message || error);
+      return false;
+    }
+    const result = await sendEmail({ to, subject, html });
     if (result.ok) {
       this.state.emailedAt = new Date().toISOString();
       this.state.emailedTo = to.join(", ");
       return true;
     }
-    console.error(`NOTAM digest email failed: ${result.error}`);
+    console.error(`NOTAM notification email failed: ${result.error}`);
     return false;
   }
 }

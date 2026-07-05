@@ -202,7 +202,7 @@ export default function ConsoleApp({ page, navigate }) {
   function renderPage() {
     switch (page) {
       case 'notam-check':
-        return <NotamCheckPage />;
+        return <NotamCheckPage navigate={navigate} />;
       case 'operators':
         return <OperatorsPage />;
       case 'aircraft':

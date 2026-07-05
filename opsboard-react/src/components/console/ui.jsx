@@ -83,7 +83,14 @@ const GLOBAL_CSS = `
   .cw-console input, .cw-console textarea, .cw-console button { font-family: inherit; }
   @keyframes cwspin { to { transform: rotate(360deg); } }
   @keyframes cwfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes cwshimmer { 0% { background-position: -360px 0; } 100% { background-position: 360px 0; } }
+  @keyframes cwpulseDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,72,77,.30); } 70% { box-shadow: 0 0 0 9px rgba(229,72,77,0); } }
+  @keyframes cwglow { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } 50% { box-shadow: 0 0 20px 0 rgba(229,72,77,.32); } }
   .cw-fade { animation: cwfade .22s ease; }
+  .cw-skel { background: linear-gradient(90deg, #eef0f2 25%, #f6f7f8 37%, #eef0f2 63%); background-size: 720px 100%; animation: cwshimmer 1.3s infinite linear; border-radius: 7px; }
+  @media (prefers-reduced-motion: reduce) {
+    .cw-fade, .cw-skel, .cw-motion-decor { animation: none !important; }
+  }
   .cw-hover-surface:hover { background: ${t.surface} !important; }
   .cw-hover-primary:hover { background: ${t.blueDeep} !important; }
   .cw-hover-danger:hover { background: #fbdcdc !important; }

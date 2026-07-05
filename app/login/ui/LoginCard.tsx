@@ -156,22 +156,6 @@ export default function LoginCard() {
         Sign in to view AIP, GEN, NOTAM and weather data.
       </p>
 
-      <div
-        style={{
-          fontSize: 12.5,
-          lineHeight: 1.45,
-          color: "#b45309",
-          background: "#fef3e2",
-          border: "1px solid #f0d3ba",
-          borderRadius: 11,
-          padding: "10px 13px",
-          marginBottom: 16,
-        }}
-      >
-        All accounts created before 13.05 have been deleted along with their history. Please create a new account to
-        use the portal.
-      </div>
-
       {displayError && (
         <div
           className="cw-shake"

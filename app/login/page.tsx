@@ -1,5 +1,7 @@
 import LoginCard from "./ui/LoginCard";
+import AuthBackdrop from "./ui/AuthBackdrop";
 import Link from "next/link";
+import { CornerDownRight } from "lucide-react";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 
 // This page uses useSearchParams() in a client component; force dynamic rendering
@@ -15,45 +17,74 @@ export default function LoginPage({
   const signupHref = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="flex items-center justify-center gap-3">
-            <img
-              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg"
-              alt="Clearway"
-              className="h-8 w-auto"
-              style={{ filter: "invert(1)" }}
-            />
-            <div className="h-6 w-px bg-border/70" />
-            <img
-              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
-              alt="Verxyl"
-              className="h-7 w-auto opacity-90"
-            />
-          </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sign in with your email and password.
-          </p>
-        </div>
-
-        <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
-          All accounts created before 13.05 have been deleted along with their history. Please create a new account to use the portal.
+    <AuthBackdrop>
+      <div className="cw-fadeup" style={{ width: 452, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* logos above the card, forced white on the dark mesh */}
+        <div className="cw-auth-logos" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24 }}>
+          <img
+            src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg"
+            alt="Clearway Handling & Operations"
+            style={{ height: 44, display: "block" }}
+          />
+          <span style={{ width: 1, height: 30, background: "rgba(255,255,255,.28)" }} />
+          <img
+            src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
+            alt="Verxyl"
+            style={{ height: 21, display: "block", filter: "brightness(0) invert(1)" }}
+          />
         </div>
 
         <LoginCard />
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href={signupHref} className="underline underline-offset-4 hover:text-foreground">
-            Create account
-          </Link>
-        </p>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          By continuing, you agree to use this data for operational purposes only.
-        </p>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,.85)" }}>
+            Don&apos;t have an account?{" "}
+            <Link
+              href={signupHref}
+              style={{ fontWeight: 700, color: "#fff", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              Create account
+            </Link>
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)", marginTop: 8 }}>
+            By continuing, you agree to use this data for operational purposes only.
+          </div>
+          {next && next !== "/" && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 9,
+                marginTop: 16,
+                background: "rgba(255,255,255,.1)",
+                border: "1px solid rgba(255,255,255,.2)",
+                borderRadius: 999,
+                padding: "8px 15px",
+                backdropFilter: "blur(4px)",
+                maxWidth: "100%",
+              }}
+            >
+              <CornerDownRight size={15} style={{ color: "rgba(255,255,255,.75)", flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: "rgba(255,255,255,.82)", whiteSpace: "nowrap" }}>
+                After sign-in you&apos;ll return to
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#fff",
+                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {next}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </AuthBackdrop>
   );
 }
-

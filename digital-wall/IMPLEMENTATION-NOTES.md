@@ -408,3 +408,23 @@ query value.
 
 Sign-out flows intentionally link to bare `/login` (no `next`) — returning to
 the page you just signed out of would bounce you right back to the login wall.
+
+## Claude Design re-skins: NOTAM Check + Sign In (from bundles 2/3)
+
+- **NOTAM Check** (`opsboard-react/.../NotamCheckPage.jsx`): visual treatment
+  from "NOTAM Check.dc.html" on the unchanged endpoints/SSE — wall-sign
+  banner (dark mono plate, red glow when unchecked), progress bar + rule-group
+  legend, status-tinted airport cards with Undo (ack() toggles), category
+  chips on records, and distinct loading/error/empty states. New inlined
+  lucide icons + cwshimmer/cwpulseDot/cwglow keyframes in the UI kit;
+  decorative animations off under prefers-reduced-motion.
+- **Sign In** (`app/login/`): "Sign In.dc.html" dropped onto the tested
+  redirect-back logic (untouched — LoginCard still signs in and navigates to
+  the validated `next`). `AuthBackdrop.tsx` holds the animated gradient mesh
+  (5 drifting blobs, 50s conic sweep, dot grid, vignette) and is shared for
+  the parked signup/account-flow re-skins. All decorative motion (blobs,
+  sweep, fade-up, error shake) is disabled under `prefers-reduced-motion`
+  (verified: computed animation-name = none for all seven). The footer pill
+  shows the validated return path when `next` is set.
+- **Apps Dashboard.dc.html is deliberately NOT implemented** — parked for a
+  later routing/dashboard task.

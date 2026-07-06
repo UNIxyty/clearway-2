@@ -139,13 +139,32 @@ export default function FlightPill({
   const idColor = readableIdColor(flight.checklistColor, '#d4ddf2');
   const idStyle = flight.isConfirmed === false ? 'italic' : 'normal';
 
+  // ── Timing labels (Item 6): delayed flights show planned AND actual ─────
+  // Departure: "ETD 08:00" at the pill start, "ATD 08:35" at the end of the
+  // hatched delay segment (plain time when the flight hasn't departed yet —
+  // the hatch end is then only an estimate, and we never invent an actual).
+  // Arrival: "ETA 11:30" at the boundary, "ATA 11:52" at the right end.
+  // On-time ends keep the plain untagged time.
+  const depTagged = depDelayMin > 0;
+  const arrTagged = arrDelayMin > 0;
+  const startLabel = depTagged ? `ETD ${etd}` : etd;
+  const depBoundaryText = depTagged
+    ? (flight.atdHm ? `ATD ${flight.atdHm}` : hmUtc(depCrossEndMs))
+    : hmUtc(depCrossEndMs);
+  const arrBoundaryText = arrTagged ? `ETA ${eta}` : eta;
+  const endLabel = arrTagged
+    ? (flight.ataHm ? `ATA ${flight.ataHm}` : hmUtc(renderEndMs))
+    : eta;
+
   // ── Pixel-aware layout (anti-overlap) ──────────────────────────────────
   // Narrow pills switch layout instead of letting text collide. All
   // thresholds scale with the type size: a "00:00" label is ~3.1× the times
-  // font wide, so clearances derive from that.
+  // font wide; tagged labels ("ATD 00:00") are ~1.8× wider, so clearances
+  // derive from the widest label actually in play.
   const pillPx = totalF * timelinePx;
   const mainPx = (mainSectionF / totalF) * pillPx;
-  const labelW = F.times * 3.2;
+  const plainLabelW = F.times * 3.2;
+  const labelW = depTagged || arrTagged ? plainLabelW * 1.8 : plainLabelW;
 
   const compactTimes = timelinePx > 0 && pillPx < labelW * 4.2;
   const showBadgesInside = mainPx >= sz(100);
@@ -390,15 +409,15 @@ export default function FlightPill({
         </div>
       ) : (
         <div style={{ position: 'relative', height: F.timesRow, marginTop: sz(2) }}>
-          <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{etd}</span>
-          {showDepBoundaryLabel && <span style={{ ...timeStyle, left: depBoundaryPct }}>{hmUtc(depCrossEndMs)}</span>}
+          <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{startLabel}</span>
+          {showDepBoundaryLabel && <span style={{ ...timeStyle, left: depBoundaryPct }}>{depBoundaryText}</span>}
           {arrDelayMin > 0 ? (
             <>
-              {showArrBoundaryLabel && <span style={{ ...timeStyle, left: arrBoundaryPct }}>{eta}</span>}
-              <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{hmUtc(renderEndMs)}</span>
+              {showArrBoundaryLabel && <span style={{ ...timeStyle, left: arrBoundaryPct }}>{arrBoundaryText}</span>}
+              <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}</span>
             </>
           ) : (
-            <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{eta}</span>
+            <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}</span>
           )}
         </div>
       )}

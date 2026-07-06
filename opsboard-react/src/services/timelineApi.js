@@ -121,6 +121,11 @@ function mapFlight(flight) {
     arr,
     etd,
     eta,
+    // Actual times (Leon flightWatch/journey log) — the pill tags delayed
+    // segments with ETD→ATD / ETA→ATA when these exist; null = not departed/
+    // arrived yet, and the pill omits the tag rather than inventing a value.
+    atdHm: toHm(flight.atd),
+    ataHm: toHm(flight.ata),
     dlyMin: Math.max(depDelayMin, arrDelayMin),
     depDelayMin,
     arrDelayMin,

@@ -2,7 +2,8 @@
 <html lang="en">
 <!-- Daily NOTAM notification (design: Email Templates.dc.html, "A · Check NOTAMs").
      Table-based, inline-styled, no NOTAM contents. Vars: subject, dateLine,
-     day, airportCount, flightCount, link (raw), assetBase (raw). -->
+     day, airportCount, flightCount, done, link (raw). Logos are absolute
+     Supabase-public URLs (email clients cannot load app-relative paths). -->
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -19,7 +20,7 @@
         <tr><td style="padding:26px 34px 10px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
             <td align="left" style="vertical-align:middle;">
-              <img src="{{{assetBase}}}/email/clearway-dark.png" alt="Clearway" width="150" style="display:block;height:auto;width:150px;"/>
+              <img src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/email/clearway-dark.png" alt="Clearway — Handling &amp; Operations" width="150" height="28" style="display:block;width:150px;height:28px;border:0;"/>
             </td>
             <td align="right" style="vertical-align:middle;font-family:Consolas,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.1em;color:#9aa0a8;">DAILY OPS</td>
           </tr></table>
@@ -65,11 +66,11 @@
         <tr><td style="background:#0a1330;padding:22px 34px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
             <td style="vertical-align:middle;">
-              <img src="{{{assetBase}}}/email/clearway-white.png" alt="Clearway" width="118" style="display:block;height:auto;width:118px;opacity:.92;"/>
+              <img src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/email/clearway-white.png" alt="Clearway" width="118" height="22" style="display:block;width:118px;height:22px;border:0;opacity:.92;"/>
               <div style="font-size:11.5px;color:rgba(255,255,255,.55);margin-top:9px;line-height:1.5;">Riga, Latvia &middot; Operational flight-data services<br/>You&rsquo;re receiving this because you manage flights in Clearway.</div>
             </td>
             <td align="right" style="vertical-align:middle;white-space:nowrap;padding-left:14px;">
-              <img src="{{{assetBase}}}/email/verxyl-white.png" alt="Verxyl" width="128" style="display:block;height:auto;width:128px;opacity:.9;margin-left:auto;"/>
+              <img src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/email/verxyl-white.png" alt="Verxyl" width="128" height="23" style="display:block;width:128px;height:23px;border:0;opacity:.9;margin-left:auto;"/>
             </td>
           </tr></table>
         </td></tr>

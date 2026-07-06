@@ -8,7 +8,8 @@
 
 import crypto from "node:crypto";
 import { fetchAipPdfBuffer, fetchGenPdfBuffer } from "./portal-client.mjs";
-import { escapeHtml, sendEmail, mailerConfigured } from "./mailer.mjs";
+import { escapeHtml, renderTemplateFile, sendEmail, mailerConfigured } from "./mailer.mjs";
+import path from "node:path";
 
 const MAX_KEPT_JOBS = 50;
 
@@ -108,25 +109,54 @@ export class AipSendService {
 
     // Stage 3: build + send the email.
     this.update(job, { stage: "emailing" });
-    const docList = job.docs
-      .map(
-        (d) => `
-      <li style="margin-bottom:6px;">
-        <strong>${escapeHtml(d.label)}</strong> — ${d.status === "ready" ? `attached${d.source ? ` (source: ${escapeHtml(d.source)})` : ""}` : `<span style=\"color:#e5484d;\">unavailable: ${escapeHtml(d.error || "unknown")}</span>`}
-      </li>`
-      )
+    // Branded template (Email Templates.dc.html "B · Documents"): one row per
+    // requested document — green check + PDF meta when attached, red cross +
+    // reason when not. Rows are pre-escaped here and injected raw.
+    const docRows = job.docs
+      .map((d, index) => {
+        const ready = d.status === "ready";
+        const sub = ready
+          ? d.source
+            ? `source: ${escapeHtml(d.source)}`
+            : "attached to this email"
+          : `Unavailable: ${escapeHtml(d.error || "unknown")} — try requesting again`;
+        return `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${index === 0 ? "0" : "12px 0 0 0"};"><tr>
+                <td width="26" style="vertical-align:top;padding-top:1px;">
+                  <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${ready ? "#e7f6ec" : "#fdecec"};color:${ready ? "#15803d" : "#e5484d"};font-size:12px;line-height:20px;text-align:center;font-weight:700;">${ready ? "&#10003;" : "&#10005;"}</span>
+                </td>
+                <td style="vertical-align:top;">
+                  <div style="font-size:14px;font-weight:600;color:${ready ? "#17181c" : "#8a8f98"};line-height:1.35;">${escapeHtml(d.label)}</div>
+                  <div style="font-size:12.5px;color:${ready ? "#6c7079" : "#b3383c"};margin-top:2px;line-height:1.4;">${sub}</div>
+                </td>
+                <td align="right" style="vertical-align:top;font-family:Consolas,Menlo,monospace;font-size:11.5px;font-weight:600;color:${ready ? "#15803d" : "#e5484d"};white-space:nowrap;padding-left:10px;">${ready ? "PDF" : "FAILED"}</td>
+              </tr></table>`;
+      })
       .join("");
-    const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:640px;">
-      <h2 style="font-size:17px;">Flight documents — ${escapeHtml(job.flightNo)} (${escapeHtml(job.route)})</h2>
-      <p style="font-size:13.5px;color:#3a3d44;">Requested from the Display Console. Documents come from the shared AIP cache (fetched fresh only when absent).</p>
-      <ul style="font-size:13.5px;color:#3a3d44;padding-left:18px;">${docList}</ul>
-      <p style="font-size:11.5px;color:#9aa0a8;">Generated ${escapeHtml(new Date().toISOString())} by the Clearway Digital Wall.</p>
-    </div>`;
+    const requestedLine = `REQUESTED ${new Date()
+      .toISOString()
+      .slice(0, 16)
+      .replace("T", " ")}Z`;
+    const subjectLine = `[DOCS] ${job.flightNo} ${job.route} — ${attachments.map((a) => a.filename).join(", ")}`;
+    let html;
+    try {
+      html = await renderTemplateFile(path.resolve(process.cwd(), "templates", "aip-documents.html"), {
+        subject: subjectLine,
+        flightNo: job.flightNo,
+        route: job.route,
+        requestedLine,
+        docCount: String(job.docs.length),
+        docRows,
+      });
+    } catch (error) {
+      // Template missing/broken must never block document delivery.
+      console.error("aip-documents template failed, falling back to plain HTML:", error?.message || error);
+      html = `<div style="font-family:system-ui,sans-serif;">Flight documents — ${escapeHtml(job.flightNo)} (${escapeHtml(job.route)}). See attachments.</div>`;
+    }
 
     const result = await sendEmail({
       to: job.to,
-      subject: `[DOCS] ${job.flightNo} ${job.route} — ${attachments.map((a) => a.filename).join(", ")}`,
+      subject: subjectLine,
       html,
       attachments,
     });

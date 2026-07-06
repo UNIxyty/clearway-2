@@ -1,13 +1,17 @@
-// NOTAM ("NTM") and WEATHER ("WX") flight markers.
+// NOTAM ("NTM") flight markers.
 //
-// Looks at flights departing within the next 24h, fetches NOTAMs + weather
-// for ADEP and ADES through the cached portal proxy (lib/portal-client.mjs),
-// flags flights whose records match the configurable keyword/regex rule set,
-// and decorates them exactly like limitations (badge classes NTM / WX).
+// Looks at flights departing within the next 24h, fetches NOTAMs for ADEP
+// and ADES through the cached portal proxy (lib/portal-client.mjs), flags
+// flights whose records match the configurable keyword/regex rule set, and
+// decorates them exactly like limitations (badge class NTM).
+//
+// Weather is NOT handled here anymore: the old METAR/TAF keyword scan and
+// its WX findings were replaced by the CheckWX flight_category system
+// (lib/checkwx.mjs) — per-airport category markers, acknowledgment-only.
 
 import crypto from "node:crypto";
 import { JsonFileStore } from "./json-store.mjs";
-import { getNotams, getWeather, portalConfigured } from "./portal-client.mjs";
+import { getNotams, portalConfigured } from "./portal-client.mjs";
 import {
   compileNotamGroups,
   DEFAULT_NOTAM_GROUPS,
@@ -30,44 +34,10 @@ const SCAN_HORIZON_HOURS = 24;
 // Weather keeps the flat keywords/regexes shape.
 export const DEFAULT_RULES = {
   notamGroups: DEFAULT_NOTAM_GROUPS,
-  weather: {
-    keywords: ["TS", "TSRA", "FZRA", "FZDZ", "FZFG", "SN", "GR", "SQ", "FC", "VA"],
-    regexes: [
-      "\\b(BKN|OVC)00[0-4]\\b",        // ceiling below ~500 ft
-      "\\bVV00[0-3]\\b",               // vertical visibility < 300 ft
-      "\\b0[0-4]00\\b(?=\\s)",         // visibility below 500 m
-      "\\bFG\\b",                       // fog
-      "G(4[0-9]|[5-9][0-9])KT",        // gusts 40 kt and above
-    ],
-  },
 };
 
 function sha1(text) {
   return crypto.createHash("sha1").update(String(text)).digest("hex").slice(0, 16);
-}
-
-function compileRules(section) {
-  const tests = [];
-  for (const keyword of section?.keywords ?? []) {
-    const escaped = String(keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    tests.push({ label: keyword, regex: new RegExp(`(?:^|[^A-Z0-9])${escaped}(?:[^A-Z0-9]|$)`, "i") });
-  }
-  for (const source of section?.regexes ?? []) {
-    try {
-      tests.push({ label: `/${source}/`, regex: new RegExp(source, "i") });
-    } catch {
-      /* invalid pattern — skipped; PUT /api/alerts/rules validates new ones */
-    }
-  }
-  return tests;
-}
-
-function matchedLabels(text, tests) {
-  const hits = [];
-  for (const test of tests) {
-    if (test.regex.test(text)) hits.push(test.label);
-  }
-  return hits;
 }
 
 
@@ -86,7 +56,14 @@ export class AlertsService {
 
   async load() {
     const payload = await this.findingsStore.read();
-    this.findings = Array.isArray(payload.findings) ? payload.findings : [];
+    const stored = Array.isArray(payload.findings) ? payload.findings : [];
+    // One-time cleanup: WX findings from the retired METAR/TAF keyword scan
+    // are gone for good (CheckWX categories replaced them).
+    this.findings = stored.filter((f) => f.type !== "WX");
+    if (this.findings.length !== stored.length) {
+      console.log(`[alerts] purged ${stored.length - this.findings.length} legacy WX finding(s)`);
+      await this.persist();
+    }
     this.rebuildIndex();
   }
 
@@ -110,41 +87,23 @@ export class AlertsService {
     // Migrate pre-OPS-filter rule files (flat notam.keywords/regexes) to the
     // grouped filter; the weather section and windows carry over.
     if (!Array.isArray(stored.notamGroups) || stored.notamGroups.length === 0) {
-      const migrated = {
-        notamGroups: DEFAULT_NOTAM_GROUPS,
-        weather: stored.weather && Array.isArray(stored.weather.keywords) ? stored.weather : DEFAULT_RULES.weather,
-      };
+      const migrated = { notamGroups: DEFAULT_NOTAM_GROUPS };
       await this.rulesStore.write(migrated);
       return migrated;
     }
-    // windowsDays is retired (one 24h scan per day) — strip it from old files.
-    if (stored.windowsDays) {
+    // Retired keys from older rule files: windowsDays (one 24h scan per day)
+    // and weather (replaced by CheckWX flight categories).
+    if (stored.windowsDays || stored.weather) {
       delete stored.windowsDays;
+      delete stored.weather;
       await this.rulesStore.write(stored);
     }
     return stored;
   }
 
   async setRules(input) {
-    const cleanSection = (section, fallback) => {
-      const keywords = (Array.isArray(section?.keywords) ? section.keywords : fallback.keywords)
-        .map((k) => String(k).trim())
-        .filter(Boolean);
-      const regexes = (Array.isArray(section?.regexes) ? section.regexes : fallback.regexes)
-        .map((r) => String(r).trim())
-        .filter(Boolean);
-      for (const source of regexes) {
-        try {
-          new RegExp(source, "i");
-        } catch {
-          throw new Error(`Invalid regex: ${source}`);
-        }
-      }
-      return { keywords, regexes };
-    };
     const rules = {
       notamGroups: sanitizeNotamGroups(input.notamGroups ?? DEFAULT_NOTAM_GROUPS),
-      weather: cleanSection(input.weather, DEFAULT_RULES.weather),
     };
     await this.rulesStore.write(rules);
     return rules;
@@ -170,7 +129,7 @@ export class AlertsService {
           id: finding.id,
           title: finding.title,
           description: finding.description,
-          badge: finding.type, // NTM | WX
+          badge: finding.type, // NTM
           icao: finding.icao ?? null, // which airport raised it (Part 3 gating)
         });
       }
@@ -203,7 +162,6 @@ export class AlertsService {
     try {
       const rules = await this.getRules();
       const notamGroups = compileNotamGroups(rules.notamGroups);
-      const weatherTests = compileRules(rules.weather);
       const nowMs = Date.now();
 
       const flights = this.collectUpcomingFlights();
@@ -217,10 +175,8 @@ export class AlertsService {
         }
       }
       const notamsByIcao = new Map();
-      const weatherByIcao = new Map();
       for (const icao of icaos) {
         notamsByIcao.set(icao, await getNotams(icao));
-        weatherByIcao.set(icao, await getWeather(icao));
       }
 
       let newFindings = 0;
@@ -278,36 +234,6 @@ export class AlertsService {
             }
           }
 
-          // Weather finding — at most one per (flight, airport), covering the
-          // whole METAR/TAF text.
-          const weatherResult = weatherByIcao.get(icao);
-          if (weatherResult?.ok && weatherResult.data?.weather) {
-            const weatherText = String(weatherResult.data.weather);
-            const hits = matchedLabels(weatherText, weatherTests);
-            if (hits.length > 0) {
-              const id = `WX:${key}:${icao}`;
-              const outcome = this.upsertFinding(byId, {
-                id,
-                type: "WX",
-                flightKey: key,
-                flightNid: String(flight.flightNid),
-                oprId: aircraft.oprId ?? flight.oprId ?? null,
-                flightNo: flight.flightNo,
-                registration: aircraft.registration ?? flight.aircraftRegistration ?? null,
-                icao,
-                airportRole: airport.role,
-                title: `Weather at ${icao} (${airport.role}): ${hits.slice(0, 3).join(", ")}`,
-                description: weatherText,
-                matchedKeywords: hits,
-                windowLabel,
-                recordTitle: "METAR/TAF",
-                departureUtc: flight.startTimeUTC,
-                route: `${flight.adep?.icao ?? "UNK"} -> ${flight.ades?.icao ?? "UNK"}`,
-              });
-              if (outcome === "new") newFindings += 1;
-              if (outcome === "changed") changedFindings += 1;
-            }
-          }
         }
       }
 

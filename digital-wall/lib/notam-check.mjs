@@ -78,10 +78,11 @@ function flightZonedDay(flight) {
 }
 
 export class NotamCheckService {
-  constructor({ timelineService, alertsService, sseHub }) {
+  constructor({ timelineService, alertsService, sseHub, weatherService = null }) {
     this.timelineService = timelineService;
     this.alertsService = alertsService;
     this.sseHub = sseHub;
+    this.weatherService = weatherService; // CheckWX — refreshed with each check run
     this.store = new JsonFileStore("notam-check.json", { day: null, sign: "NONE", airports: [] });
     this.state = { day: null, sign: "NONE", airports: [] };
     this.running = false;
@@ -319,12 +320,19 @@ export class NotamCheckService {
       await this.store.write(this.state);
       this.armReminder();
 
-      // Single daily source of truth for NTM/WX flight markers: the alert
-      // scan (NOTAM + weather, 24h ahead) runs right after the check, reusing
-      // the per-ICAO responses just cached by the portal proxy.
+      // Single daily source of truth for the NTM flight markers: the NOTAM
+      // alert scan runs right after the check, reusing the per-ICAO responses
+      // just cached by the portal proxy.
       if (this.alertsService) {
         await this.alertsService.runScan().catch((error) => {
           console.error("post-check alert scan failed:", error?.message || error);
+        });
+      }
+      // WX rides along with every check run: one CheckWX decoded-METAR call
+      // per unique airport (acknowledgment-only — no page, no emails).
+      if (this.weatherService) {
+        await this.weatherService.refreshFor(targets.map((t) => t.icao)).catch((error) => {
+          console.error("post-check WX refresh failed:", error?.message || error);
         });
       }
       return this.publicState();
@@ -353,6 +361,10 @@ export class NotamCheckService {
       const nowMs = Date.now();
       console.log(`[notam-check] resyncing ${code} (previous error: ${airport.error})`);
       const result = await getNotams(code, { fresh: true });
+      // Refresh this airport's weather too while we're here.
+      if (this.weatherService) {
+        await this.weatherService.refreshFor([code]).catch(() => {});
+      }
       if (result.ok) {
         Object.assign(airport, {
           error: null,

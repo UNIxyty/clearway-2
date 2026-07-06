@@ -100,18 +100,6 @@ export async function getNotams(icao, { fresh = false } = {}) {
   return result;
 }
 
-/** Weather (raw METAR/TAF text) for one ICAO. */
-export async function getWeather(icao) {
-  const code = String(icao || "").toUpperCase();
-  if (!validIcao(code)) return { ok: false, error: `Invalid ICAO: ${icao}` };
-  const key = `weather:${code}`;
-  const cached = cacheGet(key);
-  if (cached) return cached;
-  const result = await portalJson(`/api/weather?icao=${code}`);
-  cacheSet(key, result, result.ok ? ttlMs() : 60_000);
-  return result;
-}
-
 // AIP source resolution is delegated to the portal's own logic
 // (GET /api/aip/resolve — the same ASECNA -> scraper -> USA -> EAD selection
 // the AIP page uses), so page and wall never disagree. The wall keeps NO

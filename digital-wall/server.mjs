@@ -8,7 +8,8 @@ import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
-import { getNotams, getWeather, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
+import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
+import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
 import { NotamCheckService } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
@@ -46,7 +47,15 @@ timelineService.alertsStore = alertsService;
 // No continuous scanning: the NTM/WX scan runs once per day, driven by the
 // daily NOTAM check (and on demand via POST /api/alerts/scan).
 
-const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub });
+// CheckWX weather (acknowledgment-only): per-airport flight_category for the
+// pill markers + decoded summaries for the overlay. Refreshed alongside the
+// daily NOTAM check; no page, no emails, no acking.
+const weatherService = new CheckwxWeatherService({ sseHub });
+await weatherService.load();
+timelineService.weatherLookup = (icao) => weatherService.categoryOf(icao);
+process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "idle (set CHECKWX_API_KEY)"}\n`);
+
+const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
 await notamCheck.load();
 notamCheck.startScheduler();
 // NTM/WX pill/overlay markers mean "unreviewed": flight decoration drops a
@@ -317,21 +326,23 @@ const server = http.createServer(async (req, res) => {
       });
       const depIcao = flight.adep?.icao ?? null;
       const arrIcao = flight.ades?.icao ?? null;
-      const [depNotams, arrNotams, depWeather, arrWeather, depAip, arrAip] = await Promise.all([
+      const [depNotams, arrNotams, depAip, arrAip] = await Promise.all([
         depIcao ? getNotams(depIcao) : { ok: false, error: "No departure ICAO." },
         arrIcao ? getNotams(arrIcao) : { ok: false, error: "No arrival ICAO." },
-        depIcao ? getWeather(depIcao) : { ok: false, error: "No departure ICAO." },
-        arrIcao ? getWeather(arrIcao) : { ok: false, error: "No arrival ICAO." },
         depIcao ? resolveAipPdf(depIcao) : { available: false },
         arrIcao ? resolveAipPdf(arrIcao) : { available: false },
       ]);
+      // Decoded CheckWX summaries from the wall's weather state (refreshed by
+      // the daily check; fetch on demand if an airport was never seen).
+      if (depIcao && !weatherService.summaryOf(depIcao) && checkwxConfigured()) await weatherService.refreshFor([depIcao], { fresh: false });
+      if (arrIcao && !weatherService.summaryOf(arrIcao) && checkwxConfigured()) await weatherService.refreshFor([arrIcao], { fresh: false });
       sendJson(res, {
         ok: true,
         portalConfigured: portalConfigured(),
         flight,
         aircraft: found.aircraft,
         notams: { dep: depNotams, arr: arrNotams },
-        weather: { dep: depWeather, arr: arrWeather },
+        weather: { dep: depIcao ? weatherService.summaryOf(depIcao) : null, arr: arrIcao ? weatherService.summaryOf(arrIcao) : null },
         aip: { dep: depAip, arr: arrAip },
       });
       return;

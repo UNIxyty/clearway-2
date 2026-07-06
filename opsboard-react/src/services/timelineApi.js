@@ -140,6 +140,9 @@ function mapFlight(flight) {
     endUtcMs: delayedArr.getTime(),
     limitationIds: Array.isArray(flight.limitationIds) ? flight.limitationIds : [],
     limitations: Array.isArray(flight.limitations) ? flight.limitations : [],
+    // CheckWX flight categories per airport (VFR/MVFR/IFR/LIFR or null).
+    wxDep: flight.wxDep || null,
+    wxArr: flight.wxArr || null,
   };
 }
 

@@ -1603,8 +1603,13 @@ export class LeonTimelineService {
       }
     }
 
+    // CheckWX flight categories for the pill's per-airport WX markers
+    // (acknowledgment-only; null = no data). Injected by server.mjs.
+    const wxDep = typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
+    const wxArr = typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
+
     if (limitations.length === 0) {
-      return { ...flight, limitationIds: [], limitations: [], lim: null };
+      return { ...flight, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };
     }
     const allIds = limitations.map((item) => item.id);
     const primary = limitations[0] || null;
@@ -1615,7 +1620,7 @@ export class LeonTimelineService {
             msg: primary.description || primary.title,
           }
         : null;
-    return { ...flight, limitationIds: allIds, limitations, lim };
+    return { ...flight, limitationIds: allIds, limitations, lim, wxDep, wxArr };
   }
 
   /**

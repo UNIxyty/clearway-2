@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchFlightInfo, fetchOverlay } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
+import { WX_CATEGORY_COLORS } from './FlightPill';
 
 // Remote-controlled flight-detail side overlay (Feature 5.2). A Console user
 // opens/closes it for everyone; the backend holds the authoritative state and
@@ -27,6 +28,64 @@ function delayText(min) {
   const n = Number(min);
   if (n === 0) return 'on time';
   return n > 0 ? `+${n} min` : `${n} min`;
+}
+
+function fmtObserved(value) {
+  if (!value) return '—';
+  const dt = new Date(value);
+  if (!Number.isFinite(dt.getTime())) return '—';
+  return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}Z`;
+}
+
+/** Compact decoded-METAR block (CheckWX) for one airport. */
+function WeatherBlock({ icao, wx, s }) {
+  if (!wx || (wx.noData && !wx.error)) {
+    return (
+      <div style={s.wxCard}>
+        <div style={s.wxHead}><span style={s.wxIcao}>{icao || '—'}</span><span style={s.unavailable}>No METAR available.</span></div>
+      </div>
+    );
+  }
+  if (wx.error) {
+    return (
+      <div style={s.wxCard}>
+        <div style={s.wxHead}><span style={s.wxIcao}>{icao || '—'}</span><span style={{ ...s.unavailable, color: '#ef9a9a' }}>Weather unavailable</span></div>
+      </div>
+    );
+  }
+  const catColor = WX_CATEGORY_COLORS[wx.category] || '#8494bd';
+  const wind = wx.windSpeedKts !== null && wx.windSpeedKts !== undefined
+    ? `${wx.windDegrees !== null && wx.windDegrees !== undefined ? `${String(wx.windDegrees).padStart(3, '0')}°` : 'VRB'} ${wx.windSpeedKts}kt${wx.windGustKts ? ` G${wx.windGustKts}` : ''}`
+    : '—';
+  const vis = wx.visibilityMeters !== null && wx.visibilityMeters !== undefined
+    ? (Number(wx.visibilityMeters) >= 9999 ? '10 km+' : `${Math.round(Number(wx.visibilityMeters) / 100) / 10} km`)
+    : '—';
+  const rows = [
+    ['Wind', wind],
+    ['Visibility', vis],
+    ['Ceiling', wx.ceilingFeet !== null && wx.ceilingFeet !== undefined ? `${wx.ceilingFeet} ft` : '—'],
+    ['Temp / Dew', wx.temperatureC !== null && wx.temperatureC !== undefined ? `${wx.temperatureC}° / ${wx.dewpointC ?? '—'}°C` : '—'],
+    ['QNH', wx.qnhHpa !== null && wx.qnhHpa !== undefined ? `${wx.qnhHpa} hPa` : '—'],
+  ];
+  return (
+    <div style={s.wxCard}>
+      <div style={s.wxHead}>
+        <span style={s.wxIcao}>{icao || '—'}</span>
+        {wx.category && (
+          <span style={{ ...s.wxCategory, color: '#0c101c', background: catColor }}>{wx.category}</span>
+        )}
+        <span style={s.wxObserved}>obs {fmtObserved(wx.observed)}</span>
+      </div>
+      <div style={s.wxGrid}>
+        {rows.map(([label, value]) => (
+          <div key={label} style={{ display: 'contents' }}>
+            <span style={s.tLabel}>{label}</span>
+            <span style={s.tVal}>{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
@@ -63,12 +122,16 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
         .finally(() => !cancelled && setLoading(false));
     };
     load();
-    // Console acks clear this flight's NTM/WX markers while the overlay is
-    // open — silent refetch so the panel doesn't flash.
-    const unsub = subscribeWallStream('notam-check.changed', () => load({ silent: true }));
+    // Console acks clear this flight's NTM markers while the overlay is
+    // open, and WX refreshes ride with the daily check — silent refetch so
+    // the panel doesn't flash.
+    const unsubs = [
+      subscribeWallStream('notam-check.changed', () => load({ silent: true })),
+      subscribeWallStream('weather.changed', () => load({ silent: true })),
+    ];
     return () => {
       cancelled = true;
-      unsub();
+      unsubs.forEach((unsub) => unsub());
     };
   }, [overlay.open, overlay.flightNid, overlay.oprId]);
 
@@ -161,6 +224,14 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
               </div>
             </div>
           )}
+
+          {/* Weather — decoded CheckWX summary for both ends (deliberately a
+              concise category+key-fields block, not the old raw METAR dump) */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>Weather (CheckWX)</div>
+            <WeatherBlock icao={dep?.icao} wx={info?.weather?.dep} s={s} />
+            <WeatherBlock icao={arr?.icao} wx={info?.weather?.arr} s={s} />
+          </div>
 
           {/* IMP entries */}
           <div style={s.section}>
@@ -280,5 +351,28 @@ function makeStyles(scale) {
     entryTitle: { fontSize: sz(13.5), fontWeight: 600, color: '#eef3fd', lineHeight: 1.35 },
     entryBody: { fontSize: sz(12), color: '#c2cfec', lineHeight: 1.5, marginTop: sz(5) },
     unavailable: { fontSize: sz(12), color: '#8494bd', padding: `${sz(6)}px 0` },
+    wxCard: {
+      background: '#111626',
+      border: '1px solid #222840',
+      borderRadius: sz(8),
+      padding: `${sz(9)}px ${sz(11)}px`,
+      marginBottom: sz(7),
+    },
+    wxHead: { display: 'flex', alignItems: 'center', gap: sz(9), marginBottom: sz(7) },
+    wxIcao: { fontFamily: mono, fontSize: sz(14), fontWeight: 700, color: '#7ecbff' },
+    wxCategory: {
+      fontFamily: mono,
+      fontSize: sz(11),
+      fontWeight: 800,
+      letterSpacing: '.5px',
+      borderRadius: 5,
+      padding: `1px ${sz(7)}px`,
+    },
+    wxObserved: { fontFamily: mono, fontSize: sz(10.5), color: '#8494bd', marginLeft: 'auto' },
+    wxGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'auto 1fr auto 1fr',
+      gap: `${sz(4)}px ${sz(10)}px`,
+    },
   };
 }

@@ -566,3 +566,34 @@ working in isolation.
   ETA at the arrival boundary and ATA at the right end (real Leon actuals;
   plain time when an actual doesn't exist yet). Anti-overlap clearances
   account for the wider tagged labels.
+
+## Trip-status filtering + CheckWX weather (cc trip-status/weather prompt)
+
+- **Statusless flights dropped**: only CONFIRMED/OPTION/OPPORTUNITY reach the
+  wall/console (filtered at initial+incremental sync and cache load; modified
+  flights that lose their status are evicted; counts logged per sync cycle).
+  Verified live: 230/230 real cwy-cwy flights kept, synthetic
+  null/empty/DRAFT dropped.
+- **Old weather system REMOVED**: the portal /api/weather METAR/TAF scrape
+  (portal-client.getWeather), the weather keyword/regex rules
+  (DEFAULT_RULES.weather + the Settings weather chips UI) and WX findings
+  from the alert scan are gone; legacy WX findings purge on load. The alerts
+  service is NOTAM-only now.
+- **New: lib/checkwx.mjs** — CheckWX decoded METAR client (X-API-Key auth,
+  per-ICAO TTL cache, errors-as-values) + CheckwxWeatherService (persisted
+  per-ICAO summaries in data/weather.json, broadcast weather.changed). NEW
+  ENV: CHECKWX_API_KEY (required for WX; never committed);
+  CHECKWX_CACHE_TTL_MS optional; CHECKWX_BASE_URL for test stubs.
+- WX refreshes with every NOTAM check run (same deduplicated airports, one
+  call per unique ICAO) and per-airport on resync. Acknowledgment-only: no
+  page, no emails, no acking.
+- **Pill markers**: per-airport flight_category dots at BOTH ends of the pill
+  (ADEP left of its ICAO, ADES right of its ICAO). Colour map
+  (WX_CATEGORY_COLORS in FlightPill.jsx) uses the STANDARD aviation
+  convention — VFR green, MVFR amber, IFR red, LIFR deep magenta — i.e. the
+  request's inverted "VFR red / IFR green" spec was corrected (flagged; good
+  weather is never red, bad never green). "MIFR" does not exist; MVFR is the
+  middle state.
+- **Overlay**: concise decoded block per airport (category chip, wind,
+  visibility, ceiling, temp/dew, QNH, observed) — not the old raw METAR dump;
+  NOTAM text stays out; view-only; scales with the display setting.

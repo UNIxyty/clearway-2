@@ -44,11 +44,42 @@ function readableIdColor(hex, fallback) {
 }
 
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small
-// type badges on the pill — they are NOT sidebar entries.
+// type badges on the pill — they are NOT sidebar entries. (WX badges are
+// gone: weather markers are the per-airport category dots below.)
 const ALERT_MARK = {
   NTM: { text: '#ffab73', border: 'rgba(255,145,80,.5)', bg: 'rgba(255,145,80,.18)' },
-  WX:  { text: '#7ec8ff', border: 'rgba(95,181,255,.5)', bg: 'rgba(95,181,255,.16)' },
 };
+
+// CheckWX flight_category → marker colour. STANDARD aviation mapping (green =
+// good), deliberately NOT the inverted mapping from the original request:
+// painting good weather red is unsafe at a glance. LIFR gets a deep magenta
+// so "worst" is distinguishable from plain IFR red. Adjust here if ops wants
+// different hues.
+export const WX_CATEGORY_COLORS = {
+  VFR:  '#3fbf6f', // good
+  MVFR: '#e8a33d', // marginal
+  IFR:  '#e5484d', // bad
+  LIFR: '#b03aa0', // worst — deep magenta, never green
+};
+
+function WxDot({ category, icao, sz }) {
+  const color = WX_CATEGORY_COLORS[category];
+  if (!color) return null;
+  return (
+    <span
+      title={`${icao} ${category} (CheckWX)`}
+      style={{
+        width: sz(11),
+        height: sz(11),
+        borderRadius: '50%',
+        background: color,
+        boxShadow: 'inset 0 0 0 1px rgba(10,13,22,.4)',
+        flexShrink: 0,
+        display: 'inline-block',
+      }}
+    />
+  );
+}
 
 function hmUtc(ms) {
   const dt = new Date(ms);
@@ -171,8 +202,10 @@ export default function FlightPill({
   const icaoW = F.icao * 2.6;
   // Both codes need room for the divider, paddings and the gap — otherwise
   // fall back to ADEP-only rather than ellipsizing ("EV…").
+  // The two WX dots + their gaps add ~sz(34) to the route row.
+  const wxDotsW = (flight.wxDep ? sz(17) : 0) + (flight.wxArr ? sz(17) : 0);
   const showFull = timelinePx > 0
-    ? mainPx >= icaoW * 2 + sz(48) + (showBadgesInside && limIndices.length > 0 ? sz(34) : 0)
+    ? mainPx >= icaoW * 2 + sz(48) + wxDotsW + (showBadgesInside && limIndices.length > 0 ? sz(34) : 0)
     : (mainSectionF / totalF) > 0.14;
   const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(10) : (mainSectionF / totalF) > 0.08;
 
@@ -330,11 +363,21 @@ export default function FlightPill({
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showRoute && (
                 <>
-                  <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{dep}</span>
+                  {/* Per-airport CheckWX category markers: one at each end of
+                      the pill (ADEP left, ADES right) — weather matters at
+                      both ends. Dots sit inside the body so they never fight
+                      the time labels or the delay hatch. */}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(6), minWidth: 0 }}>
+                    <WxDot category={flight.wxDep} icao={dep} sz={sz} />
+                    <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{dep}</span>
+                  </span>
                   {showFull && (
                     <>
                       <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                      <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{arr}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(6), minWidth: 0 }}>
+                        <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{arr}</span>
+                        <WxDot category={flight.wxArr} icao={arr} sz={sz} />
+                      </span>
                     </>
                   )}
                 </>

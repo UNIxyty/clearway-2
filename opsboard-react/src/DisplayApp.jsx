@@ -130,6 +130,9 @@ export default function DisplayApp() {
       // appear/disappear within ~1-2s (cache read; whole-slice replace keeps
       // it idempotent with the 60s poll).
       subscribeWallStream('roster.changed', () => loadTimeline({ refresh: false })),
+      // CheckWX categories refreshed (rides with the daily check) — re-read
+      // so the per-airport WX dots update.
+      subscribeWallStream('weather.changed', () => loadTimeline({ refresh: false })),
       // Sign update AND a cheap re-read: acking an airport on the console
       // clears that airport's NTM/WX pill markers within ~1-2s (server-side
       // decoration drops findings for CHECKED airports).

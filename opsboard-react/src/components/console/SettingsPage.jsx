@@ -349,11 +349,6 @@ function HourSpacingCard() {
 // NOTAM rules are colored keyword groups (OPS filter): {group, color,
 // terms[], patterns[]} — terms and wildcard patterns are editable per group.
 // Weather keeps its flat keywords/regexes shape.
-const WEATHER_GROUPS = [
-  { key: 'weatherKeywords', name: 'Weather keywords', path: ['weather', 'keywords'], color: '#2563eb', bg: '#e8effe' },
-  { key: 'weatherRegexes', name: 'Weather patterns (regex)', path: ['weather', 'regexes'], color: '#6c7079', bg: '#eef1f5' },
-];
-
 function tint(color) {
   return `${color}1a`;
 }
@@ -575,29 +570,6 @@ function AlertFilterCard() {
               )}
             </div>
           ))}
-          {WEATHER_GROUPS.map((group) => {
-            const words = rules[group.path[0]]?.[group.path[1]] || [];
-            return (
-              <div key={group.key} style={{ border: `1px solid ${t.borderInner}`, borderRadius: 12, padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
-                  <span style={{ width: 12, height: 12, borderRadius: 3, background: group.color }} />
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{group.name}</span>
-                </div>
-                <KeywordChipRow
-                  words={words}
-                  color={group.color}
-                  bg={group.bg}
-                  onRemove={(word) => mutate(group.path, words.filter((w) => w !== word))}
-                  onAdd={(word) => mutate(group.path, [...new Set([...words, word])])}
-                  addKey={group.key}
-                  adding={adding}
-                  setAdding={setAdding}
-                  newWord={newWord}
-                  setNewWord={setNewWord}
-                />
-              </div>
-            );
-          })}
           <PendingNote>
             Group names and colors are editable in the raw JSON view; terms and patterns edit inline here.
           </PendingNote>
@@ -609,7 +581,7 @@ function AlertFilterCard() {
           <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Scan cadence</div>
             <div style={{ fontSize: 13, color: t.body, lineHeight: 1.45 }}>
-              Once daily with the 10:00 NOTAM check (24 h look-ahead) — plus “Run scan now”.
+              Once daily with the 10:00 NOTAM check (24 h look-ahead) — plus “Run scan now”. Weather is separate: CheckWX flight categories refresh with the same run (no keywords to tune).
             </div>
           </div>
           <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>

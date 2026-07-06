@@ -2,12 +2,27 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Mail } from "lucide-react";
+import { Mail, MailCheck, User } from "lucide-react";
+import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
+import {
+  AuthAlert,
+  AuthButton,
+  AuthCard,
+  AuthField,
+  AuthHeading,
+  AuthLink,
+  AuthLogos,
+  MessageIcon,
+  authMuted,
+} from "@/app/auth/ui/auth-kit";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
+
+// Visuals from Auth Flow.dc.html ("Sign Up" + its success message screen).
+// Mechanics unchanged: signup collects name + work email only; the password
+// is created on /auth/confirm after the emailed link is opened (the design's
+// password-at-signup variant doesn't fit the confirmation-first flow, so the
+// password screens live on /auth/confirm and /auth/reset instead). `next`
+// rides along the whole chain so a deep-link signup returns to it.
 
 export default function SignupPage() {
   const [nextPath, setNextPath] = useState("/signup");
@@ -62,114 +77,88 @@ export default function SignupPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="flex items-center justify-center gap-3">
-            <img
-              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/header_logo_white.svg"
-              alt="Clearway"
-              className="h-8 w-auto"
-              style={{ filter: "invert(1)" }}
-            />
-            <div className="h-6 w-px bg-border/70" />
-            <img
-              src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
-              alt="Verxyl"
-              className="h-7 w-auto opacity-90"
-            />
-          </div>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Create account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enter your email and we will send a confirmation link.
-          </p>
-        </div>
+  const loginHref = nextPath !== "/signup" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
 
-        <Card className="shadow-lg border-border/70">
-          <CardHeader>
-            <CardTitle>Account setup</CardTitle>
-            <CardDescription>
-              After confirming email, you will create your password.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            {info && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                {info}
-              </div>
-            )}
-            {confirmationSentTo ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-5 text-center">
-                <Mail className="mx-auto mb-2 size-6 text-muted-foreground" />
-                <p className="text-sm text-foreground">Check your email</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  We sent a confirmation link to {confirmationSentTo}.
-                </p>
-                <button
-                  type="button"
-                  className="mt-4 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+  return (
+    <AuthBackdrop>
+      <div className="cw-fadeup" style={{ width: 452, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
+        <AuthLogos />
+
+        <AuthCard shake={Boolean(error)}>
+          {confirmationSentTo ? (
+            <div style={{ textAlign: "center" }}>
+              <MessageIcon icon={MailCheck} bg="#e8effe" color="#2563eb" />
+              <AuthHeading
+                center
+                title="Confirm your email"
+                sub={`We sent a verification link to ${confirmationSentTo}. Open it to finish setting up your account — it expires in 30 minutes.`}
+              />
+              {info && <AuthAlert tone="info">{info}</AuthAlert>}
+              <AuthButton loading={loading} loadingLabel="Resending…" onClick={requestConfirmationEmail}>
+                Resend link
+              </AuthButton>
+              <div style={{ textAlign: "center", fontSize: 12.5, color: authMuted, marginTop: 14 }}>
+                Wrong address?{" "}
+                <AuthLink
                   onClick={() => {
                     setConfirmationSentTo(null);
                     setInfo(null);
                   }}
                 >
-                  Change details
-                </button>
+                  Change email
+                </AuthLink>
               </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    autoComplete="name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={requestConfirmationEmail}
-                  disabled={loading || !name.trim() || !email.trim()}
-                >
-                  {loading ? "Sending..." : "Send confirmation email"}
-                </Button>
-              </>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href={nextPath !== "/signup" ? `/login?next=${encodeURIComponent(nextPath)}` : "/login"}
-                className="underline underline-offset-4 hover:text-foreground"
+            </div>
+          ) : (
+            <>
+              <AuthHeading title="Create account" sub="Request access to the Clearway suite." />
+              {error && <AuthAlert>{error}</AuthAlert>}
+              {info && <AuthAlert tone="info">{info}</AuthAlert>}
+              <AuthField
+                id="signup-name"
+                label="Full name"
+                icon={User}
+                placeholder="Jane Roberts"
+                autoComplete="name"
+                value={name}
+                error={Boolean(error)}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <AuthField
+                id="signup-email"
+                label="Work email"
+                icon={Mail}
+                type="email"
+                placeholder="you@company.com"
+                autoComplete="email"
+                value={email}
+                error={Boolean(error)}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <AuthButton
+                loading={loading}
+                loadingLabel="Sending…"
+                disabled={!name.trim() || !email.trim()}
+                onClick={requestConfirmationEmail}
+                style={{ marginTop: 4 }}
               >
-                Back to sign in
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+                Send confirmation email
+              </AuthButton>
+              <p style={{ textAlign: "center", fontSize: 13, color: authMuted, marginTop: 16, marginBottom: 0 }}>
+                Already have an account?{" "}
+                <Link href={loginHref} className="cw-auth-link" style={{ fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+                  Sign in
+                </Link>
+              </p>
+            </>
+          )}
+        </AuthCard>
+
+        <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.5, maxWidth: 400, margin: "0 auto" }}>
+          By creating an account you agree to use this data for operational purposes only. Access requires admin
+          approval — after confirming your email you&rsquo;ll create a password.
+        </div>
       </div>
-    </div>
+    </AuthBackdrop>
   );
 }

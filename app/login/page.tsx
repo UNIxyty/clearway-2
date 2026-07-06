@@ -1,5 +1,5 @@
 import LoginCard from "./ui/LoginCard";
-import AuthBackdrop from "./ui/AuthBackdrop";
+import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
 import Link from "next/link";
 import { CornerDownRight } from "lucide-react";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";

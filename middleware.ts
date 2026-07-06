@@ -149,6 +149,9 @@ export async function middleware(request: NextRequest) {
   if (isApprovedMeta === false && !pathname.startsWith("/pending-approval")) {
     const pendingUrl = request.nextUrl.clone();
     pendingUrl.pathname = "/pending-approval";
+    // Keep the deep link: once approved, the page returns the user there.
+    pendingUrl.search = "";
+    pendingUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(pendingUrl);
   }
 

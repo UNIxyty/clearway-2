@@ -2,11 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, ArrowRight, Check, Lock, ShieldCheck } from "lucide-react";
+import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
+import {
+  AuthAlert,
+  AuthButton,
+  AuthCard,
+  AuthField,
+  AuthHeading,
+  AuthLogos,
+  MessageIcon,
+  PasswordStrength,
+} from "@/app/auth/ui/auth-kit";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+// Visuals from Auth Flow.dc.html ("Reset" + "Password updated" screens).
+// The Supabase recovery mechanics (code / token_hash / hash-fragment session
+// recovery, PASSWORD_RECOVERY listener) are unchanged.
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -16,6 +28,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
   const [readyForPassword, setReadyForPassword] = useState(false);
+  const [updated, setUpdated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -113,10 +126,7 @@ export default function ResetPasswordPage() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
-      setInfo("Password updated. Redirecting to portal...");
-      window.setTimeout(() => {
-        router.push("/");
-      }, 700);
+      setUpdated(true);
     } catch (e: unknown) {
       setError((e as { message?: string })?.message || "Failed to reset password.");
     } finally {
@@ -124,74 +134,91 @@ export default function ResetPasswordPage() {
     }
   }
 
+  const match = confirmPassword.length > 0 && password === confirmPassword;
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <Card className="shadow-lg border-border/70">
-          <CardHeader>
-            <CardTitle>Reset password</CardTitle>
-            <CardDescription>
-              {readyForPassword
-                ? "Set a new password for your account."
-                : "Waiting for reset-link confirmation."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            {info && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                {info}
-              </div>
-            )}
-            {checkingLink ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-                Verifying reset link...
-              </div>
-            ) : readyForPassword ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="password">New password</Label>
-                  <Input
+    <AuthBackdrop>
+      <div className="cw-fadeup" style={{ width: 452, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
+        <AuthLogos />
+        <AuthCard shake={Boolean(error)}>
+          {updated ? (
+            <div style={{ textAlign: "center" }}>
+              <MessageIcon icon={ShieldCheck} bg="#e4f6ee" color="#0e9f6e" />
+              <AuthHeading
+                center
+                title="Password updated"
+                sub="Your password has been changed. Use it next time you sign in to the Clearway suite."
+              />
+              <AuthButton onClick={() => router.push("/")}>
+                Continue to the portal <ArrowRight size={16} />
+              </AuthButton>
+            </div>
+          ) : (
+            <>
+              <MessageIcon icon={ShieldCheck} bg="#ede9fe" color="#6d28d9" />
+              <AuthHeading
+                title="Set a new password"
+                sub={readyForPassword ? "Choose a new password to finish resetting your account." : "Waiting for reset-link confirmation."}
+              />
+              {error && <AuthAlert>{error}</AuthAlert>}
+              {info && <AuthAlert tone="info">{info}</AuthAlert>}
+              {checkingLink ? (
+                <AuthAlert tone="info">Verifying reset link…</AuthAlert>
+              ) : readyForPassword ? (
+                <>
+                  <AuthField
                     id="password"
-                    type="password"
-                    autoComplete="new-password"
+                    label="New password"
+                    icon={Lock}
+                    password
                     placeholder="Minimum 8 characters"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    bottom={<PasswordStrength value={password} />}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm password</Label>
-                  <Input
+                  <AuthField
                     id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
+                    label="Confirm new password"
+                    icon={Lock}
+                    password
                     placeholder="Repeat password"
+                    autoComplete="new-password"
                     value={confirmPassword}
+                    error={mismatch}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    bottom={
+                      match ? (
+                        <div style={{ fontSize: 11.5, color: "#15803d", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <Check size={13} />Passwords match
+                        </div>
+                      ) : mismatch ? (
+                        <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <AlertTriangle size={13} />Passwords don&rsquo;t match yet
+                        </div>
+                      ) : null
+                    }
                   />
-                </div>
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={submitReset}
-                  disabled={loading || !password || !confirmPassword}
-                >
-                  {loading ? "Saving..." : "Save new password"}
-                </Button>
-              </>
-            ) : (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-                To continue, click the reset link from your email. Password fields will appear after verification.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <AuthButton
+                    loading={loading}
+                    loadingLabel="Updating…"
+                    disabled={!password || !confirmPassword}
+                    onClick={submitReset}
+                    style={{ marginTop: 4 }}
+                  >
+                    Update password
+                  </AuthButton>
+                </>
+              ) : !info ? (
+                <AuthAlert tone="info">
+                  To continue, click the reset link from your email. Password fields will appear after verification.
+                </AuthAlert>
+              ) : null}
+            </>
+          )}
+        </AuthCard>
       </div>
-    </div>
+    </AuthBackdrop>
   );
 }

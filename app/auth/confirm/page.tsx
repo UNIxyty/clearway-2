@@ -2,32 +2,44 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, Check, KeyRound, Lock } from "lucide-react";
+import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
+import {
+  AuthAlert,
+  AuthButton,
+  AuthCard,
+  AuthField,
+  AuthHeading,
+  AuthLogos,
+  MessageIcon,
+  PasswordStrength,
+  authFaint,
+} from "@/app/auth/ui/auth-kit";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeNextPath } from "@/lib/auth-next-path.mjs";
+
+// Visuals from Auth Flow.dc.html ("Set a new password" screen with the key
+// icon, strength meter and match hint). Mechanics unchanged: the emailed
+// token is validated, the password is set via /api/auth/email/confirm, then
+// we sign in and continue to the (validated) deep link the signup started
+// from.
 
 export default function ConfirmEmailPage() {
   return (
-    <Suspense fallback={<ConfirmEmailLoadingState />}>
+    <Suspense fallback={<ConfirmShell><AuthAlert tone="info">Preparing confirmation details…</AuthAlert></ConfirmShell>}>
       <ConfirmEmailContent />
     </Suspense>
   );
 }
 
-function ConfirmEmailLoadingState() {
+function ConfirmShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <Card className="shadow-lg border-border/70">
-          <CardHeader>
-            <CardTitle>Confirm your email</CardTitle>
-            <CardDescription>Preparing confirmation details...</CardDescription>
-          </CardHeader>
-        </Card>
+    <AuthBackdrop>
+      <div className="cw-fadeup" style={{ width: 452, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 24 }}>
+        <AuthLogos />
+        <AuthCard>{children}</AuthCard>
       </div>
-    </div>
+    </AuthBackdrop>
   );
 }
 
@@ -36,7 +48,9 @@ function ConfirmEmailContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);
-  const continuePath = useMemo(() => searchParams.get("continue") || "/", [searchParams]);
+  // Same-origin relative paths only — the emailed link's continue target is
+  // attacker-influencable input like any other.
+  const continuePath = useMemo(() => safeNextPath(searchParams.get("continue")), [searchParams]);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -116,70 +130,76 @@ function ConfirmEmailContent() {
     }
   }
 
+  const match = confirmPassword.length > 0 && password === confirmPassword;
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <Card className="shadow-lg border-border/70">
-          <CardHeader>
-            <CardTitle>Confirm your email</CardTitle>
-            <CardDescription>Create your password to activate this account.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            {info && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                {info}
-              </div>
-            )}
-            {validating ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-                Validating your confirmation link...
-              </div>
-            ) : error ? null : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Minimum 8 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                  />
+    <ConfirmShell>
+      {validating ? (
+        <AuthAlert tone="info">Validating your confirmation link…</AuthAlert>
+      ) : error && !confirmedEmail ? (
+        <div style={{ textAlign: "center" }}>
+          <MessageIcon icon={AlertTriangle} bg="#fdecec" color="#e5484d" />
+          <AuthHeading center title="Link problem" sub={error} />
+          <AuthButton onClick={() => router.push("/signup")}>Back to sign up</AuthButton>
+        </div>
+      ) : (
+        <>
+          <MessageIcon icon={KeyRound} bg="#ede9fe" color="#6d28d9" />
+          <AuthHeading title="Set your password" sub="Create a password to finish setting up your account." />
+          {error && <AuthAlert>{error}</AuthAlert>}
+          {info && <AuthAlert tone="info">{info}</AuthAlert>}
+          <AuthField
+            id="password"
+            label="Password"
+            icon={Lock}
+            password
+            placeholder="Minimum 8 characters"
+            autoComplete="new-password"
+            value={password}
+            disabled={loading}
+            onChange={(e) => setPassword(e.target.value)}
+            bottom={<PasswordStrength value={password} />}
+          />
+          <AuthField
+            id="confirm-password"
+            label="Confirm password"
+            icon={Lock}
+            password
+            placeholder="Repeat password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            disabled={loading}
+            error={mismatch}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            bottom={
+              match ? (
+                <div style={{ fontSize: 11.5, color: "#15803d", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Check size={13} />Passwords match
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Repeat password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={loading}
-                  />
+              ) : mismatch ? (
+                <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                  <AlertTriangle size={13} />Passwords don&rsquo;t match yet
                 </div>
-
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={setPasswordAndContinue}
-                  disabled={loading || !password || !confirmPassword}
-                >
-                  {loading ? "Saving..." : "Create password"}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+              ) : null
+            }
+          />
+          <AuthButton
+            loading={loading}
+            loadingLabel="Saving…"
+            disabled={!password || !confirmPassword}
+            onClick={setPasswordAndContinue}
+            style={{ marginTop: 4 }}
+          >
+            Set password &amp; continue
+          </AuthButton>
+          {continuePath !== "/" && (
+            <div style={{ fontSize: 12, color: authFaint, marginTop: 12, textAlign: "center" }}>
+              You&rsquo;ll continue to {continuePath}
+            </div>
+          )}
+        </>
+      )}
+    </ConfirmShell>
   );
 }

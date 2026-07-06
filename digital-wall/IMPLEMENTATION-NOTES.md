@@ -428,3 +428,39 @@ the page you just signed out of would bounce you right back to the login wall.
   shows the validated return path when `next` is set.
 - **Apps Dashboard.dc.html is deliberately NOT implemented** — parked for a
   later routing/dashboard task.
+
+## Fixes: NOTAM notify/resend, per-airport resync, overlay, auth wiring (cc-fixes)
+
+- **Notification delivery (1a)**: root causes were silent — NOTAM_DIGEST_TO
+  defaulted to a fabricated ops@clearway.aero and every failure was swallowed.
+  Now: no default recipient (unset = visible error), the mailer logs each
+  attempt/outcome, and emailError / lastRunError surface on the console NOTAM
+  Check page. Server checklist: set NOTAM_DIGEST_TO + RESEND_API_KEY in the
+  root .env, verify the DIGITAL_WALL_EMAIL_FROM domain in Resend, then
+  `docker logs digital-wall-backend | grep mailer`.
+- **Reminder (1b)**: while airports remain unchecked the amber reminder
+  re-sends every NOTAM_REMINDER_INTERVAL_MIN (default 120); stops on
+  all-checked or Riga midnight; single timer, reset per daily run, re-armed
+  on boot and on un-ack. Templates from Email Templates.dc.html
+  (notam-notify.html blue / notam-reminder.html amber); logo PNGs at
+  portal /email/*.
+- **Eligibility (1c)**: per-NOTAM status (active/future/expired/unknown) +
+  human validity ("6 Jul 09:00Z"); lists ordered flagged-eligible → eligible
+  → future → expired; expired never flags and renders muted with an EXPIRED
+  tag; future-outside-window shows STARTS <time>.
+- **Resync (Item 2)**: POST /api/notam-check/resync {icao} refetches one
+  failed airport with the portal client's failure cache bypassed; console
+  Retry appears only on errored cards, debounced, keeps acks.
+- **Overlay (Item 3)**: scales with the display scale setting (430px base);
+  shows flight info + IMP + limitations only — NOTAM, weather AND the
+  NOTAM/weather-derived NTM/WX alert markers removed; view-only.
+- **Auth wiring (Item 4)**: /signup, /auth/confirm, /auth/reset and
+  /pending-approval all rebuilt on the shared AuthBackdrop + app/auth/ui/
+  auth-kit.tsx (Auth Flow.dc.html): signup keeps the confirmation-first
+  mechanics (name + email; password created on /auth/confirm with the
+  strength meter), reset gains the "Password updated" success card,
+  pending-approval shows the verified/admin-review checklist and now returns
+  to the validated `next` deep link on approval (middleware carries it).
+  /auth/confirm's `continue` param is validated with safeNextPath (was raw).
+  Forgot-password stays inline on the sign-in card (same mechanics, already
+  new-styled). No route lands on the old light-theme UI anymore.

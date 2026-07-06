@@ -13,7 +13,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+// RESEND_BASE_URL exists so tests can point sends at a local capture server;
+// production leaves it unset.
+function resendEndpoint() {
+  const base = String(process.env.RESEND_BASE_URL || "https://api.resend.com").trim().replace(/\/+$/, "");
+  return `${base}/emails`;
+}
 
 export function mailerConfigured() {
   return Boolean(String(process.env.RESEND_API_KEY || "").trim());
@@ -58,7 +63,7 @@ async function deliverViaResend({ from, to, subject, html, attachments }) {
       content: Buffer.isBuffer(a.content) ? a.content.toString("base64") : a.content,
     }));
   }
-  const response = await fetch(RESEND_ENDPOINT, {
+  const response = await fetch(resendEndpoint(), {
     method: "POST",
     headers: {
       authorization: `Bearer ${String(process.env.RESEND_API_KEY).trim()}`,
@@ -86,15 +91,21 @@ async function deliverViaResend({ from, to, subject, html, attachments }) {
 export async function sendEmail({ to, subject, html, from = defaultFrom(), attachments }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
   if (recipients.length === 0) {
+    console.error(`[mailer] NOT sending "${subject}": no recipients configured.`);
     return { ok: false, error: "No recipients configured." };
   }
   if (!mailerConfigured()) {
+    console.error(`[mailer] NOT sending "${subject}" to ${recipients.join(", ")}: RESEND_API_KEY is not configured.`);
     return { ok: false, error: "RESEND_API_KEY is not configured; email skipped." };
   }
+  console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
   try {
     const result = await deliverViaResend({ from, to: recipients, subject, html, attachments });
+    console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
     return { ok: true, id: result?.id ?? null };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[mailer] send FAILED: ${message}`);
+    return { ok: false, error: message };
   }
 }

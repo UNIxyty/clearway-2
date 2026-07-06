@@ -54,7 +54,19 @@ function NotamRecord({ notam, groups, muted = false }) {
             {String(top.group || '').toUpperCase()}
           </span>
         )}
-        {!notam.inWindow && <span style={{ fontSize: 11, color: t.faint }}>outside today +24h</span>}
+        {notam.status === 'expired' && (
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', color: t.redDeep, background: t.redTint, padding: '3px 9px', borderRadius: 6 }}>
+            EXPIRED
+          </span>
+        )}
+        {notam.status === 'future' && !notam.inWindow && (
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', color: t.muted, background: t.segment, padding: '3px 9px', borderRadius: 6 }}>
+            STARTS {notam.validFrom}
+          </span>
+        )}
+        {notam.status !== 'expired' && notam.status !== 'future' && !notam.inWindow && (
+          <span style={{ fontSize: 11, color: t.faint }}>outside today +24h</span>
+        )}
         <div style={{ flex: 1 }} />
         <span style={{ ...mono, fontSize: 12, color: t.faint }}>{validity}</span>
       </div>
@@ -209,7 +221,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy })
             key={`${notam.number || index}`}
             notam={notam}
             groups={groups}
-            muted={expanded && notam.matches.length === 0}
+            muted={expanded && (notam.matches.length === 0 || !notam.inWindow || notam.status === 'expired')}
           />
         ))}
         <button
@@ -457,6 +469,7 @@ export default function NotamCheckPage({ navigate }) {
       {!busy && state && state.day && airports.length > 0 && (
         <div className="cw-fade">
           {error && <ErrorBanner>{error}</ErrorBanner>}
+          {state.lastRunError && <ErrorBanner>Last scheduled run failed: {state.lastRunError}</ErrorBanner>}
           <SignBanner
             sign={state.sign}
             done={state.done}
@@ -479,11 +492,20 @@ export default function NotamCheckPage({ navigate }) {
               />
             ))}
           </div>
-          {state.emailedTo && (
-            <div style={{ fontSize: 12.5, color: t.faint, marginTop: 14, textAlign: 'right' }}>
-              Notification email sent to {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}
-            </div>
-          )}
+          <div style={{ fontSize: 12.5, color: t.faint, marginTop: 14, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+            {state.emailedTo && (
+              <span>Notification email sent to {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
+            )}
+            {state.remindersSent > 0 && (
+              <span>
+                {state.remindersSent} reminder{state.remindersSent === 1 ? '' : 's'} sent
+                {state.lastReminderAt ? ` · last at ${zTime(state.lastReminderAt)}` : ''} · every {state.reminderIntervalMin} min until all checked
+              </span>
+            )}
+            {state.emailError && (
+              <span style={{ color: t.redDeep, fontWeight: 600 }}>Email problem: {state.emailError}</span>
+            )}
+          </div>
         </div>
       )}
     </div>

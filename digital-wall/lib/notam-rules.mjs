@@ -147,11 +147,17 @@ export function parseNotamTime(raw) {
   return null;
 }
 
-/** Human-readable form of a parsed validity endpoint. */
-export function formatNotamTime(parsed) {
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Human-readable validity endpoint: "6 Jul 09:00Z" (year appended when it differs from the current one). */
+export function formatNotamTime(parsed, nowMs = Date.now()) {
   if (parsed === "PERM") return "PERM";
   if (typeof parsed !== "number") return "—";
-  return `${new Date(parsed).toISOString().slice(0, 16).replace("T", " ")}Z`;
+  const d = new Date(parsed);
+  const year = d.getUTCFullYear() === new Date(nowMs).getUTCFullYear() ? "" : ` ${d.getUTCFullYear()}`;
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}${year} ${hh}:${mm}Z`;
 }
 
 /**
@@ -172,4 +178,18 @@ export function notamOverlapsWindow(notam, fromMs, toMs) {
 export function notamExpired(notam, nowMs = Date.now()) {
   const till = parseNotamTime(notam?.endDateUtc);
   return typeof till === "number" && till < nowMs;
+}
+
+/**
+ * Lifecycle relative to `nowMs`: an expired NOTAM must never be presented
+ * as active; a future one may still be eligible when it overlaps the check
+ * window. "unknown" = neither endpoint parseable (shown, not trusted).
+ */
+export function notamStatus(notam, nowMs = Date.now()) {
+  const from = parseNotamTime(notam?.startDateUtc);
+  const till = parseNotamTime(notam?.endDateUtc);
+  if (typeof till === "number" && till < nowMs) return "expired";
+  if (typeof from === "number" && from > nowMs) return "future";
+  if (till === "PERM" || typeof from === "number" || typeof till === "number") return "active";
+  return "unknown";
 }

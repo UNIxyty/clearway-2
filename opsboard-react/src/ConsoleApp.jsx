@@ -28,7 +28,7 @@ import { subscribeWallStream } from './services/wallStream';
 // Brand assets — dropped into opsboard-react/public/assets/ (SVG, crisp on
 // retina). Until the files exist, the components fall back to text.
 const CLEARWAY_LOGO = `${import.meta.env.BASE_URL}assets/clearway-logo.svg`;
-const VERXYL_LOGO = `${import.meta.env.BASE_URL}assets/verxyl-logo.svg`;
+const VERXYL_LOGO = `${import.meta.env.BASE_URL}assets/verxyl-logo.png`;
 const VERXYL_URL = ''; // set when a link target is provided
 
 function BrandLogo({ src, alt, height, fallback }) {

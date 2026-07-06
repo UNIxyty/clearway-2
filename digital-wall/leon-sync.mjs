@@ -279,6 +279,17 @@ function normalizeHexColor(value) {
   return /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : null;
 }
 
+// Item 1: only flights with a REAL trip status reach the wall/console.
+// Leon's FlightStatus enum is CONFIRMED | OPTION | OPPORTUNITY (confirmed vs
+// unconfirmed — both stay); drafts/blanks/other non-trip records that slip
+// through the flightList have no usable status and are dropped at ingestion,
+// which also keeps them out of NOTAM/WX airport collection.
+const VALID_TRIP_STATUSES = new Set(["CONFIRMED", "OPTION", "OPPORTUNITY"]);
+
+export function hasValidTripStatus(flight) {
+  return VALID_TRIP_STATUSES.has(String(flight?.tripStatus ?? flight?.status ?? "").trim().toUpperCase());
+}
+
 export function mapLeonFlight(rawFlight, checklistDefs = null) {
   const fw = rawFlight.flightWatch ?? {};
   const jl = rawFlight.journeyLog ?? {};
@@ -669,8 +680,13 @@ export class LeonTimelineService {
 
     this.flightsByNid.clear();
     this.aircraftByFlightNid.clear();
+    let droppedStatusless = 0;
     for (const entry of payload.flights) {
       if (!entry?.key || !entry?.flight) continue;
+      if (!hasValidTripStatus(entry.flight)) {
+        droppedStatusless += 1;
+        continue;
+      }
       this.flightsByNid.set(entry.key, healCachedFlight(entry.flight));
       if (entry.aircraft) {
         this.aircraftByFlightNid.set(entry.key, entry.aircraft);
@@ -703,6 +719,9 @@ export class LeonTimelineService {
       this.customLimitations = payload.customLimitations;
     }
 
+    if (droppedStatusless > 0) {
+      console.log(`[leon-sync] cache load: dropped ${droppedStatusless} flight(s) without a trip status`);
+    }
     if (this.flightsByNid.size > 0) {
       this.state.source = "local-cache";
       this.state.lastRunAt = payload.savedAt ?? null;
@@ -770,6 +789,9 @@ export class LeonTimelineService {
       this.state.lastError = null;
       this.state.lastRunAt = new Date().toISOString();
       this.state.cacheStats = cycleStats;
+      if (cycleStats.skipped > 0) {
+        console.log(`[leon-sync] sync cycle: filtered ${cycleStats.skipped} flight(s) without a trip status`);
+      }
       if (cycleStats.updated > 0 || cycleStats.deleted > 0 || this.flightsByNid.size === 0) {
         await this.persistLocalCache();
       }
@@ -1028,6 +1050,10 @@ export class LeonTimelineService {
 
       for (const rawFlight of data.flightList ?? []) {
         const mapped = mapLeonFlight(rawFlight, checklistDefs);
+        if (!hasValidTripStatus(mapped)) {
+          stats.skipped += 1;
+          continue;
+        }
         mapped.oprId = oprId;
         const nid = this.flightCacheKey(oprId, mapped.flightNid);
         this.flightsByNid.set(nid, mapped);
@@ -1081,8 +1107,14 @@ export class LeonTimelineService {
 
     for (const row of [...(delta.created ?? []), ...(delta.changed ?? [])]) {
       const mapped = mapLeonFlight(row, checklistDefs);
-      mapped.oprId = oprId;
       const nid = this.flightCacheKey(oprId, mapped.flightNid);
+      if (!hasValidTripStatus(mapped)) {
+        // A modified flight can LOSE its trip status — evict it too.
+        if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
+        stats.skipped += 1;
+        continue;
+      }
+      mapped.oprId = oprId;
       this.flightsByNid.set(nid, mapped);
       stats.updated += 1;
       this.aircraftByFlightNid.set(nid, {

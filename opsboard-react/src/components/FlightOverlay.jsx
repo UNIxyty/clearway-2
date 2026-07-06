@@ -6,6 +6,13 @@ import { subscribeWallStream } from '../services/wallStream';
 // opens/closes it for everyone; the backend holds the authoritative state and
 // pushes display.command over SSE. On boot the current state is restored, so
 // a wall refresh doesn't lose an open overlay.
+//
+// Ops-room rules (fixes Item 3): the overlay scales with the same display
+// scale setting as the board, and shows ONLY core flight info (route +
+// timings), IMP entries and limitations. NOTAM and weather content never
+// renders on the wall — the console NOTAM Check page owns that. Alert-scan
+// markers (NTM/WX) are NOTAM/weather-derived, so they are excluded here too.
+// Strictly view-only: no interactive controls.
 
 function fmtDT(value) {
   if (!value) return '—';
@@ -21,40 +28,7 @@ function delayText(min) {
   return n > 0 ? `+${n} min` : `${n} min`;
 }
 
-function AirportNotams({ label, result }) {
-  return (
-    <div style={s.section}>
-      <div style={s.sectionTitle}>NOTAM — {label}</div>
-      {!result?.ok && <div style={s.unavailable}>Unavailable: {result?.error || 'no data'}</div>}
-      {result?.ok && (result.data?.notams || []).length === 0 && (
-        <div style={s.unavailable}>No NOTAMs on file.</div>
-      )}
-      {result?.ok &&
-        (result.data?.notams || []).map((notam, index) => (
-          <div key={`${notam.number}-${index}`} style={s.notamCard}>
-            <div style={s.notamHead}>
-              <b style={{ color: '#ffab73' }}>{notam.number || '—'}</b>
-              <span style={s.notamClass}>class {notam.class || '—'}</span>
-              <span style={s.notamDates}>{notam.startDateUtc || '—'} → {notam.endDateUtc || '—'}</span>
-            </div>
-            <div style={s.notamText}>{notam.condition || ''}</div>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-function AirportWeather({ label, result }) {
-  return (
-    <div style={s.section}>
-      <div style={s.sectionTitle}>Weather — {label}</div>
-      {!result?.ok && <div style={s.unavailable}>Unavailable: {result?.error || 'no data'}</div>}
-      {result?.ok && <pre style={s.wxText}>{result.data?.weather || 'No weather text on file.'}</pre>}
-    </div>
-  );
-}
-
-export default function FlightOverlay({ topOffset = 76 }) {
+export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
   const [overlay, setOverlay] = useState({ open: false });
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -91,9 +65,13 @@ export default function FlightOverlay({ topOffset = 76 }) {
 
   if (!overlay.open) return null;
 
+  const s = makeStyles(scale);
   const flight = info?.flight;
   const dep = flight?.adep;
   const arr = flight?.ades;
+  const entries = flight?.limitations || [];
+  const impEntries = entries.filter((item) => item.source === 'important');
+  const limitations = entries.filter((item) => item.source === 'custom');
 
   return (
     <div style={{ ...s.panel, top: topOffset }}>
@@ -110,7 +88,7 @@ export default function FlightOverlay({ topOffset = 76 }) {
 
       {flight && (
         <div style={s.scroll}>
-          {/* 1+2: Departure / Arrival */}
+          {/* Departure / Arrival */}
           <div style={s.routeRow}>
             <div style={s.airportBox}>
               <div style={s.icao}>{dep?.icao || 'UNK'}</div>
@@ -125,7 +103,7 @@ export default function FlightOverlay({ topOffset = 76 }) {
             </div>
           </div>
 
-          {/* 3: All flight timings */}
+          {/* Timings */}
           <div style={s.section}>
             <div style={s.sectionTitle}>Timings (UTC)</div>
             <div style={s.timingGrid}>
@@ -142,131 +120,122 @@ export default function FlightOverlay({ topOffset = 76 }) {
             </div>
           </div>
 
-          {(flight.limitations || []).length > 0 && (
-            <div style={s.section}>
-              <div style={s.sectionTitle}>Active limitations</div>
-              {flight.limitations.map((lim) => (
-                <div key={lim.id} style={s.limRow}>
-                  <span style={{ ...s.limType }}>{lim.type}</span>
-                  <span style={{ color: '#c9d5f0' }}>{lim.title}</span>
+          {/* IMP entries */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>Important (IMP)</div>
+            {impEntries.length === 0 && <div style={s.unavailable}>No IMP entries match this flight.</div>}
+            {impEntries.map((entry) => (
+              <div key={entry.id} style={s.entryCard}>
+                <div style={s.entryHead}>
+                  <span style={{ ...s.badge, color: '#ff8f8f', borderColor: 'rgba(229,72,77,.45)' }}>IMP</span>
+                  <span style={s.entryTitle}>{entry.title}</span>
                 </div>
-              ))}
-            </div>
-          )}
+                {entry.description && <div style={s.entryBody}>{entry.description}</div>}
+              </div>
+            ))}
+          </div>
 
-          {/* AIP/GEN documents are console-initiated and emailed to the
-              requesting user (Flights page) — the wall is view-only, so no
-              download controls render here. */}
+          {/* Limitations */}
+          <div style={s.section}>
+            <div style={s.sectionTitle}>Active limitations</div>
+            {limitations.length === 0 && <div style={s.unavailable}>No limitations match this flight.</div>}
+            {limitations.map((lim) => (
+              <div key={lim.id} style={s.entryCard}>
+                <div style={s.entryHead}>
+                  <span style={s.badge}>{lim.type}</span>
+                  <span style={s.entryTitle}>{lim.title}</span>
+                </div>
+                {lim.description && <div style={s.entryBody}>{lim.description}</div>}
+              </div>
+            ))}
+          </div>
 
-          {/* 4: NOTAMs, grouped by airport */}
-          <AirportNotams label={dep?.icao || 'departure'} result={info?.notams?.dep} />
-          <AirportNotams label={arr?.icao || 'arrival'} result={info?.notams?.arr} />
-
-          {/* 5: Weather */}
-          <AirportWeather label={dep?.icao || 'departure'} result={info?.weather?.dep} />
-          <AirportWeather label={arr?.icao || 'arrival'} result={info?.weather?.arr} />
+          {/* NOTAMs, weather and AIP/GEN documents intentionally do NOT render
+              on the wall: NOTAM review lives on the console NOTAM Check page,
+              documents are emailed from the console, and the display stays
+              view-only. */}
         </div>
       )}
     </div>
   );
 }
 
-const s = {
-  panel: {
-    position: 'fixed',
-    top: 'var(--overlay-top, 76px)',
-    right: 0,
-    bottom: 0,
-    width: 420,
-    zIndex: 150,
-    background: 'rgba(15,20,32,.98)',
-    borderLeft: '1px solid #2a395c',
-    boxShadow: '-12px 0 30px rgba(0,0,0,.45)',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  head: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 16px',
-    borderBottom: '1px solid #222840',
-    flexShrink: 0,
-  },
-  fn: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 18, fontWeight: 700, color: '#e8f2ff' },
-  openedBy: { fontSize: 10, color: '#6f7fa8', marginTop: 2 },
-  reg: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#8ea1cb' },
-  scroll: { flex: 1, overflowY: 'auto', padding: '12px 16px' },
-  routeRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
-  airportBox: { flex: 1, minWidth: 0 },
-  icao: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 20, fontWeight: 700, color: '#6dc4ff' },
-  airportName: { fontSize: 11, color: '#c9d5f0', marginTop: 2 },
-  airportCity: { fontSize: 10, color: '#6f7fa8' },
-  routeArrow: { fontSize: 18, color: '#404d6e', flexShrink: 0 },
-  section: { marginBottom: 14 },
-  sectionTitle: {
-    fontSize: 9.5,
-    fontWeight: 600,
-    letterSpacing: '1.6px',
-    color: '#404d6e',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  timingGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr auto 1fr',
-    gap: '4px 10px',
-    background: '#111626',
-    border: '1px solid #222840',
-    borderRadius: 8,
-    padding: 10,
-  },
-  tLabel: { fontSize: 10, color: '#6f7fa8' },
-  tVal: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: '#d2ddf5' },
-  limRow: { display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 11.5, padding: '3px 0' },
-  limType: {
-    fontFamily: "'IBM Plex Mono',monospace",
-    fontSize: 9,
-    fontWeight: 700,
-    color: '#f0c060',
-    border: '1px solid rgba(240,177,59,.35)',
-    borderRadius: 999,
-    padding: '1px 7px',
-    flexShrink: 0,
-  },
-  notamCard: {
-    background: '#111626',
-    border: '1px solid #222840',
-    borderRadius: 8,
-    padding: 9,
-    marginBottom: 6,
-  },
-  notamHead: { display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap', fontSize: 10.5 },
-  notamClass: { color: '#8ea1cb' },
-  notamDates: { color: '#6f7fa8', fontFamily: "'IBM Plex Mono',monospace", fontSize: 9.5 },
-  notamText: {
-    fontFamily: "'IBM Plex Mono',monospace",
-    fontSize: 10,
-    color: '#b9c8e7',
-    whiteSpace: 'pre-wrap',
-    marginTop: 5,
-    maxHeight: 140,
-    overflowY: 'auto',
-    lineHeight: 1.45,
-  },
-  wxText: {
-    fontFamily: "'IBM Plex Mono',monospace",
-    fontSize: 10,
-    color: '#b9c8e7',
-    whiteSpace: 'pre-wrap',
-    background: '#111626',
-    border: '1px solid #222840',
-    borderRadius: 8,
-    padding: 9,
-    margin: 0,
-    maxHeight: 160,
-    overflowY: 'auto',
-    lineHeight: 1.45,
-  },
-  unavailable: { fontSize: 11, color: '#6f7fa8', padding: '6px 0' },
-};
+// All metrics derive from the display scale setting (same as Board), so the
+// overlay is readable from several metres at scale ≥ 1.3.
+function makeStyles(scale) {
+  const sz = (v) => Math.round(v * scale);
+  const mono = "'IBM Plex Mono',monospace";
+  return {
+    panel: {
+      position: 'fixed',
+      right: 0,
+      bottom: 0,
+      width: sz(430),
+      zIndex: 150,
+      background: 'rgba(13,17,28,.98)',
+      borderLeft: '1px solid #2a395c',
+      boxShadow: '-12px 0 30px rgba(0,0,0,.45)',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    head: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: `${sz(12)}px ${sz(16)}px`,
+      borderBottom: '1px solid #222840',
+      flexShrink: 0,
+    },
+    fn: { fontFamily: mono, fontSize: sz(20), fontWeight: 700, color: '#f2f7ff' },
+    openedBy: { fontSize: sz(10), color: '#8494bd', marginTop: 2 },
+    reg: { fontFamily: mono, fontSize: sz(13), color: '#a8bade' },
+    scroll: { flex: 1, overflowY: 'auto', padding: `${sz(12)}px ${sz(16)}px` },
+    routeRow: { display: 'flex', alignItems: 'center', gap: sz(10), marginBottom: sz(14) },
+    airportBox: { flex: 1, minWidth: 0 },
+    icao: { fontFamily: mono, fontSize: sz(24), fontWeight: 700, color: '#7ecbff' },
+    airportName: { fontSize: sz(12), color: '#dbe4f8', marginTop: 2 },
+    airportCity: { fontSize: sz(11), color: '#8494bd' },
+    routeArrow: { fontSize: sz(20), color: '#55648c', flexShrink: 0 },
+    section: { marginBottom: sz(16) },
+    sectionTitle: {
+      fontSize: sz(10.5),
+      fontWeight: 700,
+      letterSpacing: '1.6px',
+      color: '#7484ad',
+      marginBottom: sz(6),
+      textTransform: 'uppercase',
+    },
+    timingGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'auto 1fr auto 1fr',
+      gap: `${sz(5)}px ${sz(10)}px`,
+      background: '#111626',
+      border: '1px solid #222840',
+      borderRadius: sz(8),
+      padding: sz(11),
+    },
+    tLabel: { fontSize: sz(11), color: '#8494bd' },
+    tVal: { fontFamily: mono, fontSize: sz(12.5), fontWeight: 600, color: '#e6edfb' },
+    entryCard: {
+      background: '#111626',
+      border: '1px solid #222840',
+      borderRadius: sz(8),
+      padding: `${sz(9)}px ${sz(11)}px`,
+      marginBottom: sz(7),
+    },
+    entryHead: { display: 'flex', gap: sz(9), alignItems: 'baseline' },
+    badge: {
+      fontFamily: mono,
+      fontSize: sz(10),
+      fontWeight: 700,
+      color: '#f5c76a',
+      border: '1px solid rgba(240,177,59,.4)',
+      borderRadius: 999,
+      padding: `1px ${sz(8)}px`,
+      flexShrink: 0,
+    },
+    entryTitle: { fontSize: sz(13.5), fontWeight: 600, color: '#eef3fd', lineHeight: 1.35 },
+    entryBody: { fontSize: sz(12), color: '#c2cfec', lineHeight: 1.5, marginTop: sz(5) },
+    unavailable: { fontSize: sz(12), color: '#8494bd', padding: `${sz(6)}px 0` },
+  };
+}

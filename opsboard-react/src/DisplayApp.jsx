@@ -149,7 +149,7 @@ export default function DisplayApp() {
           </>
         }
       />
-      <FlightOverlay topOffset={Math.round(92 * scale)} />
+      <FlightOverlay topOffset={Math.round(92 * scale)} scale={scale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
       <Board

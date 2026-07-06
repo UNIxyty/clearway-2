@@ -464,3 +464,31 @@ the page you just signed out of would bounce you right back to the login wall.
   /auth/confirm's `continue` param is validated with safeNextPath (was raw).
   Forgot-password stays inline on the sign-in card (same mechanics, already
   new-styled). No route lands on the old light-theme UI anymore.
+
+## Leon pills: real-data fixes, softer palette, check-gated markers (cc Leon prompt)
+
+- **Part 1 (verified on live cwy-cwy data)**: delayed-until instants now equal
+  the actual times (were estimate+delay — NUM221 rendered a 30-min-too-long
+  hatch); checklist colors arrive as bare hex and are '#'-normalized; the
+  pill's contrast guard lightens dark checklist colors instead of dropping
+  them (red = unfinished stays red); healCachedFlight() repairs pre-Part-A
+  cache entries on load (derives movementState, clamps ±48h, recomputes
+  delayed instants) — that is what fixes the permanently-white stale pills.
+  Full findings in LEON-PILL-MAPPING.md. Temp creds lived only in the local
+  scratchpad; diffs grepped clean before each commit.
+- **Part 2**: fills desaturated to dusty tones (scheduled #dde1ea, delayed
+  #c9ab62, ctot #9d8cc2, airborne #7d9cc4, arrived #bd8ba4 dusty mauve);
+  contrast measured 5.6–12.7:1 at scale 1.3. Delay segments are a 45°
+  diagonal hatch (the hatch reproduced cleanly; the dashed fallback wasn't
+  needed).
+- **Part 3**: NTM/WX markers mean "unreviewed" — flight decoration drops a
+  finding once its airport has today's CHECKED ack (per-airport: ADEP acked
+  but ADES not = ADES marker stays; undo re-flags; daily run resets). Wall
+  pills re-read on notam-check.changed (~1–2s); the overlay regained the
+  markers as an "Unreviewed alerts" badge row (type·ICAO chips only — no
+  NOTAM/weather text) refreshed silently on the same event.
+- **Overlap audit**: occlusion-aware bounding-box audit at scale 1.3 over a
+  dense 8-lane board: 0 label collisions across 129 visible labels. (The only
+  flagged case is a pill clipped by the frozen aircraft-label column mid
+  horizontal scroll — inherent frozen-column behavior, text concealed by the
+  opaque sticky label.)

@@ -155,6 +155,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Cache miss: delegate to the dedicated sync worker when configured. The
+  // portal runner image is a pruned Next standalone — spawning the Playwright
+  // scraper here dies resolving its imports (the intermittent per-airport
+  // 502 with an ESM defaultResolve stack, e.g. LGIR). The notam-sync worker
+  // ships the full repo + chromium and also persists the result to storage,
+  // so the next request is a cache hit. Local spawn below stays as the dev
+  // fallback only.
+  if (NOTAM_SYNC_URL) {
+    const syncUrl = `${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+      const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
+        return NextResponse.json({
+          icao: data.icao ?? icao,
+          notams: data.notams ?? [],
+          updatedAt: data.updatedAt ?? null,
+        });
+      }
+      const errBody = await res.text();
+      logError("NOTAM-API", `NOTAM cache-miss sync for ${icao} failed (${res.status}): ${errBody.slice(0, 300)}`);
+      return NextResponse.json(
+        {
+          error: "NOTAM source temporarily unavailable",
+          detail: `The NOTAM sync worker returned ${res.status} for ${icao}. This is usually a transient scrape failure — retry the airport.`,
+        },
+        { status: 502 }
+      );
+    } catch (e) {
+      logError("NOTAM-API", `NOTAM cache-miss sync for ${icao} unreachable`, e);
+      return NextResponse.json(
+        {
+          error: "NOTAM source temporarily unavailable",
+          detail: `Could not reach the NOTAM sync worker for ${icao} — check the notam-sync container, then retry.`,
+        },
+        { status: 502 }
+      );
+    }
+  }
+
   const scriptPath = scraperScriptPath(scraper);
   if (!existsSync(scriptPath)) {
     return NextResponse.json(
@@ -226,11 +271,18 @@ export async function GET(request: NextRequest) {
     child.on("close", (code) => {
       clearTimeout(timeout);
       if (code !== 0 && !stdout) {
+        // Human-readable detail: a module-resolution crash means the runtime
+        // environment can't run the scraper at all — say so instead of
+        // dumping the ESM stack on the caller (full stderr goes to logs).
+        logError("NOTAM-API", `NOTAM scraper subprocess for ${icao} exited ${code}: ${stderr.slice(-800)}`);
+        const moduleCrash = /ERR_MODULE_NOT_FOUND|Cannot find (module|package)|esm\/resolve/i.test(stderr);
         resolve(
           NextResponse.json(
             {
               error: "NOTAM scraper failed.",
-              detail: stderr.slice(-500) || `Exit code ${code}`,
+              detail: moduleCrash
+                ? "The scraper subprocess crashed loading its dependencies — this runtime cannot run scrapers locally. Configure NOTAM_SYNC_URL so lookups run on the sync worker, then retry."
+                : (stderr.trim().split("\n").pop() || `Exit code ${code}`).slice(0, 300),
             },
             { status: 502 }
           )

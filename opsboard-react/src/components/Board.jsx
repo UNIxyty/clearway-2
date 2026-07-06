@@ -106,7 +106,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1 }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -120,8 +120,12 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const s = makeStyles(sz);
   const AC_LABEL_W = sz(150);
   const END_PAD_PX = sz(260);
-  const VIEWPORT_HOURS = 10 / scale;
-  const BEFORE_NOW_HOURS = 3 / scale;
+  // timeZoom stretches/squeezes the hour axis independently of text scale:
+  // 2 = hour gridlines twice as far apart (fewer hours visible), 0.5 = twice
+  // as many hours on screen. Everything downstream (pxPerHour, gridlines,
+  // pills, labels, now-line) derives from these two numbers.
+  const VIEWPORT_HOURS = 10 / scale / timeZoom;
+  const BEFORE_NOW_HOURS = 3 / scale / timeZoom;
   const FLIGHT_PILL_HEIGHT = sz(70);
   const FLIGHT_LANE_GAP = sz(12);
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;

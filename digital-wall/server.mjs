@@ -71,7 +71,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 function sanitizeDisplaySettings(input = {}) {
@@ -79,7 +79,13 @@ function sanitizeDisplaySettings(input = {}) {
   if (!Number.isFinite(scale) || scale < 1 || scale > 2) {
     throw new Error("scale must be a number between 1.0 and 2.0.");
   }
-  return { scale: Math.round(scale * 100) / 100 };
+  // Time-axis zoom: horizontal distance between hour gridlines. 1 = default;
+  // 0.5 fits twice the hours on screen, 2.5 spreads them 2.5x wider.
+  const timeZoom = input.timeZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.timeZoom : Number(input.timeZoom);
+  if (!Number.isFinite(timeZoom) || timeZoom < 0.5 || timeZoom > 2.5) {
+    throw new Error("timeZoom must be a number between 0.5 and 2.5.");
+  }
+  return { scale: Math.round(scale * 100) / 100, timeZoom: Math.round(timeZoom * 100) / 100 };
 }
 
 // Current wall overlay — appliance-style shared state (one overlay for all
@@ -460,7 +466,10 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       let settings;
       try {
-        settings = sanitizeDisplaySettings(body.settings ?? body);
+        // Merge over the stored settings so a partial PUT (e.g. only scale)
+        // never silently resets the other knobs.
+        const stored = await displaySettingsStore.read();
+        settings = sanitizeDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...stored, ...(body.settings ?? body) });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;

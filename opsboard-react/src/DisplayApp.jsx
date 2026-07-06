@@ -64,6 +64,7 @@ export default function DisplayApp() {
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const [notamSign, setNotamSign] = useState('NONE');
   const [scale, setScale] = useState(1.3); // display scale (ops-room legibility)
+  const [timeZoom, setTimeZoom] = useState(1); // hour-gridline spacing (time-axis zoom)
   const loadingRef = useRef(false);
 
   async function loadTimeline({ refresh = true } = {}) {
@@ -100,6 +101,7 @@ export default function DisplayApp() {
     try {
       const payload = await fetchDisplaySettings();
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
+      if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
     } catch {
       /* keep current scale */
     }
@@ -164,6 +166,7 @@ export default function DisplayApp() {
         windowStartUtc={windowStartUtc}
         windowEndUtc={windowEndUtc}
         scale={scale}
+        timeZoom={timeZoom}
       />
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}

@@ -278,6 +278,73 @@ function DisplayScaleCard() {
   );
 }
 
+
+// ── Hour spacing card (time-axis zoom) ───────────────────────────────────────
+function HourSpacingCard() {
+  const [timeZoom, setTimeZoom] = useState(1);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings()
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function onChange(value) {
+    const next = Number(value);
+    setTimeZoom(next);
+    // Debounced persist — the wall re-renders live via config.changed. The
+    // backend merges partial PUTs, so this never clobbers the scale.
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings({ timeZoom: next });
+        flash(`Hour spacing ${next.toFixed(2)}\u00d7 \u2014 wall updates in seconds`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Hour spacing</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Horizontal distance between hour gridlines on the timeline. Lower fits more hours on screen;
+        higher spreads them out so tight schedules stay readable.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontSize: 12, color: t.faint }}>0.5\u00d7</span>
+        <input
+          type="range"
+          min="0.5"
+          max="2.5"
+          step="0.05"
+          value={timeZoom}
+          disabled={!loaded}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ flex: 1, accentColor: t.blue }}
+        />
+        <span style={{ fontSize: 12, color: t.faint }}>2.5\u00d7</span>
+        <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
+          {Number(timeZoom).toFixed(2)}\u00d7
+        </span>
+        <Button size="sm" variant="soft" disabled={!loaded || Number(timeZoom) === 1} onClick={() => onChange(1)}>
+          Reset
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 // ── NOTAM / alert filter card ────────────────────────────────────────────────
 // NOTAM rules are colored keyword groups (OPS filter): {group, color,
 // terms[], patterns[]} — terms and wildcard patterns are editable per group.
@@ -566,6 +633,7 @@ export default function SettingsPage() {
         descMax={600}
       />
       <DisplayScaleCard />
+      <HourSpacingCard />
       <ClocksCard />
       <AlertFilterCard />
     </div>

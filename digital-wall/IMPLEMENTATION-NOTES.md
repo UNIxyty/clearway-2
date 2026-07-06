@@ -535,3 +535,34 @@ working in isolation.
   "no airports today — email skipped" / exact skip reasons.
 - Reminder loop unchanged: it still only chases airports that remain
   unchecked.
+
+## Investigations + fixes round (NOTAM timing, IDs, emails, 502, zoom, timings)
+
+- **Item 1** — see "How the NOTAM check + notification actually work" above:
+  the 04:40 manual check suppressed the whole 10:00 scheduled run (guard was
+  state.day). Now a dedicated dailyFiredFor marker drives the scheduler, the
+  10:00 send always fires when there are flights (honest done/N count),
+  same-day re-runs preserve acks, and every decision is logged.
+- **Item 2** — trip status/ID colour verified correct against 126 live
+  flights (2 real OPTIONs italic; checklist colour = least-complete item,
+  lightened only to the contrast threshold). See LEON-PILL-MAPPING.md.
+- **Item 3** — the email logo PNGs were screenshots of broken img elements
+  (chromium blocks file:// subresources from about:blank). Regenerated and
+  hosted at absolute Supabase-public URLs (same bucket as the login logos);
+  all templates carry explicit width/height/alt; AIP delivery rebuilt on the
+  designed template. Remote-image loading verified in-browser; send a real
+  test from the server with:
+  curl -s -X POST https://clearway.verxyl.com/digital-wall/api/notam-check/run
+- **Item 4** — the intermittent NOTAM 502 was the portal (pruned Next
+  standalone image) spawning the CrewBriefing scraper on storage-cache
+  misses; the subprocess died on ESM resolution (reproduced:
+  ERR_MODULE_NOT_FOUND lib/storage.mjs). Cache misses now delegate to the
+  notam-sync worker (NOTAM_SYNC_URL); local spawn is dev-only with readable
+  errors. The per-airport Retry clears it on success.
+- **Item 5** — timeZoom display setting (0.5–2.5): px-per-hour zoom for the
+  timeline, slider in console Settings, persisted with display settings
+  (PUT now merges partial updates), live via config.changed.
+- **Item 6** — delayed pills show ETD at the start, ATD at the hatch end,
+  ETA at the arrival boundary and ATA at the right end (real Leon actuals;
+  plain time when an actual doesn't exist yet). Anti-overlap clearances
+  account for the wider tagged labels.

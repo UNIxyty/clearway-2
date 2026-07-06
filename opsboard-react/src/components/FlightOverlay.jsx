@@ -7,12 +7,13 @@ import { subscribeWallStream } from '../services/wallStream';
 // pushes display.command over SSE. On boot the current state is restored, so
 // a wall refresh doesn't lose an open overlay.
 //
-// Ops-room rules (fixes Item 3): the overlay scales with the same display
-// scale setting as the board, and shows ONLY core flight info (route +
-// timings), IMP entries and limitations. NOTAM and weather content never
-// renders on the wall — the console NOTAM Check page owns that. Alert-scan
-// markers (NTM/WX) are NOTAM/weather-derived, so they are excluded here too.
-// Strictly view-only: no interactive controls.
+// Ops-room rules: the overlay scales with the same display scale setting as
+// the board, and shows core flight info (route + timings), IMP entries and
+// limitations. NOTAM and weather CONTENT never renders on the wall — the
+// console NOTAM Check page owns that. NTM/WX markers appear as badges ONLY
+// while the airport that raised them has not been CHECKED today (the server
+// drops findings for acked airports, same rule as the pills); they clear
+// live via notam-check.changed. Strictly view-only: no interactive controls.
 
 function fmtDT(value) {
   if (!value) return '—';
@@ -54,12 +55,20 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
     setLoading(true);
     setError('');
     setInfo(null);
-    fetchFlightInfo({ flightNid: overlay.flightNid, oprId: overlay.oprId })
-      .then((payload) => !cancelled && setInfo(payload))
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => !cancelled && setLoading(false));
+    const load = ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      fetchFlightInfo({ flightNid: overlay.flightNid, oprId: overlay.oprId })
+        .then((payload) => !cancelled && setInfo(payload))
+        .catch((err) => !cancelled && !silent && setError(err instanceof Error ? err.message : String(err)))
+        .finally(() => !cancelled && setLoading(false));
+    };
+    load();
+    // Console acks clear this flight's NTM/WX markers while the overlay is
+    // open — silent refetch so the panel doesn't flash.
+    const unsub = subscribeWallStream('notam-check.changed', () => load({ silent: true }));
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [overlay.open, overlay.flightNid, overlay.oprId]);
 
@@ -72,6 +81,15 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
   const entries = flight?.limitations || [];
   const impEntries = entries.filter((item) => item.source === 'important');
   const limitations = entries.filter((item) => item.source === 'custom');
+  // Unreviewed NTM/WX markers (already gated server-side by today's
+  // per-airport CHECKED acks) — badges only, never the NOTAM/weather text.
+  const alertMarkers = [
+    ...new Map(
+      entries
+        .filter((item) => item.source === 'alert' && (item.type === 'NTM' || item.type === 'WX'))
+        .map((item) => [`${item.type}:${item.icao || ''}`, { type: item.type, icao: item.icao || null }])
+    ).values(),
+  ];
 
   return (
     <div style={{ ...s.panel, top: topOffset }}>
@@ -120,6 +138,30 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
             </div>
           </div>
 
+          {/* Unreviewed NTM/WX markers — clear as airports get CHECKED */}
+          {alertMarkers.length > 0 && (
+            <div style={s.section}>
+              <div style={s.sectionTitle}>Unreviewed alerts</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {alertMarkers.map((marker) => (
+                  <span
+                    key={`${marker.type}-${marker.icao}`}
+                    title={`${marker.type === 'NTM' ? 'NOTAM' : 'Weather'} item awaiting the daily check — review in the Console`}
+                    style={{
+                      ...s.badge,
+                      color: marker.type === 'NTM' ? '#ffab73' : '#7ec8ff',
+                      borderColor: marker.type === 'NTM' ? 'rgba(255,145,80,.5)' : 'rgba(95,181,255,.5)',
+                      background: marker.type === 'NTM' ? 'rgba(255,145,80,.14)' : 'rgba(95,181,255,.12)',
+                    }}
+                  >
+                    {marker.type}
+                    {marker.icao ? ` · ${marker.icao}` : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* IMP entries */}
           <div style={s.section}>
             <div style={s.sectionTitle}>Important (IMP)</div>
@@ -150,10 +192,11 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
             ))}
           </div>
 
-          {/* NOTAMs, weather and AIP/GEN documents intentionally do NOT render
-              on the wall: NOTAM review lives on the console NOTAM Check page,
-              documents are emailed from the console, and the display stays
-              view-only. */}
+          {/* NOTAM/weather CONTENT and AIP/GEN documents intentionally do NOT
+              render on the wall: review lives on the console NOTAM Check
+              page, documents are emailed from the console, and the display
+              stays view-only. Only the unreviewed NTM/WX badges above appear,
+              and they clear as airports are acked. */}
         </div>
       )}
     </div>

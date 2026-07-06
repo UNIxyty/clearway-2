@@ -119,6 +119,14 @@ export class NotamCheckService {
     };
   }
 
+  /** True when this airport has today's CHECKED ack (Riga day). */
+  isAirportCheckedToday(icao) {
+    const { day } = zonedNow();
+    if (!this.state.day || this.state.day !== day) return false;
+    const airport = this.state.airports.find((a) => a.icao === String(icao || "").toUpperCase());
+    return Boolean(airport?.checked);
+  }
+
   broadcast() {
     if (!this.sseHub) return;
     const s = this.publicState();

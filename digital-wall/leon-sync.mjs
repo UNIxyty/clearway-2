@@ -1549,12 +1549,24 @@ export class LeonTimelineService {
 
     if (this.alertsStore) {
       for (const finding of this.alertsStore.matchFlight(matchCtx)) {
+        // NTM/WX markers mean "UNREVIEWED NOTAM/weather item": once the
+        // finding's airport has today's CHECKED ack on the NOTAM Check page,
+        // its marker disappears (per-airport granularity — the flight keeps
+        // markers from its other airport until that one is acked too).
+        if (
+          typeof this.notamCheckedLookup === "function" &&
+          finding.icao &&
+          this.notamCheckedLookup(finding.icao)
+        ) {
+          continue;
+        }
         limitations.push({
           id: finding.id,
           title: finding.title,
           description: finding.description,
           type: finding.badge,
           source: "alert",
+          icao: finding.icao ?? null,
         });
       }
     }

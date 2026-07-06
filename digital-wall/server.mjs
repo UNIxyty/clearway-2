@@ -49,6 +49,9 @@ timelineService.alertsStore = alertsService;
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub });
 await notamCheck.load();
 notamCheck.startScheduler();
+// NTM/WX pill/overlay markers mean "unreviewed": flight decoration drops a
+// finding once its airport carries today's CHECKED ack (Part 3).
+timelineService.notamCheckedLookup = (icao) => notamCheck.isAirportCheckedToday(icao);
 
 const aipSend = new AipSendService({ sseHub });
 process.stdout.write(

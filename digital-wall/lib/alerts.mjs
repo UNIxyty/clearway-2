@@ -171,6 +171,7 @@ export class AlertsService {
           title: finding.title,
           description: finding.description,
           badge: finding.type, // NTM | WX
+          icao: finding.icao ?? null, // which airport raised it (Part 3 gating)
         });
       }
     }

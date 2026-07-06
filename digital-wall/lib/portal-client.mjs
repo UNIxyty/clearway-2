@@ -82,12 +82,18 @@ async function portalJson(path, { timeoutMs = 45_000 } = {}) {
  * If CrewBriefing credentials are missing the portal replies 503
  * "NOTAM source unavailable" — surfaced as-is, no silent fallback.
  */
-export async function getNotams(icao) {
+export async function getNotams(icao, { fresh = false } = {}) {
   const code = String(icao || "").toUpperCase();
   if (!validIcao(code)) return { ok: false, error: `Invalid ICAO: ${icao}` };
   const key = `notam:${code}`;
-  const cached = cacheGet(key);
-  if (cached) return cached;
+  if (fresh) {
+    // Explicit per-airport resync: skip (and evict) the cached result —
+    // otherwise a retry inside the 60s failure-cache window is a no-op.
+    cache.delete(key);
+  } else {
+    const cached = cacheGet(key);
+    if (cached) return cached;
+  }
   const result = await portalJson(`/api/notams?icao=${code}&scraper=crewbriefing`);
   // Cache failures briefly too, so a down portal isn't re-hit on every call.
   cacheSet(key, result, result.ok ? ttlMs() : 60_000);

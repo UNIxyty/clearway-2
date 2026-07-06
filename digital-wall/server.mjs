@@ -416,6 +416,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/notam-check/resync" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const state = await notamCheck.resyncAirport(body.icao);
+        sendJson(res, { ok: true, ...state });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
     if (pathname === "/api/notam-check/run" && req.method === "POST") {
       try {
         const state = await notamCheck.runDailyCheck({ reason: "manual" });

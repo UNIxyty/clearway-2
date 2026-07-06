@@ -313,6 +313,19 @@ export async function runNotamCheck() {
   return payload;
 }
 
+export async function resyncNotamCheckAirport(icao) {
+  const response = await fetch(buildApiUrl('/api/notam-check/resync'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ icao }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to resync ${icao} (${response.status})`);
+  }
+  return payload;
+}
+
 export async function triggerAlertScan() {
   const response = await fetch(buildApiUrl('/api/alerts/scan'), { method: 'POST' });
   const payload = await response.json();

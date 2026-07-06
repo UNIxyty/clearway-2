@@ -3,6 +3,7 @@ import {
   ackNotamCheck,
   fetchAlertRules,
   fetchNotamCheckToday,
+  resyncNotamCheckAirport,
   runNotamCheck,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
@@ -154,7 +155,7 @@ function ProgressCard({ done, total, legend }) {
   );
 }
 
-function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy }) {
+function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, onResync, resyncBusy }) {
   const checked = Boolean(airport.checked);
   const noneFlagged = airport.filtered.length === 0;
   const visible = expanded ? airport.all : airport.filtered;
@@ -183,12 +184,12 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy })
           style={{
             fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', padding: '6px 12px', borderRadius: 999,
             display: 'inline-flex', alignItems: 'center', gap: 7,
-            color: noneFlagged ? t.greenDeep : t.amber,
-            background: noneFlagged ? t.greenTint : t.amberTint,
+            color: airport.error ? t.redDeep : noneFlagged ? t.greenDeep : t.amber,
+            background: airport.error ? t.redTint : noneFlagged ? t.greenTint : t.amberTint,
           }}
         >
-          <Icon name={noneFlagged ? 'check' : 'flag'} size={14} />
-          {noneFlagged ? 'All clear' : `${airport.filtered.length} flagged`}
+          <Icon name={airport.error ? 'wifi-off' : noneFlagged ? 'check' : 'flag'} size={14} />
+          {airport.error ? 'Fetch failed' : noneFlagged ? 'All clear' : `${airport.filtered.length} flagged`}
         </span>
         {checked ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -207,7 +208,18 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy })
         )}
       </div>
       <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {airport.error && <ErrorBanner>Fetch error: {airport.error}</ErrorBanner>}
+        {airport.error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 10, padding: '10px 13px' }}>
+            <Icon name="wifi-off" size={16} color={t.red} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, color: t.redDeep, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
+              Fetch failed: {airport.error}
+            </span>
+            {/* Retry lives ONLY on failed airports — successful ones keep their cached fetch. */}
+            <Button size="sm" icon="rotate-cw" spin={resyncBusy} disabled={resyncBusy} onClick={onResync}>
+              {resyncBusy ? 'Retrying…' : 'Retry'}
+            </Button>
+          </div>
+        )}
         {!expanded && noneFlagged && !airport.error && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: t.greenDeep, background: '#f4faf6', border: '1px solid #d8ecdf', borderRadius: 10, padding: '11px 14px' }}>
             <Icon name="shield-check" size={16} />No keyword-flagged NOTAMs for today. Full list available below.
@@ -288,6 +300,7 @@ export default function NotamCheckPage({ navigate }) {
   const [showAll, setShowAll] = useState({});
   const [running, setRunning] = useState(false);
   const [ackBusy, setAckBusy] = useState('');
+  const [resyncBusy, setResyncBusy] = useState('');
   const [error, setError] = useState('');
   const flash = useToast();
 
@@ -324,6 +337,22 @@ export default function NotamCheckPage({ navigate }) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function resync(icao) {
+    if (resyncBusy) return; // one in-flight retry at a time; button is disabled too
+    setResyncBusy(icao);
+    try {
+      const payload = await resyncNotamCheckAirport(icao);
+      setState(payload);
+      const airport = payload.airports.find((a) => a.icao === icao);
+      if (airport && !airport.error) flash(`${icao} resynced · ${airport.filtered.length} flagged`);
+      else flash(`${icao} still failing`, '#f87171');
+    } catch (err) {
+      flash(err instanceof Error ? err.message : String(err), '#f87171');
+    } finally {
+      setResyncBusy('');
     }
   }
 
@@ -489,6 +518,8 @@ export default function NotamCheckPage({ navigate }) {
                 onToggleAll={() => setShowAll((prev) => ({ ...prev, [airport.icao]: !prev[airport.icao] }))}
                 onAck={() => ack(airport.icao)}
                 ackBusy={ackBusy === airport.icao}
+                onResync={() => resync(airport.icao)}
+                resyncBusy={resyncBusy === airport.icao}
               />
             ))}
           </div>

@@ -298,6 +298,42 @@ export class NotamCheckService {
     }
   }
 
+  /**
+   * Re-fetch a single FAILED airport (Item 2). Only errored airports are
+   * resyncable — successful ones keep their cached result. Bypasses the
+   * portal client's failure cache, guards against double-fires, keeps any
+   * existing acknowledgment, and broadcasts the updated state.
+   */
+  async resyncAirport(icao) {
+    const code = String(icao || "").toUpperCase();
+    const airport = this.state.airports?.find((a) => a.icao === code);
+    if (!airport) throw new Error(`Airport ${icao} is not part of today's check.`);
+    if (!airport.error) throw new Error(`${code} already synced fine — resync is only for failed airports.`);
+    this.resyncing = this.resyncing || new Set();
+    if (this.resyncing.has(code)) throw new Error(`${code} resync already in progress.`);
+    this.resyncing.add(code);
+    try {
+      const rules = await this.alertsService.getRules();
+      const groups = compileNotamGroups(rules.notamGroups);
+      const nowMs = Date.now();
+      console.log(`[notam-check] resyncing ${code} (previous error: ${airport.error})`);
+      const result = await getNotams(code, { fresh: true });
+      if (result.ok) {
+        Object.assign(airport, {
+          error: null,
+          ...this.annotateNotams(result.data?.notams ?? [], groups, nowMs, nowMs + CHECK_WINDOW_MS),
+        });
+      } else {
+        airport.error = result.error;
+      }
+      await this.store.write(this.state);
+      this.broadcast();
+      return this.publicState();
+    } finally {
+      this.resyncing.delete(code);
+    }
+  }
+
   async ack(icao, user) {
     const airport = this.state.airports?.find((a) => a.icao === String(icao || "").toUpperCase());
     if (!airport) throw new Error(`Airport ${icao} is not part of today's check.`);

@@ -28,7 +28,7 @@
         <tr><td style="padding:18px 34px 6px;">
           <div style="font-family:Consolas,Menlo,monospace;font-size:12px;font-weight:600;letter-spacing:0.08em;color:#8a8f98;margin-bottom:10px;">{{dateLine}}</div>
           <h1 style="font-size:27px;line-height:1.18;font-weight:700;letter-spacing:-0.02em;color:#12151c;margin:0 0 12px;">Action needed: check today&rsquo;s NOTAMs</h1>
-          <p style="font-size:15px;line-height:1.55;color:#4a4e56;margin:0 0 4px;">{{airportCount}} airport(s) have flights scheduled today and haven&rsquo;t had a NOTAM check yet. Run the check before the first departures so nothing is missed.</p>
+          <p style="font-size:15px;line-height:1.55;color:#4a4e56;margin:0 0 4px;">{{airportCount}} airport(s) have flights scheduled today and need their daily NOTAM check. Review the flagged notices before the first departures so nothing is missed.</p>
         </td></tr>
 
         <tr><td style="padding:16px 34px 0;">
@@ -42,7 +42,7 @@
                   <div style="font-size:14px;font-weight:600;color:#17181c;line-height:1.35;">{{airportCount}} airports with flights today</div>
                   <div style="font-size:12.5px;color:#6c7079;margin-top:2px;line-height:1.4;">{{flightCount}} flight(s) scheduled across the day</div>
                 </td>
-                <td align="right" style="vertical-align:top;font-family:Consolas,Menlo,monospace;font-size:11.5px;font-weight:600;color:#2563eb;white-space:nowrap;padding-left:10px;">0 / {{airportCount}} CHECKED</td>
+                <td align="right" style="vertical-align:top;font-family:Consolas,Menlo,monospace;font-size:11.5px;font-weight:600;color:#2563eb;white-space:nowrap;padding-left:10px;">{{done}} / {{airportCount}} CHECKED</td>
               </tr></table>
             </td></tr>
           </table>

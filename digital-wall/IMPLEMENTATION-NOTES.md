@@ -492,3 +492,46 @@ the page you just signed out of would bounce you right back to the login wall.
   flagged case is a pill clipped by the frozen aircraft-label column mid
   horizontal scroll — inherent frozen-column behavior, text concealed by the
   opaque sticky label.)
+
+## How the NOTAM check + notification actually work (Item 1 investigation)
+
+**The daily job.** A minute-interval scheduler compares the Riga clock
+(`NOTAM_CHECK_TZ`, default Europe/Riga) against `NOTAM_CHECK_HOUR` (10).
+When it fires it collects TODAY's flights from the Leon cache, dedupes their
+ADEP/ADES into one card per airport, fetches each airport's NOTAMs through
+the portal proxy (CrewBriefing only), filters them by the OPS keyword groups
++ validity (now → +24 h, PERM included), stores everything per-Riga-day in
+`data/notam-check.json`, raises the wall sign, and emails the notification.
+"CHECKED" is a per-airport acknowledgment given on the console page; the wall
+sign flips to NOTAM CHECKED when every airport of the day is acked.
+
+**Notification vs reminder.** The 10:00 email is a notification-only "start
+of day" prompt to `NOTAM_DIGEST_TO` (no NOTAM content, just counts + a link).
+Separately, while any airport remains unchecked, a reminder re-sends every
+`NOTAM_REMINDER_INTERVAL_MIN` (default 120) until all airports are acked or
+the Riga day ends. Skip conditions for both: no flights today, recipient or
+Resend key unset (both now surface as a visible emailError), template or API
+failure (logged + surfaced).
+
+**Why 04:40 checking killed the 10:00 email (the bug).** The scheduler's
+guard was `state.day !== today`. ANY run today — including pressing "Run
+check now" at 04:40 — set `state.day = today`, so the 10:00 scheduled run
+never fired at all: no run, no email. (Had it fired anyway, the old run also
+wiped the 04:40 acks, because every run reset `checked: null`.) Plumbing was
+ruled out: the send path, recipient config and scheduler were verified
+working in isolation.
+
+**The fix (chosen behavior).**
+- The scheduler now fires on a dedicated `dailyFiredFor` per-day marker, so
+  a pre-10:00 manual run cannot suppress the scheduled 10:00 run. The 10:00
+  notification ALWAYS sends when there are flights today, regardless of
+  pre-10:00 acks — it reports "X / N CHECKED" honestly.
+- Same-day re-runs (scheduled or manual) refresh the NOTAM data but PRESERVE
+  today's acknowledgments; acks reset only when the Riga day changes.
+- A manual run at/after the check hour counts as the daily send (prevents a
+  double email one minute later); a manual run before the hour does not.
+- Every decision is logged: "[notam-check] scheduled run for <day>: N
+  airport(s), M flight(s), X pre-checked — sending daily notification" /
+  "no airports today — email skipped" / exact skip reasons.
+- Reminder loop unchanged: it still only chases airports that remain
+  unchecked.

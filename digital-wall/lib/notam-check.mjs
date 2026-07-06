@@ -105,6 +105,7 @@ export class NotamCheckService {
       timeZone: checkTz(),
       checkHour: checkHour(),
       ranAt: this.state.ranAt ?? null,
+      dailyFiredFor: this.state.dailyFiredFor ?? null,
       emailedAt: this.state.emailedAt ?? null,
       emailedTo: this.state.emailedTo ?? null,
       emailError: this.state.emailError ?? null,
@@ -139,7 +140,12 @@ export class NotamCheckService {
     // downtime (a boot at 11:30 still runs the 10:00 check).
     this.interval = setInterval(() => {
       const { day, hour } = zonedNow();
-      if (hour >= checkHour() && this.state.day !== day) {
+      // Fire on a DEDICATED per-day marker, not on state.day: a manual
+      // "Run check now" before 10:00 also sets state.day, which used to
+      // swallow the scheduled run (and its notification) for the whole day —
+      // exactly the "checked at 04:40, no 10:00 email" miss.
+      if (hour >= checkHour() && this.state.dailyFiredFor !== day) {
+        console.log(`[notam-check] scheduled daily run firing for ${day} (state.day=${this.state.day}, dailyFiredFor=${this.state.dailyFiredFor ?? "never"})`);
         this.runDailyCheck({ reason: "scheduled" }).catch((error) => {
           this.lastRunError = error?.message || String(error);
           console.error("notam-check scheduled run failed:", this.lastRunError);
@@ -253,6 +259,15 @@ export class NotamCheckService {
       const groups = compileNotamGroups(rules.notamGroups);
 
       const targets = this.collectTodaysAirports(day);
+      // Same-day re-runs (scheduled 10:00 after an early manual run, or a
+      // manual refresh later in the day) refresh the NOTAM data but PRESERVE
+      // the acknowledgments already given today. Acks only reset when the
+      // Riga day changes.
+      const previousAcks = new Map(
+        this.state.day === day
+          ? (this.state.airports ?? []).filter((a) => a.checked).map((a) => [a.icao, a.checked])
+          : []
+      );
       const airports = [];
       for (const target of targets) {
         // One fetch per unique ICAO (portal proxy caches; CrewBriefing only).
@@ -262,7 +277,7 @@ export class NotamCheckService {
           name: target.name,
           flights: target.flights,
           error: result.ok ? null : result.error,
-          checked: null, // reset acknowledgments on every run
+          checked: previousAcks.get(target.icao) ?? null,
           ...this.annotateNotams(result.ok ? result.data?.notams ?? [] : [], groups, nowMs, windowTo),
         });
       }
@@ -272,22 +287,34 @@ export class NotamCheckService {
         if (!flight.isCnl && flightZonedDay(flight) === day) flightCount += 1;
       }
 
+      const sameDayRerun = this.state.day === day;
+      const { hour } = zonedNow();
+      // Any run at/after the check hour counts as "the daily has fired" so
+      // the scheduler doesn't double-send a minute later; a manual run
+      // BEFORE the hour deliberately does not (10:00 must still notify).
+      const countsAsDaily = reason === "scheduled" || hour >= checkHour();
       this.state = {
         day,
         ranAt: new Date().toISOString(),
         reason,
+        dailyFiredFor: countsAsDaily ? day : (sameDayRerun ? this.state.dailyFiredFor ?? null : null),
         airports,
         flightCount,
         emailedAt: null,
         emailedTo: null,
         emailError: null,
-        remindersSent: 0,
-        lastReminderAt: null,
+        remindersSent: sameDayRerun ? this.state.remindersSent ?? 0 : 0,
+        lastReminderAt: sameDayRerun ? this.state.lastReminderAt ?? null : null,
       };
       this.lastRunError = null;
       await this.store.write(this.state);
       this.broadcast();
 
+      const done = airports.filter((a) => a.checked).length;
+      console.log(
+        `[notam-check] ${reason} run for ${day}: ${airports.length} airport(s), ${flightCount} flight(s), ` +
+          `${done} pre-checked${airports.length === 0 ? " — nothing to notify" : " — sending daily notification"}`
+      );
       await this.emailNotification();
       await this.store.write(this.state);
       this.armReminder();

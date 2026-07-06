@@ -85,6 +85,30 @@ them through the mapper. Findings, all fixed:
   `ctotIso` after landing); `arrived` correctly wins per the precedence
   order.
 
+## Trip status + ID colour: reviewed against live data (July 2026, Item 2)
+
+**What drives what.**
+- *Trip confirmed?* — `Flight.status` (FlightStatus enum `CONFIRMED | OPTION |
+  OPPORTUNITY`) → normalized `tripStatus` + `isConfirmed`
+  (`status === "CONFIRMED"`; a missing status counts as confirmed). The pill
+  renders the flight ID *italic* when `isConfirmed === false`, upright
+  otherwise. Nothing else (checklist, movement, delay) affects the slant.
+- *ID colour* — the flight's checklist items (`checklist.allItems`) aggregated
+  against the operator's OPS definitions: the least-complete item (earliest
+  position in its definition's ordered status list) wins and its status
+  colour becomes `checklistColor` ('#'-normalized). The pill passes it
+  through `readableIdColor`, which lightens toward white ONLY until the
+  legibility threshold (luminance ≥ 0.55) — never swaps the hue.
+
+**Live verification (cwy-cwy, 126 flights over −10..+30 days).** Statuses in
+the wild: 124 CONFIRMED, 2 OPTION. `MRSAR` (OPTION) → `isConfirmed=false`,
+rendered italic in `#ff7070` (its red `FF0000` checklist lightened two mix
+steps); `NUM221` (CONFIRMED) → upright in the exact Leon green `#86BF53`
+(bright enough, untouched). Aggregation spot check on a 15-item flight: the
+lowest-progress item (a `YES` at position 3/5) correctly beat all `NAP`
+(not-applicable, position N/N = complete) and later-position items. Verdict:
+mapping and rendering are correct; no code change required.
+
 ## What Leon exposes that we now fetch (previously dropped)
 
 - `flightWatch.etd/eta` (estimates — previously the pill's "ETD" was always

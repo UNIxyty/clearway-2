@@ -53,6 +53,38 @@ pill ID renders in the default color.
 matching the listed order) — flagged for confirmation; flip the two lines in
 `movementStateOf()` in `leon-sync.mjs` to change it.
 
+## Corrections from the live cwy-cwy verification (July 2026)
+
+Captured real flightList payloads with a temporary cwy-cwy credential and ran
+them through the mapper. Findings, all fixed:
+
+- **`delayedDepartureUTC`/`delayedArrivalUTC` double-counted.** They were
+  computed as estimate + delay, but the delay is measured against the ACTUAL
+  time — real case NUM221: ETD 11:30, ATD 11:49, delay 49 min → old math said
+  "delayed until 12:19". Now the delayed-until instant IS `atd ?? etd`
+  (`ata ?? eta` on arrivals), so the hatch segment and boundary labels end at
+  the real departure/arrival.
+- **Checklist colors arrive as bare hex** (`86BF53`, `FF0000`, `FFA500`,
+  `BBBBBC` — red/amber/green/na in cwy-cwy's 174 OPS definitions). The mapper
+  now normalizes them to `#`-prefixed CSS colors.
+- **Dark checklist colors were discarded by the pill's contrast guard** — a
+  red (= unfinished, the most urgent signal) ID silently rendered in the
+  default color. The pill now lightens the colour toward white until legible
+  instead of dropping the hue.
+- **Numeric epoch-seconds flightWatch fields confirmed live** (`atd:
+  1783165740` etc.) — `normalizeDateLike` already handles them, but cache
+  entries written by pre-fix code carry absurd delays (−29,645,850 min) and
+  no `movementState`, and `getModifiedFlightList` never re-delivers old
+  unmodified flights. `healCachedFlight()` now repairs every entry on cache
+  load (derives movementState, clamps delays to ±48 h, recomputes the
+  delayed-until instants, normalizes colors) — this is what un-whites the
+  stale "uncoloured" pills.
+- Negative delays (early ops — e.g. ORO1041 ATD 47 min before schedule) are
+  real and common; both mapper and UI treat ≤ 0 as "not delayed".
+- CTOT + already-arrived occurs in the wild (ORO1041 LEBL→LIPR carried
+  `ctotIso` after landing); `arrived` correctly wins per the precedence
+  order.
+
 ## What Leon exposes that we now fetch (previously dropped)
 
 - `flightWatch.etd/eta` (estimates — previously the pill's "ETD" was always

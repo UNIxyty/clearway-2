@@ -101,8 +101,15 @@ function mapFlight(flight) {
   const eta = toHm(scheduledEnd);
   const dep = flight.adep?.icao || 'UNK';
   const arr = flight.ades?.icao || 'UNK';
-  const depDelayMin = Math.max(0, toNumber(flight.departureDelayMin, toNumber(flight.delayMin, 0)));
-  const arrDelayMin = Math.max(0, toNumber(flight.arrivalDelayMin, toNumber(flight.delayMin, 0)));
+  // Clamp to a sane band: stale cache entries from a since-fixed epoch bug
+  // carried delays like -29645850 min; anything past ±48h is treated as no
+  // usable delay rather than distorting the pill geometry.
+  const saneDelay = (value, fallback) => {
+    const n = toNumber(value, toNumber(fallback, 0));
+    return n > 0 && n <= 48 * 60 ? n : 0;
+  };
+  const depDelayMin = saneDelay(flight.departureDelayMin, flight.delayMin);
+  const arrDelayMin = saneDelay(flight.arrivalDelayMin, flight.delayMin);
 
   if (!start || !scheduledEnd || !etd || !eta) return null;
   const delayedDep = toDate(flight.delayedDepartureUTC) || new Date(start.getTime() + depDelayMin * 60_000);

@@ -18,18 +18,26 @@ const STATUS = {
 };
 
 // Leon checklist colors can be arbitrary; on the dark board a too-dark ID
-// would vanish, so guard minimum luminance and fall back to the default.
+// would vanish. NEVER discard the hue (a red = unfinished checklist is the
+// most important signal in the room — cwy-cwy returns FF0000): instead mix
+// the color toward white until it clears the legibility threshold.
 function readableIdColor(hex, fallback) {
   const raw = String(hex || '').trim().replace('#', '');
   const expanded = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
   const m = /^([0-9a-f]{6})$/i.exec(expanded);
   if (!m) return fallback;
   const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return luminance < 0.35 ? fallback : `#${m[1]}`;
+  let r = (n >> 16) & 255;
+  let g = (n >> 8) & 255;
+  let b = n & 255;
+  const luminance = () => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  for (let step = 0; luminance() < 0.55 && step < 8; step += 1) {
+    r = Math.round(r + (255 - r) * 0.25);
+    g = Math.round(g + (255 - g) * 0.25);
+    b = Math.round(b + (255 - b) * 0.25);
+  }
+  const toHex = (v) => v.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small

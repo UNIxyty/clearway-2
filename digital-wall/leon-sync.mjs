@@ -242,7 +242,7 @@ function mapStaticFlight(rawFlight) {
  * NOTE: a flight that has both an active CTOT and a delay renders "ctot"
  * (CTOT wins) — flagged for ops confirmation; swap the two checks to change.
  */
-function movementStateOf({ hasArrived, isAirborne, ctot, departureDelayMin }) {
+export function movementStateOf({ hasArrived, isAirborne, ctot, departureDelayMin }) {
   if (hasArrived) return "arrived";
   if (isAirborne) return "airborne";
   if (ctot) return "ctot";
@@ -268,10 +268,18 @@ function aggregateChecklistColor(rawChecklist, defs) {
       worst = { progress, color: def.colorByStatus[item.csId] ?? null };
     }
   }
-  return worst?.color ?? null;
+  return normalizeHexColor(worst?.color);
 }
 
-function mapLeonFlight(rawFlight, checklistDefs = null) {
+/** Leon checklist colors come back as bare hex ("86BF53") — prefix them. */
+function normalizeHexColor(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const hex = raw.startsWith("#") ? raw.slice(1) : raw;
+  return /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : null;
+}
+
+export function mapLeonFlight(rawFlight, checklistDefs = null) {
   const fw = rawFlight.flightWatch ?? {};
   const jl = rawFlight.journeyLog ?? {};
   const plannedDeparture = normalizeDateLike(rawFlight.startTimeUTC ?? null);
@@ -287,8 +295,12 @@ function mapLeonFlight(rawFlight, checklistDefs = null) {
   const ata = normalizeDateLike(fw.ata ?? null) ?? landing ?? normalizeDateLike(jl.ata ?? null) ?? blockOn;
   const departureDelayMin = diffMinutes(atd ?? etd, plannedDeparture);
   const arrivalDelayMin = diffMinutes(ata ?? eta, plannedArrival);
-  const delayedDepartureUTC = addDelayIso(etd ?? plannedDeparture, departureDelayMin);
-  const delayedArrivalUTC = addDelayIso(eta ?? plannedArrival, arrivalDelayMin);
+  // The "delayed until" instant is the ACTUAL (or estimated) time itself —
+  // never estimate+delay, which double-counts whenever the delay is measured
+  // against ATD but drawn from ETD (real case: NUM221 ATD 11:49, ETD 11:30,
+  // delay 49 min → old math said 12:19).
+  const delayedDepartureUTC = (departureDelayMin ?? 0) > 0 ? (atd ?? etd) : null;
+  const delayedArrivalUTC = (arrivalDelayMin ?? 0) > 0 ? (ata ?? eta) : null;
   const ctot = normalizeDateLike(fw.ctotIso ?? fw.ctot ?? fw.tobt ?? null);
   const hasArrived = Boolean(ata);
   const isAirborne = Boolean(atd) && !hasArrived;
@@ -356,6 +368,50 @@ function mapLeonFlight(rawFlight, checklistDefs = null) {
         : 0,
     passengerCount: rawFlight.passengerList?.count ?? null,
   };
+}
+
+/**
+ * Heal flights persisted by OLDER sync code. Leon's getModifiedFlightList
+ * only re-delivers flights that change, so a cache entry written before the
+ * pill-semantics fields existed keeps its stale shape forever: no
+ * movementState (pill falls back to white even for long-arrived flights) and
+ * absurd delay minutes from a since-fixed epoch-parsing bug (e.g.
+ * -29645850). Run once per entry on cache load.
+ */
+const SANE_DELAY_LIMIT_MIN = 48 * 60;
+
+function healCachedFlight(flight) {
+  const healed = { ...flight };
+
+  const saneDelay = (value, actual, planned) => {
+    if (value !== null && value !== undefined && Math.abs(Number(value)) <= SANE_DELAY_LIMIT_MIN) {
+      return Number(value);
+    }
+    const recomputed = diffMinutes(actual, planned);
+    return recomputed !== null && Math.abs(recomputed) <= SANE_DELAY_LIMIT_MIN ? recomputed : null;
+  };
+  healed.departureDelayMin = saneDelay(flight.departureDelayMin, flight.atd ?? flight.etd, flight.startTimeUTC);
+  healed.arrivalDelayMin = saneDelay(flight.arrivalDelayMin, flight.ata ?? flight.eta, flight.endTimeUTC);
+  healed.delayMin = healed.departureDelayMin ?? healed.arrivalDelayMin;
+
+  // The delayed-until instant is the actual/estimated time itself.
+  healed.delayedDepartureUTC = (healed.departureDelayMin ?? 0) > 0 ? (flight.atd ?? flight.etd ?? null) : null;
+  healed.delayedArrivalUTC = (healed.arrivalDelayMin ?? 0) > 0 ? (flight.ata ?? flight.eta ?? null) : null;
+
+  if (!healed.movementState) {
+    const hasArrived = Boolean(flight.ata);
+    healed.hasArrived = hasArrived;
+    healed.isAirborne = Boolean(flight.atd) && !hasArrived;
+    healed.movementState = movementStateOf({
+      hasArrived,
+      isAirborne: healed.isAirborne,
+      ctot: flight.ctot ?? null,
+      departureDelayMin: healed.departureDelayMin,
+    });
+  }
+  if (healed.isConfirmed === undefined) healed.isConfirmed = true;
+  if (healed.checklistColor !== undefined) healed.checklistColor = normalizeHexColor(healed.checklistColor);
+  return healed;
 }
 
 function groupFlights(records) {
@@ -615,7 +671,7 @@ export class LeonTimelineService {
     this.aircraftByFlightNid.clear();
     for (const entry of payload.flights) {
       if (!entry?.key || !entry?.flight) continue;
-      this.flightsByNid.set(entry.key, entry.flight);
+      this.flightsByNid.set(entry.key, healCachedFlight(entry.flight));
       if (entry.aircraft) {
         this.aircraftByFlightNid.set(entry.key, entry.aircraft);
       }

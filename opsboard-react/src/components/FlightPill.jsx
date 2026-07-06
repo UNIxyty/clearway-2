@@ -5,16 +5,19 @@ import { clamp } from '../data';
 //   white  = scheduled (not flying, on time)     yellow = delayed, not departed
 //   purple = active CTOT/slot, not yet airborne  blue   = flying
 //   pink   = arrived (landed / block-on)
+// Softened ops-room palette (Part 2): desaturated, dusty tones — same state
+// semantics, easier on the eyes across a shift. All fills are mid-light so a
+// single dark ink stays legible on every state (contrast ≥ ~7:1 at scale).
 const STATUS = {
-  scheduled: { bg: '#eef1f8', text: '#151a26' },
-  delayed:   { bg: '#e7c443', text: '#221a04' },
-  ctot:      { bg: '#8b5cf6', text: '#f6f1ff' },
-  airborne:  { bg: '#3b82f6', text: '#ecf4ff' },
-  arrived:   { bg: '#ef7fae', text: '#2b0e1c' },
+  scheduled: { bg: '#dde1ea', text: '#1a1e2a' },
+  delayed:   { bg: '#c9ab62', text: '#221c08' },
+  ctot:      { bg: '#9d8cc2', text: '#1e1930' },
+  airborne:  { bg: '#7d9cc4', text: '#101a28' },
+  arrived:   { bg: '#bd8ba4', text: '#26121d' }, // dusty mauve (reference tone)
   cancelled: { bg: 'rgba(90,97,120,.45)', text: '#a7aec4' },
   // legacy aliases (older cached data)
-  boarding:  { bg: '#eef1f8', text: '#151a26' },
-  slot:      { bg: '#8b5cf6', text: '#f6f1ff' },
+  boarding:  { bg: '#dde1ea', text: '#1a1e2a' },
+  slot:      { bg: '#9d8cc2', text: '#1e1930' },
 };
 
 // Leon checklist colors can be arbitrary; on the dark board a too-dark ID
@@ -120,14 +123,15 @@ export default function FlightPill({
   const mainPct = ((mainSectionF / totalF) * 100).toFixed(2) + '%';
   const arrCrossPct = ((arrCrossSectionF / totalF) * 100).toFixed(2) + '%';
 
-  // Delay renders as a DASHED leading segment sized to the delay magnitude:
+  // Delay renders as a DIAGONAL-HATCH segment sized to the delay magnitude:
   // the span between the scheduled time and the actual/estimated departure
-  // (or between STA and the delayed arrival on the trailing side). Dashes
-  // use the state color so the delay reads as "this pill, not yet solid".
+  // (or between STA and the delayed arrival on the trailing side). Parallel
+  // 45° lines over the muted state colour (reference-image treatment) so the
+  // delay reads as "this pill, not yet solid".
   const delayDashBg = `repeating-linear-gradient(
-    90deg,
-    ${theme.bg} 0px, ${theme.bg} ${sz(9)}px,
-    rgba(10,13,22,.2) ${sz(9)}px, rgba(10,13,22,.2) ${sz(17)}px
+    45deg,
+    ${theme.bg} 0px, ${theme.bg} ${sz(6)}px,
+    rgba(10,13,22,.30) ${sz(6)}px, rgba(10,13,22,.30) ${sz(10)}px
   )`;
 
   // ID text: Leon checklist color (contrast-guarded on the dark board),

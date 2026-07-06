@@ -4,11 +4,11 @@ import FlightPill from './FlightPill';
 
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 const LEGEND = [
-  { status: 'scheduled', label: 'Scheduled',   color: '#eef1f8' },
-  { status: 'delayed',   label: 'Delayed',     color: '#e7c443' },
-  { status: 'ctot',      label: 'CTOT / slot', color: '#8b5cf6' },
-  { status: 'airborne',  label: 'Flying',      color: '#3b82f6' },
-  { status: 'arrived',   label: 'Arrived',     color: '#ef7fae' },
+  { status: 'scheduled', label: 'Scheduled',   color: '#dde1ea' },
+  { status: 'delayed',   label: 'Delayed',     color: '#c9ab62' },
+  { status: 'ctot',      label: 'CTOT / slot', color: '#9d8cc2' },
+  { status: 'airborne',  label: 'Flying',      color: '#7d9cc4' },
+  { status: 'arrived',   label: 'Arrived',     color: '#bd8ba4' },
   { status: 'aog',       label: 'AOG',         color: 'rgba(180,60,60,.4)', hatch: true },
 ];
 

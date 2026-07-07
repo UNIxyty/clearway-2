@@ -25,6 +25,9 @@ const LIM_TYPE_COLOR = {
 // The weather alert badge reuses the existing WX limitation color.
 LIM_TYPE_COLOR.WEATHER = LIM_TYPE_COLOR.WX;
 
+// Idle time before the view glides back to "now" (Item 3).
+const AUTO_RETURN_TO_NOW_MS = 10_000;
+
 function nowFracUtc(nowMs, windowStartMs, windowDurationMs) {
   return clamp((nowMs - windowStartMs) / windowDurationMs);
 }
@@ -213,6 +216,72 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     body.scrollLeft = nextScroll;
     header.scrollLeft = nextScroll;
   }
+
+  // ── Auto-return to "now" (Item 3) ─────────────────────────────────────────
+  // After AUTO_RETURN_TO_NOW_MS with no user interaction while scrolled away
+  // from "now", smooth-scroll back. The timer arms only on USER interaction
+  // (wheel/touch/pointer or a scroll that we didn't initiate), so it never
+  // fights the initial jump-centering above or the data refresh.
+  const nowScrollRef = useRef({ target: 0 });
+  nowScrollRef.current.target = (() => {
+    const body = bodyScrollRef.current;
+    const width = body ? Math.max(0, body.clientWidth - AC_LABEL_W) : visibleTimelineWidth;
+    const maxScroll = Math.max(0, (timelinePx + END_PAD_PX) - width);
+    return Math.max(0, Math.min(maxScroll, nowX - BEFORE_NOW_HOURS * pxPerHour));
+  })();
+
+  useEffect(() => {
+    const body = bodyScrollRef.current;
+    const header = headerScrollRef.current;
+    if (!body || !header) return;
+
+    let idleTimer = null;
+    let autoScrolling = false;
+    let settleTimer = null;
+
+    const returnToNow = () => {
+      idleTimer = null;
+      const target = nowScrollRef.current.target;
+      if (Math.abs(body.scrollLeft - target) < 4) return; // already on "now"
+      autoScrolling = true;
+      body.scrollTo({ left: target, behavior: 'smooth' });
+      // The smooth scroll emits scroll events; release the flag once settled.
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => { autoScrolling = false; }, 1200);
+    };
+
+    const armIdleTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(returnToNow, AUTO_RETURN_TO_NOW_MS);
+    };
+
+    const onUserInput = () => {
+      // A real user gesture cancels any in-flight auto-return and re-arms.
+      autoScrolling = false;
+      armIdleTimer();
+    };
+    const onScroll = () => {
+      if (autoScrolling) return; // our own animation — not user interaction
+      armIdleTimer();
+    };
+
+    for (const el of [body, header]) {
+      el.addEventListener('wheel', onUserInput, { passive: true });
+      el.addEventListener('touchstart', onUserInput, { passive: true });
+      el.addEventListener('pointerdown', onUserInput, { passive: true });
+      el.addEventListener('scroll', onScroll, { passive: true });
+    }
+    return () => {
+      clearTimeout(idleTimer);
+      clearTimeout(settleTimer);
+      for (const el of [body, header]) {
+        el.removeEventListener('wheel', onUserInput);
+        el.removeEventListener('touchstart', onUserInput);
+        el.removeEventListener('pointerdown', onUserInput);
+        el.removeEventListener('scroll', onScroll);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const header = headerScrollRef.current;

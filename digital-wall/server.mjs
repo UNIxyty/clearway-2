@@ -420,6 +420,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── Daily NOTAM check (wall sign + per-airport acknowledgments) ──
+    // One-shot admin purge of the cached flights (auth-gated like all
+    // /api/* routes). Flights only — config stores are untouched.
+    if (pathname === "/api/admin/clear-flight-cache" && req.method === "POST") {
+      try {
+        const cleared = await timelineService.clearFlightCache();
+        sseHub.broadcast({ type: "roster.changed", reason: "flight-cache-cleared" });
+        sendJson(res, { ok: true, cleared });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
+      return;
+    }
+
     if (pathname === "/api/notam-check/today" && req.method === "GET") {
       sendJson(res, { ok: true, ...notamCheck.publicState() });
       return;

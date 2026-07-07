@@ -761,6 +761,27 @@ export class LeonTimelineService {
     }, this.pollMs);
   }
 
+  /**
+   * One-shot flight-cache purge (Item 4): drops every cached flight and the
+   * per-operator sync checkpoints so the NEXT sync is a full initialSync that
+   * repopulates with the current normalization. FLIGHTS ONLY — limitations
+   * (and every other store: clocks, important, notam-check) are untouched;
+   * persistLocalCache keeps them in the cache file.
+   */
+  async clearFlightCache() {
+    const cleared = this.flightsByNid.size;
+    this.flightsByNid.clear();
+    this.aircraftByFlightNid.clear();
+    this.syncStateByOperator.clear();
+    await this.persistLocalCache();
+    console.log(`[leon-sync] flight cache cleared (${cleared} flight(s)) — next sync repopulates from scratch`);
+    // Kick a sync right away so the wall recovers without waiting for the poll.
+    this.runSyncCycle().catch((error) => {
+      console.error("[leon-sync] post-clear sync failed:", error?.message || error);
+    });
+    return cleared;
+  }
+
   async runSyncCycle() {
     const cycleStats = { updated: 0, skipped: 0, deleted: 0 };
     try {

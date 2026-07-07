@@ -629,3 +629,17 @@ working in isolation.
     times row → arrival ICAO → departure ICAO; data-gap ICAOs (UNK) render
     dimmed, never dropped for a missing timing. Audit: 0 readable collisions
     at scales 1.0–2.0 / zoom 0.5–1.
+
+## Guide page + NTM cycle fix + WX dep/arr glyphs (cc guide/ntm/wx prompt)
+
+- **Guide in-app**: the Claude-Design guide is served VERBATIM (dc-runtime
+  support.js + React UMD shim, logo assets, all screenshots) from
+  digital-wall/guide/ at /digital-wall/guide/, auth-gated with returnTo;
+  console top bar has a Guide quick-open pill. No gateway changes (backend
+  catch-all).
+- **NTM gating fix**: acks now hold for the CHECK CYCLE (latest daily run),
+  not the calendar day — the old state.day === today guard silently dropped
+  all suppression after Riga midnight, re-flagging every reviewed flight
+  overnight. Next daily run remains the re-flag point.
+- **WX markers**: ADEP chip carries the plane-takeoff glyph, ADES the
+  plane-landing glyph; colours/tooltips per category unchanged.

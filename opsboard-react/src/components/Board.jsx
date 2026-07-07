@@ -474,21 +474,21 @@ function makeStyles(sz) {
   },
   panelTitle: {
     fontSize: sz(11), fontWeight: 700, letterSpacing: '2.5px',
-    color: '#5a6a94', padding: '0 16px', marginBottom: 10,
+    color: '#5a6a94', padding: `0 ${sz(16)}px`, marginBottom: sz(10),
   },
   legendGrid: {
-    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 8px',
-    padding: '0 12px', marginBottom: 4,
+    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${sz(3)}px ${sz(8)}px`,
+    padding: `0 ${sz(12)}px`, marginBottom: sz(4),
   },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px' },
+  legendItem: { display: 'flex', alignItems: 'center', gap: sz(8), padding: `${sz(3)}px ${sz(4)}px` },
   legendSwatch: { width: sz(24), height: sz(11), borderRadius: 3, flexShrink: 0 },
   legendLabel: { fontSize: sz(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
-  limList: { display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px 14px' },
+  limList: { display: 'flex', flexDirection: 'column', gap: sz(10), padding: `0 ${sz(12)}px ${sz(14)}px` },
   limEmpty: { fontSize: sz(14), color: '#5a6a94', padding: '6px 4px' },
   limCard: {
     background: '#1a2130',
     borderRadius: 12,
-    padding: '14px 16px',
+    padding: `${sz(14)}px ${sz(16)}px`,
   },
   limBadgeNum: {
     width: sz(24), height: sz(24), borderRadius: '50%', flexShrink: 0,

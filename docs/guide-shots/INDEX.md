@@ -1,6 +1,6 @@
 # Digital Wall — guide screenshots (Stage A)
 
-Captured 2026-07-08 against the deployed app (clearway.verxyl.com) with real
+Captured 2026-07-08 (follow-up re-captures same night) against the deployed app (clearway.verxyl.com) with real
 live data, signed in through the normal auth as a temporary "Ops Guide"
 account (deleted after capture). Viewport 1920×1080 @2x. Read-only capture:
 the only wall-visible actions were opening/closing one overlay and briefly
@@ -34,12 +34,15 @@ edits.
 
 ## Auth
 - `auth-signin.png` — Sign-in screen (animated backdrop, email+password card).
-- `auth-signup.png` — Create-account screen (name + work email, confirmation-first).
+- `auth-signup.png` — Create-account screen (name + work email, confirmation-first). REAL (re-captured from an unauthenticated context — the first capture was bounced to the portal home by the signed-in session).
+- `auth-forgot.png` — Forgot-password state on the sign-in card: “Check your email” confirmation after requesting a reset link.
 
-## Not capturable in live data at capture time (for Stage B to note or re-shoot)
-- Pill states **delayed / CTOT / airborne** — no live flight was in these
-  states during the capture window (evening lull); re-shoot during active ops
-  or reuse the verified test renders from the repo history.
-- The red `!!! CHECK NOTAM !!!` sign — all 11 airports were already CHECKED
-  by ops today; capture any morning before the team acks.
-- A **failed airport with Retry** — no airport was failing at capture time.
+## AIP/GEN documents (re-capture follow-up — REAL)
+- `console-aip-send-controls.png` — Flight detail panel with the SEND AIP/GEN controls fully in view: departure/arrival selector, AIP / GEN / Both document type, recipient note.
+- `console-aip-send-progress-1.png` — A real send in flight: “Fetching documents (checking shared cache, then source)…”.
+- `console-aip-send-progress-2.png` — Delivered: “AIP AD-2 · LSZH (departure) — Sent to <requester>” with Send again. (Recipient shown is the temporary capture account, since a send goes to the signed-in user; the Queued/Emailing stages flashed sub-second on a cache hit and were not separable frames.)
+
+## Still awaiting live conditions (checked again 2026-07-08 ~01:15 Riga — not present; do NOT fake)
+- still awaiting: **delayed / CTOT / airborne pill states** — live data had only scheduled+arrived in both capture windows (night). Capture during active daytime ops.
+- still awaiting: **red `!!! CHECK NOTAM !!!` wall sign** — the sign was CHECKED (all 11 airports acked); the warning state exists only after the 10:00 Riga run and before ops acks. Capture 10:00–11:00 Riga.
+- still awaiting: **failed airport with Retry** — no airport fetch was failing in either window (intermittent).

@@ -131,10 +131,17 @@ export class NotamCheckService {
     };
   }
 
-  /** True when this airport has today's CHECKED ack (Riga day). */
+  /**
+   * True when this airport carries a CHECKED ack in the CURRENT CHECK CYCLE
+   * (the latest daily run). Deliberately NOT compared against the calendar
+   * day: after Riga midnight but before the next 10:00 run, state.day is
+   * still yesterday's — the old day-equality guard made this return false
+   * for every airport overnight, so all NTM markers reappeared on flights
+   * whose NOTAMs were already reviewed. Acks reset when the next daily run
+   * builds the new day's airport list, which is the intended re-flag point.
+   */
   isAirportCheckedToday(icao) {
-    const { day } = zonedNow();
-    if (!this.state.day || this.state.day !== day) return false;
+    if (!this.state.day) return false;
     const airport = this.state.airports.find((a) => a.icao === String(icao || "").toUpperCase());
     return Boolean(airport?.checked);
   }

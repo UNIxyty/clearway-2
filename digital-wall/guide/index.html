@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+  <style>
+    :root{
+      --pg:#e9ebee; --card:#ffffff; --card2:#fbfbfc; --bd:#e6e7ea; --bd2:#eef0f2;
+      --tx:#17181c; --tx2:#3a3d44; --tx3:#6c7079; --tx4:#9aa0a8;
+      --chip:#eef4ff; --info-bg:#f2f7ff; --info-bd:#dbe6ff; --info-tx:#3a5170; --accent2:#1d4ed8;
+      --scroll:#d6d8dc;
+    }
+    :root[data-theme="dark"]{
+      --pg:#0a1330; --card:#141b2e; --card2:#1a2236; --bd:#2b3750; --bd2:#232e45;
+      --tx:#eef2f8; --tx2:#c2ccdc; --tx3:#93a0b6; --tx4:#6f7d95;
+      --chip:#1d2942; --info-bg:#152341; --info-bd:#294067; --info-tx:#c2cfe6; --accent2:#93b4ff;
+      --scroll:#38445e;
+    }
+    *{box-sizing:border-box}
+    body{margin:0}
+    html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    ::selection{background:#c9ddff}
+    html{scroll-behavior:smooth}
+    a{color:#2563eb;text-decoration:none}
+    a:hover{color:var(--accent2)}
+    .gw-scroll::-webkit-scrollbar{width:9px}
+    .gw-scroll::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+    .gw-theme-btn{transition:transform .12s ease, background .15s ease}
+    .gw-theme-btn:hover{transform:translateY(-2px)}
+    :root[data-theme="dark"] .gw-logo{filter:brightness(0) invert(1);opacity:.65 !important}
+    @media print{
+      .gw-toc{display:none !important}
+      .gw-main{padding:0 !important}
+      .gw-theme-btn{display:none !important}
+      section{break-inside:avoid}
+    }
+  </style>
+</helmet>
+<div style="min-height:100vh;background:var(--pg);font-family:'Public Sans',system-ui,sans-serif;color:var(--tx);">
+
+  <button class="gw-theme-btn" onClick="{{ toggleTheme }}" title="{{ themeLabel }}" aria-label="{{ themeLabel }}" style="position:fixed;bottom:24px;right:24px;z-index:200;width:46px;height:46px;border-radius:50%;border:1px solid var(--bd);background:var(--card);color:var(--tx);box-shadow:0 6px 20px rgba(16,18,22,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">
+    <i data-lucide="{{ themeIcon }}" style="width:20px;height:20px;"></i>
+  </button>
+
+  <!-- ===================== COVER ===================== -->
+  <div style="position:relative;overflow:hidden;background:#0e1524;color:#fff;padding:64px 40px 72px;">
+    <div style="position:absolute;top:-160px;left:-120px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.42),transparent 62%);"></div>
+    <div style="position:absolute;bottom:-220px;right:-140px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(124,92,220,.30),transparent 64%);"></div>
+    <div style="position:relative;max-width:1120px;margin:0 auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:64px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:13px;">
+          <img src="assets/clearway-white.svg" alt="Clearway — Handling &amp; Operations" style="height:32px;">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:0.04em;color:#8b93a7;">
+          <span style="font-family:'IBM Plex Mono',monospace;">v1.0 · JUL 2026</span>
+          <span style="width:1px;height:16px;background:#33405c;"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;">~15 MIN READ</span>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.18em;color:#5f8bff;margin-bottom:18px;">OPERATIONS USER GUIDE</div>
+      <h1 style="font-size:62px;font-weight:800;letter-spacing:-0.03em;line-height:1.02;margin:0 0 22px;max-width:900px;">The Digital Wall &amp; Console</h1>
+      <p style="font-size:19px;line-height:1.55;color:#c3cad9;max-width:660px;margin:0 0 40px;">Everything a new dispatcher needs to read the operations wall, run the daily NOTAM check, and drive the console — one page, start to finish.</p>
+
+      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:9px 16px 9px 12px;">
+          <span style="width:9px;height:9px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.18);"></span>
+          <span style="font-size:13.5px;color:#dfe4ee;">Real screenshots · live ops data</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;font-size:13px;color:#8b93a7;">
+          <span>Built by</span>
+          <img src="assets/verxyl-white.png" alt="Verxyl" style="height:16px;opacity:.95;">
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== BODY (TOC + MAIN) ===================== -->
+  <div style="max-width:1180px;margin:0 auto;padding:0 32px;display:flex;gap:44px;align-items:flex-start;">
+
+    <!-- TOC -->
+    <aside class="gw-toc" style="width:236px;flex:none;position:sticky;top:0;align-self:flex-start;padding:40px 0;max-height:100vh;overflow:auto;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);padding:0 12px 14px;">CONTENTS</div>
+      <nav style="display:flex;flex-direction:column;gap:2px;">
+        <sc-for list="{{ toc }}" as="t" hint-placeholder-count="8">
+          <a href="{{ t.href }}" style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;text-decoration:none;background:{{ t.bg }};border-left:3px solid {{ t.bar }};">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ t.numColor }};">{{ t.num }}</span>
+            <span style="font-size:13.5px;font-weight:{{ t.weight }};color:{{ t.color }};line-height:1.3;">{{ t.label }}</span>
+          </a>
+        </sc-for>
+      </nav>
+      <div style="margin-top:22px;padding:14px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--card);">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Two surfaces</div>
+        <div style="font-size:12px;line-height:1.5;color:var(--tx3);">The <strong style="color:var(--tx);">wall</strong> is view-only. The <strong style="color:var(--tx);">console</strong> is where you make changes.</div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="gw-main" style="flex:1;min-width:0;padding:40px 0 96px;display:flex;flex-direction:column;gap:30px;">
+
+      <!-- ===== 01 OVERVIEW ===== -->
+      <section id="overview" data-section data-screen-label="Overview" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="layout-dashboard" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">01 · ORIENTATION</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">The Digital Wall at a glance</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 14px;max-width:720px;">The Digital Wall is your shared operational picture, split across <strong>two surfaces</strong>. Both read from the same live Leon feed, but you use them very differently.</p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0 32px;">
+              <div style="border:1px solid var(--bd);border-radius:14px;padding:22px 24px;background:#0e1524;color:#fff;position:relative;overflow:hidden;">
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:#5f8bff;margin-bottom:10px;">SURFACE A · VIEW-ONLY</div>
+                <h3 style="font-size:19px;font-weight:700;margin:0 0 8px;">The wall (display / timeline)</h3>
+                <p style="font-size:14.5px;line-height:1.55;color:#c3cad9;margin:0 0 12px;">The big dark screen in the ops room. A live timeline of every aircraft against the clock, with a status legend and manual limitations down the side. Nobody edits it — it reflects what the console decides.</p>
+                <div style="font-size:12.5px;color:#8b93a7;"><strong style="color:#dfe4ee;">Who uses it:</strong> everyone on shift, at a glance, from across the room.</div>
+              </div>
+              <div style="border:1px solid var(--bd);border-radius:14px;padding:22px 24px;background:var(--card2);position:relative;">
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:#2563eb;margin-bottom:10px;">SURFACE B · CONTROL</div>
+                <h3 style="font-size:19px;font-weight:700;margin:0 0 8px;">The console</h3>
+                <p style="font-size:14.5px;line-height:1.55;color:var(--tx2);margin:0 0 12px;">The light-themed app you sign in to. Pick which flight is on the wall, run the NOTAM check, write limitations, manage aircraft and operators, tune settings, and request documents.</p>
+                <div style="font-size:12.5px;color:var(--tx3);"><strong style="color:var(--tx);">Who uses it:</strong> the dispatcher / ops user driving the shift.</div>
+              </div>
+            </div>
+
+            <!-- WALL FIGURE -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--tx4);margin-bottom:10px;">FIG 1 · THE WALL</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/display-timeline-full.png" alt="The wall — full timeline" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:7.5%;margin-top:-1px;height:2px;width:calc(6.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:6.5%;top:7.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:7.5%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:47.7%;top:-26px;margin-left:-1px;width:2px;height:calc(7.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:47.7%;top:7.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:47.7%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:88%;top:-26px;margin-left:-1px;width:2px;height:calc(6% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:88%;top:6%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:88%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:-26px;top:38%;margin-top:-1px;height:2px;width:calc(11% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:11%;top:38%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:38%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+                <span style="position:absolute;left:54.5%;top:-26px;margin-left:-1px;width:2px;height:calc(14.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:54.5%;top:14.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:54.5%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">5</span>
+                <span style="position:absolute;left:26.5%;top:-26px;margin-left:-1px;width:2px;height:calc(23% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:26.5%;top:23%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:26.5%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">6</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Brand &amp; date</strong> — Clearway mark plus today's ops date.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Clock bar</strong> — the home city and its live time, big enough to read across the room.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">NOTAM sign</strong> — the day's all-clear (or warning) at a glance.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Sidebar</strong> — the status colour legend and the manual limitation cards.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Now-line</strong> — the vertical marker at the current time, labelled in UTC.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">6</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Aircraft lanes</strong> — one row per aircraft; flights sit as pills along the hour grid.</div></div>
+            </div>
+
+            <!-- CONSOLE FIGURE -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--tx4);margin:34px 0 10px;">FIG 2 · THE CONSOLE</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-flights.png" alt="The console — flights page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:23%;margin-top:-1px;height:2px;width:calc(6% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:6%;top:23%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:23%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:79%;top:-26px;margin-left:-1px;width:2px;height:calc(3% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:79%;top:3%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:79%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:-26px;top:52%;margin-top:-1px;height:2px;width:calc(44% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:44%;top:52%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:52%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Left nav</strong> — the console's pages: Flights, NOTAM Check, Operators, Aircraft, Limitations, Important, Settings.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall status</strong> — whether a flight is live on the wall right now, plus who's online.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Work area</strong> — each page opens here. Most pages carry a collapsible "How this page works" panel.</div></div>
+            </div>
+
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:30px;">
+              <i data-lucide="info" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">How they relate.</strong> You act in the console; the wall reflects it. Send a flight to the wall, press CHECKED on the NOTAM page, or save a limitation — and the change appears on the wall within seconds. The wall itself has no buttons.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 02 READING THE TIMELINE ===== -->
+      <section id="timeline" data-section data-screen-label="Timeline" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="gantt-chart" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">02 · THE WALL</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Reading the timeline</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">Each aircraft has its own horizontal lane. Flights appear as <strong>pills</strong> placed against the hour grid — left edge at departure, right edge at arrival. Everything you need to read a flight is on and around the pill.</p>
+
+            <!-- ANATOMY OF A PILL -->
+            <h3 style="font-size:18px;font-weight:700;margin:34px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>Anatomy of a pill</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">A scheduled flight: the two airport ICAOs sit at each end of the pill, with the departure and arrival times underneath.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/pill-scheduled.png" alt="Scheduled pill close-up" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:19%;margin-top:-1px;height:2px;width:calc(12% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:12%;top:19%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:19%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:84%;top:19%;margin-top:-1px;height:2px;width:calc(16.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:84%;top:19%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:19%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:-26px;top:50%;margin-top:-1px;height:2px;width:calc(31% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:31%;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:-26px;top:79%;margin-top:-1px;height:2px;width:calc(13% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:13%;top:79%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:79%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Flight ID</strong> — its <em>colour</em> signals the checklist state and <em>italic</em> means an unconfirmed trip (see below).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Marker row</strong> — per-flight badges: IMP, WX and NTM (see markers).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">ADEP → ADES</strong> — departure ICAO on the left, arrival ICAO on the right.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Times</strong> — departure under the left ICAO, arrival under the right. The pill spans exactly that window on the grid.</div></div>
+            </div>
+
+            <!-- FILL STATES -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>Pill fill = flight state</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">The pill's fill colour tells you where the flight is in its life. The sidebar legend is your reference — it's always on the wall.</p>
+            <figure style="margin:0;position:relative;border-radius:14px;overflow:hidden;border:1px solid #2a3345;box-shadow:0 12px 30px rgba(16,18,22,.12);background:#0e1524;max-width:520px;">
+              <img src="uploads/guide-shots/display-sidebar-legend.png" alt="Sidebar status legend" style="display:block;width:100%;">
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px;">
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;background:#dfe1e6;flex:none;"></span><div><div style="font-size:13.5px;font-weight:700;">Scheduled</div><div style="font-size:12px;color:var(--tx4);">planned, not moving yet</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;background:#d3b25c;flex:none;"></span><div><div style="font-size:13.5px;font-weight:700;">Delayed</div><div style="font-size:12px;color:var(--tx4);">running behind plan</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;background:#a495cf;flex:none;"></span><div><div style="font-size:13.5px;font-weight:700;">CTOT / slot</div><div style="font-size:12px;color:var(--tx4);">holds a calculated slot</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;background:#7fa8d6;flex:none;"></span><div><div style="font-size:13.5px;font-weight:700;">Flying</div><div style="font-size:12px;color:var(--tx4);">airborne right now</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;background:#c99bb0;flex:none;"></span><div><div style="font-size:13.5px;font-weight:700;">Arrived</div><div style="font-size:12px;color:var(--tx4);">on the ground at destination</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px;border:1px solid var(--bd);border-radius:11px;padding:12px 14px;background:var(--card2);"><span style="width:34px;height:18px;border-radius:5px;flex:none;background:repeating-linear-gradient(45deg,#7a2d30,#7a2d30 4px,#c99 4px,#c99 8px);"></span><div><div style="font-size:13.5px;font-weight:700;">AOG</div><div style="font-size:12px;color:var(--tx4);">aircraft on ground / unserviceable</div></div></div>
+            </div>
+
+            <!-- DELAY HATCH + ARRIVED -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The delay hatch &amp; actual times</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">When a flight runs late, a diagonal <strong>hatch</strong> fills the gap between the planned and the actual time. As real times land, the pill relabels itself: <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--tx2);">ETD→ATD</span> on departure and <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--tx2);">ETA→ATA</span> on arrival.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/pill-arrived.png" alt="Arrived pill with delay hatch" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:19%;top:-26px;margin-left:-1px;width:2px;height:calc(18% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:19%;top:18%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:19%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:-26px;top:53%;margin-top:-1px;height:2px;width:calc(26% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:26%;top:53%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:53%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:62%;top:53%;margin-top:-1px;height:2px;width:calc(38.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:62%;top:53%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:53%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Green flight ID</strong> — this trip's checklist is complete. (Red would flag an outstanding checklist.)</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Delay hatch</strong> — the striped portion shows how much later than planned the flight actually ran.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Arrived fill</strong> — the dusty-mauve solid section confirms the flight is down.</div></div>
+            </div>
+
+            <!-- ID COLOUR + ITALIC -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px;">
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:18px 20px;background:var(--card2);">
+                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">FLIGHT-ID COLOUR</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#2fbf6b;">ORO1042</span><span style="font-size:13px;color:var(--tx3);">checklist complete</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#ef6b6f;">ORO1041</span><span style="font-size:13px;color:var(--tx3);">checklist outstanding</span></div>
+              </div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:18px 20px;background:var(--card2);">
+                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">ITALIC = UNCONFIRMED TRIP</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;">BTI472</span><span style="font-size:13px;color:var(--tx3);">confirmed</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;font-style:italic;">BTI472</span><span style="font-size:13px;color:var(--tx3);">not yet confirmed — treat as provisional</span></div>
+              </div>
+            </div>
+
+            <!-- MARKERS -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The marker row</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Above each pill, small badges flag anything that needs attention on that flight. They're generated automatically from the alert filter and the Important entries.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/pill-markers.png" alt="Marker row above a pill" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:65%;top:-26px;margin-left:-1px;width:2px;height:calc(20% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:65%;top:20%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:65%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:80%;top:20%;margin-top:-1px;height:2px;width:calc(20.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:80%;top:20%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:20%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:96%;top:20%;margin-top:-1px;height:2px;width:calc(4.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:96%;top:20%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:20%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px;">
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="width:24px;height:24px;border-radius:6px;background:#fef3e2;color:#b45309;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #f4d4b8;">!</span><span style="font-size:14px;font-weight:700;">IMP</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">The flight matches an <strong>Important</strong> entry — a standing operational limitation worth reading before you work it.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#16a34a;background:#e7f6ec;padding:4px 9px;border-radius:6px;border:1px solid #c7ead2;">WX</span><span style="font-size:14px;font-weight:700;">Weather</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A weather category worth noting at one of the airports. Its colour follows the WX category (see §5).</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#c2703b;background:#fdf1e8;padding:4px 9px;border-radius:6px;border:1px solid #f4d4b8;">NTM</span><span style="font-size:14px;font-weight:700;">NOTAM</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A flagged NOTAM matched the alert filter for one of the flight's airports today.</div></div>
+            </div>
+
+            <!-- IN-MOTION PILL STATES -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>In-motion pill states</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Between Scheduled and Arrived a pill passes through these states. They're drawn here to the wall's exact pill design — dark board, mono ICAOs, flight ID above, times below.</p>
+            <div style="background:#0e1524;border:1px solid #2a3345;border-radius:16px;padding:30px 34px;display:flex;gap:32px 40px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:280px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:#e7ecf5;margin-bottom:7px;">BTI472</div>
+                <div style="border-radius:999px;overflow:hidden;display:flex;height:46px;box-shadow:0 4px 12px rgba(0,0,0,.3);">
+                  <div style="width:30%;background:repeating-linear-gradient(45deg,#0e1524,#0e1524 6px,#c9ab62 6px,#c9ab62 12px);"></div>
+                  <div style="flex:1;background:#c9ab62;color:#2e2409;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;"><span>EVRA</span><span>EGLL</span></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9fb0c8;letter-spacing:-0.01em;"><span>ETD 11:30 → ATD 12:25</span><span>ETA 15:29 → ATA 16:20</span></div>
+                <div style="font-size:12.5px;font-weight:700;color:#d8bd77;margin-top:12px;">Delayed</div>
+                <div style="font-size:11.5px;line-height:1.45;color:#9fb0c8;margin-top:2px;">Dusty gold with a 45° hatch marking the slip; times relabel ETD→ATD and ETA→ATA.</div>
+              </div>
+              <div style="flex:1;min-width:280px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:#e7ecf5;margin-bottom:7px;">ORO1041</div>
+                <div style="border-radius:999px;height:46px;background:#9d8cc2;color:#241a3c;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,.3);"><span>LFPG</span><span>EVRA</span></div>
+                <div style="display:flex;justify-content:space-between;margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9fb0c8;letter-spacing:-0.01em;"><span>STD 13:40</span><span>CTOT 14:05</span></div>
+                <div style="font-size:12.5px;font-weight:700;color:#b3a4d6;margin-top:12px;">CTOT / slot</div>
+                <div style="font-size:11.5px;line-height:1.45;color:#9fb0c8;margin-top:2px;">Muted lavender — the flight is holding a calculated take-off slot.</div>
+              </div>
+              <div style="flex:1;min-width:280px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:#e7ecf5;margin-bottom:7px;">PNV210</div>
+                <div style="border-radius:999px;overflow:hidden;display:flex;height:46px;box-shadow:0 4px 12px rgba(0,0,0,.3);">
+                  <div style="width:12%;background:repeating-linear-gradient(45deg,#0e1524,#0e1524 6px,#7d9cc4 6px,#7d9cc4 12px);"></div>
+                  <div style="flex:1;background:#7d9cc4;color:#122336;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;"><span>ESSA</span><span>EVRA</span></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9fb0c8;letter-spacing:-0.01em;"><span>ATD 14:02</span><span>ETA 15:29</span></div>
+                <div style="font-size:12.5px;font-weight:700;color:#9db6d6;margin-top:12px;">Flying</div>
+                <div style="font-size:11.5px;line-height:1.45;color:#9fb0c8;margin-top:2px;">Dusty blue with a small leading hatch — airborne right now.</div>
+              </div>
+            </div>
+            <p style="font-size:12px;line-height:1.5;color:var(--tx4);margin:12px 0 0;">Product-accurate renders — matched to the live pill styling.</p>
+
+            <!-- CLOCK BAR + HOUR SPACING + AUTO-RETURN -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The clock bar, hour spacing &amp; auto-return</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:720px;">The <strong>clock bar</strong> across the top shows the home city and live time. <strong>Hour spacing</strong> controls how wide the hours are drawn — narrow fits more of the day on screen, wide spreads tight schedules apart. Both are set in the console's Settings.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">HOUR SPACING 0.75× — MORE HOURS</div>
+                <figure style="margin:0;border-radius:12px;overflow:hidden;border:1px solid #2a3345;box-shadow:0 8px 20px rgba(16,18,22,.1);"><img src="uploads/guide-shots/display-zoom-narrow.png" alt="Narrow hour spacing" style="display:block;width:100%;"></figure>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">HOUR SPACING 1.8× — WIDER GRID</div>
+                <figure style="margin:0;border-radius:12px;overflow:hidden;border:1px solid #2a3345;box-shadow:0 8px 20px rgba(16,18,22,.1);"><img src="uploads/guide-shots/display-zoom-wide.png" alt="Wide hour spacing" style="display:block;width:100%;"></figure>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:22px;">
+              <i data-lucide="crosshair" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Auto-return to now.</strong> If someone scrolls the timeline to look ahead, the wall automatically re-centres on the now-line after a few seconds — so the room is never left staring at the wrong hour.</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">1 · SCROLLED AWAY FROM NOW</div>
+                <figure style="margin:0;border-radius:12px;overflow:hidden;border:1px solid #2a3345;box-shadow:0 8px 20px rgba(16,18,22,.1);"><img src="uploads/guide-shots/display-scrolled-away.png" alt="Timeline scrolled away" style="display:block;width:100%;"></figure>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">2 · ~11 s LATER — RE-CENTRED</div>
+                <figure style="margin:0;border-radius:12px;overflow:hidden;border:1px solid #2a3345;box-shadow:0 8px 20px rgba(16,18,22,.1);"><img src="uploads/guide-shots/display-auto-returned.png" alt="Timeline auto-returned to now" style="display:block;width:100%;"></figure>
+              </div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 03 SIDE OVERLAY ===== -->
+      <section id="overlay" data-section data-screen-label="Side overlay" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="panel-right-open" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">03 · THE WALL</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">The flight side-overlay</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">When a dispatcher sends a flight to the wall from the console, a detail overlay slides in from the right. It's the full picture for the one flight that's live — and, like the rest of the wall, it's <strong>view-only</strong>.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 24px;max-width:720px;">You don't open it here — a dispatcher opens it from the console's Flights page with <em>Show on wall</em>. The banner names who opened it.</p>
+
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/display-overlay.png" alt="Side overlay open for a flight" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:73%;top:-26px;margin-left:-1px;width:2px;height:calc(16% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:73%;top:16%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:73%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:64%;top:-26px;margin-left:-1px;width:2px;height:calc(24% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:64%;top:24%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:64%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:74%;top:39%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:39%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:39%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:73%;top:60%;margin-top:-1px;height:2px;width:calc(27.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:73%;top:60%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:60%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+                <span style="position:absolute;left:71%;top:85%;margin-left:-1px;width:2px;height:calc(15.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:71%;top:85%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:71%;top:calc(100% + 26px);transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">5</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Header</strong> — the callsign, who opened it, and the trip reference.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Route &amp; timings</strong> — ADEP → ADES with STD/ETD/ATD and STA/ETA/ATA, plus dep/arr delay.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Weather</strong> — decoded conditions for <em>both</em> airports, each tagged with its category (see §5).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Important (IMP)</strong> — the standing limitations this flight matches, in full.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Limitations</strong> — any manual limitation cards that match, further down the panel.</div></div>
+            </div>
+
+            <div style="display:flex;gap:14px;background:var(--card2);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;margin-top:26px;">
+              <i data-lucide="eye" style="width:19px;height:19px;color:var(--tx3);flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--tx2);"><strong>Reading, not doing.</strong> The overlay is there to be read from across the room. To change what's shown — swap the flight or close the overlay — go to the console's Flights page.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 04 NOTAM CHECK ===== -->
+      <section id="notam" data-section data-screen-label="NOTAM check" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="clipboard-check" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">04 · DAILY WORKFLOW</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">The daily NOTAM check</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 20px;max-width:720px;">Every morning the system runs a NOTAM scan at <strong>10:00 Europe/Riga</strong> across every airport on today's flights, and the team reviews the result. Until every airport is signed off, the wall shows a red warning; once they're all done, it flips green.</p>
+
+            <!-- steps -->
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:30px;">
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);display:flex;gap:13px;"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);">Open <strong>NOTAM Check</strong> in the console's left nav.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);display:flex;gap:13px;"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);">Read each airport's <strong>flagged NOTAMs</strong>, using the keyword colours as a guide.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);display:flex;gap:13px;"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);">Press <strong>CHECKED</strong> per airport — your name and time are recorded.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);display:flex;gap:13px;"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);">When all airports are checked, the <strong>wall sign turns green</strong>.</div></div>
+            </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:6px 0 10px;">THE PAGE IN ITS WARNING STATE</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-notam-check-unchecked.png" alt="NOTAM Check page — warning state" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:43%;margin-top:-1px;height:2px;width:calc(24% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:24%;top:43%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:43%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:-26px;top:53%;margin-top:-1px;height:2px;width:calc(20% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:20%;top:53%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:53%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:71%;top:62%;margin-top:-1px;height:2px;width:calc(29.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:71%;top:62%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:62%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin:18px 0 30px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Red wall sign</strong> — while airports remain, Today’s wall sign shows CHECK NOTAM and the count still to review.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Progress short of complete</strong> — the bar and “10 of 11 airports checked · 1 remaining” track how far along the day is.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Mark checked</strong> — each unreviewed airport card carries the blue Mark checked button; press it once you’ve read the NOTAMs.</div></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:6px 0 10px;">THE SAME PAGE, ALL AIRPORTS CHECKED</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-notam-check.png" alt="NOTAM Check page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:43%;margin-top:-1px;height:2px;width:calc(24% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:24%;top:43%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:43%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:70%;top:43%;margin-top:-1px;height:2px;width:calc(30.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:70%;top:43%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:43%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:56%;top:53%;margin-top:-1px;height:2px;width:calc(44.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:56%;top:53%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:53%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:68%;top:62%;margin-top:-1px;height:2px;width:calc(32.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:68%;top:62%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:62%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+                <span style="position:absolute;left:-26px;top:81%;margin-top:-1px;height:2px;width:calc(19% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:19%;top:81%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:81%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">5</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Today's wall sign</strong> — a live preview of what the wall is currently showing.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Run check now</strong> — re-runs the scan on demand (it also runs automatically at 10:00).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Progress &amp; keyword legend</strong> — how many airports are done, and what each keyword colour means.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Per-airport CHECKED</strong> — sign off each airport; the name + time are stamped. <em>Undo</em> fixes mis-clicks.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Show all NOTAMs</strong> — expands from the flagged shortlist to the full, unfiltered list for that airport.</div></div>
+            </div>
+
+            <!-- reading a NOTAM -->
+            <h3 style="font-size:18px;font-weight:700;margin:36px 0 12px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>Reading a NOTAM</h3>
+            <div style="border:1px solid var(--bd);border-radius:13px;overflow:hidden;">
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:var(--card2);border-bottom:1px solid var(--bd2);flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;">A0985/26</span>
+                <span style="font-size:11px;font-weight:700;color:#475569;background:#eef1f5;padding:2px 7px;border-radius:5px;">N</span>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#e5484d;background:#fdecec;padding:3px 9px;border-radius:6px;">CLOSURE / PROHIBITION</span>
+                <span style="flex:1;"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--tx4);">Start 5 May 05:00Z · Expiry — · Issued —</span>
+              </div>
+              <div style="padding:16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;color:var(--tx2);">RWY <span style="background:var(--info-bd);color:var(--accent2);padding:0 3px;border-radius:3px;">08/26</span> 180DEG TURNOVER <span style="background:#fdecec;color:#e5484d;padding:0 3px;border-radius:3px;">NOT ALLOWED</span>, EXCEPT WAKE TURBULENCE CAT L AIRPLANES.</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;">
+              <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--card2);"><div style="font-size:12px;font-weight:700;">ID</div><div style="font-size:12px;color:var(--tx4);line-height:1.4;">the NOTAM reference (e.g. A0985/26)</div></div>
+              <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--card2);"><div style="font-size:12px;font-weight:700;">Start</div><div style="font-size:12px;color:var(--tx4);line-height:1.4;">when it becomes effective</div></div>
+              <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--card2);"><div style="font-size:12px;font-weight:700;">Expiry</div><div style="font-size:12px;color:var(--tx4);line-height:1.4;">when it lapses (— if PERM)</div></div>
+              <div style="border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--card2);"><div style="font-size:12px;font-weight:700;">Issued</div><div style="font-size:12px;color:var(--tx4);line-height:1.4;">when it was published</div></div>
+            </div>
+            <p style="font-size:14px;line-height:1.6;color:var(--tx3);margin:14px 0 0;max-width:720px;">Matched keywords are highlighted in their category colour so the critical phrase jumps out. The flagged list only shows notices valid from now to +24 h (PERM included); use <strong>Show all NOTAMs</strong> to read everything.</p>
+
+            <!-- RED SIGN (real) + RETRY (rendered) -->
+            <div style="margin-top:30px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:10px;">BEFORE SIGN-OFF · THE WALL WARNING</div>
+              <div style="border-radius:16px;border:1px solid var(--bd);background:#0e1524;padding:44px 40px;display:flex;justify-content:center;">
+                <span style="display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:700;letter-spacing:0.06em;color:#fff;background:#c0322e;border:1px solid #d9433f;padding:16px 36px;border-radius:12px;box-shadow:0 0 0 4px rgba(197,52,48,.18),0 8px 26px rgba(197,52,48,.4);">!!! CHECK NOTAM !!!</span>
+              </div>
+              <p style="font-size:14.5px;line-height:1.55;color:var(--tx2);margin:16px 0 0;">While any airport is still unreviewed, the wall shows the red pulsing <strong>!!! CHECK NOTAM !!!</strong> sign. Every morning starts here until the team works through the list; it flips to the green NOTAM CHECKED sign only once all airports are signed off.</p>
+            </div>
+            <div style="margin-top:30px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:10px;">WHEN AN AIRPORT FAILS · RETRY</div>
+              <div style="background:#ffffff;border:1px solid #e3e5e9;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.05),0 10px 26px rgba(16,18,22,.07);">
+                <div style="display:flex;align-items:center;gap:13px;padding:16px 18px;border-bottom:1px solid #f0f1f4;">
+                  <span style="width:38px;height:38px;border-radius:10px;background:#fdecec;display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="plane" style="width:18px;height:18px;color:#e5484d;"></i></span>
+                  <div style="flex:1;"><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#0f172a;">EETN</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#94a3b8;">OHSWI</div></div>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#b91c1c;background:#fdecec;padding:5px 11px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:13px;height:13px;"></i>Fetch failed</span>
+                  <button style="font-family:inherit;font-size:13px;font-weight:600;color:#0f172a;background:#ffffff;border:1px solid #d6d8dc;padding:8px 15px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;"><i data-lucide="rotate-cw" style="width:14px;height:14px;color:#475569;"></i>Retry</button>
+                </div>
+                <div style="padding:16px 18px;">
+                  <div style="background:#fdecec;border-left:4px solid #e5484d;border-radius:9px;padding:12px 14px;font-size:13px;line-height:1.5;color:#7f1d1d;">Fetch failed: couldn't reach the NOTAM source for EETN. Last successful check 22:46Z.</div>
+                  <div style="font-size:12.5px;line-height:1.5;color:#64748b;margin-top:10px;">Press <strong style="color:#0f172a;">Retry</strong> to re-fetch. You can't sign this airport off until it loads — the wall keeps the red sign while any airport is unresolved.</div>
+                </div>
+              </div>
+              <p style="font-size:14.5px;line-height:1.55;color:var(--tx2);margin:16px 0 0;">If a NOTAM source can't be reached, its card shows a <strong>Fetch failed</strong> pill and a red banner with the reason. Press <strong>Retry</strong> to re-fetch — the airport can't be checked until it loads.</p>
+            </div>
+
+            <!-- email notification -->
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:26px;">
+              <i data-lucide="mail" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Email reminder.</strong> The 10:00 run sends a notification / reminder email so the team knows the check is waiting. For safety, the email <strong>never contains NOTAM contents</strong> — it only points you back to this page to review.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 05 WEATHER ===== -->
+      <section id="weather" data-section data-screen-label="Weather" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="cloud-sun" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">05 · REFERENCE</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Weather (WX)</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">Each airport carries a <strong>flight category</strong> — a single colour-coded read of how good the conditions are. You'll see it as the WX badge on a pill, and decoded in full inside the side-overlay.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 22px;max-width:720px;">Weather on the wall is <strong>acknowledgment-only</strong> — it's there to inform, not something you action or clear.</p>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#2fbf6b;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#15803d;background:#e7f6ec;padding:2px 8px;border-radius:5px;">VFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Good — visual conditions.</div></div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#2563eb;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:var(--accent2);background:#e8effe;padding:2px 8px;border-radius:5px;">MVFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Marginal — reduced ceiling / vis.</div></div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#e5484d;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#b91c1c;background:#fdecec;padding:2px 8px;border-radius:5px;">IFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Instrument conditions required.</div></div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#7c3aed;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#6d28d9;background:#ede9fe;padding:2px 8px;border-radius:5px;">LIFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Low IFR — worst category.</div></div></div>
+            </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--tx4);margin-bottom:10px;">FIG · DECODED WEATHER IN THE OVERLAY</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/display-overlay.png" alt="Decoded weather in overlay" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:74%;top:36%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:36%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:36%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:74%;top:57%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:57%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:57%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+              </div>
+            </figure>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Departure airport</strong> — category badge (here IFR) plus decoded wind, visibility, ceiling, temperature/dew point, QNH, and the observation time.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Arrival airport</strong> — the same decoded block for the destination (here VFR). Both airports are always shown together.</div></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 06 MANAGING THE CONSOLE ===== -->
+      <section id="console" data-section data-screen-label="Console" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="sliders-horizontal" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">06 · THE CONSOLE</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Managing the console</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 26px;max-width:720px;">Beyond Flights and NOTAM Check, four pages let you shape what the wall shows and how it behaves. Each carries its own "How this page works" panel at the top.</p>
+
+            <!-- OPERATORS -->
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="users" style="width:19px;height:19px;color:#2563eb;"></i>Operators</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">The Leon operators feeding the wall. Watch sync health at a glance, toggle an operator active/inactive, add a new one, or <em>Force sync</em> if the feed looks stale.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-operators.png" alt="Operators page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:47%;top:-26px;margin-left:-1px;width:2px;height:calc(28% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:47%;top:28%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:47%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:73%;top:45%;margin-top:-1px;height:2px;width:calc(27.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:73%;top:45%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:45%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:71%;top:-26px;margin-left:-1px;width:2px;height:calc(10% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:71%;top:10%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:71%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Sync health</strong> — data source, last run, cached flights, poll interval, last error.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Per-operator row</strong> — prefix, last sync, status, and an Active toggle.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Add operator</strong> — register a new Leon feed.</div></div>
+            </div>
+
+            <div style="height:1px;background:var(--bd2);margin:32px 0;"></div>
+
+            <!-- AIRCRAFT -->
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="navigation" style="width:19px;height:19px;color:#2563eb;"></i>Aircraft</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Choose which aircraft appear on the wall. Hiding an aircraft removes its lane from the timeline <strong>immediately</strong>. Search, filter by operator, or use <em>Show all / Hide all</em>.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-aircraft.png" alt="Aircraft page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:63%;top:-26px;margin-left:-1px;width:2px;height:calc(11.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:63%;top:11.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:63%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:41%;top:-26px;margin-left:-1px;width:2px;height:calc(25% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:41%;top:25%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:41%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:72%;top:34%;margin-top:-1px;height:2px;width:calc(28.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:72%;top:34%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:34%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">On-wall count</strong> — how many aircraft are visible vs hidden, with bulk controls.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Upcoming counts</strong> — flights in the next 7 days and the next departure.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Show on wall</strong> — per-aircraft toggle; the lane appears or disappears at once.</div></div>
+            </div>
+
+            <div style="height:1px;background:var(--bd2);margin:32px 0;"></div>
+
+            <!-- LIMITATIONS -->
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="triangle-alert" style="width:19px;height:19px;color:#2563eb;"></i>Limitations <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#c2703b;background:#fdf1e8;padding:3px 9px;border-radius:6px;border:1px solid #f4d4b8;">REWORKED</span></h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Write the manual text limitations shown on the wall sidebar. Set the text, how it <strong>matches</strong> (flight, airport, country, or any mix — OR semantics), and its schedule. NOTAM, weather and IMP markers are generated automatically elsewhere.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-limitations.png" alt="Limitations page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:78%;margin-top:-1px;height:2px;width:calc(21% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:21%;top:78%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:78%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:41%;top:90.5%;margin-left:-1px;width:2px;height:calc(9.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:41%;top:90.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:41%;top:calc(100% + 26px);transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:66%;top:43%;margin-top:-1px;height:2px;width:calc(34.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:66%;top:43%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:43%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:48%;top:-26px;margin-left:-1px;width:2px;height:calc(34% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:48%;top:34%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:48%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Match type</strong> — Flight, Airport, Country or Mixed; matching is OR across every target you add.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Date window</strong> — optional start/end, or mark it <em>Permanent</em> (always active, can't be deleted).</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall sidebar preview</strong> — see exactly how the card renders at wall scale before saving.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Existing cards</strong> — each shows its schedule and how many flights currently match; toggle or delete.</div></div>
+            </div>
+
+            <div style="height:1px;background:var(--bd2);margin:32px 0;"></div>
+
+            <!-- IMPORTANT -->
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="star" style="width:19px;height:19px;color:#2563eb;"></i>Important (IMP)</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Standing IMP limitations imported from the ops bulletin. A flight shows the "!" marker on the wall when it matches an entry's <strong>criteria</strong> — country, airport, operator or registration, respecting direction and date window. Auto-imported entries <strong>need a human review</strong> before they're trusted.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-important.png" alt="Important page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:32%;margin-top:-1px;height:2px;width:calc(19% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:19%;top:32%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:32%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:-26px;top:36%;margin-top:-1px;height:2px;width:calc(17.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:17.5%;top:36%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:36%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:-26px;top:56%;margin-top:-1px;height:2px;width:calc(11% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:11%;top:56%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:56%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Needs-review filter</strong> — narrow to the auto-imported entries awaiting sign-off (65 after the reset).</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Entry cards</strong> — status tags plus the criteria (ICAO / country) that trigger the match.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Detail pane</strong> — select an entry to read its verbatim body and match criteria.</div></div>
+            </div>
+
+            <div style="height:1px;background:var(--bd2);margin:32px 0;"></div>
+
+            <!-- SETTINGS -->
+            <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="settings" style="width:19px;height:19px;color:#2563eb;"></i>Settings</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Configure the wall's display and the NOTAM / alert filter that drives automatic flagging.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-settings.png" alt="Settings page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:35%;top:-26px;margin-left:-1px;width:2px;height:calc(24% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:35%;top:24%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:35%;top:-26px;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:-26px;top:38%;margin-top:-1px;height:2px;width:calc(33% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:33%;top:38%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:38%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:-26px;top:47%;margin-top:-1px;height:2px;width:calc(19% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:19%;top:47%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:47%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:-26px;top:76%;margin-top:-1px;height:2px;width:calc(23% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:23%;top:76%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:76%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Display scale</strong> — global text/density; dial up until timings read from across the room.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Hour spacing</strong> — the gridline distance covered in §2 (0.5×–2.5×).</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall clocks</strong> — add cities and drag to reorder; the home clock is highlighted on the wall.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">NOTAM / alert filter</strong> — keyword groups (by category colour) that drive both the daily check and the NTM / WX badges.</div></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 07 AIP / GEN ===== -->
+      <section id="docs" data-section data-screen-label="AIP GEN" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="file-text" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">07 · THE CONSOLE</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">AIP &amp; GEN documents</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 20px;max-width:720px;">Request briefing documents straight from a flight. Pick a flight on the <strong>Flights</strong> page, choose which airports and document types you need, and the pack is <strong>emailed to you</strong> — it is never downloaded to the wall.</p>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--tx4);margin-bottom:10px;">FIG · REQUESTING FROM A FLIGHT</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-flights-detail.png" alt="Flight detail with send controls" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:-26px;top:45%;margin-top:-1px;height:2px;width:calc(33% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:33%;top:45%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:-26px;top:45%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:64.5%;top:49.5%;margin-top:-1px;height:2px;width:calc(35.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:64.5%;top:49.5%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:49.5%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:64.5%;top:62%;margin-top:-1px;height:2px;width:calc(35.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:64.5%;top:62%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:62%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 22px;margin-top:16px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Pick the flight</strong> — its route gives you the departure and arrival airports.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Choose airports &amp; type</strong> — departure and/or arrival, and AIP, GEN, or both.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Send</strong> — the request queues and the pack is emailed to your inbox.</div></div>
+            </div>
+
+            <!-- AIP send controls + progress (real) -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:26px 0 10px;">THE SEND CONTROLS · A REQUEST IN FLIGHT</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-aip-send-progress-1.png" alt="AIP/GEN send controls, fetching" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:74%;top:40%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:40%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:40%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:64.5%;top:44%;margin-top:-1px;height:2px;width:calc(35.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:64.5%;top:44%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:44%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+                <span style="position:absolute;left:57%;top:48%;margin-top:-1px;height:2px;width:calc(43.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:57%;top:48%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:48%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
+                <span style="position:absolute;left:74%;top:55%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:55%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:55%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">4</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Recipient</strong> — the pack is emailed to the signed-in user — never shown on the wall.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Departure / Arrival</strong> — choose which end(s) of the route you need documents for.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">AIP / GEN / Both</strong> — pick the document type.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">In flight</strong> — after Send, the request shows “Fetching documents (checking shared cache, then source)…”.</div></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:26px 0 10px;">DELIVERED</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/console-aip-send-progress-2.png" alt="AIP/GEN send delivered" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:74%;top:55%;margin-top:-1px;height:2px;width:calc(26.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:74%;top:55%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:55%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+                <span style="position:absolute;left:64.5%;top:63%;margin-top:-1px;height:2px;width:calc(35.5% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:64.5%;top:63%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:63%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">2</span>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Sent</strong> — the request confirms “AIP AD-2 · LSZH (departure) — Sent to …” once the email is on its way.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Send again</strong> — re-request the same pack in one click if you need it re-sent.</div></div>
+            </div>
+
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:26px;">
+              <i data-lucide="inbox" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Delivery by email.</strong> Documents go to your inbox, never onto the wall — the wall stays a clean operational picture, and briefing packs stay with the person who needs them.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 08 AUTH ===== -->
+      <section id="auth" data-section data-screen-label="Auth" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="log-in" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">08 · GETTING IN</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Signing in</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 24px;max-width:720px;">The console is behind a sign-in. Use your work email and password; there's account creation and forgot-password if you need them. After signing in you land back on your page.</p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">SIGN IN</div>
+                <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/auth-signin.png" alt="Sign-in screen" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:50%;top:65%;margin-left:-1px;width:2px;height:calc(35.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:50%;top:65%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:50%;top:calc(100% + 26px);transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+              </div>
+            </figure>
+                <div style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);">Enter your work email + password, then <strong>Sign in with email</strong>. <em>Forgot password?</em> sits just below.</div></div>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:8px;">CREATE AN ACCOUNT</div>
+                <div style="border-radius:16px;overflow:hidden;border:1px solid var(--bd);box-shadow:0 2px 10px rgba(16,18,22,.12);position:relative;background:#0e1a33;padding:44px 22px 40px;">
+                  <div style="position:absolute;top:-90px;left:-70px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,.4),transparent 62%);"></div>
+                  <div style="position:absolute;bottom:-120px;right:-80px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(20,140,120,.28),transparent 64%);"></div>
+                  <div style="position:relative;display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:26px;">
+                    <img src="assets/clearway-white.svg" alt="Clearway" style="height:24px;">
+                    <span style="width:1px;height:22px;background:rgba(255,255,255,.3);"></span>
+                    <img src="assets/verxyl-white.png" alt="Verxyl" style="height:15px;">
+                  </div>
+                  <div style="position:relative;max-width:400px;margin:0 auto;background:#ffffff;border-radius:16px;padding:28px 30px;box-shadow:0 20px 50px rgba(0,0,0,.35);">
+                    <div style="font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.01em;margin-bottom:6px;">Create your account</div>
+                    <div style="font-size:14px;color:#64748b;margin-bottom:22px;">Start viewing AIP, GEN, NOTAM and weather data.</div>
+                    <div style="margin-bottom:14px;"><div style="font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:6px;">Full name</div><div style="display:flex;align-items:center;gap:9px;height:44px;border:1px solid #d6d8dc;border-radius:10px;padding:0 13px;background:#ffffff;"><i data-lucide="user" style="width:16px;height:16px;color:#94a3b8;"></i><span style="font-size:14px;color:#94a3b8;">Jane Dispatcher</span></div></div>
+                    <div style="margin-bottom:14px;"><div style="font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:6px;">Work email</div><div style="display:flex;align-items:center;gap:9px;height:44px;border:1px solid #d6d8dc;border-radius:10px;padding:0 13px;background:#ffffff;"><i data-lucide="mail" style="width:16px;height:16px;color:#94a3b8;"></i><span style="font-size:14px;color:#94a3b8;">you@company.com</span></div></div>
+                    <button style="width:100%;font-family:inherit;font-size:15px;font-weight:700;color:#fff;background:#2563eb;border:none;height:46px;border-radius:10px;cursor:pointer;margin-top:4px;">Create account</button>
+                    <div style="font-size:12.5px;line-height:1.5;color:#94a3b8;margin-top:14px;text-align:center;">We email a confirmation link before your account goes live.</div>
+                  </div>
+                  <div style="position:relative;text-align:center;font-size:13px;color:#c3cbe0;margin-top:20px;">Already have an account? <span style="color:#fff;font-weight:700;text-decoration:underline;">Sign in</span></div>
+                </div>
+                <div style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);">New user? Enter your name + work email and press <strong>Create account</strong> — it's confirmation-first, so you verify by email before the account goes live. <span style="color:var(--tx4);">(Product-accurate render.)</span></div></div>
+              </div>
+            </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:26px 0 10px;">FORGOT PASSWORD</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
+              <div style="position:relative;overflow:visible;">
+                <img src="uploads/guide-shots/auth-forgot.png" alt="Forgot-password — check your email" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
+                <span style="position:absolute;left:50%;top:57%;margin-left:-1px;width:2px;height:calc(43.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:50%;top:57%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:50%;top:calc(100% + 26px);transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">1</span>
+              </div>
+            </figure>
+            <div style="display:flex;gap:10px;align-items:flex-start;margin-top:16px;max-width:760px;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14px;line-height:1.5;color:var(--tx2);">From the sign-in card, choose <strong>Forgot password?</strong> and enter your email. You'll see a <strong>Check your email</strong> confirmation once the reset link is on its way; follow it to set a new password, then <em>Back to sign in</em>.</div></div>
+
+            <div style="display:flex;gap:14px;background:var(--card2);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;margin-top:24px;">
+              <i data-lucide="shield-check" style="width:19px;height:19px;color:var(--tx3);flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--tx2);">Signing in is for viewing AIP, GEN, NOTAM and weather data for operational purposes only. Once you're in, the left nav takes you to every page covered in this guide.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== FOOTER ===== -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:6px 8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:22px;">
+          <span style="font-size:13px;color:var(--tx4);">· Digital Wall operations guide</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--tx4);">
+          <span>Built by</span>
+          <img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:14px;">
+        </div>
+      </div>
+
+      <!--SECTIONS_END-->
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { active: 'overview', theme: 'light' };
+
+  componentDidMount(){
+    try{
+      var saved = (localStorage.getItem('dwguide-theme') === 'dark') ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+      this.setState({ theme: saved });
+    }catch(e){}
+    this.icons();
+    try{
+      this.io = new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{ if(e.isIntersecting) this.setState({ active: e.target.id }); });
+      }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+      document.querySelectorAll('[data-section]').forEach(s=>this.io.observe(s));
+    }catch(e){}
+  }
+  componentDidUpdate(){ this.icons(); }
+  componentWillUnmount(){ try{ this.io && this.io.disconnect(); }catch(e){} }
+  icons(){ try{ window.lucide && window.lucide.createIcons(); }catch(e){} }
+  toggleTheme(){
+    const next = this.state.theme === 'dark' ? 'light' : 'dark';
+    try{ document.documentElement.setAttribute('data-theme', next); localStorage.setItem('dwguide-theme', next); }catch(e){}
+    this.setState({ theme: next });
+  }
+
+  renderVals(){
+    const active = this.state.active;
+    const defs = [
+      ['overview','01','The wall at a glance'],
+      ['timeline','02','Reading the timeline'],
+      ['overlay','03','The flight side-overlay'],
+      ['notam','04','The daily NOTAM check'],
+      ['weather','05','Weather (WX)'],
+      ['console','06','Managing the console'],
+      ['docs','07','AIP & GEN documents'],
+      ['auth','08','Signing in'],
+    ];
+    const toc = defs.map(([id,num,label])=>{
+      const on = id === active;
+      return {
+        id, num, label, href:'#'+id,
+        bg: on ? 'var(--chip)' : 'transparent',
+        bar: on ? '#2563eb' : 'transparent',
+        color: on ? 'var(--accent2)' : 'var(--tx2)',
+        numColor: on ? '#2563eb' : 'var(--tx4)',
+        weight: on ? 700 : 500,
+      };
+    });
+    const dark = this.state.theme === 'dark';
+    return {
+      toc,
+      toggleTheme: () => this.toggleTheme(),
+      themeIcon: dark ? 'sun' : 'moon',
+      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
+    };
+  }
+}
+</script>
+</body>
+</html>

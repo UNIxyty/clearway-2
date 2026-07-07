@@ -282,6 +282,31 @@ export default function ConsoleApp({ page, navigate }) {
                 {presence.length} online
               </span>
             </div>
+            {/* Quick-open instruction guide (served auth-gated at /digital-wall/guide/) */}
+            <a
+              className="cw-hover-surface"
+              href="/digital-wall/guide/"
+              target="_blank"
+              rel="noreferrer"
+              title="Open the Digital Wall instruction guide"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: t.blueDeep,
+                background: t.blueTint,
+                border: `1px solid ${t.blueBorder}`,
+                padding: '7px 13px',
+                borderRadius: 999,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Icon name="info" size={14} />
+              Guide
+            </a>
             <span style={{ width: 1, height: 26, background: t.border }} />
             <div className="cw-hover-surface" style={s.accountChip} title={user?.email || ''}>
               <Avatar name={user?.name} initials={initialsOf(user)} seed={user?.userId} size={30} />

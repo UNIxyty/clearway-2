@@ -229,6 +229,42 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── Instruction guide (Item: guide page) ────────────────────────────
+    // The finished Claude-Design guide served VERBATIM as static files from
+    // digital-wall/guide/ (html + support.js runtime + assets + screenshots).
+    // Auth-gated like the console: no session -> portal sign-in and back.
+    if (pathname === "/guide") {
+      res.writeHead(302, { location: "/digital-wall/guide/" });
+      res.end();
+      return;
+    }
+    if (pathname === "/guide/" || pathname.startsWith("/guide/")) {
+      const guideUser = await authenticateRequest(req);
+      if (!guideUser) {
+        res.writeHead(302, {
+          location: `/login?next=${encodeURIComponent("/digital-wall/guide/")}`,
+        });
+        res.end();
+        return;
+      }
+      const rel = pathname === "/guide/" ? "index.html" : pathname.slice("/guide/".length);
+      const guideRoot = path.resolve(cwd, "guide");
+      const filePath = safeJoin(guideRoot, rel);
+      const fileBuffer = filePath ? await readMaybe(filePath) : null;
+      if (!fileBuffer) {
+        res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Guide file not found.");
+        return;
+      }
+      const guideTypes = { ...contentTypes, ".svg": "image/svg+xml", ".png": "image/png", ".md": "text/markdown; charset=utf-8" };
+      res.writeHead(200, {
+        "content-type": guideTypes[path.extname(filePath).toLowerCase()] ?? "application/octet-stream",
+        "cache-control": "public, max-age=300",
+      });
+      res.end(fileBuffer);
+      return;
+    }
+
     // ── Authentication gate ─────────────────────────────────────────────
     // Every /api/* endpoint requires a Supabase session (verified from the
     // portal's cookies through the shared gateway). When auth is disabled

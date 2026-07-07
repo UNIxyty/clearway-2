@@ -214,15 +214,27 @@ export default function FlightPill({
   const plainLabelW = F.times * 3.2;
   const labelW = depTagged || arrTagged ? plainLabelW * 1.8 : plainLabelW;
 
+  // ── Degradation priority (Item 10): ICAOs beat timings ────────────────────
+  // When space is tight the pill drops content in this order:
+  //   1. inside badges (LIM circles) — they yield before the second ICAO,
+  //   2. the times row below the pill (timings drop FIRST among text),
+  //   3. the arrival ICAO (both → dep-only),
+  //   4. the departure ICAO (dep-only → none) — only when truly no room.
+  // A missing ICAO in the DATA ('UNK') is a data gap, rendered dimmed — it is
+  // never dropped because a timing is missing, and vice versa.
   const compactTimes = timelinePx > 0 && pillPx < labelW * 4.2;
-  const showBadgesInside = mainPx >= sz(100);
   const icaoW = F.icao * 2.6;
-  // Both codes need room for the divider, paddings and the gap — otherwise
-  // fall back to ADEP-only rather than ellipsizing ("EV…").
+  // Both codes need room for the divider and paddings — otherwise fall back
+  // to ADEP-only rather than ellipsizing ("EV…"). Badges are NOT reserved
+  // space here: they only render once both ICAOs already fit comfortably.
   const showFull = timelinePx > 0
-    ? mainPx >= icaoW * 2 + sz(48) + (showBadgesInside && limIndices.length > 0 ? sz(34) : 0)
+    ? mainPx >= icaoW * 2 + sz(22)
     : (mainSectionF / totalF) > 0.14;
-  const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(10) : (mainSectionF / totalF) > 0.08;
+  const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(6) : (mainSectionF / totalF) > 0.08;
+  const showBadgesInside = mainPx >= icaoW * 2 + sz(58);
+  // Timings drop before ICAOs: on a pill too narrow for even the compact
+  // combined label, render no times row at all (details live in the overlay).
+  const showTimes = timelinePx > 0 ? pillPx >= labelW * 1.15 : true;
 
   // Boundary (delay-crossing) labels position by REAL times. Each needs
   // clearance from the endpoint labels and from each other — the later one
@@ -380,11 +392,11 @@ export default function FlightPill({
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showRoute && (
                 <>
-                  <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{dep}</span>
+                  <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
                   {showFull && (
                     <>
                       <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                      <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{arr}</span>
+                      <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
                     </>
                   )}
                 </>
@@ -441,7 +453,9 @@ export default function FlightPill({
         </div>
       </div>
 
-      {compactTimes ? (
+      {!showTimes ? (
+        <div style={{ height: F.timesRow, marginTop: sz(2) }} />
+      ) : compactTimes ? (
         // Narrow pill: one combined label instead of colliding absolute ones.
         <div
           style={{

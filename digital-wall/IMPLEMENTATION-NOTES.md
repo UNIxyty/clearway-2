@@ -597,3 +597,35 @@ working in isolation.
 - **Overlay**: concise decoded block per airport (category chip, wind,
   visibility, ceiling, temp/dew, QNH, observed) — not the old raw METAR dump;
   NOTAM text stays out; view-only; scales with the display setting.
+
+## Digital Wall items 1–10 (cc wall-changes prompt)
+
+1. Display header shows the Clearway logo (console asset, forced white,
+   scale-aware, text fallback).
+2. Wall pages use the portal's favicon (/PFP.png — same origin, same file).
+3. Auto-return to "now": AUTO_RETURN_TO_NOW_MS (10s) idle after a USER
+   gesture while off-center → smooth scroll back; gestures reset/cancel;
+   never fights initial centering.
+4. **Flight-cache clear**: POST /api/admin/clear-flight-cache (auth-gated) —
+   drops cached flights + sync checkpoints (next sync = full initialSync with
+   current normalization), kicks a sync, logs/returns the count. Flights
+   only; limitations/clocks/important/notam-check untouched.
+5. NOTAM check records show Start / Expiry / Issued (release date extracted
+   from FAA-style CREATED: lines when present; muted — when absent; PERM
+   handled; EST-suffixed stamps now parse).
+6. WX category markers moved ABOVE the pill into the NTM/IMP marker row
+   (same chip treatment, per-airport ADEP+ADES, standard category colours).
+7. Sidebar legend + limitation cards fully scale-aware (gaps/paddings too).
+8. POST /api/admin/reset-important-reviews — one-shot reviewed:false on all
+   IMP entries (content/criteria/active untouched; count logged).
+9. **Limitations schema v2**: no type taxonomy; { isPermanent (undeletable —
+   deactivate instead), startDate/endDate (UTC days, end inclusive; window
+   gates matching AND the wall sidebar; permanent ignores it),
+   match { flights[{nid,label}], airportIcaos[], countries[] } } with OR
+   semantics across all targets. Legacy entries auto-migrate on cache load
+   (type dropped → Airport/Country match, non-permanent, no window). Console
+   page rebuilt with match-type selector + flight search (by flightNid).
+10. **Pill priority**: ICAOs beat timings. Degradation order: inside badges →
+    times row → arrival ICAO → departure ICAO; data-gap ICAOs (UNK) render
+    dimmed, never dropped for a missing timing. Audit: 0 readable collisions
+    at scales 1.0–2.0 / zoom 0.5–1.

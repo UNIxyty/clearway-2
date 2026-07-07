@@ -109,6 +109,24 @@ export class ImportantStore {
     return this.entries.filter((e) => e.isActive !== false);
   }
 
+  /**
+   * One-shot force re-review (Item 8): every entry back to needs-review.
+   * Content, criteria and active state are untouched. Returns the count of
+   * entries that were flipped.
+   */
+  async resetAllReviews() {
+    let reset = 0;
+    for (const entry of this.entries) {
+      if (entry.reviewed !== false) {
+        entry.reviewed = false;
+        reset += 1;
+      }
+    }
+    if (reset > 0) await this.persist();
+    console.log(`[important] reset ${reset} entr${reset === 1 ? "y" : "ies"} to needs-review`);
+    return reset;
+  }
+
   async upsert(input) {
     const existing = input.id ? this.entries.find((e) => e.id === input.id) : null;
     const next = sanitizeImportantEntry(input, existing);

@@ -614,6 +614,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── Important entries (standing operational limitations, class IMP) ──
+    // One-shot force re-review of every IMP entry (Item 8; auth-gated).
+    if (pathname === "/api/admin/reset-important-reviews" && req.method === "POST") {
+      try {
+        const reset = await importantStore.resetAllReviews();
+        sseHub.broadcast({ type: "important.changed", action: "reset-reviews", reset });
+        sendJson(res, { ok: true, reset });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
+      return;
+    }
+
     if (pathname === "/api/important" && req.method === "GET") {
       const includeInactive = url.searchParams.get("includeInactive") !== "false";
       const withMatches = url.searchParams.get("withMatches") === "true";

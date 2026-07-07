@@ -15,6 +15,8 @@ edits.
 - `display-sidebar-legend.png` — Sidebar close-up: colour legend + manual limitation cards.
 - `display-overlay.png` — Side overlay open for a real flight: route + timings, unreviewed alerts, decoded weather for ADEP+ADES, IMP, limitations.
 - `display-sign-notam-checked.png` — Wall sign: NOTAM CHECKED (green, all airports reviewed).
+- `display-sign-check-notam.png` — Wall sign: !!! CHECK NOTAM !!! (red pulsing warning while airports remain unreviewed). REAL — captured by cycling one airport's ack off and back on (owner-approved; console not yet in ops use).
+- `console-notam-check-unchecked.png` — NOTAM Check page in the warning state: red banner, progress bar short of complete, an airport card with the blue “Mark checked” button.
 - `display-zoom-narrow.png` — Hour spacing 0.75× (more hours on screen).
 - `display-zoom-wide.png` — Hour spacing 1.8× (wider gridlines).
 - `display-scrolled-away.png` — Timeline scrolled away from "now".
@@ -44,5 +46,4 @@ edits.
 
 ## Still awaiting live conditions (checked again 2026-07-08 ~01:15 Riga — not present; do NOT fake)
 - still awaiting: **delayed / CTOT / airborne pill states** — live data had only scheduled+arrived in both capture windows (night). Capture during active daytime ops.
-- still awaiting: **red `!!! CHECK NOTAM !!!` wall sign** — the sign was CHECKED (all 11 airports acked); the warning state exists only after the 10:00 Riga run and before ops acks. Capture 10:00–11:00 Riga.
 - still awaiting: **failed airport with Retry** — no airport fetch was failing in either window (intermittent).

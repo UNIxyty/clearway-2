@@ -1,4 +1,5 @@
 import { clamp } from '../data';
+import Icon from './console/icons';
 
 // Pill body fill = flight state, derived from real Leon semantics
 // (digital-wall/LEON-PILL-MAPPING.md):
@@ -71,14 +72,16 @@ function hexA(hex, alpha) {
 /**
  * Per-airport weather marker ABOVE the pill (Item 6) — same row, size and
  * chip treatment as the NTM marker, coloured by that airport's
- * flight_category. ADEP chip renders before the ADES chip.
+ * flight_category. ADEP chip renders before the ADES chip, and each carries
+ * a departure/arrival glyph so it's clear which airport it refers to.
  */
-function WxMark({ category, icao, sz }) {
+function WxMark({ category, icao, side, sz }) {
   const color = WX_CATEGORY_COLORS[category];
   if (!color) return null;
+  const isDep = side === 'dep';
   return (
     <span
-      title={`${icao} ${category} (CheckWX)`}
+      title={`${icao} ${category} (CheckWX, ${isDep ? 'departure' : 'arrival'})`}
       style={{
         fontFamily: "'IBM Plex Mono',monospace",
         fontSize: sz(9.5),
@@ -91,8 +94,12 @@ function WxMark({ category, icao, sz }) {
         color,
         borderColor: hexA(color, 0.55),
         background: hexA(color, 0.16),
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: sz(3),
       }}
     >
+      <Icon name={isDep ? 'plane-takeoff' : 'plane-landing'} size={sz(10)} strokeWidth={2.4} />
       WX
     </span>
   );
@@ -312,8 +319,8 @@ export default function FlightPill({
               !
             </span>
           )}
-          <WxMark category={flight.wxDep} icao={dep} sz={sz} />
-          <WxMark category={flight.wxArr} icao={arr} sz={sz} />
+          <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} />
+          <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} />
           {alertTypes.map((type) => (
             <span
               key={type}

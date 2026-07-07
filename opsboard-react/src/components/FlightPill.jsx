@@ -44,8 +44,8 @@ function readableIdColor(hex, fallback) {
 }
 
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small
-// type badges on the pill — they are NOT sidebar entries. (WX badges are
-// gone: weather markers are the per-airport category dots below.)
+// type badges ABOVE the pill — they are NOT sidebar entries. WX markers
+// (per-airport CheckWX categories) share the same row and chip treatment.
 const ALERT_MARK = {
   NTM: { text: '#ffab73', border: 'rgba(255,145,80,.5)', bg: 'rgba(255,145,80,.18)' },
 };
@@ -62,22 +62,39 @@ export const WX_CATEGORY_COLORS = {
   LIFR: '#b03aa0', // worst — deep magenta, never green
 };
 
-function WxDot({ category, icao, sz }) {
+/** Hex -> rgba with alpha, for the marker chip border/backing. */
+function hexA(hex, alpha) {
+  const n = parseInt(String(hex).slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+/**
+ * Per-airport weather marker ABOVE the pill (Item 6) — same row, size and
+ * chip treatment as the NTM marker, coloured by that airport's
+ * flight_category. ADEP chip renders before the ADES chip.
+ */
+function WxMark({ category, icao, sz }) {
   const color = WX_CATEGORY_COLORS[category];
   if (!color) return null;
   return (
     <span
       title={`${icao} ${category} (CheckWX)`}
       style={{
-        width: sz(11),
-        height: sz(11),
-        borderRadius: '50%',
-        background: color,
-        boxShadow: 'inset 0 0 0 1px rgba(10,13,22,.4)',
-        flexShrink: 0,
-        display: 'inline-block',
+        fontFamily: "'IBM Plex Mono',monospace",
+        fontSize: sz(9.5),
+        fontWeight: 700,
+        border: '1px solid',
+        borderRadius: 4,
+        padding: `1px ${sz(4)}px`,
+        lineHeight: `${sz(12)}px`,
+        letterSpacing: '.5px',
+        color,
+        borderColor: hexA(color, 0.55),
+        background: hexA(color, 0.16),
       }}
-    />
+    >
+      WX
+    </span>
   );
 }
 
@@ -202,10 +219,8 @@ export default function FlightPill({
   const icaoW = F.icao * 2.6;
   // Both codes need room for the divider, paddings and the gap — otherwise
   // fall back to ADEP-only rather than ellipsizing ("EV…").
-  // The two WX dots + their gaps add ~sz(34) to the route row.
-  const wxDotsW = (flight.wxDep ? sz(17) : 0) + (flight.wxArr ? sz(17) : 0);
   const showFull = timelinePx > 0
-    ? mainPx >= icaoW * 2 + sz(48) + wxDotsW + (showBadgesInside && limIndices.length > 0 ? sz(34) : 0)
+    ? mainPx >= icaoW * 2 + sz(48) + (showBadgesInside && limIndices.length > 0 ? sz(34) : 0)
     : (mainSectionF / totalF) > 0.14;
   const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(10) : (mainSectionF / totalF) > 0.08;
 
@@ -285,6 +300,8 @@ export default function FlightPill({
               !
             </span>
           )}
+          <WxMark category={flight.wxDep} icao={dep} sz={sz} />
+          <WxMark category={flight.wxArr} icao={arr} sz={sz} />
           {alertTypes.map((type) => (
             <span
               key={type}
@@ -363,21 +380,11 @@ export default function FlightPill({
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showRoute && (
                 <>
-                  {/* Per-airport CheckWX category markers: one at each end of
-                      the pill (ADEP left, ADES right) — weather matters at
-                      both ends. Dots sit inside the body so they never fight
-                      the time labels or the delay hatch. */}
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(6), minWidth: 0 }}>
-                    <WxDot category={flight.wxDep} icao={dep} sz={sz} />
-                    <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{dep}</span>
-                  </span>
+                  <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{dep}</span>
                   {showFull && (
                     <>
                       <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(6), minWidth: 0 }}>
-                        <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{arr}</span>
-                        <WxDot category={flight.wxArr} icao={arr} sz={sz} />
-                      </span>
+                      <span style={{ ...icaoStyle(F.icao), color: theme.text }}>{arr}</span>
                     </>
                   )}
                 </>

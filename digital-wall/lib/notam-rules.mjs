@@ -132,7 +132,8 @@ export function parseNotamTime(raw) {
   const value = String(raw ?? "").trim().toUpperCase();
   if (!value) return null;
   if (value.includes("PERM")) return "PERM";
-  const compact = value.match(/\b(\d{10})\b/);
+  // Accept letter suffixes: "2608132359EST" (estimated) / "...CET" etc.
+  const compact = value.match(/\b(\d{10})(?=[A-Z]|\b)/);
   if (compact) {
     const s = compact[1];
     const year = 2000 + Number(s.slice(0, 2));

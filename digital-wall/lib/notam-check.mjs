@@ -30,6 +30,16 @@ import {
 
 const CHECK_WINDOW_MS = 24 * 3600_000;
 
+/** Release/creation date, when the record has one ("CREATED: 07 Jul 2026 01:23:00" or a parsable stamp). */
+function issuedText(raw, nowMs) {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  const compact = parseNotamTime(value);
+  if (typeof compact === "number") return formatNotamTime(compact, nowMs);
+  const parsed = Date.parse(value.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value} UTC`);
+  return Number.isFinite(parsed) ? formatNotamTime(parsed, nowMs) : null;
+}
+
 function checkTz() {
   return String(process.env.NOTAM_CHECK_TZ || "Europe/Riga").trim();
 }
@@ -228,6 +238,7 @@ export class NotamCheckService {
       endDateUtc: notam.endDateUtc ?? null,
       validFrom: formatNotamTime(parseNotamTime(notam.startDateUtc), nowMs),
       validTill: formatNotamTime(parseNotamTime(notam.endDateUtc), nowMs),
+      issued: issuedText(notam.created, nowMs),
       condition: notam.condition ?? "",
       status: notamStatus(notam, nowMs),
       inWindow: notamOverlapsWindow(notam, nowMs, windowTo),

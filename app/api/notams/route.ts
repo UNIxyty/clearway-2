@@ -40,6 +40,7 @@ export type NotamItem = {
   class: string;
   startDateUtc: string;
   endDateUtc: string;
+  created?: string; // release/creation date when the source exposes one
   condition: string;
 };
 

@@ -33,7 +33,14 @@ const mono = { fontFamily: t.mono };
 function NotamRecord({ notam, groups, muted = false }) {
   const top = notam.matches?.[0] || null;
   const color = top?.color || t.faint;
-  const validity = notam.validTill === 'PERM' ? 'PERM' : `${notam.validFrom}  →  ${notam.validTill}`;
+  // Item 5: start + expiry + release date, each explicit; a genuinely absent
+  // field renders a muted em-dash instead of a guess.
+  const DateBit = ({ label, value }) => (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      <span style={{ color: t.ghost }}>{label} </span>
+      <span style={{ color: value ? t.muted : t.ghost, fontWeight: value ? 600 : 400 }}>{value || '—'}</span>
+    </span>
+  );
   return (
     <div
       style={{
@@ -69,7 +76,11 @@ function NotamRecord({ notam, groups, muted = false }) {
           <span style={{ fontSize: 11, color: t.faint }}>outside today +24h</span>
         )}
         <div style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, color: t.faint }}>{validity}</span>
+        <span style={{ ...mono, fontSize: 12, display: 'inline-flex', gap: 10, flexWrap: 'wrap' }}>
+          <DateBit label="Start" value={notam.validFrom !== '—' ? notam.validFrom : null} />
+          <DateBit label="Expiry" value={notam.validTill !== '—' ? notam.validTill : null} />
+          <DateBit label="Issued" value={notam.issued} />
+        </span>
       </div>
       <div style={{ ...mono, fontSize: 13, lineHeight: 1.65, color: t.body, padding: '11px 13px' }}>
         <NotamText text={notam.condition} groups={groups} />

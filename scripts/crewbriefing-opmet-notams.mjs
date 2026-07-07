@@ -110,12 +110,17 @@ function formatCrewBriefingNotamItem(item, icao) {
   const location = text.match(/\bA\)\s*([A-Z0-9]{4})\b/m)?.[1] || icao;
   const startDateUtc = text.match(/\bB\)\s*([0-9]{10,12}[A-Z]*)\b/m)?.[1] || "";
   const endDateUtc = text.match(/\bC\)\s*([0-9]{10,12}[A-Z]*)\b/m)?.[1] || "";
+  // Release/creation date: only some sources embed it (FAA-style
+  // "CREATED: 07 Jul 2026 01:23:00"); absent on most CrewBriefing rows —
+  // consumers must render a muted placeholder rather than a guess.
+  const created = text.match(/\bCREATED:\s*([0-9]{1,2}\s+[A-Za-z]{3}\s+[0-9]{4}(?:\s+[0-9:]{4,8})?)/m)?.[1] || "";
   return {
     location,
     number,
     class: klass,
     startDateUtc,
     endDateUtc,
+    created,
     condition: text,
   };
 }

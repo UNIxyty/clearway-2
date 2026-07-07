@@ -4,6 +4,7 @@ import {
   fetchCountries,
   fetchLimitations,
   searchAirports,
+  searchFlights,
   setLimitationActive,
   upsertLimitation,
 } from '../../services/timelineApi';
@@ -17,28 +18,58 @@ import {
   FieldLabel,
   IconButton,
   InfoBanner,
-  limChip,
   LoadingState,
   PageHeader,
   StatusPill,
   t,
   TextArea,
   TextInput,
-  TypeChip,
   Toggle,
   useToast,
 } from './ui';
 
-// Limitations — manual text limitations for the wall sidebar (approved
-// design). NOTAM/weather (NTM/WX) and IMP markers are generated automatically
-// and managed elsewhere; this page intentionally lists only the hand-written
-// ones.
+// Limitations — manual text limitations for the wall sidebar, reworked model
+// (Item 9): NO type taxonomy. A limitation is its text + how it matches +
+// its schedule:
+//  - match types: Flight (picked from the real feed, matched by flightNid),
+//    Country, Airport, or Mixed — OR semantics across every selected target.
+//  - optional start/end date window (UTC days, end inclusive); permanent
+//    entries ignore the window and cannot be deleted (deactivate instead).
 
-const LIM_TYPES = ['OPS', 'AOG', 'WX', 'CTOT', 'PAX', 'CREW'];
-const EMPTY_FORM = { title: '', description: '', type: 'OPS', airportIcaos: [], countries: [] };
+const MATCH_TYPES = [
+  { key: 'flight', label: 'Flight', hint: 'a specific flight from the feed' },
+  { key: 'airport', label: 'Airport', hint: 'one or more ICAOs' },
+  { key: 'country', label: 'Country', hint: 'one or more countries' },
+  { key: 'mixed', label: 'Mixed', hint: 'any combination (OR)' },
+];
 
-function WallPreview({ type, title, desc, scope }) {
-  const chip = limChip(type);
+const EMPTY_FORM = {
+  title: '',
+  description: '',
+  isPermanent: false,
+  startDate: '',
+  endDate: '',
+  flights: [], // [{nid, label}]
+  airportIcaos: [],
+  countries: [],
+};
+
+function scopeParts(item) {
+  const match = item.match || item;
+  return [
+    ...(match.flights || []).map((f) => f.label || f.nid),
+    ...(match.airportIcaos || []),
+    ...(match.countries || []),
+  ];
+}
+
+function windowText(item) {
+  if (item.isPermanent) return 'permanent';
+  const bits = [item.startDate ? `from ${item.startDate}` : null, item.endDate ? `until ${item.endDate}` : null].filter(Boolean);
+  return bits.join(' ') || 'always';
+}
+
+function WallPreview({ title, desc, scope, permanent, window }) {
   return (
     <div style={{ width: 340, flex: 'none', position: 'sticky', top: 0 }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
@@ -48,8 +79,15 @@ function WallPreview({ type, title, desc, scope }) {
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#6b7280', marginBottom: 14 }}>
           LIMITATIONS
         </div>
-        <div style={{ background: t.darkCard, borderRadius: 12, padding: 18, borderLeft: `5px solid ${chip.c}` }}>
-          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.05em', color: chip.c }}>{type}</span>
+        <div style={{ background: t.darkCard, borderRadius: 12, padding: 18, borderLeft: '5px solid #f0c060' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {permanent && (
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: '#f0c060' }}>PERMANENT</span>
+            )}
+            {!permanent && window !== 'always' && (
+              <span style={{ fontSize: 12, fontFamily: t.mono, color: '#8f99ab' }}>{window}</span>
+            )}
+          </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: '8px 0 10px', lineHeight: 1.15 }}>
             {title || 'EGLL slot enforcement'}
           </div>
@@ -70,6 +108,7 @@ export default function LimitationsPage() {
   const [items, setItems] = useState([]);
   const [countries, setCountries] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [matchType, setMatchType] = useState('airport');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState('');
@@ -96,17 +135,32 @@ export default function LimitationsPage() {
     return subscribeWallStream('limitations.changed', load, { surface: 'console' });
   }, []);
 
-  const scopeText = useMemo(() => {
-    const parts = [...form.airportIcaos, ...form.countries];
-    return parts.join(' · ');
-  }, [form.airportIcaos, form.countries]);
+  const showFlights = matchType === 'flight' || matchType === 'mixed';
+  const showAirports = matchType === 'airport' || matchType === 'mixed';
+  const showCountries = matchType === 'country' || matchType === 'mixed';
+
+  const scopeText = useMemo(
+    () => scopeParts({ match: { flights: form.flights, airportIcaos: form.airportIcaos, countries: form.countries } }).join(' · '),
+    [form.flights, form.airportIcaos, form.countries]
+  );
 
   async function save(event) {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await upsertLimitation(form);
+      await upsertLimitation({
+        title: form.title,
+        description: form.description,
+        isPermanent: form.isPermanent,
+        startDate: form.startDate || null,
+        endDate: form.endDate || null,
+        match: {
+          flights: showFlights ? form.flights : [],
+          airportIcaos: showAirports ? form.airportIcaos : [],
+          countries: showCountries ? form.countries : [],
+        },
+      });
       setForm(EMPTY_FORM);
       flash('Limitation saved · now on wall sidebar');
       await load();
@@ -148,13 +202,13 @@ export default function LimitationsPage() {
     <div>
       <PageHeader
         title="Limitations"
-        desc="Write the manual text limitations shown on the wall sidebar. These are human-authored — NOTAM, weather and IMP markers are generated automatically and managed elsewhere."
-        descMax={620}
+        desc="Write the manual text limitations shown on the wall sidebar. A limitation is its text, how it matches (flight, airport, country or any mix — OR semantics) and its schedule. NOTAM, weather and IMP markers are generated automatically and managed elsewhere."
+        descMax={680}
       />
 
       <InfoBanner>
-        Each active limitation renders as a large card on the wall sidebar with its full text visible — no clicking,
-        readable from across the ops room. Use the live preview to see exactly how it will read.
+        Each active limitation renders as a large card on the wall sidebar within its date window (permanent ones
+        always). Matching is OR across every selected target — “flight X or airport Y” flags both.
       </InfoBanner>
 
       <ErrorBanner>{error}</ErrorBanner>
@@ -185,9 +239,12 @@ export default function LimitationsPage() {
                     opacity: active ? 1 : 0.65,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <TypeChip type={item.type || 'OPS'} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 15.5, fontWeight: 700 }}>{item.title}</span>
+                    {item.isPermanent && (
+                      <StatusPill color={t.amber} bg={t.amberTint}>PERMANENT</StatusPill>
+                    )}
+                    <span style={{ fontSize: 12, fontFamily: t.mono, color: t.faint }}>{windowText(item)}</span>
                     <div style={{ flex: 1 }} />
                     <StatusPill
                       color={matches > 0 ? t.blueDeep : t.faint}
@@ -196,11 +253,15 @@ export default function LimitationsPage() {
                       {matches > 0 ? `matches ${matches} flight${matches > 1 ? 's' : ''}` : 'no current matches'}
                     </StatusPill>
                     <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
-                    <IconButton icon="trash-2" title="Delete limitation" onClick={() => remove(item)} />
+                    {/* Permanent limitations cannot be deleted (backend guards
+                        too) — deactivate is the way to retire them. */}
+                    {!item.isPermanent && (
+                      <IconButton icon="trash-2" title="Delete limitation" onClick={() => remove(item)} />
+                    )}
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.5, color: t.body, marginBottom: 6 }}>{item.description || '—'}</div>
                   <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono }}>
-                    {[...(item.airportIcaos || []), ...(item.countries || [])].join(' · ') || 'global'}
+                    {scopeParts(item).join(' · ') || 'matches nothing (no targets)'}
                   </div>
                 </div>
               );
@@ -227,69 +288,131 @@ export default function LimitationsPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                 />
               </div>
+
               <div style={{ marginBottom: 14 }}>
-                <FieldLabel>Type</FieldLabel>
+                <FieldLabel>Match type</FieldLabel>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {LIM_TYPES.map((type) => {
-                    const chip = limChip(type);
-                    const on = form.type === type;
+                  {MATCH_TYPES.map((mt) => {
+                    const on = matchType === mt.key;
                     return (
                       <button
-                        key={type}
+                        key={mt.key}
                         type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, type }))}
+                        onClick={() => setMatchType(mt.key)}
+                        title={mt.hint}
                         style={{
                           fontFamily: 'inherit',
                           fontSize: 12.5,
                           fontWeight: 700,
                           letterSpacing: '0.04em',
-                          border: `1px solid ${on ? chip.c : t.borderInput}`,
-                          background: on ? chip.b : '#fff',
-                          color: on ? chip.c : t.muted,
+                          border: `1px solid ${on ? t.blue : t.borderInput}`,
+                          background: on ? t.blueTint : '#fff',
+                          color: on ? t.blueDeep : t.muted,
                           padding: '7px 13px',
                           borderRadius: 8,
                           cursor: 'pointer',
                         }}
                       >
-                        {type}
+                        {mt.label}
                       </button>
                     );
                   })}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-                <div>
-                  <FieldLabel>Airports (ICAO)</FieldLabel>
+
+              {showFlights && (
+                <div style={{ marginBottom: 14 }}>
+                  <FieldLabel>Flights</FieldLabel>
                   <ChipInput
-                    values={form.airportIcaos}
-                    placeholder="Add ICAO…"
-                    onAdd={(v) => setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, v.toUpperCase()])] }))}
-                    onRemove={(v) => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((x) => x !== v) }))}
+                    values={form.flights.map((f) => f.label)}
+                    placeholder="Search callsign / registration / ICAO…"
+                    onAdd={() => {}}
+                    onSelect={(option) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        flights: prev.flights.some((f) => f.nid === option.value)
+                          ? prev.flights
+                          : [...prev.flights, { nid: option.value, label: option.label }],
+                      }))
+                    }
+                    onRemove={(label) => setForm((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.label !== label) }))}
                     suggest={async (q) => {
-                      const payload = await searchAirports(q, 12);
-                      return (payload.airports || []).map((a) => ({
-                        value: a.icao,
-                        label: `${a.icao}${a.name ? ` · ${a.name}` : ''}${a.country ? ` · ${a.country}` : ''}`,
-                      }));
+                      const rows = await searchFlights(q, 12);
+                      return rows.map((r) => ({ value: r.nid, label: r.label }));
                     }}
                   />
                 </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                {showAirports && (
+                  <div>
+                    <FieldLabel>Airports (ICAO)</FieldLabel>
+                    <ChipInput
+                      values={form.airportIcaos}
+                      placeholder="Add ICAO…"
+                      onAdd={(v) => setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, v.toUpperCase()])] }))}
+                      onRemove={(v) => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((x) => x !== v) }))}
+                      suggest={async (q) => {
+                        const payload = await searchAirports(q, 12);
+                        return (payload.airports || []).map((a) => ({
+                          value: a.icao,
+                          label: `${a.icao}${a.name ? ` · ${a.name}` : ''}${a.country ? ` · ${a.country}` : ''}`,
+                        }));
+                      }}
+                    />
+                  </div>
+                )}
+                {showCountries && (
+                  <div>
+                    <FieldLabel>Countries</FieldLabel>
+                    <ChipInput
+                      values={form.countries}
+                      placeholder="Add country…"
+                      onAdd={(v) => setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, v])] }))}
+                      onRemove={(v) => setForm((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== v) }))}
+                      suggest={async (q) =>
+                        countries
+                          .filter((c) => c.toLowerCase().includes(q.toLowerCase()))
+                          .slice(0, 12)
+                          .map((c) => ({ value: c, label: c }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16, alignItems: 'end' }}>
                 <div>
-                  <FieldLabel>Countries</FieldLabel>
-                  <ChipInput
-                    values={form.countries}
-                    placeholder="Add country…"
-                    onAdd={(v) => setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, v])] }))}
-                    onRemove={(v) => setForm((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== v) }))}
-                    suggest={async (q) =>
-                      countries
-                        .filter((c) => c.toLowerCase().includes(q.toLowerCase()))
-                        .slice(0, 12)
-                        .map((c) => ({ value: c, label: c }))
-                    }
+                  <FieldLabel>Start date (optional)</FieldLabel>
+                  <TextInput
+                    type="date"
+                    value={form.startDate}
+                    disabled={form.isPermanent}
+                    onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))}
                   />
                 </div>
+                <div>
+                  <FieldLabel>End date (optional)</FieldLabel>
+                  <TextInput
+                    type="date"
+                    value={form.endDate}
+                    disabled={form.isPermanent}
+                    onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 8 }}>
+                  <Toggle
+                    size="sm"
+                    on={form.isPermanent}
+                    onToggle={() => setForm((prev) => ({ ...prev, isPermanent: !prev.isPermanent }))}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.body }}>
+                    Permanent <span style={{ color: t.faint, fontWeight: 400 }}>(always active, cannot be deleted)</span>
+                  </span>
+                </div>
               </div>
+
               <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
                 Save limitation
               </Button>
@@ -297,7 +420,13 @@ export default function LimitationsPage() {
           </Card>
         </div>
 
-        <WallPreview type={form.type} title={form.title} desc={form.description} scope={scopeText} />
+        <WallPreview
+          title={form.title}
+          desc={form.description}
+          scope={scopeText}
+          permanent={form.isPermanent}
+          window={windowText({ isPermanent: form.isPermanent, startDate: form.startDate, endDate: form.endDate })}
+        />
       </div>
     </div>
   );

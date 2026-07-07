@@ -226,6 +226,31 @@ export async function saveDisplayClocks(clocks) {
  * backend field (flightNid, timings, delays, limitations) that the board
  * mapping strips.
  */
+/**
+ * Flight search for the Limitations "Flight" match type: filters the cached
+ * flight feed by callsign / registration / ICAO. Returns
+ * [{ nid, label }] — nid is the stable Leon flightNid the matcher uses.
+ */
+export async function searchFlights(query, limit = 12) {
+  const q = String(query || '').trim().toUpperCase();
+  if (!q) return [];
+  const payload = await fetchTimelineRaw({ refresh: false });
+  const out = [];
+  for (const group of payload.aircraft || []) {
+    for (const flight of group.flights || []) {
+      const hay = `${flight.flightNo || ''} ${group.registration || ''} ${flight.adep?.icao || ''} ${flight.ades?.icao || ''}`.toUpperCase();
+      if (!hay.includes(q)) continue;
+      const day = String(flight.startTimeUTC || '').slice(5, 10);
+      out.push({
+        nid: String(flight.flightNid),
+        label: `${flight.flightNo || 'UNKNOWN'} ${flight.adep?.icao || '?'}→${flight.ades?.icao || '?'} · ${day}`,
+      });
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
 export async function fetchTimelineRaw({ refresh = false } = {}) {
   const now = new Date();
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0));

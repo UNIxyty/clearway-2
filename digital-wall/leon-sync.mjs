@@ -425,6 +425,60 @@ function healCachedFlight(flight) {
   return healed;
 }
 
+// ── Manual limitations, reworked model (Item 9) ─────────────────────────────
+// { id, title, description, isPermanent, startDate|null, endDate|null,
+//   match: { flights: [{nid,label}], airportIcaos: [], countries: [] },
+//   isActive, createdAt, updatedAt }
+// No more type taxonomy. Matching is OR across every selected target
+// (flight OR airport OR country). The date window gates matching AND the
+// sidebar; permanent entries ignore the window and cannot be deleted.
+
+function migrateCustomLimitation(item) {
+  if (!item) return item;
+  if (item.match && typeof item.match === "object") {
+    return {
+      ...item,
+      isPermanent: item.isPermanent === true,
+      startDate: item.startDate ?? null,
+      endDate: item.endDate ?? null,
+      match: {
+        flights: Array.isArray(item.match.flights) ? item.match.flights : [],
+        airportIcaos: Array.isArray(item.match.airportIcaos) ? item.match.airportIcaos : [],
+        countries: Array.isArray(item.match.countries) ? item.match.countries : [],
+      },
+    };
+  }
+  // Legacy shape: {type, airportIcaos, countries} -> Airport/Country match,
+  // type dropped, non-permanent, no window.
+  const { type: _droppedType, airportIcaos, countries, ...rest } = item;
+  return {
+    ...rest,
+    isPermanent: false,
+    startDate: null,
+    endDate: null,
+    match: {
+      flights: [],
+      airportIcaos: Array.isArray(airportIcaos) ? airportIcaos : [],
+      countries: Array.isArray(countries) ? countries : [],
+    },
+  };
+}
+
+/** Inside the optional [startDate .. endDate] window (UTC calendar days;
+ *  end is inclusive end-of-day). Permanent entries are always in-window. */
+function limitationInWindow(item, nowMs = Date.now()) {
+  if (item?.isPermanent) return true;
+  if (item?.startDate) {
+    const startMs = Date.parse(`${item.startDate}T00:00:00Z`);
+    if (Number.isFinite(startMs) && nowMs < startMs) return false;
+  }
+  if (item?.endDate) {
+    const endMs = Date.parse(`${item.endDate}T23:59:59.999Z`);
+    if (Number.isFinite(endMs) && nowMs > endMs) return false;
+  }
+  return true;
+}
+
 function groupFlights(records) {
   const groups = new Map();
   for (const row of records) {
@@ -716,7 +770,7 @@ export class LeonTimelineService {
       this.rawLimitations = payload.rawLimitations;
     }
     if (Array.isArray(payload.customLimitations)) {
-      this.customLimitations = payload.customLimitations;
+      this.customLimitations = payload.customLimitations.map(migrateCustomLimitation);
     }
 
     if (droppedStatusless > 0) {
@@ -1487,7 +1541,10 @@ export class LeonTimelineService {
   }
 
   getLimitations() {
-    const active = this.customLimitations.filter((item) => item.isActive !== false);
+    const nowMs = Date.now();
+    const active = this.customLimitations.filter(
+      (item) => item.isActive !== false && limitationInWindow(item, nowMs)
+    );
     return {
       source: this.state.source,
       syncedAt: this.state.lastRunAt,
@@ -1536,22 +1593,32 @@ export class LeonTimelineService {
   }
 
   getMatchedLimitationIds(flight) {
-    const active = this.customLimitations.filter((item) => item.isActive !== false);
+    const nowMs = Date.now();
+    const active = this.customLimitations.filter(
+      (item) => item.isActive !== false && limitationInWindow(item, nowMs)
+    );
     if (active.length === 0) return [];
     const depIcao = normalizeIcao(flight?.adep?.icao);
     const arrIcao = normalizeIcao(flight?.ades?.icao);
     const depCountry = this.getFlightCountryByIcao(depIcao);
     const arrCountry = this.getFlightCountryByIcao(arrIcao);
+    const flightNid = String(flight?.flightNid ?? "");
 
     const matched = [];
     for (const item of active) {
-      const airportSet = new Set((item.airportIcaos || []).map(normalizeIcao).filter(Boolean));
-      const countrySet = new Set((item.countries || []).map(normalizeCountry).filter(Boolean));
+      const match = item.match || {};
+      // OR semantics across every selected target: a flight matches when it
+      // IS one of the picked flights, or touches a picked airport, or
+      // touches a picked country.
+      const flightSet = new Set((match.flights || []).map((f) => String(f?.nid ?? f)).filter(Boolean));
+      const airportSet = new Set((match.airportIcaos || []).map(normalizeIcao).filter(Boolean));
+      const countrySet = new Set((match.countries || []).map(normalizeCountry).filter(Boolean));
+      const flightMatch = flightSet.size > 0 && flightNid && flightSet.has(flightNid);
       const airportMatch =
         airportSet.size > 0 && (airportSet.has(depIcao) || airportSet.has(arrIcao));
       const countryMatch =
         countrySet.size > 0 && (countrySet.has(depCountry) || countrySet.has(arrCountry));
-      if (airportMatch || countryMatch) {
+      if (flightMatch || airportMatch || countryMatch) {
         matched.push(item.id);
       }
     }
@@ -1582,7 +1649,7 @@ export class LeonTimelineService {
         id: item.id,
         title: item.title,
         description: item.description,
-        type: item.type,
+        type: "LIM", // the type taxonomy is gone (Item 9)
         source: "custom",
       }));
 
@@ -1734,9 +1801,15 @@ export class LeonTimelineService {
   }
 
   listCustomLimitations({ includeInactive = true } = {}) {
+    // includeInactive=false is the WALL's view: active AND inside the date
+    // window (permanent = always). The console passes true so out-of-window
+    // entries stay manageable.
+    const nowMs = Date.now();
     const rows = includeInactive
       ? this.customLimitations
-      : this.customLimitations.filter((item) => item.isActive !== false);
+      : this.customLimitations.filter(
+          (item) => item.isActive !== false && limitationInWindow(item, nowMs)
+        );
     return rows
       .slice()
       .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
@@ -1747,15 +1820,37 @@ export class LeonTimelineService {
     if (!title) {
       throw new Error("Limitation title is required.");
     }
+    const dateOrNull = (value, label) => {
+      const v = String(value || "").trim();
+      if (!v) return null;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || !Number.isFinite(Date.parse(`${v}T00:00:00Z`))) {
+        throw new Error(`${label} must be a YYYY-MM-DD date.`);
+      }
+      return v;
+    };
+    const startDate = dateOrNull(input.startDate, "Start date");
+    const endDate = dateOrNull(input.endDate, "End date");
+    if (startDate && endDate && startDate > endDate) {
+      throw new Error("End date must not be before the start date.");
+    }
+    const matchInput = input.match && typeof input.match === "object" ? input.match : input;
+    const flights = (Array.isArray(matchInput.flights) ? matchInput.flights : [])
+      .map((f) => ({ nid: String(f?.nid ?? f ?? "").trim(), label: String(f?.label ?? "").trim() }))
+      .filter((f) => f.nid);
     const now = new Date().toISOString();
     const id = String(input.id || `LIM-${Date.now().toString(36).toUpperCase()}`).trim();
     const next = {
       id,
       title,
       description: String(input.description || "").trim(),
-      type: String(input.type || "OPS").trim().toUpperCase(),
-      airportIcaos: toUniqueSorted((input.airportIcaos || []).map(normalizeIcao)),
-      countries: toUniqueSorted((input.countries || []).map(normalizeCountry)),
+      isPermanent: input.isPermanent === true,
+      startDate,
+      endDate,
+      match: {
+        flights,
+        airportIcaos: toUniqueSorted((matchInput.airportIcaos || []).map(normalizeIcao)),
+        countries: toUniqueSorted((matchInput.countries || []).map(normalizeCountry)),
+      },
       isActive: input.isActive !== false,
       createdAt: now,
       updatedAt: now,
@@ -1787,11 +1882,14 @@ export class LeonTimelineService {
   }
 
   async deleteCustomLimitation(id) {
-    const before = this.customLimitations.length;
-    this.customLimitations = this.customLimitations.filter((item) => item.id !== id);
-    if (this.customLimitations.length === before) {
+    const existing = this.customLimitations.find((item) => item.id === id);
+    if (!existing) {
       throw new Error("Limitation not found.");
     }
+    if (existing.isPermanent) {
+      throw new Error("This limitation is permanent and cannot be deleted — deactivate it instead.");
+    }
+    this.customLimitations = this.customLimitations.filter((item) => item.id !== id);
     await this.persistLocalCache();
   }
 }

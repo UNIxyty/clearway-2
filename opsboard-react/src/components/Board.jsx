@@ -327,13 +327,26 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         <div style={s.limList}>
           {allLims.length === 0 && <div style={s.limEmpty}>None active</div>}
           {allLims.map((l, i) => {
-            const theme = LIM_TYPE_COLOR[l.type] || LIM_TYPE_COLOR.AOG;
-            const scope = [...(l.airportIcaos || []), ...(l.countries || [])].join(' · ');
+            // Reworked model (Item 9): no type taxonomy — one neutral accent;
+            // scope = the OR-matched targets (flights, airports, countries),
+            // plus the active window / permanent flag.
+            const match = l.match || {};
+            const scope = [
+              ...(match.flights || []).map((f) => f.label || f.nid),
+              ...(match.airportIcaos || l.airportIcaos || []),
+              ...(match.countries || l.countries || []),
+            ].join(' · ');
+            const window = l.isPermanent
+              ? null
+              : [l.startDate ? `from ${l.startDate}` : null, l.endDate ? `until ${l.endDate}` : null]
+                  .filter(Boolean)
+                  .join(' ');
             return (
-              <div key={l.id} style={{ ...s.limCard, borderLeft: `5px solid ${theme.text}` }}>
+              <div key={l.id} style={{ ...s.limCard, borderLeft: '5px solid #f0c060' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
-                  <span style={{ ...s.limBadgeNum, borderColor: theme.border, color: theme.text }}>{i + 1}</span>
-                  <span style={{ ...s.limType, color: theme.text }}>{l.type}</span>
+                  <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
+                  {l.isPermanent && <span style={{ ...s.limType, color: '#f0c060' }}>PERMANENT</span>}
+                  {window && <span style={{ ...s.limScope, marginTop: 0 }}>{window}</span>}
                 </div>
                 <div style={s.limTitle}>{l.title}</div>
                 {l.description && <div style={s.limDesc}>{l.description}</div>}

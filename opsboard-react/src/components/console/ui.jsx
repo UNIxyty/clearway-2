@@ -434,7 +434,7 @@ export function SearchBox({ value, onChange, placeholder, style = {} }) {
 }
 
 // Chip input: freeform tokens with optional async suggestions.
-export function ChipInput({ values = [], onAdd, onRemove, placeholder = 'Add…', chipColor, chipBg, suggest, minHeight = 44 }) {
+export function ChipInput({ values = [], onAdd, onRemove, onSelect, placeholder = 'Add…', chipColor, chipBg, suggest, minHeight = 44 }) {
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState([]);
 
@@ -517,7 +517,17 @@ export function ChipInput({ values = [], onAdd, onRemove, placeholder = 'Add…'
               key={option.value}
               type="button"
               className="cw-hover-surface"
-              onClick={() => add(option.value)}
+              onClick={() => {
+                // onSelect gets the FULL option (value + label) — used where
+                // the chip needs more than the raw value (e.g. flight picks).
+                if (onSelect) {
+                  onSelect(option);
+                  setQuery('');
+                  setOptions([]);
+                } else {
+                  add(option.value);
+                }
+              }}
               style={{
                 width: '100%',
                 textAlign: 'left',

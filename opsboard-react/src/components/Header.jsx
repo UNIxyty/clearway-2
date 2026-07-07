@@ -37,7 +37,16 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
   return (
     <header style={s.header}>
       <div style={s.brand}>
-        <span style={s.brandName}>CLEARWAY</span>
+        {/* Same asset as the console top bar; forced white for the dark wall.
+            Falls back to the text wordmark if the asset ever goes missing. */}
+        <img
+          src={`${import.meta.env.BASE_URL}assets/clearway-logo.svg`}
+          alt="Clearway — Handling & Operations"
+          style={{ height: sz(26), width: 'auto', display: 'block', filter: 'brightness(0) invert(1)', opacity: 0.92 }}
+          onError={(e) => {
+            e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: 'CLEARWAY' }));
+          }}
+        />
         <span style={s.brandSub}>OPS · {fmtDate()}</span>
       </div>
 
@@ -65,7 +74,7 @@ function makeStyles(sz) {
     height: sz(92), padding: '0 20px', flexShrink: 0,
     borderBottom: '1px solid #222840', background: '#161b26',
   },
-  brand: { width: 150, display: 'flex', flexDirection: 'column', gap: 4 },
+  brand: { width: sz(160), display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 },
   brandName: { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11), color: '#5a6a94', letterSpacing: '1px' },
   brandSub:  { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(10),  color: '#48547a', letterSpacing: '0.5px' },
   clocks: { display: 'flex', alignItems: 'stretch', flex: 1, justifyContent: 'center', overflow: 'hidden' },

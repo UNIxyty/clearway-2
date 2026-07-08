@@ -668,7 +668,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === "/api/airports/search" && req.method === "GET") {
+    // Item 6: /api/geo/* are the canonical names for the shared source (the
+    // Supabase `airports` table); /api/airports/search and /api/countries
+    // remain as aliases — all serve the SAME directory, so every picker and
+    // the flight-country matching agree by construction.
+    if ((pathname === "/api/airports/search" || pathname === "/api/geo/airports") && req.method === "GET") {
       const q = url.searchParams.get("q") || "";
       const limit = Number(url.searchParams.get("limit") || 50);
       const airports = timelineService.listAirportMatches(q, limit);
@@ -676,7 +680,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === "/api/countries" && req.method === "GET") {
+    if ((pathname === "/api/countries" || pathname === "/api/geo/countries") && req.method === "GET") {
       const q = url.searchParams.get("q") || "";
       const limit = Number(url.searchParams.get("limit") || 200);
       const countries = timelineService.listCountries(q, limit);

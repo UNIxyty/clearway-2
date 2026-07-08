@@ -5,6 +5,8 @@ const DEFAULT_POLL_MS = 30 * 1000;
 const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
+import { loadGeoAirports } from "./lib/geo-store.mjs";
+
 const AIRPORT_DIRECTORY_CANDIDATES = [
   path.resolve(process.cwd(), "shared-data", "ead-airports-with-names.json"),
   path.resolve(process.cwd(), "shared-data", "airports.json"),
@@ -770,17 +772,7 @@ export class LeonTimelineService {
   }
 
   async loadAirportDirectory() {
-    let payload = null;
-    for (const filePath of AIRPORT_DIRECTORY_CANDIDATES) {
-      payload = await readJsonIfExists(filePath);
-      if (payload) break;
-    }
     this.airportDirectoryByIcao.clear();
-    if (!payload || typeof payload !== "object") {
-      this.countryOptions = [];
-      return;
-    }
-
     const countries = new Set();
     const addEntry = (entry, fallbackIcao = "") => {
       const icao = normalizeIcao(entry?.icao || fallbackIcao);
@@ -794,12 +786,34 @@ export class LeonTimelineService {
       });
     };
 
+    // Item 6: single source of truth — the Supabase `airports` table (with a
+    // local snapshot fallback) feeds every picker AND the country used by
+    // IMP/limitation/CAA matching. Legacy shared-data files only when
+    // neither is available.
+    const geo = await loadGeoAirports();
+    if (geo?.rows?.length) {
+      for (const row of geo.rows) addEntry(row);
+      this.countryOptions = [...countries].sort((a, b) => a.localeCompare(b));
+      console.log(`[leon-sync] airport directory: ${this.airportDirectoryByIcao.size} airports, ${this.countryOptions.length} countries (${geo.source})`);
+      return;
+    }
+
+    let payload = null;
+    for (const filePath of AIRPORT_DIRECTORY_CANDIDATES) {
+      payload = await readJsonIfExists(filePath);
+      if (payload) break;
+    }
+    if (!payload || typeof payload !== "object") {
+      this.countryOptions = [];
+      return;
+    }
     if (Array.isArray(payload)) {
       for (const row of payload) addEntry(row);
     } else {
       for (const [icaoKey, row] of Object.entries(payload)) addEntry(row, icaoKey);
     }
     this.countryOptions = [...countries].sort((a, b) => a.localeCompare(b));
+    console.log(`[leon-sync] airport directory: ${this.airportDirectoryByIcao.size} airports, ${this.countryOptions.length} countries (legacy file)`);
   }
 
   async loadLocalCache() {

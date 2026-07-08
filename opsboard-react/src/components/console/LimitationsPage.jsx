@@ -109,11 +109,46 @@ export default function LimitationsPage() {
   const [countries, setCountries] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [matchType, setMatchType] = useState('airport');
+  const [editingId, setEditingId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const flash = useToast();
+
+  // Reconstruct the match-type selector from a saved limitation's targets.
+  function matchTypeOf(match) {
+    const f = (match?.flights || []).length > 0;
+    const a = (match?.airportIcaos || []).length > 0;
+    const c = (match?.countries || []).length > 0;
+    const kinds = [f && 'flight', a && 'airport', c && 'country'].filter(Boolean);
+    if (kinds.length > 1) return 'mixed';
+    return kinds[0] || 'airport';
+  }
+
+  function startEdit(item) {
+    const match = item.match || {};
+    setEditingId(item.id);
+    setMatchType(matchTypeOf(match));
+    setForm({
+      title: item.title || '',
+      description: item.description || '',
+      isPermanent: item.isPermanent === true,
+      startDate: item.startDate || '',
+      endDate: item.endDate || '',
+      flights: (match.flights || []).map((flt) => ({ nid: String(flt.nid ?? flt), label: flt.label || String(flt.nid ?? flt) })),
+      airportIcaos: [...(match.airportIcaos || [])],
+      countries: [...(match.countries || [])],
+    });
+    // Bring the form into view for the edit.
+    if (typeof window !== 'undefined') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    setEditingId('');
+    setForm(EMPTY_FORM);
+    setMatchType('airport');
+  }
 
   async function load() {
     setError('');
@@ -150,6 +185,9 @@ export default function LimitationsPage() {
     setError('');
     try {
       await upsertLimitation({
+        // Passing an existing id updates that limitation in place; omitting it
+        // creates a new one (backend upsertCustomLimitation keys on id).
+        ...(editingId ? { id: editingId } : {}),
         title: form.title,
         description: form.description,
         isPermanent: form.isPermanent,
@@ -162,7 +200,9 @@ export default function LimitationsPage() {
         },
       });
       setForm(EMPTY_FORM);
-      flash('Limitation saved · now on wall sidebar');
+      setMatchType('airport');
+      flash(editingId ? 'Limitation updated · wall sidebar refreshed' : 'Limitation saved · now on wall sidebar');
+      setEditingId('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -253,6 +293,12 @@ export default function LimitationsPage() {
                       {matches > 0 ? `matches ${matches} flight${matches > 1 ? 's' : ''}` : 'no current matches'}
                     </StatusPill>
                     <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
+                    <IconButton
+                      icon="pencil"
+                      title="Edit limitation"
+                      color={editingId === item.id ? t.blueDeep : t.muted}
+                      onClick={() => startEdit(item)}
+                    />
                     {/* Permanent limitations cannot be deleted (backend guards
                         too) — deactivate is the way to retire them. */}
                     {!item.isPermanent && (
@@ -268,8 +314,15 @@ export default function LimitationsPage() {
             })}
           </div>
 
-          <Card style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 16px' }}>New limitation</h3>
+          <Card style={{ padding: 20, ...(editingId ? { border: `1px solid ${t.blueBorder}` } : {}) }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 16px' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>
+                {editingId ? 'Edit limitation' : 'New limitation'}
+              </h3>
+              {editingId && (
+                <span style={{ fontSize: 12.5, fontFamily: t.mono, color: t.faint }}>editing {editingId}</span>
+              )}
+            </div>
             <form onSubmit={save}>
               <div style={{ marginBottom: 14 }}>
                 <FieldLabel>Title</FieldLabel>
@@ -413,9 +466,16 @@ export default function LimitationsPage() {
                 </div>
               </div>
 
-              <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
-                Save limitation
-              </Button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
+                  {editingId ? 'Save changes' : 'Save limitation'}
+                </Button>
+                {editingId && (
+                  <Button variant="ghost" size="lg" type="button" onClick={cancelEdit} disabled={saving}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </form>
           </Card>
         </div>

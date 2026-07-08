@@ -516,6 +516,19 @@ export async function upsertImportant(entry) {
   return payload;
 }
 
+export async function updateImportant(id, patch) {
+  const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch || {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update Important entry (${response.status})`);
+  }
+  return payload;
+}
+
 export async function setImportantActive(id, isActive) {
   const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
     method: 'PATCH',

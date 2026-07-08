@@ -752,11 +752,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith("/api/important/") && req.method === "PATCH") {
-      const id = pathname.split("/").pop();
+      const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
       try {
-        const entry = await importantStore.setActive(id, Boolean(body.isActive));
-        sseHub.broadcast({ type: "important.changed", action: "toggle", id });
+        // Bare {isActive} keeps the cheap toggle path; anything else is a
+        // full-field partial update (Item 5 — every IMP field is editable).
+        const keys = Object.keys(body ?? {});
+        const entry =
+          keys.length === 1 && keys[0] === "isActive"
+            ? await importantStore.setActive(id, Boolean(body.isActive))
+            : await importantStore.patch(id, body);
+        sseHub.broadcast({ type: "important.changed", action: keys.length === 1 && keys[0] === "isActive" ? "toggle" : "update", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 404);

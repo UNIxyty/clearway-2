@@ -6,6 +6,7 @@ import {
   fetchOperators,
   searchAirports,
   setImportantActive,
+  updateImportant,
   upsertImportant,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
@@ -147,8 +148,7 @@ export default function ImportantPage() {
     setSaving(true);
     setError('');
     try {
-      const payload = await upsertImportant({
-        id: form.id || undefined,
+      const entryBody = {
         title: form.title,
         body: form.body,
         isActive: form.isActive,
@@ -162,7 +162,12 @@ export default function ImportantPage() {
           validFrom: form.validFrom || null,
           validTo: form.validTo ? `${form.validTo}T23:59:59Z` : null,
         },
-      });
+      };
+      // Existing entries save through PATCH /api/important/:id (full-field
+      // partial update); only brand-new entries POST.
+      const payload = form.id
+        ? await updateImportant(form.id, entryBody)
+        : await upsertImportant(entryBody);
       flash(markReviewed ? 'Marked reviewed' : 'Important entry saved');
       setSelectedId(payload.entry?.id || '');
       await load();
@@ -331,24 +336,35 @@ export default function ImportantPage() {
             <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
               <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {form.id ? (
-                    <h3 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px', lineHeight: 1.25 }}>{form.title}</h3>
-                  ) : (
-                    <TextInput
-                      placeholder="Entry title"
-                      value={form.title}
-                      onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                      style={{ marginBottom: 8, fontWeight: 700, fontSize: 16 }}
-                    />
-                  )}
+                  <TextInput
+                    placeholder="Entry title"
+                    value={form.title}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                    style={{ marginBottom: 8, fontWeight: 700, fontSize: 16 }}
+                  />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <StatusPill
-                      color={form.reviewed ? t.greenDeep : t.amber}
-                      bg={form.reviewed ? t.greenTint : t.amberTint}
+                    <button
+                      type="button"
+                      title="Click to flip the reviewed state (saved with the entry)"
+                      onClick={() => setForm((prev) => ({ ...prev, reviewed: !prev.reviewed }))}
+                      style={{
+                        fontFamily: 'inherit',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: form.reviewed ? t.greenDeep : t.amber,
+                        background: form.reviewed ? t.greenTint : t.amberTint,
+                        border: 'none',
+                        padding: '5px 11px',
+                        borderRadius: 999,
+                        cursor: 'pointer',
+                      }}
                     >
                       <Icon name={form.reviewed ? 'user-check' : 'download-cloud'} size={14} />
-                      {form.reviewed ? 'Human-reviewed' : 'Auto-imported — needs review'}
-                    </StatusPill>
+                      {form.reviewed ? 'Human-reviewed' : 'Needs review'}
+                    </button>
                     {selected && typeof selected.matchedFlightCount === 'number' && (
                       <span style={{ fontSize: 13, color: t.muted }}>
                         Affects <strong style={{ color: t.blueDeep }}>{selected.matchedFlightCount}</strong> of the board's flights
@@ -374,18 +390,12 @@ export default function ImportantPage() {
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 8 }}>
                   BODY TEXT (VERBATIM FROM BULLETIN)
                 </div>
-                {form.id ? (
-                  <div style={{ fontSize: 14.5, lineHeight: 1.6, color: '#2b2e34', background: t.subtle, border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '14px 16px', whiteSpace: 'pre-wrap', maxHeight: 260, overflowY: 'auto' }}>
-                    {form.body || '—'}
-                  </div>
-                ) : (
-                  <TextArea
-                    placeholder="Full text of the entry (kept verbatim — this is the operational wording)"
-                    value={form.body}
-                    onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
-                    style={{ minHeight: 120 }}
-                  />
-                )}
+                <TextArea
+                  placeholder="Full text of the entry (kept verbatim — this is the operational wording)"
+                  value={form.body}
+                  onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+                  style={{ minHeight: form.id ? 180 : 120 }}
+                />
               </div>
 
               <div style={{ padding: '18px 22px' }}>

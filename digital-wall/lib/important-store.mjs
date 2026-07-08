@@ -137,6 +137,24 @@ export class ImportantStore {
     return next;
   }
 
+  /**
+   * Partial update (Item 5): merge the patch over the stored entry (match
+   * criteria merged field-wise) and re-sanitize, so EVERY field — title,
+   * body, criteria, direction, window, active, reviewed — is editable
+   * through PATCH /api/important/:id.
+   */
+  async patch(id, patchInput = {}) {
+    const existing = this.entries.find((e) => e.id === id);
+    if (!existing) throw new Error("Important entry not found.");
+    const merged = {
+      ...existing,
+      ...patchInput,
+      id,
+      match: { ...existing.match, ...(patchInput.match ?? {}) },
+    };
+    return this.upsert(merged);
+  }
+
   async remove(id) {
     const before = this.entries.length;
     this.entries = this.entries.filter((e) => e.id !== id);

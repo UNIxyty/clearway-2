@@ -92,6 +92,14 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // Wanted flightWatch fields, superset across known Leon schemas
 // (flight-support documents: tobt ctotIso etdIso offBlock toIso eetIso
 // etaIso ldgIso blonIso; plain tenants often expose etd/eta/ctot variants).
+// Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
+// Simulator entries so ingestion can drop them. Confirmed on live Leon:
+// isCnl (cancelled), iconType ("positioning" = crew positioning,
+// "simulator"), isSimulator + flightType SIMULATOR (belt and braces).
+// NOTE: isFerry is deliberately NOT here — ferry/empty legs are real
+// aircraft movements and stay on the wall.
+const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "iconType", "isSimulator", "flightType"];
+
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
   "etd", "etdIso", "eta", "etaIso",
@@ -99,11 +107,12 @@ const WANTED_FLIGHTWATCH_FIELDS = [
   "offBlock", "bloffIso", "blonIso",
 ];
 
-function buildFlightSelection({ flightWatchFields, includeChecklist, checklistItemHasDefinition = true }) {
+function buildFlightSelection({ flightWatchFields, includeChecklist, checklistItemHasDefinition = true, flightKindFields = [] }) {
   return `
   flightNid
   flightNo
   status
+  ${flightKindFields.join("\n  ")}
   startTimeUTC
   endTimeUTC
   startAirport {
@@ -329,6 +338,25 @@ export function flightVisibleInWindow(flight, nowMs, settings = {}) {
 // which also keeps them out of NOTAM/WX airport collection.
 const VALID_TRIP_STATUSES = new Set(["CONFIRMED", "OPTION", "OPPORTUNITY"]);
 
+/**
+ * Item 7: flights that must never reach the wall/console/airport collection.
+ * Returns the exclusion kind ("cancelled" | "positioning" | "simulator")
+ * or null for a legitimate flight. Ferry/empty legs are NOT excluded.
+ */
+export function isExcludedFlightKind(flight) {
+  if (flight?.isCnl === true) return "cancelled";
+  const icon = String(flight?.iconType || "").toLowerCase();
+  if (icon === "positioning") return "positioning";
+  if (
+    icon === "simulator" ||
+    flight?.isSimulator === true ||
+    String(flight?.flightType || "").toUpperCase() === "SIMULATOR"
+  ) {
+    return "simulator";
+  }
+  return null;
+}
+
 export function hasValidTripStatus(flight) {
   return VALID_TRIP_STATUSES.has(String(flight?.tripStatus ?? flight?.status ?? "").trim().toUpperCase());
 }
@@ -396,6 +424,9 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     delayedArrivalUTC,
     aircraftRegistration: rawFlight.acft?.registration ?? null,
     isCnl: Boolean(rawFlight.isCnl),
+    iconType: rawFlight.iconType ?? null,
+    isSimulator: rawFlight.isSimulator === true,
+    flightType: rawFlight.flightType ?? null,
     flightLastModificationTime: rawFlight.flightLastModificationTime ?? null,
     adep: rawFlight.startAirport
       ? {
@@ -778,10 +809,16 @@ export class LeonTimelineService {
     this.flightsByNid.clear();
     this.aircraftByFlightNid.clear();
     let droppedStatusless = 0;
+    const droppedExcluded = {};
     for (const entry of payload.flights) {
       if (!entry?.key || !entry?.flight) continue;
       if (!hasValidTripStatus(entry.flight)) {
         droppedStatusless += 1;
+        continue;
+      }
+      const excludedKind = isExcludedFlightKind(entry.flight);
+      if (excludedKind) {
+        droppedExcluded[excludedKind] = (droppedExcluded[excludedKind] ?? 0) + 1;
         continue;
       }
       this.flightsByNid.set(entry.key, healCachedFlight(entry.flight));
@@ -818,6 +855,10 @@ export class LeonTimelineService {
 
     if (droppedStatusless > 0) {
       console.log(`[leon-sync] cache load: dropped ${droppedStatusless} flight(s) without a trip status`);
+    }
+    const droppedParts = Object.entries(droppedExcluded).map(([kind, count]) => `${count} ${kind}`);
+    if (droppedParts.length > 0) {
+      console.log(`[leon-sync] cache load: dropped ${droppedParts.join(", ")} flight(s) (Item 7)`);
     }
     if (this.flightsByNid.size > 0) {
       this.state.source = "local-cache";
@@ -945,7 +986,7 @@ export class LeonTimelineService {
   }
 
   async runSyncCycle() {
-    const cycleStats = { updated: 0, skipped: 0, deleted: 0 };
+    const cycleStats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
     try {
       const operators = await this.listConfiguredOperators();
       if (operators.length === 0) {
@@ -954,16 +995,14 @@ export class LeonTimelineService {
 
       for (const operator of operators) {
         await this.fetchAircraftForOperator(operator.oprId);
-        if (!this.syncStateByOperator.has(operator.oprId)) {
-          const stats = await this.initialSync(operator.oprId);
-          cycleStats.updated += stats.updated ?? 0;
-          cycleStats.skipped += stats.skipped ?? 0;
-          cycleStats.deleted += stats.deleted ?? 0;
-        } else {
-          const stats = await this.incrementalSync(operator.oprId);
-          cycleStats.updated += stats.updated ?? 0;
-          cycleStats.skipped += stats.skipped ?? 0;
-          cycleStats.deleted += stats.deleted ?? 0;
+        const stats = this.syncStateByOperator.has(operator.oprId)
+          ? await this.incrementalSync(operator.oprId)
+          : await this.initialSync(operator.oprId);
+        cycleStats.updated += stats.updated ?? 0;
+        cycleStats.skipped += stats.skipped ?? 0;
+        cycleStats.deleted += stats.deleted ?? 0;
+        for (const [kind, count] of Object.entries(stats.excluded ?? {})) {
+          cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
         }
       }
 
@@ -974,6 +1013,10 @@ export class LeonTimelineService {
       this.state.cacheStats = cycleStats;
       if (cycleStats.skipped > 0) {
         console.log(`[leon-sync] sync cycle: filtered ${cycleStats.skipped} flight(s) without a trip status`);
+      }
+      const excludedParts = Object.entries(cycleStats.excluded).map(([kind, count]) => `${count} ${kind}`);
+      if (excludedParts.length > 0) {
+        console.log(`[leon-sync] sync cycle: excluded ${excludedParts.join(", ")} flight(s) (Item 7)`);
       }
       if (cycleStats.updated > 0 || cycleStats.deleted > 0 || this.flightsByNid.size === 0) {
         await this.persistLocalCache();
@@ -1103,6 +1146,7 @@ export class LeonTimelineService {
         // explicitly; omitted on tenants whose schema doesn't expose it
         // (the OPS defs map still guards those).
         checklistItemHasDefinition: checklistItemFields.has("definition"),
+        flightKindFields: WANTED_FLIGHT_KIND_FIELDS.filter((name) => flightFields.has(name)),
       });
     } catch {
       selection = buildFlightSelection({
@@ -1218,7 +1262,7 @@ export class LeonTimelineService {
     const selection = await this.resolveFlightSelection(oprId);
     const checklistDefs = await this.ensureChecklistDefs(oprId);
 
-    const stats = { updated: 0, skipped: 0, deleted: 0 };
+    const stats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
     let chunkStart = start;
     while (chunkStart <= end) {
       const chunkEnd = minDate(addDays(chunkStart, THREE_MONTHS_DAYS), end);
@@ -1240,6 +1284,11 @@ export class LeonTimelineService {
         const mapped = mapLeonFlight(rawFlight, checklistDefs);
         if (!hasValidTripStatus(mapped)) {
           stats.skipped += 1;
+          continue;
+        }
+        const excludedKind = isExcludedFlightKind(mapped);
+        if (excludedKind) {
+          stats.excluded[excludedKind] = (stats.excluded[excludedKind] ?? 0) + 1;
           continue;
         }
         mapped.oprId = oprId;
@@ -1287,7 +1336,7 @@ export class LeonTimelineService {
       oprId
     );
 
-    const stats = { updated: 0, skipped: 0, deleted: 0 };
+    const stats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
     const delta = data.flights?.getModifiedFlightList;
     if (!delta) {
       return stats;
@@ -1300,6 +1349,13 @@ export class LeonTimelineService {
         // A modified flight can LOSE its trip status — evict it too.
         if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
         stats.skipped += 1;
+        continue;
+      }
+      const excludedKind = isExcludedFlightKind(mapped);
+      if (excludedKind) {
+        // A flight can BECOME cancelled/positioning/simulator — evict it.
+        if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
+        stats.excluded[excludedKind] = (stats.excluded[excludedKind] ?? 0) + 1;
         continue;
       }
       mapped.oprId = oprId;

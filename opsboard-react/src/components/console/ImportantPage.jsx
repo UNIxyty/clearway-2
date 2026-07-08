@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   deleteImportant,
+  deleteImportantAttachment,
   fetchCountries,
   fetchImportant,
   fetchOperators,
+  importantAttachmentUrl,
   searchAirports,
   setImportantActive,
   updateImportant,
+  uploadImportantAttachment,
   upsertImportant,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
@@ -89,6 +92,103 @@ const NEW_FORM = {
   validFrom: '',
   validTo: '',
 };
+
+function fmtAudit(at, by) {
+  if (!at && !by) return null;
+  const when = at ? new Date(at).toISOString().slice(0, 16).replace('T', ' ') + 'Z' : 'unknown time';
+  return `${when}${by ? ` · ${by}` : ''}`;
+}
+
+// Audit trail (Item 8): who added the entry and who confirmed (reviewed) it.
+function AuditFooter({ entry }) {
+  const added = fmtAudit(entry.addedAt ?? entry.createdAt, entry.addedBy);
+  const confirmed = fmtAudit(entry.confirmedAt, entry.confirmedBy);
+  return (
+    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 12, color: t.faint, fontFamily: t.mono }}>
+      <span>Added: {added || '—'}</span>
+      <span>Confirmed: {entry.reviewed ? confirmed || '—' : 'not yet reviewed'}</span>
+    </div>
+  );
+}
+
+// Attachments (Item 8): upload + list + download + delete for one entry.
+function AttachmentsSection({ entry, onChanged, setError }) {
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+  const flash = useToast();
+  const attachments = entry.attachments || [];
+
+  async function upload(file) {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    try {
+      await uploadImportantAttachment(entry.id, file);
+      flash(`Attached ${file.name}`);
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function removeAttachment(att) {
+    setBusy(true);
+    try {
+      await deleteImportantAttachment(entry.id, att.id);
+      flash(`Removed ${att.filename}`, '#f87171');
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint }}>
+          ATTACHMENTS {attachments.length > 0 && `(${attachments.length})`}
+        </div>
+        <Button size="sm" variant="softBlue" icon="plus" disabled={busy} spin={busy} onClick={() => fileRef.current?.click()}>
+          Attach file
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.msg,.eml"
+          style={{ display: 'none' }}
+          onChange={(e) => upload(e.target.files?.[0])}
+        />
+      </div>
+      {attachments.length === 0 && (
+        <div style={{ fontSize: 12.5, color: t.faint }}>No files attached — e.g. the source PDF/DOCX. Max 10 MB.</div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {attachments.map((att) => (
+          <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${t.borderInner}`, borderRadius: 10, padding: '8px 12px', background: t.subtle }}>
+            <Icon name="clipboard-check" size={15} color={t.blueDeep} />
+            <a
+              href={importantAttachmentUrl(entry.id, att.id)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: t.blueDeep, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {att.filename}
+            </a>
+            <span style={{ fontSize: 11.5, color: t.faint, fontFamily: t.mono }}>
+              {(att.size / 1024).toFixed(0)} KB{att.uploadedBy ? ` · ${att.uploadedBy}` : ''}
+            </span>
+            <IconButton icon="trash-2" title="Remove attachment" disabled={busy} onClick={() => removeAttachment(att)} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ImportantPage() {
   const [entries, setEntries] = useState([]);
@@ -480,6 +580,15 @@ export default function ImportantPage() {
                   )}
                 </div>
               </div>
+
+              {form.id && selected && (
+                <div style={{ padding: '18px 22px', borderTop: `1px solid ${t.borderInner}` }}>
+                  <AttachmentsSection entry={selected} onChanged={load} setError={setError} />
+                  <div style={{ marginTop: 16 }}>
+                    <AuditFooter entry={selected} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

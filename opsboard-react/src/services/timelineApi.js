@@ -529,6 +529,38 @@ export async function updateImportant(id, patch) {
   return payload;
 }
 
+export async function uploadImportantAttachment(id, file) {
+  const dataBase64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read the file.'));
+    reader.readAsDataURL(file);
+  });
+  const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}/attachments`), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/octet-stream', dataBase64 }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to upload attachment (${response.status})`);
+  }
+  return payload;
+}
+
+export function importantAttachmentUrl(id, attachmentId) {
+  return buildApiUrl(`/api/important/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`);
+}
+
+export async function deleteImportantAttachment(id, attachmentId) {
+  const response = await fetch(importantAttachmentUrl(id, attachmentId), { method: 'DELETE' });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete attachment (${response.status})`);
+  }
+  return payload;
+}
+
 export async function setImportantActive(id, isActive) {
   const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
     method: 'PATCH',

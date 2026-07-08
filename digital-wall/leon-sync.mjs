@@ -1860,6 +1860,9 @@ export class LeonTimelineService {
           id: entry.id,
           title: entry.title,
           description: entry.body,
+          // Item 8: attachment references ride along so the overlay can
+          // offer the source document(s) for download.
+          attachments: (entry.attachments ?? []).map((a) => ({ id: a.id, filename: a.filename, size: a.size })),
           type: "IMP",
           source: "important",
         });

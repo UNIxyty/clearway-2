@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchFlightInfo, fetchOverlay } from '../services/timelineApi';
+import { fetchFlightInfo, fetchOverlay, importantAttachmentUrl } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
 import { WX_CATEGORY_COLORS } from './FlightPill';
 
@@ -244,6 +244,29 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
                   <span style={s.entryTitle}>{entry.title}</span>
                 </div>
                 {entry.description && <div style={s.entryBody}>{entry.description}</div>}
+                {(entry.attachments || []).length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    {entry.attachments.map((att) => (
+                      <a
+                        key={att.id}
+                        href={importantAttachmentUrl(entry.id, att.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: 12,
+                          fontFamily: "'IBM Plex Mono',monospace",
+                          color: '#8fb8ff',
+                          border: '1px solid rgba(90,140,255,.4)',
+                          borderRadius: 7,
+                          padding: '3px 9px',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {att.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

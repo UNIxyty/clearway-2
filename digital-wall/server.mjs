@@ -13,6 +13,15 @@ import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
 import { NotamCheckService } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
+import {
+  deleteAttachmentBytes,
+  MAX_ATTACHMENT_BYTES,
+  newAttachmentId,
+  readAttachmentBytes,
+  sanitizeFilename,
+  saveAttachmentBytes,
+  validateAttachment,
+} from "./lib/attachment-store.mjs";
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -739,16 +748,93 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Who is acting — used for the added-by / confirmed-by audit trail
+    // (Item 8). Falls back to the mock user when auth is disabled locally.
+    const actorName = requestUser ? (requestUser.name || requestUser.email || null) : (MOCK_USER.name ?? null);
+
     if (pathname === "/api/important" && req.method === "POST") {
       const body = await readJsonBody(req);
       try {
-        const entry = await importantStore.upsert(body);
+        const entry = await importantStore.upsert(body, { actor: actorName });
         sseHub.broadcast({ type: "important.changed", action: "upsert", id: entry.id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 400);
       }
       return;
+    }
+
+    // ── IMP attachments (Item 8) ────────────────────────────────────────
+    // Upload: JSON { filename, contentType, dataBase64 } (10 MB cap) —
+    // bytes go to Supabase Storage (or data/attachments locally), the entry
+    // keeps a reference, downloads stream back through this auth gate.
+    {
+      const attachmentMatch = pathname.match(/^\/api\/important\/([^/]+)\/attachments(?:\/([^/]+))?$/);
+      if (attachmentMatch) {
+        const entryId = decodeURIComponent(attachmentMatch[1]);
+        const attachmentId = attachmentMatch[2] ? decodeURIComponent(attachmentMatch[2]) : null;
+
+        if (req.method === "POST" && !attachmentId) {
+          try {
+            const body = await readJsonBody(req);
+            const filename = sanitizeFilename(body.filename);
+            const buffer = Buffer.from(String(body.dataBase64 || ""), "base64");
+            validateAttachment({ filename, size: buffer.length });
+            const id = newAttachmentId();
+            const { storagePath, backend } = await saveAttachmentBytes({
+              entryId,
+              attachmentId: id,
+              filename,
+              contentType: body.contentType,
+              buffer,
+            });
+            const attachment = {
+              id,
+              filename,
+              contentType: String(body.contentType || "application/octet-stream"),
+              size: buffer.length,
+              storagePath,
+              backend,
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: actorName,
+            };
+            const entry = await importantStore.addAttachment(entryId, attachment);
+            sseHub.broadcast({ type: "important.changed", action: "attachment-add", id: entryId });
+            sendJson(res, { ok: true, entry, attachment });
+          } catch (error) {
+            sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+          }
+          return;
+        }
+
+        if (req.method === "GET" && attachmentId) {
+          const found = importantStore.getAttachment(entryId, attachmentId);
+          const bytes = found ? await readAttachmentBytes(found.attachment.storagePath) : null;
+          if (!found || !bytes) {
+            sendJson(res, { ok: false, error: "Attachment not found." }, 404);
+            return;
+          }
+          res.writeHead(200, {
+            "content-type": found.attachment.contentType || "application/octet-stream",
+            "content-length": bytes.length,
+            "content-disposition": `attachment; filename="${found.attachment.filename.replace(/"/g, "")}"`,
+          });
+          res.end(bytes);
+          return;
+        }
+
+        if (req.method === "DELETE" && attachmentId) {
+          try {
+            const { attachment } = await importantStore.removeAttachment(entryId, attachmentId);
+            await deleteAttachmentBytes(attachment.storagePath);
+            sseHub.broadcast({ type: "important.changed", action: "attachment-delete", id: entryId });
+            sendJson(res, { ok: true, id: attachmentId });
+          } catch (error) {
+            sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+          }
+          return;
+        }
+      }
     }
 
     if (pathname.startsWith("/api/important/") && req.method === "PATCH") {
@@ -761,7 +847,7 @@ const server = http.createServer(async (req, res) => {
         const entry =
           keys.length === 1 && keys[0] === "isActive"
             ? await importantStore.setActive(id, Boolean(body.isActive))
-            : await importantStore.patch(id, body);
+            : await importantStore.patch(id, body, { actor: actorName });
         sseHub.broadcast({ type: "important.changed", action: keys.length === 1 && keys[0] === "isActive" ? "toggle" : "update", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {

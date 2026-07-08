@@ -58,6 +58,22 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
   const match = input.match || {};
   const direction = DIRECTIONS.has(String(match.direction || "any")) ? String(match.direction || "any") : "any";
 
+  // Audit metadata (Item 8): added* is stamped once at creation; confirmed*
+  // records WHO flipped reviewed to true and when. Un-reviewing clears the
+  // confirmation so the display never shows a stale reviewer.
+  const wasReviewed = existing?.reviewed === true;
+  const isReviewed = input.reviewed === true;
+  const actor = String(input.__actor || "").trim() || null;
+  let confirmedAt = existing?.confirmedAt ?? null;
+  let confirmedBy = existing?.confirmedBy ?? null;
+  if (isReviewed && !wasReviewed) {
+    confirmedAt = now;
+    confirmedBy = actor;
+  } else if (!isReviewed && wasReviewed) {
+    confirmedAt = null;
+    confirmedBy = null;
+  }
+
   return {
     id: String(input.id || existing?.id || `IMP-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1296).toString(36).toUpperCase()}`),
     title,
@@ -73,8 +89,15 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
       validTo: toIsoDateOrNull(match.validTo),
     },
     isActive: input.isActive !== false,
-    reviewed: input.reviewed === true,
+    reviewed: isReviewed,
     source: String(input.source || existing?.source || "manual"),
+    // Attachments are managed via their own endpoints — carried through
+    // untouched here so a criteria edit can't drop them.
+    attachments: Array.isArray(existing?.attachments) ? existing.attachments : [],
+    addedAt: existing?.addedAt ?? existing?.createdAt ?? now,
+    addedBy: existing?.addedBy ?? (existing ? null : actor),
+    confirmedAt,
+    confirmedBy,
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
@@ -89,7 +112,16 @@ export class ImportantStore {
 
   async load() {
     const payload = await this.store.read();
-    this.entries = Array.isArray(payload.entries) ? payload.entries : [];
+    // Item 8 migration: older entries get null audit fields (addedAt
+    // backfilled from createdAt) and an empty attachments list.
+    this.entries = (Array.isArray(payload.entries) ? payload.entries : []).map((entry) => ({
+      ...entry,
+      attachments: Array.isArray(entry.attachments) ? entry.attachments : [],
+      addedAt: entry.addedAt ?? entry.createdAt ?? null,
+      addedBy: entry.addedBy ?? null,
+      confirmedAt: entry.confirmedAt ?? null,
+      confirmedBy: entry.confirmedBy ?? null,
+    }));
     this.loaded = true;
     return this.entries;
   }
@@ -127,9 +159,9 @@ export class ImportantStore {
     return reset;
   }
 
-  async upsert(input) {
+  async upsert(input, { actor = null } = {}) {
     const existing = input.id ? this.entries.find((e) => e.id === input.id) : null;
-    const next = sanitizeImportantEntry(input, existing);
+    const next = sanitizeImportantEntry({ ...input, __actor: actor }, existing);
     const index = this.entries.findIndex((e) => e.id === next.id);
     if (index >= 0) this.entries[index] = next;
     else this.entries.push(next);
@@ -143,7 +175,7 @@ export class ImportantStore {
    * body, criteria, direction, window, active, reviewed — is editable
    * through PATCH /api/important/:id.
    */
-  async patch(id, patchInput = {}) {
+  async patch(id, patchInput = {}, { actor = null } = {}) {
     const existing = this.entries.find((e) => e.id === id);
     if (!existing) throw new Error("Important entry not found.");
     const merged = {
@@ -152,7 +184,34 @@ export class ImportantStore {
       id,
       match: { ...existing.match, ...(patchInput.match ?? {}) },
     };
-    return this.upsert(merged);
+    return this.upsert(merged, { actor });
+  }
+
+  /** Attachment references (Item 8) — bytes live in the attachment store. */
+  async addAttachment(id, attachment) {
+    const entry = this.entries.find((e) => e.id === id);
+    if (!entry) throw new Error("Important entry not found.");
+    entry.attachments = [...(entry.attachments ?? []), attachment];
+    entry.updatedAt = new Date().toISOString();
+    await this.persist();
+    return entry;
+  }
+
+  async removeAttachment(id, attachmentId) {
+    const entry = this.entries.find((e) => e.id === id);
+    if (!entry) throw new Error("Important entry not found.");
+    const attachment = (entry.attachments ?? []).find((a) => a.id === attachmentId);
+    if (!attachment) throw new Error("Attachment not found.");
+    entry.attachments = entry.attachments.filter((a) => a.id !== attachmentId);
+    entry.updatedAt = new Date().toISOString();
+    await this.persist();
+    return { entry, attachment };
+  }
+
+  getAttachment(id, attachmentId) {
+    const entry = this.entries.find((e) => e.id === id);
+    const attachment = (entry?.attachments ?? []).find((a) => a.id === attachmentId);
+    return attachment ? { entry, attachment } : null;
   }
 
   async remove(id) {

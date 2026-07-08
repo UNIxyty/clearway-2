@@ -80,7 +80,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 function sanitizeDisplaySettings(input = {}) {
@@ -94,7 +94,17 @@ function sanitizeDisplaySettings(input = {}) {
   if (!Number.isFinite(timeZoom) || timeZoom < 0.5 || timeZoom > 2.5) {
     throw new Error("timeZoom must be a number between 0.5 and 2.5.");
   }
-  return { scale: Math.round(scale * 100) / 100, timeZoom: Math.round(timeZoom * 100) / 100 };
+  // Vertical size: lane/pill height multiplier. <1 thins the timeline so
+  // more registrations fit on screen; text keeps the display scale.
+  const rowZoom = input.rowZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.rowZoom : Number(input.rowZoom);
+  if (!Number.isFinite(rowZoom) || rowZoom < 0.6 || rowZoom > 1.4) {
+    throw new Error("rowZoom must be a number between 0.6 and 1.4.");
+  }
+  return {
+    scale: Math.round(scale * 100) / 100,
+    timeZoom: Math.round(timeZoom * 100) / 100,
+    rowZoom: Math.round(rowZoom * 100) / 100,
+  };
 }
 
 // Current wall overlay — appliance-style shared state (one overlay for all

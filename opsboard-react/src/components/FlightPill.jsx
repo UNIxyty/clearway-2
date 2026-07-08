@@ -70,6 +70,26 @@ function hexA(hex, alpha) {
 }
 
 /**
+ * Vertical metrics shared by the Board (lane maths) and the pill itself.
+ * rowZoom thins/thickens ONLY heights — fonts stay on the display scale so
+ * text remains legible — and every row floors at its font size + padding so
+ * the extreme slider positions can't clip text or the marker chips.
+ */
+export function pillVerticalMetrics(scale, rowZoom = 1) {
+  const sz = (v) => Math.round(v * scale);
+  const vz = (v, floor) => Math.max(floor, Math.round(v * scale * rowZoom));
+  const id = sz(12.5);
+  const icao = sz(12);
+  const times = sz(11);
+  const labelRow = vz(18, Math.max(id + sz(4), sz(16) + 2)); // markers are sz(16) tall
+  const body = vz(30, icao + sz(8));
+  const timesRow = vz(17, times + sz(4));
+  // top offset 4 + label row + 3 + body + 2 + times row (see render)
+  const total = labelRow + sz(3) + body + sz(2) + timesRow;
+  return { labelRow, body, timesRow, total };
+}
+
+/**
  * Per-airport weather marker ABOVE the pill (Item 6) — same row, size and
  * chip treatment as the NTM marker, coloured by that airport's
  * flight_category. ADEP chip renders before the ADES chip, and each carries
@@ -122,18 +142,22 @@ export default function FlightPill({
   lane = 0,
   laneStep = 42,
   scale = 1,
+  rowZoom = 1,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
   // Ops-room legibility: every metric scales with the display scale setting.
+  // Heights additionally follow rowZoom (vertical thinning) via
+  // pillVerticalMetrics; fonts deliberately don't.
   const sz = (v) => Math.round(v * scale);
+  const V = pillVerticalMetrics(scale, rowZoom);
   const F = {
     id: sz(12.5),
     times: sz(11),
     icao: sz(12),
-    body: sz(30),
+    body: V.body,
     badge: sz(18),
-    labelRow: sz(18),
-    timesRow: sz(17),
+    labelRow: V.labelRow,
+    timesRow: V.timesRow,
   };
 
   // NTM / WX markers come from the flight's own decorated limitations.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { p2, clamp } from '../data';
-import FlightPill from './FlightPill';
+import FlightPill, { pillVerticalMetrics } from './FlightPill';
 
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 const LEGEND = [
@@ -109,7 +109,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1 }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -129,8 +129,12 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // pills, labels, now-line) derives from these two numbers.
   const VIEWPORT_HOURS = 10 / scale / timeZoom;
   const BEFORE_NOW_HOURS = 3 / scale / timeZoom;
-  const FLIGHT_PILL_HEIGHT = sz(70);
-  const FLIGHT_LANE_GAP = sz(12);
+  // rowZoom (vertical size slider) thins lane/pill HEIGHTS only — text stays
+  // on the display scale. Metrics come from the pill so lane maths and the
+  // rendered pill can never drift apart.
+  const pillV = pillVerticalMetrics(scale, rowZoom);
+  const FLIGHT_PILL_HEIGHT = pillV.total;
+  const FLIGHT_LANE_GAP = Math.max(4, Math.round(12 * scale * rowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -392,7 +396,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                   windowDurationMs,
                   timelinePx,
                 });
-                const rowHeight = Math.max(sz(96), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
+                const rowHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
                 <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
 
@@ -451,6 +455,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         windowDurationMs={windowDurationMs}
                         timelinePx={timelinePx}
                         scale={scale}
+                        rowZoom={rowZoom}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                       />
                     ))}

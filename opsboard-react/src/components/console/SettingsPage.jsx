@@ -345,6 +345,70 @@ function HourSpacingCard() {
   );
 }
 
+function RowHeightCard() {
+  const [rowZoom, setRowZoom] = useState(1);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings()
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function onChange(value) {
+    const next = Number(value);
+    setRowZoom(next);
+    // Debounced persist; merge-safe PUT — never clobbers scale/timeZoom.
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings({ rowZoom: next });
+        flash(`Row / pill height ${next.toFixed(2)}× — wall updates in seconds`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Row / pill height</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Vertical size of aircraft rows and flight pills. Lower makes the timeline thinner so more
+        registrations fit on screen; text keeps the display scale and stays legible.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontSize: 12, color: t.faint }}>0.6×</span>
+        <input
+          type="range"
+          min="0.6"
+          max="1.4"
+          step="0.05"
+          value={rowZoom}
+          disabled={!loaded}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ flex: 1, accentColor: t.blue }}
+        />
+        <span style={{ fontSize: 12, color: t.faint }}>1.4×</span>
+        <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
+          {Number(rowZoom).toFixed(2)}×
+        </span>
+        <Button size="sm" variant="soft" disabled={!loaded || Number(rowZoom) === 1} onClick={() => onChange(1)}>
+          Reset
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 // ── NOTAM / alert filter card ────────────────────────────────────────────────
 // NOTAM rules are colored keyword groups (OPS filter): {group, color,
 // terms[], patterns[]} — terms and wildcard patterns are editable per group.
@@ -606,6 +670,7 @@ export default function SettingsPage() {
       />
       <DisplayScaleCard />
       <HourSpacingCard />
+      <RowHeightCard />
       <ClocksCard />
       <AlertFilterCard />
     </div>

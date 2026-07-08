@@ -419,6 +419,19 @@ export async function setAircraftVisibility({ oprId, registration, enabled }) {
   return payload;
 }
 
+export async function deleteAircraft({ oprId, registration }) {
+  const response = await fetch(buildApiUrl('/api/aircraft'), {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ oprId, registration }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete aircraft (${response.status})`);
+  }
+  return payload;
+}
+
 export async function fetchOperators({ includeInactive = true } = {}) {
   const query = new URLSearchParams({
     includeInactive: includeInactive ? 'true' : 'false',

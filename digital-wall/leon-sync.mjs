@@ -866,6 +866,41 @@ export class LeonTimelineService {
     return removed;
   }
 
+  /**
+   * Remove one aircraft (tail) from the wall. Leon is the source of truth, so
+   * a true delete isn't possible while the tail still has flights in Leon —
+   * instead this purges its currently-cached flights (immediate lane/list
+   * removal), marks those flights deleted in the shared cache so a reload
+   * won't bring them back, and hides the tail persistently so any flights a
+   * later sync re-adds stay off the wall. Returns the count purged.
+   */
+  async purgeAircraft(oprId, registration) {
+    const opr = String(oprId || "").trim();
+    const reg = String(registration || "").trim();
+    if (!opr || !reg) throw new Error("oprId and registration are required.");
+
+    const purgedNids = [];
+    for (const [cacheKey, aircraft] of [...this.aircraftByFlightNid.entries()]) {
+      if ((aircraft?.oprId ?? "") === opr && (aircraft?.registration ?? "") === reg) {
+        const flight = this.flightsByNid.get(cacheKey);
+        const nid = flight?.flightNid ?? cacheKey.split(":").pop();
+        if (nid != null) purgedNids.push(String(nid));
+        this.flightsByNid.delete(cacheKey);
+        this.aircraftByFlightNid.delete(cacheKey);
+      }
+    }
+    // Keep the tail off the wall even if a later sync re-adds its flights.
+    if (this.operatorsStore) {
+      await this.operatorsStore.setAircraftHidden({ oprId: opr, registration: reg, isHidden: true }).catch(() => {});
+      if (purgedNids.length > 0) {
+        await this.operatorsStore.markFlightsDeleted({ oprId: opr, flightNids: purgedNids }).catch(() => {});
+      }
+    }
+    await this.persistLocalCache();
+    console.log(`[leon-sync] purged aircraft ${opr}:${reg} (${purgedNids.length} cached flight(s)) — hidden persistently`);
+    return purgedNids.length;
+  }
+
   async runSyncCycle() {
     const cycleStats = { updated: 0, skipped: 0, deleted: 0 };
     try {

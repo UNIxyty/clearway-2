@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAircraftSchedule, setAircraftVisibility } from '../../services/timelineApi';
+import { deleteAircraft, fetchAircraftSchedule, setAircraftVisibility } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
 import {
   Button,
   Dropdown,
   EmptyState,
   ErrorBanner,
+  IconButton,
   LoadingState,
   PageHeader,
   SearchBox,
@@ -29,6 +30,7 @@ export default function AircraftPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingKey, setSavingKey] = useState('');
+  const [deletingKey, setDeletingKey] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const savingKeyRef = useRef('');
   const bulkBusyRef = useRef(false);
@@ -100,6 +102,25 @@ export default function AircraftPage() {
       await load();
     } finally {
       setSavingKey('');
+    }
+  }
+
+  async function removeAircraft(row) {
+    const key = `${row.oprId}:${row.registration}`;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete aircraft ${row.registration} (${row.operatorName || row.oprId})?\n\nIts cached flights are purged and its lane leaves the wall now. Because aircraft come from Leon, it stays hidden — if a later sync re-adds its flights they will not show on the wall until you re-enable it.`)) {
+      return;
+    }
+    setDeletingKey(key);
+    try {
+      await deleteAircraft({ oprId: row.oprId, registration: row.registration });
+      setData((prev) => prev.filter((item) => !(item.oprId === row.oprId && item.registration === row.registration)));
+      flash(`Deleted ${row.registration}`, '#f87171');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      await load();
+    } finally {
+      setDeletingKey('');
     }
   }
 
@@ -201,8 +222,14 @@ export default function AircraftPage() {
                 </span>
                 <Toggle
                   on={shown}
-                  disabled={savingKey === `${row.oprId}:${row.registration}` || bulkBusy}
+                  disabled={savingKey === `${row.oprId}:${row.registration}` || deletingKey === `${row.oprId}:${row.registration}` || bulkBusy}
                   onToggle={() => toggle(row, !shown)}
+                />
+                <IconButton
+                  icon="trash-2"
+                  title="Delete aircraft"
+                  disabled={deletingKey === `${row.oprId}:${row.registration}`}
+                  onClick={() => removeAircraft(row)}
                 />
               </div>
             </div>

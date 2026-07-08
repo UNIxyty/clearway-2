@@ -624,6 +624,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/aircraft" && req.method === "DELETE") {
+      const body = await readJsonBody(req);
+      try {
+        const purged = await timelineService.purgeAircraft(body.oprId, body.registration);
+        sseHub.broadcast({ type: "roster.changed", action: "aircraft-delete", oprId: body.oprId, registration: body.registration });
+        sendJson(res, { ok: true, purged });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
     if (pathname === "/api/airports/search" && req.method === "GET") {
       const q = url.searchParams.get("q") || "";
       const limit = Number(url.searchParams.get("limit") || 50);

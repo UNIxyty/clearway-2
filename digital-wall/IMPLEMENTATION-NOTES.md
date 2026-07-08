@@ -699,3 +699,29 @@ working in isolation.
   applied in getFlights + NOTAM airport collection (schedule view opts out);
   config.changed now re-reads the timeline. Beware new Date(null)=epoch —
   guarded.
+
+## Portal nav: Digital Wall links (cc portal-nav prompt)
+
+Added three cross-app links to the **existing** portal account dropdown
+(`components/UserBadge.tsx`, the radix `DropdownMenu` in the top-right badge) —
+no new menu, reusing the same `DropdownMenuItem` + lucide-icon pattern as the
+existing items. Grouped under a `DropdownMenuLabel` "Digital Wall" heading:
+- **Digital Wall** (`MonitorIcon`) → `/digital-wall/timeline/`
+- **Digital Wall Console** (`SlidersHorizontalIcon`) → `/digital-wall/console/flights`
+- **Guide** (`BookOpenIcon`) → `/digital-wall/guide/`
+
+All three are gateway paths (not Next routes), so they use full navigation
+(`window.location.assign`) rather than `router.push`; Guide uses
+`window.open(..., "_blank", "noopener,noreferrer")` to match the console's
+"Guide" quick-open pill (new tab). Same-origin through the gateway → the shared
+`sb-<ref>-auth-token` cookie rides along, so the user stays signed in.
+
+**Verified:** deployed gateway paths resolve on live
+(`clearway.verxyl.com`): timeline `200`, console/flights `200`, guide
+auth-gated (`302 → /login` for no session — same as the console pill).
+Dropdown rendered against a local auth-disabled portal
+(`DISABLE_AUTH_FOR_TESTING=true`, port 3099) with Playwright: the "Digital
+Wall" section shows all three items with their icons, and clicks target
+`/digital-wall/timeline/`, `/digital-wall/console/flights`, and
+`/digital-wall/guide/` (new tab) respectively. Portal image rebuilt +
+container restarted.

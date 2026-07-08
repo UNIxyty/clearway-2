@@ -20,6 +20,9 @@ import {
   ArchiveRestoreIcon,
   UsersIcon,
   TrophyIcon,
+  MonitorIcon,
+  SlidersHorizontalIcon,
+  BookOpenIcon,
 } from "lucide-react";
 
 export default function UserBadge() {
@@ -107,6 +110,26 @@ export default function UserBadge() {
             Pickem Admin
           </DropdownMenuItem>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
+          Digital Wall
+        </DropdownMenuLabel>
+        {/* Wall surfaces live behind the gateway (not Next routes) — full navigation, same tab. */}
+        <DropdownMenuItem onClick={() => window.location.assign("/digital-wall/timeline/")}>
+          <MonitorIcon className="mr-2 size-4" />
+          Digital Wall
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => window.location.assign("/digital-wall/console/flights")}>
+          <SlidersHorizontalIcon className="mr-2 size-4" />
+          Digital Wall Console
+        </DropdownMenuItem>
+        {/* New tab, matching the console's Guide pill. */}
+        <DropdownMenuItem
+          onClick={() => window.open("/digital-wall/guide/", "_blank", "noopener,noreferrer")}
+        >
+          <BookOpenIcon className="mr-2 size-4" />
+          Guide
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/admin/airports/deleted")}>
           <ArchiveRestoreIcon className="mr-2 size-4" />

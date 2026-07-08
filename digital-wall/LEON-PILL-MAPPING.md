@@ -32,7 +32,7 @@ unavailable. Tenants with richer schemas automatically get richer pills.
 | **Delay** | `max(0, (atd ?? etd) − startTimeUTC)` in minutes | `departureDelayMin` (a not-yet-departed flight is "delayed" when its estimate slips past schedule) |
 | **CTOT / slot** | `flightWatch.ctotIso` / `ctot` / `tobt` | `ctot` (ISO); state `ctot` when set and not yet airborne/arrived |
 | **Trip status (confirmed?)** | `flight.status` — `FlightStatus` enum: `CONFIRMED` \| `OPTION` \| `OPPORTUNITY` (sync guide "Key field reference") | `tripStatus` + `isConfirmed` (= status === CONFIRMED; missing status ⇒ confirmed) |
-| **Checklist color** | `flight.checklist.allItems { cdNid csId }` + `checklist.getAvailableDefinitions(groupId: OPS) { nid statuses { status color } }` (definitions cached per operator) | `checklistColor` (hex) |
+| **Checklist color** | `flight.checklist.allItems { cdNid csId definition { groupId } }` + `checklist.getAvailableDefinitions(groupId: OPS) { nid statuses { status color } }` (definitions cached per operator) | `checklistColor` (hex) |
 | Cancelled | `flight.isCnl` | `isCnl` |
 
 ## Checklist color aggregation (heuristic — adjustable)
@@ -45,6 +45,26 @@ the flight's `checklistColor`. Rationale: the least-complete item is the one
 an ops room cares about. If a flight has no checklist items (or the tenant
 doesn't expose `checklist` on `Flight`), `checklistColor` is `null` and the
 pill ID renders in the default color.
+
+### OPS-only scoping (verified against live Leon)
+
+The ID colour is driven **only by the OPS checklist group**, enforced twice:
+
+1. Items whose `definition.groupId` is present and ≠ `OPS` are skipped in the
+   aggregation (the sub-selection is added only when the tenant's
+   `ChecklistItem` type exposes `definition`, introspected per operator).
+2. The definitions map only contains `getAvailableDefinitions(groupId: OPS)`
+   results, so an item from another group can't resolve a colour even
+   without the per-item guard.
+
+Live findings (reference tenant, Jul 2026): flight-level `checklist.allItems`
+carries **only OPS items** — SALES checklists hang on the **trip** checklist
+(`trip.checklist`), which the wall never queries. OPS and SALES definition
+nids are disjoint sets. `flight.salesDotColor` is uniformly `#FF0000` on this
+tenant, and an OPS item at a red status produces the **same red** — a red
+flight ID therefore means a least-complete **OPS** item at a red status
+(e.g. UPPC001 → `#FF0000` from OPS), not a SALES leak. `flight.colors` is
+Leon's strip colour (trip/aircraft), unrelated to checklist state.
 
 ## Pill fill precedence (Part A1)
 

@@ -99,7 +99,7 @@ const WANTED_FLIGHTWATCH_FIELDS = [
   "offBlock", "bloffIso", "blonIso",
 ];
 
-function buildFlightSelection({ flightWatchFields, includeChecklist }) {
+function buildFlightSelection({ flightWatchFields, includeChecklist, checklistItemHasDefinition = true }) {
   return `
   flightNid
   flightNo
@@ -117,7 +117,7 @@ function buildFlightSelection({ flightWatchFields, includeChecklist }) {
     registration
   }
   ${flightWatchFields.length > 0 ? `flightWatch {\n    ${flightWatchFields.join("\n    ")}\n  }` : ""}
-  ${includeChecklist ? "checklist {\n    allItems { cdNid csId }\n  }" : ""}
+  ${includeChecklist ? `checklist {\n    allItems { cdNid csId${checklistItemHasDefinition ? " definition { groupId }" : ""} }\n  }` : ""}
   passengerList {
     count
   }
@@ -251,14 +251,26 @@ export function movementStateOf({ hasArrived, isAirborne, ctot, departureDelayMi
 }
 
 /**
- * One color per flight from its checklist items: the least-complete item
+ * One color per flight from its OPS checklist items: the least-complete item
  * (earliest position in its definition's ordered status list) wins.
+ *
+ * OPS-only is enforced twice (Item 1): items carrying a definition.groupId
+ * other than OPS are skipped outright, and the defs map itself only holds
+ * definitions from getAvailableDefinitions(groupId: OPS) — so a SALES (or
+ * any other group's) item can never drive the flight-ID colour even on a
+ * tenant whose flight checklist mixes groups or whose defs query ignores
+ * the group filter. (Live finding: on the reference tenant SALES items hang
+ * on the TRIP checklist, and salesDotColor is uniformly #FF0000 — an OPS
+ * item at a red status is visually identical to it, which is why the colour
+ * source needed proving, not just eyeballing.)
  */
 function aggregateChecklistColor(rawChecklist, defs) {
   const items = rawChecklist?.allItems;
   if (!Array.isArray(items) || items.length === 0 || !defs) return null;
   let worst = null;
   for (const item of items) {
+    const itemGroup = item?.definition?.groupId;
+    if (itemGroup && String(itemGroup).toUpperCase() !== "OPS") continue;
     const def = defs.get(item?.cdNid);
     if (!def) continue;
     const index = def.order.indexOf(item.csId);
@@ -1045,9 +1057,10 @@ export class LeonTimelineService {
     }
     let selection;
     try {
-      const [fwFields, flightFields] = await Promise.all([
+      const [fwFields, flightFields, checklistItemFields] = await Promise.all([
         this.introspectTypeFields("FlightWatch", oprId),
         this.introspectTypeFields("Flight", oprId),
+        this.introspectTypeFields("ChecklistItem", oprId).catch(() => new Set()),
       ]);
       const flightWatchFields = flightFields.has("flightWatch")
         ? WANTED_FLIGHTWATCH_FIELDS.filter((name) => fwFields.has(name))
@@ -1055,6 +1068,10 @@ export class LeonTimelineService {
       selection = buildFlightSelection({
         flightWatchFields: flightWatchFields.length > 0 ? flightWatchFields : LEGACY_FLIGHTWATCH_FIELDS,
         includeChecklist: flightFields.has("checklist"),
+        // Item 1: per-item group is fetched so SALES items can be excluded
+        // explicitly; omitted on tenants whose schema doesn't expose it
+        // (the OPS defs map still guards those).
+        checklistItemHasDefinition: checklistItemFields.has("definition"),
       });
     } catch {
       selection = buildFlightSelection({

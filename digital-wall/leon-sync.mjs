@@ -1300,11 +1300,14 @@ export class LeonTimelineService {
     await this.runSyncCycle();
   }
 
-  async getFlights({ from, to, oprId, refresh, allOperators } = {}) {
+  async getFlights({ from, to, oprId, refresh, allOperators, includeHidden } = {}) {
     const forceLive = refresh === true || String(refresh) === "true";
     const targetOprId = String(oprId || "").trim();
     const useAllOperators = allOperators === true || (!targetOprId && forceLive);
-    const hiddenKeys = await this.listHiddenAircraftKeys();
+    // The hidden-aircraft filter is a WALL concern. The console's aircraft
+    // management view passes includeHidden so a disabled tail stays listed
+    // (and re-enable-able) instead of vanishing until a manual DB edit.
+    const hiddenKeys = includeHidden === true ? new Set() : await this.listHiddenAircraftKeys();
 
     if (forceLive || useAllOperators || targetOprId) {
       const configured = await this.listConfiguredOperators();
@@ -1412,6 +1415,7 @@ export class LeonTimelineService {
       to: toIso,
       refresh,
       allOperators: true,
+      includeHidden: true,
     });
 
     const byKey = new Map();

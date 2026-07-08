@@ -306,7 +306,7 @@ function HourSpacingCard() {
     timerRef.current = setTimeout(async () => {
       try {
         await saveDisplaySettings({ timeZoom: next });
-        flash(`Hour spacing ${next.toFixed(2)}\u00d7 \u2014 wall updates in seconds`);
+        flash(`Hour spacing ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -322,7 +322,7 @@ function HourSpacingCard() {
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ fontSize: 12, color: t.faint }}>0.5\u00d7</span>
+        <span style={{ fontSize: 12, color: t.faint }}>0.5×</span>
         <input
           type="range"
           min="0.5"
@@ -333,9 +333,9 @@ function HourSpacingCard() {
           onChange={(e) => onChange(e.target.value)}
           style={{ flex: 1, accentColor: t.blue }}
         />
-        <span style={{ fontSize: 12, color: t.faint }}>2.5\u00d7</span>
+        <span style={{ fontSize: 12, color: t.faint }}>2.5×</span>
         <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
-          {Number(timeZoom).toFixed(2)}\u00d7
+          {Number(timeZoom).toFixed(2)}×
         </span>
         <Button size="sm" variant="soft" disabled={!loaded || Number(timeZoom) === 1} onClick={() => onChange(1)}>
           Reset

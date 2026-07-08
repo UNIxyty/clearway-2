@@ -643,3 +643,18 @@ working in isolation.
   overnight. Next daily run remains the re-flag point.
 - **WX markers**: ADEP chip carries the plane-takeoff glyph, ADES the
   plane-landing glyph; colours/tooltips per category unchanged.
+
+## Edit limitations + delete operator/aircraft (cc edit/delete prompt)
+
+- **Edit limitation**: pencil on each card loads it into the form; save passes
+  the id so upsertCustomLimitation updates in place (create flow unchanged).
+- **Delete operator**: DELETE /api/operators/:id — store.deleteOperator
+  cascades (leon_flights + leon_aircraft_visibility, then the operator row);
+  leon-sync.purgeOperator clears the operator's in-memory flights + all
+  per-operator caches and persists. Trash button + confirm on the Operators
+  page.
+- **Delete aircraft**: DELETE /api/aircraft {oprId, registration} —
+  leon-sync.purgeAircraft purges cached flights, marks them deleted in the
+  shared cache, and hides the tail persistently (Leon is source of truth, so
+  re-synced flights stay hidden rather than truly gone). Trash button +
+  confirm on the Aircraft page. IconButton gained a disabled state.

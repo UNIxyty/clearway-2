@@ -144,7 +144,13 @@ export default function DisplayApp() {
       }),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
-        if (!event.section || event.section === 'settings') loadSettings();
+        if (!event.section || event.section === 'settings') {
+          loadSettings();
+          // Visibility-window settings (upcoming horizon / post-landing)
+          // filter flights SERVER-side — re-read the timeline so a changed
+          // threshold takes effect immediately, not at the next poll.
+          loadTimeline({ refresh: false });
+        }
       }),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());

@@ -409,6 +409,112 @@ function RowHeightCard() {
   );
 }
 
+// One row of the visibility-window card: label + slider + value + reset.
+function WindowRow({ label, hint, min, max, step, unit, value, defaultValue, loaded, onChange }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 12.5, color: t.faint }}>{hint}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontSize: 12, color: t.faint }}>{min}{unit}</span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={!loaded}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ flex: 1, accentColor: t.blue }}
+        />
+        <span style={{ fontSize: 12, color: t.faint }}>{max}{unit}</span>
+        <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
+          {value}{unit}
+        </span>
+        <Button size="sm" variant="soft" disabled={!loaded || value === defaultValue} onClick={() => onChange(defaultValue)}>
+          Reset
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function VisibilityWindowCard() {
+  const [horizon, setHorizon] = useState(17);
+  const [postLanding, setPostLanding] = useState(2);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings()
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.upcomingHorizonHours)) setHorizon(payload.settings.upcomingHorizonHours);
+        if (Number.isFinite(payload.settings?.postLandingHours)) setPostLanding(payload.settings.postLandingHours);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function persist(patch, message) {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings(patch);
+        flash(message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Flight visibility window</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Which flights the wall shows, by time. Far-future flights stay off until they cross the
+        upcoming horizon; landed flights drop off after the post-landing delay. Applies to the wall,
+        console flight lists and the daily NOTAM/WX airport collection.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <WindowRow
+        label="Upcoming horizon"
+        hint="show a flight only when departure is within this many hours"
+        min={1}
+        max={72}
+        step={1}
+        unit="h"
+        value={horizon}
+        defaultValue={17}
+        loaded={loaded}
+        onChange={(next) => {
+          setHorizon(next);
+          persist({ upcomingHorizonHours: next }, `Upcoming horizon ${next}h — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Post-landing removal"
+        hint="drop a landed flight this many hours after its landing time"
+        min={0}
+        max={24}
+        step={0.5}
+        unit="h"
+        value={postLanding}
+        defaultValue={2}
+        loaded={loaded}
+        onChange={(next) => {
+          setPostLanding(next);
+          persist({ postLandingHours: next }, `Post-landing removal ${next}h — wall updates in seconds`);
+        }}
+      />
+    </Card>
+  );
+}
+
 // ── NOTAM / alert filter card ────────────────────────────────────────────────
 // NOTAM rules are colored keyword groups (OPS filter): {group, color,
 // terms[], patterns[]} — terms and wildcard patterns are editable per group.
@@ -671,6 +777,7 @@ export default function SettingsPage() {
       <DisplayScaleCard />
       <HourSpacingCard />
       <RowHeightCard />
+      <VisibilityWindowCard />
       <ClocksCard />
       <AlertFilterCard />
     </div>

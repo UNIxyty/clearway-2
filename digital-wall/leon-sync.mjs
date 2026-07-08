@@ -291,6 +291,37 @@ function normalizeHexColor(value) {
   return /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : null;
 }
 
+/**
+ * Time-window visibility (Item 9): a flight is shown only when
+ *  - its (delayed) departure is within `upcomingHorizonHours` from now
+ *    (default 17h — a flight 2.5 days out must not occupy a lane), and
+ *  - it has NOT been on the ground longer than `postLandingHours`
+ *    (default 2h after the actual landing time).
+ * Missing/unparseable datetimes never hide a flight (safe: show it).
+ */
+export function flightVisibleInWindow(flight, nowMs, settings = {}) {
+  const horizonHours = Number(settings.upcomingHorizonHours);
+  const postHours = Number(settings.postLandingHours);
+  const horizonMs = (Number.isFinite(horizonHours) ? horizonHours : 17) * 3600_000;
+  const postMs = (Number.isFinite(postHours) ? postHours : 2) * 3600_000;
+
+  // new Date(null) is the 1970 epoch, not invalid — treat empty values as
+  // "no data" explicitly so a missing timestamp never hides a flight.
+  const dateOrNull = (value) => (value ? parseDate(value) : null);
+
+  const dep = dateOrNull(flight?.delayedDepartureUTC ?? flight?.etd ?? flight?.startTimeUTC);
+  if (dep && dep.getTime() > nowMs + horizonMs) return false;
+
+  const landedAt = flight?.ata
+    ?? (flight?.hasArrived || flight?.movementState === "arrived"
+      ? flight?.delayedArrivalUTC ?? flight?.eta ?? flight?.endTimeUTC
+      : null);
+  const landing = dateOrNull(landedAt);
+  if (landing && nowMs > landing.getTime() + postMs) return false;
+
+  return true;
+}
+
 // Item 1: only flights with a REAL trip status reach the wall/console.
 // Leon's FlightStatus enum is CONFIRMED | OPTION | OPPORTUNITY (confirmed vs
 // unconfirmed — both stay); drafts/blanks/other non-trip records that slip
@@ -1300,7 +1331,7 @@ export class LeonTimelineService {
     await this.runSyncCycle();
   }
 
-  async getFlights({ from, to, oprId, refresh, allOperators, includeHidden } = {}) {
+  async getFlights({ from, to, oprId, refresh, allOperators, includeHidden, applyTimeWindow } = {}) {
     const forceLive = refresh === true || String(refresh) === "true";
     const targetOprId = String(oprId || "").trim();
     const useAllOperators = allOperators === true || (!targetOprId && forceLive);
@@ -1308,6 +1339,15 @@ export class LeonTimelineService {
     // management view passes includeHidden so a disabled tail stays listed
     // (and re-enable-able) instead of vanishing until a manual DB edit.
     const hiddenKeys = includeHidden === true ? new Set() : await this.listHiddenAircraftKeys();
+    // Item 9: upcoming-horizon / post-landing visibility. Settings come from
+    // the display-settings store via a server-injected getter; the aircraft
+    // management view opts out (its 7-day upcoming counts must see ahead).
+    const visSettings = applyTimeWindow === false
+      ? null
+      : await (this.getVisibilitySettings?.() ?? Promise.resolve(null));
+    const visNowMs = Date.now();
+    const inTimeWindow = (flight) =>
+      visSettings === null || flightVisibleInWindow(flight, visNowMs, visSettings);
 
     if (forceLive || useAllOperators || targetOprId) {
       const configured = await this.listConfiguredOperators();
@@ -1339,6 +1379,7 @@ export class LeonTimelineService {
         if (!overlapsRange(flight, from, to)) continue;
         const registration = aircraft.registration ?? flight.aircraftRegistration ?? "UNKNOWN";
         if (hiddenKeys.has(this.aircraftHideKey(activeOprId, registration))) continue;
+        if (!inTimeWindow(flight)) continue;
         const operator = operatorById.get(activeOprId);
         const operatorName = flight.operatorName ?? operator.name ?? activeOprId;
         records.push({
@@ -1379,6 +1420,7 @@ export class LeonTimelineService {
       };
       const hideKey = this.aircraftHideKey(aircraft.oprId ?? this.operatorId, aircraft.registration);
       if (hiddenKeys.has(hideKey)) continue;
+      if (!inTimeWindow(flight)) continue;
       const fallbackOprId = aircraft.oprId ?? this.operatorId;
       records.push({
         oprId: fallbackOprId,
@@ -1416,6 +1458,7 @@ export class LeonTimelineService {
       refresh,
       allOperators: true,
       includeHidden: true,
+      applyTimeWindow: false,
     });
 
     const byKey = new Map();

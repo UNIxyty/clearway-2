@@ -18,6 +18,7 @@
 import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
+import { flightVisibleInWindow } from "../leon-sync.mjs";
 import { mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
 import {
   compileNotamGroups,
@@ -210,11 +211,15 @@ export class NotamCheckService {
     this.armReminder();
   }
 
-  collectTodaysAirports(day) {
+  collectTodaysAirports(day, visibilitySettings = null) {
     const airports = new Map();
     for (const [key, flight] of this.timelineService.flightsByNid.entries()) {
       if (flight.isCnl) continue;
       if (flightZonedDay(flight) !== day) continue;
+      // Item 9: airport collection follows the same visibility window as the
+      // wall — a flight beyond the upcoming horizon (or long landed) doesn't
+      // add its airports to today's check.
+      if (visibilitySettings && !flightVisibleInWindow(flight, Date.now(), visibilitySettings)) continue;
       for (const airport of [flight.adep, flight.ades]) {
         const icao = String(airport?.icao || "").toUpperCase();
         if (!/^[A-Z0-9]{4}$/.test(icao) || icao === "UNKN") continue;
@@ -277,7 +282,8 @@ export class NotamCheckService {
       const rules = await this.alertsService.getRules();
       const groups = compileNotamGroups(rules.notamGroups);
 
-      const targets = this.collectTodaysAirports(day);
+      const visibilitySettings = await (this.timelineService.getVisibilitySettings?.() ?? Promise.resolve(null));
+      const targets = this.collectTodaysAirports(day, visibilitySettings);
       // Same-day re-runs (scheduled 10:00 after an early manual run, or a
       // manual refresh later in the day) refresh the NOTAM data but PRESERVE
       // the acknowledgments already given today. Acks only reset when the

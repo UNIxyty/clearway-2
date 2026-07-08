@@ -55,6 +55,13 @@ await weatherService.load();
 timelineService.weatherLookup = (icao) => weatherService.categoryOf(icao);
 process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "idle (set CHECKWX_API_KEY)"}\n`);
 
+// Item 9: getFlights filters by the adjustable upcoming-horizon /
+// post-landing window; thresholds live with the display settings.
+timelineService.getVisibilitySettings = async () => {
+  const stored = await displaySettingsStore.read().catch(() => null);
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...(stored || {}) };
+};
+
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
 await notamCheck.load();
 notamCheck.startScheduler();
@@ -80,7 +87,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, upcomingHorizonHours: 17, postLandingHours: 2 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 function sanitizeDisplaySettings(input = {}) {
@@ -100,10 +107,25 @@ function sanitizeDisplaySettings(input = {}) {
   if (!Number.isFinite(rowZoom) || rowZoom < 0.6 || rowZoom > 1.4) {
     throw new Error("rowZoom must be a number between 0.6 and 1.4.");
   }
+  // Item 9: time-window visibility thresholds (hours).
+  const upcomingHorizonHours = input.upcomingHorizonHours === undefined
+    ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
+    : Number(input.upcomingHorizonHours);
+  if (!Number.isFinite(upcomingHorizonHours) || upcomingHorizonHours < 1 || upcomingHorizonHours > 72) {
+    throw new Error("upcomingHorizonHours must be a number between 1 and 72.");
+  }
+  const postLandingHours = input.postLandingHours === undefined
+    ? DEFAULT_DISPLAY_SETTINGS.postLandingHours
+    : Number(input.postLandingHours);
+  if (!Number.isFinite(postLandingHours) || postLandingHours < 0 || postLandingHours > 24) {
+    throw new Error("postLandingHours must be a number between 0 and 24.");
+  }
   return {
     scale: Math.round(scale * 100) / 100,
     timeZoom: Math.round(timeZoom * 100) / 100,
     rowZoom: Math.round(rowZoom * 100) / 100,
+    upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
+    postLandingHours: Math.round(postLandingHours * 10) / 10,
   };
 }
 

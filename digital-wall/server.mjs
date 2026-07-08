@@ -587,6 +587,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname.startsWith("/api/operators/") && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      try {
+        const deleted = await operatorsStore.deleteOperator(id);
+        await timelineService.purgeOperator(deleted.oprId).catch(() => {});
+        sseHub.broadcast({ type: "roster.changed", action: "operator-delete", oprId: deleted.oprId });
+        sendJson(res, { ok: true, ...deleted });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
     if (pathname === "/api/aircraft/schedule" && req.method === "GET") {
       const days = Number(url.searchParams.get("days") || 7);
       const refresh = url.searchParams.get("refresh") === "true";

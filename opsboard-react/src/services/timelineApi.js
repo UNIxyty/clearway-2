@@ -452,6 +452,17 @@ export async function setOperatorActive(id, isActive) {
   return payload;
 }
 
+export async function deleteOperator(id) {
+  const response = await fetch(buildApiUrl(`/api/operators/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete operator (${response.status})`);
+  }
+  return payload;
+}
+
 export async function fetchLimitations({ withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: 'true' });
   if (withMatches) params.set('withMatches', 'true');

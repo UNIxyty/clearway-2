@@ -201,6 +201,25 @@ export class OperatorsStore {
     return sanitizeOperator(row);
   }
 
+  async deleteOperator(id) {
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
+    }
+    // Resolve oprId first (needed to clear the visibility rows, which key on
+    // opr_id) and to report it back to the caller for the in-memory purge.
+    const rows = (await supabaseFetch(`leon_operators?select=id,opr_id&id=eq.${encodeURIComponent(id)}&limit=1`)) || [];
+    const operator = Array.isArray(rows) ? rows[0] : rows;
+    if (!operator?.id) {
+      throw new Error("Operator not found.");
+    }
+    // Cascade: cached flights and aircraft-visibility rows are removed before
+    // the operator so no orphaned rows or FK errors are left behind.
+    await supabaseFetch(`leon_flights?operator_id=eq.${encodeURIComponent(operator.id)}`, { method: "DELETE" });
+    await supabaseFetch(`leon_aircraft_visibility?opr_id=eq.${encodeURIComponent(operator.opr_id)}`, { method: "DELETE" });
+    await supabaseFetch(`leon_operators?id=eq.${encodeURIComponent(operator.id)}`, { method: "DELETE" });
+    return { id: operator.id, oprId: operator.opr_id };
+  }
+
   async getOperatorByOprId(oprId) {
     if (!(await canUseSupabase())) return null;
     const rows =

@@ -202,20 +202,22 @@ export function Button({
   );
 }
 
-export function IconButton({ icon, title, onClick, size = 30, color = t.muted, style = {} }) {
+export function IconButton({ icon, title, onClick, size = 30, color = t.muted, disabled = false, style = {} }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
+      disabled={disabled}
       style={{
         border: 'none',
         background: t.wash,
         width: size,
         height: size,
         borderRadius: 8,
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         color,
+        opacity: disabled ? 0.5 : 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

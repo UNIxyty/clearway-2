@@ -836,6 +836,36 @@ export class LeonTimelineService {
     return cleared;
   }
 
+  /**
+   * Drop every in-memory trace of one operator after it was deleted from the
+   * store: its cached flights/aircraft, per-operator sync state, credential
+   * caches and GraphQL/checklist caches. Persists the trimmed cache so the
+   * operator's flights don't reappear on a reload.
+   */
+  async purgeOperator(oprId) {
+    const key = String(oprId || "").trim();
+    if (!key) return 0;
+    let removed = 0;
+    const prefix = `${key}:`;
+    for (const cacheKey of [...this.flightsByNid.keys()]) {
+      if (cacheKey.startsWith(prefix)) {
+        this.flightsByNid.delete(cacheKey);
+        this.aircraftByFlightNid.delete(cacheKey);
+        removed += 1;
+      }
+    }
+    this.syncStateByOperator.delete(key);
+    this.aircraftCacheByOperator.delete(key);
+    this.flightSelectionByOperator.delete(key);
+    this.checklistDefsByOperator.delete(key);
+    this.tokensByOperator.delete(key);
+    this.tokenExpiryByOperator.delete(key);
+    this.refreshTokensByOperator.delete(key);
+    await this.persistLocalCache();
+    console.log(`[leon-sync] purged operator ${key} (${removed} cached flight(s))`);
+    return removed;
+  }
+
   async runSyncCycle() {
     const cycleStats = { updated: 0, skipped: 0, deleted: 0 };
     try {

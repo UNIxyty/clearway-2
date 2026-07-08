@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  deleteOperator,
   fetchOperators,
   fetchSyncStatus,
   forceTimelineRefresh,
@@ -14,6 +15,7 @@ import {
   ErrorBanner,
   EmptyState,
   FieldLabel,
+  IconButton,
   LoadingState,
   PageHeader,
   StatusPill,
@@ -138,6 +140,7 @@ export default function OperatorsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [forceSyncing, setForceSyncing] = useState(false);
   const [togglingId, setTogglingId] = useState('');
+  const [deletingId, setDeletingId] = useState('');
   const flash = useToast();
 
   async function load() {
@@ -174,6 +177,25 @@ export default function OperatorsPage() {
       await load();
     } finally {
       setTogglingId('');
+    }
+  }
+
+  async function removeOperator(operator) {
+    const label = operator.name || operator.oprId;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete operator "${label}" (${operator.oprId})?\n\nThis removes its Leon connection, all its cached flights and aircraft-visibility settings. Its lanes disappear from the wall. This cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(operator.id);
+    try {
+      await deleteOperator(operator.id);
+      setOperators((prev) => prev.filter((row) => row.id !== operator.id));
+      flash(`Deleted ${label}`, '#f87171');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      await load();
+    } finally {
+      setDeletingId('');
     }
   }
 
@@ -284,8 +306,14 @@ export default function OperatorsPage() {
                   </span>
                   <Toggle
                     on={Boolean(operator.isActive)}
-                    disabled={togglingId === operator.id}
+                    disabled={togglingId === operator.id || deletingId === operator.id}
                     onToggle={() => toggleOperator(operator, !operator.isActive)}
+                  />
+                  <IconButton
+                    icon="trash-2"
+                    title="Delete operator"
+                    disabled={deletingId === operator.id}
+                    onClick={() => removeOperator(operator)}
                   />
                 </div>
               </div>

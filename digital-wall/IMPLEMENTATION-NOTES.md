@@ -658,3 +658,44 @@ working in isolation.
   shared cache, and hides the tail persistently (Leon is source of truth, so
   re-synced flights stay hidden rather than truly gone). Trash button +
   confirm on the Aircraft page. IconButton gained a disabled state.
+
+## Checklist colour, sizing, bugs, IMP, CAA, filters, timing (9-item prompt)
+
+- **OPS checklist colour (1)**: live-verified — flight checklists carry only
+  OPS items (SALES hangs on the trip checklist); salesDotColor is uniformly
+  #FF0000 and a red OPS item looks identical, hence the confusion. Selection
+  now fetches definition{groupId} (introspection-guarded) and the aggregation
+  skips non-OPS items — double-guarded with the OPS-only defs map.
+- **Row/pill height (2)**: rowZoom setting 0.6–1.4; pillVerticalMetrics() in
+  FlightPill is the single vertical-maths source (fonts stay on scale, rows
+  floor at font+pad); Settings card, merge-safe.
+- **Hidden aircraft (3)**: the hidden filter was applied inside getFlights for
+  every caller; getFlights gained includeHidden and the console schedule
+  passes it — hidden tails stay listed/manageable.
+- **CAA Details (4)**: caa-store (sheet columns verbatim + country/airport/
+  mixed match flags + NEW appliesTo any/commercial/private), one-shot
+  scripts/import-caa-xlsx.mjs (74 authorities from CAA_NEW.xlsx, spacer rows
+  skipped, labels resolved against the geo directory), Leon isCommercial
+  synced, teal CAA pill marker + overlay contact block, console page per the
+  Display Console design, /api/caa CRUD + caa.changed. Unknown-kind flights
+  match only "any".
+- **IMP fully editable (5)**: title/body always editable, reviewed state
+  click-to-flip; PATCH /api/important/:id does full-field partial updates
+  (important-store.patch).
+- **Geo single source (6)**: lib/geo-store.mjs loads the Supabase airports
+  table (snapshot fallback data/geo-airports.json, gitignored) into the one
+  airport directory every picker AND match-context country resolution uses;
+  /api/geo/airports + /api/geo/countries (aliases kept).
+- **Flight-kind filter (7)**: isCnl / iconType positioning / simulator
+  (iconType, isSimulator, flightType) dropped at all ingestion points with
+  per-kind logging; isFerry deliberately KEPT (real movements); cancelled
+  flights previously synced as normal because isCnl was never selected.
+- **IMP attachments + audit (8)**: attachment-store (Supabase Storage or
+  data/attachments, 10 MB, ops-doc extensions), upload/list/download/delete
+  endpoints + editor section + overlay chips; addedAt/By + confirmedAt/By
+  stamped from the auth session (cleared on un-review), shown in the editor.
+- **Time windows (9)**: flightVisibleInWindow — upcoming horizon (default 17h)
+  + post-landing removal (default 2h), settings-adjustable (1–72h / 0–24h),
+  applied in getFlights + NOTAM airport collection (schedule view opts out);
+  config.changed now re-reads the timeline. Beware new Date(null)=epoch —
+  guarded.

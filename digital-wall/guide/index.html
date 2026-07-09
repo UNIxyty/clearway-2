@@ -63,7 +63,7 @@
           <img src="assets/clearway-white.svg" alt="Clearway — Handling &amp; Operations" style="height:32px;">
         </div>
         <div style="display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:0.04em;color:#8b93a7;">
-          <span style="font-family:'IBM Plex Mono',monospace;">v1.0 · JUL 2026</span>
+          <span style="font-family:'IBM Plex Mono',monospace;">v1.1 · JUL 2026</span>
           <span style="width:1px;height:16px;background:#33405c;"></span>
           <span style="font-family:'IBM Plex Mono',monospace;">~15 MIN READ</span>
         </div>
@@ -172,7 +172,7 @@
               </div>
             </figure>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
-              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Left nav</strong> — the console's pages: Flights, NOTAM Check, Operators, Aircraft, Limitations, Important, Settings.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Left nav</strong> — the console's pages: Flights, NOTAM Check, Operators, Aircraft, Limitations, Important, CAA Details, Settings.</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall status</strong> — whether a flight is live on the wall right now, plus who's online.</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Work area</strong> — each page opens here. Most pages carry a collapsible "How this page works" panel.</div></div>
             </div>
@@ -203,6 +203,11 @@
           <div style="padding:34px 40px 40px;">
             <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">Each aircraft has its own horizontal lane. Flights appear as <strong>pills</strong> placed against the hour grid — left edge at departure, right edge at arrival. Everything you need to read a flight is on and around the pill.</p>
 
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:16px;">
+              <i data-lucide="list-filter" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">What reaches the wall.</strong> Flights show from now out to the <strong>upcoming horizon</strong> (default 17&nbsp;h) and drop off a set window after landing (<strong>post-landing removal</strong>, default 2&nbsp;h) — both adjustable in Settings. Cancelled, crew-positioning and simulator flights are never shown.</div>
+            </div>
+
             <!-- ANATOMY OF A PILL -->
             <h3 style="font-size:18px;font-weight:700;margin:34px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>Anatomy of a pill</h3>
             <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">A scheduled flight: the two airport ICAOs sit at each end of the pill, with the departure and arrival times underneath.</p>
@@ -216,8 +221,8 @@
               </div>
             </figure>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
-              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Flight ID</strong> — its <em>colour</em> signals the checklist state and <em>italic</em> means an unconfirmed trip (see below).</div></div>
-              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Marker row</strong> — per-flight badges: IMP, WX and NTM (see markers).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Flight ID</strong> — its <em>colour</em> signals the <strong>OPS checklist</strong> state and <em>italic</em> means an unconfirmed trip (see below).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Marker row</strong> — per-flight badges: IMP, WX, NTM and CAA (see markers).</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">ADEP → ADES</strong> — departure ICAO on the left, arrival ICAO on the right.</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Times</strong> — departure under the left ICAO, arrival under the right. The pill spans exactly that window on the grid.</div></div>
             </div>
@@ -249,7 +254,7 @@
               </div>
             </figure>
             <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px;">
-              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Green flight ID</strong> — this trip's checklist is complete. (Red would flag an outstanding checklist.)</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Green flight ID</strong> — this trip's <strong>OPS checklist</strong> is complete. (Red would flag an outstanding OPS checklist.)</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Delay hatch</strong> — the striped portion shows how much later than planned the flight actually ran.</div></div>
               <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Arrived fill</strong> — the dusty-mauve solid section confirms the flight is down.</div></div>
             </div>
@@ -257,9 +262,9 @@
             <!-- ID COLOUR + ITALIC -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px;">
               <div style="border:1px solid var(--bd);border-radius:13px;padding:18px 20px;background:var(--card2);">
-                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">FLIGHT-ID COLOUR</div>
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#2fbf6b;">ORO1042</span><span style="font-size:13px;color:var(--tx3);">checklist complete</span></div>
-                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#ef6b6f;">ORO1041</span><span style="font-size:13px;color:var(--tx3);">checklist outstanding</span></div>
+                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">FLIGHT-ID COLOUR · OPS CHECKLIST</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#2fbf6b;">ORO1042</span><span style="font-size:13px;color:var(--tx3);">OPS checklist complete</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#ef6b6f;">ORO1041</span><span style="font-size:13px;color:var(--tx3);">OPS checklist outstanding</span></div>
               </div>
               <div style="border:1px solid var(--bd);border-radius:13px;padding:18px 20px;background:var(--card2);">
                 <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">ITALIC = UNCONFIRMED TRIP</div>
@@ -270,7 +275,7 @@
 
             <!-- MARKERS -->
             <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The marker row</h3>
-            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Above each pill, small badges flag anything that needs attention on that flight. They're generated automatically from the alert filter and the Important entries.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Above each pill, small badges flag anything that needs attention on that flight. They're generated automatically from the alert filter, the Important entries and matching CAA records. WX shows per airport, so a flight can carry a departure and an arrival badge at once.</p>
             <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
               <div style="position:relative;overflow:visible;">
                 <img src="uploads/guide-shots/pill-markers.png" alt="Marker row above a pill" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
@@ -279,10 +284,20 @@
                 <span style="position:absolute;left:96%;top:20%;margin-top:-1px;height:2px;width:calc(4.0% + 26px);background:rgba(37,99,235,.6);"></span><span style="position:absolute;left:96%;top:20%;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 1px rgba(37,99,235,.55),0 1px 3px rgba(0,0,0,.3);"></span><span style="position:absolute;left:calc(100% + 26px);top:20%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(16,18,22,.28);">3</span>
               </div>
             </figure>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px;">
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px;">
               <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="width:24px;height:24px;border-radius:6px;background:#fef3e2;color:#b45309;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #f4d4b8;">!</span><span style="font-size:14px;font-weight:700;">IMP</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">The flight matches an <strong>Important</strong> entry — a standing operational limitation worth reading before you work it.</div></div>
-              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#16a34a;background:#e7f6ec;padding:4px 9px;border-radius:6px;border:1px solid #c7ead2;">WX</span><span style="font-size:14px;font-weight:700;">Weather</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A weather category worth noting at one of the airports. Its colour follows the WX category (see §5).</div></div>
-              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#c2703b;background:#fdf1e8;padding:4px 9px;border-radius:6px;border:1px solid #f4d4b8;">NTM</span><span style="font-size:14px;font-weight:700;">NOTAM</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A flagged NOTAM matched the alert filter for one of the flight's airports today.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#c2703b;background:#fdf1e8;padding:4px 9px;border-radius:6px;border:1px solid #f4d4b8;">NTM</span><span style="font-size:14px;font-weight:700;">NOTAM</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A flagged NOTAM matched the alert filter for one of the flight's airports today — review it on the NOTAM Check page.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#15803d;background:#e7f6ec;padding:4px 9px;border-radius:6px;border:1px solid #c7ead2;">WX</span><span style="font-size:14px;font-weight:700;">Weather</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">A weather category worth noting at an airport. It shows <strong>per airport</strong> — a small ↗ glyph for departure, ↘ for arrival — and takes the WX category colour (see §5).</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:14px 16px;background:var(--card2);"><div style="display:flex;align-items:center;gap:9px;margin-bottom:7px;"><span style="font-size:11px;font-weight:800;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:4px 9px;border-radius:6px;border:1px solid #99e0d3;">CAA</span><span style="font-size:14px;font-weight:700;">Authority</span></div><div style="font-size:13px;line-height:1.5;color:var(--tx3);">The flight's country or airport matches a <strong>CAA</strong> record — the overlay carries that authority's contact block (see §7).</div></div>
+            </div>
+            <div style="border:1px solid var(--bd);border-radius:12px;padding:16px 18px;background:var(--card2);margin-top:14px;">
+              <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:12px;">WX BADGE COLOUR = FLIGHT CATEGORY</div>
+              <div style="display:flex;flex-wrap:wrap;gap:9px 18px;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;font-weight:800;color:#15803d;background:#e7f6ec;padding:3px 8px;border-radius:5px;">VFR</span><span style="font-size:12.5px;color:var(--tx3);">green · good</span></div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;font-weight:800;color:#b45309;background:#fef3e2;padding:3px 8px;border-radius:5px;">MVFR</span><span style="font-size:12.5px;color:var(--tx3);">amber · marginal</span></div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;font-weight:800;color:#b91c1c;background:#fdecec;padding:3px 8px;border-radius:5px;">IFR</span><span style="font-size:12.5px;color:var(--tx3);">red · instrument</span></div>
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;font-weight:800;color:#a21caf;background:#fce7f6;padding:3px 8px;border-radius:5px;">LIFR</span><span style="font-size:12.5px;color:var(--tx3);">magenta · low IFR</span></div>
+              </div>
             </div>
 
             <!-- IN-MOTION PILL STATES -->
@@ -529,9 +544,9 @@
 
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
               <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#2fbf6b;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#15803d;background:#e7f6ec;padding:2px 8px;border-radius:5px;">VFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Good — visual conditions.</div></div></div>
-              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#2563eb;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:var(--accent2);background:#e8effe;padding:2px 8px;border-radius:5px;">MVFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Marginal — reduced ceiling / vis.</div></div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#d97706;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#b45309;background:#fef3e2;padding:2px 8px;border-radius:5px;">MVFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Marginal — reduced ceiling / vis.</div></div></div>
               <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#e5484d;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#b91c1c;background:#fdecec;padding:2px 8px;border-radius:5px;">IFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Instrument conditions required.</div></div></div>
-              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#7c3aed;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#6d28d9;background:#ede9fe;padding:2px 8px;border-radius:5px;">LIFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Low IFR — worst category.</div></div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#c026d3;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#a21caf;background:#fce7f6;padding:2px 8px;border-radius:5px;">LIFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Low IFR — worst category.</div></div></div>
             </div>
 
             <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:var(--tx4);margin-bottom:10px;">FIG · DECODED WEATHER IN THE OVERLAY</div>
@@ -619,7 +634,7 @@
               </div>
             </figure>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 22px;margin-top:16px;">
-              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Match type</strong> — Flight, Airport, Country or Mixed; matching is OR across every target you add.</div></div>
+              <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Match type</strong> — Flight, Airport, Country or Mixed; matching is OR across every target you add. Country and airport pickers draw from the full airports directory.</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Date window</strong> — optional start/end, or mark it <em>Permanent</em> (always active, can't be deleted).</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall sidebar preview</strong> — see exactly how the card renders at wall scale before saving.</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Existing cards</strong> — each shows its schedule and how many flights currently match; toggle or delete.</div></div>
@@ -629,7 +644,7 @@
 
             <!-- IMPORTANT -->
             <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="star" style="width:19px;height:19px;color:#2563eb;"></i>Important (IMP)</h3>
-            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Standing IMP limitations imported from the ops bulletin. A flight shows the "!" marker on the wall when it matches an entry's <strong>criteria</strong> — country, airport, operator or registration, respecting direction and date window. Auto-imported entries <strong>need a human review</strong> before they're trusted.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 16px;max-width:720px;">Standing IMP limitations imported from the ops bulletin. A flight shows the "!" marker on the wall when it matches an entry's <strong>criteria</strong> — country, airport, operator or registration, respecting direction and date window. Auto-imported entries <strong>need a human review</strong> before they're trusted. Every entry is <strong>fully editable</strong>, takes <strong>file attachments</strong>, and carries <strong>added-by / confirmed-by</strong> audit stamps.</p>
             <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:42px 50px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);overflow:visible;">
               <div style="position:relative;overflow:visible;">
                 <img src="uploads/guide-shots/console-important.png" alt="Important page" style="display:block;width:100%;border-radius:10px;border:1px solid rgba(16,18,22,.12);box-shadow:0 2px 10px rgba(16,18,22,.12);">
@@ -642,6 +657,31 @@
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Needs-review filter</strong> — narrow to the auto-imported entries awaiting sign-off (65 after the reset).</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Entry cards</strong> — status tags plus the criteria (ICAO / country) that trigger the match.</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Detail pane</strong> — select an entry to read its verbatim body and match criteria.</div></div>
+            </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:24px 0 10px;">A REVIEWED ENTRY · EDIT, ATTACH &amp; AUDIT</div>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:26px 30px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);">
+              <div style="background:#fff;border:1px solid #e6e7ea;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.04);max-width:600px;">
+                <div style="padding:16px 20px;border-bottom:1px solid #eef0f2;">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:700;color:#15803d;background:#e7f6ec;padding:3px 9px;border-radius:6px;">Active</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#0369a1;background:#e0f2fe;padding:3px 8px;border-radius:6px;">EVRA</span><span style="font-size:11px;font-weight:600;color:#475569;background:#eef1f5;padding:3px 8px;border-radius:6px;">Arrival</span></div>
+                  <div style="font-size:17px;font-weight:800;color:#17181c;">GBJ88 — VIP handling protocol</div>
+                </div>
+                <div style="padding:16px 20px;">
+                  <div style="font-size:13.5px;line-height:1.6;color:#3a3d44;margin-bottom:16px;">Head-of-state movement. Discreet handling, dedicated FBO lounge, no ramp photography. Coordinate with airport security 24h prior. Slot protected.</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;"><span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#1d4ed8;background:#eef4ff;border:1px solid #dbe6ff;padding:6px 11px;border-radius:8px;"><i data-lucide="paperclip" style="width:13px;height:13px;"></i>handling-brief.pdf</span><span style="font-size:12px;color:#9aa0a8;">184&nbsp;KB</span></div>
+                  <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid #eef0f2;">
+                    <div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:#b0b5bc;margin-bottom:3px;">ADDED BY</div><div style="font-size:12.5px;color:#3a3d44;">Auto-import · 08 Jul 09:12Z</div></div>
+                    <div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.06em;color:#b0b5bc;margin-bottom:3px;">CONFIRMED BY</div><div style="font-size:12.5px;color:#3a3d44;">M. Ozols · 08 Jul 10:47Z</div></div>
+                    <div style="flex:1;"></div>
+                    <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#17181c;background:#fff;border:1px solid #d6d8dc;padding:8px 14px;border-radius:9px;"><i data-lucide="pencil" style="width:14px;height:14px;color:#6c7079;"></i>Edit</span>
+                  </div>
+                </div>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card2);"><div style="font-size:13.5px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i data-lucide="pencil" style="width:15px;height:15px;color:#2563eb;"></i>Fully editable</div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Correct the title, body, criteria and dates on any entry — imported or hand-written.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card2);"><div style="font-size:13.5px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i data-lucide="paperclip" style="width:15px;height:15px;color:#2563eb;"></i>Attachments</div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Attach the source brief or permit so it travels with the entry.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card2);"><div style="font-size:13.5px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:7px;"><i data-lucide="user-check" style="width:15px;height:15px;color:#2563eb;"></i>Audit stamps</div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Every entry records who added it and who confirmed it, with timestamps.</div></div>
             </div>
 
             <div style="height:1px;background:var(--bd2);margin:32px 0;"></div>
@@ -664,6 +704,25 @@
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Wall clocks</strong> — add cities and drag to reorder; the home clock is highlighted on the wall.</div></div>
               <div style="display:flex;gap:10px;align-items:flex-start;"><span style="flex:none;width:20px;height:20px;border-radius:50%;background:var(--chip);color:#2563eb;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</span><div style="font-size:13.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">NOTAM / alert filter</strong> — keyword groups (by category colour) that drive both the daily check and the NTM / WX badges.</div></div>
             </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:28px 0 12px;">MORE DISPLAY CONTROLS</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;"><div style="font-size:14.5px;font-weight:700;">Row / pill height <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:2px 8px;border-radius:5px;border:1px solid #99e0d3;vertical-align:middle;">NEW</span></div><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--tx2);">0.85×</span></div>
+                <div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-bottom:12px;">Vertical density of each lane. Lower makes the timeline <strong>thinner</strong>, so more aircraft fit on screen at once.</div>
+                <div style="position:relative;height:6px;border-radius:999px;background:var(--bd);"><div style="position:absolute;left:0;top:0;height:6px;width:42%;border-radius:999px;background:#2563eb;"></div><div style="position:absolute;left:42%;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #2563eb;box-shadow:0 1px 3px rgba(16,18,22,.2);"></div></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Upcoming horizon</div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">17 h</span></div>
+                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">How far ahead the wall looks. Flights beyond this window stay off the timeline until they come into range. Adjustable.</div>
+                </div>
+                <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Post-landing removal</div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">2 h</span></div>
+                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">How long an arrived flight lingers before it drops off. Long-landed flights clear automatically. Adjustable.</div>
+                </div>
+              </div>
+            </div>
           </div>
           <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
@@ -672,13 +731,177 @@
         </div>
       </section>
 
-      <!-- ===== 07 AIP / GEN ===== -->
+      <!-- ===== 07 CAA DETAILS ===== -->
+      <section id="caa" data-section data-screen-label="CAA" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="landmark" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">07 · THE CONSOLE</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">CAA details</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">The <strong>CAA Details</strong> page holds Civil Aviation Authority contact details and permit processes — one record per authority. It replaces the shared OPS permit-contacts spreadsheet: when a flight matches a record, a teal <strong>CAA</strong> marker appears on its pill and the authority's contact block shows in the flight overlay.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 22px;max-width:720px;">Find it in the console's left nav, between Important and Settings.</p>
+
+            <!-- how this page works -->
+            <div style="display:flex;flex-direction:column;gap:9px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px 17px;margin-bottom:30px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px;"><i data-lucide="info" style="width:18px;height:18px;color:#2563eb;"></i><span style="font-size:14.5px;font-weight:700;color:var(--accent2);">How this page works</span></div>
+              <div style="font-size:14px;line-height:1.55;color:var(--info-tx);padding-left:28px;"><strong style="color:var(--accent2);">Contact details</strong> — the permit desk, phones, emails, AFTN/SITA and lead-time process for each authority. This replaces the shared CAA spreadsheet.</div>
+              <div style="font-size:14px;line-height:1.55;color:var(--info-tx);padding-left:28px;"><strong style="color:var(--accent2);">Match flags</strong> — an entry attaches to a flight by country and/or airport. The <strong>commercial / private</strong> flag narrows it so it only surfaces for that flight kind.</div>
+              <div style="font-size:14px;line-height:1.55;color:var(--info-tx);padding-left:28px;"><strong style="color:var(--accent2);">On the wall</strong> — matched flights get a teal <strong>CAA</strong> marker on the pill; the flight overlay shows the authority's contact block. Preview both inside the editor.</div>
+            </div>
+
+            <!-- THE AUTHORITY LIST -->
+            <h3 style="font-size:18px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The authority list</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">The left column lists every authority. Search by name, country or ICAO, or filter by country, function and flight kind. Each row shows its match flags at a glance.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:30px 34px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);">
+              <div style="max-width:440px;display:flex;flex-direction:column;gap:10px;">
+                <div style="background:#fff;border:1px solid #e6e7ea;border-left:3px solid #2563eb;border-radius:12px;padding:13px 15px;box-shadow:0 1px 2px rgba(16,18,22,.04);">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;padding:3px 7px;border-radius:6px;">GB</span><span style="font-size:11px;font-weight:600;color:#1d4ed8;background:#e8effe;padding:3px 8px;border-radius:6px;">Commercial only</span><div style="flex:1;"></div><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span></div>
+                  <div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:3px;color:#17181c;">CAA United Kingdom</div>
+                  <div style="font-size:12.5px;color:#9aa0a8;margin-bottom:9px;">United Kingdom</div>
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:600;background:#eef4ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;">Overflight and Landing Permissions</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:3px 8px;border-radius:6px;">GB</span></div>
+                </div>
+                <div style="background:#fff;border:1px solid #e6e7ea;border-left:3px solid transparent;border-radius:12px;padding:13px 15px;box-shadow:0 1px 2px rgba(16,18,22,.04);">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;padding:3px 7px;border-radius:6px;">TR</span><span style="font-size:11px;font-weight:600;color:#475569;background:#eef1f5;padding:3px 8px;border-radius:6px;">All flights</span><div style="flex:1;"></div><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span></div>
+                  <div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:3px;color:#17181c;">DGCA Turkey (SHGM)</div>
+                  <div style="font-size:12.5px;color:#9aa0a8;margin-bottom:9px;">Turkey</div>
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:600;background:#eef4ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;">Overflight and Landing Permissions</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:3px 8px;border-radius:6px;">TR</span></div>
+                </div>
+                <div style="background:#fff;border:1px solid #e6e7ea;border-left:3px solid transparent;border-radius:12px;padding:13px 15px;box-shadow:0 1px 2px rgba(16,18,22,.04);">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;padding:3px 7px;border-radius:6px;">LV</span><span style="font-size:11px;font-weight:600;color:#475569;background:#eef1f5;padding:3px 8px;border-radius:6px;">All flights</span><div style="flex:1;"></div><span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span></div>
+                  <div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:3px;color:#17181c;">CAA Latvia (LGS)</div>
+                  <div style="font-size:12.5px;color:#9aa0a8;margin-bottom:9px;">Latvia · EVRA</div>
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:600;background:#eef4ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;">Landing Permissions</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:3px 8px;border-radius:6px;">LV</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:6px;">EVRA</span></div>
+                </div>
+                <div style="background:#fff;border:1px solid #e6e7ea;border-left:3px solid transparent;border-radius:12px;padding:13px 15px;box-shadow:0 1px 2px rgba(16,18,22,.04);opacity:.6;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#334155;background:#f1f5f9;padding:3px 7px;border-radius:6px;">FR</span><span style="font-size:11px;font-weight:600;color:#1d4ed8;background:#e8effe;padding:3px 8px;border-radius:6px;">Commercial only</span><div style="flex:1;"></div><span style="width:8px;height:8px;border-radius:50%;background:#cfd3d8;"></span></div>
+                  <div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:3px;color:#17181c;">DGAC France</div>
+                  <div style="font-size:12.5px;color:#9aa0a8;margin-bottom:9px;">France</div>
+                  <div style="display:flex;gap:5px;flex-wrap:wrap;"><span style="font-size:11px;font-weight:600;background:#eef4ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;">Overflight Permissions</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:3px 8px;border-radius:6px;">FR</span></div>
+                </div>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:6px;font-family:'IBM Plex Mono',monospace;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">GB</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Country code &amp; flight kind</strong> — the two-letter country and whether it's <em>Commercial only</em>, <em>Private only</em> or <em>All flights</em>.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:50%;background:#16a34a;margin-top:1px;"></span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">State dot</strong> — green when the record is active on the wall; grey when hidden (like DGAC France above).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:6px;background:#eef4ff;color:#1d4ed8;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">fn</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Function chip</strong> — what the authority covers (overflight, landing, slot coordination…).</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;width:22px;height:22px;border-radius:6px;font-family:'IBM Plex Mono',monospace;background:#e0f2fe;color:#0369a1;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">AP</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Match flags</strong> — country chips (purple) and ICAO airport chips (blue) show what the record matches.</div></div>
+            </div>
+
+            <!-- A CONTACT RECORD -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>A contact record</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Selecting an authority opens its record. The contact fields mirror the old OPS permissions sheet column-for-column, so nothing from the spreadsheet is lost.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:30px 34px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);">
+              <div style="background:#fff;border:1px solid #e6e7ea;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.04);">
+                <div style="padding:16px 20px;border-bottom:1px solid #eef0f2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <span style="font-size:18px;font-weight:800;color:#17181c;">CAA United Kingdom</span>
+                  <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#e8effe;padding:4px 10px;border-radius:7px;">Commercial only</span>
+                  <div style="flex:1;"></div>
+                  <span style="font-size:13px;color:#6c7079;">Affects <strong style="color:#1d4ed8;">4</strong> of today's flights</span>
+                </div>
+                <div style="padding:18px 20px;">
+                  <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#9aa0a8;margin-bottom:14px;">CONTACT DETAILS</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;">
+                    <div style="grid-column:1 / -1;"><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Authority name</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;color:#17181c;">CAA United Kingdom</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Country</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:14px;color:#17181c;">United Kingdom</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Validity <span style="color:#b0b5bc;font-weight:500;">— permit lead time</span></div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:13px;color:#17181c;">OVERFLIGHT +/-72HRS · LANDING 72HRS</div></div>
+                    <div style="grid-column:1 / -1;"><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Function</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:14px;color:#17181c;">Overflight and Landing Permissions</div></div>
+                    <div style="grid-column:1 / -1;"><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">INFO <span style="color:#b0b5bc;font-weight:500;">— working hours &amp; conditions</span></div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:13.5px;color:#3a3d44;line-height:1.5;">Working hrs Mon-Fri 0800-1700 UTC. Permits via online portal only; out-of-hours requests routed to the duty officer line.</div></div>
+                    <div style="grid-column:1 / -1;"><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Contact <span style="color:#b0b5bc;font-weight:500;">— routing instruction</span></div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:13.5px;color:#17181c;">USE WEB PAGE FOR REQ</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Phone number(s)</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-size:13px;color:#17181c;line-height:1.6;">+44 330 022 1500<br>+44 20 7453 6599 (H24)</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">Mail</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#17181c;line-height:1.6;">permits@caa.co.uk<br>ops@caa.co.uk</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">AFTN</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:0.04em;color:#17181c;">EGGGYAYX</div></div>
+                    <div><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">SITA</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:0.04em;color:#17181c;">LONCAXH</div></div>
+                    <div style="grid-column:1 / -1;"><div style="font-size:12px;font-weight:600;color:#6c7079;margin-bottom:5px;">VFR flight plan addresses</div><div style="border:1px solid #e6e7ea;border-radius:9px;padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:0.04em;color:#17181c;">EGGGZPZX EGTTZGZX</div></div>
+                  </div>
+                </div>
+              </div>
+            </figure>
+            <p style="font-size:14px;line-height:1.6;color:var(--tx4);margin:12px 0 0;">Product-accurate render · fields mirror the OPS permissions sheet: Country · Authority · Validity · Function · INFO · Contact · Phone · Mail · SITA · AFTN · VFR flight-plan addresses.</p>
+
+            <!-- MATCH FLAGS -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>Match flags — who gets it</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Two things decide which flights a record surfaces on: <strong>where</strong> it applies (country and/or airport) and <strong>what kind</strong> of flight it applies to.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid var(--bd);background:var(--card2);padding:26px 30px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 26px rgba(16,18,22,.07);">
+              <div style="background:#fff;border:1px solid #e6e7ea;border-radius:12px;padding:18px 20px;">
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#9aa0a8;margin-bottom:14px;">MATCH FLAGS</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                  <div><div style="font-size:12.5px;font-weight:600;color:#3a3d44;margin-bottom:8px;">Countries</div><div style="border:1px solid #d6d8dc;border-radius:10px;padding:9px;min-height:42px;display:flex;align-items:center;gap:6px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:5px 10px;border-radius:7px;">GB</span></div></div>
+                  <div><div style="font-size:12.5px;font-weight:600;color:#3a3d44;margin-bottom:8px;">Airports (ICAO)</div><div style="border:1px solid #d6d8dc;border-radius:10px;padding:9px;min-height:42px;display:flex;align-items:center;"><span style="font-size:13px;color:#b0b5bc;">Add ICAO…</span></div><div style="font-size:11.5px;color:#9aa0a8;margin-top:6px;">Match type — Country</div></div>
+                </div>
+                <div style="font-size:12.5px;font-weight:600;color:#3a3d44;margin-bottom:8px;">Applies to</div>
+                <div style="display:flex;gap:8px;">
+                  <div style="flex:1;font-size:13px;font-weight:600;border:1px solid #d6d8dc;background:#fff;color:#6c7079;padding:10px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:7px;"><i data-lucide="plane" style="width:15px;height:15px;"></i>All flights</div>
+                  <div style="flex:1;font-size:13px;font-weight:600;border:1px solid #2563eb;background:#eef4ff;color:#1d4ed8;padding:10px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:7px;"><i data-lucide="briefcase" style="width:15px;height:15px;"></i>Commercial</div>
+                  <div style="flex:1;font-size:13px;font-weight:600;border:1px solid #d6d8dc;background:#fff;color:#6c7079;padding:10px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:7px;"><i data-lucide="user" style="width:15px;height:15px;"></i>Private</div>
+                </div>
+              </div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;">
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">MATCH TYPE</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--tx2);">Set <strong>Country</strong> only, <strong>Airport</strong> only, or both for a <strong>Mixed</strong> match. A flight matches if it touches any target you add. Country and airport pickers draw from the full airports directory.</div>
+              </div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;color:var(--tx4);margin-bottom:10px;">APPLIES TO</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--tx2);"><strong>All flights</strong>, <strong>Commercial only</strong>, or <strong>Private only</strong> — so a record can surface for scheduled charter but stay off private trips (or the reverse).</div>
+              </div>
+            </div>
+
+            <!-- ON THE WALL -->
+            <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>How it surfaces on the wall</h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">When a flight matches an active record, two things appear: a teal <strong>CAA</strong> marker on the pill, and the authority's contact block in the flight side-overlay. The editor previews both at wall scale before you save.</p>
+            <figure style="margin:0;position:relative;border-radius:16px;border:1px solid #2a3345;background:#0e1116;padding:26px 30px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 12px 30px rgba(16,18,22,.14);">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:#5b6472;margin-bottom:12px;">PILL MARKER ROW</div>
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px;flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:800;color:#8fe388;letter-spacing:0.02em;">BTI472</span>
+                <span style="width:26px;height:26px;border-radius:7px;background:#3a3315;border:1.5px solid #b8922e;color:#f5c451;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">!</span>
+                <span style="height:26px;border-radius:7px;background:#0f2e2b;border:1.5px solid #2f9e8f;color:#5eead4;font-size:12px;font-weight:800;letter-spacing:0.03em;display:flex;align-items:center;padding:0 8px;">CAA</span>
+                <span style="height:26px;border-radius:7px;background:#1b2f13;border:1.5px solid #3d7a2a;color:#86e05a;font-size:12px;font-weight:800;letter-spacing:0.03em;display:flex;align-items:center;padding:0 8px;">WX</span>
+                <span style="height:26px;border-radius:7px;background:#33200f;border:1.5px solid #a0632b;color:#f0a35e;font-size:12px;font-weight:800;letter-spacing:0.03em;display:flex;align-items:center;padding:0 8px;">NTM</span>
+              </div>
+              <div style="font-size:11.5px;color:#5b6472;margin-bottom:20px;">The teal <span style="color:#5eead4;font-weight:700;">CAA</span> badge sits in the marker row when the flight matches this record.</div>
+
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:#5b6472;margin-bottom:10px;">FLIGHT OVERLAY — CAA SECTION</div>
+              <div style="background:#171b22;border-radius:12px;padding:16px 18px;border-left:5px solid #2f9e8f;max-width:560px;">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap;">
+                  <span style="font-size:12px;font-weight:800;letter-spacing:0.04em;color:#0e1116;background:#5eead4;padding:3px 9px;border-radius:6px;">CAA</span>
+                  <span style="font-size:16px;font-weight:800;color:#fff;">CAA United Kingdom</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:#8b95a3;">GB</span>
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:9px 16px;">
+                  <span style="font-size:13px;color:#7a828d;font-family:'IBM Plex Mono',monospace;">VALIDITY</span><span style="font-size:13.5px;color:#dfe3e9;">OVERFLIGHT +/-72HRS · LANDING 72HRS</span>
+                  <span style="font-size:13px;color:#7a828d;font-family:'IBM Plex Mono',monospace;">FUNCTION</span><span style="font-size:13.5px;color:#dfe3e9;">Overflight and Landing Permissions</span>
+                  <span style="font-size:13px;color:#7a828d;font-family:'IBM Plex Mono',monospace;">CONTACT</span><span style="font-size:13.5px;color:#dfe3e9;">USE WEB PAGE FOR REQ</span>
+                  <span style="font-size:13px;color:#7a828d;font-family:'IBM Plex Mono',monospace;">TEL</span><span style="font-size:13.5px;color:#dfe3e9;">+44 330 022 1500</span>
+                  <span style="font-size:13px;color:#7a828d;font-family:'IBM Plex Mono',monospace;">MAIL</span><span style="font-size:12.5px;color:#dfe3e9;font-family:'IBM Plex Mono',monospace;">permits@caa.co.uk</span>
+                </div>
+              </div>
+              <div style="font-size:11px;color:#4b5560;margin-top:12px;">Product-accurate render at wall scale · applies to Commercial only.</div>
+            </figure>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:18px;">
+              <div style="display:flex;gap:11px;align-items:flex-start;"><span style="flex:none;height:22px;border-radius:6px;background:#e6f7f3;border:1px solid #99e0d3;color:#0f766e;font-size:11px;font-weight:800;letter-spacing:0.03em;display:flex;align-items:center;padding:0 8px;">CAA</span><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Teal marker</strong> — a matched flight carries the CAA badge alongside IMP, WX and NTM. It means an authority record applies to this flight.</div></div>
+              <div style="display:flex;gap:11px;align-items:flex-start;"><i data-lucide="panel-right-open" style="width:20px;height:20px;color:#2563eb;flex:none;margin-top:1px;"></i><div style="font-size:14.5px;line-height:1.5;color:var(--tx2);"><strong style="color:var(--tx);">Overlay block</strong> — the same overlay from §3 gains a teal-edged CAA section with the authority's validity, function, routing and channels.</div></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 08 AIP / GEN ===== -->
       <section id="docs" data-section data-screen-label="AIP GEN" style="scroll-margin-top:16px;">
         <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
           <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
             <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="file-text" style="width:22px;height:22px;color:#2563eb;"></i></div>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">07 · THE CONSOLE</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">08 · THE CONSOLE</div>
               <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">AIP &amp; GEN documents</h2>
             </div>
           </div>
@@ -749,7 +972,7 @@
           <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
             <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="log-in" style="width:22px;height:22px;color:#2563eb;"></i></div>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">08 · GETTING IN</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">09 · GETTING IN</div>
               <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Signing in</h2>
             </div>
           </div>
@@ -866,8 +1089,9 @@ class Component extends DCLogic {
       ['notam','04','The daily NOTAM check'],
       ['weather','05','Weather (WX)'],
       ['console','06','Managing the console'],
-      ['docs','07','AIP & GEN documents'],
-      ['auth','08','Signing in'],
+      ['caa','07','CAA details'],
+      ['docs','08','AIP & GEN documents'],
+      ['auth','09','Signing in'],
     ];
     const toc = defs.map(([id,num,label])=>{
       const on = id === active;

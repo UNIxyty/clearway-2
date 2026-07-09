@@ -100,7 +100,7 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // "simulator"), isSimulator + flightType SIMULATOR (belt and braces).
 // NOTE: isFerry is deliberately NOT here — ferry/empty legs are real
 // aircraft movements and stay on the wall.
-const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "iconType", "isSimulator", "flightType"];
+const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "iconType", "isSimulator", "flightType", "isCommercial"];
 
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
@@ -429,6 +429,9 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     iconType: rawFlight.iconType ?? null,
     isSimulator: rawFlight.isSimulator === true,
     flightType: rawFlight.flightType ?? null,
+    // Item 4: commercial vs private, straight from Leon (drives the CAA
+    // appliesTo flag). null = unknown (tenant without the field).
+    isCommercial: typeof rawFlight.isCommercial === "boolean" ? rawFlight.isCommercial : null,
     flightLastModificationTime: rawFlight.flightLastModificationTime ?? null,
     adep: rawFlight.startAirport
       ? {
@@ -1835,6 +1838,7 @@ export class LeonTimelineService {
       registration: context.registration ?? flight?.aircraftRegistration ?? "",
       startTimeUTC: flight?.startTimeUTC ?? null,
       flightNid: flight?.flightNid ?? null,
+      isCommercial: typeof flight?.isCommercial === "boolean" ? flight.isCommercial : null,
     };
   }
 
@@ -1853,6 +1857,35 @@ export class LeonTimelineService {
       }));
 
     const matchCtx = this.buildFlightMatchContext(flight, context);
+
+    // CAA Details (Item 4): matched authorities ride as type "CAA" — the
+    // pill shows the teal CAA marker, the overlay renders the contact block.
+    if (this.caaStore?.loaded) {
+      for (const entry of this.caaStore.matchFlight(matchCtx)) {
+        limitations.push({
+          id: entry.id,
+          title: entry.authorityName || entry.country,
+          description: entry.info,
+          type: "CAA",
+          source: "caa",
+          caa: {
+            country: entry.country,
+            authorityName: entry.authorityName,
+            validity: entry.validity,
+            functionText: entry.functionText,
+            functionKind: entry.functionKind,
+            info: entry.info,
+            contact: entry.contact,
+            phones: entry.phones,
+            mail: entry.mail,
+            sita: entry.sita,
+            aftn: entry.aftn,
+            vfrAddresses: entry.vfrAddresses,
+            appliesTo: entry.appliesTo,
+          },
+        });
+      }
+    }
 
     if (this.importantStore?.loaded) {
       for (const entry of this.importantStore.matchFlight(matchCtx)) {

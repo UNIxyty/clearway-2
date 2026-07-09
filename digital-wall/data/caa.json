@@ -1,0 +1,1929 @@
+{
+ "entries": [
+  {
+   "id": "CAA-MRCOMXHN-SF",
+   "country": "Afghanistan",
+   "authorityName": "www.motca.gov.af;\r\nwww.acaa.gov.af",
+   "validity": "72HRS",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "FOR CWY FLIGHTS: USE ops@skytravels.com\r\n+971 4 2989880 \r\n\r\nFOR KLJ REQ: USE FLYTAG",
+   "phones": "NEW NBR - 0093792917643 //// (OLD NBRS - 00932 0 230 0 016 / 0093744317104 /\r\n0093776598467/ +937 7 929 2173)",
+   "mail": "info@motca.gov.af; fahim.wahidi@acaa.gov.af;\r\noakbais6@gmail.com; kblaisbriefing@gmail.com",
+   "sita": "",
+   "aftn": "OAKBYNYX, OAKXCAHQ, OAKBZPZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Afghanistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-C2",
+   "country": "Albania",
+   "authorityName": "CIVIL AVIATION AUTHORITY",
+   "validity": "24 HRS",
+   "functionText": "Landing Permissions",
+   "functionKind": "landing",
+   "info": "Working hours:\r\nMonday-Thursday  08:00 – 16:30\r\nFriday                    08:00 – 14:00",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Tel: +355 42 251 220\r\nCel: +355 69 334 1111; +355 69 403 9005",
+   "mail": "flightpermissions.acaa@gmail.com; Info-TrafficRights@acaa.gov.al; aurela.doku@acaa.gov.al; redi.bucka@acaa.gov.al; info@acaa.gov.al; Indrit.Purde@acaa.gov.al",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Albania"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-R7",
+   "country": "Algeria",
+   "authorityName": "Working Hours: 08-16 LT      Web: www.sia-enna.dz",
+   "validity": "OVERFLIGHT +/-72HRS",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "If we have any problems with contacts, we can communicate via Whatsapp (on work mob)",
+   "contact": "FOR CWY FLIGHTS USE:\r\nCARTHAGE, DELTA-JET, ops@deltajet-aero.com  \r\n\r\nFOR KLJ REQ: USE FLYTAG",
+   "phones": "Phones +213 2192 4515;                                               +213 770 67 84 02 (for whatsapp. also send copy of request here)                                                               Fax: +213 2192 4515",
+   "mail": "E-mail: algerian.ais@sia-enna.dz",
+   "sita": "",
+   "aftn": "DAALYAYA, DAALYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Algeria"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-7A",
+   "country": "Armenia",
+   "authorityName": "WH MON-FRI 09:00-18:00LT, excl. HOLIDAYS",
+   "validity": "48 hrs (Checked with CAA on 13.04.2026)",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "Apply for the landing permit on the website:\r\nhttps://aviation.e-gov.am/en/service/f7792f4a-e662-45f3-8486-88715aa437ea/info\r\n\r\n1. Click login (upper right corner) ->\r\n2. Continue ->\r\n3. Contacts ->\r\n4. Fill out the form: Name, ID (passport number), email ->\r\n5. Receive a verification number via email and enter it on the website\r\n6. Press apply online and fill out the required info",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone: +37410515167; +374 60 434 295,  +374 10283429\r\n+374 60 434250 / Руководеитель полётов - +374 10 29 29 05",
+   "mail": "CDS@ARMATS.AM",
+   "sita": "",
+   "aftn": "UDDDZDZX, UDDDZRZX, UDDDZXZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Armenia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-5E",
+   "country": "Australia",
+   "authorityName": "Air Service Austrlia",
+   "validity": "",
+   "functionText": "Flight Plan/Route Acceptance",
+   "functionKind": "flight_plan",
+   "info": "",
+   "contact": "DIRECT",
+   "phones": "ATM Director Timothy Kerr +61 1300 879 535\r\n\r\nAustralian NOTAM Office +61 3 9235 7519",
+   "mail": "ATM Director Timothy Kerr - atm.director@airservicesaustralia.com\r\n\r\nAustralia NOTAM Office - Nof@AirservicesAustralia.com",
+   "sita": "MOWYWYA@adns.aero;\r\nMOWICYA@ADNS.AERO;\r\nMOWYAYA@adns.aero",
+   "aftn": "UUUWZDZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Australia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-5H",
+   "country": "Austria",
+   "authorityName": "Aviation Agency",
+   "validity": "",
+   "functionText": "Landing Permissions",
+   "functionKind": "landing",
+   "info": "aircraft with less than 14000 kg MTOW,\r\nfor air companies of an EC Member State,\r\npermission from Austro Control is not required.",
+   "contact": "USE WEB PAGE FOR REQ\r\nhttps://www.austrocontrol.at/en/aviation_agency/licenses__permissions/flight_permissions/charter",
+   "phones": "0043 51703 7140",
+   "mail": "Karin.Chlouba@austrocontrol.at;\r\nflight_permission@austrocontrol.at",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Austria"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHN-LV",
+   "country": "Azerbaijan",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "USE CAA FOR REQ",
+   "phones": "00-99412-497-27-84",
+   "mail": "ops@airport.az",
+   "sita": "",
+   "aftn": "UBBBZRZX, UBBUZXZX, UBBBYAYX, UBBAZRZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Azerbaijan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.915Z",
+   "updatedAt": "2026-07-08T23:01:47.915Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-FY",
+   "country": "Bahrain",
+   "authorityName": "",
+   "validity": "(+/-) 72 hrs",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "USE CAA WEB-PAGE FOR REQ",
+   "phones": "Phone: +973 17329035/+973 17329011/\r\n+973 17329061/+973 17329096/\r\n+973 17321011/+973 17321173/\r\n+973 17321169",
+   "mail": "schedule@caa.gov.bh; sdc@caa.gov.bh;",
+   "sita": "BAHAPYF@ADNS.AERO;",
+   "aftn": "OBBIYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Bahrain"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-Z9",
+   "country": "Bangladesh",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "VGHQYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Bangladesh"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-7R",
+   "country": "BELGIUM",
+   "authorityName": "BELGIAN CIVIL AVIATION AUTHORITY",
+   "validity": "",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "USE CAA FOR REQ",
+   "phones": "TEL: +32 (0) 2 277 43 11, +32 2 277 43 49",
+   "mail": "civilair@mobilit.fgov.be'; 'traffic.rights@mobilit.fgov.be'",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Belgium"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-T6",
+   "country": "Belarus",
+   "authorityName": "",
+   "validity": "24 hrs",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "PERMIT REVISION IS REQUIRED IN CASE OF: \r\n-ACFT REG CHANGE (AND NEW AIRCRAFT WAS NOT MENTIONED IN SUBSTITUTIONS) \r\n-ACFT TYPE CHANGE \r\n-DESTINATION AIRPORT CHANGE IN BELARUS \r\n-OPERATOR CHANGE \r\n-FLIGHT NUMBER CHANGE \r\n-ORIGIN/DESTINATION AIRPORT OUTSIDE BELARUS CHANGE                                                                                                                                                                           PERMIT REVISION IS NOT REQUIRED IN CASE OF: \r\n-ENTRY/EXIT POINTS CHANGE (BOTH LANDING AND OVERFLIGHT) \r\n-ORIGIN/DESTINATION AIRPORT CHANGE (OVERFLIGHT) \r\n-ACFT CHANGE (SUBSTITUTION AIRCRAFT WAS MENTIONED IN PERMISSION REQUEST AND PERMIT WAS GRANTED FOR IT)\r\n-IF EXIT/ENTRY POINT IS CHANGED FOR LANDING PERMIT - PERMIT CORR. NOT REQUIRED. CAN BE DONE BY FPL.\r\n(LANDING)\r\nNOT LATER 3 WORKING DAYS (EXCLUDING SAT, SUN) VISAS CAN BE OBTAINED ONLY IN MINSK-2 AIRPORTS / RECEIVING PARTY OFFICIALLY REQUIRED (CAN BE AVOIDED INDICATED IN REQUEST \"PRIVATE FLIGHT\")",
+   "contact": "USE CAA FOR REQ",
+   "phones": "(+375) 17 215 42 69\r\nOTDEL OBRABOTKI FPL:\r\n+375 17 215 74 33/32/30,\r\nRP MINSK REGION: +375172192500\r\n\r\nDMITRY LAZUTA (OPLATA SCHETOV): +375172154264",
+   "mail": "E-mail: inf-docs@ban.by;                                  www.avia.by",
+   "sita": "MSQFCXH@adns.aero",
+   "aftn": "UMMDYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Belarus"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-1M",
+   "country": "Botswana",
+   "authorityName": "Civil Aviation Authority of Botswana",
+   "validity": "",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "Weekdays:8am – 5pm, Email:AirTransport@caab.co.bw and Weekends, Email:AisKhama@caab.co.bw",
+   "phones": "+267 3916493/3692557/8/9",
+   "mail": "AirTransport@caab.co.bw; AisKhama@caab.co.bw",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Botswana"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-UM",
+   "country": "Canada",
+   "authorityName": "Transport Canada Civil Aviation\r\noffice business hours are\r\nfrom 13:00 to 21:00 UTC,\r\nMonday to Friday",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "The standard service level for processing Overflight/Technical landing authorization requests that are operated under a Standard Certificate of Airworthiness is between 1 to 5 days. There is no fee for this service.\r\n \r\nIn the case where the aircraft will operate on a Special Certificate of Airworthiness the standard service level will be 5 to 10 days with the proviso that all information necessary to process the request has been submitted including submission of the applicable fee of CAD 100.00.",
+   "contact": "",
+   "phones": "00 1-613-462-1060",
+   "mail": "overflights-survol@tc.gc.ca;\r\nsimon.labrie@tc.gc.ca\r\nrobert.mcmullan@tc.gc.ca",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Canada"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-XC",
+   "country": "China LND",
+   "authorityName": "www.caac.com.cn",
+   "validity": "RESTRICTIONS:                                  IT IS ALLOWED TO MAKE MAX 5 LANDINGS IN CHINA BY ONE PERMISSION \r\nIT IS ALLOWED MAX 2 CHANGES OF CHINA PERMIT OFFICIALLY,IF MORE EXTRA CHARGE CAN APPLY\r\nit is not allowed to overfly China FIR for MTOW less than 7T \r\nMINIMUM FL270\r\n\r\n1. ONE BUSINESS JET CAN ONLY OBTAIN ONE ARR/DEP SLOT DURING THE PERIOD OF 0100-1400UTC DAILY AT A/P ZBAA, ZSSS,ZSPD,ZGGG,ZGSZ. \r\n2. LANDING PERMISSION CANNOT BE OBTAINED DURING 2300-0100UTC FOR BUSINESS JETS AT A/P ZBAA,ZBTJ,ZYTL,ZSSS,ZSHC,ZSNJ,ZSQD,ZSAM,ZSFZ,ZGGG,ZGSZ,ZHHH,ZGHA,ZJHK,ZJSY,ZUUU,ZUCK,ZPPP,ZLXY,ZWWW.",
+   "functionText": "Not later 7 working days!            CHINA PERMIT URGENCY: \r\nNORMAL: MON-FRI FROM 01:00 - 09:00(UTC) \r\nAPPLY TIME: BEFORE ONE OPERATION DAY FOR NORMAL. \r\nESTIMATED TIME OF APPROVAL: 12-24 HOURS \r\nREMARK: NORMAL URGENCY DOES NOT APPLY FOR APPLICATIONS OUTSIDE BUSINESS HOURS, DURING WEEKEND OR PUBLIC HOLIDAY \r\n\r\nURGENT: MON-FRI FROM 1000-0000(UTC), SAT-SUN ALL DAY \r\nAPPLY TIME: ANY TIME \r\nESTIMATED TIME OF APPROVAL: NONE, AS IT DEPENDS ON HOW SOON THESE INSTITUTIONS WILL CONFIRM THE PERMIT: \r\n1. CAAC \r\n2. AIR FORCE OF CHINA. \r\nREMARK: FOR LND OR OVF PERMIT ON MONDAY, PLEASE APPLY THE APPLICATION ON LAST FRIDAY",
+   "functionKind": "landing",
+   "info": "CHINA LANDING PERMIT (BUSINESS FLIGHTS): \r\n1. CAAC REQUIRES ALL REQUESTS (INCLUDING REVISION) FOR LANDING PERMIT MUST BE SUBMITTED TOGETHER WITH THE SPONSOR LETTER ONE WORKING DAY IN ADVANCE BEFORE 0400Z. AND THE APPLICATION SHOULD BE SUBMITTED TO CAAC NO EARLIER THAN 4 WORKING DAYS. \r\n2. ONE CHINA LANDING PERMIT CAN NOT BE CHANGED MORE THAN TWICE. \r\n3. ONE OPERATION (IN AND OUT CHINA) CAN ONLY HAVE 6 SECTORS. \r\n\r\nIF SUBMITTED LATER, THEN PRICES ARE DIFFERENT AND ANNOUNCED BY CASE. \r\n\r\nBESIDES AGETNS FEE THERE IS AS WELL GOVERNMENT CHARGE FOR THE LANDING PERMIT,AROUND 1200 USD PER PERMIT. \r\n\r\nCHINA LANDING - 1 WRK DAY ADVANCE NOTICE BEFORE 0400Z 300.00 (NEW) 150.00 (CHG) \r\nCHINA OVERFLY (PER LEG) - 1 WRK DAY ADVANCE NOTICE BEFORE 0400Z 150.00 (NEW) 75.00 (CHG) \r\nSHORT NOTICE PMT - 500-1000 EUR",
+   "contact": "USE JSC (JET SERVICE CHINA, \r\nops@jscchina.com) FOR CHINA PERMIT",
+   "phones": "Phones: +861064011026 Fax: +861064014101     Crew Visa: Crew visas (Type C) are acceptable by all immigration office in China. \r\nIn some airports, crew business visas (Type M) also acceptable.",
+   "mail": "E-mail: fsdcaac@public3.bta.net.cn;     Required document are as below: \r\n1.AOC (AIR OPERATOR CERTIFICATE) AND THE ATTACHED OPERATION SPECIFICATIONS. \r\n2. NOISE \r\n3. INSURANCE OF THE AIRCRAFT \r\n4. THE CHARTER CONTRACT \r\n5. THE CONFIRMATION LETTER OF THE RECEIVING PARTY IN CHINA \r\n6. THE CONFIRMATION LETTER OF GROUND HANDLING AGENT IN CHINA \r\n7. THE CERTIFICATION OF REGISTRATION \r\n8. RADIO \r\n9. FULL SCHEDULE",
+   "sita": "",
+   "aftn": "ZBBBZGZX; ZBBBYAYX; ZBBBCJXX; ZBBBCKXX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "China LND"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-XT",
+   "country": "China LND PMT for Aircraft with 30 and more seats",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "For aircraft with seats for more than 30 PAX, CAA of China will require to obtain Charter permit ISO business permit. \r\nFor charter permit, it will be very complicated. \r\n\r\nTo perform this flight it will be required to have Charter Agreement. The charter agreement is the mutual agreement between CAA of China and operator CAA. \r\nOnly if operator is listed on the agreement it can operate between operator’s country and CHINA. \r\nPls kindly noted that an country A register aircraft can only operate sector Country A – China – Country A \r\nFor single flight, it will take about 15working days if CAA of China will agree to process the permit.",
+   "functionKind": "other",
+   "info": "1. As per CAAC new regulation, charter flight permit Must be submitted by operator. \r\nJSC can provide permit format and fill in all the information and have the operator file it through SITA. \r\n\r\n2. JSC will help checking with CAAC regarding permit status and required documents. \r\n3. Extra charge will apply for follow up permit, it will cost’s around 500 EUR",
+   "contact": "USE JSC (JET SERVICE CHINA, \r\nops@jscchina.com) FOR CHINA PERMIT",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "China LND PMT for Aircraft with 30 and more seats"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-X3",
+   "country": "China OVF",
+   "authorityName": "www.caac.com.cn",
+   "validity": "Flight Planning: FOR NON-SCHEDULED FLIGHTS OPERATING ON ROUTES A1, P901,L642,M771 AND N892,NO PRIOR APPLICATION FOR APPROVAL WILL BE NECESSARY. \r\nPLEASE KINDLY NOTE THAT, FOR ALL AIRCRAFT INTENDING TO OPERATE WITHIN THE SANYA AOR, OPERATORS SHALL FILE THE FLIGHT PLAN AT LEAST 60 MINUS PRIOR TO THE ESTIMATED TIME OF DEPARTURE TO ZBBBZGZX AND ZJSYZRZX.",
+   "functionText": "Not later 7 working days!                                              OVF PERMIT VALIDITY:\r\nChinese CAA mainly pays attention to Beijing local time, not UTC time. \r\nRemains valid in case of 2-3 hours earlier departure. \r\nIn regards of delay, permission will remain valid until the end of the day (Beijing time) and needs to be revalidated in case of further delay. \r\nDates crossing needs to be validated in advance.                     If China OVF permit revision is sent 1 day before flight after 0400Z from Monday to Friday, weekends or on special holidays – there will be an extra coordination fee up to around USD 1000. \r\nWith extra fee there will be a bigger chance to get the permit. \r\n\r\nCAAC urgent department will process the applications on operation day - in fact department will process applications after 0400Z from Monday to Friday, weekends or on special holidays.",
+   "functionKind": "other",
+   "info": "For example, if the approved schedule is as below. \r\n\r\nSCHEDULE(UTC): \r\n18OCT17 RKSS 17:50 UUEE 02:30 (19OCT17) \r\nBeijing time is:19OCT17 RKSS 01:50 UUEE 10:30 (19OCT17) \r\n\r\nSince Beijing time is UTC+8, if make 3 hours earlier such as below, you had better to update the permit. \r\nSCHEDULE(UTC): \r\n18OCT17 RKSS 14:50 UUEE 23:30 (18OCT17) \r\nBeijing time is: 18OCT17 RKSS 22:50 UUEE 07:30 (19OCT17)\r\nCAAC normal department operates 0100-0800Z Monday to Friday (except special holidays). \r\n\r\nIf China OVF permit revision is submitted 1 working day before flight between 0100Z-0400Z - we can apply for revision and expect permit to be revalidated by \"CAAC normal department\" before 0800Z that day with no extra fee.",
+   "contact": "USE JSC (JET SERVICE CHINA, \r\nops@jscchina.com) FOR CHINA PERMIT",
+   "phones": "Phones: +861064011026 Fax: +861064014101",
+   "mail": "E-mail: fsdcaac@public3.bta.net.cn;     Required document are as below: \r\n1.AOC (AIR OPERATOR CERTIFICATE) AND THE ATTACHED OPERATION SPECIFICATIONS. \r\n2. NOISE \r\n3. INSURANCE OF THE AIRCRAFT \r\n4. THE CHARTER CONTRACT \r\n5. THE CONFIRMATION LETTER OF THE RECEIVING PARTY IN CHINA \r\n6. THE CONFIRMATION LETTER OF GROUND HANDLING AGENT IN CHINA \r\n7. THE CERTIFICATION OF REGISTRATION \r\n8. RADIO \r\n9. FULL SCHEDULE",
+   "sita": "",
+   "aftn": "ZBBBZGZX; ZBBBYAYX; ZBBBCJXX; ZBBBCKXX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "China OVF"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-X8",
+   "country": "Croatia",
+   "authorityName": "Flight Authorization Administrator",
+   "validity": "http://www.ccaa.hr/english/flight-authorisation_424/",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "This is to confirm that for non-commercial flight(s) of foreign aircraft within the territory of the Republic of Croatia, no entry, transit or transport permission is required since the aircraft is registered in the ICAO member state. Aircraft operator shall indicate the purpose of the flight in the flight plan and declare it as non-commercial (private) flight.",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "00385 1 2369 356",
+   "mail": "Flight-authorization <Flight-authorization@ccaa.hr>; Jasenka Kosovac <Jasenka.Kosovac@ccaa.hr>",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Croatia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-GS",
+   "country": "DENMARK",
+   "authorityName": "DANISH CIVIL AVIATION AUTHORITY",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone: +45 72 21 88 00",
+   "mail": "'info@trafikstyrelsen.dk'; 'info@tbst.dk'",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Denmark"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-T0",
+   "country": "EGYPT",
+   "authorityName": "www.civilaviation.gov.eg",
+   "validity": "24 hrs.                                             EGYPT PERMIT IS VALID TILL 2359 UTC SAME DAY FOR EXITING EGYPT AIRSPACE",
+   "functionText": "FPL NOTE:                                                                                -for flight over flying Egypt FIR entering Saudi Arabia shall entry from (PASOS) and exit from (ULINA) \r\n-for flight over flying Egypt FIR entering from Saudi shall enter from (KITOT) and exit from (PASOS). \r\n-(KITOT) is an entry point only \r\n-no problem for flight dep from HESH entering Saudi Arabia from (SILKA) as exit point at level 150",
+   "functionKind": "overflight",
+   "info": "ONLY FOR NIVA AGENT EGYPT PERMISSION VALID FROM 0005UTC TILL 2355UTC ON THE REQUESTED DATE. \r\nISSUED PERMISSION FOR NIVA CLIENTS VALID 72 HOURS,BUT NIVA SHOULD BE INFORMED IN CASE OF DATE DELAY (REGULAR PERMITS VALID 48 HOURS).",
+   "contact": "FOR CWY FLIGHTS USE:\r\nNIVA (Nile Valler Aviation) ops@niva.aero, +201278331107\r\n\r\nFOR KLJ REQ: USE IAB (www.iab-group.aero)",
+   "phones": "Phone:  +202 241 753 93, Fax: +202 634 66 04",
+   "mail": "E-mail: info@civilaviation.gov.eg; ecaa@civilaviation.gov.eg;",
+   "sita": "",
+   "aftn": "HECAYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "EGYPT"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-U",
+   "country": "Estonia",
+   "authorityName": "https://www.transpordiamet.ee/en",
+   "validity": "72 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone: +372 5816 0876",
+   "mail": "Mart.Krikmann@transpordiamet.ee\r\nsvetlana.gorpintsenko@eans.ee\r\nAnti.Tenson@transpordiamet.ee\r\nECAA@ECAA.EE",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "LFMMZFZX, LFMNZTZX, LFMDZTZX, LSGGZTZX, LSAGZFZX, LSAZZFZX",
+   "match": {
+    "countries": [
+     "Estonia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-KB",
+   "country": "Finland",
+   "authorityName": "https://www.trafi.fi/en",
+   "validity": "",
+   "functionText": "5. LANDING/OVERFLIGHT PERMITS issued by the Finnish Transport Safety Agency\r\nThe application shall include the following information:\r\n1) Name and contact information of the operator\r\n2) Flight numbers\r\n3) Type and registration numbers of the aircraft used\r\n4) Purpose of flight and number of passengers and/or nature and amount of cargo\r\n5) Flight routes and dates in question as well as estimated times of arrival/departure at each airport\r\n6) Name of the charterer\r\n7) Copies of Insurance Certificates",
+   "functionKind": "overflight_landing",
+   "info": "APPLICATIONS FOR OVERFLIGHT AND LANDING PERMITS FOR COMMERCIAL AD-HOC FLIGHTS SHOULD BE MADE AT LEAST 48 HOURS BEFORE THE SCHEDULED FLIGHT (WEEKENDS AND NATIONAL HOLIDAYS EXCLUDED).\r\nOUR OFFICE HOURS ARE FROM 8:00-16:15 LOCAL TIME (5:00-13:15 UTC SUMMER, 6:00-14:15 UTC WINTER) FROM MONDAY TO FRIDAY. APPLICATIONS ARE NOT DEALT WITH OUTSIDE OFFICE HOURS.\r\nThird country operators (TCO), including TCOs having wet-lease or code-sharing agreements with an EU operator, shall only engage in scheduled or non-scheduled commercial air transport operations within, into or out of the territory subject to the provisions of the Treaty on European Union when they hold an authorisation issued by the European Aviation Safety Agency (EASA) in accordance with Regulation (EU) No 452/2014.",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone: +358 29 534 5271",
+   "mail": "Aviation flight permissions flightpermissions@trafi.fi;\r\nrajavartiolaitos@raja.fi;",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Finland"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-3V",
+   "country": "France",
+   "authorityName": "www.dgac.fr",
+   "validity": "E-mails to ADD new Operator:\r\ndsac-n-mda-bf@aviation-civile.gouv.fr\r\ningrid.romei@aviation-civile.gouv.fr\r\nguillaume.leon@aviation-civile.gouv.fr\r\nmylene.orer@aviation-civile.gouv.fr\r\nachraf.ait-ben-bouazza@aviation-civile.gouv.fr",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "PERMISSION REQUIRED FOR COMMERCIAL FLIGHTS OPERATING OUTSIDE OF EUROPE, NOT LATER 2 WORKING DAYS, 72H\r\nNOTIFICATION IS NOT REQUIRED FOR NON-COMMERCIAL FLIGHTS (EVEN RUSSIA REGISTERED A/C) - FERRY/POSITIONING FLIGHTS\r\nPLEASE SUBMIT FRANCE NOTIFICATION THROUGH WEB PAGE FOR EVERY COMMERCIAL FLIGHT, EVEN IF WE ARE FLYING INSIDE EU NOTIFICATION IS REQUIRED. FOR PRIVATE FLIGHTS NOTIFICATION IS NOT REQUIRED.\r\nACCORDING TO FRENCH REGULATION, FLIGHTS WITH MORE THAN 25 PASSENGERS IN LE BOURGET REQUIRE AN AUTHORIZATION FROM FRENCH CIVIL AVIATION.",
+   "contact": "USE CAA FOR REQ (SAGA WEB-PAGE)",
+   "phones": "Phone: +33158093638                                                                                      Sandrine Moutier  (mozhno dozvonitsja!)  0033 1 6957 7701  sandrine.moutier@aviation-civile.gouv.fr",
+   "mail": "sebastien.froment@aviation-civile.gouv.fr\r\nsophie.kamaropoulos@aviation-civile.gouv.fr\r\nalbane.pusset@aviation-civile.gouv.fr\r\naicha.hamdi@aviation-civile.gouv.fr\r\npermanent.dgac@aviation-civile.gouv.fr",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "France"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-KS",
+   "country": "Georgia",
+   "authorityName": "MATMFC",
+   "validity": "24 hrs",
+   "functionText": "Landing Permissions",
+   "functionKind": "landing",
+   "info": "",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone +995 322 364051 / +995 577 203 207                                   rukovoditel poletov +995 32 744 255",
+   "mail": "CDS@GCAA.GE",
+   "sita": "",
+   "aftn": "UGGGZDZX, UGGUDDXX, UGGUZDZX, UGGGZRZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Georgia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-Q8",
+   "country": "Germany",
+   "authorityName": "Web: www.lba.de http://www.lba.de/EN/Operations/EntryPermissions/EntryPermissions_node.html // http://www.lba.de/EN/Operations/EntryPermissions/Traffic_Rights_EEA.html?nn=693054",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "LANDING PERMITS \r\n• Air carriers from non-EEA (European Economic Area) member states operating individual \r\ncommercial flights to Germany require a landing permit (entry permission) issued by the \r\nGerman CAA (LBA) \r\n• Private flights do not require a landing permit \r\n• Carriers from member states of the EEA that are allowed to exercise traffic rights on \r\nroutes designated as intra-community air traffic in the EEA do not require a landing \r\npermit \r\n• Two full working days are needed to obtain the permit \r\n• Contact permit@germanaviation.com to obtain further information.\r\nGERMANY PERMIT NOT REQUIRED FOR NON-COMMERCIAL OPS (EVEN RUSSIA REGISTERED A/C) - FERRY/POSITIONING FLIGHTS",
+   "contact": "USE CAA FOR REQ",
+   "phones": "Phone: +4953123550, Fax: +495312355746",
+   "mail": "E-mail: info@lba.de; info.entrypermission@lba.de",
+   "sita": "",
+   "aftn": "EDDAYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Germany"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-OW",
+   "country": "Guyana",
+   "authorityName": "CAA",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "For private flight Permit is not required just the application and documents to be submitted to the email addresses below and the flight can proceed to operate.",
+   "contact": "",
+   "phones": "00592 226-1517",
+   "mail": "aisguyana@gcaa-gy.org\r\nfinance@gcaa-gy.org\r\nato1@gcaa-gy.org\r\ndatm@gcaa-gy.org",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Guyana"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-WM",
+   "country": "Hungary",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "3612735537",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "VISA INFO: US,UK,PAKISTAN,CANADIAN,COLOMBIAN,SOMALI,AFGHANISTAN,IRAQ,JORDAN,BANGLADESH,INDIAN PASSPORT HOLDERS ARE SUPPOSED TO APPLY VISA AT THEIR ORIGIN COUNTRY THROUGH IR OF IRAN EMBASSY AND THEY CANNOT OBTAIN VISA ON ARRIVAL. \r\nFOR OTHER NATIONALITIES YOU HAVE TO PROVIDE US WITH THE CREW PASSPORT COPIES AND ID AT LEAST 3 WORKING DAYS PRIOR THE DATE OF OPERATION AND WE WILL ARRANGE VISA FOR THEM\r\nCREW FROM USA, UK, PAKISTAN, CANADA, COLOMBIA, SOMALIA, AFGHANISTAN, IRAQ, JORDAN, BANGLADESH AND INDIA MUST GET VISA BEFORE ARRIVAL. \r\nCREW FROM OTHER NATIONALITIES CAN GET VISAS UPON ARRIVAL, BUT TO AVOID DELAY IT IS REQUIRED TO SEND CREW PASS COPIES 2-3 WORKING DAYS BEFORE ARRIVAL.",
+   "match": {
+    "countries": [
+     "Hungary"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-2T",
+   "country": "India",
+   "authorityName": "www.dgca.gov.in",
+   "validity": "48 hrs,                                          OVF: 48HRS VALID FROM DAY OF THE FLIGHT 00:01UTC                 CAA WORKING HOURS : 0430 UTC TO 1230 UTC MON TO FRI.           For Flight Palllning: http://www.universalweather.com/blog/2015/12/business-aircraft-ops-to-india-flight-planning/",
+   "functionText": "Not later 8 working days                    (a) 01 Working day notice for Overfly and Technical Landing permit,if flight originating from Non PRC Country. \r\n(b) 03 Working days notice for flight landing for Traffic purposes,if flight originating from Non PRC Country. \r\n(c) 03 Working days notice for Overfly and Technical Landing permit,if flight originating from any PRC Country. \r\n(d) 07 Working days notice for flight landing for Traffic purposes,if flight originating from any PRC Country. \r\nPRC Country: Afghanistan, China, Iran, Iraq, Nigeria, North Korea, Pakistan, Somalia",
+   "functionKind": "overflight_landing",
+   "info": "No prior permission is required for aircraft operating outside the Indian territory which includes territorial waters but within Indian Flight Information Regions (FIRs)\r\nNO PROBLEM TO OPERATE IN INDIAN AIRSPACE ON FL150-FL160 USING VFR RULES. THE AIRCRAFT MUST FLY APPROVED ATS ROUTES.",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT. FOR CWY USUSALLY MOON AVIATION",
+   "phones": "Phones: +911 124 622 495 Fax: +911 124 629 221",
+   "mail": "E-mail: dgoffice@dgca.nic.in; dgoffice.dgca@nic.in; irsec.dgca@nic.in;",
+   "sita": "",
+   "aftn": "VIDDYAYG; VIDDYAYX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "India"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-AT",
+   "country": "Iran",
+   "authorityName": "www.cao.ir",
+   "validity": "not later 3 working days (land) & 24 hrs (ovf); permit valid till 23.59 next day;",
+   "functionText": "Overflight and Landing Permissions     DIRECT FLIGHTS BETWEEN IRAN AND SAUDI ARABIA ARE PROHIBITED\r\nFOR FLIGHTS DEPARTING FROM OR ARRIVING TO IRAN, IT IS FORBIDDEN TO OVERFLY SAUDI ARABIA TERRITORY.                                         IRAN OVERFLIGHT PERMISSION CAN BE REQUESTED NOT EARLIER THAN 10 DAYS BEFORE THE FLIGHT",
+   "functionKind": "overflight_landing",
+   "info": "FOR IRAN LANDING PERMIT ALWAYS NEED PURPOSE OF LANDING IN IRAN, LOCAL CONTACT IN IRAN THIS CONTACT MUST WRITE A SPONSOR LETTER TO IRAN CAA, THE LEAD TIME TO GET THE PERMIT IF WE HAVE THE ABOVE WITHIN 24H.                                                                   -FOR IRAN LANDING PERMISSION OBTAINING LOCAL SPONSOR NEED TO WRITE A LETTER IN PERSIAN LANGUAGE ADDRESSED TO CAA CONFIRMING RESPONSIBILITY FOR THE FLIGHT. IJET CAN HELP WITH DRAFT.                                                                                           -IRAN CAA PREFER TO HAVE OVERFLIGHT PERMISSION REQUEST ON THE PREVIOUS DATE (IN LOCAL TIME) BEFORE THEY DAY OF OPERATION.                                          -IRAN COUNT DOF OF PERMIT STARTING FROM ENTERING TO THEIR FIR, SO DOF IN REQ SHOULD BE MENTIONED ACCORDINGLY. \r\nEXAMPLE: 24AUG UCFM2100 HSDN 0700, ENTRY TO IRAN 0220 25AUG - SO DOF SHOULD BE 25082016. \r\n- C/C AND MAJOR FUEL CARDS ARE NOT ACCEPTED IN IRAN.                                                                                                   -VFR FLIGHTS INSIDE IRAN AIRSPACE SHOULD BE REQUESTED VIA DIPLOMATIC CHANNELS. \r\nFLIGHT RULES CHANGE (VFR TO IFR AND VICE VERSA ) NOT POSSIBLE. ONLY IN EMERGENCY CASE \r\nMINIMUM ALTITUDE ALLOWED TO OVERFLY IRAN IS BETWEEN FL 130 AND 170\r\nVISA INFO: ON THE LEFT =>",
+   "contact": "FOR CWY FLIGHTS USE:\r\nJBS (Jet Business Solutions)\r\nops@jbs.aero\r\n\r\nFOR KLJ REQ: USE FLYTAG",
+   "phones": "Phones +98 21 - 44544110 / +98 21 44544111 HEAD!, ATC +98 21 44 544 116 Fax +98 21 44544112.                 E-mail atc.fpo@airport.ir",
+   "mail": "FINANCIAL OFFICE: 0098 21 63148400 / \r\n0098 21 63148420 / 0098 21 63148422 /\r\n0098 21 63148432; REVENUE@AIRPORT.IR; \r\nOVERFLIGHT@AIRPORT.IR",
+   "sita": "",
+   "aftn": "OIIIYAYX, OIIIYKYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Iran"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-67",
+   "country": "Iraq",
+   "authorityName": "ops@ijet.aero",
+   "validity": "",
+   "functionText": "Overfly and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "To provide with request a/c docs and receiving party details. CAA working 24/7",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT.",
+   "phones": "+971-4-553-0402",
+   "mail": "ops@iJET.aero",
+   "sita": "DXBIJ7X",
+   "aftn": "KJANXAAA",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Iraq"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-B4",
+   "country": "ISRAEL",
+   "authorityName": "AIS – +972 3 9756217",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE LOCAL HANDLER\r\nFOR PERMIT REQUEST",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Israel"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-9",
+   "country": "Italy",
+   "authorityName": "ENAC",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "COMMERCIAL FLIGHTS WIT EU REGISTERED OPERATORS OPERATING WITHIN EU TERRITORY DO NOT NEED PERMIT FORM ENAC\r\nCOMMERCIAL FLIGHTS OPERATED WITH AIRCRAFT WITH AN APPROVED CONFIGURATION LESS THAT 20 SEATS ON ROUTE TO/FROM NON EU COUNTRIES DO NOT NEED TO BE AUTHORIZED BY ENAC. PRIVATE FLIGHT DOES NOT REQUIRE A PERMIT FROM ENAC REGARDLESS OF THE NATIONALITY OF THE CARRIER / AIRCRAFT.",
+   "contact": "USE CAA FOR REQ",
+   "phones": "",
+   "mail": "ENAC (CAA) OFICES: https://www.enac.gov.it/I_Diritti_dei_Passeggeri/La_Carta_dei_Diritti_del_Passeggero/Recapiti_utili/info-306823998.html                                                  eu.aircarriers@enac.gov.it; m.barberis@enac.gov.it; me.taormina@enac.gov.it\r\ntrasporto.aereo.licenze@enac.gov.it\r\nCharter.permits@enac.gov.it\r\noverflights@enac.gov.it\r\nscheduled.permits@enac.gov.it",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Italy"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-GO",
+   "country": "Kazakhstan",
+   "authorityName": "MATMFC",
+   "validity": "",
+   "functionText": "Flight Plan Acceptance",
+   "functionKind": "flight_plan",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "77172704349",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Kazakhstan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-W7",
+   "country": "Kazakhstan",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "Overfly and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "KAZ OVF REQUIRED FOR BELOW MENTIONED ROUTING,                                                                                1) OGRIP B370 ABEVO. \r\n2) UVASU A477 RAVOB. \r\n3) NETAT A117 IPRAR. \r\n4) VAMUK A114 AKAZU\r\nFOR EXIT FROM UTTT FOR PERMIT REQUEST SHOULD BE USED POINT \"RODRO\",BUT BY FPL OPR CAN FILE \"BAMUT\" (UTTT SID). \r\nMATFC WILL ALLOW TO DEPART THEM THROUGH THIS POINT.\r\nFOR OVF PERMIT ENTRY/EXIT POINT CHANGE CAN BY APPROVED BY MATFC (OUTSIDE CAA WORKING HOURS) BY PHONE.\r\nPERMIT REVISION IS NOT REQUIRED IN CASE OF: \r\n-ACFT CHANGE (SUBSTITUTION AIRCRAFT WAS MENTIONED IN PERMISSION REQUEST AND PERMIT WAS GRANTED FOR IT)\r\nPERMIT REVISION IS REQUIRED IN CASE OF: \r\n-ACFT REG CHANGE (AND NEW AIRCRAFT WAS NOT MENTIONED IN SUBSTITUTIONS) \r\n-ACFT TYPE CHANGE \r\n-DESTINATION AIRPORT CHANGE IN KAZAKHSTAN \r\n-OPERATOR CHANGE \r\n-FLIGHT NUMBER CHANGE \r\n-ORIGIN/DESTINATION AIRPORT OUTSIDE KAZAKHSTAN CHANGE (LANDING +OVERFLIGHT) \r\n-ENTRY/EXIT POINTS CHANGE,                                                                        VFR FLIGHTS ARE ALLOWED",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "00771 722 48939; + 771 72 77 35 90; (MATFC when CAA is closed +77 172 704 349/348), GC for FPL+771 72 773 589 for extra urgent req),                             FOR OVF CHECK CALL: + 771 7270 4349/4278/4318 Fax +77172241976;                                                         FROM 16 AUGUST 2017 NON-SCHEDULED \r\nINTERNATIONAL FLIGHTS OF FOREIGN AIR OPERATORS IN THE AIRSPACE OF THE \r\nREPUBLIC OF KAZAKHSTAN WITHOUT LANDINGS ON THE TERRITORY OF THE \r\nREPUBLIC OF KAZAKHSTAN ARE CARRIED OUT ON A FILLING ADVANCE \r\nNOTIFICATION AND A FLIGHT PLAN (FPL) TO AIR TRAFFIC CONTROL UNIT.\r\n + 771 72 704 337 - ACCOUNTING (АСЕЛЬ)",
+   "mail": "E-MAIL: PERM.AST@ANS.KZ  (ALT e-mail in case of IT prob: KAZPERMIT@MAIL.RU)",
+   "sita": "ALAOKYA",
+   "aftn": "UACDZXZA UACDZDZP UAAKQFNS (URGENT CASES - UAAKZDZI)\r\nNOTIFICATION TO: AFS: UAAKQFNS UAAKZDZK; MC(AT)ANS.KZ; CAF(AT)ANS.KZ;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Kazakhstan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-OS",
+   "country": "Kosovo",
+   "authorityName": "Civil Aviation Department",
+   "validity": "",
+   "functionText": "Three days is the stated notice time",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phones: +383 38 200 74 257 or: 74 255;+381 38 20028105",
+   "mail": "TrafficRights@rks-gov.net; Ismail.Berisha@rks-gov.net; Mustafe.Merovci@rks-gov.net; scheduleprn@limakkosovo.aero; Demokrat.Selimaj@rks-gov.net",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Kosovo"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-8T",
+   "country": "Kuwait",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "CAA only opens after 0600 UTC",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT.",
+   "phones": "Office: +965 161 EXT 1414, Dir. (965) 247 62 531, \r\n(965) 247 22 403 or 243 48 888 ext. 2729",
+   "mail": "schedules@dgca.gov.kw",
+   "sita": "KWIAPYA/KWIDDYA",
+   "aftn": "OKAAYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Kuwait"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-TA",
+   "country": "Kyrgyzstan",
+   "authorityName": "MATMFC",
+   "validity": "72 hrs  (CAA WORKS 24/7)",
+   "functionText": "LND PERMIT: NOT LATER 3 WORKING DAYS",
+   "functionKind": "landing",
+   "info": "RECEIVING PARTY REQUIRED\r\nCREW CAN STAY WITHOUT VISA UP TO 07 DAYS. \r\nDANISH CREW CAN STAY UP TO 60DAY’S WITHOUT VISA. \r\nFOR CREW CHANGE VISA IS ALSO NOT REQUIRED.",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "00996 312 39-35-52\r\n(965) 247 22 403 or 243 48 888 ext. 2729 \r\n00996 312 251619/20",
+   "mail": "E-MAIL: ATFMU@CAA.KG;",
+   "sita": "",
+   "aftn": "UCFMZDZX, UCFMYAYX, UCFMZDZG, UCFMBFXX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Kyrgyzstan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-B1",
+   "country": "Libya",
+   "authorityName": "www.lybcaa.com",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "Note form FCG: Request for permission must be made via local agent",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phones: +218 (69) 4620609 Fax: +218213605322",
+   "mail": "E-mail: atd@caa.gov.ly; info@lycaa.org; info@lybcaa.com; airtransport@lybcaa.com; aftn.amhs@gmail.com;",
+   "sita": "",
+   "aftn": "HLLTYAYA; HLLTYAYX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Libya"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-U9",
+   "country": "Lithuania",
+   "authorityName": "www.caa.lt",
+   "validity": "Permit Validity: 48 HRS",
+   "functionText": "Not later 3 working days",
+   "functionKind": "other",
+   "info": "PERMISSION IS NOT REQUIRED FOR EUROPEAN CARRIES TO OPERATE COMMERCIAL AIR SERVICES INSIDE EU + EFTA (DWITZERLAND, LICHTENSTEIN, NORWAY AND ICELAND)\r\nNOT POSSIBLE TO OBTAIN PERMISSION OR CLEARANCE FROM CAA OR FMP OUTSIDE WORKING HOURS                 IN CASE COMMERCIAL FLIGHT COMES FROM A THIRD-WORLD COUNTRY (BELARUS,RUSSIA,AFRICA,ETC..)\r\n\r\nPERMISSION IS NOT REQUIRED FOR PRIVATE, TECHNICAL flights!                                                                                       THE CATEGORIES OF THE NON-SCHEDULED FLIGHTS, FOR WHICH PERMIT OF  OF LITHUANIA ARE NOT NEEDED: \r\n1.FLIGHT OF THE EMERGENCY MEDICAL ASSISTANCE; \r\n2. FLIGHT OF A EU MEMBER – STATE AIR CARRIER BY THE AIRCRAFT,WHICH THE MAXIMUM TAKE-OFF WEIGHT (MTOM) IS UNDER 5700 KG AND WHICH IN COMPLIANCE WITH THE TECHNICAL DOCUMENTS CAN CARRY NOT MORE THAN 10 PASSENGERS OR IT CARRIES CARGO ON BOARD (TAXY FLIGHT); \r\n3. NON-SCHEDULED COMMERCIAL FLIGHT OF A EU MEMBER – STATE AIR CARRIER IN COMPLIANCE WITH THE COUNCIL REGULATION (EEC) NO 2408/92 OF 23 JULY 1992 ON ACCESS FOR COMMUNITY AIR CARRIERS TO INTRA-COMMUNITY AIR ROUTES; \r\n4. FLIGHT BY THE AIRCRAFT ENGAGED IN THE SEARCH AND RESCUE OPERATIONS.",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phones:  +370 612 25 864 / 610 48 327  (permit department); +37052739038;                                                          Planning section (When CAA closed) + 370 706 94608/679, Fax: +37052739237",
+   "mail": "E-mail: caa@caa.lt; fmp@ans.lt;",
+   "sita": "",
+   "aftn": "EYVLZDZX; EYVAYAYX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Lithuania"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHO-U5",
+   "country": "Malaysia",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "Overflight Permissions/\r\nFlight Plan Acceptance",
+   "functionKind": "overflight",
+   "info": "",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT.",
+   "phones": "60385291308",
+   "mail": "AFTN@CAAM.GOV.MY",
+   "sita": "",
+   "aftn": "WMKKYAYX, WMKKYAYT",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Malaysia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.916Z",
+   "updatedAt": "2026-07-08T23:01:47.916Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-JM",
+   "country": "Mauritius",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "",
+   "phones": "Phone: +230603200 ( Kindly request the phone operator to transfer you call to AIS department)",
+   "mail": "Email : ais@govmu.org; rramjunum@govmu.org;gkreshwansingh@govmu.org",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Mauritius"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-LH",
+   "country": "Moldova",
+   "authorityName": "International Relations Department\r\nCAA Moldova",
+   "validity": "",
+   "functionText": "Landing Permissions",
+   "functionKind": "landing",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Airport, MD-2026\r\nChisinau, Republic of Moldova\r\ntel: +373 22 823 531 ; +373 22 823 587; +373 22 823 601; +373 22 823 600\r\nfax: +373 22 529 118 \r\nDumitru Charter Manager tel: +373 69 315 686",
+   "mail": "dri@caa.gov.md; atmg@moldatsa.md",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Moldova"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-BA",
+   "country": "Mongolia",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "Overfly and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phone: (ODGEREL CHAGNAADORJ\r\nDIRECTOR\r\nOFFICE: 976-11-282016\r\nMOBILE: 976-99059805)\r\n+976 112 28 2029; +976 11 28 2213;\r\n+976-11281602; +976 11-282012; 282014; 282016; 282120",
+   "mail": "EMAIL: ODGEREL.CH@MCAA.GOV.MN\r\n'FPD@MCAA.GOV.MN'; 'TPU@MCAA.GOV.MN'; 'FED.CHARTER@MCAA.GOV.MN'",
+   "sita": "ULNUGOM@ADNS.AERO\r\nULNKKOM@ADNS.AERO",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Mongolia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-CJ",
+   "country": "Morocco",
+   "authorityName": "Working Hours 0900-1630z on working days only.     http://www.dac-maroc.gov.ma/contacter_nous.htm",
+   "validity": "LANDING VALID 72HRS (ITRANE)",
+   "functionText": "“N” FOR NON-SCHEDULED AIR TRANSPORT OPERATION / NONSCHEDULED SERVICES: (PERMIT REQUIRED FOR BOTH LANDING AND OVERFLIGHT). \r\n\r\n“G” FOR GENERAL AVIATION / PRIVATE FLIGHTS: ( PERMIT NOT REQUIRED ) . \r\n\r\nTHE FOLLOWING FLIGHTS DO NOT NEED A CLEARANCE TO ENTER MOROCCO: \r\n- MEDICAL FLIGHTS OR AIR AMBULANCES; \r\n- EMERGENCY FLIGHTS \r\n- RESCUE FLIGHTS IN THE EVENT OF NATURAL CATASTROPHE.",
+   "functionKind": "overflight_landing",
+   "info": "MUST BE REQUESTED 48 HRS BEFORE THE FLIGHT, OUTSIDE CAA WORKING HOURS PERMISSION COSTS MORE EXPENSIVE, NEED TO INFORM OPERATOR.                       NEW INSTRUCTIONS FROM CAA AND AIRPORT TOWERS THAT ALL “N” FLIGHTS MUST GET PRIOR AUTHORIZATION FROM MCAA EVEN FOR HOLIDAYS AND WEEKEND OPERATIONS.\r\nIN CASE OF CHANGE AIRPORT OF ORIGIN-OVF PMT CORRECTION NOT REQUIRED, JUST INFORM AGENT. \r\n\r\nFOR PRIVATE BUSINESS JET FLIGHTS (\"IG\" IN FPL) ENOUGH TO FILE A FPL AT LEAST 06 HOURS BEFORE FLIGHT (OR EVEN SMALLER) TO BE EXEMPTED FROM LANDING PERMISSION OBTAINING. BUT IT WORKS ONLY IF YOU DID NOT RECEIVE A REJECTION TO FPL. \r\n\r\nFOR COMMERCIAL BUSINESS JET FLIGHTS (\"IN\" IN FPL) LANDING PERMISSION SHOULD BE OBTAINED IN ADVANCE. IT TAKE ONE DAY, OR EVEN SHORTER DURING WORKING DAYS. LANDING APPLICATION FORM SHOULD BE FILLED IN AND SEND TO LOCAL AGENT FOR LANDING PERMISSION NUMBER. LANDING PERMISSION IS FREE OF CHARGE. \r\n\r\nOVERFLIGHT PERMIT FOR COMMERCIAL FLIGHT REQUIRED! \r\nENTRY/EXIT POINTS CHANGE FOR OVF BY FPL",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT. FOR OVF USUALLY ASE-MOROCCO. FOR KLASJET USE FLYTAG OR JETEX",
+   "phones": "Phones +212 537 67 9407; +212537773007 (+212537679400/04/05) Fax 212537773074 (+212537-772956 / +212537775677)",
+   "mail": "E-mail: dta.transport@gmail.com; (elghifarisouad@gmail.com - said.faris@gmail.com - nlakhel@aviationcivile.gov.ma)",
+   "sita": "",
+   "aftn": "AFTN: GMMRYAYA / GMMRYAYX / GMMRYHDR / GMMRYHYX                                                          CAA: GMMRYAYA / GMMNOPRS / GMMRADTA / GMMRAFTN / GMMRYHDT \r\nCCR: GMMMZDZX / GMMMZQZX / GMMMYXYX / GMMMCLRO",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Morocco"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-HK",
+   "country": "Myanmar",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "VYYYYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Myanmar"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-E0",
+   "country": "NIGER",
+   "authorityName": "ANAC NIGER (AGENCE NATIONALE DE L'AVATION CIVILE) / MR. MUKHTAR MALAWAN",
+   "validity": "plus 72 hours from requested scheudle",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "The time frame for LND Permits is 24Hours before operation, and for OVF Permits you can send in a request 1 hour before operation for immediate approval. Required documents are as follows from Operator;- COA,COR,COI and CON",
+   "contact": "",
+   "phones": "",
+   "mail": "mukhtarmalawan@anac-niger.org\r\nops@anac-niger.org",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Niger"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-RZ",
+   "country": "North Korea",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "Overflight Permissions",
+   "functionKind": "overflight",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "ZKKKYAYX ZKKKZGZX ZKKKZPZX ZKKKZTZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "North Korea"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-T6",
+   "country": "NETHERLANDS",
+   "authorityName": "CAA",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "",
+   "phones": "",
+   "mail": "aviationdirectorate@minienm.nl'; 'aviation-approvals@ilent.nl'; 'tracon@ilent.nl'; 'div.hoofddorp@ilent.nl'",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Netherlands"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-QW",
+   "country": "NORWAY",
+   "authorityName": "CAA NORWAY  004798261683",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "",
+   "phones": "",
+   "mail": "traffic@caa.no",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Norway"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-I6",
+   "country": "Oman",
+   "authorityName": "",
+   "validity": "Permit Valid: 72 hrs,                                                    CAA is working:               SATURDAY-WEDNESDAY  03:30-10:30z                          \r\nFOR URGENT CASES OF FLIGHT CLEARANCE OUTSIDE THE OFFICE WORKING HOURS PLEASE CONTACT:  \r\nDUTY COMMUNICATOR \r\nPUBLIC AUTHORITY FOR CIVIL AVIATION (PACA),                       TEL: +968-24519332, OR +968-24519260 \r\nFAX: +968-24510617",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "Not later 3 working days, need to REQ by mail, if very urgent request please use ORIENTAL, but then extra charges (around 250 usd) will applies, need to inform operator.                                                                              RUSSIAN CREW MEMBERS ARE OBLIGED TO OBTAIN OMAN VISA PRIOR TO ARRIVAL. \r\nIT'S NOT POSSIBLE TO ARRANGE VISA FOR RUSSIAN CITIZENS UPON ARRIVAL. \r\nONLY EXCEPTION IS TURNAROUND FLIGHTS, AS THEY SHOULD LEAVE TERRITORY OF OMAN AFTER AIRCRAFT IS READY (PASSENGERS ARE OFFLOADED, A/C IS REFUELED, ETC..)",
+   "contact": "USE LOCAL HANDLING AGENT FOR LANDING\r\n AND OVF PERMIT. OVERFLIGHT VIA FLYTAG",
+   "phones": "ALTERNATIVE CAA PHONE NUMBER:                   +968-24354055 / 24354064 / 24354027 (SUN-THU 0330Z-1030Z).                                                          Phones +968 2435 4027 / +968 2451 9332; +968-24519260(24H) +968 2451 9367 / +968 24519825 / +968-24518170 CAA COMMUNICATION SUPERVISOR +968 24 354 951.                                 ATC SUPERVISOR +968 24 519 550 Fax +96824519356; +968 243 54 535                       (Jamila AL-Mahrouqi), tel: : + 968 24354176 / 968 24354148",
+   "mail": "REQUEST BY E-MAIL !!!      akhter@paca.gov.om; raschid@dgcam.com.om; permits@paca.gov.om (for landing) ;  permits-om@paca.gov.om (for overflight permits)                                               Accaunting: accounting: jamila@paca.gov.om",
+   "sita": "",
+   "aftn": "OOMSYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Oman"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-CR",
+   "country": "Pakistan",
+   "authorityName": "www.caapakistan.com.pk",
+   "validity": "48 hrs (As per FCG: 72hrs)",
+   "functionText": "Working Hours 0400 - 1200 utc",
+   "functionKind": "other",
+   "info": "not later 4 working days                                                             All Crew members have to hold valid passports,crew IDs and General Declaration with their names listed on it and this admits them to stay within the boundaries of Pakistan for 72 hours without visa. Crew can only stay on GENDEC for +72 Hours. For prolong stay they need proper visa before entering in Pakistan.",
+   "contact": "FOR CWY FLIGHTS USE:\r\nAIRBIZ AVIATION SERVICES (ops@air-biz.com)\r\n\r\nFOR KLJ OVF REQ: USE FLYTAG",
+   "phones": "Phones: +92219248772; +92 21 9924 2002; +92 21 9924 2070/2111; + 92 21 99242047; +92 300 2175827 Fax: +92219248121",
+   "mail": "E-mail Fazal.Shakoor@caapakistan.com.pk; Muzaffar.Alam@caapakistan.com.pk; GM.ATNR@caapakistan.com.pk; Abidkk@caapakistan.com.pk; Faisal.Chauhan@caapakistan.com.pk; dadmin@caapakistan.com; dgcaa@caapakistan",
+   "sita": "",
+   "aftn": "OPHQYAYX; OPHQZXAT;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Pakistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-JK",
+   "country": "Poland",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "planning.dept@pansa.pl",
+   "mail": "",
+   "sita": "",
+   "aftn": "EPWWZGZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Poland"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-U2",
+   "country": "Portugal",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "It is necessary to request a PPR for the flights to/from third countries to the Portuguese CAA ANAC and they are closed on weekends.\r\n\r\nRequest can be sent via agent.",
+   "contact": "",
+   "phones": "",
+   "mail": "dre.drt@anac.pt\r\n\r\nat least 3 business days in advance of the date of the operation.",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Portugal"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-8L",
+   "country": "Qatar",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "CAA: +974 447 05 080 / 081",
+   "mail": "comms@caa.gov.qa; doha.comm@caa.gov.qa",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Qatar"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-CH",
+   "country": "Russia",
+   "authorityName": "MATMFC",
+   "validity": "FROM 00:01 OF REQUESTED DEPARTURE DATE +48 HRS",
+   "functionText": "Flight Plan Acceptance",
+   "functionKind": "flight_plan",
+   "info": "PERMIT REVISION IS REQUIRED IN CASE OF: \r\n-ACFT REG CHANGE (AND NEW AIRCRAFT WAS NOT MENTIONED IN SUBSTITUTIONS) \r\n-DESTINATION AIRPORT CHANGE IN RUSSIA \r\n-OPERATOR CHANGE \r\n- FULL FLIGHT NUMBER CHANGE\r\nPERMIT REVISION IS NOT REQUIRED IN CASE OF: \r\n-ENTRY/EXIT POINTS CHANGE \r\n-ORIGIN/DESTINATION AIRPORT CHANGE OUTSIDE RUSSIA \r\n-FLIGHT NUMBER,NUMBERS PART (NOT 3 LETTERS CODE) CHANGE \r\n-ACFT CHANGE (SUBSTITUTION AIRCRAFT WAS MENTIONED IN PERMISSION REQUEST AND PERMIT WAS GRANTED FOR IT)",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "74991553671                                                     (WWW.IVPRF.RU) \r\nREGIONAL CENTER UHHH: +7 4212 418418 \r\nREGIONAL CENTER UHPP: +7 41531 94395 \r\nREGIONAL CENTER URRR: +7 863 27 23 808 \r\nREGIONAL CENTER ULLI: +7 812 305 1796 \r\nREGIONAL CENTER UUWW: +7 495 436 2168  /7 495 662 80 55 \r\nREGIONAL CEMTER UWWW: +7 846 2 791 831                                                            REGIONAL CENTER UUEE: +7495 436 2003\r\nREGIONAL CENTER USSS: +7 343 375 68 68 \r\nREGIONAL CENTER UNNT: +7 383 319 09 17/16                                                              REGIONAL CENTER URRV: +7 863 272 3168\r\nFor A.Kachalov \"Berozki\" FPL check: +7 499 155 3671 (внетрассовые полёты)",
+   "mail": "",
+   "sita": "MOWYWYA@adns.aero;\r\nMOWICYA@ADNS.AERO;\r\nMOWYAYA@adns.aero",
+   "aftn": "UUUWZDZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Russia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-7R",
+   "country": "Russia",
+   "authorityName": "MATMFC",
+   "validity": "",
+   "functionText": "Fligth Plan Correction",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "FPL CHECK: 7 499 155 3671 / 7(495)601-07-87 /",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "CREW VISA SAUDI ARABIA,CREW WILL BE ISSUED A TEMPORARY PERMIT (VISA) ON ARRIVAL VALID FOR 24 HOURS THEN CAN BE EXTENDABLE 72HRS MAXIMUM STAY IN ALL SAUDI ARABIA. \r\nEXCEEDING WITH 72HRS WILL BE SUBJECT FOR FINE 3000 RIYAL (APPROX. 800 USD) PER DAY/PER PERSON (RECOMMENDED NOT TO MISUSE WITH THIS). \r\nPLEASE NOTE THAT TEMPORARY PERMIT (VISA) IS FOR FREE. \r\nIN CASE OF LONGER STAY IT`S BETTER TO HAVE VISA BEFORE ARRIVAL,SINCE FURTHER EXTENSION FOR FEE DEPENDS ON IMMIGRATION OFFICE DECISION. \r\nvisa period may extend for the below reasons only and maxim for 6 days \r\n• Pax request \r\n• Crew sick leave \r\n• A/C Technical reason                                                                                               --------------------------------------------------------------------------------------------\r\nIMPORTANT RESTRICTIONS WHEN OPERATING TO/FROM SAUDI ARABIA: \r\n-ALCOHOL BEVERAGES AND ANY LIKE ITEMS ARE STRICTLY PROHIBITED. \r\n-CREW HAS TO ENSURE ALL ALCOHOL BARS OR STORAGES ON BOARD SHOULD BE SEALED PROPERLY 30 MIN BEFORE LANDING TO AVOID FINES & DELAYS. \r\n-IT IS OBLIGED FOR WOMEN TO WEAR SPECIAL CLOTHING (ABAYA) FOR BODY COVERAGE,ESPECIALLY AFTER LEAVING SAUDI ARABIA AIRPORTS TO THE CITY.",
+   "match": {
+    "countries": [
+     "Russia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-5T",
+   "country": "Russia",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "Overfly and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "PHONE: +7 495 601 07 64/7 495 601 07 76/+7 495 601 06 51",
+   "mail": "FOR ACFT DOCS!! permit@matfmc.ru;\r\naviapermit@scaa.ru;    www.favt.ru",
+   "sita": "",
+   "aftn": "MOWYAYA, MOWICYA",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Russia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-X7",
+   "country": "Saudi Arabia",
+   "authorityName": "www.gaca.gov.sa",
+   "validity": "CAA Working Hours: 24/7.                    NEED TO REQUEST LND PMT NOT LATER 3 WORKING DAYS",
+   "functionText": "KITOT IS THE EXIT POINT WHICH USE ONLY FOR OVERLY IN SAUDI AIRSPACE.                                                   FOR THE FLIGHTS DEPARTING FROM OR ARRIVING TO IRAN - IT IS FORBIDDEN TO OVERFLY SAUDI ARABIA TERRITORY.                                IF ISRAELI CITIZEN LEAD PASSENGER ONBOARD IN THE PRIVATE BUSINESS JET, SAUDI GACA WILL NOT ALLOW THE AIRCRAFT TO ENTER SAUDI FIR. \r\nSAUDI ARABIA DOES NOT ALLOW FLIGHTS TO OVERFLY OR LAND IN ITS AIRSPACE WHEN ISRAEL IS THE FLIGHT’S PLAN ORIGIN OR DESTINATION. \r\nSAUDI ARABIA DOES NOT ALLOW WITH ISRAELI- MANUFACTURED AIRCRAFT – EVEN IF NOT WITH ISRAELI CREW OR REGISTRATION – WILL ONLY BE PERMITTED ON A CASE-BY-CASE BASIS BY SAUDI GACA.",
+   "functionKind": "overflight",
+   "info": "REQ FOR SAUDI ARABIA LND PMT REQ: \r\n-DEADLINE IS NOT LESS THAN 24HRS BEFORE FLIGHT \r\n-FULL FLIGHT DETAILS INCLUDING PAX,CREW \r\n-A/C DETAILS AND DOCUMENTS (NOISE,REGISTRATION,AIRWORTHINESS,INSURANCE,AOC)\r\n-FULL FLIGHT SCHEDULE \r\n-LOCAL AGENT DETAILS IN SAUDI ARABIA \r\n-RECEIVING PARTY (EITHER PRIVATE PERSON OR COMPANY CONTACT PERSON NAME,ADDRESS AND TEL. NUMBER). MANDATORY UNLESS PURPOSE OF FLIGHT IS UMRAH,VISITING OF HOLY PLACES. \r\n-SHOULD BE SUBMITTED 72 HOURS BEFORE FLIGHT \r\n\r\nSAUDI ARABIA CAA IS VERY STRICT IN REGARDS OF CABOTAGE QUESTION. PLEASE REQUEST SAUDI ARABIA PERMISSION WITH CAUTION. \r\nPAX PICK-UP DURING DOMESTIC FLIGHTS IS PROHIBITED. \r\nPAX DROP-OFF DURING DOMESTIC FLIGHTS IS ALLOWED. \r\nPROVIDER NOTE: ONLY JETEX CAN ASSIST WITH CABOTAGE PERMIT.  JETEX ALSO CAN ASSIST TO OBTAIN LANDING PERMIT WITHOUT RECEIVING PARTY (IF FLIGHTS IS NOT DIPLOMATIC) \r\n-IT IS POSSIBLE TO REQUEST LANDING PERMISSION SEPARATELY FROM HANDING IN SAUDI ARABIA. \r\n-SAUDI ARABIA PERMIT VALID 24H FORWARD. ANY OTHER CASE - RE-VALIDATION REQUIRED.",
+   "contact": "FOR CWY OVF FLIGHTS USE:JBS\r\n\r\nFOR KLJ OVF REQ: USE FLYTAG\r\n\r\nLANDING VIA LOCAL AGENT",
+   "phones": "Duty officer: +966 115253336                                                                                                        Phones 966126405000, +966-12-684 7591, DUTY MOB: +966-55-961 6034, +966 (12) 684 7631; MOB: +966-54-447 6006; Jeddah Area Control Center +966126850532 , Jeddah Radar : 00966126855007 / 6 Fax 966126401477, +966-12-685 5372",
+   "mail": "E-mail gaca-info@gaca.gov.sa; akutbi@gaca.gov.sa; Rmir@gaca.gov.sa; atcd@gaca.gov.sa; rvicedesk@gaca.gov.sa; CWC_Support@gaca.gov.sa; erabouy@gaca.gov.sa;",
+   "sita": "",
+   "aftn": "OEJDYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Saudi Arabia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHP-VI",
+   "country": "Serbia",
+   "authorityName": "Civil Aviation Directorate of the Republic of Serbia\r\nwww.cad.gov.rs",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "00381 11 292 7017 / 7019\r\ntel. +381 11 292 70 19\r\nmob. +381 64 803 35 78\r\nfax. + 381 11 311 75 18",
+   "mail": "flight-permissions@cad.gov.rs\r\ntnenadov@cad.gov.rs",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Serbia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-XH",
+   "country": "Seychelles",
+   "authorityName": "",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "",
+   "phones": "Phone: +24 84 684 046",
+   "mail": "amc2@saa.sc",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Seychelles"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.917Z",
+   "updatedAt": "2026-07-08T23:01:47.917Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-T5",
+   "country": "Spain",
+   "authorityName": "",
+   "validity": "Web: www.fomento.es",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "Request 48H prior the flight for commercial flights outside EU with PAX, 24H\r\nLINK FOR PERMIT SPAIN: \r\nHTTP://WWW.SEGURIDADAEREA.GOB.ES/LANG_CASTELLANO/CIAS_EMPRESAS/CIAS_EXTRANJERAS/FORM_AESA_DSP002.ASPX \r\nADD FOLLOWING ACFT DOCS ALONG WITH RE: REG, AIRWORTHINESS + REVIEW, NOISE, INSURANCE\r\nEVERY AIRCRAFT MUST BE EQUIPPED WITH ACAS SYSTEM, ONLY IF FLIGHT IS OPERATED AS VFR IT IS NOT REQUIRED",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phones +34 91 396 8211; +34 91 396 8000; +34 91 396 8228 (Boss: +34 913 96 8165) / +34 91 597 7000, Fax: 34915978300",
+   "mail": "E-mail: permisos_comerciales@fomento.es; mdmbarrera@seguridadaerea.es;",
+   "sita": "",
+   "aftn": "LEACYAYX; LEACZXED; LEACZXEX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Spain"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-K7",
+   "country": "Sudan",
+   "authorityName": "www.caa-sudan.net",
+   "validity": "",
+   "functionText": "Not later 14 working days.                 Valid +/- 72 hrs OVF/LND PMT",
+   "functionKind": "landing",
+   "info": "FCG Note: 35.00 USD (SUDAN) WITH HANDLING REQUEST PMT FREE OF CHARGE\r\n\r\nHSSS FIR 202305395ECV03 A0077/23 23 22MAY0001/23 28JUN2359 EST ON BEHALF OF SUDAN CAA,DUE TO SECURITY REASONS NO AIR NAVIGATION SER AVBL IN KHARTOUM FIR OVER SOUTH SUDAN ABV FL245,CONTINGENCY ROUTING PROCEDURE WILL BE IN EFFECT IN ACCORDANCE WITH KHARTOUM FIR CONTINGENCY PLAN AT HTTPS://WWW.ICAO.INT/MID/PAGES/FIR/KHARTOUM-FIR-CONTINGENCY-PLAN.AS PX -AIRSPACE OVER SOUTH SUDAN ABV FL245 RECLASSIFIED TO CLASS G -CONTINGENCY RTE RNAV-5 CR1 WESTBOUND TFC TO PROCEED VIA BRO DCT KAFIA USING EVEN FL AT OR ABV FL300 -CONTINGENCY RTE RNAV-5 CR2 EASTBOUND TFC TO PROCEED VIA ASKON L558 DASTU USING ODD FL AT OR ABV FL310 -FLIGHT LEVELS AND SPEED WILL BE DETERMINED BY ADDIS ABABA ACC OR BRAZZAVILLE ACC BASED ON KNOWN CR TFC. PILOTS ESTIMATES FOR ENTRY/EXIT WAYPOINTS AND SEPARATION STANDARDS CONTAINED IN PANS-ATM EXC LONGITUDINAL SEPARATION 20 MIN -IATA IN-FLIGHT BROADCAST PROCEDURE(IFBP) AFI REGION TO BE APPLIED OVER SOUTH SUDAN ON FREQ 126.9 MHZ AND 127.3 MHZ SEE",
+   "contact": "FOR CWY FLIGHTS USE:\r\nTANGO OPS (SUDAN), ops@tango.aero\r\n\r\nFOR KLJ OVF REQ: USE FLYTAG\r\n\r\nLANDING VIA LOCAL AGENT",
+   "phones": "Phones: +249 183 772 360: +249 183 787 757    Fax: +249 183 779 715",
+   "mail": "E-mail: info@caa.sd; info@caa.gov.sd; sdcivil@yahoo.com; info@acc-sudan.com; elhafizas@hotmail.com;",
+   "sita": "",
+   "aftn": "HSSSYAYA; HSSSYAYG;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Sudan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-NI",
+   "country": "Tajikistan",
+   "authorityName": "",
+   "validity": "72 hrs                                  RECEIVING PARTY REQUIRED",
+   "functionText": "When you request landing permission of Tajikistan, always write PAYMENT - THROUGH \"XXXXXXXX\"",
+   "functionKind": "landing",
+   "info": "VISA INFO:  +992 918 67 52 62 OKSANA VANSHTEIN \r\n\r\nIF CREW STAY’S AT AIRCRAFT/AIRPORT WHOLE TIME,VISA NOT REQUIRED! \r\nFOR CREW CHANGE IT’S NOT REQUIRED ONLY IF CREW WILL BE AT AIRPORT AREA WHOLE TIME! \r\nVISA CAN BE ARRANGED ON ARRIVAL EVEN ON REGULAR FLIGHT. \r\nCREW PASSPORT COPY’S SHOULD BE PROVIDED 03 DAYS IN ADVANCE,BUT VISA CAN BE ARRANGED EVEN EARLIER.",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "PHONE: +992 4744 94617 / +992 487011740/47       Fax: 992372231130\r\nChief mob: +992 931177030; +992 908 22 77 80 Pheruz",
+   "mail": "E-mail: 'atfm@airnav.tj'",
+   "sita": "",
+   "aftn": "UTDDZDZX, UTDAYAYX, UTDAZDZR",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Tajikistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-8F",
+   "country": "Thailand",
+   "authorityName": "",
+   "validity": "(+/-) 24 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "If the flight is categorized as a Charter flight (Part 135), it is typically subject to stricter regulations. The CAAT does not allow foreign aircraft to ferry in and pick up additional passengers from Thailand if the passengers arrived in Thailand by commercial flight or from another aircraft. Only the same group with the same headcount as initially planned is allowed on the outbound leg.",
+   "contact": "FOR KLJ OVF REQ: USE FLYTAG\r\n\r\nLANDING VIA LOCAL AGENT",
+   "phones": "",
+   "mail": "Parichat.T@caat.or.th; \r\nAkkarin.I@caat.or.th; \r\natreg@caat.or.th; \r\nand_fp@caat.or.th;",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Thailand"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-X4",
+   "country": "Trinidad \r\nand Tobago",
+   "authorityName": "CAA",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "You would be required to send an email  with all  the relevant information (Aircraft type,Date,Routes etc)  to the undermentioned \r\naddresses to obtain an overflight permit or permission.",
+   "contact": "",
+   "phones": "",
+   "mail": "rgarib@caa.gov.tt\r\n                            jdass@caa.gov.tt",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Trinidad \r\nand Tobago"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-1E",
+   "country": "Tunisia",
+   "authorityName": "www.ocaca.nat.tn",
+   "validity": "",
+   "functionText": "OFFICIAL REQUEST SHOULD BE SUBMITTED 72 WORKING HOURS BEFORE",
+   "functionKind": "other",
+   "info": "Working hour from 0800-2000z",
+   "contact": "FOR CWY FLIGHTS USE:\r\nCARTHAGE, OPS@carthagesky.com\r\n+21629380076\r\n\r\nFOR KLJ REQ: USE FLYTAG",
+   "phones": "Phones: +21698999309 +21658379618; +21671848000 (ext.34351); +21671806522;\r\nMr. Khaled: +21658379345;\r\nFax: +216806469",
+   "mail": "E-mail: relations.exterieures@oaca.nat.tn; air.transport@mt.gov.tn;",
+   "sita": "TUNXYXH@ADNS.AERO",
+   "aftn": "DTTVYAYX; DTTAYEYX; DTTAZPZX;",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Tunisia"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-UF",
+   "country": "Turkey",
+   "authorityName": "",
+   "validity": "48 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "CHECK IMPORTANT",
+   "phones": "+971 4 2989880",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Turkey"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-GZ",
+   "country": "Turkmenistan",
+   "authorityName": "MATMFC",
+   "validity": "96 hrs",
+   "functionText": "Overfly and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "RECEIVING PARTY REQUIRED (ONLY JURIDICAL PERSON CAN BE)\r\nDO NOT MENTION VIP OR VVIP STATUS FOR PAX IN OVF PERMIT REQUEST. ALWAYS WRITE THAT IT`S BUSINESSMAN. IF CARGO NEED TO ADVISE THE TYPE OF CARGO (TEXTILE,PIPES,...). IF YOU MENTION, THAT IT`S VIP - WE MIGHT GET ANSWER,THAT FLIGHT NEED TO BE REQUESTED VIA DIP. CHANNELS.\r\nTurkmenistan permit not necessary to update if         -origin/destination revised. \r\n-Entry/exit points must remain same!\r\n-FOR OVERFLIGHT PERMISSIONS ORIGIN AND DESTINATION AIRPORTS ARE NOT IMPORTANT(CAN -BE USED BY FPL),MOST IMPORTANT THAT THE SAME ENTRY/EXIT POINTS WILL BE USED. \r\nVISA REQUIRED FOR CREW CHANGE. \r\nCREW CAN STAY 72 HOURS WITH GENDEC + ID-CARD WITHOUT VISA. CREW VISA IS NOT REQUIRED FOR 72 HOURS FOR ANY NATIONALITY. EXTENSION IS POSSIBLE,BUT CREW MUST DO IT BY THEMSELVES IN CONSULAR DEPARTMENT. \r\nIN CASE OF ARRIVING ON COMMERCIAL AIRLINES (CREW CHANGE) VISA IS REQUIRED AND CANNOT BE ARRANGED UPON ARRIVAL. \r\nIF PAX WILL STAY ON BOARD DURING REFUELING,VISA IS NOT REQUIRED. \r\nIN CASE HE`LL DISEMBARK – VISA NEEDED AND IT CAN`T BE ARRANGED ON ARRIVAL. \r\nHE MUST HAVE IT ON HAND. \r\n\r\nACCORDING TO MANAGING DOCUMENTS WHICH REGULATE ORDER ON USING THE \r\nAIR SPACE OF TURKMENISTAN PERIODS OF THE PRESENTING REQUESTS ARE THE  FOLLOWING:\r\n- OVERFLYING REQUEST-3 DAYS (WEEKEND ARE ALSO COUNTED AS WORKING DAYS) BEFORE THE FLIGHT \r\n- LANDING REQUEST-NOT LESS THAN 5 DAYS",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phone: +993 12 231352, Fax +993 12 354636\r\n\r\nUTAK FIR DISPATCHERS: +993 24 330450                                                    UTAA FIR DISPATCHERS: +993 12 23 6067",
+   "mail": "A/C DOCS: ; permission@ashgabatairport.gov.tm;\r\nOnly for alternative use: ASB.PERMISSION@ONLINE.TM",
+   "sita": "ASBITT5",
+   "aftn": "UTAAZDZX, UTAAZXZX, UTAABFXX; AFTN ADDRESSES FOR VISUAL FPL:\r\nUTAK FIR: UTAKZRZX UTAKZQZX\r\nUTAA FIR: UTAALMXX\r\nUTAV FIR: UTAVLMXX UTAVZDZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Turkmenistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-7J",
+   "country": "UAE",
+   "authorityName": "",
+   "validity": "72 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "FOR CWY: LANDING VIA WEB-PAGE\r\n\r\nFOR KLJ: LANDING VIA JETEX",
+   "phones": "Phone: +97147770440 / +971566869128 / +971566810685",
+   "mail": "air.transport@dcaa.gov.ae; it.support@dcaa.gov.ae; info@dcaa.gov.ae",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Uae"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-MD",
+   "country": "Ukraine",
+   "authorityName": "",
+   "validity": "till 23:59 flight day",
+   "functionText": "Overflight and Landing Permissions",
+   "functionKind": "overflight_landing",
+   "info": "",
+   "contact": "",
+   "phones": "Phone: +380 44 351 5231 / 5551 / 5343 /  \r\n5592 / 5504",
+   "mail": "",
+   "sita": "IEVCAPS@ADNS.AERO",
+   "aftn": "UKKKZDZX, UKKACAXX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Ukraine"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-5U",
+   "country": "United Kingdom",
+   "authorityName": "Web: www.caa.co.uk; www.atol.org.uk",
+   "validity": "Weekdays: from 09:00 to 17:00 Local UK Time",
+   "functionText": "PERMIT MUST BE REQUESTED NOT LATER THAN 2 WORKING DAYS BEFORE THE FLIGHT, NEED TO USE SPECIAL FORM",
+   "functionKind": "other",
+   "info": "Any air carrier wishing to operate a commercial flight between the United Kingdom and a point outside of the European Union must apply for a permit from the UK CAA. \r\nAdditionally, any air carrier registered outside of the European Union must apply for a permit for any commercial flight they wish to operate to or from the United Kingdom, regardless of the destination or point of origin.\r\nPermission for commercial flight need to be requested not later than 2 working days before the flight, permission price is 76 GBP (By C/C on web poage there is form). \r\nFor permission application need to fill special form:\r\nhttp://www.caa.co.uk/Commercial-Industry/Airlines/Airline-licensing/",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "Phones: +44 207 379 7311; +44 207 453 6436; 24/7: +44 1293 567171 / +44 207 379 7311;\r\n+44 330 022 1500\r\nFax: +442072401153",
+   "mail": "E-mail: infoservices@caa.co.uk; foreigncarrierpermits@caa.co.uk;",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "United Kingdom"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-VI",
+   "country": "Uzbekistan",
+   "authorityName": "MATMFC",
+   "validity": "72 hrs                                           CAA Working Hours (STARTING WORK AT 0400UTC)",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "not later 3 working days / RECEIVING PARTY REQUIRED (PHYSICAL PERSON CAN BE ALSO). HOTELS CAN NOT BE AS RECIEVING PARTY       UZBEKISTAN: VISA REQUIRED!!\r\nCAN BE ARRANGED IN 03/05 DAYS FOR DANISH CITIZEN BUT FOR OTHER CITIZEN CAN TAKE UP TO 12DAYS. \r\nCREW ARRIVING ON REGULAR FLIGHT MUST HOLD VALID VISA! \r\nIF CREW STAY’S AT AIRCRAFT/AIRPORT WHOLE TIME,VISA NOT REQUIRED! \r\n\r\nNATIONALITIES FROM FOLLOWING 9 COUNTRIES DO NOT NEED VISA TO ENTER TO UZBEKISTAN: RUSSIA,KAZAKHSTAN,BELORUSSIA,UKRAINE,ARMENIA,AZERBAIJAN,GEORGIA,KYRGYZSTAN,MOLDOVA. \r\n\r\nIF CREW ARRIVES WITH REGULAR FLIGHT - VISA CAN`T BE ARRANGED ON ARRIVAL. IT MUST BE ON HAND. \r\n\r\nIF CREW ARRIVES WITH THEIR AIRCRAFT AND ARRANGE VISA UPON ARRIVAL,THEY CAN DEPART WITH REGULAR FLIGHT",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "OVF PMTs: +998 78 140 27 78,                         LND PMTs: +998 78 120 00 72,                                                    OFP CHECK +998 78 140 2768/2712",
+   "mail": "initial request must be sent via web-page:\r\nhttp://www.uzcaa.uz/ru/permission\r\n\r\nrevision by e-mail.\r\nE-mail PERM_UZB@uzcaa.uz\r\ncdos.planning@uzbairports.uz                                    Web www.uzcaa.uz",
+   "sita": "",
+   "aftn": "UTTTZDZX, UTTTZDYF, UTTUDDXX, UTTTYAYX, UTTUYAYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Uzbekistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-RW",
+   "country": "Uzbekistan OVF",
+   "authorityName": "MATMFC",
+   "validity": "24 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "ALWAYS USE CAA \r\nFOR PERMIT REQUEST",
+   "phones": "OVF: +998 78140 2778; LND: +998 78 1200072",
+   "mail": "perm_uzb@uzcaa.uz; atfmu_uz@aeronav.uz",
+   "sita": "",
+   "aftn": "UTTTZDZX, UTTTZDYF, UTTUYAYX, UTTTZXZX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Uzbekistan"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-4C",
+   "country": "Vietnam",
+   "authorityName": "Civil Aviation Authority of Vietnam (CAAV)",
+   "validity": "",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "CAAV Working hours: From Monday to Friday\r\nMorning: 08h00 - 11h30 (local time)\r\nAfternoon : 13h00 - 17h00 (local time)\r\n-----------------\r\nOn holiday/days off, outside working-hours or in the emergency case, flight permission application shall be submitted to:\r\nViet Nam Air Traffic Management Corporation (VATM)\r\nAir Traffic Flow Management Center\r\nBuilding B, No 5, Alley 200, Nguyen Son Street, Bo De Ward, Long Bien District,Ha Noi City, Viet Nam\r\nTel: (84-24) 38 725 302\r\nFax: (84-24) 38 733 310\r\nAFS: VVVVZGZX\r\nEmail: hiepdongbay@vatm.vn\r\nWorking hour: 24/24 daily\r\nto operate:\r\na. Flights carrying mechanics, engines, equipment and facilities used for aircraft repair or passengers, baggage, cargo,\r\nparcels and mail unloaded from aircraft that have been broken down;\r\nb. Search and rescue, salvage, ambulance and medical flights;\r\nc. Domestic ferry flights or testing flights;\r\nd. Flights by State aircraft of Viet Nam.",
+   "contact": "",
+   "phones": "Tel: (84 -24) 38 272 281",
+   "mail": "atd@caa.gov.vn",
+   "sita": "",
+   "aftn": "VVVVYAAN, VVVVYVYX",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Vietnam"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  },
+  {
+   "id": "CAA-MRCOMXHQ-WT",
+   "country": "Yemen",
+   "authorityName": "",
+   "validity": "48 hrs",
+   "functionText": "",
+   "functionKind": "other",
+   "info": "",
+   "contact": "",
+   "phones": "",
+   "mail": "",
+   "sita": "",
+   "aftn": "",
+   "vfrAddresses": "",
+   "match": {
+    "countries": [
+     "Yemen"
+    ],
+    "airportIcaos": []
+   },
+   "appliesTo": "any",
+   "isActive": true,
+   "source": "xlsx-import",
+   "createdAt": "2026-07-08T23:01:47.918Z",
+   "updatedAt": "2026-07-08T23:01:47.918Z"
+  }
+ ],
+ "updatedAt": "2026-07-08T23:01:47.918Z"
+}

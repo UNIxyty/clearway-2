@@ -476,6 +476,51 @@ export async function deleteOperator(id) {
   return payload;
 }
 
+export async function fetchCaa({ withMatches = false } = {}) {
+  const params = new URLSearchParams({ includeInactive: 'true' });
+  if (withMatches) params.set('withMatches', 'true');
+  return fetchJson(`/api/caa?${params.toString()}`, 'CAA request failed');
+}
+
+export async function upsertCaa(entry) {
+  const response = await fetch(buildApiUrl('/api/caa'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(entry || {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to save CAA entry (${response.status})`);
+  }
+  return payload;
+}
+
+export async function updateCaa(id, patch) {
+  const response = await fetch(buildApiUrl(`/api/caa/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch || {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update CAA entry (${response.status})`);
+  }
+  return payload;
+}
+
+export async function setCaaActive(id, isActive) {
+  return updateCaa(id, { isActive });
+}
+
+export async function deleteCaa(id) {
+  const response = await fetch(buildApiUrl(`/api/caa/${encodeURIComponent(id)}`), { method: 'DELETE' });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete CAA entry (${response.status})`);
+  }
+  return payload;
+}
+
 export async function fetchLimitations({ withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: 'true' });
   if (withMatches) params.set('withMatches', 'true');

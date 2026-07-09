@@ -171,6 +171,9 @@ export default function FlightPill({
   // IMP renders as ONE icon with no count — the wall only signals that
   // important limitations apply; the full text is read in the Console.
   const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
+  // CAA Details (Item 4): a matched authority shows a teal CAA chip (design
+  // colours) in the same marker row; the contact block lives in the overlay.
+  const hasCaa = (flight.limitations || []).some((lim) => lim.type === 'CAA');
 
   // The fill comes straight from the Leon-derived movement state — a delayed
   // AIRBORNE flight is blue (the leading dashed segment still shows the
@@ -341,6 +344,25 @@ export default function FlightPill({
               }}
             >
               !
+            </span>
+          )}
+          {hasCaa && (
+            <span
+              title="CAA authority details apply — contact block in the flight overlay"
+              style={{
+                fontFamily: "'IBM Plex Mono',monospace",
+                fontSize: sz(9.5),
+                fontWeight: 800,
+                border: '1px solid #2f9e8f',
+                borderRadius: 4,
+                padding: `1px ${sz(4)}px`,
+                lineHeight: `${sz(12)}px`,
+                letterSpacing: '.5px',
+                color: '#5eead4',
+                background: 'rgba(47,158,143,.18)',
+              }}
+            >
+              CAA
             </span>
           )}
           <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} />

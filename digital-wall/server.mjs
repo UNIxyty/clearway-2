@@ -8,6 +8,7 @@ import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
+import { CaaStore } from "./lib/caa-store.mjs";
 import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
@@ -44,7 +45,12 @@ if (!staticRoot) {
 const operatorsStore = new OperatorsStore();
 const importantStore = new ImportantStore();
 await importantStore.load();
+// CAA Details (Item 4): authority contact records + match flags.
+const caaStore = new CaaStore();
+await caaStore.load();
+process.stdout.write(`CAA store: ${caaStore.entries.length} authorities loaded\n`);
 const timelineService = new LeonTimelineService({ staticRoot, operatorsStore, importantStore });
+timelineService.caaStore = caaStore;
 await timelineService.bootstrap();
 
 const sseHub = new SseHub();
@@ -728,6 +734,66 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: true, reset });
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
+      return;
+    }
+
+    // ── CAA Details (Item 4) ────────────────────────────────────────────
+    if (pathname === "/api/caa" && req.method === "GET") {
+      const includeInactive = url.searchParams.get("includeInactive") !== "false";
+      const withMatches = url.searchParams.get("withMatches") === "true";
+      let entries = caaStore.list({ includeInactive });
+      if (withMatches) {
+        const counts = new Map();
+        for (const [, flight] of timelineService.flightsByNid.entries()) {
+          const ctx = timelineService.buildFlightMatchContext(flight);
+          for (const entry of caaStore.matchFlight(ctx)) {
+            counts.set(entry.id, (counts.get(entry.id) ?? 0) + 1);
+          }
+        }
+        entries = entries.map((entry) => ({ ...entry, matchedFlightCount: counts.get(entry.id) ?? 0 }));
+      }
+      sendJson(res, { ok: true, count: entries.length, entries });
+      return;
+    }
+
+    if (pathname === "/api/caa" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const entry = await caaStore.upsert(body);
+        sseHub.broadcast({ type: "caa.changed", action: "upsert", id: entry.id });
+        sendJson(res, { ok: true, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/caa/") && req.method === "PATCH") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const body = await readJsonBody(req);
+      try {
+        const keys = Object.keys(body ?? {});
+        const entry =
+          keys.length === 1 && keys[0] === "isActive"
+            ? await caaStore.setActive(id, Boolean(body.isActive))
+            : await caaStore.patch(id, body);
+        sseHub.broadcast({ type: "caa.changed", action: "update", id });
+        sendJson(res, { ok: true, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/caa/") && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      try {
+        await caaStore.remove(id);
+        sseHub.broadcast({ type: "caa.changed", action: "delete", id });
+        sendJson(res, { ok: true, id });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
       }
       return;
     }

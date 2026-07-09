@@ -11,6 +11,7 @@ import {
 import AircraftPage from './components/console/AircraftPage';
 import NotamCheckPage from './components/console/NotamCheckPage';
 import FlightsPage from './components/console/FlightsPage';
+import CaaPage from './components/console/CaaPage';
 import ImportantPage from './components/console/ImportantPage';
 import LimitationsPage from './components/console/LimitationsPage';
 import OperatorsPage from './components/console/OperatorsPage';
@@ -51,6 +52,7 @@ const NAV = [
   { key: 'aircraft', label: 'Aircraft', icon: 'navigation' },
   { key: 'limitations', label: 'Limitations', icon: 'alert-triangle' },
   { key: 'important', label: 'Important', icon: 'star' },
+  { key: 'caa', label: 'CAA details', icon: 'landmark' },
   { key: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -211,6 +213,8 @@ export default function ConsoleApp({ page, navigate }) {
         return <LimitationsPage />;
       case 'important':
         return <ImportantPage />;
+      case 'caa':
+        return <CaaPage />;
       case 'settings':
         return <SettingsPage />;
       case 'flights':

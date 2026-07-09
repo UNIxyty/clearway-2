@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { fetchFlightInfo, fetchOverlay, importantAttachmentUrl } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
 import { WX_CATEGORY_COLORS } from './FlightPill';
@@ -143,6 +143,7 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
   const arr = flight?.ades;
   const entries = flight?.limitations || [];
   const impEntries = entries.filter((item) => item.source === 'important');
+  const caaEntries = entries.filter((item) => item.source === 'caa');
   const limitations = entries.filter((item) => item.source === 'custom');
   // Unreviewed NTM/WX markers (already gated server-side by today's
   // per-airport CHECKED acks) — badges only, never the NOTAM/weather text.
@@ -270,6 +271,54 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
               </div>
             ))}
           </div>
+
+          {/* CAA authority details (Item 4) — the matched authority's
+              contact block, teal accent per the design. */}
+          {caaEntries.length > 0 && (
+            <div style={s.section}>
+              <div style={s.sectionTitle}>CAA details</div>
+              {caaEntries.map((entry) => {
+                const caa = entry.caa || {};
+                const rows = [
+                  ['Validity', caa.validity],
+                  ['Function', caa.functionText],
+                  ['Info', caa.info],
+                  ['Contact', caa.contact],
+                  ['Phone', caa.phones],
+                  ['Mail', caa.mail],
+                  ['AFTN', caa.aftn, true],
+                  ['SITA', caa.sita, true],
+                  ['VFR FPL', caa.vfrAddresses, true],
+                ].filter(([, v]) => String(v || '').trim());
+                return (
+                  <div key={entry.id} style={{ ...s.entryCard, borderLeft: '4px solid #2f9e8f' }}>
+                    <div style={s.entryHead}>
+                      <span style={{ ...s.badge, color: '#5eead4', borderColor: 'rgba(47,158,143,.55)' }}>CAA</span>
+                      <span style={s.entryTitle}>{caa.authorityName || caa.country}</span>
+                      {caa.country && caa.authorityName && (
+                        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#8b95a3' }}>
+                          {caa.country}
+                        </span>
+                      )}
+                      {caa.appliesTo && caa.appliesTo !== 'any' && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#5eead4', border: '1px solid rgba(47,158,143,.4)', borderRadius: 6, padding: '1px 7px' }}>
+                          {caa.appliesTo === 'commercial' ? 'COMMERCIAL' : 'PRIVATE'}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', marginTop: 8 }}>
+                      {rows.map(([k, v, mono]) => (
+                        <Fragment key={k}>
+                          <span style={{ fontSize: 12, color: '#7a828d', fontFamily: "'IBM Plex Mono',monospace" }}>{k}</span>
+                          <span style={{ fontSize: 12.5, color: '#dfe3e9', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', ...(mono ? { fontFamily: "'IBM Plex Mono',monospace" } : {}) }}>{v}</span>
+                        </Fragment>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Limitations */}
           <div style={s.section}>

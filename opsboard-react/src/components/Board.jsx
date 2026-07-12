@@ -109,7 +109,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1 }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, sidebarScale = 1.3 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -120,7 +120,10 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // a larger scale also shows fewer hours per viewport, so pills get wider
   // and their bigger labels still fit.
   const sz = (v) => Math.round(v * scale);
-  const s = makeStyles(sz);
+  // The left panel (legend + limitations) sizes with its OWN scale setting —
+  // the board scale no longer moves it (Item 2).
+  const szSide = (v) => Math.round(v * sidebarScale);
+  const s = makeStyles(sz, szSide);
   const AC_LABEL_W = sz(150);
   const END_PAD_PX = sz(260);
   // timeZoom stretches/squeezes the hour axis independently of text scale:
@@ -476,54 +479,55 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   );
 }
 
-function makeStyles(sz) {
+function makeStyles(sz, szSide = sz) {
   return {
   outer: {
     display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0,
   },
 
   // Left panel — sized for reading the full limitation text from across the
-  // ops room; the panel scrolls when entries exceed the height.
+  // ops room; the panel scrolls when entries exceed the height. Everything
+  // here uses szSide (the independent sidebar scale), not the board scale.
   leftPanel: {
-    width: sz(330), flexShrink: 0, background: '#141926',
+    width: szSide(330), flexShrink: 0, background: '#141926',
     borderRight: '1px solid #222840',
     display: 'flex', flexDirection: 'column',
     padding: '14px 0', overflowY: 'auto',
   },
   panelTitle: {
-    fontSize: sz(11), fontWeight: 700, letterSpacing: '2.5px',
-    color: '#5a6a94', padding: `0 ${sz(16)}px`, marginBottom: sz(10),
+    fontSize: szSide(11), fontWeight: 700, letterSpacing: '2.5px',
+    color: '#5a6a94', padding: `0 ${szSide(16)}px`, marginBottom: szSide(10),
   },
   legendGrid: {
-    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${sz(3)}px ${sz(8)}px`,
-    padding: `0 ${sz(12)}px`, marginBottom: sz(4),
+    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${szSide(3)}px ${szSide(8)}px`,
+    padding: `0 ${szSide(12)}px`, marginBottom: szSide(4),
   },
-  legendItem: { display: 'flex', alignItems: 'center', gap: sz(8), padding: `${sz(3)}px ${sz(4)}px` },
-  legendSwatch: { width: sz(24), height: sz(11), borderRadius: 3, flexShrink: 0 },
-  legendLabel: { fontSize: sz(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
-  limList: { display: 'flex', flexDirection: 'column', gap: sz(10), padding: `0 ${sz(12)}px ${sz(14)}px` },
-  limEmpty: { fontSize: sz(14), color: '#5a6a94', padding: '6px 4px' },
+  legendItem: { display: 'flex', alignItems: 'center', gap: szSide(8), padding: `${szSide(3)}px ${szSide(4)}px` },
+  legendSwatch: { width: szSide(24), height: szSide(11), borderRadius: 3, flexShrink: 0 },
+  legendLabel: { fontSize: szSide(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
+  limList: { display: 'flex', flexDirection: 'column', gap: szSide(10), padding: `0 ${szSide(12)}px ${szSide(14)}px` },
+  limEmpty: { fontSize: szSide(14), color: '#5a6a94', padding: '6px 4px' },
   limCard: {
     background: '#1a2130',
     borderRadius: 12,
-    padding: `${sz(14)}px ${sz(16)}px`,
+    padding: `${szSide(14)}px ${szSide(16)}px`,
   },
   limBadgeNum: {
-    width: sz(24), height: sz(24), borderRadius: '50%', flexShrink: 0,
+    width: szSide(24), height: szSide(24), borderRadius: '50%', flexShrink: 0,
     border: '1px solid',
     background: 'rgba(255,255,255,.06)',
-    fontSize: sz(13), fontWeight: 700,
+    fontSize: szSide(13), fontWeight: 700,
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  limType: { fontSize: sz(14), fontWeight: 800, letterSpacing: '1.5px' },
+  limType: { fontSize: szSide(14), fontWeight: 800, letterSpacing: '1.5px' },
   limTitle: {
-    fontSize: sz(21), fontWeight: 800, color: '#f6f8fd',
+    fontSize: szSide(21), fontWeight: 800, color: '#f6f8fd',
     lineHeight: 1.2, marginBottom: 7,
   },
-  limDesc: { fontSize: sz(17), lineHeight: 1.45, color: '#d7dce6', whiteSpace: 'pre-wrap' },
+  limDesc: { fontSize: szSide(17), lineHeight: 1.45, color: '#d7dce6', whiteSpace: 'pre-wrap' },
   limScope: {
-    fontSize: sz(13), fontFamily: "'IBM Plex Mono',monospace",
+    fontSize: szSide(13), fontFamily: "'IBM Plex Mono',monospace",
     color: '#8f99ab', marginTop: 9,
   },
 

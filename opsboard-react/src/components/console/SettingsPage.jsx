@@ -441,6 +441,80 @@ function WindowRow({ label, hint, min, max, step, unit, value, defaultValue, loa
   );
 }
 
+function PanelScalesCard() {
+  const [overlayScale, setOverlayScale] = useState(1.3);
+  const [sidebarScale, setSidebarScale] = useState(1.3);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings()
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
+        if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function persist(patch, message) {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings(patch);
+        flash(message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Overlay & sidebar size</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Independent of the display scale: the flight overlay and the sidebars (clocks bar,
+        status legend, limitations panel) each size on their own — changing the board scale
+        no longer moves them.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <WindowRow
+        label="Overlay size"
+        hint="the side overlay's text and layout"
+        min={1}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={overlayScale}
+        defaultValue={1.3}
+        loaded={loaded}
+        onChange={(next) => {
+          setOverlayScale(next);
+          persist({ overlayScale: next }, `Overlay size ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Sidebar size"
+        hint="clocks bar, status legend and the limitations panel"
+        min={1}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={sidebarScale}
+        defaultValue={1.3}
+        loaded={loaded}
+        onChange={(next) => {
+          setSidebarScale(next);
+          persist({ sidebarScale: next }, `Sidebar size ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+    </Card>
+  );
+}
+
 function VisibilityWindowCard() {
   const [horizon, setHorizon] = useState(17);
   const [postLanding, setPostLanding] = useState(2);
@@ -779,6 +853,7 @@ export default function SettingsPage() {
       <DisplayScaleCard />
       <HourSpacingCard />
       <RowHeightCard />
+      <PanelScalesCard />
       <VisibilityWindowCard />
       <ClocksCard />
       <AlertFilterCard />

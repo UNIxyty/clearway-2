@@ -66,6 +66,8 @@ export default function DisplayApp() {
   const [scale, setScale] = useState(1.3); // display scale (ops-room legibility)
   const [timeZoom, setTimeZoom] = useState(1); // hour-gridline spacing (time-axis zoom)
   const [rowZoom, setRowZoom] = useState(1); // vertical size (lane/pill height)
+  const [overlayScale, setOverlayScale] = useState(1.3); // side overlay, independent of the board
+  const [sidebarScale, setSidebarScale] = useState(1.3); // clocks bar + legend/limitations panel
   const loadingRef = useRef(false);
 
   async function loadTimeline({ refresh = true } = {}) {
@@ -104,6 +106,8 @@ export default function DisplayApp() {
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
+      if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
+      if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
     } catch {
       /* keep current scale */
     }
@@ -158,17 +162,19 @@ export default function DisplayApp() {
 
   return (
     <div style={s.shell}>
+      {/* Clocks bar + wall sign scale with the SIDEBAR scale; the overlay
+          with its own scale — the board scale moves neither (Item 2). */}
       <Header
         clocks={clocks}
-        scale={scale}
+        scale={sidebarScale}
         rightSlot={
           <>
-            <NotamSign sign={notamSign} scale={scale} />
+            <NotamSign sign={notamSign} scale={sidebarScale} />
             <PresencePills surface="display" compact />
           </>
         }
       />
-      <FlightOverlay topOffset={Math.round(92 * scale)} scale={scale} />
+      <FlightOverlay topOffset={Math.round(92 * sidebarScale)} scale={overlayScale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
       <Board
@@ -179,6 +185,7 @@ export default function DisplayApp() {
         scale={scale}
         timeZoom={timeZoom}
         rowZoom={rowZoom}
+        sidebarScale={sidebarScale}
       />
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}

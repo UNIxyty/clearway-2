@@ -133,6 +133,97 @@ function hmUtc(ms) {
   return `${h}:${m}`;
 }
 
+/**
+ * The flight's marker row — IMP, CAA, WX (dep/arr with category colours and
+ * takeoff/landing glyphs) and NTM — shared by the wall pill and the console
+ * flight lists so both surfaces always agree. State rules live in the
+ * DECORATION (NTM only while unreviewed, WX only for today's flights, CAA
+ * per its flags): this component just renders what the flight carries.
+ */
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false }) {
+  const alertTypes = [
+    ...new Set(
+      (flight.limitations || [])
+        .filter((lim) => lim.source === 'alert' && ALERT_MARK[lim.type])
+        .map((lim) => lim.type)
+    ),
+  ];
+  const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
+  const hasCaa = (flight.limitations || []).some((lim) => lim.type === 'CAA');
+  const dep = flight.adep?.icao ?? flight.dep ?? 'UNK';
+  const arr = flight.ades?.icao ?? flight.arr ?? 'UNK';
+  return (
+    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', ...(wrap ? { flexWrap: 'wrap', rowGap: 3 } : {}) }}>
+      {hasImp && (
+        <span
+          title="Important limitation — details in the Console"
+          style={{
+            width: sz(16),
+            height: sz(16),
+            borderRadius: 4,
+            background: 'rgba(240,177,59,.22)',
+            border: '1px solid rgba(240,177,59,.55)',
+            color: '#f5c064',
+            fontSize: sz(11),
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          !
+        </span>
+      )}
+      {hasCaa && (
+        <span
+          title="CAA authority details apply — contact block in the flight overlay"
+          style={{
+            fontFamily: "'IBM Plex Mono',monospace",
+            fontSize: sz(9.5),
+            fontWeight: 800,
+            border: '1px solid #2f9e8f',
+            borderRadius: 4,
+            padding: `1px ${sz(4)}px`,
+            lineHeight: `${sz(12)}px`,
+            letterSpacing: '.5px',
+            color: '#5eead4',
+            background: 'rgba(47,158,143,.18)',
+            flexShrink: 0,
+          }}
+        >
+          CAA
+        </span>
+      )}
+      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} />
+      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} />
+      {alertTypes.map((type) => (
+        <span
+          key={type}
+          title={type === 'NTM' ? 'NOTAM alert' : 'Weather alert'}
+          style={{
+            fontFamily: "'IBM Plex Mono',monospace",
+            fontSize: sz(9.5),
+            fontWeight: 700,
+            border: '1px solid',
+            borderRadius: 4,
+            padding: `1px ${sz(4)}px`,
+            lineHeight: `${sz(12)}px`,
+            letterSpacing: '.5px',
+            color: ALERT_MARK[type].text,
+            borderColor: ALERT_MARK[type].border,
+            background: ALERT_MARK[type].bg,
+            flexShrink: 0,
+          }}
+        >
+          {type}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function FlightPill({
   flight,
   limIndices = [],
@@ -160,20 +251,7 @@ export default function FlightPill({
     timesRow: V.timesRow,
   };
 
-  // NTM / WX markers come from the flight's own decorated limitations.
-  const alertTypes = [
-    ...new Set(
-      (flight.limitations || [])
-        .filter((lim) => lim.source === 'alert' && ALERT_MARK[lim.type])
-        .map((lim) => lim.type)
-    ),
-  ];
-  // IMP renders as ONE icon with no count — the wall only signals that
-  // important limitations apply; the full text is read in the Console.
-  const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
-  // CAA Details (Item 4): a matched authority shows a teal CAA chip (design
-  // colours) in the same marker row; the contact block lives in the overlay.
-  const hasCaa = (flight.limitations || []).some((lim) => lim.type === 'CAA');
+  // NTM/WX/IMP/CAA markers render via the shared <FlightMarkers> row.
 
   // The fill comes straight from the Leon-derived movement state — a delayed
   // AIRBORNE flight is blue (the leading dashed segment still shows the
@@ -325,69 +403,7 @@ export default function FlightPill({
           {fn}
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          {hasImp && (
-            <span
-              title="Important limitation — details in the Console"
-              style={{
-                width: sz(16),
-                height: sz(16),
-                borderRadius: 4,
-                background: 'rgba(240,177,59,.22)',
-                border: '1px solid rgba(240,177,59,.55)',
-                color: '#f5c064',
-                fontSize: sz(11),
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1,
-              }}
-            >
-              !
-            </span>
-          )}
-          {hasCaa && (
-            <span
-              title="CAA authority details apply — contact block in the flight overlay"
-              style={{
-                fontFamily: "'IBM Plex Mono',monospace",
-                fontSize: sz(9.5),
-                fontWeight: 800,
-                border: '1px solid #2f9e8f',
-                borderRadius: 4,
-                padding: `1px ${sz(4)}px`,
-                lineHeight: `${sz(12)}px`,
-                letterSpacing: '.5px',
-                color: '#5eead4',
-                background: 'rgba(47,158,143,.18)',
-              }}
-            >
-              CAA
-            </span>
-          )}
-          <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} />
-          <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} />
-          {alertTypes.map((type) => (
-            <span
-              key={type}
-              title={type === 'NTM' ? 'NOTAM alert' : 'Weather alert'}
-              style={{
-                fontFamily: "'IBM Plex Mono',monospace",
-                fontSize: sz(9.5),
-                fontWeight: 700,
-                border: '1px solid',
-                borderRadius: 4,
-                padding: `1px ${sz(4)}px`,
-                lineHeight: `${sz(12)}px`,
-                letterSpacing: '.5px',
-                color: ALERT_MARK[type].text,
-                borderColor: ALERT_MARK[type].border,
-                background: ALERT_MARK[type].bg,
-              }}
-            >
-              {type}
-            </span>
-          ))}
+          <FlightMarkers flight={flight} sz={sz} />
           {Array.isArray(limIndices) && limIndices.length > 0 && (
             <span
               style={{

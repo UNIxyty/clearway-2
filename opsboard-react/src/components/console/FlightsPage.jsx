@@ -8,6 +8,7 @@ import {
   openFlightOverlay,
   sendFlightDocs,
 } from '../../services/timelineApi';
+import { FlightMarkers } from '../FlightPill';
 import { subscribeWallStream } from '../../services/wallStream';
 import Icon from './icons';
 import {
@@ -333,6 +334,9 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
   const st = STATUS_STYLE[status] || STATUS_STYLE.Scheduled;
   const impEntries = (flight.limitations || []).filter((lim) => lim.type === 'IMP');
   const depDelay = Number(flight.departureDelayMin) || 0;
+  const hasAnyMarker =
+    (flight.limitations || []).some((lim) => lim.type === 'IMP' || lim.type === 'CAA' || lim.source === 'alert') ||
+    flight.wxDep || flight.wxArr;
 
   return (
     <div
@@ -369,6 +373,22 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
           {onWall ? 'Close on wall' : 'Show on wall'}
         </Button>
       </div>
+
+      {hasAnyMarker && (
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.borderInner}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
+            TIMELINE MARKERS
+          </div>
+          {/* same chips as the wall pill, rendered larger; dark backing so
+              the wall colours read exactly as on the timeline */}
+          <div style={{ background: '#141926', borderRadius: 10, padding: '10px 12px', display: 'inline-flex' }}>
+            <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.35)} />
+          </div>
+          <div style={{ fontSize: 11.5, color: t.faint, marginTop: 8, lineHeight: 1.5 }}>
+            ! important · CAA authority details · WX departure/arrival category · NTM unreviewed NOTAM
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.borderInner}` }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 12 }}>
@@ -596,9 +616,10 @@ export default function FlightsPage() {
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <TableShell
           style={{ flex: 1, minWidth: 0 }}
-          columns="1.05fr 1.35fr .95fr 1.15fr .8fr .95fr"
+          columns=".85fr 1.1fr 1.2fr .8fr 1fr .7fr .9fr"
           header={[
             { label: 'CALLSIGN', sort: true, onSort: () => sortHeader('callsign') },
+            { label: 'MARKERS' },
             { label: 'ROUTE' },
             { label: 'REG' },
             { label: 'OPERATOR', sort: true, onSort: () => sortHeader('operator') },
@@ -618,7 +639,6 @@ export default function FlightsPage() {
             const onWall = String(flight.flightNid) === overlayNid;
             const status = onWall ? 'On wall' : deriveStatus(flight);
             const st = STATUS_STYLE[status] || STATUS_STYLE.Scheduled;
-            const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
             return (
               <div
                 key={key}
@@ -629,7 +649,7 @@ export default function FlightsPage() {
                 tabIndex={0}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1.05fr 1.35fr .95fr 1.15fr .8fr .95fr',
+                  gridTemplateColumns: '.85fr 1.1fr 1.2fr .8fr 1fr .7fr .9fr',
                   padding: '15px 18px',
                   borderBottom: `1px solid ${t.rowLine}`,
                   borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
@@ -638,9 +658,18 @@ export default function FlightsPage() {
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ fontSize: 14.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {flight.flightNo}
-                  {hasImp && <ImpMark />}
+                <div style={{ fontSize: 14.5, fontWeight: 700 }}>{flight.flightNo}</div>
+                {/* the SAME marker row as the wall pill (IMP/CAA/WX/NTM),
+                    shared component on a dark backing so the wall colours
+                    read identically — console and wall always agree */}
+                <div style={{ minWidth: 0 }}>
+                  {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr) ? (
+                    <span style={{ display: 'inline-flex', background: '#141926', borderRadius: 7, padding: '3px 6px', maxWidth: '100%' }}>
+                      <FlightMarkers flight={flight} sz={(v) => Math.round(v * 0.95)} wrap />
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: t.ghost }}>—</span>
+                  )}
                 </div>
                 <div style={{ fontSize: 14, color: t.body, whiteSpace: 'nowrap' }}>
                   {flight.adep?.icao ?? 'UNK'} → {flight.ades?.icao ?? 'UNK'}

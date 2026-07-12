@@ -725,3 +725,29 @@ Wall" section shows all three items with their icons, and clicks target
 `/digital-wall/timeline/`, `/digital-wall/console/flights`, and
 `/digital-wall/guide/` (new tab) respectively. Portal image rebuilt +
 container restarted.
+
+## Fixes: delete, panel scales, timestamp window, WX timing, console markers
+
+- **Limitations delete (1)**: worked on main all along — what looked broken
+  was permanent entries hiding the trash silently + the guard 500ing. Now:
+  confirm dialog, disabled trash w/ tooltip on permanent cards, 400/404 with
+  readable messages.
+- **Overlay & sidebar scales (2)**: overlayScale + sidebarScale settings
+  (1–2, default 1.3) — overlay, clocks bar/sign and the board's left panel
+  each size independently; the display scale no longer moves them
+  (makeStyles(sz, szSide); DisplayApp feeds each surface its own scale).
+- **Timestamp window (3)**: flightVisibleInWindow is now pure timestamp
+  overlap of [now−behind, now+ahead] — end (ATA→ETA→STA) after now−behind AND
+  start (ATD→ETD→STD) before now+ahead. Replaces the state-based post-landing
+  check (flights without an ATA used to linger and stack lanes). Same keys
+  (upcomingHorizonHours/postLandingHours), relabelled 'Show ahead/behind now'.
+- **WX timing (4)**: daily 10:00 fetch was already today-only; the leaks were
+  decoration (categories attached to ANY flight touching a cached airport)
+  and flight-info's on-demand CheckWX fetch. wxDep/wxArr now attach only to
+  flights whose Riga day is today (timelineService.weatherEligible), and
+  flight-info serves day-gated cache only. Fetch paths: 10:00 run + manual
+  resync, nothing else.
+- **Console markers (5)**: shared <FlightMarkers> (extracted from FlightPill)
+  renders IMP/CAA/WX/NTM identically on the wall pill, the Flights list
+  (dedicated MARKERS column, dark backing, wraps) and the detail panel
+  (larger + legend).

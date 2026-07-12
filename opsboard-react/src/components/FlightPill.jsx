@@ -63,6 +63,21 @@ export const WX_CATEGORY_COLORS = {
   LIFR: '#b03aa0', // worst — deep magenta, never green
 };
 
+// Light-theme marker palette (console lists): same semantics as the wall
+// chips, colours flipped for a white/card background — dark readable text on
+// a soft tint instead of bright text on dark.
+const WX_CATEGORY_LIGHT = {
+  VFR:  { text: '#15803d', border: 'rgba(21,128,61,.45)',  bg: 'rgba(63,191,111,.14)' },
+  MVFR: { text: '#b45309', border: 'rgba(180,83,9,.45)',   bg: 'rgba(232,163,61,.16)' },
+  IFR:  { text: '#b91c1c', border: 'rgba(185,28,28,.45)',  bg: 'rgba(229,72,77,.13)' },
+  LIFR: { text: '#a21caf', border: 'rgba(162,28,175,.45)', bg: 'rgba(176,58,160,.13)' },
+};
+const MARK_LIGHT = {
+  IMP: { text: '#92500b', border: 'rgba(180,120,20,.5)',  bg: 'rgba(240,177,59,.18)' },
+  CAA: { text: '#0f766e', border: 'rgba(47,158,143,.6)',  bg: 'rgba(47,158,143,.13)' },
+  NTM: { text: '#b3541e', border: 'rgba(200,100,40,.5)',  bg: 'rgba(255,145,80,.16)' },
+};
+
 /** Hex -> rgba with alpha, for the marker chip border/backing. */
 function hexA(hex, alpha) {
   const n = parseInt(String(hex).slice(1), 16);
@@ -95,9 +110,10 @@ export function pillVerticalMetrics(scale, rowZoom = 1) {
  * flight_category. ADEP chip renders before the ADES chip, and each carries
  * a departure/arrival glyph so it's clear which airport it refers to.
  */
-function WxMark({ category, icao, side, sz }) {
+function WxMark({ category, icao, side, sz, variant = 'wall' }) {
   const color = WX_CATEGORY_COLORS[category];
   if (!color) return null;
+  const light = variant === 'light' ? WX_CATEGORY_LIGHT[category] : null;
   const isDep = side === 'dep';
   return (
     <span
@@ -111,9 +127,9 @@ function WxMark({ category, icao, side, sz }) {
         padding: `1px ${sz(4)}px`,
         lineHeight: `${sz(12)}px`,
         letterSpacing: '.5px',
-        color,
-        borderColor: hexA(color, 0.55),
-        background: hexA(color, 0.16),
+        color: light ? light.text : color,
+        borderColor: light ? light.border : hexA(color, 0.55),
+        background: light ? light.bg : hexA(color, 0.16),
         display: 'inline-flex',
         alignItems: 'center',
         gap: sz(3),
@@ -140,7 +156,8 @@ function hmUtc(ms) {
  * DECORATION (NTM only while unreviewed, WX only for today's flights, CAA
  * per its flags): this component just renders what the flight carries.
  */
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false }) {
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall' }) {
+  const light = variant === 'light';
   const alertTypes = [
     ...new Set(
       (flight.limitations || [])
@@ -161,9 +178,9 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false 
             width: sz(16),
             height: sz(16),
             borderRadius: 4,
-            background: 'rgba(240,177,59,.22)',
-            border: '1px solid rgba(240,177,59,.55)',
-            color: '#f5c064',
+            background: light ? MARK_LIGHT.IMP.bg : 'rgba(240,177,59,.22)',
+            border: `1px solid ${light ? MARK_LIGHT.IMP.border : 'rgba(240,177,59,.55)'}`,
+            color: light ? MARK_LIGHT.IMP.text : '#f5c064',
             fontSize: sz(11),
             fontWeight: 800,
             display: 'inline-flex',
@@ -183,21 +200,21 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false 
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: sz(9.5),
             fontWeight: 800,
-            border: '1px solid #2f9e8f',
+            border: `1px solid ${light ? MARK_LIGHT.CAA.border : '#2f9e8f'}`,
             borderRadius: 4,
             padding: `1px ${sz(4)}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
-            color: '#5eead4',
-            background: 'rgba(47,158,143,.18)',
+            color: light ? MARK_LIGHT.CAA.text : '#5eead4',
+            background: light ? MARK_LIGHT.CAA.bg : 'rgba(47,158,143,.18)',
             flexShrink: 0,
           }}
         >
           CAA
         </span>
       )}
-      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} />
-      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} />
+      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} />
+      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} />
       {alertTypes.map((type) => (
         <span
           key={type}
@@ -211,9 +228,9 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false 
             padding: `1px ${sz(4)}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
-            color: ALERT_MARK[type].text,
-            borderColor: ALERT_MARK[type].border,
-            background: ALERT_MARK[type].bg,
+            color: light ? MARK_LIGHT.NTM.text : ALERT_MARK[type].text,
+            borderColor: light ? MARK_LIGHT.NTM.border : ALERT_MARK[type].border,
+            background: light ? MARK_LIGHT.NTM.bg : ALERT_MARK[type].bg,
             flexShrink: 0,
           }}
         >

@@ -379,10 +379,10 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
             TIMELINE MARKERS
           </div>
-          {/* same chips as the wall pill, rendered larger; dark backing so
-              the wall colours read exactly as on the timeline */}
-          <div style={{ background: '#141926', borderRadius: 10, padding: '10px 12px', display: 'inline-flex' }}>
-            <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.35)} />
+          {/* same chips as the wall pill, rendered larger in the light
+              console variant — no dark backing needed */}
+          <div style={{ display: 'inline-flex' }}>
+            <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.35)} wrap variant="light" />
           </div>
           <div style={{ fontSize: 11.5, color: t.faint, marginTop: 8, lineHeight: 1.5 }}>
             ! important · CAA authority details · WX departure/arrival category · NTM unreviewed NOTAM
@@ -659,14 +659,12 @@ export default function FlightsPage() {
                 }}
               >
                 <div style={{ fontSize: 14.5, fontWeight: 700 }}>{flight.flightNo}</div>
-                {/* the SAME marker row as the wall pill (IMP/CAA/WX/NTM),
-                    shared component on a dark backing so the wall colours
-                    read identically — console and wall always agree */}
+                {/* the SAME marker row as the wall pill (IMP/CAA/WX/NTM) via
+                    the shared component, in its light-theme variant so the
+                    chips sit directly on the console row background */}
                 <div style={{ minWidth: 0 }}>
                   {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr) ? (
-                    <span style={{ display: 'inline-flex', background: '#141926', borderRadius: 7, padding: '3px 6px', maxWidth: '100%' }}>
-                      <FlightMarkers flight={flight} sz={(v) => Math.round(v * 0.95)} wrap />
-                    </span>
+                    <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.05)} wrap variant="light" />
                   ) : (
                     <span style={{ fontSize: 12, color: t.ghost }}>—</span>
                   )}

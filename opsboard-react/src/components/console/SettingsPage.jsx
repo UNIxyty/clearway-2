@@ -476,14 +476,16 @@ function VisibilityWindowCard() {
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Flight visibility window</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Which flights the wall shows, by time. Far-future flights stay off until they cross the
-        upcoming horizon; landed flights drop off after the post-landing delay. Applies to the wall,
-        console flight lists and the daily NOTAM/WX airport collection.
+        Which flights show, purely by timestamp: the visible window is [now − behind, now + ahead].
+        A flight appears once its departure (ATD → ETD → STD) is inside the ahead window and drops
+        off once its arrival (ATA → ETA → STA) is older than the behind window — no “has it landed”
+        detection. Applies to the wall, console flight lists and the daily NOTAM/WX airport
+        collection.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <WindowRow
-        label="Upcoming horizon"
-        hint="show a flight only when departure is within this many hours"
+        label="Show ahead of now"
+        hint="a flight appears once its departure time is within this many hours"
         min={1}
         max={72}
         step={1}
@@ -493,12 +495,12 @@ function VisibilityWindowCard() {
         loaded={loaded}
         onChange={(next) => {
           setHorizon(next);
-          persist({ upcomingHorizonHours: next }, `Upcoming horizon ${next}h — wall updates in seconds`);
+          persist({ upcomingHorizonHours: next }, `Ahead window ${next}h — wall updates in seconds`);
         }}
       />
       <WindowRow
-        label="Post-landing removal"
-        hint="drop a landed flight this many hours after its landing time"
+        label="Show behind now"
+        hint="a flight drops off once its arrival time is more than this many hours ago"
         min={0}
         max={24}
         step={0.5}
@@ -508,7 +510,7 @@ function VisibilityWindowCard() {
         loaded={loaded}
         onChange={(next) => {
           setPostLanding(next);
-          persist({ postLandingHours: next }, `Post-landing removal ${next}h — wall updates in seconds`);
+          persist({ postLandingHours: next }, `Behind window ${next}h — wall updates in seconds`);
         }}
       />
     </Card>

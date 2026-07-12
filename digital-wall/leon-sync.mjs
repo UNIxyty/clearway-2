@@ -303,33 +303,36 @@ function normalizeHexColor(value) {
 }
 
 /**
- * Time-window visibility (Item 9): a flight is shown only when
- *  - its (delayed) departure is within `upcomingHorizonHours` from now
- *    (default 17h — a flight 2.5 days out must not occupy a lane), and
- *  - it has NOT been on the ground longer than `postLandingHours`
- *    (default 2h after the actual landing time).
- * Missing/unparseable datetimes never hide a flight (safe: show it).
+ * Time-window visibility — PURELY timestamp-based (no flight-state reads).
+ * The visible window is [now − behindHours, now + aheadHours] from the two
+ * Settings controls; a flight shows only while it OVERLAPS that window:
+ *   - its end timestamp   (ATA → ETA → STA) is after  now − behindHours, AND
+ *   - its start timestamp (ATD → ETD → STD) is before now + aheadHours.
+ * So a flight drops off `behindHours` after its (best-known) arrival time —
+ * including flights whose flightWatch never produced an ATA, which the old
+ * state-based "has it landed?" check kept forever and let rows accumulate —
+ * and a future flight appears once its departure is within `aheadHours`.
+ * This is the ONE source of truth (it replaced the state-based post-landing
+ * check and the separate upcoming-horizon rule).
+ *
+ * Setting keys keep their historical names (upcomingHorizonHours = ahead,
+ * postLandingHours = behind) so stored settings stay valid and the PUT stays
+ * merge-safe. new Date(null) is the 1970 epoch, not invalid — empty values
+ * are treated as "no data" explicitly, so a missing timestamp neither hides
+ * a valid flight nor pins an invalid one forever.
  */
 export function flightVisibleInWindow(flight, nowMs, settings = {}) {
-  const horizonHours = Number(settings.upcomingHorizonHours);
-  const postHours = Number(settings.postLandingHours);
-  const horizonMs = (Number.isFinite(horizonHours) ? horizonHours : 17) * 3600_000;
-  const postMs = (Number.isFinite(postHours) ? postHours : 2) * 3600_000;
+  const aheadHours = Number(settings.upcomingHorizonHours);
+  const behindHours = Number(settings.postLandingHours);
+  const aheadMs = (Number.isFinite(aheadHours) ? aheadHours : 17) * 3600_000;
+  const behindMs = (Number.isFinite(behindHours) ? behindHours : 2) * 3600_000;
 
-  // new Date(null) is the 1970 epoch, not invalid — treat empty values as
-  // "no data" explicitly so a missing timestamp never hides a flight.
   const dateOrNull = (value) => (value ? parseDate(value) : null);
+  const start = dateOrNull(flight?.atd ?? flight?.etd ?? flight?.startTimeUTC);
+  const end = dateOrNull(flight?.ata ?? flight?.eta ?? flight?.endTimeUTC);
 
-  const dep = dateOrNull(flight?.delayedDepartureUTC ?? flight?.etd ?? flight?.startTimeUTC);
-  if (dep && dep.getTime() > nowMs + horizonMs) return false;
-
-  const landedAt = flight?.ata
-    ?? (flight?.hasArrived || flight?.movementState === "arrived"
-      ? flight?.delayedArrivalUTC ?? flight?.eta ?? flight?.endTimeUTC
-      : null);
-  const landing = dateOrNull(landedAt);
-  if (landing && nowMs > landing.getTime() + postMs) return false;
-
+  if (end && end.getTime() < nowMs - behindMs) return false;
+  if (start && start.getTime() > nowMs + aheadMs) return false;
   return true;
 }
 

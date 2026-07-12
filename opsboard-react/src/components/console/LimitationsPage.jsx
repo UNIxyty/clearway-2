@@ -71,7 +71,7 @@ function windowText(item) {
 
 function WallPreview({ title, desc, scope, permanent, window }) {
   return (
-    <div style={{ width: 340, flex: 'none', position: 'sticky', top: 0 }}>
+    <div style={{ width: 'clamp(340px, 21vw, 440px)', flex: 'none', position: 'sticky', top: 0 }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
         WALL SIDEBAR PREVIEW
       </div>

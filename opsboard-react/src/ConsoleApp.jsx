@@ -410,7 +410,10 @@ export default function ConsoleApp({ page, navigate }) {
 
           {/* ── Content ── */}
           <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '30px 34px', maxWidth: 1240, flex: 1 }}>
+            {/* Full-bleed content: no max-width column — pages flex to the
+                viewport (minus nav) so tables and detail panels use the
+                whole screen on ops monitors. Padding keeps it readable. */}
+            <div style={{ padding: '30px 38px', flex: 1, minWidth: 0 }}>
               <div key={page} className="cw-fade">
                 {renderPage()}
               </div>

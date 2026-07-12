@@ -685,7 +685,7 @@ export default function FlightsPage() {
           })}
         </TableShell>
 
-        <div style={{ width: 400, flex: 'none' }}>
+        <div style={{ width: 'clamp(400px, 26vw, 560px)', flex: 'none' }}>
           {selected ? (
             <DetailPanel
               flight={selected}

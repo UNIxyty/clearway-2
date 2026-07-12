@@ -353,7 +353,7 @@ export default function ImportantPage() {
 
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
         {/* list */}
-        <div style={{ width: 360, flex: 'none' }}>
+        <div style={{ width: 'clamp(360px, 22vw, 470px)', flex: 'none' }}>
           <SearchBox
             value={search}
             onChange={(e) => setSearch(e.target.value)}

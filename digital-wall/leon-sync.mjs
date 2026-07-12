@@ -1931,8 +1931,12 @@ export class LeonTimelineService {
 
     // CheckWX flight categories for the pill's per-airport WX markers
     // (acknowledgment-only; null = no data). Injected by server.mjs.
-    const wxDep = typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
-    const wxArr = typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
+    // WX categories attach ONLY to today's flights (Riga day — the same set
+    // the 10:00 daily check fetched weather for). A flight days out shows no
+    // WX marker until its own day, even if its airports happen to be cached.
+    const wxEligible = typeof this.weatherEligible === "function" ? this.weatherEligible(flight) : true;
+    const wxDep = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
+    const wxArr = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
 
     if (limitations.length === 0) {
       return { ...flight, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };

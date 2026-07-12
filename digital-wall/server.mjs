@@ -12,7 +12,7 @@ import { CaaStore } from "./lib/caa-store.mjs";
 import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
-import { NotamCheckService } from "./lib/notam-check.mjs";
+import { NotamCheckService, flightZonedDay, zonedNow } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
 import {
   deleteAttachmentBytes,
@@ -68,6 +68,9 @@ timelineService.alertsStore = alertsService;
 const weatherService = new CheckwxWeatherService({ sseHub });
 await weatherService.load();
 timelineService.weatherLookup = (icao) => weatherService.categoryOf(icao);
+// Item 4: WX behaves like the NOTAM check — fetched once per day at 10:00
+// Riga for TODAY's airports; markers attach only to today's flights.
+timelineService.weatherEligible = (flight) => flightZonedDay(flight) === zonedNow().day;
 process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "idle (set CHECKWX_API_KEY)"}\n`);
 
 // Item 9: getFlights filters by the adjustable upcoming-horizon /
@@ -430,15 +433,20 @@ const server = http.createServer(async (req, res) => {
       ]);
       // Decoded CheckWX summaries from the wall's weather state (refreshed by
       // the daily check; fetch on demand if an airport was never seen).
-      if (depIcao && !weatherService.summaryOf(depIcao) && checkwxConfigured()) await weatherService.refreshFor([depIcao], { fresh: false });
-      if (arrIcao && !weatherService.summaryOf(arrIcao) && checkwxConfigured()) await weatherService.refreshFor([arrIcao], { fresh: false });
+      // Item 4: NO on-demand CheckWX fetches — weather is fetched once per
+      // day (10:00 Riga, today's airports) plus manual resync. The overlay
+      // serves whatever the daily run cached, and only for today's flights.
+      const wxToday = flightZonedDay(found.flight) === zonedNow().day;
       sendJson(res, {
         ok: true,
         portalConfigured: portalConfigured(),
         flight,
         aircraft: found.aircraft,
         notams: { dep: depNotams, arr: arrNotams },
-        weather: { dep: depIcao ? weatherService.summaryOf(depIcao) : null, arr: arrIcao ? weatherService.summaryOf(arrIcao) : null },
+        weather: {
+          dep: wxToday && depIcao ? weatherService.summaryOf(depIcao) : null,
+          arr: wxToday && arrIcao ? weatherService.summaryOf(arrIcao) : null,
+        },
         aip: { dep: depAip, arr: arrAip },
       });
       return;

@@ -67,7 +67,7 @@ function reminderIntervalMs() {
 }
 
 /** Calendar date (YYYY-MM-DD) and hour in the check timezone. */
-function zonedNow() {
+export function zonedNow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: checkTz(),
     year: "numeric",
@@ -81,7 +81,7 @@ function zonedNow() {
 }
 
 /** The flight's departure date in the check timezone. */
-function flightZonedDay(flight) {
+export function flightZonedDay(flight) {
   if (!flight.startTimeUTC) return null;
   const dt = new Date(flight.startTimeUTC);
   if (!Number.isFinite(dt.getTime())) return null;

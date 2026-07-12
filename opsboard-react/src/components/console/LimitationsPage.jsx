@@ -225,6 +225,8 @@ export default function LimitationsPage() {
   }
 
   async function remove(item) {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete limitation "${item.title}"?\n\nIt disappears from the wall sidebar immediately. This cannot be undone.`)) return;
     setBusyId(item.id);
     try {
       await deleteLimitation(item.id);
@@ -300,9 +302,17 @@ export default function LimitationsPage() {
                       onClick={() => startEdit(item)}
                     />
                     {/* Permanent limitations cannot be deleted (backend guards
-                        too) — deactivate is the way to retire them. */}
-                    {!item.isPermanent && (
-                      <IconButton icon="trash-2" title="Delete limitation" onClick={() => remove(item)} />
+                        too) — deactivate is the way to retire them. The
+                        disabled trash with a tooltip says so instead of the
+                        button silently missing. */}
+                    {item.isPermanent ? (
+                      <IconButton
+                        icon="trash-2"
+                        title="Permanent limitation — cannot be deleted. Turn it off with the toggle instead."
+                        disabled
+                      />
+                    ) : (
+                      <IconButton icon="trash-2" title="Delete limitation" disabled={busyId === item.id} onClick={() => remove(item)} />
                     )}
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.5, color: t.body, marginBottom: 6 }}>{item.description || '—'}</div>

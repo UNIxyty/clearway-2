@@ -952,8 +952,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname.startsWith("/api/timeline/limitations/") && req.method === "DELETE") {
-      const id = pathname.split("/").pop();
-      await timelineService.deleteCustomLimitation(id);
+      const id = decodeURIComponent(pathname.split("/").pop());
+      try {
+        await timelineService.deleteCustomLimitation(id);
+      } catch (error) {
+        // Permanent-guard refusals and unknown ids are client errors with a
+        // readable message, not 500s.
+        const message = error instanceof Error ? error.message : String(error);
+        sendJson(res, { ok: false, error: message }, /permanent/i.test(message) ? 400 : 404);
+        return;
+      }
       sseHub.broadcast({ type: "limitations.changed", action: "delete", id });
       sendJson(res, { ok: true, id });
       return;

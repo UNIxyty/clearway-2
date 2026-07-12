@@ -29,17 +29,26 @@ import { subscribeWallStream } from './services/wallStream';
 // Brand assets — dropped into opsboard-react/public/assets/ (SVG, crisp on
 // retina). Until the files exist, the components fall back to text.
 const CLEARWAY_LOGO = `${import.meta.env.BASE_URL}assets/clearway-logo.svg`;
-const VERXYL_LOGO = `${import.meta.env.BASE_URL}assets/verxyl-logo.png`;
+// Footer credit: pre-resampled variants (125x22 / 250x44 / 375x66) — the
+// original 1500x264 raster downscaled ~16:1 by the browser is what made the
+// footer logo blurry; srcset picks the right density so retina stays crisp
+// without ever upscaling past native resolution.
+const VERXYL_FOOTER_1X = `${import.meta.env.BASE_URL}assets/verxyl-footer.png`;
+const VERXYL_FOOTER_2X = `${import.meta.env.BASE_URL}assets/verxyl-footer@2x.png`;
+const VERXYL_FOOTER_3X = `${import.meta.env.BASE_URL}assets/verxyl-footer@3x.png`;
 const VERXYL_URL = ''; // set when a link target is provided
 
-function BrandLogo({ src, alt, height, fallback }) {
+function BrandLogo({ src, srcSet, alt, height, width, fallback }) {
   const [failed, setFailed] = useState(false);
   if (failed) return fallback;
   return (
     <img
       src={src}
+      srcSet={srcSet}
       alt={alt}
-      style={{ height, width: 'auto', display: 'block' }}
+      width={width}
+      height={height}
+      style={{ height, width: width ?? 'auto', display: 'block' }}
       onError={() => setFailed(true)}
     />
   );
@@ -425,17 +434,21 @@ export default function ConsoleApp({ page, navigate }) {
               {VERXYL_URL ? (
                 <a href={VERXYL_URL} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', textDecoration: 'none' }}>
                   <BrandLogo
-                    src={VERXYL_LOGO}
+                    src={VERXYL_FOOTER_1X}
+                    srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
                     alt="Verxyl"
-                    height={16}
+                    width={125}
+                    height={22}
                     fallback={<span style={s.footerBrand}>VERXYL</span>}
                   />
                 </a>
               ) : (
                 <BrandLogo
-                  src={VERXYL_LOGO}
+                  src={VERXYL_FOOTER_1X}
+                  srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
                   alt="Verxyl"
-                  height={16}
+                  width={125}
+                  height={22}
                   fallback={<span style={s.footerBrand}>VERXYL</span>}
                 />
               )}

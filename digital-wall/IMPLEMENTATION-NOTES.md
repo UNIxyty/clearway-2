@@ -751,3 +751,8 @@ container restarted.
   renders IMP/CAA/WX/NTM identically on the wall pill, the Flights list
   (dedicated MARKERS column, dark backing, wraps) and the detail panel
   (larger + legend).
+
+## Console layout + footer logo
+- Content column cap (1240px) removed; side panels fluid via clamp(). New
+  footer logo assets: opsboard-react/public/assets/verxyl-footer{,@2x,@3x}.png
+  (pre-resampled from verxyl-logo.png, which stays for other uses).

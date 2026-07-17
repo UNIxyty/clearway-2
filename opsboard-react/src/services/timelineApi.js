@@ -476,6 +476,47 @@ export async function deleteOperator(id) {
   return payload;
 }
 
+export async function fetchWebhooks() {
+  return fetchJson('/api/webhooks', 'Webhooks request failed');
+}
+
+export async function toggleWebhook({ oprId, event, enabled }) {
+  const response = await fetch(buildApiUrl('/api/webhooks/toggle'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ oprId, event, enabled }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to toggle webhook (${response.status})`);
+  }
+  return payload;
+}
+
+export async function reregisterWebhooks(oprId) {
+  const response = await fetch(buildApiUrl('/api/webhooks/reregister'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ oprId }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to re-register webhooks (${response.status})`);
+  }
+  return payload;
+}
+
+export async function deleteWebhook(oprId, label) {
+  const response = await fetch(buildApiUrl(`/api/webhooks/${encodeURIComponent(label)}?oprId=${encodeURIComponent(oprId)}`), {
+    method: 'DELETE',
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to delete webhook (${response.status})`);
+  }
+  return payload;
+}
+
 export async function fetchCaa({ withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: 'true' });
   if (withMatches) params.set('withMatches', 'true');

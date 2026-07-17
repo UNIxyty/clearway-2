@@ -869,6 +869,52 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── Webhook management (Phase 2b) — console page backend ────────────
+    if (pathname === "/api/webhooks" && req.method === "GET") {
+      try {
+        const operators = await timelineService.listConfiguredOperators();
+        const status = await leonWebhooks.status(operators.map((o) => o.oprId));
+        sendJson(res, { ok: true, ...status });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
+      return;
+    }
+
+    if (pathname === "/api/webhooks/toggle" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        await leonWebhooks.setEventEnabled(String(body.oprId || ""), String(body.event || ""), Boolean(body.enabled));
+        sendJson(res, { ok: true });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    if (pathname === "/api/webhooks/reregister" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const results = await leonWebhooks.reRegisterAll(String(body.oprId || ""));
+        sendJson(res, { ok: true, results });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/webhooks/") && req.method === "DELETE") {
+      const label = decodeURIComponent(pathname.split("/").pop());
+      const oprId = String(url.searchParams.get("oprId") || "");
+      try {
+        await leonWebhooks.deleteLabel(oprId, label);
+        sendJson(res, { ok: true, label });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
     if (pathname === "/api/important" && req.method === "GET") {
       const includeInactive = url.searchParams.get("includeInactive") !== "false";
       const withMatches = url.searchParams.get("withMatches") === "true";

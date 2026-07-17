@@ -94,13 +94,23 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // Wanted flightWatch fields, superset across known Leon schemas
 // (flight-support documents: tobt ctotIso etdIso offBlock toIso eetIso
 // etaIso ldgIso blonIso; plain tenants often expose etd/eta/ctot variants).
+// Self-healing cache stamp: bump whenever the GraphQL selection or the
+// normalization/kind logic changes shape. A cache written by older code is
+// DISCARDED at load (flights + sync checkpoints only — limitations still
+// load), forcing one clean full re-sync so stale records — e.g. isCnl:false
+// baked in before the field was ever requested — can't linger; Leon never
+// re-delivers an untouched flight (see docs/leon-status-cancel-webhook-
+// investigation.md).
+// v2: isActive in the selection + "inactive" excluded kind (2026-07-18).
+const FLIGHT_CACHE_VERSION = 2;
+
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
 // Simulator entries so ingestion can drop them. Confirmed on live Leon:
 // isCnl (cancelled), iconType ("positioning" = crew positioning,
 // "simulator"), isSimulator + flightType SIMULATOR (belt and braces).
 // NOTE: isFerry is deliberately NOT here — ferry/empty legs are real
 // aircraft movements and stay on the wall.
-const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "iconType", "isSimulator", "flightType", "isCommercial"];
+const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial"];
 
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
@@ -350,6 +360,9 @@ const VALID_TRIP_STATUSES = new Set(["CONFIRMED", "OPTION", "OPPORTUNITY"]);
  */
 export function isExcludedFlightKind(flight) {
   if (flight?.isCnl === true) return "cancelled";
+  // Replaced/superseded legs: status stays CONFIRMED and isCnl false, but
+  // the leg no longer flies (live finding — 4 on jty in one 48h delta).
+  if (flight?.isActive === false) return "inactive";
   const icon = String(flight?.iconType || "").toLowerCase();
   if (icon === "positioning") return "positioning";
   if (
@@ -430,6 +443,9 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     aircraftRegistration: rawFlight.acft?.registration ?? null,
     isCnl: Boolean(rawFlight.isCnl),
     iconType: rawFlight.iconType ?? null,
+    // isActive=false marks a replaced leg; a missing field (legacy tenant
+    // schema) must stay "unknown", never false.
+    isActive: typeof rawFlight.isActive === "boolean" ? rawFlight.isActive : null,
     isSimulator: rawFlight.isSimulator === true,
     flightType: rawFlight.flightType ?? null,
     // Item 4: commercial vs private, straight from Leon (drives the CAA
@@ -826,6 +842,21 @@ export class LeonTimelineService {
     const payload = await readJsonIfExists(this.cacheFilePath);
     if (!payload || !Array.isArray(payload.flights)) return false;
 
+    // Version stamp (self-healing cache): flights normalized by older code
+    // are discarded — but limitations always load; they live in the same
+    // file and are user data, not derived from Leon.
+    if ((payload.version ?? 1) !== FLIGHT_CACHE_VERSION) {
+      if (Array.isArray(payload.limitations)) this.limitations = payload.limitations;
+      if (Array.isArray(payload.rawLimitations)) this.rawLimitations = payload.rawLimitations;
+      if (Array.isArray(payload.customLimitations)) {
+        this.customLimitations = payload.customLimitations.map(migrateCustomLimitation);
+      }
+      console.log(
+        `[leon-sync] cache version ${payload.version ?? 1} != ${FLIGHT_CACHE_VERSION} — discarding ${payload.flights.length} cached flight(s), forcing a full re-sync`
+      );
+      return false;
+    }
+
     this.flightsByNid.clear();
     this.aircraftByFlightNid.clear();
     let droppedStatusless = 0;
@@ -890,7 +921,7 @@ export class LeonTimelineService {
 
   async persistLocalCache() {
     const payload = {
-      version: 1,
+      version: FLIGHT_CACHE_VERSION,
       savedAt: new Date().toISOString(),
       flights: [...this.flightsByNid.entries()].map(([key, flight]) => ({
         key,
@@ -1259,7 +1290,7 @@ export class LeonTimelineService {
       const data = await this.graphqlRequest(
         `
           query {
-            flightList(filter: { timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
+            flightList(filter: { isCnl: false, timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
               ${selection}
             }
           }
@@ -1291,7 +1322,7 @@ export class LeonTimelineService {
       const data = await this.graphqlRequest(
         `
           query {
-            flightList(filter: { timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
+            flightList(filter: { isCnl: false, timeInterval: { start: "${gqlString(chunkStartText)}", end: "${gqlString(chunkEndText)}" } }) {
               ${selection}
             }
           }

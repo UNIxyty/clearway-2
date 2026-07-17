@@ -1438,6 +1438,56 @@ export class LeonTimelineService {
     await this.runSyncCycle();
   }
 
+  /**
+   * Webhook trigger path: re-pull ONE flight through the normal query path
+   * and the standard normalization/filter pipeline (the webhook payload is
+   * never trusted as state). Uses Leon's query { flight(flightNid:) } —
+   * verified live. Returns { outcome } for health reporting:
+   *   updated | evicted:<reason> | not-found-evicted
+   */
+  async resyncFlightByNid(oprId, flightNid) {
+    const nid = Number(flightNid);
+    if (!Number.isFinite(nid)) throw new Error(`Invalid flightNid: ${flightNid}`);
+    const selection = await this.resolveFlightSelection(oprId);
+    const checklistDefs = await this.ensureChecklistDefs(oprId);
+    const data = await this.graphqlRequest(
+      `query { flight(flightNid: ${nid}) { ${selection} } }`,
+      undefined,
+      oprId
+    );
+    const key = this.flightCacheKey(oprId, nid);
+    const evict = () => {
+      if (this.flightsByNid.delete(key)) this.aircraftByFlightNid.delete(key);
+    };
+    const raw = data.flight;
+    if (!raw) {
+      evict();
+      await this.persistLocalCache();
+      return { outcome: "not-found-evicted" };
+    }
+    const mapped = mapLeonFlight(raw, checklistDefs);
+    if (!hasValidTripStatus(mapped)) {
+      evict();
+      await this.persistLocalCache();
+      return { outcome: "evicted:no-trip-status" };
+    }
+    const excludedKind = isExcludedFlightKind(mapped);
+    if (excludedKind) {
+      evict();
+      await this.persistLocalCache();
+      return { outcome: `evicted:${excludedKind}` };
+    }
+    mapped.oprId = oprId;
+    this.flightsByNid.set(key, mapped);
+    this.aircraftByFlightNid.set(key, {
+      oprId,
+      aircraftNid: raw.acft?.aircraftNid ?? null,
+      registration: raw.acft?.registration ?? "UNKNOWN",
+    });
+    await this.persistLocalCache();
+    return { outcome: "updated" };
+  }
+
   async getFlights({ from, to, oprId, refresh, allOperators, includeHidden, applyTimeWindow } = {}) {
     const forceLive = refresh === true || String(refresh) === "true";
     const targetOprId = String(oprId || "").trim();

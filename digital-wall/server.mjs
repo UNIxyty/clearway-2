@@ -14,6 +14,7 @@ import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
 import { NotamCheckService, flightZonedDay, zonedNow } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
+import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import {
   deleteAttachmentBytes,
   MAX_ATTACHMENT_BYTES,
@@ -88,6 +89,25 @@ notamCheck.startScheduler();
 timelineService.notamCheckedLookup = (icao) => notamCheck.isAirportCheckedToday(icao);
 
 const aipSend = new AipSendService({ sseHub });
+
+// Leon webhooks (Phase 2): JWT-verified push events -> re-pull triggers.
+const leonWebhooks = new LeonWebhookService({ timelineService, sseHub });
+await leonWebhooks.load();
+if (process.env.LEON_WEBHOOK_AUTOREGISTER === "true") {
+  // Optional boot reconciliation (idempotent by label; safe re: the 10-cap
+  // because our labels are deterministic and re-register deletes first).
+  (async () => {
+    try {
+      const operators = await timelineService.listConfiguredOperators();
+      for (const operator of operators) {
+        await leonWebhooks.reRegisterAll(operator.oprId);
+      }
+      console.log(`[leon-webhooks] boot re-registration done for ${operators.length} operator(s)`);
+    } catch (error) {
+      console.error("[leon-webhooks] boot re-registration failed:", error?.message || error);
+    }
+  })();
+}
 process.stdout.write(
   `Alert scanner: ${portalConfigured() ? "active (portal proxy configured)" : "idle (set PORTAL_BASE_URL to enable)"}\n`
 );
@@ -290,6 +310,36 @@ const server = http.createServer(async (req, res) => {
       const fileName = pathname.slice(1);
       await serveLocalFile(res, fileName);
       return;
+    }
+
+    // ── Leon webhook receiver (Phase 2) ─────────────────────────────────
+    // Public (Leon calls it), NOT Supabase-gated — authenticated by the
+    // RS512 JWT Leon signs, verified against the tenant's published key.
+    // Fail-closed; events are triggers only (re-pull through the normal
+    // pipeline), the payload never writes state directly.
+    {
+      const webhookMatch = pathname.match(/^\/leon\/webhook\/([a-z0-9-]+)$/i);
+      if (webhookMatch && req.method === "POST") {
+        const oprId = webhookMatch[1];
+        const verification = await leonWebhooks.verifyRequest(oprId, req.headers.authorization);
+        if (!verification.ok) {
+          console.warn(`[leon-webhooks] rejected call for ${oprId}: ${verification.error}`);
+          sendJson(res, { ok: false, error: "verification failed" }, 401);
+          return;
+        }
+        let payload = {};
+        try {
+          payload = await readJsonBody(req);
+        } catch {
+          payload = {};
+        }
+        // ACK fast, process async — Leon shouldn't wait on our re-pull.
+        sendJson(res, { ok: true });
+        leonWebhooks.handleEvent(oprId, payload).catch((error) => {
+          console.error(`[leon-webhooks] async handling failed for ${oprId}:`, error?.message || error);
+        });
+        return;
+      }
     }
 
     // ── Instruction guide (Item: guide page) ────────────────────────────

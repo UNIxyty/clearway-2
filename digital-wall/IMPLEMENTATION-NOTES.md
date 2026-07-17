@@ -756,3 +756,34 @@ container restarted.
 - Content column cap (1240px) removed; side panels fluid via clamp(). New
   footer logo assets: opsboard-react/public/assets/verxyl-footer{,@2x,@3x}.png
   (pre-resampled from verxyl-logo.png, which stays for other uses).
+
+## Leon status-lag + cancelled fixes, webhooks (two-phase)
+
+- **Phase 1**: isActive:false = excluded kind "inactive" (tri-state mapping;
+  absent field ≠ false); full flightList pulls pass server-side
+  filter{isCnl:false}; FLIGHT_CACHE_VERSION stamp (v2) discards caches
+  written by older code at load (limitations still load) and forces a full
+  re-sync — the version bump in this deploy re-syncs cleanly, no manual
+  clear-flight-cache needed.
+- **Phase 2**: Leon subscription webhooks. Receiver POST /leon/webhook/:opr —
+  PUBLIC path (explicit nginx location; NOT Supabase-gated), authenticated by
+  Leon's RS512 JWT verified fail-closed against
+  https://{opr}.leon.aero/.well-known/keys/leon-subscriptions-webhook-1.pub
+  (iss/aud/exp checks; LEON_WEBHOOK_KEY_BASE_URL test override). Events are
+  triggers only: payload mined for flightNid -> leon-sync.resyncFlightByNid
+  (query flight(flightNid:), normal map/filter/evict pipeline, idempotent);
+  no nid -> one incremental sync cycle; then flight.changed SSE. 60s poll
+  unchanged as fallback. Events: flightWatchChanged/Created (the landing
+  signal polling can't see), flightCancellation, flightScheduleChange,
+  flightCreate (operatorId variable, from any flight's oprNid),
+  tripStatusChanged (optional, sync-cycle handler). Registration via
+  createSubscriptionWebhook with the operator's stored refresh token,
+  deterministic labels digitalwall-<event>-<opr>, delete-then-create
+  idempotency, 10-per-token cap respected (max 6/tenant). Health store
+  data/webhooks.json (enabled events, registrations, lastEventAt, lastRepull,
+  lastError). Endpoints GET /api/webhooks (+ live subscriptionList
+  cross-check), POST /api/webhooks/toggle, POST /api/webhooks/reregister,
+  DELETE /api/webhooks/:label. Boot reconcile opt-in:
+  LEON_WEBHOOK_AUTOREGISTER=true. Console Webhooks page per operator with
+  toggles/health/re-register. Env: LEON_WEBHOOK_PUBLIC_URL (default
+  https://clearway.verxyl.com/digital-wall/leon/webhook).

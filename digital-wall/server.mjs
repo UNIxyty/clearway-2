@@ -873,7 +873,13 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/webhooks" && req.method === "GET") {
       try {
         const operators = await timelineService.listConfiguredOperators();
-        const status = await leonWebhooks.status(operators.map((o) => ({ oprId: o.oprId, name: o.name ?? null })));
+        // ?refresh=true (the page's Refresh-health button / post-mutation
+        // reloads) is the only path that queries Leon; default is cached.
+        const refreshRemote = url.searchParams.get("refresh") === "true";
+        const status = await leonWebhooks.status(
+          operators.map((o) => ({ oprId: o.oprId, name: o.name ?? null })),
+          { refreshRemote }
+        );
         sendJson(res, { ok: true, ...status });
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);

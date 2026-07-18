@@ -1,8 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const DEFAULT_POLL_MS = 30 * 1000;
-const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000;
+// 120s: the poll is a FALLBACK now — webhooks push landings/cancellations
+// within seconds, so the background sync only needs to heal missed events.
+// (Was 30s; with 8 operators that meant a 16-query burst twice a minute and
+// tripped Leon's gateway rate protection — HTML 403s cycling on/off.)
+const DEFAULT_POLL_MS = 120 * 1000;
+const ACCESS_TOKEN_TTL_MS = 25 * 60 * 1000; // Leon tokens live 30 min (docs)
+// Aircraft rosters change rarely — refresh each operator's list at most
+// every 30 min instead of every sync cycle (was: 8 extra queries/cycle).
+const AIRCRAFT_REFRESH_MS = 30 * 60 * 1000;
+// Per-operator cool-off after Leon rejects us (403/429): exponential
+// 2 -> 4 -> 8 -> 16 -> capped 32 minutes; reset on the first success.
+const BACKOFF_BASE_MS = 2 * 60 * 1000;
+const BACKOFF_MAX_MS = 32 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
 import { loadGeoAirports } from "./lib/geo-store.mjs";
@@ -645,6 +656,9 @@ export class LeonTimelineService {
     this.aircraftCacheByOperator = new Map();
     this.flightSelectionByOperator = new Map(); // oprId -> GraphQL selection string
     this.checklistDefsByOperator = new Map(); // oprId -> Map(cdNid -> {order[], colorByStatus{}})
+    this.aircraftFetchedAtByOperator = new Map(); // oprId -> ms of last roster fetch
+    this.operatorBackoff = new Map(); // oprId -> { untilMs, level }
+    this.syncCycleInFlight = null; // dedup: concurrent refresh=true callers share one cycle
     this.syncStateByOperator = new Map();
     this.limitations = [];
     this.rawLimitations = [];
@@ -1037,6 +1051,32 @@ export class LeonTimelineService {
   }
 
   async runSyncCycle() {
+    // Concurrent callers (backend timer + any refresh=true request) share
+    // ONE in-flight cycle instead of stacking extra Leon bursts.
+    if (this.syncCycleInFlight) return this.syncCycleInFlight;
+    this.syncCycleInFlight = this.#runSyncCycleInner().finally(() => {
+      this.syncCycleInFlight = null;
+    });
+    return this.syncCycleInFlight;
+  }
+
+  /** Rate-limit shaped failure? (Leon's gateway answers HTML 403/429.) */
+  static isRateLimitError(message) {
+    return /\b(403|429)\b/.test(String(message || ""));
+  }
+
+  applyBackoff(oprId, message) {
+    if (!LeonTimelineService.isRateLimitError(message)) return null;
+    const previous = this.operatorBackoff.get(oprId);
+    const level = Math.min((previous?.level ?? 0) + 1, 5);
+    const delayMs = Math.min(BACKOFF_BASE_MS * 2 ** (level - 1), BACKOFF_MAX_MS);
+    const untilMs = Date.now() + delayMs;
+    this.operatorBackoff.set(oprId, { untilMs, level });
+    console.warn(`[leon-sync] ${oprId}: rate-limited by Leon — backing off ${Math.round(delayMs / 60000)} min (level ${level})`);
+    return untilMs;
+  }
+
+  async #runSyncCycleInner() {
     const cycleStats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
     try {
       const operators = await this.listConfiguredOperators();
@@ -1049,11 +1089,29 @@ export class LeonTimelineService {
       // operator once aborted the whole cycle and paused the entire fleet —
       // 2026-07-18 incident). Failures are recorded per operator (the
       // Operators page shows them on the right row) and summarized.
+      // Rate hygiene: operators run SEQUENTIALLY with a short gap (no 8-way
+      // burst), skip while inside their 403/429 backoff window, and only
+      // refresh their aircraft roster when the cached one is stale.
       const operatorErrors = [];
       let succeeded = 0;
+      let index = 0;
       for (const operator of operators) {
+        const backoff = this.operatorBackoff.get(operator.oprId);
+        if (backoff && Date.now() < backoff.untilMs) {
+          operatorErrors.push({
+            oprId: operator.oprId,
+            message: `rate-limited — retrying in ${Math.max(1, Math.round((backoff.untilMs - Date.now()) / 60000))} min`,
+          });
+          continue;
+        }
+        if (index > 0) await new Promise((resolve) => setTimeout(resolve, 2000));
+        index += 1;
         try {
-          await this.fetchAircraftForOperator(operator.oprId);
+          const rosterAge = Date.now() - (this.aircraftFetchedAtByOperator.get(operator.oprId) ?? 0);
+          if (rosterAge > AIRCRAFT_REFRESH_MS || !this.aircraftCacheByOperator.has(operator.oprId)) {
+            await this.fetchAircraftForOperator(operator.oprId);
+            this.aircraftFetchedAtByOperator.set(operator.oprId, Date.now());
+          }
           const stats = this.syncStateByOperator.has(operator.oprId)
             ? await this.incrementalSync(operator.oprId)
             : await this.initialSync(operator.oprId);
@@ -1064,9 +1122,11 @@ export class LeonTimelineService {
             cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
           }
           succeeded += 1;
+          this.operatorBackoff.delete(operator.oprId);
           await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "success" });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          this.applyBackoff(operator.oprId, message);
           operatorErrors.push({ oprId: operator.oprId, message });
           console.error(`[leon-sync] operator ${operator.oprId} sync failed (isolated): ${message}`);
           await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: message });

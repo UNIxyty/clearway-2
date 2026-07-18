@@ -171,7 +171,15 @@ export class LeonWebhookService {
   }
 
   async persist() {
+    // NO broadcast here: persist runs inside status()/syncRemoteState too,
+    // and broadcasting from a read path created an SSE echo loop (page
+    // refetch -> status -> persist -> webhooks.changed -> page refetch ...)
+    // that hammered Leon's subscriptionList 8x per iteration and tripped
+    // their gateway rate protection. Mutations call notifyChanged().
     await this.store.write(this.state);
+  }
+
+  notifyChanged() {
     this.sseHub?.broadcast({ type: "webhooks.changed" });
   }
 
@@ -354,6 +362,7 @@ export class LeonWebhookService {
       console.error(`[leon-webhooks] ${oprId} ${eventName} handling failed:`, tenant.lastError);
     }
     await this.persist();
+    this.notifyChanged();
   }
 
   guessEventName(payload) {
@@ -519,6 +528,7 @@ export class LeonWebhookService {
     tenant.webhookUrl = url;
     await this.persist();
     await this.syncRemoteState(oprId).catch(() => {});
+    this.notifyChanged();
     return { label, url };
   }
 
@@ -531,7 +541,10 @@ export class LeonWebhookService {
     const tenant = this.tenant(oprId);
     tenant.registered = tenant.registered.filter((r) => r.label !== label);
     await this.persist();
-    if (sync) await this.syncRemoteState(oprId).catch(() => {});
+    if (sync) {
+      await this.syncRemoteState(oprId).catch(() => {});
+      this.notifyChanged();
+    }
   }
 
   async setEventEnabled(oprId, event, enabled) {
@@ -579,6 +592,7 @@ export class LeonWebhookService {
     }
     await this.persist();
     await this.syncRemoteState(oprId).catch(() => {});
+    this.notifyChanged();
     return results;
   }
 
@@ -587,7 +601,7 @@ export class LeonWebhookService {
    * strings). Health comes from Leon's CURRENT subscriptionList, never from
    * stale local state: syncRemoteState reconciles and clears healed errors.
    */
-  async status(operators) {
+  async status(operators, { refreshRemote = false } = {}) {
     const tenants = {};
     for (const entry of operators) {
       const oprId = typeof entry === "string" ? entry : entry.oprId;
@@ -597,17 +611,29 @@ export class LeonWebhookService {
       let remoteError = null;
       let allEnabledLive = null;
       let needsAttention = null;
-      try {
-        const synced = await this.syncRemoteState(oprId);
-        allEnabledLive = synced.allEnabledLive;
-        needsAttention = synced.needsAttention;
-        remote = synced.remote.map((r) => ({
-          label: r.label,
-          webhookUrl: r.webhookUrl,
-          ours: r.label.startsWith(`${LABEL_PREFIX}-`),
-        }));
-      } catch (error) {
-        remoteError = error instanceof Error ? error.message : String(error);
+      if (refreshRemote) {
+        // Explicit health refresh (page button / post-mutation) — the ONLY
+        // path that queries Leon's subscriptionList. The default reads the
+        // cached registration state so status polling costs Leon nothing.
+        try {
+          const synced = await this.syncRemoteState(oprId);
+          allEnabledLive = synced.allEnabledLive;
+          needsAttention = synced.needsAttention;
+          remote = synced.remote.map((r) => ({
+            label: r.label,
+            webhookUrl: r.webhookUrl,
+            ours: r.label.startsWith(`${LABEL_PREFIX}-`),
+          }));
+        } catch (error) {
+          remoteError = error instanceof Error ? error.message : String(error);
+        }
+      } else {
+        const liveEvents = new Set(tenant.registered.map((r) => r.event).filter(Boolean));
+        remote = tenant.registered.map((r) => ({ label: r.label, webhookUrl: r.url, ours: true }));
+        allEnabledLive = Object.entries(tenant.enabledEvents).every(([event, enabled]) => !enabled || liveEvents.has(event));
+        needsAttention = Object.entries(tenant.enabledEvents).some(
+          ([event, enabled]) => enabled && !liveEvents.has(event) && tenant.eventStates[event]?.state !== "notAvailable"
+        );
       }
       tenants[oprId] = {
         name,

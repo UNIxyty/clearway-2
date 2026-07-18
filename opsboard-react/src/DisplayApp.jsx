@@ -114,11 +114,15 @@ export default function DisplayApp() {
   }
 
   useEffect(() => {
-    loadTimeline();
+    // refresh=false everywhere: the BACKEND owns Leon polling on its own
+    // (staggered, backed-off) timer; the wall just reads the cache. The old
+    // refresh=true poll forced an extra full sync cycle every 60s on top of
+    // the backend's own, which helped trip Leon's rate protection.
+    loadTimeline({ refresh: false });
     loadClocks();
     loadSettings();
     fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
-    const id = setInterval(loadTimeline, POLL_MS);
+    const id = setInterval(() => loadTimeline({ refresh: false }), POLL_MS);
     return () => clearInterval(id);
   }, []);
 

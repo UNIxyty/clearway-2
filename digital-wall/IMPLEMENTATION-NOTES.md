@@ -820,3 +820,22 @@ container restarted.
   green "Healthy · some triggers not available" otherwise; unknown amber
   when Leon unreachable. eventStates persisted; syncRemoteState flips events
   found live and clears errors only when nothing needs attention.
+
+## Leon rate-limit remediation (2026-07-18 cycling-403 incident)
+BEFORE (~50 req/min steady; 150+ with the Webhooks page open): backend
+runSyncCycle every 30s x 8 operators x (aircraft roster + modified-list) =
+32/min; the wall's 60s refresh=true poll stacked extra cycles (+16/min); the
+Aircraft page forced syncs on visit; and status()->syncRemoteState->persist->
+SSE webhooks.changed->page reload->status() was an INFINITE echo loop doing 8
+subscriptionList queries per iteration. Leon caps: tokens 30 min, 500 active
+per refresh token, gateway HTML 403 for request-rate abuse.
+AFTER (~4-5 req/min steady): base poll 120s (poll is fallback — webhooks are
+the fast path); wall + Aircraft page poll with refresh=false (backend timer
+owns Leon); runSyncCycle deduped (concurrent callers share one in-flight
+cycle), operators SEQUENTIAL with 2s gaps, aircraft rosters cached 30 min;
+per-operator exponential backoff on 403/429 (2->32 min, skip while cooling,
+reset on success — recovery is gradual, no thundering herd); webhook
+subscriptionList ONLY on the page's Refresh-health button and post-mutation
+(status() reads cache by default); persist() no longer broadcasts (echo loop
+dead — mutations/events call notifyChanged()). Access tokens already cached
+25 min (< Leon's 30-min validity).

@@ -399,7 +399,9 @@ export function aipPdfUrl(icao) {
 }
 
 export async function fetchAircraftSchedule() {
-  return fetchJson('/api/aircraft/schedule?days=7&refresh=true', 'Aircraft request failed');
+  // refresh=false: the backend's own poll keeps the cache current; forcing
+  // a Leon sync from every Aircraft-page visit fed the rate limit.
+  return fetchJson('/api/aircraft/schedule?days=7&refresh=false', 'Aircraft request failed');
 }
 
 export async function setAircraftVisibility({ oprId, registration, enabled }) {
@@ -476,8 +478,8 @@ export async function deleteOperator(id) {
   return payload;
 }
 
-export async function fetchWebhooks() {
-  return fetchJson('/api/webhooks', 'Webhooks request failed');
+export async function fetchWebhooks({ refresh = false } = {}) {
+  return fetchJson(`/api/webhooks${refresh ? '?refresh=true' : ''}`, 'Webhooks request failed');
 }
 
 export async function fetchWebhookLog(oprId, event) {

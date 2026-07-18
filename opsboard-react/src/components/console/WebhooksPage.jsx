@@ -286,10 +286,12 @@ export default function WebhooksPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  async function load({ quiet = false } = {}) {
+  async function load({ quiet = false, refresh = false } = {}) {
     if (!quiet) setRefreshing(true);
     try {
-      const payload = await fetchWebhooks();
+      // quiet loads read the backend's cached registration state (zero Leon
+      // calls); only the explicit Refresh-health button asks Leon live.
+      const payload = await fetchWebhooks({ refresh });
       setData(payload);
       setError('');
     } catch (err) {
@@ -314,7 +316,7 @@ export default function WebhooksPage() {
         desc="Leon push subscriptions per operator. When OPS set a landing, cancel a flight or change a schedule, Leon pushes the event here and the wall updates within seconds — the 60s poll always remains as fallback."
         descMax={680}
         actions={
-          <Button icon="refresh-cw" spin={refreshing} onClick={() => load()}>
+          <Button icon="refresh-cw" spin={refreshing} onClick={() => load({ refresh: true })}>
             Refresh health
           </Button>
         }

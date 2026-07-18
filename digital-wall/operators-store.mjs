@@ -220,6 +220,20 @@ export class OperatorsStore {
     return { id: operator.id, oprId: operator.opr_id };
   }
 
+  /** Per-operator sync outcome — the Operators page shows these per row. */
+  async recordSyncOutcome(oprId, { status, error = null } = {}) {
+    if (!(await canUseSupabase())) return;
+    await supabaseFetch(`leon_operators?opr_id=eq.${encodeURIComponent(oprId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        last_sync_status: status,
+        last_sync_error: error,
+        last_sync_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    }).catch(() => {});
+  }
+
   async getOperatorByOprId(oprId) {
     if (!(await canUseSupabase())) return null;
     const rows =

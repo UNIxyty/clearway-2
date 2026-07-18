@@ -1044,22 +1044,43 @@ export class LeonTimelineService {
         throw new Error("No Leon operators configured.");
       }
 
+      // Per-operator isolation: one operator's bad token / API failure must
+      // NEVER stop the others (a single invalid token on a newly-added
+      // operator once aborted the whole cycle and paused the entire fleet —
+      // 2026-07-18 incident). Failures are recorded per operator (the
+      // Operators page shows them on the right row) and summarized.
+      const operatorErrors = [];
+      let succeeded = 0;
       for (const operator of operators) {
-        await this.fetchAircraftForOperator(operator.oprId);
-        const stats = this.syncStateByOperator.has(operator.oprId)
-          ? await this.incrementalSync(operator.oprId)
-          : await this.initialSync(operator.oprId);
-        cycleStats.updated += stats.updated ?? 0;
-        cycleStats.skipped += stats.skipped ?? 0;
-        cycleStats.deleted += stats.deleted ?? 0;
-        for (const [kind, count] of Object.entries(stats.excluded ?? {})) {
-          cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
+        try {
+          await this.fetchAircraftForOperator(operator.oprId);
+          const stats = this.syncStateByOperator.has(operator.oprId)
+            ? await this.incrementalSync(operator.oprId)
+            : await this.initialSync(operator.oprId);
+          cycleStats.updated += stats.updated ?? 0;
+          cycleStats.skipped += stats.skipped ?? 0;
+          cycleStats.deleted += stats.deleted ?? 0;
+          for (const [kind, count] of Object.entries(stats.excluded ?? {})) {
+            cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
+          }
+          succeeded += 1;
+          await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "success" });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          operatorErrors.push({ oprId: operator.oprId, message });
+          console.error(`[leon-sync] operator ${operator.oprId} sync failed (isolated): ${message}`);
+          await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: message });
         }
       }
 
       this.state.source = operators.length > 1 ? "leon-multi" : "leon";
-      this.state.healthy = true;
-      this.state.lastError = null;
+      // Healthy while at least one operator syncs; failing operators are
+      // named so the error reads as THEIR problem, not a global outage.
+      this.state.healthy = succeeded > 0;
+      this.state.lastError =
+        operatorErrors.length === 0
+          ? null
+          : `${operatorErrors.length} operator(s) failing: ${operatorErrors.map((e) => `${e.oprId} (${e.message.slice(0, 80)})`).join("; ")}`;
       this.state.lastRunAt = new Date().toISOString();
       this.state.cacheStats = cycleStats;
       if (cycleStats.skipped > 0) {

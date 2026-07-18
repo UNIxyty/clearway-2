@@ -177,21 +177,38 @@ export class LeonWebhookService {
 
   tenant(oprId) {
     const key = String(oprId || "").trim();
-    if (!this.state.tenants[key]) {
-      this.state.tenants[key] = {
-        enabledEvents: Object.fromEntries(
-          Object.entries(WEBHOOK_EVENTS).map(([event, def]) => [event, def.defaultOn])
-        ),
-        registered: [],
-        lastEventAt: {},
-        lastRepull: null,
-        lastError: null,
-        operatorId: null,
-        webhookUrl: null,
-        eventStates: {},
-      };
+    // Normalize on EVERY access, not just creation: tenants persisted by an
+    // older build lack newer fields (a webhooks.json written before
+    // eventStates existed crashed syncRemoteState with "Cannot set
+    // properties of undefined" for every pre-existing operator). Merging
+    // defaults here makes any store vintage safe.
+    // Normalize IN PLACE, preserving object identity — callers hold direct
+    // references to the tenant object across await points, so replacing it
+    // would let one caller mutate a copy another caller never sees.
+    let tenant = this.state.tenants[key];
+    if (!tenant || typeof tenant !== "object") {
+      tenant = {};
+      this.state.tenants[key] = tenant;
     }
-    return this.state.tenants[key];
+    tenant.lastRepull = tenant.lastRepull ?? null;
+    tenant.lastError = tenant.lastError ?? null;
+    tenant.operatorId = tenant.operatorId ?? null;
+    tenant.webhookUrl = tenant.webhookUrl ?? null;
+    if (typeof tenant.enabledEvents === "object" && tenant.enabledEvents !== null) {
+      // EXISTING tenants keep exactly what they toggled — a missing event
+      // key means "never enabled", not "apply the catalog default".
+      for (const event of Object.keys(WEBHOOK_EVENTS)) {
+        if (!(event in tenant.enabledEvents)) tenant.enabledEvents[event] = false;
+      }
+    } else {
+      tenant.enabledEvents = Object.fromEntries(
+        Object.entries(WEBHOOK_EVENTS).map(([event, def]) => [event, def.defaultOn])
+      );
+    }
+    if (!Array.isArray(tenant.registered)) tenant.registered = [];
+    if (typeof tenant.lastEventAt !== "object" || tenant.lastEventAt === null) tenant.lastEventAt = {};
+    if (typeof tenant.eventStates !== "object" || tenant.eventStates === null) tenant.eventStates = {};
+    return tenant;
   }
 
   /** Public base URL Leon calls; per-tenant path segment identifies the key set. */
@@ -414,6 +431,8 @@ export class LeonWebhookService {
    */
   async syncRemoteState(oprId) {
     const tenant = this.tenant(oprId);
+    tenant.eventStates = tenant.eventStates ?? {};
+    tenant.registered = Array.isArray(tenant.registered) ? tenant.registered : [];
     const remote = await this.listRemote(oprId);
     const ours = remote.filter((r) => r.label.startsWith(`${LABEL_PREFIX}-`));
     const previous = new Map(tenant.registered.map((r) => [r.label, r]));

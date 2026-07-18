@@ -839,3 +839,21 @@ subscriptionList ONLY on the page's Refresh-health button and post-mutation
 (status() reads cache by default); persist() no longer broadcasts (echo loop
 dead — mutations/events call notifyChanged()). Access tokens already cached
 25 min (< Leon's 30-min validity).
+
+## Timeline: marker degradation (1B), route below pill (2A), auto-return fix
+- Neighbour budget: assignFlightLanes records __nextGapFrac (distance to the
+  next flight in the SAME lane); FlightPill budgets its left-anchored content
+  (marker row, below-pill text) against that gap — spill into empty space OK,
+  into the neighbour never.
+- Markers (1B): four levels chosen per flight against the post-ID budget —
+  full chips → icon-only → coloured dots → single +N (true hidden count incl.
+  LIM folded as amber marker; tooltip lists). Colour semantics survive at
+  every level. FlightMarkers gains mode/extraMarkers; console light variant
+  untouched.
+- Route (2A): ICAOs inside the pill ONLY when both fully fit; otherwise the
+  pill is clean and 'DEP→ARR · times' renders below (budgeted; times drop
+  before the route; never truncate an ICAO — omit instead).
+- Auto-return: continuous 1s idle monitor replaces the gesture-armed timer
+  (which never fired on an untouched wall drifting away from now). Idle ≥10s
+  (AUTO_RETURN_TO_NOW_MS) + >40px from the now-anchor → smooth return;
+  repeats forever; interactions reset; own animation ignored.

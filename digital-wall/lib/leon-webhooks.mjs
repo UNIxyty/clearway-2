@@ -76,7 +76,9 @@ export const WEBHOOK_EVENTS = {
     description: "New flight — instant lane appearance",
   },
   tripStatusChanged: {
-    subscription: "subscription { trip { tripStatusChanged { nid status } } }",
+    // TripSimple exposes ONLY tripNid + tripNumber (introspected — the docs'
+    // { nid status } example does not match the live schema).
+    subscription: "subscription { trip { tripStatusChanged { tripNid tripNumber } } }",
     handler: "sync",
     defaultOn: false,
     description: "Trip Option/Confirmed flips — triggers an incremental sync",
@@ -241,18 +243,67 @@ export class LeonWebhookService {
   async operatorIdFor(oprId) {
     const tenant = this.tenant(oprId);
     if (tenant.operatorId) return tenant.operatorId;
-    // Cheap lookup: one flight is enough (limit is a FlightFilter field);
-    // a wide unlimited window can exceed Leon's query cost/time budget.
+    // Direct source (introspected): query { operator { oprNid } } — works on
+    // a tenant with ZERO flights (the old flight-scan failed on quiet
+    // tenants like sunway and blocked the operator-scoped subscriptions).
+    try {
+      const data = await this.timelineService.graphqlRequest(
+        `query { operator { oprNid } }`,
+        undefined,
+        oprId
+      );
+      if (data.operator?.oprNid != null) {
+        tenant.operatorId = String(data.operator.oprNid);
+        await this.persist();
+        return tenant.operatorId;
+      }
+    } catch {
+      /* fall through to the flight scan */
+    }
+    // Fallback only: scan a WIDE window (±45 days) so a quiet-but-not-empty
+    // tenant still resolves; limit keeps it inside Leon's query budget.
     const data = await this.timelineService.graphqlRequest(
-      `query { flightList(filter: { limit: 1, timeInterval: { start: "${new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
+      `query { flightList(filter: { limit: 1, timeInterval: { start: "${new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
       undefined,
       oprId
     );
     const oprNid = data.flightList?.find((f) => f?.oprNid != null)?.oprNid;
-    if (oprNid == null) throw new Error("could not determine the tenant's operator id (no flights with oprNid)");
+    if (oprNid == null) {
+      throw new Error("could not determine the tenant's operator id (operator query and flight scan both empty)");
+    }
     tenant.operatorId = String(oprNid);
     await this.persist();
     return tenant.operatorId;
+  }
+
+  /**
+   * Make local state mirror what Leon ACTUALLY has registered right now:
+   * tenant.registered is rebuilt from Leon's subscriptionList (our labels
+   * only), and a stale lastError is cleared once every enabled event is
+   * genuinely live on Leon. Called after every mutating operation and by
+   * status(); health is therefore never sticky.
+   */
+  async syncRemoteState(oprId) {
+    const tenant = this.tenant(oprId);
+    const remote = await this.listRemote(oprId);
+    const ours = remote.filter((r) => r.label.startsWith(`${LABEL_PREFIX}-`));
+    const previous = new Map(tenant.registered.map((r) => [r.label, r]));
+    tenant.registered = ours.map((r) => {
+      const event = Object.keys(WEBHOOK_EVENTS).find((e) => r.label === this.labelFor(oprId, e)) ?? null;
+      return {
+        label: r.label,
+        event,
+        url: r.webhookUrl,
+        registeredAt: previous.get(r.label)?.registeredAt ?? new Date().toISOString(),
+      };
+    });
+    const liveEvents = new Set(tenant.registered.map((r) => r.event));
+    const allEnabledLive = Object.entries(tenant.enabledEvents).every(
+      ([event, enabled]) => !enabled || liveEvents.has(event)
+    );
+    if (allEnabledLive) tenant.lastError = null;
+    await this.persist();
+    return { remote, allEnabledLive };
   }
 
   async listRemote(oprId) {
@@ -283,7 +334,7 @@ export class LeonWebhookService {
     );
 
     // Idempotent: delete any existing webhook under our label first.
-    await this.deleteLabel(oprId, label).catch(() => {});
+    await this.deleteLabel(oprId, label, { sync: false }).catch(() => {});
 
     const data = await this.timelineService.graphqlRequest(
       `mutation Create($refreshToken: String!, $label: String!, $subscription: String!, $variables: Json!, $webhookUrl: String!, $includeAuthorizationHeader: Boolean!) {
@@ -312,10 +363,11 @@ export class LeonWebhookService {
     ];
     tenant.webhookUrl = url;
     await this.persist();
+    await this.syncRemoteState(oprId).catch(() => {});
     return { label, url };
   }
 
-  async deleteLabel(oprId, label) {
+  async deleteLabel(oprId, label, { sync = true } = {}) {
     await this.timelineService.graphqlRequest(
       `mutation Delete($label: String!) { webhook { deleteSubscriptionWebhook(label: $label) } }`,
       { label },
@@ -324,6 +376,7 @@ export class LeonWebhookService {
     const tenant = this.tenant(oprId);
     tenant.registered = tenant.registered.filter((r) => r.label !== label);
     await this.persist();
+    if (sync) await this.syncRemoteState(oprId).catch(() => {});
   }
 
   async setEventEnabled(oprId, event, enabled) {
@@ -361,18 +414,28 @@ export class LeonWebhookService {
       }
     }
     await this.persist();
+    await this.syncRemoteState(oprId).catch(() => {});
     return results;
   }
 
-  /** Status for the console page: local state + live remote list per tenant. */
-  async status(oprIds) {
+  /**
+   * Status for the console page. Accepts [{ oprId, name }] (or plain oprId
+   * strings). Health comes from Leon's CURRENT subscriptionList, never from
+   * stale local state: syncRemoteState reconciles and clears healed errors.
+   */
+  async status(operators) {
     const tenants = {};
-    for (const oprId of oprIds) {
+    for (const entry of operators) {
+      const oprId = typeof entry === "string" ? entry : entry.oprId;
+      const name = typeof entry === "string" ? null : entry.name ?? null;
       const tenant = this.tenant(oprId);
       let remote = null;
       let remoteError = null;
+      let allEnabledLive = null;
       try {
-        remote = (await this.listRemote(oprId)).map((r) => ({
+        const synced = await this.syncRemoteState(oprId);
+        allEnabledLive = synced.allEnabledLive;
+        remote = synced.remote.map((r) => ({
           label: r.label,
           webhookUrl: r.webhookUrl,
           ours: r.label.startsWith(`${LABEL_PREFIX}-`),
@@ -381,11 +444,13 @@ export class LeonWebhookService {
         remoteError = error instanceof Error ? error.message : String(error);
       }
       tenants[oprId] = {
+        name,
         webhookUrl: this.webhookUrlFor(oprId),
         enabledEvents: tenant.enabledEvents,
         registered: tenant.registered,
         remote,
         remoteError,
+        allEnabledLive,
         lastEventAt: tenant.lastEventAt,
         lastRepull: tenant.lastRepull,
         lastError: tenant.lastError,

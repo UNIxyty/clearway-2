@@ -873,7 +873,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/webhooks" && req.method === "GET") {
       try {
         const operators = await timelineService.listConfiguredOperators();
-        const status = await leonWebhooks.status(operators.map((o) => o.oprId));
+        const status = await leonWebhooks.status(operators.map((o) => ({ oprId: o.oprId, name: o.name ?? null })));
         sendJson(res, { ok: true, ...status });
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);

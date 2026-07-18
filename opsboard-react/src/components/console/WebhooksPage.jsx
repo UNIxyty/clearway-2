@@ -33,14 +33,22 @@ const EVENT_ORDER = [
 ];
 
 function healthOf(tenant) {
-  if (tenant.lastError) return { label: 'Error', color: t.red, bg: t.redTint, dot: t.red };
   const enabled = Object.values(tenant.enabledEvents || {}).some(Boolean);
   if (!enabled) return { label: 'Disabled', color: t.faint, bg: '#f1f2f4', dot: '#c3c7cd' };
-  const timestamps = Object.values(tenant.lastEventAt || {});
-  if (timestamps.length === 0) return { label: 'Registered — no events yet', color: t.amber, bg: t.amberTint, dot: t.amber };
-  const newest = Math.max(...timestamps.map((v) => new Date(v).getTime()));
-  if (Date.now() - newest > 24 * 3600e3) return { label: 'Stale (>24h silent)', color: t.amber, bg: t.amberTint, dot: t.amber };
-  return { label: 'Healthy', color: t.greenDeep, bg: t.greenTint, dot: t.green };
+  // Truth comes from Leon's CURRENT subscription list, never a stale error:
+  // if everything enabled is live on Leon right now, this operator is green.
+  if (tenant.allEnabledLive === true) {
+    const timestamps = Object.values(tenant.lastEventAt || {});
+    if (timestamps.length > 0) {
+      const newest = Math.max(...timestamps.map((v) => new Date(v).getTime()));
+      if (Date.now() - newest > 24 * 3600e3) return { label: 'Live on Leon · >24h silent', color: t.amber, bg: t.amberTint, dot: t.amber };
+    }
+    return { label: 'Healthy', color: t.greenDeep, bg: t.greenTint, dot: t.green };
+  }
+  if (tenant.allEnabledLive === false) return { label: 'Error — events missing on Leon', color: t.red, bg: t.redTint, dot: t.red };
+  // Remote list unreadable — fall back to the last known local state.
+  if (tenant.lastError) return { label: 'Error', color: t.red, bg: t.redTint, dot: t.red };
+  return { label: 'Status unknown (Leon unreachable)', color: t.amber, bg: t.amberTint, dot: t.amber };
 }
 
 function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
@@ -84,7 +92,13 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
   return (
     <Card style={{ marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
-        <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, fontFamily: t.mono }}>{oprId}</h3>
+        {/* operator NAME first (ops reads names, not ids); oprId muted */}
+        <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>
+          {tenant.name || oprId}
+          {tenant.name && tenant.name !== oprId && (
+            <span style={{ fontFamily: t.mono, fontSize: 13, fontWeight: 600, color: t.faint, marginLeft: 9 }}>· {oprId}</span>
+          )}
+        </h3>
         <StatusPill color={health.color} bg={health.bg} dot={health.dot}>{health.label}</StatusPill>
         <div style={{ flex: 1 }} />
         <Button size="sm" icon="rotate-cw" spin={busyAll} disabled={busyAll} onClick={reRegister}>
@@ -94,7 +108,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
       <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono, marginBottom: 14, overflowWrap: 'anywhere' }}>
         {tenant.webhookUrl}
       </div>
-      {tenant.lastError && (
+      {tenant.lastError && tenant.allEnabledLive !== true && (
         <div style={{ fontSize: 13, color: t.redDeep, background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 9, padding: '9px 12px', marginBottom: 14, display: 'flex', gap: 9, alignItems: 'center' }}>
           <Icon name="alert-triangle" size={15} style={{ flexShrink: 0 }} />
           <span style={{ overflowWrap: 'anywhere' }}>{tenant.lastError}</span>

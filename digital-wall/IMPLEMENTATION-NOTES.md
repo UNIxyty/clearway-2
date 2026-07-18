@@ -787,3 +787,13 @@ container restarted.
   LEON_WEBHOOK_AUTOREGISTER=true. Console Webhooks page per operator with
   toggles/health/re-register. Env: LEON_WEBHOOK_PUBLIC_URL (default
   https://clearway.verxyl.com/digital-wall/leon/webhook).
+
+## Webhook fixes (operator-id, tripStatusChanged, health truth, names)
+- operatorIdFor: direct `query { operator { oprNid } }` (works on flightless
+  tenants — the sunway failure); flight-scan fallback widened to ±45d/limit 1.
+- tripStatusChanged selection: TripSimple has ONLY tripNid + tripNumber
+  (introspected); all other selections re-checked against the live schema.
+- Health = Leon's CURRENT subscriptionList: syncRemoteState() reconciles
+  local registrations with Leon after every mutation and in status(), clears
+  healed lastError; page pill/banner derive from allEnabledLive (no sticky
+  red). Cards show operator NAME first, oprId muted.

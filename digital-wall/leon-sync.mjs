@@ -14,6 +14,12 @@ const AIRCRAFT_REFRESH_MS = 30 * 60 * 1000;
 // 2 -> 4 -> 8 -> 16 -> capped 32 minutes; reset on the first success.
 const BACKOFF_BASE_MS = 2 * 60 * 1000;
 const BACKOFF_MAX_MS = 32 * 60 * 1000;
+// When EVERY operator is rate-limited the block is on our IP, not a tenant —
+// individual retries (8 ops on staggered 2-4 min timers ~= one request every
+// 20-30s) can keep a WAF block alive forever. Go fully silent instead:
+// 10 -> 20 -> 40 -> 60 min cap, zero Leon traffic until it elapses.
+const GLOBAL_BACKOFF_BASE_MS = 10 * 60 * 1000;
+const GLOBAL_BACKOFF_MAX_MS = 60 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
 import { loadGeoAirports } from "./lib/geo-store.mjs";
@@ -658,6 +664,7 @@ export class LeonTimelineService {
     this.checklistDefsByOperator = new Map(); // oprId -> Map(cdNid -> {order[], colorByStatus{}})
     this.aircraftFetchedAtByOperator = new Map(); // oprId -> ms of last roster fetch
     this.operatorBackoff = new Map(); // oprId -> { untilMs, level }
+    this.globalBackoff = null; // { untilMs, level } — fleet-wide silence
     this.syncCycleInFlight = null; // dedup: concurrent refresh=true callers share one cycle
     this.syncStateByOperator = new Map();
     this.limitations = [];
@@ -1078,6 +1085,14 @@ export class LeonTimelineService {
 
   async #runSyncCycleInner() {
     const cycleStats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
+    // Fleet-wide silence window: NO Leon traffic at all until it elapses.
+    if (this.globalBackoff && Date.now() < this.globalBackoff.untilMs) {
+      const untilText = new Date(this.globalBackoff.untilMs).toISOString().slice(11, 16);
+      this.state.healthy = false;
+      this.state.lastError = `Leon is rate-limiting this server — paused ALL sync traffic until ${untilText}Z so the block can expire`;
+      this.state.lastRunAt = new Date().toISOString();
+      return;
+    }
     try {
       const operators = await this.listConfiguredOperators();
       if (operators.length === 0) {
@@ -1131,6 +1146,21 @@ export class LeonTimelineService {
           console.error(`[leon-sync] operator ${operator.oprId} sync failed (isolated): ${message}`);
           await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: message });
         }
+      }
+
+      // Every ATTEMPTED operator rate-limited (and none succeeded) => the
+      // block is server-wide: escalate to the global silence window and
+      // clear per-operator timers (the global gate covers them).
+      const attempted = index;
+      const rateLimitedNow = operatorErrors.filter((e) => LeonTimelineService.isRateLimitError(e.message)).length;
+      if (succeeded === 0 && attempted > 0 && rateLimitedNow >= attempted) {
+        const level = Math.min((this.globalBackoff?.level ?? 0) + 1, 4);
+        const delayMs = Math.min(GLOBAL_BACKOFF_BASE_MS * 2 ** (level - 1), GLOBAL_BACKOFF_MAX_MS);
+        this.globalBackoff = { untilMs: Date.now() + delayMs, level };
+        this.operatorBackoff.clear();
+        console.warn(`[leon-sync] fleet-wide rate limit — going SILENT for ${Math.round(delayMs / 60000)} min (level ${level})`);
+      } else if (succeeded > 0) {
+        this.globalBackoff = null;
       }
 
       this.state.source = operators.length > 1 ? "leon-multi" : "leon";

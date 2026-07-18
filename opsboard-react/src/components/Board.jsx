@@ -269,10 +269,40 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     // the idle clock; our own animation is ignored via the flag.
     let lastInteractionAt = 0; // epoch 0 => an untouched wall still corrects drift
     let autoScrolling = false;
+    let animationFrame = null;
     let settleTimer = null;
+
+    // Own rAF animation instead of native scrollTo({behavior:'smooth'}):
+    // any direct scrollLeft write (e.g. the header<->body sync echo) CANCELS
+    // a native smooth scroll mid-flight, which chopped long returns into
+    // stuttering 10s-apart segments. Writing the position ourselves every
+    // frame is uncancellable and completes as ONE fast sweep.
+    const RETURN_ANIMATION_MS = 600;
+    const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+    const animateReturn = (target) => {
+      const from = body.scrollLeft;
+      const startedAt = performance.now();
+      autoScrolling = true;
+      const step = (now) => {
+        if (!autoScrolling) return; // user gesture aborted the return
+        const t = Math.min(1, (now - startedAt) / RETURN_ANIMATION_MS);
+        body.scrollLeft = from + (target - from) * easeInOutCubic(t);
+        if (t < 1) {
+          animationFrame = requestAnimationFrame(step);
+        } else {
+          body.scrollLeft = target;
+          // brief settle so the trailing scroll/sync events don't read as
+          // user interaction, then hand control back to the monitor.
+          clearTimeout(settleTimer);
+          settleTimer = setTimeout(() => { autoScrolling = false; }, 150);
+        }
+      };
+      animationFrame = requestAnimationFrame(step);
+    };
 
     const onUserInput = () => {
       autoScrolling = false; // a real gesture cancels an in-flight return
+      cancelAnimationFrame(animationFrame);
       lastInteractionAt = Date.now();
     };
     const onScroll = () => {
@@ -287,10 +317,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       // 40px dead-band: minute-hand drift re-centres in one gentle nudge
       // every ~10-15 min instead of a constant micro-scroll.
       if (Math.abs(body.scrollLeft - target) < 40) return;
-      autoScrolling = true;
-      body.scrollTo({ left: target, behavior: 'smooth' });
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => { autoScrolling = false; }, 1500);
+      animateReturn(target);
     }, 1000);
 
     for (const el of [body, header]) {
@@ -301,6 +328,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     }
     return () => {
       clearInterval(monitor);
+      cancelAnimationFrame(animationFrame);
       clearTimeout(settleTimer);
       for (const el of [body, header]) {
         el.removeEventListener('wheel', onUserInput);

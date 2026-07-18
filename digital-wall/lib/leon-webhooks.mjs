@@ -241,8 +241,10 @@ export class LeonWebhookService {
   async operatorIdFor(oprId) {
     const tenant = this.tenant(oprId);
     if (tenant.operatorId) return tenant.operatorId;
+    // Cheap lookup: one flight is enough (limit is a FlightFilter field);
+    // a wide unlimited window can exceed Leon's query cost/time budget.
     const data = await this.timelineService.graphqlRequest(
-      `query { flightList(filter: { timeInterval: { start: "${new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
+      `query { flightList(filter: { limit: 1, timeInterval: { start: "${new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
       undefined,
       oprId
     );
@@ -269,24 +271,34 @@ export class LeonWebhookService {
     const label = this.labelFor(oprId, event);
     const url = this.webhookUrlFor(oprId);
     const refreshToken = await this.timelineService.resolveOperatorRefreshToken(oprId);
-    const variables = def.needsOperatorId ? JSON.stringify({ operatorId: await this.operatorIdFor(oprId) }) : "{}";
+    // Leon's schema (introspected): variables is the Json! scalar, described
+    // as "JSON encoded data" — and it means exactly that: the VALUE must be a
+    // JSON-encoded STRING under a $v: Json! declaration. Tested live: a
+    // string value registers (200, appears in subscriptionList); passing an
+    // actual object makes Leon 500. includeAuthorizationHeader is Boolean!
+    // and must be true — the receiver's JWT verification depends on Leon
+    // sending the Authorization header.
+    const variables = JSON.stringify(
+      def.needsOperatorId ? { operatorId: await this.operatorIdFor(oprId) } : {}
+    );
 
     // Idempotent: delete any existing webhook under our label first.
     await this.deleteLabel(oprId, label).catch(() => {});
 
     const data = await this.timelineService.graphqlRequest(
-      `mutation Create($refreshToken: String!, $label: String!, $subscription: String!, $variables: String!, $webhookUrl: String!) {
+      `mutation Create($refreshToken: String!, $label: String!, $subscription: String!, $variables: Json!, $webhookUrl: String!, $includeAuthorizationHeader: Boolean!) {
         webhook {
           createSubscriptionWebhook(
             refreshToken: $refreshToken, label: $label, subscription: $subscription,
-            variables: $variables, webhookUrl: $webhookUrl
+            variables: $variables, webhookUrl: $webhookUrl,
+            includeAuthorizationHeader: $includeAuthorizationHeader
           ) {
             ... on CreateSubscriptionWebhookViolationList { error: value { message path } }
             ... on NonNullBooleanValue { result: value }
           }
         }
       }`,
-      { refreshToken, label, subscription: def.subscription, variables, webhookUrl: url },
+      { refreshToken, label, subscription: def.subscription, variables, webhookUrl: url, includeAuthorizationHeader: true },
       oprId
     );
     const outcome = data.webhook?.createSubscriptionWebhook;

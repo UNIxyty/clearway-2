@@ -797,3 +797,26 @@ container restarted.
   local registrations with Leon after every mutation and in status(), clears
   healed lastError; page pill/banner derive from allEnabledLive (no sticky
   red). Cards show operator NAME first, oprId muted.
+
+## Webhooks: Sunway diagnosis, trigger log history, calmer states
+- Sunway partial 403 DIAGNOSED: the two operator-scoped events first call
+  query { operator { oprNid } }; Leon's gateway answers HTML 403 when the API
+  key lacks the GRAPHQL_OPERATOR ('Operator') scope — token itself valid
+  (core events register). Fix = regenerate the key with that scope, or leave
+  the triggers off. operatorIdFor now surfaces the exact call + host + raw
+  response; classifyFailure() maps causes: token-refresh 403 -> needsAttention
+  (check token/oprId); HTML-403-with-working-token -> needsAttention (scope
+  hint); GraphQL "cannot query/unsupported" -> notAvailable (calm);
+  network -> needsAttention.
+- Per-trigger audit log: data/webhook-log.json, rolling 75 per
+  (operator,event); receiver records timestamp, callsign+flightNid, action,
+  and the before->after timeline change (describeChange: movementState/
+  ATD/ATA/ETD/ETA/route diffs, removed—cancelled, new flight added).
+  GET /api/webhooks/log?opr=&event=; clock icon per event row opens the
+  history overlay.
+- States: per-event chip live (green) / Not available for this operator
+  (grey, tooltip) / needs attention (red + actionable hint) / not confirmed
+  (amber); card banner red ONLY when something genuinely needs attention;
+  green "Healthy · some triggers not available" otherwise; unknown amber
+  when Leon unreachable. eventStates persisted; syncRemoteState flips events
+  found live and clears errors only when nothing needs attention.

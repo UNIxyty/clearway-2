@@ -480,6 +480,11 @@ export async function fetchWebhooks() {
   return fetchJson('/api/webhooks', 'Webhooks request failed');
 }
 
+export async function fetchWebhookLog(oprId, event) {
+  const params = new URLSearchParams({ opr: oprId, event });
+  return fetchJson(`/api/webhooks/log?${params.toString()}`, 'Webhook log request failed');
+}
+
 export async function toggleWebhook({ oprId, event, enabled }) {
   const response = await fetch(buildApiUrl('/api/webhooks/toggle'), {
     method: 'POST',

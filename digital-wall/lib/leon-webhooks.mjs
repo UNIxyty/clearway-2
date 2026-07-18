@@ -33,6 +33,46 @@ import { JsonFileStore } from "./json-store.mjs";
 
 const KEY_CACHE_TTL_MS = 24 * 3600_000;
 const LABEL_PREFIX = "digitalwall";
+const LOG_CAP = 75; // rolling per-(operator,event) audit entries
+
+/**
+ * Classify a registration/resolution failure by its REAL cause so the UI can
+ * differentiate severity (Item 3):
+ *  - needsAttention: fixable by ops — bad/expired token, oprId mismatch,
+ *    missing API-key scope (Leon's gateway answers those with an HTML 403
+ *    while the token still works elsewhere), endpoint unreachable.
+ *  - notAvailable: Leon genuinely doesn't offer this subscription for this
+ *    operator (GraphQL-level rejection of the subscription itself).
+ */
+export function classifyFailure(message) {
+  const text = String(message || "");
+  const looksHtml = /<html|<head|<body|<!doctype/i.test(text);
+  if (/token refresh failed/i.test(text)) {
+    return {
+      state: "needsAttention",
+      hint: "Leon rejected this operator's refresh token — check the stored token and that the oprId matches the Leon subdomain.",
+    };
+  }
+  if (/403/.test(text) && looksHtml) {
+    return {
+      state: "needsAttention",
+      hint: "Leon's gateway forbids a call this trigger needs (HTML 403 with a working token = the API key is missing a scope — likely 'Operator' / GRAPHQL_OPERATOR, used to resolve the operator id). Regenerate this operator's Leon API key with that scope, or leave this trigger off.",
+    };
+  }
+  if (/cannot query field|unknown (subscription|field)|not supported|no access to/i.test(text)) {
+    return {
+      state: "notAvailable",
+      hint: "Leon does not offer this subscription for this operator. Nothing to fix — leave the trigger off.",
+    };
+  }
+  if (/fetch failed|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|abort/i.test(text)) {
+    return {
+      state: "needsAttention",
+      hint: "Leon was unreachable when registering — network/endpoint issue; retry with Re-register.",
+    };
+  }
+  return { state: "needsAttention", hint: "Registration failed — see the raw error; retry with Re-register." };
+}
 
 /**
  * Event catalog. `needsOperatorId` events get the tenant's numeric operator
@@ -105,12 +145,29 @@ export class LeonWebhookService {
     this.sseHub = sseHub;
     this.store = new JsonFileStore("webhooks.json", { tenants: {} });
     this.state = { tenants: {} };
+    this.logStore = new JsonFileStore("webhook-log.json", { logs: {} });
+    this.logs = { logs: {} };
     this.keyCache = new Map(); // oprId -> { pem, fetchedAtMs }
   }
 
   async load() {
     const payload = await this.store.read();
     this.state = payload && typeof payload.tenants === "object" ? payload : { tenants: {} };
+    const logPayload = await this.logStore.read();
+    this.logs = logPayload && typeof logPayload.logs === "object" ? logPayload : { logs: {} };
+  }
+
+  /** Rolling audit trail per (operator, event) — Item 2. */
+  async appendLog(oprId, event, entry) {
+    const key = `${oprId}:${event}`;
+    const list = this.logs.logs[key] ?? [];
+    list.unshift(entry);
+    this.logs.logs[key] = list.slice(0, LOG_CAP);
+    await this.logStore.write(this.logs);
+  }
+
+  logFor(oprId, event) {
+    return this.logs.logs[`${oprId}:${event}`] ?? [];
   }
 
   async persist() {
@@ -131,6 +188,7 @@ export class LeonWebhookService {
         lastError: null,
         operatorId: null,
         webhookUrl: null,
+        eventStates: {},
       };
     }
     return this.state.tenants[key];
@@ -196,6 +254,36 @@ export class LeonWebhookService {
   }
 
   // ── Event handling: trigger → re-pull, never trust the payload ─────────
+  /** Human description of what a re-pull changed on the timeline (Item 2). */
+  static describeChange(before, after, outcome) {
+    const hm = (v) => {
+      const dt = new Date(v ?? "");
+      return Number.isFinite(dt.getTime())
+        ? `${String(dt.getUTCHours()).padStart(2, "0")}:${String(dt.getUTCMinutes()).padStart(2, "0")}`
+        : null;
+    };
+    if (outcome === "sync-cycle") return "incremental sync";
+    if (outcome === "not-found-evicted") return "removed — no longer in Leon";
+    if (String(outcome).startsWith("evicted:")) {
+      const reason = String(outcome).slice("evicted:".length).replace(/-/g, " ");
+      return `removed — ${reason === "cancelled" ? "cancelled" : reason}`;
+    }
+    if (outcome === "updated" && !before) return "new flight added";
+    if (outcome === "updated" && before && after) {
+      const diffs = [];
+      if (before.movementState !== after.movementState) diffs.push(`movementState: ${before.movementState} → ${after.movementState}`);
+      if (!before.ata && after.ata) diffs.push(`landed (ATA ${hm(after.ata)})`);
+      else if (!before.atd && after.atd) diffs.push(`departed (ATD ${hm(after.atd)})`);
+      if (hm(before.etd) !== hm(after.etd)) diffs.push(`ETD ${hm(before.etd) ?? "—"} → ${hm(after.etd) ?? "—"}`);
+      if (hm(before.eta) !== hm(after.eta)) diffs.push(`ETA ${hm(before.eta) ?? "—"} → ${hm(after.eta) ?? "—"}`);
+      const routeBefore = `${before.adep?.icao ?? "?"}→${before.ades?.icao ?? "?"}`;
+      const routeAfter = `${after.adep?.icao ?? "?"}→${after.ades?.icao ?? "?"}`;
+      if (routeBefore !== routeAfter) diffs.push(`route ${routeBefore} → ${routeAfter}`);
+      return diffs.length > 0 ? diffs.join(" · ") : "no visible change";
+    }
+    return String(outcome);
+  }
+
   async handleEvent(oprId, payload) {
     const tenant = this.tenant(oprId);
     const nids = [...extractFlightNids(payload)];
@@ -205,8 +293,21 @@ export class LeonWebhookService {
     try {
       if (nids.length > 0) {
         for (const nid of nids) {
+          const key = this.timelineService.flightCacheKey(oprId, Number(nid));
+          const beforeFlight = this.timelineService.flightsByNid.get(key);
+          const before = beforeFlight
+            ? { movementState: beforeFlight.movementState, etd: beforeFlight.etd, eta: beforeFlight.eta, atd: beforeFlight.atd, ata: beforeFlight.ata, adep: beforeFlight.adep, ades: beforeFlight.ades, flightNo: beforeFlight.flightNo }
+            : null;
           const result = await this.timelineService.resyncFlightByNid(oprId, nid);
+          const afterFlight = this.timelineService.flightsByNid.get(key);
           tenant.lastRepull = { at: new Date().toISOString(), flightNid: nid, outcome: result.outcome };
+          await this.appendLog(oprId, eventName, {
+            at: new Date().toISOString(),
+            flightNid: String(nid),
+            callsign: afterFlight?.flightNo ?? before?.flightNo ?? null,
+            action: result.outcome,
+            change: LeonWebhookService.describeChange(before, afterFlight, result.outcome),
+          });
           console.log(`[leon-webhooks] ${oprId} ${eventName}: re-pulled flight ${nid} -> ${result.outcome}`);
         }
       } else {
@@ -214,11 +315,25 @@ export class LeonWebhookService {
         // sync cycle picks the change up through the normal path.
         await this.timelineService.refreshNow();
         tenant.lastRepull = { at: new Date().toISOString(), flightNid: null, outcome: "sync-cycle" };
+        await this.appendLog(oprId, eventName, {
+          at: new Date().toISOString(),
+          flightNid: null,
+          callsign: null,
+          action: "sync-cycle",
+          change: "incremental sync",
+        });
         console.log(`[leon-webhooks] ${oprId} ${eventName}: no flightNid in payload — ran a sync cycle`);
       }
       this.sseHub?.broadcast({ type: "flight.changed", oprId, flightNids: nids, via: "webhook" });
     } catch (error) {
       tenant.lastError = `${eventName}: ${error instanceof Error ? error.message : String(error)}`;
+      await this.appendLog(oprId, eventName, {
+        at: new Date().toISOString(),
+        flightNid: nids[0] ?? null,
+        callsign: null,
+        action: "error",
+        change: tenant.lastError.slice(0, 200),
+      });
       console.error(`[leon-webhooks] ${oprId} ${eventName} handling failed:`, tenant.lastError);
     }
     await this.persist();
@@ -246,6 +361,7 @@ export class LeonWebhookService {
     // Direct source (introspected): query { operator { oprNid } } — works on
     // a tenant with ZERO flights (the old flight-scan failed on quiet
     // tenants like sunway and blocked the operator-scoped subscriptions).
+    let firstAttemptError = null;
     try {
       const data = await this.timelineService.graphqlRequest(
         `query { operator { oprNid } }`,
@@ -257,23 +373,36 @@ export class LeonWebhookService {
         await this.persist();
         return tenant.operatorId;
       }
-    } catch {
-      /* fall through to the flight scan */
+    } catch (error) {
+      // Keep the RAW response (status + body head) for the diagnosis — an
+      // HTML 403 here with an otherwise-working token means the API key
+      // lacks the GRAPHQL_OPERATOR scope (Item 1: the Sunway case).
+      firstAttemptError = error instanceof Error ? error.message : String(error);
+      console.warn(`[leon-webhooks] ${oprId}: operator query rejected: ${firstAttemptError.slice(0, 300)}`);
     }
     // Fallback only: scan a WIDE window (±45 days) so a quiet-but-not-empty
     // tenant still resolves; limit keeps it inside Leon's query budget.
-    const data = await this.timelineService.graphqlRequest(
-      `query { flightList(filter: { limit: 1, timeInterval: { start: "${new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
-      undefined,
-      oprId
-    );
-    const oprNid = data.flightList?.find((f) => f?.oprNid != null)?.oprNid;
-    if (oprNid == null) {
-      throw new Error("could not determine the tenant's operator id (operator query and flight scan both empty)");
+    try {
+      const data = await this.timelineService.graphqlRequest(
+        `query { flightList(filter: { limit: 1, timeInterval: { start: "${new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10)}", end: "${new Date(Date.now() + 45 * 864e5).toISOString().slice(0, 10)}" } }) { oprNid } }`,
+        undefined,
+        oprId
+      );
+      const oprNid = data.flightList?.find((f) => f?.oprNid != null)?.oprNid;
+      if (oprNid != null) {
+        tenant.operatorId = String(oprNid);
+        await this.persist();
+        return tenant.operatorId;
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `operator-id resolution failed for ${oprId}: query { operator { oprNid } } AND the flightList fallback were rejected at https://${oprId}.leon.aero/api/graphql/ — ${firstAttemptError ? `operator query: ${firstAttemptError.slice(0, 160)}; ` : ""}flight scan: ${detail.slice(0, 160)}`
+      );
     }
-    tenant.operatorId = String(oprNid);
-    await this.persist();
-    return tenant.operatorId;
+    throw new Error(
+      `operator-id resolution failed for ${oprId}: ${firstAttemptError ? `query { operator { oprNid } } was rejected at https://${oprId}.leon.aero/api/graphql/ (${firstAttemptError.slice(0, 200)}) and ` : ""}the flightList fallback found no flights (quiet tenant)`
+    );
   }
 
   /**
@@ -298,12 +427,18 @@ export class LeonWebhookService {
       };
     });
     const liveEvents = new Set(tenant.registered.map((r) => r.event));
+    for (const event of liveEvents) {
+      if (event) tenant.eventStates[event] = { state: "live", detail: null, hint: null, at: new Date().toISOString() };
+    }
     const allEnabledLive = Object.entries(tenant.enabledEvents).every(
       ([event, enabled]) => !enabled || liveEvents.has(event)
     );
-    if (allEnabledLive) tenant.lastError = null;
+    const needsAttention = Object.entries(tenant.enabledEvents).some(
+      ([event, enabled]) => enabled && !liveEvents.has(event) && tenant.eventStates[event]?.state !== "notAvailable"
+    );
+    if (!needsAttention) tenant.lastError = null;
     await this.persist();
-    return { remote, allEnabledLive };
+    return { remote, allEnabledLive, needsAttention };
   }
 
   async listRemote(oprId) {
@@ -357,6 +492,7 @@ export class LeonWebhookService {
       const message = outcome.error.map((e) => e.message).join("; ");
       throw new Error(`Leon rejected ${event}: ${message}`);
     }
+    tenant.eventStates[event] = { state: "live", detail: null, hint: null, at: new Date().toISOString() };
     tenant.registered = [
       ...tenant.registered.filter((r) => r.label !== label),
       { label, event, url, registeredAt: new Date().toISOString() },
@@ -386,9 +522,15 @@ export class LeonWebhookService {
     tenant.lastError = null;
     try {
       if (enabled) await this.registerEvent(oprId, event);
-      else await this.deleteLabel(oprId, this.labelFor(oprId, event));
+      else {
+        await this.deleteLabel(oprId, this.labelFor(oprId, event));
+        delete tenant.eventStates[event];
+      }
     } catch (error) {
-      tenant.lastError = error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
+      const classified = classifyFailure(message);
+      tenant.eventStates[event] = { state: classified.state, detail: message.slice(0, 400), hint: classified.hint, at: new Date().toISOString() };
+      tenant.lastError = message;
       await this.persist();
       throw error;
     }
@@ -409,7 +551,10 @@ export class LeonWebhookService {
           results[event] = "disabled";
         }
       } catch (error) {
-        results[event] = `error: ${error instanceof Error ? error.message : String(error)}`;
+        const message = error instanceof Error ? error.message : String(error);
+        const classified = classifyFailure(message);
+        tenant.eventStates[event] = { state: classified.state, detail: message.slice(0, 400), hint: classified.hint, at: new Date().toISOString() };
+        results[event] = `error: ${message}`;
         tenant.lastError = results[event];
       }
     }
@@ -432,9 +577,11 @@ export class LeonWebhookService {
       let remote = null;
       let remoteError = null;
       let allEnabledLive = null;
+      let needsAttention = null;
       try {
         const synced = await this.syncRemoteState(oprId);
         allEnabledLive = synced.allEnabledLive;
+        needsAttention = synced.needsAttention;
         remote = synced.remote.map((r) => ({
           label: r.label,
           webhookUrl: r.webhookUrl,
@@ -445,6 +592,8 @@ export class LeonWebhookService {
       }
       tenants[oprId] = {
         name,
+        eventStates: tenant.eventStates,
+        needsAttention,
         webhookUrl: this.webhookUrlFor(oprId),
         enabledEvents: tenant.enabledEvents,
         registered: tenant.registered,

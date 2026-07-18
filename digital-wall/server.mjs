@@ -881,6 +881,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/webhooks/log" && req.method === "GET") {
+      const opr = String(url.searchParams.get("opr") || "");
+      const event = String(url.searchParams.get("event") || "");
+      sendJson(res, { ok: true, entries: leonWebhooks.logFor(opr, event) });
+      return;
+    }
+
     if (pathname === "/api/webhooks/toggle" && req.method === "POST") {
       const body = await readJsonBody(req);
       try {

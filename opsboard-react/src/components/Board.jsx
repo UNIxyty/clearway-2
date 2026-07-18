@@ -100,7 +100,24 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
     } else {
       laneEnds[lane] = endFrac + gapFrac;
     }
-    withLanes.push({ ...flight, __lane: lane, __startFrac: undefined, __endFrac: undefined });
+    withLanes.push({ ...flight, __lane: lane, __laneStartFrac: startFrac, __endFrac: undefined });
+  }
+
+  // Neighbour awareness (1B/2A): each flight learns how far away the NEXT
+  // flight in its own lane starts, so marker rows and below-pill text can
+  // budget their width against the neighbour instead of printing over it.
+  const byLane = new Map();
+  for (const flight of withLanes) {
+    if (!byLane.has(flight.__lane)) byLane.set(flight.__lane, []);
+    byLane.get(flight.__lane).push(flight);
+  }
+  for (const laneFlights of byLane.values()) {
+    laneFlights.sort((a, b) => a.__laneStartFrac - b.__laneStartFrac);
+    for (let i = 0; i < laneFlights.length; i += 1) {
+      const next = laneFlights[i + 1];
+      laneFlights[i].__nextGapFrac = next ? next.__laneStartFrac - laneFlights[i].__laneStartFrac : null;
+      laneFlights[i].__laneStartFrac = undefined;
+    }
   }
 
   return {
@@ -453,6 +470,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         key={fl.fn}
                         flight={fl}
                         lane={fl.__lane || 0}
+                        neighborGapPx={fl.__nextGapFrac != null ? fl.__nextGapFrac * timelinePx : null}
                         laneStep={FLIGHT_LANE_STEP}
                         windowStartMs={windowStartMs}
                         windowDurationMs={windowDurationMs}

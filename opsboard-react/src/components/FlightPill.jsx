@@ -110,7 +110,7 @@ export function pillVerticalMetrics(scale, rowZoom = 1) {
  * flight_category. ADEP chip renders before the ADES chip, and each carries
  * a departure/arrival glyph so it's clear which airport it refers to.
  */
-function WxMark({ category, icao, side, sz, variant = 'wall' }) {
+function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }) {
   const color = WX_CATEGORY_COLORS[category];
   if (!color) return null;
   const light = variant === 'light' ? WX_CATEGORY_LIGHT[category] : null;
@@ -136,7 +136,7 @@ function WxMark({ category, icao, side, sz, variant = 'wall' }) {
       }}
     >
       <Icon name={isDep ? 'plane-takeoff' : 'plane-landing'} size={sz(10)} strokeWidth={2.4} />
-      WX
+      {iconOnly ? null : 'WX'}
     </span>
   );
 }
@@ -156,8 +156,83 @@ function hmUtc(ms) {
  * DECORATION (NTM only while unreviewed, WX only for today's flights, CAA
  * per its flags): this component just renders what the flight carries.
  */
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall' }) {
+/** The markers a flight carries, as data — shared by renderer and budgeter. */
+export function markerListOf(flight) {
+  const list = [];
+  if ((flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: '#f5c064', label: 'Important' });
+  if ((flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: '#5eead4', label: 'CAA details' });
+  if (flight.wxDep && WX_CATEGORY_COLORS[flight.wxDep]) list.push({ key: 'WXD', color: WX_CATEGORY_COLORS[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
+  if (flight.wxArr && WX_CATEGORY_COLORS[flight.wxArr]) list.push({ key: 'WXA', color: WX_CATEGORY_COLORS[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
+  for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK[l.type]).map((l) => l.type))) {
+    list.push({ key: type, color: ALERT_MARK[type].text, label: 'Unreviewed NOTAM' });
+  }
+  return list;
+}
+
+/**
+ * Estimated pixel widths per degradation mode (design 1B) — mono-font
+ * heuristics consistent with the pill's other width maths.
+ */
+export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = []) {
+  const markers = [...markerListOf(flight), ...extraMarkers];
+  if (markers.length === 0) return 0;
+  const gap = 4;
+  if (mode === 'dots') return markers.length * (sz(8) + gap);
+  if (mode === 'count') return sz(26);
+  const per = (m) => {
+    if (mode === 'icons') {
+      return m.key === 'IMP' ? sz(16) : m.key.startsWith('WX') ? sz(20) : sz(16);
+    }
+    // full chips
+    if (m.key === 'IMP') return sz(16);
+    if (m.key === 'CAA') return sz(30);
+    if (m.key.startsWith('WX')) return sz(36);
+    return sz(32); // NTM
+  };
+  return markers.reduce((total, m) => total + per(m) + gap, 0);
+}
+
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [] }) {
   const light = variant === 'light';
+  // Degraded wall modes (1B): icons drop chip text, dots collapse each
+  // marker to a coloured dot, count folds everything into one +N chip.
+  // Colour meaning survives at every level.
+  if (variant === 'wall' && (mode === 'dots' || mode === 'count')) {
+    const markers = [...markerListOf(flight), ...(extraMarkers || [])];
+    if (markers.length === 0) return null;
+    if (mode === 'count') {
+      return (
+        <span
+          title={markers.map((m) => m.label).join(' · ')}
+          style={{
+            fontFamily: "'IBM Plex Mono',monospace",
+            fontSize: sz(9.5),
+            fontWeight: 800,
+            color: '#aeb9d6',
+            border: '1px solid rgba(160,175,210,.45)',
+            borderRadius: 4,
+            padding: `1px ${sz(4)}px`,
+            lineHeight: `${sz(12)}px`,
+            flexShrink: 0,
+          }}
+        >
+          +{markers.length}
+        </span>
+      );
+    }
+    return (
+      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+        {markers.map((m) => (
+          <span
+            key={m.key}
+            title={m.label}
+            style={{ width: sz(8), height: sz(8), borderRadius: '50%', background: m.color, flexShrink: 0, boxShadow: '0 0 0 1px rgba(10,13,22,.5)' }}
+          />
+        ))}
+      </span>
+    );
+  }
+  const iconsOnly = variant === 'wall' && mode === 'icons';
   const alertTypes = [
     ...new Set(
       (flight.limitations || [])
@@ -210,11 +285,11 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             flexShrink: 0,
           }}
         >
-          CAA
+          {iconsOnly ? 'C' : 'CAA'}
         </span>
       )}
-      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} />
-      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} />
+      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} iconOnly={iconsOnly} />
+      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} iconOnly={iconsOnly} />
       {alertTypes.map((type) => (
         <span
           key={type}
@@ -234,7 +309,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             flexShrink: 0,
           }}
         >
-          {type}
+          {iconsOnly ? type.slice(0, 1) : type}
         </span>
       ))}
     </span>
@@ -251,6 +326,7 @@ export default function FlightPill({
   laneStep = 42,
   scale = 1,
   rowZoom = 1,
+  neighborGapPx = null,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
   // Ops-room legibility: every metric scales with the display scale setting.
@@ -365,6 +441,50 @@ export default function FlightPill({
   // combined label, render no times row at all (details live in the overlay).
   const showTimes = timelinePx > 0 ? pillPx >= labelW * 1.15 : true;
 
+  // ── Neighbour-aware width budget (1B/2A) ──────────────────────────────
+  // Everything anchored at this pill's left edge (marker row, below-pill
+  // text) may extend past the pill into EMPTY space — but never into the
+  // next flight's content. The budget is the distance to the next flight's
+  // start in this lane (minus a safety gap), or effectively unlimited when
+  // there is no neighbour.
+  const budgetPx = Number.isFinite(neighborGapPx)
+    ? Math.max(pillPx, neighborGapPx) - sz(10)
+    : Number.POSITIVE_INFINITY;
+
+  // Marker row degradation (design 1B): full chips → icon-only chips →
+  // coloured dots → one "+N" cluster, chosen against the space left after
+  // the flight ID. Colour meaning survives at every level; +N counts ALL
+  // hidden markers (incl. the LIM cluster, folded in as an amber marker).
+  const monoW = (chars, size) => chars * size * 0.62;
+  const idW = monoW(String(fn ?? '').length, F.id) + sz(6);
+  const hasLim = Array.isArray(limIndices) && limIndices.length > 0;
+  const limExtra = hasLim
+    ? [{ key: 'LIM', color: '#f0c06b', label: `Limitations ${limIndices.join(',')}` }]
+    : [];
+  const limChipW = hasLim ? monoW(4 + limIndices.join(',').length, sz(9.5)) + sz(14) : 0;
+  const markerBudget = budgetPx - idW;
+  const markerMode = (() => {
+    if (markerRowWidthEstimate(flight, sz, 'full') + limChipW <= markerBudget) return 'full';
+    if (markerRowWidthEstimate(flight, sz, 'icons') + limChipW <= markerBudget) return 'icons';
+    if (markerRowWidthEstimate(flight, sz, 'dots', limExtra) <= markerBudget) return 'dots';
+    return 'count';
+  })();
+  const showLimChip = hasLim && (markerMode === 'full' || markerMode === 'icons');
+
+  // Route below the pill (design 2A): when both ICAOs don't fully fit
+  // INSIDE the pill, the pill stays clean and the route renders below with
+  // the times — never truncated. Budgeted like the marker row; when tight,
+  // the times drop FIRST and the route survives (route > times).
+  const routeText = `${dep}→${arr}`;
+  const timesText = `${etd}–${arrDelayMin > 0 ? hmUtc(renderEndMs) : eta}`;
+  const belowBudget = budgetPx - sz(4);
+  const belowMode = (() => {
+    if (showFull) return 'anchored'; // ICAOs inside — keep the classic times row
+    if (monoW(routeText.length + 3 + timesText.length, F.times) <= belowBudget) return 'combined';
+    if (monoW(routeText.length, F.times) <= belowBudget) return 'route-only';
+    return 'none';
+  })();
+
   // Boundary (delay-crossing) labels position by REAL times. Each needs
   // clearance from the endpoint labels and from each other — the later one
   // drops rather than colliding. Compact mode replaces the whole row.
@@ -420,8 +540,8 @@ export default function FlightPill({
           {fn}
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={sz} />
-          {Array.isArray(limIndices) && limIndices.length > 0 && (
+          <FlightMarkers flight={flight} sz={sz} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} />
+          {showLimChip && (
             <span
               style={{
                 fontFamily: "'IBM Plex Mono',monospace",
@@ -431,6 +551,7 @@ export default function FlightPill({
                 borderRadius: 999,
                 padding: `1px ${sz(6)}px`,
                 lineHeight: `${sz(12)}px`,
+                whiteSpace: 'nowrap',
               }}
             >
               LIM {limIndices.join(',')}
@@ -475,16 +596,15 @@ export default function FlightPill({
               overflow: 'hidden',
             }}
           >
+            {/* Design 2A: ICAOs render inside ONLY when both fit completely;
+                a pill too narrow stays clean and the route moves below —
+                never a truncated "L…". */}
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
-              {showRoute && (
+              {showFull && (
                 <>
                   <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
-                  {showFull && (
-                    <>
-                      <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                      <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
-                    </>
-                  )}
+                  <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
+                  <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
                 </>
               )}
             </div>
@@ -539,7 +659,28 @@ export default function FlightPill({
         </div>
       </div>
 
-      {!showTimes ? (
+      {belowMode === 'combined' || belowMode === 'route-only' ? (
+        // Design 2A: route lives BELOW the pill (with the times when they
+        // fit) so pill width never truncates an ICAO. Budgeted against the
+        // neighbour; overflows the pill into safe empty space only.
+        <div
+          style={{
+            height: F.timesRow,
+            marginTop: sz(2),
+            fontFamily: "'IBM Plex Mono',monospace",
+            fontSize: F.times,
+            fontWeight: 600,
+            color: '#aeb9d6',
+            lineHeight: `${F.timesRow}px`,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ color: '#ccd6ee', fontWeight: 700 }}>{routeText}</span>
+          {belowMode === 'combined' && <span> · {timesText}</span>}
+        </div>
+      ) : belowMode === 'none' ? (
+        <div style={{ height: F.timesRow, marginTop: sz(2) }} />
+      ) : !showTimes ? (
         <div style={{ height: F.timesRow, marginTop: sz(2) }} />
       ) : compactTimes ? (
         // Narrow pill: one combined label instead of colliding absolute ones.

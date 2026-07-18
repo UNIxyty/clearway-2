@@ -259,35 +259,39 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const header = headerScrollRef.current;
     if (!body || !header) return;
 
-    let idleTimer = null;
+    // CONTINUOUS idle monitor, not a gesture-armed timer. The old version
+    // only armed its 10s timer on a user gesture — so the common wall case
+    // (nobody touches anything, "now" slowly drifts out of view over hours,
+    // or a one-off programmatic scroll) never triggered a return. This
+    // 1s monitor owns the whole decision: away from "now" AND idle for
+    // AUTO_RETURN_TO_NOW_MS → smooth return. Repeats forever; any
+    // interaction (wheel/touch/pointer/scroll we didn't initiate) resets
+    // the idle clock; our own animation is ignored via the flag.
+    let lastInteractionAt = 0; // epoch 0 => an untouched wall still corrects drift
     let autoScrolling = false;
     let settleTimer = null;
 
-    const returnToNow = () => {
-      idleTimer = null;
-      const target = nowScrollRef.current.target;
-      if (Math.abs(body.scrollLeft - target) < 4) return; // already on "now"
-      autoScrolling = true;
-      body.scrollTo({ left: target, behavior: 'smooth' });
-      // The smooth scroll emits scroll events; release the flag once settled.
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => { autoScrolling = false; }, 1200);
-    };
-
-    const armIdleTimer = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(returnToNow, AUTO_RETURN_TO_NOW_MS);
-    };
-
     const onUserInput = () => {
-      // A real user gesture cancels any in-flight auto-return and re-arms.
-      autoScrolling = false;
-      armIdleTimer();
+      autoScrolling = false; // a real gesture cancels an in-flight return
+      lastInteractionAt = Date.now();
     };
     const onScroll = () => {
       if (autoScrolling) return; // our own animation — not user interaction
-      armIdleTimer();
+      lastInteractionAt = Date.now();
     };
+
+    const monitor = setInterval(() => {
+      if (autoScrolling) return;
+      if (Date.now() - lastInteractionAt < AUTO_RETURN_TO_NOW_MS) return;
+      const target = nowScrollRef.current.target;
+      // 40px dead-band: minute-hand drift re-centres in one gentle nudge
+      // every ~10-15 min instead of a constant micro-scroll.
+      if (Math.abs(body.scrollLeft - target) < 40) return;
+      autoScrolling = true;
+      body.scrollTo({ left: target, behavior: 'smooth' });
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => { autoScrolling = false; }, 1500);
+    }, 1000);
 
     for (const el of [body, header]) {
       el.addEventListener('wheel', onUserInput, { passive: true });
@@ -296,7 +300,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       el.addEventListener('scroll', onScroll, { passive: true });
     }
     return () => {
-      clearTimeout(idleTimer);
+      clearInterval(monitor);
       clearTimeout(settleTimer);
       for (const el of [body, header]) {
         el.removeEventListener('wheel', onUserInput);

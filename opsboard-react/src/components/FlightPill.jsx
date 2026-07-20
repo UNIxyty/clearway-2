@@ -86,22 +86,30 @@ function hexA(hex, alpha) {
 
 /**
  * Vertical metrics shared by the Board (lane maths) and the pill itself.
- * rowZoom thins/thickens ONLY heights — fonts stay on the display scale so
- * text remains legible — and every row floors at its font size + padding so
- * the extreme slider positions can't clip text or the marker chips.
+ * rowZoom thins/thickens the whole band; Item 3 adds independent knobs —
+ * pillHeight (body thickness), markerScale (chip row), labelScale (ID /
+ * ICAO / times fonts). Every band still floors at its content's size —
+ * fonts never drop below 7px, marker chips below 10px — so the extreme
+ * slider positions can't clip text or the marker chips; the floors now
+ * FOLLOW labelScale/markerScale, which is what actually lets rows get
+ * meaningfully thinner than before.
  */
-export function pillVerticalMetrics(scale, rowZoom = 1) {
+export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
+  const pillHeight = Number.isFinite(opts.pillHeight) ? opts.pillHeight : 1;
+  const markerScale = Number.isFinite(opts.markerScale) ? opts.markerScale : 1;
+  const labelScale = Number.isFinite(opts.labelScale) ? opts.labelScale : 1;
   const sz = (v) => Math.round(v * scale);
   const vz = (v, floor) => Math.max(floor, Math.round(v * scale * rowZoom));
-  const id = sz(12.5);
-  const icao = sz(12);
-  const times = sz(11);
-  const labelRow = vz(18, Math.max(id + sz(4), sz(16) + 2)); // markers are sz(16) tall
-  const body = vz(30, icao + sz(8));
-  const timesRow = vz(17, times + sz(4));
+  const id = Math.max(7, Math.round(12.5 * scale * labelScale));
+  const icao = Math.max(7, Math.round(12 * scale * labelScale));
+  const times = Math.max(7, Math.round(11 * scale * labelScale));
+  const markerH = Math.max(10, Math.round(16 * scale * markerScale));
+  const labelRow = vz(18, Math.max(id + sz(2), markerH + 2));
+  const body = Math.max(icao + sz(4), Math.round(30 * scale * rowZoom * pillHeight));
+  const timesRow = vz(17, times + sz(3));
   // top offset 4 + label row + 3 + body + 2 + times row (see render)
   const total = labelRow + sz(3) + body + sz(2) + timesRow;
-  return { labelRow, body, timesRow, total };
+  return { labelRow, body, timesRow, total, fonts: { id, icao, times }, markerH };
 }
 
 /**
@@ -359,20 +367,29 @@ export default function FlightPill({
   laneStep = 42,
   scale = 1,
   rowZoom = 1,
+  pillHeight = 1,
+  markerScale = 1,
+  labelScale = 1,
   neighborGapPx = null,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
   // Ops-room legibility: every metric scales with the display scale setting.
-  // Heights additionally follow rowZoom (vertical thinning) via
-  // pillVerticalMetrics; fonts deliberately don't.
+  // Heights additionally follow rowZoom/pillHeight, marker chips follow
+  // markerScale, and the ID/ICAO/times fonts follow labelScale — all via
+  // pillVerticalMetrics so lane maths and render can't drift apart.
   const sz = (v) => Math.round(v * scale);
-  const V = pillVerticalMetrics(scale, rowZoom);
+  // Marker-row sizing: everything inside <FlightMarkers> (and the LIM chip,
+  // which sits in the same row) draws through this scaled helper.
+  const szm = (v) => Math.max(1, Math.round(v * scale * markerScale));
+  const V = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale });
   const F = {
-    id: sz(12.5),
-    times: sz(11),
-    icao: sz(12),
+    id: V.fonts.id,
+    times: V.fonts.times,
+    icao: V.fonts.icao,
     body: V.body,
-    badge: sz(18),
+    // LIM circles live INSIDE the body — cap them so a thin pill (low
+    // pillHeight/labelScale) can never have its badges spill past the fill.
+    badge: Math.min(sz(18), Math.max(10, V.body - sz(4))),
     labelRow: V.labelRow,
     timesRow: V.timesRow,
   };
@@ -494,12 +511,12 @@ export default function FlightPill({
   const limExtra = hasLim
     ? [{ key: 'LIM', color: '#f0c06b', label: `Limitations ${limIndices.join(',')}` }]
     : [];
-  const limChipW = hasLim ? monoW(4 + limIndices.join(',').length, sz(9.5)) + sz(14) : 0;
+  const limChipW = hasLim ? monoW(4 + limIndices.join(',').length, szm(9.5)) + szm(14) : 0;
   const markerBudget = budgetPx - idW;
   const markerMode = (() => {
-    if (markerRowWidthEstimate(flight, sz, 'full') + limChipW <= markerBudget) return 'full';
-    if (markerRowWidthEstimate(flight, sz, 'icons') + limChipW <= markerBudget) return 'icons';
-    if (markerRowWidthEstimate(flight, sz, 'dots', limExtra) <= markerBudget) return 'dots';
+    if (markerRowWidthEstimate(flight, szm, 'full') + limChipW <= markerBudget) return 'full';
+    if (markerRowWidthEstimate(flight, szm, 'icons') + limChipW <= markerBudget) return 'icons';
+    if (markerRowWidthEstimate(flight, szm, 'dots', limExtra) <= markerBudget) return 'dots';
     return 'count';
   })();
   const showLimChip = hasLim && (markerMode === 'full' || markerMode === 'icons');
@@ -508,11 +525,11 @@ export default function FlightPill({
   // inside the budget after every alert marker + LIM chip; the first thing
   // dropped when space tightens. Never folded into dots/+N (alert summaries).
   const acftType = flight.acftTypeIcao || null;
-  const typeChipW = acftType ? monoW(acftType.length, sz(9.5)) + sz(12) : 0;
+  const typeChipW = acftType ? monoW(acftType.length, szm(9.5)) + szm(12) : 0;
   const showTypeChip =
     !!acftType &&
     markerMode === 'full' &&
-    markerRowWidthEstimate(flight, sz, 'full') + limChipW + typeChipW <= markerBudget;
+    markerRowWidthEstimate(flight, szm, 'full') + limChipW + typeChipW <= markerBudget;
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
   // INSIDE the pill, the pill stays clean and the route renders below with
@@ -583,17 +600,17 @@ export default function FlightPill({
           {fn}
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={sz} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} typeChip={showTypeChip ? acftType : null} />
+          <FlightMarkers flight={flight} sz={szm} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} typeChip={showTypeChip ? acftType : null} />
           {showLimChip && (
             <span
               style={{
                 fontFamily: "'IBM Plex Mono',monospace",
-                fontSize: sz(9.5),
+                fontSize: szm(9.5),
                 color: '#f0c06b',
                 border: '1px solid rgba(240,177,59,.4)',
                 borderRadius: 999,
-                padding: `1px ${sz(6)}px`,
-                lineHeight: `${sz(12)}px`,
+                padding: `1px ${szm(6)}px`,
+                lineHeight: `${szm(12)}px`,
                 whiteSpace: 'nowrap',
               }}
             >

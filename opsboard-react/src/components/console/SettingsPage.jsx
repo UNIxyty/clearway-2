@@ -345,8 +345,9 @@ function HourSpacingCard() {
   );
 }
 
-function RowHeightCard() {
-  const [rowZoom, setRowZoom] = useState(1);
+function VerticalSizingCard() {
+  const DEFAULTS = { rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1 };
+  const [values, setValues] = useState(DEFAULTS);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
@@ -355,56 +356,65 @@ function RowHeightCard() {
   useEffect(() => {
     fetchDisplaySettings()
       .then((payload) => {
-        if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
+        setValues((prev) => {
+          const next = { ...prev };
+          for (const key of Object.keys(DEFAULTS)) {
+            if (Number.isFinite(payload.settings?.[key])) next[key] = payload.settings[key];
+          }
+          return next;
+        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
 
-  function onChange(value) {
-    const next = Number(value);
-    setRowZoom(next);
-    // Debounced persist; merge-safe PUT — never clobbers scale/timeZoom.
+  function onChange(key, label, next) {
+    setValues((prev) => ({ ...prev, [key]: next }));
+    // Debounced persist; merge-safe PUT — each slider patches ONLY its key,
+    // so none of the vertical knobs (or scale/timeZoom/…) clobber each other.
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await saveDisplaySettings({ rowZoom: next });
-        flash(`Row / pill height ${next.toFixed(2)}× — wall updates in seconds`);
+        await saveDisplaySettings({ [key]: next });
+        flash(`${label} ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
     }, 500);
   }
 
+  const rows = [
+    { key: 'rowZoom', label: 'Row spacing', hint: 'vertical space per aircraft row and gap between lanes', min: 0.4, max: 1.4 },
+    { key: 'pillHeight', label: 'Pill height', hint: "the pill body's own thickness", min: 0.4, max: 1.4 },
+    { key: 'markerScale', label: 'Marker size', hint: 'the IMP/CAA/WX/NTM chip row above the pill', min: 0.5, max: 1.3 },
+    { key: 'labelScale', label: 'Label size', hint: 'flight ID and the route/times text', min: 0.5, max: 1.3 },
+  ];
+
   return (
     <Card style={{ marginBottom: 22 }}>
-      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Row / pill height</h3>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Vertical sizing</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Vertical size of aircraft rows and flight pills. Lower makes the timeline thinner so more
-        registrations fit on screen; text keeps the display scale and stays legible.
+        Independent controls for how much vertical space each flight takes — row spacing, pill
+        thickness, marker chips and labels each scale on their own. Horizontal/time-axis sizing
+        is untouched. Hard floors keep everything legible at the minimums.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ fontSize: 12, color: t.faint }}>0.6×</span>
-        <input
-          type="range"
-          min="0.6"
-          max="1.4"
-          step="0.05"
-          value={rowZoom}
-          disabled={!loaded}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ flex: 1, accentColor: t.blue }}
+      {rows.map((row) => (
+        <WindowRow
+          key={row.key}
+          label={row.label}
+          hint={row.hint}
+          min={row.min}
+          max={row.max}
+          step={0.05}
+          unit="×"
+          value={values[row.key]}
+          defaultValue={DEFAULTS[row.key]}
+          loaded={loaded}
+          onChange={(next) => onChange(row.key, row.label, next)}
         />
-        <span style={{ fontSize: 12, color: t.faint }}>1.4×</span>
-        <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, width: 64, textAlign: 'right' }}>
-          {Number(rowZoom).toFixed(2)}×
-        </span>
-        <Button size="sm" variant="soft" disabled={!loaded || Number(rowZoom) === 1} onClick={() => onChange(1)}>
-          Reset
-        </Button>
-      </div>
+      ))}
     </Card>
   );
 }
@@ -852,7 +862,7 @@ export default function SettingsPage() {
       />
       <DisplayScaleCard />
       <HourSpacingCard />
-      <RowHeightCard />
+      <VerticalSizingCard />
       <PanelScalesCard />
       <VisibilityWindowCard />
       <ClocksCard />

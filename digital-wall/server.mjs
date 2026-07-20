@@ -125,7 +125,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, overlayScale: 1.3, sidebarScale: 1.3, upcomingHorizonHours: 17, postLandingHours: 2 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, overlayScale: 1.3, sidebarScale: 1.3, upcomingHorizonHours: 17, postLandingHours: 2 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 function sanitizeDisplaySettings(input = {}) {
@@ -142,8 +142,24 @@ function sanitizeDisplaySettings(input = {}) {
   // Vertical size: lane/pill height multiplier. <1 thins the timeline so
   // more registrations fit on screen; text keeps the display scale.
   const rowZoom = input.rowZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.rowZoom : Number(input.rowZoom);
-  if (!Number.isFinite(rowZoom) || rowZoom < 0.6 || rowZoom > 1.4) {
-    throw new Error("rowZoom must be a number between 0.6 and 1.4.");
+  if (!Number.isFinite(rowZoom) || rowZoom < 0.4 || rowZoom > 1.4) {
+    throw new Error("rowZoom must be a number between 0.4 and 1.4.");
+  }
+  // Item 3: finer vertical sizing — pill body thickness, marker-row size and
+  // label (ID / route / times) size adjust independently of row spacing.
+  // Hard floors live in pillVerticalMetrics (fonts never drop below 7px,
+  // marker chips below 10px) so nothing clips even at slider minimums.
+  const pillHeight = input.pillHeight === undefined ? DEFAULT_DISPLAY_SETTINGS.pillHeight : Number(input.pillHeight);
+  if (!Number.isFinite(pillHeight) || pillHeight < 0.4 || pillHeight > 1.4) {
+    throw new Error("pillHeight must be a number between 0.4 and 1.4.");
+  }
+  const markerScale = input.markerScale === undefined ? DEFAULT_DISPLAY_SETTINGS.markerScale : Number(input.markerScale);
+  if (!Number.isFinite(markerScale) || markerScale < 0.5 || markerScale > 1.3) {
+    throw new Error("markerScale must be a number between 0.5 and 1.3.");
+  }
+  const labelScale = input.labelScale === undefined ? DEFAULT_DISPLAY_SETTINGS.labelScale : Number(input.labelScale);
+  if (!Number.isFinite(labelScale) || labelScale < 0.5 || labelScale > 1.3) {
+    throw new Error("labelScale must be a number between 0.5 and 1.3.");
   }
   // Independent scales (Item 2): the side overlay and the sidebars (clocks
   // bar + legend/limitations panel) size on their own — the main display
@@ -173,6 +189,9 @@ function sanitizeDisplaySettings(input = {}) {
     scale: Math.round(scale * 100) / 100,
     timeZoom: Math.round(timeZoom * 100) / 100,
     rowZoom: Math.round(rowZoom * 100) / 100,
+    pillHeight: Math.round(pillHeight * 100) / 100,
+    markerScale: Math.round(markerScale * 100) / 100,
+    labelScale: Math.round(labelScale * 100) / 100,
     overlayScale: Math.round(overlayScale * 100) / 100,
     sidebarScale: Math.round(sidebarScale * 100) / 100,
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,

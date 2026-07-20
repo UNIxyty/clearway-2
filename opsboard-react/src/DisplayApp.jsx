@@ -65,7 +65,10 @@ export default function DisplayApp() {
   const [notamSign, setNotamSign] = useState('NONE');
   const [scale, setScale] = useState(1.3); // display scale (ops-room legibility)
   const [timeZoom, setTimeZoom] = useState(1); // hour-gridline spacing (time-axis zoom)
-  const [rowZoom, setRowZoom] = useState(1); // vertical size (lane/pill height)
+  const [rowZoom, setRowZoom] = useState(1); // vertical size (row spacing)
+  const [pillHeight, setPillHeight] = useState(1); // pill body thickness (Item 3)
+  const [markerScale, setMarkerScale] = useState(1); // marker chip row size (Item 3)
+  const [labelScale, setLabelScale] = useState(1); // ID / route / times text (Item 3)
   const [overlayScale, setOverlayScale] = useState(1.3); // side overlay, independent of the board
   const [sidebarScale, setSidebarScale] = useState(1.3); // clocks bar + legend/limitations panel
   const loadingRef = useRef(false);
@@ -106,6 +109,9 @@ export default function DisplayApp() {
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
+      if (Number.isFinite(payload.settings?.pillHeight)) setPillHeight(payload.settings.pillHeight);
+      if (Number.isFinite(payload.settings?.markerScale)) setMarkerScale(payload.settings.markerScale);
+      if (Number.isFinite(payload.settings?.labelScale)) setLabelScale(payload.settings.labelScale);
       if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
       if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
     } catch {
@@ -189,6 +195,9 @@ export default function DisplayApp() {
         scale={scale}
         timeZoom={timeZoom}
         rowZoom={rowZoom}
+        pillHeight={pillHeight}
+        markerScale={markerScale}
+        labelScale={labelScale}
         sidebarScale={sidebarScale}
       />
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}

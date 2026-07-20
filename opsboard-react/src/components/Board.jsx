@@ -126,7 +126,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, sidebarScale = 1.3 }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3 }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -152,9 +152,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // rowZoom (vertical size slider) thins lane/pill HEIGHTS only — text stays
   // on the display scale. Metrics come from the pill so lane maths and the
   // rendered pill can never drift apart.
-  const pillV = pillVerticalMetrics(scale, rowZoom);
+  const pillV = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale });
   const FLIGHT_PILL_HEIGHT = pillV.total;
-  const FLIGHT_LANE_GAP = Math.max(4, Math.round(12 * scale * rowZoom));
+  const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * rowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -509,6 +509,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         timelinePx={timelinePx}
                         scale={scale}
                         rowZoom={rowZoom}
+                        pillHeight={pillHeight}
+                        markerScale={markerScale}
+                        labelScale={labelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                       />
                     ))}

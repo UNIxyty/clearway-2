@@ -944,3 +944,26 @@ Webhooks (flightWatchChanged) remain the instant path when registered; this
 is the guaranteed fallback for every operator. Verified live: one pull
 flipped 10/11 past-departure cwy flights to arrived with correct ATD/ATA
 and delay minutes.
+
+## Vertical sizing (Item 3 — finer controls)
+
+Three new display settings alongside rowZoom, all independent multipliers
+(default 1, merge-safe PUT, config.changed broadcast, applied live via SSE):
+- pillHeight 0.4–1.4 — the pill body's own thickness
+- markerScale 0.5–1.3 — the IMP/CAA/WX/NTM chip row (and the LIM chip +
+  type chip that share it; width budgeting uses the same scaled helper so
+  degradation stays consistent)
+- labelScale 0.5–1.3 — flight ID, in-pill ICAOs, and the route/times text
+rowZoom widened 0.6→0.4 (row spacing; lane gap floor 4→2px). All flow
+through pillVerticalMetrics(scale, rowZoom, {pillHeight, markerScale,
+labelScale}) so Board lane maths and the rendered pill can never drift.
+Floors now FOLLOW the label/marker multipliers (fonts ≥7px, marker chips
+≥10px, body ≥ ICAO font + padding) — that's what actually lets rows shrink;
+LIM badges inside the body are capped at body−padding so a thin pill can't
+clip them. Horizontal/time-axis behaviour untouched. Console: Settings →
+"Vertical sizing" card (replaces Row/pill height) with the four sliders.
+Overlap audit re-run at defaults, all-minimums, thin-rows/big-text and
+fat-rows/small-text: zero pill-element overlaps in every combination
+(row pitch 138px → 80px at minimums, −42%). This deliberately does NOT
+restructure the label/body/times bands — the broader vertical redesign is
+a separate Claude-Design track.

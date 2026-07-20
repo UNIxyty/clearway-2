@@ -1599,6 +1599,18 @@ export class LeonTimelineService {
     return { outcome: "updated" };
   }
 
+  // ICAO aircraft type (C56X, E55P…) comes from the operator roster, which is
+  // aircraft-level data — joined onto each payload group by registration so
+  // the wall can show a type chip without a per-flight Leon field.
+  attachAircraftTypes(groups) {
+    for (const group of groups) {
+      const roster = this.aircraftCacheByOperator.get(group.oprId) || [];
+      const row = roster.find((entry) => entry.registration === group.registration);
+      group.acftTypeIcao = row?.acftTypeIcao ?? null;
+      group.acftTypeShortName = row?.acftTypeShortName ?? null;
+    }
+  }
+
   async getFlights({ from, to, oprId, refresh, allOperators, includeHidden, applyTimeWindow } = {}) {
     const forceLive = refresh === true || String(refresh) === "true";
     const targetOprId = String(oprId || "").trim();
@@ -1664,6 +1676,7 @@ export class LeonTimelineService {
       }
 
       const grouped = groupFlights(records);
+      this.attachAircraftTypes(grouped);
       return {
         source: operators.length > 1 ? "leon-live-multi" : "leon-live",
         syncedAt: new Date().toISOString(),
@@ -1703,6 +1716,7 @@ export class LeonTimelineService {
       });
     }
     const grouped = groupFlights(records);
+    this.attachAircraftTypes(grouped);
     return {
       source: this.state.source,
       syncedAt: this.state.lastRunAt,

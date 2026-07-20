@@ -886,3 +886,17 @@ No backend change and no cache migration needed — the server cache was already
 nid-keyed (FLIGHT_CACHE_VERSION stays 2). Verified with a 3-leg JTY52W row:
 pre-fix dev React logged 10 duplicate-key violations, post-fix zero and each
 pill holds its own state.
+
+## ICAO aircraft-type marker
+
+The type code (C56X, E55P…) comes from the operator roster Leon query the
+sync already runs (`aircraftList { acftType { icao } }`) — aircraft-level
+data, so `getFlights` joins it onto each payload group by registration
+(`attachAircraftTypes`) instead of adding a per-flight Leon field. The wall
+maps it per flight (`acftTypeIcao`) and renders `AcftTypeChip`: a neutral
+slate chip in the marker row, deliberately styled NOT to read as an alert.
+Priority choice: informational → lowest. The pill shows it only in 'full'
+marker mode when it fits after every alert marker + LIM chip, drops it first
+as space tightens, and never folds it into dots/+N (those count alerts only).
+Console: flight rows show `REG · TYPE`; the detail panel's TIMELINE MARKERS
+section always includes the chip.

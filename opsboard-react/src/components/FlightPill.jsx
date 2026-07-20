@@ -192,7 +192,39 @@ export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = []) {
   return markers.reduce((total, m) => total + per(m) + gap, 0);
 }
 
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [] }) {
+/**
+ * ICAO aircraft-type chip (C56X, E55P…) — informational, deliberately neutral
+ * so it never reads as an alert. Lowest marker priority: the pill shows it
+ * only in 'full' mode when it fits AFTER every alert marker, and drops it
+ * first when space tightens (it never joins dots or the +N count — those are
+ * alert summaries).
+ */
+export function AcftTypeChip({ code, sz = (v) => Math.round(v), variant = 'wall' }) {
+  if (!code) return null;
+  const light = variant === 'light';
+  return (
+    <span
+      title={`Aircraft type ${code}`}
+      style={{
+        fontFamily: "'IBM Plex Mono',monospace",
+        fontSize: sz(9.5),
+        fontWeight: 600,
+        border: `1px solid ${light ? 'rgba(100,116,139,.4)' : 'rgba(148,163,184,.35)'}`,
+        borderRadius: 4,
+        padding: `1px ${sz(4)}px`,
+        lineHeight: `${sz(12)}px`,
+        letterSpacing: '.5px',
+        color: light ? '#475569' : '#94a3b8',
+        background: light ? 'rgba(100,116,139,.08)' : 'rgba(148,163,184,.10)',
+        flexShrink: 0,
+      }}
+    >
+      {code}
+    </span>
+  );
+}
+
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], typeChip = null }) {
   const light = variant === 'light';
   // Degraded wall modes (1B): icons drop chip text, dots collapse each
   // marker to a coloured dot, count folds everything into one +N chip.
@@ -312,6 +344,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           {iconsOnly ? type.slice(0, 1) : type}
         </span>
       ))}
+      <AcftTypeChip code={typeChip} sz={sz} variant={variant} />
     </span>
   );
 }
@@ -470,6 +503,16 @@ export default function FlightPill({
     return 'count';
   })();
   const showLimChip = hasLim && (markerMode === 'full' || markerMode === 'icons');
+  // ICAO aircraft-type chip: informational → lowest priority. Only rendered
+  // when the row is already comfortable ('full' mode) AND the chip still fits
+  // inside the budget after every alert marker + LIM chip; the first thing
+  // dropped when space tightens. Never folded into dots/+N (alert summaries).
+  const acftType = flight.acftTypeIcao || null;
+  const typeChipW = acftType ? monoW(acftType.length, sz(9.5)) + sz(12) : 0;
+  const showTypeChip =
+    !!acftType &&
+    markerMode === 'full' &&
+    markerRowWidthEstimate(flight, sz, 'full') + limChipW + typeChipW <= markerBudget;
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
   // INSIDE the pill, the pill stays clean and the route renders below with
@@ -540,7 +583,7 @@ export default function FlightPill({
           {fn}
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={sz} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} />
+          <FlightMarkers flight={flight} sz={sz} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} typeChip={showTypeChip ? acftType : null} />
           {showLimChip && (
             <span
               style={{

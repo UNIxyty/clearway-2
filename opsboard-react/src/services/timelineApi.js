@@ -128,6 +128,8 @@ function mapFlight(flight, group) {
     flightNid,
     oprId,
     fn: flight.flightNo || 'UNKNOWN',
+    // ICAO aircraft type (C56X, E55P…) — informational chip in the marker row.
+    acftTypeIcao: flight.acftTypeIcao || group?.acftTypeIcao || null,
     dep,
     arr,
     etd,

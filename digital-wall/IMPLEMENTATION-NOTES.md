@@ -919,3 +919,28 @@ shows a persistent amber notice directing to the Webhooks page Re-register
 button (the exact token-rotation flow). The edit form warns about this before
 saving too. Webhooks cards read names from the operators store, so a rename
 reflects there on the next load.
+
+## Clearway white-pill cause + movement refresh
+
+Cause, proven live: cwy-cwy flights DO carry full flight watch in Leon
+(25/26 past flights in a 36h window had ATD/ATA/TO/LDG; their atd/ata come
+as unix-second integers, which normalizeDateLike already handles), but Leon
+never delivers flight-watch writes through getModifiedFlightList — in the
+same 24h, ~14 cwy flights landed while the modified-list re-delivered only
+2 (both via unrelated edits; the other "changed" rows were future-schedule
+edits). Clearway's legs are subcharter aggregations nobody edits after
+creation, so the incremental sync never re-delivers them and the wall keeps
+the pre-departure snapshot (white) forever. Other operators look livelier
+only because their staff edit flights, which happens to re-deliver current
+flightWatch. NOT caused by the Item-1 key collision (backend was nid-keyed;
+cwy flight numbers are distinct anyway).
+
+Fix: `movementRefresh(oprId)` — one flightList re-pull over [now−24h,
+now+6h] through the exact same map/filter/upsert pipeline, run for each
+operator every 2nd sync cycle (~4 min at the 120s poll; +1 request per
+operator per 4 min ≈ +2 req/min fleet-wide, still far under the rate-limit
+budget). Skipped on the cycle an operator does its initial full sync.
+Webhooks (flightWatchChanged) remain the instant path when registered; this
+is the guaranteed fallback for every operator. Verified live: one pull
+flipped 10/11 past-departure cwy flights to arrived with correct ATD/ATA
+and delay minutes.

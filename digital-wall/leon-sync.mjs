@@ -129,6 +129,11 @@ const FLIGHT_CACHE_VERSION = 2;
 // aircraft movements and stay on the wall.
 const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial"];
 
+// Movement refresh cadence: every 2nd poll cycle (~4 min at the 120s poll)
+// each operator gets one narrow flightList re-pull so flight-watch data —
+// which Leon never delivers through the modified-list — reaches the wall.
+const MOVEMENT_REFRESH_EVERY_N_CYCLES = 2;
+
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
   "etd", "etdIso", "eta", "etaIso",
@@ -664,6 +669,7 @@ export class LeonTimelineService {
     this.checklistDefsByOperator = new Map(); // oprId -> Map(cdNid -> {order[], colorByStatus{}})
     this.aircraftFetchedAtByOperator = new Map(); // oprId -> ms of last roster fetch
     this.operatorBackoff = new Map(); // oprId -> { untilMs, level }
+    this.syncCycleCount = 0; // gates the periodic movement refresh
     this.globalBackoff = null; // { untilMs, level } — fleet-wide silence
     this.syncCycleInFlight = null; // dedup: concurrent refresh=true callers share one cycle
     this.syncStateByOperator = new Map();
@@ -1098,6 +1104,7 @@ export class LeonTimelineService {
   }
 
   async #runSyncCycleInner() {
+    this.syncCycleCount += 1;
     const cycleStats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
     // Fleet-wide silence window: NO Leon traffic at all until it elapses.
     if (this.globalBackoff && Date.now() < this.globalBackoff.untilMs) {
@@ -1141,7 +1148,8 @@ export class LeonTimelineService {
             await this.fetchAircraftForOperator(operator.oprId);
             this.aircraftFetchedAtByOperator.set(operator.oprId, Date.now());
           }
-          const stats = this.syncStateByOperator.has(operator.oprId)
+          const hadCheckpoint = this.syncStateByOperator.has(operator.oprId);
+          const stats = hadCheckpoint
             ? await this.incrementalSync(operator.oprId)
             : await this.initialSync(operator.oprId);
           cycleStats.updated += stats.updated ?? 0;
@@ -1149,6 +1157,16 @@ export class LeonTimelineService {
           cycleStats.deleted += stats.deleted ?? 0;
           for (const [kind, count] of Object.entries(stats.excluded ?? {})) {
             cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
+          }
+          // Flight-watch writes never reach the modified-list, so every
+          // second cycle re-pull the active window (see movementRefresh).
+          // Skipped right after an initial sync — that already covered it.
+          if (hadCheckpoint && this.syncCycleCount % MOVEMENT_REFRESH_EVERY_N_CYCLES === 0) {
+            const movementStats = await this.movementRefresh(operator.oprId);
+            cycleStats.updated += movementStats.updated ?? 0;
+            for (const [kind, count] of Object.entries(movementStats.excluded ?? {})) {
+              cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
+            }
           }
           succeeded += 1;
           this.operatorBackoff.delete(operator.oprId);
@@ -1483,6 +1501,52 @@ export class LeonTimelineService {
 
     this.syncStateByOperator.set(oprId, { lastSyncTimestamp: checkpointBeforeStart });
     this.hasLiveLeonData = true;
+    return stats;
+  }
+
+  /**
+   * Movement refresh — the poll-side fix for flight-watch staleness.
+   * Leon does NOT mark a flight modified when flight watch (ATD/ATA/TO/LDG)
+   * is written (proven live: cwy-cwy had 14 flights land in 24h with full
+   * movement data while the modified-list re-delivered only 2 — the rest
+   * were schedule edits). Operators whose staff never edit legs after
+   * creation (Clearway's subcharter aggregation) therefore stay white
+   * forever on the wall. Webhooks (flightWatchChanged) are the instant
+   * path when registered; this narrow re-pull is the guaranteed fallback:
+   * one flightList request over [now−24h, now+6h] through the exact same
+   * map/filter/upsert pipeline, every MOVEMENT_REFRESH_EVERY_N_CYCLES-th
+   * cycle (~1 extra request per operator per 4 min at the 120s poll).
+   */
+  async movementRefresh(oprId) {
+    const now = Date.now();
+    const from = new Date(now - 24 * 3600_000);
+    const to = new Date(now + 6 * 3600_000);
+    const rawFlights = await this.fetchFlightsForOperatorRange(oprId, from, to);
+    const checklistDefs = await this.ensureChecklistDefs(oprId);
+    const stats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
+    for (const rawFlight of rawFlights) {
+      const mapped = mapLeonFlight(rawFlight, checklistDefs);
+      const nid = this.flightCacheKey(oprId, mapped.flightNid);
+      if (!hasValidTripStatus(mapped)) {
+        if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
+        stats.skipped += 1;
+        continue;
+      }
+      const excludedKind = isExcludedFlightKind(mapped);
+      if (excludedKind) {
+        if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
+        stats.excluded[excludedKind] = (stats.excluded[excludedKind] ?? 0) + 1;
+        continue;
+      }
+      mapped.oprId = oprId;
+      this.flightsByNid.set(nid, mapped);
+      stats.updated += 1;
+      this.aircraftByFlightNid.set(nid, {
+        oprId,
+        aircraftNid: rawFlight.acft?.aircraftNid ?? null,
+        registration: rawFlight.acft?.registration ?? "UNKNOWN",
+      });
+    }
     return stats;
   }
 

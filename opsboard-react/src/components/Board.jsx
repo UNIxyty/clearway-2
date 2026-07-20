@@ -499,7 +499,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                     {/* Flight pills */}
                     {!ac.aog && laneData.flights.map(fl => (
                       <FlightPill
-                        key={fl.fn}
+                        key={fl.id}
                         flight={fl}
                         lane={fl.__lane || 0}
                         neighborGapPx={fl.__nextGapFrac != null ? fl.__nextGapFrac * timelinePx : null}

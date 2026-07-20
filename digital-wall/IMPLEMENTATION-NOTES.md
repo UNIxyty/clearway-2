@@ -857,3 +857,32 @@ dead — mutations/events call notifyChanged()). Access tokens already cached
   (which never fired on an untouched wall drifting away from now). Idle ≥10s
   (AUTO_RETURN_TO_NOW_MS) + >40px from the now-anchor → smooth return;
   repeats forever; interactions reset; own animation ignored.
+
+## Flight identity audit (non-unique React key fix)
+
+Symptom: a landed leg could display another leg's state when a flight with
+the same flight number departed. Full audit of every place a flight is keyed:
+
+- Backend cache/lookup/update/evict: `flightCacheKey(oprId, flightNid)` —
+  `leon-sync.mjs` flightsByNid / aircraftByFlightNid, incremental sync,
+  webhook re-pull (`resyncFlightByNid`), deletion/eviction. All nid-keyed. OK.
+- Findings (alerts.mjs): flightKey `oprId:flightNid` (+ plain-nid fallback). OK.
+- NTM/WX are airport-keyed, CAA/IMP matched from the flight's own fields at
+  decoration time — no flight identity involved. OK.
+- Overlay state: `{flightNid, oprId}`. Console FlightsPage: `oprId:flightNid`. OK.
+- Payload dedup (`flightDedupKey`) is a composite incl. reg+times — display-only
+  dedup of duplicate Leon blocks, not state identity. Left as-is.
+- **The flaw: the wall.** `mapFlight` passed no identity at all and Board keyed
+  sibling pills `key={fl.fn}` — the flight NUMBER. Real data: JTY52W appears on
+  131 distinct legs (VPC004: 96), including several on the same day/aircraft →
+  duplicate sibling React keys → undefined reconciliation (React: "children may
+  be duplicated and/or omitted"), i.e. pill DOM/state paired with the wrong leg
+  whenever the visible list shifted (a leg departing/aging out).
+
+Fix: `mapFlight(flight, group)` now emits `id` = `oprId:flightNid` (fallback
+composite `fn|dep|arr|start|end` for nid-less static seeds), plus `flightNid` +
+`oprId` fields; Board keys pills by `fl.id`. `fn` is display-only everywhere.
+No backend change and no cache migration needed — the server cache was already
+nid-keyed (FLIGHT_CACHE_VERSION stays 2). Verified with a 3-leg JTY52W row:
+pre-fix dev React logged 10 duplicate-key violations, post-fix zero and each
+pill holds its own state.

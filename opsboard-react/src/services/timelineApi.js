@@ -94,7 +94,7 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function mapFlight(flight) {
+function mapFlight(flight, group) {
   const start = toDate(flight.etd || flight.startTimeUTC);
   const scheduledEnd = toDate(flight.eta || flight.endTimeUTC);
   const etd = toHm(start);
@@ -115,7 +115,18 @@ function mapFlight(flight) {
   const delayedDep = toDate(flight.delayedDepartureUTC) || new Date(start.getTime() + depDelayMin * 60_000);
   const delayedArr = toDate(flight.delayedArrivalUTC) || new Date(scheduledEnd.getTime() + arrDelayMin * 60_000);
 
+  const oprId = flight.oprId || group?.oprId || null;
+  const flightNid = flight.flightNid != null ? String(flight.flightNid) : null;
+
   return {
+    // Identity — flightNo repeats across many legs (JTY52W flies every jty
+    // leg), so anything that needs to tell flights apart (React keys, lookups)
+    // must use `id`, never `fn`. `fn` is display-only.
+    id: flightNid
+      ? `${oprId || 'opr'}:${flightNid}`
+      : `${flight.flightNo || 'UNKNOWN'}|${dep}|${arr}|${start.getTime()}|${scheduledEnd.getTime()}`,
+    flightNid,
+    oprId,
     fn: flight.flightNo || 'UNKNOWN',
     dep,
     arr,
@@ -147,7 +158,7 @@ function mapFlight(flight) {
 }
 
 function mapAircraft(group) {
-  const mappedFlights = (group.flights || []).map(mapFlight).filter(Boolean);
+  const mappedFlights = (group.flights || []).map((flight) => mapFlight(flight, group)).filter(Boolean);
   if (mappedFlights.length === 0) return null;
   return {
     reg: group.registration || 'UNKNOWN',

@@ -228,14 +228,17 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
       style={{
         fontFamily: "'IBM Plex Mono',monospace",
         fontSize: font,
-        fontWeight: 700,
-        border: `1px solid ${light ? 'rgba(100,116,139,.4)' : 'rgba(148,163,184,.35)'}`,
+        fontWeight: 800,
+        // Solid slate fill with dark ink: neutral (clearly not an alarm
+        // colour) but high-contrast against the dark board — the old faint
+        // tint blended into the background.
+        border: light ? '1px solid rgba(71,85,105,.55)' : '1px solid rgba(220,228,245,.25)',
         borderRadius: 3,
-        padding: `0px ${Math.max(2, Math.round(font * 0.35))}px`,
+        padding: `0px ${Math.max(2, Math.round(font * 0.4))}px`,
         lineHeight: `${font + 3}px`,
         letterSpacing: 0,
-        color: light ? '#475569' : '#94a3b8',
-        background: light ? 'rgba(100,116,139,.08)' : 'rgba(148,163,184,.10)',
+        color: light ? '#f8fafc' : '#10141f',
+        background: light ? '#64748b' : '#aab6cc',
         flexShrink: 0,
       }}
     >

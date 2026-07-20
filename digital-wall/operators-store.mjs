@@ -189,6 +189,49 @@ export class OperatorsStore {
     return sanitizeOperator(row);
   }
 
+  /**
+   * Edit a saved operator. Name/oprId update in place; the refresh token is
+   * write-only — a blank/omitted token keeps the stored one (it is never
+   * echoed back to the client). Returns change flags so the caller can purge
+   * per-operator caches and prompt for webhook re-registration.
+   */
+  async updateOperator(id, { name, oprId, refreshToken } = {}) {
+    if (!(await canUseSupabase())) {
+      throw new Error("Supabase is required for operators storage.");
+    }
+    const rows =
+      (await supabaseFetch(
+        `leon_operators?select=id,opr_id,name&id=eq.${encodeURIComponent(id)}&limit=1`
+      )) || [];
+    const existing = Array.isArray(rows) ? rows[0] : rows;
+    if (!existing?.id) {
+      throw new Error("Operator not found.");
+    }
+
+    const patch = { updated_at: new Date().toISOString() };
+    const nextName = String(name ?? "").trim();
+    if (nextName) patch.name = nextName;
+    const nextOprId = String(oprId ?? "").trim();
+    if (nextOprId && !/^[a-z0-9-]+$/i.test(nextOprId)) {
+      throw new Error("Leon prefix (oprId) may only contain letters, digits and dashes.");
+    }
+    if (nextOprId) patch.opr_id = nextOprId;
+    const nextToken = String(refreshToken ?? "").trim();
+    if (nextToken) patch.refresh_token = encryptRefreshToken(nextToken);
+
+    const updatedRows = await supabaseFetch(`leon_operators?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    const row = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows;
+    return {
+      operator: sanitizeOperator(row),
+      previousOprId: existing.opr_id,
+      oprIdChanged: Boolean(nextOprId && nextOprId !== existing.opr_id),
+      tokenChanged: Boolean(nextToken),
+    };
+  }
+
   async setOperatorActive(id, isActive) {
     if (!(await canUseSupabase())) {
       throw new Error("Supabase is required for operators storage.");

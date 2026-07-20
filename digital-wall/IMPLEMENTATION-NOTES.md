@@ -900,3 +900,22 @@ marker mode when it fits after every alert marker + LIM chip, drops it first
 as space tightens, and never folds it into dots/+N (those count alerts only).
 Console: flight rows show `REG · TYPE`; the detail panel's TIMELINE MARKERS
 section always includes the chip.
+
+## Editable operators (rotation flow)
+
+`PATCH /api/operators/:id` now handles field edits (name / oprId / token)
+alongside the original `{isActive}` toggle shape. The token is write-only:
+blank keeps the stored value, non-blank replaces it (encrypted, never echoed).
+Store method `updateOperator` returns `{previousOprId, oprIdChanged,
+tokenChanged}`; the route purges the old prefix's cached flights when the
+oprId changes (different tenant), calls
+`timelineService.invalidateOperatorCredentials(oprId)` (drops cached access
+token + per-operator backoff so a rotated token takes effect immediately, not
+after the ≤25-min TTL — `listConfiguredOperators` refills refresh tokens from
+the store every cycle), then `refreshNow()`. The response flags
+`webhooksNeedReregister` whenever token or oprId changed — Leon webhook
+registrations are bound to the refresh token/tenant — and the Operators page
+shows a persistent amber notice directing to the Webhooks page Re-register
+button (the exact token-rotation flow). The edit form warns about this before
+saving too. Webhooks cards read names from the operators store, so a rename
+reflects there on the next load.

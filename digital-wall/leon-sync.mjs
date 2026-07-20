@@ -998,6 +998,20 @@ export class LeonTimelineService {
    * caches and GraphQL/checklist caches. Persists the trimmed cache so the
    * operator's flights don't reappear on a reload.
    */
+  /**
+   * Drop cached credentials + backoff for one operator so an edited refresh
+   * token takes effect on the next request instead of after the ≤25-min
+   * access-token TTL. Flights/roster caches stay — only auth state resets.
+   */
+  invalidateOperatorCredentials(oprId) {
+    const key = String(oprId || "").trim();
+    if (!key) return;
+    this.tokensByOperator.delete(key);
+    this.tokenExpiryByOperator.delete(key);
+    this.refreshTokensByOperator.delete(key);
+    this.operatorBackoff.delete(key);
+  }
+
   async purgeOperator(oprId) {
     const key = String(oprId || "").trim();
     if (!key) return 0;

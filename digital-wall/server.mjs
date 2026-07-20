@@ -698,6 +698,38 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith("/api/operators/") && req.method === "PATCH") {
       const id = pathname.split("/").pop();
       const body = await readJsonBody(req);
+      // Field edit (name / oprId / write-only token) vs. the active toggle —
+      // the toggle keeps its original shape ({isActive} only).
+      const isFieldEdit =
+        body.name !== undefined || body.oprId !== undefined || body.refreshToken !== undefined;
+      if (isFieldEdit) {
+        try {
+          const result = await operatorsStore.updateOperator(id, body);
+          // A changed oprId points at a different Leon tenant — cached
+          // flights under the old prefix are no longer this operator's.
+          if (result.oprIdChanged) {
+            await timelineService.purgeOperator(result.previousOprId).catch(() => {});
+          }
+          if (result.tokenChanged || result.oprIdChanged) {
+            timelineService.invalidateOperatorCredentials(result.operator.oprId);
+          }
+          await timelineService.refreshNow().catch(() => {});
+          sseHub.broadcast({ type: "roster.changed", action: "operator-update", oprId: result.operator.oprId });
+          sendJson(res, {
+            ok: true,
+            operator: result.operator,
+            oprIdChanged: result.oprIdChanged,
+            tokenChanged: result.tokenChanged,
+            // Leon webhook registrations are bound to the refresh token (and
+            // the tenant) — after a rotation or prefix change they must be
+            // re-registered from the Webhooks page.
+            webhooksNeedReregister: result.oprIdChanged || result.tokenChanged,
+          });
+        } catch (error) {
+          sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        }
+        return;
+      }
       const operator = await operatorsStore.setOperatorActive(id, Boolean(body.isActive));
       await timelineService.refreshNow().catch(() => {});
       sseHub.broadcast({ type: "roster.changed", action: "operator-toggle", oprId: operator.oprId });

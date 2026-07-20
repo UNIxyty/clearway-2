@@ -480,6 +480,29 @@ export async function setOperatorActive(id, isActive) {
   return payload;
 }
 
+/**
+ * Edit a saved operator (name / oprId / refresh token). The token is
+ * write-only: pass a non-empty string to replace it, omit or blank to keep
+ * the stored one. Response flags `webhooksNeedReregister` when the change
+ * invalidates Leon webhook registrations (token rotation / tenant change).
+ */
+export async function updateOperator(id, { name, oprId, refreshToken } = {}) {
+  const body = {};
+  if (name !== undefined) body.name = name;
+  if (oprId !== undefined) body.oprId = oprId;
+  if (refreshToken) body.refreshToken = refreshToken;
+  const response = await fetch(buildApiUrl(`/api/operators/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error || `Failed to update operator (${response.status})`);
+  }
+  return payload;
+}
+
 export async function deleteOperator(id) {
   const response = await fetch(buildApiUrl(`/api/operators/${encodeURIComponent(id)}`), {
     method: 'DELETE',

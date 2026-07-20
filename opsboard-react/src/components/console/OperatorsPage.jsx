@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   deleteOperator,
   fetchOperators,
+  updateOperator,
   fetchSyncStatus,
   forceTimelineRefresh,
   setOperatorActive,
@@ -35,8 +36,13 @@ const STATUS_MAP = {
   idle: { c: '#6c7079', b: '#eef1f5', label: 'Paused', dot: '#9aa0a8' },
 };
 
-function AddOperatorForm({ onSaved, onCancel }) {
-  const [form, setForm] = useState({ name: '', oprId: '', refreshToken: '' });
+function OperatorForm({ operator = null, onSaved, onCancel }) {
+  const editing = Boolean(operator);
+  const [form, setForm] = useState({
+    name: operator?.name || '',
+    oprId: operator?.oprId || '',
+    refreshToken: '',
+  });
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -47,9 +53,15 @@ function AddOperatorForm({ onSaved, onCancel }) {
     setSaving(true);
     setError('');
     try {
-      await upsertOperator({ ...form, isActive: true });
-      flash('Operator added · initial sync queued');
-      onSaved();
+      if (editing) {
+        const result = await updateOperator(operator.id, form);
+        flash(`Saved ${form.name || form.oprId}`);
+        onSaved(result);
+      } else {
+        await upsertOperator({ ...form, isActive: true });
+        flash('Operator added · initial sync queued');
+        onSaved(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -59,9 +71,11 @@ function AddOperatorForm({ onSaved, onCancel }) {
 
   return (
     <Card className="cw-fade" style={{ border: `1px solid ${t.blueBorder}`, marginBottom: 20 }}>
-      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Add operator</h3>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{editing ? `Edit ${operator.name || operator.oprId}` : 'Add operator'}</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 18px' }}>
-        Connect a Leon operator so its flights and aircraft flow into the wall.
+        {editing
+          ? 'Rename the operator, repoint its Leon prefix, or rotate its refresh token.'
+          : 'Connect a Leon operator so its flights and aircraft flow into the wall.'}
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <form onSubmit={save}>
@@ -100,8 +114,8 @@ function AddOperatorForm({ onSaved, onCancel }) {
             <input
               type={showToken ? 'text' : 'password'}
               autoComplete="new-password"
-              placeholder="Paste Leon refresh token"
-              required
+              placeholder={editing ? 'Leave blank to keep the current token' : 'Paste Leon refresh token'}
+              required={!editing}
               value={form.refreshToken}
               onChange={(e) => setForm((prev) => ({ ...prev, refreshToken: e.target.value }))}
               style={{ flex: 1, border: 'none', outline: 'none', fontFamily: t.mono, fontSize: 14, padding: '11px 0', background: 'transparent', color: t.ink }}
@@ -118,10 +132,19 @@ function AddOperatorForm({ onSaved, onCancel }) {
             Stored encrypted and never echoed back. Generate one in Leon under <strong>Admin → API → Personal tokens</strong>.
             It authorises read-only flight &amp; schedule pulls.
           </div>
+          {editing && (form.refreshToken.trim() !== '' || form.oprId.trim() !== (operator.oprId || '')) && (
+            <div style={{ marginTop: 10, fontSize: 12.5, color: t.amberDeep || '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 9, padding: '9px 12px', lineHeight: 1.5 }}>
+              {form.oprId.trim() !== (operator.oprId || '')
+                ? 'Changing the prefix points this connection at a different Leon tenant — its cached flights are removed and re-synced. '
+                : ''}
+              Leon webhook registrations are bound to the refresh token, so after saving you must{' '}
+              <strong>re-register this operator's webhooks</strong> on the Webhooks page.
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
-            Save operator
+            {editing ? 'Save changes' : 'Save operator'}
           </Button>
           <Button variant="ghost" size="lg" onClick={onCancel}>
             Cancel
@@ -138,6 +161,8 @@ export default function OperatorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [editingOperator, setEditingOperator] = useState(null);
+  const [reregisterNotice, setReregisterNotice] = useState(null);
   const [forceSyncing, setForceSyncing] = useState(false);
   const [togglingId, setTogglingId] = useState('');
   const [deletingId, setDeletingId] = useState('');
@@ -266,7 +291,38 @@ export default function OperatorsPage() {
         </div>
       </Card>
 
-      {addOpen && <AddOperatorForm onSaved={() => { setAddOpen(false); load(); }} onCancel={() => setAddOpen(false)} />}
+      {addOpen && <OperatorForm onSaved={() => { setAddOpen(false); load(); }} onCancel={() => setAddOpen(false)} />}
+
+      {editingOperator && (
+        <OperatorForm
+          key={editingOperator.id}
+          operator={editingOperator}
+          onSaved={(result) => {
+            setEditingOperator(null);
+            if (result?.webhooksNeedReregister) {
+              setReregisterNotice({
+                name: result.operator?.name || result.operator?.oprId,
+                oprId: result.operator?.oprId,
+                oprIdChanged: result.oprIdChanged,
+              });
+            }
+            load();
+          }}
+          onCancel={() => setEditingOperator(null)}
+        />
+      )}
+
+      {reregisterNotice && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontSize: 13.5, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '12px 16px', lineHeight: 1.5 }}>
+          <Icon name="alert-triangle" size={17} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>
+            <strong>{reregisterNotice.name}</strong>: the {reregisterNotice.oprIdChanged ? 'Leon prefix/token' : 'refresh token'} changed —
+            existing Leon webhook registrations are now invalid. Open the <strong>Webhooks</strong> page and use{' '}
+            <strong>Re-register</strong> for {reregisterNotice.oprId} so live events keep flowing.
+          </span>
+          <IconButton icon="x" title="Dismiss" onClick={() => setReregisterNotice(null)} />
+        </div>
+      )}
 
       <ErrorBanner>{error}</ErrorBanner>
 
@@ -308,6 +364,11 @@ export default function OperatorsPage() {
                     on={Boolean(operator.isActive)}
                     disabled={togglingId === operator.id || deletingId === operator.id}
                     onToggle={() => toggleOperator(operator, !operator.isActive)}
+                  />
+                  <IconButton
+                    icon="pencil"
+                    title="Edit operator (name, prefix, token)"
+                    onClick={() => { setAddOpen(false); setEditingOperator(operator); }}
                   />
                   <IconButton
                     icon="trash-2"

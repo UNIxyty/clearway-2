@@ -119,7 +119,8 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // re-delivers an untouched flight (see docs/leon-status-cancel-webhook-
 // investigation.md).
 // v2: isActive in the selection + "inactive" excluded kind (2026-07-18).
-const FLIGHT_CACHE_VERSION = 2;
+// v3: icaoType (ICAO flight-type letter) in the selection (2026-07-20).
+const FLIGHT_CACHE_VERSION = 3;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
 // Simulator entries so ingestion can drop them. Confirmed on live Leon:
@@ -127,7 +128,13 @@ const FLIGHT_CACHE_VERSION = 2;
 // "simulator"), isSimulator + flightType SIMULATOR (belt and braces).
 // NOTE: isFerry is deliberately NOT here — ferry/empty legs are real
 // aircraft movements and stay on the wall.
-const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial"];
+// icaoType is the ICAO flight-plan "type of flight" LETTER (Leon enum
+// IcaoType: S scheduled air service / N non-scheduled / G general aviation /
+// M military / X other) — the field behind the "ICAO type" input on Leon's
+// Aircraft tab is the per-aircraft default (defaultFlightType); each flight
+// carries its own icaoType which inherits that default. Confirmed by live
+// introspection 2026-07-20. NOT the 4-char model designator (acftType.icao).
+const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial", "icaoType"];
 
 // Movement refresh cadence: every 2nd poll cycle (~4 min at the 120s poll)
 // each operator gets one narrow flightList re-pull so flight-watch data —
@@ -470,6 +477,8 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     isActive: typeof rawFlight.isActive === "boolean" ? rawFlight.isActive : null,
     isSimulator: rawFlight.isSimulator === true,
     flightType: rawFlight.flightType ?? null,
+    // ICAO type letter (S/N/G/M/X) for the pill's informational chip.
+    icaoType: rawFlight.icaoType ?? null,
     // Item 4: commercial vs private, straight from Leon (drives the CAA
     // appliesTo flag). null = unknown (tenant without the field).
     isCommercial: typeof rawFlight.isCommercial === "boolean" ? rawFlight.isCommercial : null,
@@ -1390,6 +1399,7 @@ export class LeonTimelineService {
           aircraftList {
             registration
             paxCapacity
+            defaultFlightType
             acftType {
               acftTypeId
               icao
@@ -1408,6 +1418,7 @@ export class LeonTimelineService {
         id: row.aircraftNid ?? `${oprId}-${row.registration ?? "UNKNOWN"}-${index}`,
         registration: row.registration ?? "UNKNOWN",
         paxCapacity: row.paxCapacity ?? null,
+        defaultIcaoType: row.defaultFlightType ?? null,
         acftTypeId: row.acftType?.acftTypeId ?? null,
         acftTypeIcao: row.acftType?.icao ?? null,
         acftTypeShortName: row.acftType?.shortName ?? null,
@@ -1686,6 +1697,7 @@ export class LeonTimelineService {
       const row = roster.find((entry) => entry.registration === group.registration);
       group.acftTypeIcao = row?.acftTypeIcao ?? null;
       group.acftTypeShortName = row?.acftTypeShortName ?? null;
+      group.defaultIcaoType = row?.defaultIcaoType ?? null;
     }
   }
 

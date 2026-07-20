@@ -967,3 +967,35 @@ fat-rows/small-text: zero pill-element overlaps in every combination
 (row pitch 138px → 80px at minimums, −42%). This deliberately does NOT
 restructure the label/body/times bands — the broader vertical redesign is
 a separate Claude-Design track.
+
+## ICAO type marker — corrected field + visibility fix
+
+Wrong field, fixed. The "ICAO type" input on Leon's Aircraft tab is
+`Aircraft.defaultFlightType`, of enum `IcaoType` (live-introspected
+2026-07-20): S = Scheduled air service, N = Non-scheduled air service,
+G = General aviation, M = Military, X = Other (the ICAO flight-plan "type
+of flight" letter). Each Flight carries its own `Flight.icaoType` of the
+same enum, inheriting the aircraft default — that per-leg value is what the
+pill now shows (aircraft default as fallback). Live data: cwy roster
+1157/1329 aircraft carry a default (mostly N, plenty G, some X); flights
+±24h split 14×N / 4×G, matching what OPS see. NOT the 4-char model
+designator (acftType.icao) shipped in a4e5193.
+
+Never-visible, fixed. The old chip competed in the alert-marker row at
+lowest priority (full-mode only, after every alert + LIM chip) — real
+flights carry several alert markers, so it effectively never rendered.
+The letter now has a RESERVED slot directly beside the flight ID, outside
+the degradation ladder entirely: it renders at every marker mode, and its
+width counts into idW so alert chips budget/degrade around it (no overlap
+reintroduced — bounding-box audit clean at defaults and at minimum vertical
+settings; 7px font floor keeps it legible). Neutral slate styling, tooltip
+gives the enum meaning.
+
+Selection changed shape → FLIGHT_CACHE_VERSION 2→3 (one clean full
+re-sync on deploy backfills letters onto every cached flight).
+
+Model designator kept in the CONSOLE only (recommendation implemented):
+flight rows show `REG · C56X` and the roster data stays on the payload —
+useful context there, but the wall pill shows only the OPS letter. Console
+marker surfaces (list MARKERS column + detail TIMELINE MARKERS) show the
+letter chip via the shared FlightMarkers `icaoType` prop.

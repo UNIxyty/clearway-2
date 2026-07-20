@@ -8,7 +8,7 @@ import {
   openFlightOverlay,
   sendFlightDocs,
 } from '../../services/timelineApi';
-import { FlightMarkers, AcftTypeChip } from '../FlightPill';
+import { FlightMarkers } from '../FlightPill';
 import { subscribeWallStream } from '../../services/wallStream';
 import Icon from './icons';
 import {
@@ -336,7 +336,7 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
   const depDelay = Number(flight.departureDelayMin) || 0;
   const hasAnyMarker =
     (flight.limitations || []).some((lim) => lim.type === 'IMP' || lim.type === 'CAA' || lim.source === 'alert') ||
-    flight.wxDep || flight.wxArr || flight.acftTypeIcao;
+    flight.wxDep || flight.wxArr || flight.icaoType;
 
   return (
     <div
@@ -382,10 +382,10 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
           {/* same chips as the wall pill, rendered larger in the light
               console variant — no dark backing needed */}
           <div style={{ display: 'inline-flex' }}>
-            <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.35)} wrap variant="light" typeChip={flight.acftTypeIcao || null} />
+            <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.35)} wrap variant="light" icaoType={flight.icaoType || null} />
           </div>
           <div style={{ fontSize: 11.5, color: t.faint, marginTop: 8, lineHeight: 1.5 }}>
-            ! important · CAA authority details · WX departure/arrival category · NTM unreviewed NOTAM · grey chip aircraft type
+            ! important · CAA authority details · WX departure/arrival category · NTM unreviewed NOTAM · grey letter ICAO flight type (S/N/G/M/X)
           </div>
         </div>
       )}
@@ -474,7 +474,7 @@ export default function FlightsPage() {
     const rows = [];
     for (const group of aircraft) {
       for (const flight of group.flights || []) {
-        rows.push({ ...flight, registration: group.registration, oprId: group.oprId, operatorName: group.operatorName, acftTypeIcao: flight.acftTypeIcao || group.acftTypeIcao || null });
+        rows.push({ ...flight, registration: group.registration, oprId: group.oprId, operatorName: group.operatorName, acftTypeIcao: group.acftTypeIcao || null, icaoType: flight.icaoType || group.defaultIcaoType || null });
       }
     }
     return rows;
@@ -663,8 +663,8 @@ export default function FlightsPage() {
                     the shared component, in its light-theme variant so the
                     chips sit directly on the console row background */}
                 <div style={{ minWidth: 0 }}>
-                  {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr) ? (
-                    <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.05)} wrap variant="light" />
+                  {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr || flight.icaoType) ? (
+                    <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.05)} wrap variant="light" icaoType={flight.icaoType || null} />
                   ) : (
                     <span style={{ fontSize: 12, color: t.ghost }}>—</span>
                   )}

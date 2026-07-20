@@ -201,27 +201,39 @@ export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = []) {
 }
 
 /**
- * ICAO aircraft-type chip (C56X, E55P…) — informational, deliberately neutral
- * so it never reads as an alert. Lowest marker priority: the pill shows it
- * only in 'full' mode when it fits AFTER every alert marker, and drops it
- * first when space tightens (it never joins dots or the +N count — those are
- * alert summaries).
+ * ICAO flight-type letter (Leon enum IcaoType, the "ICAO type" field OPS set
+ * on the Aircraft tab; each flight carries its own value inheriting that
+ * default). Informational and deliberately neutral — never alarm styling.
+ * On the WALL pill it gets a RESERVED slot beside the flight ID, outside the
+ * alert-marker degradation ladder, so it survives even when alert chips
+ * degrade to dots/+N. In console lists it rides at the end of the marker row
+ * (no width budget there).
  */
-export function AcftTypeChip({ code, sz = (v) => Math.round(v), variant = 'wall' }) {
+export const ICAO_TYPE_MEANING = {
+  S: 'Scheduled air service',
+  N: 'Non-scheduled air service',
+  G: 'General aviation',
+  M: 'Military',
+  X: 'Other',
+};
+
+export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
+  const code = String(letter || '').toUpperCase();
   if (!code) return null;
   const light = variant === 'light';
+  const font = Math.max(7, Math.round(size));
   return (
     <span
-      title={`Aircraft type ${code}`}
+      title={`ICAO type ${code} — ${ICAO_TYPE_MEANING[code] || 'Unknown'}`}
       style={{
         fontFamily: "'IBM Plex Mono',monospace",
-        fontSize: sz(9.5),
-        fontWeight: 600,
+        fontSize: font,
+        fontWeight: 700,
         border: `1px solid ${light ? 'rgba(100,116,139,.4)' : 'rgba(148,163,184,.35)'}`,
-        borderRadius: 4,
-        padding: `1px ${sz(4)}px`,
-        lineHeight: `${sz(12)}px`,
-        letterSpacing: '.5px',
+        borderRadius: 3,
+        padding: `0px ${Math.max(2, Math.round(font * 0.35))}px`,
+        lineHeight: `${font + 3}px`,
+        letterSpacing: 0,
         color: light ? '#475569' : '#94a3b8',
         background: light ? 'rgba(100,116,139,.08)' : 'rgba(148,163,184,.10)',
         flexShrink: 0,
@@ -232,7 +244,7 @@ export function AcftTypeChip({ code, sz = (v) => Math.round(v), variant = 'wall'
   );
 }
 
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], typeChip = null }) {
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null }) {
   const light = variant === 'light';
   // Degraded wall modes (1B): icons drop chip text, dots collapse each
   // marker to a coloured dot, count folds everything into one +N chip.
@@ -352,7 +364,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           {iconsOnly ? type.slice(0, 1) : type}
         </span>
       ))}
-      <AcftTypeChip code={typeChip} sz={sz} variant={variant} />
+      <IcaoTypeChip letter={icaoType} size={sz(9.5)} variant={variant} />
     </span>
   );
 }
@@ -506,7 +518,14 @@ export default function FlightPill({
   // the flight ID. Colour meaning survives at every level; +N counts ALL
   // hidden markers (incl. the LIM cluster, folded in as an amber marker).
   const monoW = (chars, size) => chars * size * 0.62;
-  const idW = monoW(String(fn ?? '').length, F.id) + sz(6);
+  // ICAO flight-type letter (S/N/G/M/X) — RESERVED slot beside the flight
+  // ID, outside the alert-marker degradation ladder: it renders at every
+  // marker mode, and its width counts into idW so the alert chips budget
+  // around it instead of overlapping it.
+  const icaoTypeLetter = flight.icaoType || null;
+  const icaoTypeFont = Math.max(7, Math.round(F.id * 0.76));
+  const icaoTypeW = icaoTypeLetter ? icaoTypeFont * 0.62 + Math.max(2, Math.round(icaoTypeFont * 0.35)) * 2 + sz(6) : 0;
+  const idW = monoW(String(fn ?? '').length, F.id) + sz(6) + icaoTypeW;
   const hasLim = Array.isArray(limIndices) && limIndices.length > 0;
   const limExtra = hasLim
     ? [{ key: 'LIM', color: '#f0c06b', label: `Limitations ${limIndices.join(',')}` }]
@@ -520,16 +539,6 @@ export default function FlightPill({
     return 'count';
   })();
   const showLimChip = hasLim && (markerMode === 'full' || markerMode === 'icons');
-  // ICAO aircraft-type chip: informational → lowest priority. Only rendered
-  // when the row is already comfortable ('full' mode) AND the chip still fits
-  // inside the budget after every alert marker + LIM chip; the first thing
-  // dropped when space tightens. Never folded into dots/+N (alert summaries).
-  const acftType = flight.acftTypeIcao || null;
-  const typeChipW = acftType ? monoW(acftType.length, szm(9.5)) + szm(12) : 0;
-  const showTypeChip =
-    !!acftType &&
-    markerMode === 'full' &&
-    markerRowWidthEstimate(flight, szm, 'full') + limChipW + typeChipW <= markerBudget;
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
   // INSIDE the pill, the pill stays clean and the route renders below with
@@ -586,21 +595,24 @@ export default function FlightPill({
       alignItems: 'stretch',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: sz(3), height: F.labelRow }}>
-        <span
-          style={{
-            fontFamily: "'IBM Plex Mono',monospace",
-            fontSize: F.id,
-            color: idColor,
-            fontStyle: idStyle,
-            fontWeight: 700,
-            letterSpacing: '.4px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {fn}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(4), flexShrink: 0 }}>
+          <span
+            style={{
+              fontFamily: "'IBM Plex Mono',monospace",
+              fontSize: F.id,
+              color: idColor,
+              fontStyle: idStyle,
+              fontWeight: 700,
+              letterSpacing: '.4px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {fn}
+          </span>
+          <IcaoTypeChip letter={icaoTypeLetter} size={icaoTypeFont} />
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={szm} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} typeChip={showTypeChip ? acftType : null} />
+          <FlightMarkers flight={flight} sz={szm} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} />
           {showLimChip && (
             <span
               style={{

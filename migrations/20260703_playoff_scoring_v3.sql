@@ -5,12 +5,24 @@
 --   matchup:     score+prog → 5, score → 3, prog → 2, else 0   (unchanged)
 --   NOT matchup: score+prog → 4, score OR prog → 2, else 0     (was: 2/0)
 --
--- Supersedes the function in 20260701_playoff_scoring_v2.sql. Scoring still keys
--- off the 90-min home_score/away_score (ET/pens are display-only). Markers
+-- Supersedes the function in 20260701_playoff_scoring_v2.sql. Applies to EVERY
+-- round: R32 (slot teams), R16→Final (feeder winners), and the THIRD-place match
+-- (feeder LOSERS — fixes a v2 bug where it used the SF winners). Scoring still
+-- keys off the 90-min home_score/away_score (ET/pens are display-only). Markers
 -- SCORING:<path>=<n> are validated by scripts/check-playoff-points-sync.ts.
 --
 -- Run THIS first, then 20260703_recalculate_points.sql. Supabase SQL editor only.
 -- ============================================================================
+
+-- Helper: the team a user predicted to WIN a given match_code (NULL if no pick).
+CREATE OR REPLACE FUNCTION _pp_pred_winner(p_user UUID, p_code TEXT)
+RETURNS UUID AS $$
+  SELECT p.predicted_winner_id
+  FROM playoff_predictions p
+  JOIN playoff_matches m ON m.id = p.match_id
+  WHERE p.user_id = p_user AND m.match_code = p_code
+  LIMIT 1;
+$$ LANGUAGE sql STABLE;
 
 CREATE OR REPLACE FUNCTION calculate_playoff_points(p_match_id UUID)
 RETURNS void AS $$
@@ -54,16 +66,26 @@ BEGIN
 
   FOR v_pred IN SELECT * FROM playoff_predictions WHERE match_id = p_match_id LOOP
     -- The user's two predicted teams for this match, in their home/away order.
-    IF v_feeder1 IS NULL THEN
+    IF v_match.match_code = 'THIRD_M01' THEN
+      -- The bronze match is the SF LOSERS (not winners). A user's predicted
+      -- third-place team = the SF participant they did NOT pick to win. SF
+      -- participants are the user's QF winner picks.
+      v_uhome := CASE
+        WHEN _pp_pred_winner(v_pred.user_id, 'SF_M01') = _pp_pred_winner(v_pred.user_id, 'QF_M01')
+          THEN _pp_pred_winner(v_pred.user_id, 'QF_M02')
+        ELSE _pp_pred_winner(v_pred.user_id, 'QF_M01')
+      END;
+      v_uaway := CASE
+        WHEN _pp_pred_winner(v_pred.user_id, 'SF_M02') = _pp_pred_winner(v_pred.user_id, 'QF_M03')
+          THEN _pp_pred_winner(v_pred.user_id, 'QF_M04')
+        ELSE _pp_pred_winner(v_pred.user_id, 'QF_M03')
+      END;
+    ELSIF v_feeder1 IS NULL THEN
       v_uhome := v_match.home_team_id;  -- R32: slot teams are the actual teams
       v_uaway := v_match.away_team_id;
     ELSE
-      SELECT p1.predicted_winner_id INTO v_uhome
-        FROM playoff_predictions p1 JOIN playoff_matches m1 ON m1.id = p1.match_id
-        WHERE p1.user_id = v_pred.user_id AND m1.match_code = v_feeder1;
-      SELECT p2.predicted_winner_id INTO v_uaway
-        FROM playoff_predictions p2 JOIN playoff_matches m2 ON m2.id = p2.match_id
-        WHERE p2.user_id = v_pred.user_id AND m2.match_code = v_feeder2;
+      v_uhome := _pp_pred_winner(v_pred.user_id, v_feeder1);
+      v_uaway := _pp_pred_winner(v_pred.user_id, v_feeder2);
     END IF;
 
     -- MATCHUP_MATCHES — set equality (order independent).

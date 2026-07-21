@@ -11,7 +11,7 @@ import { SCORING } from '../lib/playoffs/scoring-constants.ts';
 
 // Migrations carrying the authoritative SQL point values (with SCORING: markers).
 const MIGRATIONS = [
-  'migrations/20260701_playoff_scoring_v2.sql',
+  'migrations/20260703_playoff_scoring_v3.sql',
   'migrations/20260629_champion_predictions.sql',
 ];
 

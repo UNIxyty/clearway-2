@@ -24,8 +24,9 @@ const HOME = (m: CorePlayoffMatch) => m.winner_team_id!;
 const AWAY = (m: CorePlayoffMatch) => `AWAY_${m.id}`;
 
 // Authoritative points_awarded. The synthetic data carries no matchup context,
-// so it uses the NO_MATCHUP tier: progressor OR score → 2, else 0.
+// so it uses the NO_MATCHUP tier: score+prog → 4, score OR prog → 2, else 0.
 function pa(winnerCorrect: boolean, exact: boolean): number {
+  if (winnerCorrect && exact) return 4;
   return (winnerCorrect || exact) ? 2 : 0;
 }
 

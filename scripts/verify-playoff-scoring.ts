@@ -82,12 +82,12 @@ const cases: Case[] = [
     expected: 0,
   },
   {
-    name: 'B4 no matchup, prog AND score → capped at 2',
+    name: 'B4 no matchup, prog AND score → 4',
     input: {
       actualHomeTeamId: 'Canada', actualAwayTeamId: 'Paraguay', actualHomeScore: 2, actualAwayScore: 1, winnerTeamId: 'Canada',
       predHomeTeamId: 'Canada', predAwayTeamId: 'Germany', predHomeScore: 2, predAwayScore: 1, predictedWinnerId: 'Canada',
     },
-    expected: 2,
+    expected: 4,
   },
 ];
 

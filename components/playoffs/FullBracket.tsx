@@ -372,8 +372,9 @@ export function FullBracket({ matches, userPredictions, teams, onSavePrediction,
       if (!pred?.predictedWinnerId) return;
       const earned = pred.pointsAwarded ?? 0;
       if (earned <= 0) { out[m.matchCode] = 'miss'; return; }
-      // A score-matching tier is worth 3 (score only) or 5 (score + progressor).
-      const scoreMatched = earned === 3 || earned === 5;
+      // Score-matching tiers: 3 (matchup, score only), 4 (no-matchup, score+prog),
+      // 5 (matchup, score+prog).
+      const scoreMatched = earned === 3 || earned === 4 || earned === 5;
       out[m.matchCode] = `${scoreMatched ? '★ ' : ''}+${earned} ${earned === 1 ? 'pt' : 'pts'}`;
     });
     return out;

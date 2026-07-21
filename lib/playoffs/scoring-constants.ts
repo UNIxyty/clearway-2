@@ -18,7 +18,7 @@
  *   PROGRESSOR_MATCHES — predicted_winner_id == winner_team_id.
  *
  *   MATCHUP_MATCHES:  score+prog → 5,  score → 3,  prog → 2,  else 0
- *   NOT MATCHUP:      prog OR score → 2,  else 0   (capped at 2, non-stacking)
+ *   NOT MATCHUP:      score+prog → 4,  score OR prog → 2,  else 0  (non-stacking)
  *   World Champion:   flat 6, scored separately (calculate_champion_points).
  */
 export const SCORING = {
@@ -29,7 +29,8 @@ export const SCORING = {
     NONE: 0,
   },
   NO_MATCHUP: {
-    PROGRESSOR_OR_SCORE: 2,
+    SCORE_AND_PROGRESSOR: 4,
+    SCORE_OR_PROGRESSOR: 2,
     NONE: 0,
   },
   WORLD_CHAMPION: 6,
@@ -102,7 +103,9 @@ export function evaluatePlayoffPrediction(i: PlayoffScoreInput): PlayoffScoreRes
     else if (progressor) points = SCORING.MATCHUP_MATCHES.PROGRESSOR_ONLY;
     else points = SCORING.MATCHUP_MATCHES.NONE;
   } else {
-    points = (progressor || score) ? SCORING.NO_MATCHUP.PROGRESSOR_OR_SCORE : SCORING.NO_MATCHUP.NONE;
+    if (score && progressor) points = SCORING.NO_MATCHUP.SCORE_AND_PROGRESSOR;
+    else if (score || progressor) points = SCORING.NO_MATCHUP.SCORE_OR_PROGRESSOR;
+    else points = SCORING.NO_MATCHUP.NONE;
   }
 
   return { matchup, score, progressor, points };

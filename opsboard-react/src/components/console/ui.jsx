@@ -487,13 +487,30 @@ export function ChipInput({ values = [], onAdd, onRemove, onSelect, placeholder 
         <input
           value={query}
           placeholder={placeholder}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            // Pasted/typed text with separators: commit every complete part,
+            // keep the remainder in the input (nothing is silently lost).
+            if (/[,\n]/.test(raw)) {
+              const parts = raw.split(/[,\n]+/);
+              const rest = parts.pop();
+              for (const part of parts) {
+                if (part.trim()) onAdd(part.trim());
+              }
+              setQuery(rest);
+              return;
+            }
+            setQuery(raw);
+          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' || e.key === ',') {
               e.preventDefault();
               add(query);
+            } else if (e.key === 'Backspace' && !query && values.length > 0) {
+              onRemove(values[values.length - 1]);
             }
           }}
+          onBlur={() => add(query)}
           style={{ border: 'none', outline: 'none', fontFamily: 'inherit', fontSize: 13, flex: 1, minWidth: 70, background: 'transparent', color: t.ink }}
         />
       </div>
@@ -519,6 +536,9 @@ export function ChipInput({ values = [], onAdd, onRemove, onSelect, placeholder 
               key={option.value}
               type="button"
               className="cw-hover-surface"
+              onMouseDown={(e) => {
+                e.preventDefault(); // keep the text input focused
+              }}
               onClick={() => {
                 // onSelect gets the FULL option (value + label) — used where
                 // the chip needs more than the raw value (e.g. flight picks).

@@ -999,3 +999,27 @@ flight rows show `REG · C56X` and the roster data stays on the payload —
 useful context there, but the wall pill shows only the OPS letter. Console
 marker surfaces (list MARKERS column + detail TIMELINE MARKERS) show the
 letter chip via the shared FlightMarkers `icaoType` prop.
+
+## CAA phones/mail: chip inputs + array storage
+
+Phone number(s) and Mail are now ARRAYS of strings (same shape as
+match.countries/airportIcaos) edited with the page's existing ChipInput.
+The shared ChipInput itself gained: comma commits like Enter, blur commits
+(pasted/typed values are never silently lost — paste with commas/newlines
+splits into pills keeping the remainder in the input), Backspace on an
+empty input removes the last pill, and suggestion clicks select on
+mousedown so the new blur-commit can't swallow them (input keeps focus for
+the next value). Countries/Airports pick these behaviours up too.
+
+Migration: splitMultiValue splits legacy blobs on newlines/commas, trims,
+drops empties — values are separated, never cleaned ("(H24)", "OLD NBRS",
+"24/7:" qualifiers survive verbatim). Runs once at CaaStore.load() and
+persists; verified against the real 74-authority dataset: 74 entries
+migrated, 247 values split out (131 phones / 116 mail), zero token loss,
+idempotent second load. The importer passes the columns through
+splitMultiValue for future imports. sanitizeCaaEntry accepts both arrays
+and legacy strings, so old clients can't regress the shape.
+
+Rendering: wall overlay prints one value per line (rows already use
+pre-wrap); console form shows pills. AFTN / SITA / VFR addresses are
+deliberately unchanged (owner will decide separately).

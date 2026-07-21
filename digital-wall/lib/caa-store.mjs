@@ -58,6 +58,24 @@ function normalizeCountryName(value) {
 
 const text = (v) => String(v ?? "").trim();
 
+/**
+ * Multi-value contact fields (phones, mail): stored as arrays of strings,
+ * same shape as match.countries. Legacy blobs (newline/comma-separated free
+ * text from CAA_NEW.xlsx) are split here — values are separated, NEVER
+ * cleaned or reformatted, so qualifiers like "(H24)", "OLD", "NEW" survive.
+ */
+export function splitMultiValue(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((v) => String(v ?? "").trim()).filter(Boolean))];
+  }
+  return [...new Set(
+    String(value ?? "")
+      .split(/[\r\n,]+/)
+      .map((v) => v.trim())
+      .filter(Boolean)
+  )];
+}
+
 export function sanitizeCaaEntry(input = {}, existing = null) {
   const country = text(input.country ?? existing?.country);
   const authorityName = text(input.authorityName ?? existing?.authorityName);
@@ -85,8 +103,8 @@ export function sanitizeCaaEntry(input = {}, existing = null) {
       : classifyFunction(functionText),
     info: text(input.info ?? existing?.info),
     contact: text(input.contact ?? existing?.contact),
-    phones: text(input.phones ?? existing?.phones),
-    mail: text(input.mail ?? existing?.mail),
+    phones: splitMultiValue(input.phones ?? existing?.phones),
+    mail: splitMultiValue(input.mail ?? existing?.mail),
     sita: text(input.sita ?? existing?.sita),
     aftn: text(input.aftn ?? existing?.aftn),
     vfrAddresses: text(input.vfrAddresses ?? existing?.vfrAddresses),
@@ -113,6 +131,24 @@ export class CaaStore {
   async load() {
     const payload = await this.store.read();
     this.entries = Array.isArray(payload.entries) ? payload.entries : [];
+    // One-time migration: phones/mail were free-text blobs (newline/comma
+    // separated); convert to arrays in place, log what was split out.
+    let migrated = 0;
+    let valuesSplit = 0;
+    for (const entry of this.entries) {
+      if (typeof entry.phones === "string" || typeof entry.mail === "string") {
+        const phones = splitMultiValue(entry.phones);
+        const mail = splitMultiValue(entry.mail);
+        valuesSplit += phones.length + mail.length;
+        entry.phones = phones;
+        entry.mail = mail;
+        migrated += 1;
+      }
+    }
+    if (migrated > 0) {
+      await this.persist();
+      console.log(`[caa] migrated ${migrated} entr${migrated === 1 ? "y" : "ies"} to array phones/mail (${valuesSplit} values split out)`);
+    }
     this.loaded = true;
     return this.entries;
   }

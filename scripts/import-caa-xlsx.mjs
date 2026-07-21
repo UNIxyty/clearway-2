@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import xlsx from "xlsx";
-import { sanitizeCaaEntry } from "../digital-wall/lib/caa-store.mjs";
+import { sanitizeCaaEntry, splitMultiValue } from "../digital-wall/lib/caa-store.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -91,8 +91,10 @@ for (const row of rows.slice(1)) {
       functionText: text(func),
       info: text(info),
       contact: text(contact),
-      phones: text(phone),
-      mail: text(mail),
+      // Multi-value contact columns: split newline/comma blobs into arrays
+      // (values separated, never cleaned — "(H24)", "OLD", "NEW" survive).
+      phones: splitMultiValue(phone),
+      mail: splitMultiValue(mail),
       sita: text(sita),
       aftn: text(aftn),
       vfrAddresses: text(vfr),

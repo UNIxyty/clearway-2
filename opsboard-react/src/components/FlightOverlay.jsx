@@ -279,13 +279,15 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
               <div style={s.sectionTitle}>CAA details</div>
               {caaEntries.map((entry) => {
                 const caa = entry.caa || {};
+                // phones/mail are arrays now — render one value per line.
+                const multi = (v) => (Array.isArray(v) ? v.join('\n') : v);
                 const rows = [
                   ['Validity', caa.validity],
                   ['Function', caa.functionText],
                   ['Info', caa.info],
                   ['Contact', caa.contact],
-                  ['Phone', caa.phones],
-                  ['Mail', caa.mail],
+                  ['Phone', multi(caa.phones)],
+                  ['Mail', multi(caa.mail), true],
                   ['AFTN', caa.aftn, true],
                   ['SITA', caa.sita, true],
                   ['VFR FPL', caa.vfrAddresses, true],

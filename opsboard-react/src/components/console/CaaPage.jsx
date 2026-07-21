@@ -65,8 +65,8 @@ function entryToForm(entry) {
     functionKind: entry.functionKind || 'other',
     info: entry.info || '',
     contact: entry.contact || '',
-    phones: entry.phones || '',
-    mail: entry.mail || '',
+    phones: Array.isArray(entry.phones) ? entry.phones : (entry.phones ? String(entry.phones).split(/[\r\n,]+/).map((v) => v.trim()).filter(Boolean) : []),
+    mail: Array.isArray(entry.mail) ? entry.mail : (entry.mail ? String(entry.mail).split(/[\r\n,]+/).map((v) => v.trim()).filter(Boolean) : []),
     sita: entry.sita || '',
     aftn: entry.aftn || '',
     vfrAddresses: entry.vfrAddresses || '',
@@ -491,8 +491,8 @@ export default function CaaPage() {
                   </div>
                   {textField('info', 'INFO', 'working hours & conditions', { span: true, area: true, minHeight: 74, placeholder: 'Working hours, conditions and handling notes — verbatim from the sheet' })}
                   {textField('contact', 'Contact', 'routing instruction', { span: true, placeholder: 'e.g. USE CAA FOR REQ · DIRECT · USE WEB PAGE FOR REQ' })}
-                  {textField('phones', 'Phone number(s)', null, { area: true, placeholder: 'Keep OLD + NEW verbatim' })}
-                  {textField('mail', 'Mail', null, { area: true, mono: true, placeholder: 'One per line' })}
+                  {chipField('phones', 'Phone number(s)', { color: '#475569', bg: '#eef1f5' })}
+                  {chipField('mail', 'Mail', { color: '#475569', bg: '#eef1f5' })}
                   {textField('aftn', 'AFTN', null, { mono: true, placeholder: 'e.g. EGGGYAYX' })}
                   {textField('sita', 'SITA', null, { mono: true, placeholder: 'e.g. LONCAXH' })}
                   {textField('vfrAddresses', 'VFR flight plan addresses', null, { span: true, mono: true, placeholder: 'Addressees for VFR flight plans' })}

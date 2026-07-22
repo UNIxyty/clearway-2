@@ -1071,3 +1071,52 @@ flight state survive on the wall.
    authoritative with an empty-response guard.
 
 No cached-data shape change — FLIGHT_CACHE_VERSION stays 3.
+
+## White flights + wrong operator: deploy check + per-operator audit (2026-07-23)
+
+Step 0 — BOTH deploys verified CURRENT before touching anything: the prod
+payload carries acftTypeIcao/defaultIcaoType (newest backend), poll 120s,
+healthy; the served bundle (index-CmsDCHso.js) contains the flight.changed
+subscription and the ICAO-type chip and lacks pre-fix markers. The prior
+fixes ARE live — the surviving symptoms had different causes.
+
+Per-operator audit (prod /api/timeline/flights via a temp Supabase user,
+deleted after; behind-now flights, wall-window):
+
+  operator | active | behind-now | with ATD/ATA | states           | verdict
+  artlw    | yes    | 0 in window| —            | —                | nothing due
+  bys      | yes    | 1          | 1/1          | arrived          | correct
+  cwy-cwy  | yes    | 3          | 3/3          | arrived          | correct
+  jty      | yes    | 0 in window| —            | —                | nothing due
+  klj      | yes    | 30         | 6/6          | 22 scheduled(!), | genuinely-no-data
+           |        |            |              | 6 arrived, 2 air | for LY#### ops
+  nvj/sbb/ | yes    | 0 in window| —            | —                | nothing due
+  sunway   |        |            |              |                  |
+  vpc      | yes    | 2          | 1/1          | 1 arrived, 1 sch | placeholder row
+
+Findings + fixes:
+- klj: its OWN tenant has zero flight watch for its scheduled LY#### ops
+  (LY5193/LY5194 etc.: atd/ata null, etd == STD, delay 0) while its charter
+  legs DO carry movement (6 arrived / 2 airborne — so the enable-time full
+  re-pull worked). No amount of re-pulling can deliver data Leon doesn't
+  hold → estimated-state fallback at decoration (see commit): CONFIRMED +
+  past ETA → arrived, past ETD → airborne, movementStateEstimated flag;
+  real ATD/ATA always wins; delayed/CTOT untouched pre-departure. Covers
+  every operator with the same gap, live via the existing SSE repaint.
+- The re-pull machinery itself checked out: movementRefresh runs for every
+  active operator every 2nd cycle over [now−24h, now+6h], initial full
+  pull on enable confirmed live (klj).
+- vpc "wrong operator": vpc IS Panaviatic (same tenant) — the label was
+  never wrong. The row was a pseudo-aircraft literally registered
+  "Ground Han" (aircraftNid 5324, placeholder type C172) whose "flights"
+  are named after the handled tails (OHTFD = OH-TFD, N110DM) — ops-created
+  ground-handling records. Kind fields are indistinguishable from real
+  flights (iconType "flight", PAX, CONFIRMED), but real registrations are
+  always uppercase → lowercase = placeholder ("Ground Han", cwy's
+  "Transfer"). Excluded from the wall + daily NOTAM collection; still
+  visible to the console via includeHidden.
+- leon_flights (Supabase) is dead code — zero rows, no call sites; audits
+  must use the prod API or the local cache file, not that table.
+No cached-shape change; FLIGHT_CACHE_VERSION stays 3. After deploy the
+wall should show klj's LY#### legs as estimated airborne/arrived and the
+"Ground Han" row gone.

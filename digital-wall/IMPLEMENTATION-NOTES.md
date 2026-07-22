@@ -1146,3 +1146,18 @@ evicted at ~21:00-21:20 and nothing could be re-added afterwards. Fixed:
 a 5-min watchdog that clears the latch, records the error and lets the
 next tick recover. Restart the backend to unfreeze, then verify Ground
 Han returns once vpc's tenant carries its records again.
+
+## Guide v1.2 published (2026-07-23)
+
+Updated "Digital Wall - User Guide.dc.html" imported from the Claude
+Design project and served verbatim over the old version — only
+guide/index.html changed (+~60KB): the design project's support.js and
+all 27 referenced assets/screenshots are byte-identical to what was
+already deployed (sample-verified by hash), so nothing was re-downloaded
+and nothing stale needed pruning. Same React-UMD head shim as b926929
+inserted before ./support.js. New in v1.2: "07 Webhooks · live updates"
+and "08 CAA details" TOC sections, the redesigned pill (Jul 2026),
+visibility-window and overlay/sidebar scale docs. Wiring untouched (auth
+gate, traversal guard, console Guide button). Verified through the real
+server route: 10 TOC sections, 50 images rendered, 0 broken, 0 network
+errors. Frontend/guide container rebuild needed to serve it.

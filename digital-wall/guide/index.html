@@ -63,7 +63,7 @@
           <img src="assets/clearway-white.svg" alt="Clearway — Handling &amp; Operations" style="height:32px;">
         </div>
         <div style="display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:0.04em;color:#8b93a7;">
-          <span style="font-family:'IBM Plex Mono',monospace;">v1.1 · JUL 2026</span>
+          <span style="font-family:'IBM Plex Mono',monospace;">v1.2 · JUL 2026</span>
           <span style="width:1px;height:16px;background:#33405c;"></span>
           <span style="font-family:'IBM Plex Mono',monospace;">~15 MIN READ</span>
         </div>
@@ -205,7 +205,7 @@
 
             <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:16px;">
               <i data-lucide="list-filter" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
-              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">What reaches the wall.</strong> Flights show from now out to the <strong>upcoming horizon</strong> (default 17&nbsp;h) and drop off a set window after landing (<strong>post-landing removal</strong>, default 2&nbsp;h) — both adjustable in Settings. Cancelled, crew-positioning and simulator flights are never shown.</div>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">What reaches the wall.</strong> Flights show from now out to the <strong>upcoming horizon</strong> (default 17&nbsp;h) and drop off a set window after landing (<strong>post-landing removal</strong>, default 2&nbsp;h) — both adjustable in Settings. Cancelled, crew-positioning, simulator and superseded / inactive flights are never shown.</div>
             </div>
 
             <!-- ANATOMY OF A PILL -->
@@ -300,6 +300,135 @@
               </div>
             </div>
 
+            <!-- ============ JUL 2026 RENDERING UPDATE ============ -->
+            <h3 style="font-size:18px;font-weight:700;margin:40px 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The redesigned pill (Jul 2026)<span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:3px 9px;border-radius:6px;border:1px solid #99e0d3;">UPDATED</span></h3>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 8px;max-width:720px;">The pill was refreshed to read better from across the room. The route and times now sit <strong>below</strong> the pill (ICAOs are never truncated), the marker row <strong>degrades gracefully</strong> as flights crowd together, and the delay is shown as an explicit hatch between planned and actual time.</p>
+            <div style="display:inline-flex;align-items:center;gap:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:7px 12px;margin:6px 0 20px;"><i data-lucide="image" style="width:15px;height:15px;color:#c2703b;"></i><span style="font-size:12.5px;color:#9a5a24;line-height:1.4;">The dark boards below are <strong>rendered from spec</strong> to the live styling — swap for a real capture once available.</span></div>
+
+            <!-- PILL FILL STATES (new muted fills) -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin-bottom:10px;">1 · PILL FILL = STATE · ROUTE &amp; TIMES BELOW</div>
+            <div style="background:#0b111e;border:1px solid #232c3d;border-radius:14px;padding:26px 26px 22px;display:flex;gap:22px 28px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:150px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">ORO1041</div>
+                <div style="height:40px;border-radius:999px;background:#e6e8ec;box-shadow:0 4px 12px rgba(0,0,0,.32);"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">LEBL→LEVC<br><span style="color:#8ea0ba;">11:00–11:45</span></div>
+                <div style="font-size:12px;font-weight:700;color:#c6ccd6;margin-top:10px;">Scheduled</div>
+              </div>
+              <div style="flex:1;min-width:150px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">PNV210</div>
+                <div style="height:40px;border-radius:999px;overflow:hidden;display:flex;box-shadow:0 4px 12px rgba(0,0,0,.32);"><div style="width:12%;background:repeating-linear-gradient(45deg,#0b111e,#0b111e 5px,#7d9cc4 5px,#7d9cc4 10px);"></div><div style="flex:1;background:#7d9cc4;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">ESSA→EVRA<br><span style="color:#8ea0ba;">14:02–15:29</span></div>
+                <div style="font-size:12px;font-weight:700;color:#9db6d6;margin-top:10px;">Flying</div>
+              </div>
+              <div style="flex:1;min-width:150px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">BTI472</div>
+                <div style="height:40px;border-radius:999px;overflow:hidden;display:flex;box-shadow:0 4px 12px rgba(0,0,0,.32);"><div style="width:30%;background:repeating-linear-gradient(45deg,#0b111e,#0b111e 5px,#c9ab62 5px,#c9ab62 10px);"></div><div style="flex:1;background:#c9ab62;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">EVRA→EGLL<br><span style="color:#8ea0ba;">12:25–16:20</span></div>
+                <div style="font-size:12px;font-weight:700;color:#d8bd77;margin-top:10px;">Delayed · hatch</div>
+              </div>
+              <div style="flex:1;min-width:150px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">ORO1044</div>
+                <div style="height:40px;border-radius:999px;background:#9d8cc2;box-shadow:0 4px 12px rgba(0,0,0,.32);"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">LFPG→EVRA<br><span style="color:#8ea0ba;">13:40 · CTOT 14:05</span></div>
+                <div style="font-size:12px;font-weight:700;color:#b3a4d6;margin-top:10px;">CTOT / slot</div>
+              </div>
+              <div style="flex:1;min-width:150px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">ORO1039</div>
+                <div style="height:40px;border-radius:999px;background:#c99bb0;box-shadow:0 4px 12px rgba(0,0,0,.32);"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">LEMD→LEBL<br><span style="color:#8ea0ba;">09:10–10:35</span></div>
+                <div style="font-size:12px;font-weight:700;color:#d3a9bd;margin-top:10px;">Arrived</div>
+              </div>
+            </div>
+
+            <!-- DELAY TIMING DISPLAY -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:24px 0 10px;">2 · DELAY TIMING · PLANNED → HATCH → ACTUAL</div>
+            <div style="background:#0b111e;border:1px solid #232c3d;border-radius:14px;padding:26px 26px 22px;">
+              <div style="max-width:520px;margin:0 auto;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:#e7ecf5;margin-bottom:8px;">BTI472</div>
+                <div style="height:46px;border-radius:999px;overflow:hidden;display:flex;box-shadow:0 4px 14px rgba(0,0,0,.35);"><div style="width:26%;background:repeating-linear-gradient(45deg,#0b111e,#0b111e 6px,#c9ab62 6px,#c9ab62 12px);"></div><div style="flex:1;background:#c9ab62;"></div></div>
+                <div style="display:flex;justify-content:space-between;margin-top:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9fb0c8;">
+                  <span>ETD 11:30 <span style="color:#d8bd77;">→ ▨ →</span> ATD 12:25</span>
+                  <span>ETA 15:29 <span style="color:#d8bd77;">→ ▨ →</span> ATA 16:20</span>
+                </div>
+                <div style="font-size:11.5px;line-height:1.45;color:#8ea0ba;margin-top:12px;">The hatch fills the gap between planned and actual. As real times land, labels relabel <span style="color:#cfd8e6;">ETD→ATD</span> and <span style="color:#cfd8e6;">ETA→ATA</span>.</div>
+              </div>
+            </div>
+
+            <!-- PROGRESSIVE DEGRADATION -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:24px 0 10px;">3 · MARKER ROW · PROGRESSIVE DEGRADATION AS FLIGHTS CROWD</div>
+            <div style="background:#0b111e;border:1px solid #232c3d;border-radius:14px;padding:22px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+              <div style="border:1px solid #1c2537;border-radius:11px;padding:15px;">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:12px;">i · FULL CHIPS</div>
+                <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#fbe3bf;color:#8a4b09;border:1px solid #e3a45f;font-size:13px;font-weight:900;">!</span>
+                  <span style="display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:5px;background:#f6dcc4;color:#9a4d10;border:1px solid #dda06a;font-size:10.5px;font-weight:800;">NTM</span>
+                  <span style="display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:5px;background:#c7ede6;color:#0b6b62;border:1px solid #77cebe;font-size:10.5px;font-weight:800;">CAA</span>
+                  <span style="display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 5px;border-radius:5px;background:#fbe3bf;color:#8a4b09;border:1px solid #e3a45f;font-size:10.5px;font-weight:800;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"/><path d="M6.5 17.5 3 13l1.6-.55 2.3 1.25 4-1.5L8 6l1.7-.4 4.4 4.7 4.7-1.35a1.6 1.6 0 0 1 .9 3.06L6.9 17.6Z"/></svg>WX</span>
+                  <span style="display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 5px;border-radius:5px;background:#f8cfcf;color:#a51d1d;border:1px solid #e39494;font-size:10.5px;font-weight:800;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"/><path d="M17.5 17.5 21 13l-1.6-.55-2.3 1.25-4-1.5L16 6l-1.7-.4-4.4 4.7L4.9 8.65a1.6 1.6 0 0 0-.9 3.06L17.1 17.6Z"/></svg>WX</span>
+                </div>
+                <div style="font-size:10.5px;color:#7f8ca3;margin-top:11px;line-height:1.4;">Roomy: full labels + dep/arr WX glyphs.</div>
+              </div>
+              <div style="border:1px solid #1c2537;border-radius:11px;padding:15px;">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:12px;">ii · ICON-ONLY</div>
+                <div style="display:flex;gap:5px;align-items:center;">
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#fbe3bf;color:#8a4b09;border:1px solid #e3a45f;font-size:13px;font-weight:900;">!</span>
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#f6dcc4;color:#9a4d10;border:1px solid #dda06a;font-size:12px;font-weight:900;">N</span>
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#c7ede6;color:#0b6b62;border:1px solid #77cebe;font-size:12px;font-weight:900;">C</span>
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#fbe3bf;color:#8a4b09;border:1px solid #e3a45f;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"/><path d="M6.5 17.5 3 13l1.6-.55 2.3 1.25 4-1.5L8 6l1.7-.4 4.4 4.7 4.7-1.35a1.6 1.6 0 0 1 .9 3.06L6.9 17.6Z"/></svg></span>
+                  <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#f8cfcf;color:#a51d1d;border:1px solid #e39494;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"/><path d="M17.5 17.5 21 13l-1.6-.55-2.3 1.25-4-1.5L16 6l-1.7-.4-4.4 4.7L4.9 8.65a1.6 1.6 0 0 0-.9 3.06L17.1 17.6Z"/></svg></span>
+                </div>
+                <div style="font-size:10.5px;color:#7f8ca3;margin-top:11px;line-height:1.4;">Labels drop; colour + glyph still carry meaning.</div>
+              </div>
+              <div style="border:1px solid #1c2537;border-radius:11px;padding:15px;">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:12px;">iii · COLOURED DOTS</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <span style="width:11px;height:11px;border-radius:50%;background:#e3a45f;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:#dda06a;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:#5bbfae;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:#e3a45f;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:#e07070;"></span>
+                </div>
+                <div style="font-size:10.5px;color:#7f8ca3;margin-top:11px;line-height:1.4;">Tight: presence + category colour only.</div>
+              </div>
+              <div style="border:1px solid #1c2537;border-radius:11px;padding:15px;">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:12px;">iv · OVERFLOW CLUSTER</div>
+                <span style="display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 9px;border-radius:5px;background:#26324a;color:#dfe6f2;border:1px solid #38455f;font-size:11px;font-weight:800;">+5</span>
+                <div style="font-size:10.5px;color:#7f8ca3;margin-top:11px;line-height:1.4;">Smallest: a single count; open the console for detail.</div>
+              </div>
+            </div>
+
+            <!-- ROUTE BELOW + SHORT PILL -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:24px 0 10px;">4 · ROUTE BELOW · ICAOs NEVER TRUNCATE (incl. a short flight)</div>
+            <div style="background:#0b111e;border:1px solid #232c3d;border-radius:14px;padding:26px;display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;">
+              <div style="width:60px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">ORO2149</div>
+                <div style="height:40px;border-radius:999px;overflow:hidden;display:flex;box-shadow:0 4px 12px rgba(0,0,0,.32);"><div style="width:34%;background:repeating-linear-gradient(45deg,#0b111e,#0b111e 5px,#c9ab62 5px,#c9ab62 10px);"></div><div style="flex:1;background:#c9ab62;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">LEBL→LEMH<br><span style="color:#8ea0ba;">09:00–09:40</span></div>
+                <div style="font-size:11px;color:#8ea0ba;margin-top:8px;">Short flight — clean narrow pill, text fully readable underneath.</div>
+              </div>
+              <div style="flex:1;min-width:200px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#e7ecf5;margin-bottom:7px;">ORO2160</div>
+                <div style="height:40px;border-radius:999px;background:#e6e8ec;box-shadow:0 4px 12px rgba(0,0,0,.32);"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#cfd8e6;margin-top:7px;line-height:1.4;">LEBL→LEMD<br><span style="color:#8ea0ba;">09:00–10:25</span></div>
+                <div style="font-size:11px;color:#8ea0ba;margin-top:8px;">Normal-width pill for comparison. Route + times share one line below every pill.</div>
+              </div>
+            </div>
+
+            <!-- FLIGHT ID TREATMENT -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:24px 0 10px;">5 · FLIGHT ID · OPS-CHECKLIST COLOUR + ITALIC WHEN UNCONFIRMED</div>
+            <div style="background:#0b111e;border:1px solid #232c3d;border-radius:14px;padding:24px 26px;display:flex;gap:34px 44px;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:10px;">OPS CHECKLIST</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;color:#5fd08a;">ORO1042</span><span style="font-size:12.5px;color:#8ea0ba;">complete</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;color:#ef6b6f;">ORO1041</span><span style="font-size:12.5px;color:#8ea0ba;">outstanding</span></div>
+              </div>
+              <div>
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:#7f8ca3;margin-bottom:10px;">CONFIRMED vs UNCONFIRMED</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;color:#e7ecf5;">BTI472</span><span style="font-size:12.5px;color:#8ea0ba;">confirmed — upright</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;font-style:italic;color:#e7ecf5;">BTI472</span><span style="font-size:12.5px;color:#8ea0ba;">unconfirmed — italic</span></div>
+              </div>
+            </div>
+
             <!-- IN-MOTION PILL STATES -->
             <h3 style="font-size:18px;font-weight:700;margin:38px 0 4px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>In-motion pill states</h3>
             <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:700px;">Between Scheduled and Arrived a pill passes through these states. They're drawn here to the wall's exact pill design — dark board, mono ICAOs, flight ID above, times below.</p>
@@ -349,7 +478,7 @@
             </div>
             <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:22px;">
               <i data-lucide="crosshair" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
-              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Auto-return to now.</strong> If someone scrolls the timeline to look ahead, the wall automatically re-centres on the now-line after a few seconds — so the room is never left staring at the wrong hour.</div>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Auto-return to now.</strong> If someone scrolls the timeline to look ahead, the wall automatically re-centres on the now-line after about <strong>10 idle seconds</strong> — so the room is never left staring at the wrong hour.</div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;">
               <div>
@@ -540,7 +669,7 @@
 
           <div style="padding:34px 40px 40px;">
             <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 8px;max-width:720px;">Each airport carries a <strong>flight category</strong> — a single colour-coded read of how good the conditions are. You'll see it as the WX badge on a pill, and decoded in full inside the side-overlay.</p>
-            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 22px;max-width:720px;">Weather on the wall is <strong>acknowledgment-only</strong> — it's there to inform, not something you action or clear.</p>
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 22px;max-width:720px;">Weather on the wall is <strong>acknowledgment-only</strong> — it's there to inform, not something you action or clear. It's checked <strong>once a day</strong>, alongside the morning NOTAM run, for <strong>that day's flights only</strong>, giving each airport a departure and arrival category. There's no separate weather page, and it sends <strong>no emails</strong>.</p>
 
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
               <div style="border:1px solid var(--bd);border-radius:12px;overflow:hidden;"><div style="height:8px;background:#2fbf6b;"></div><div style="padding:13px 15px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:800;color:#15803d;background:#e7f6ec;padding:2px 8px;border-radius:5px;">VFR</span></div><div style="font-size:12.5px;line-height:1.5;color:var(--tx3);">Good — visual conditions.</div></div></div>
@@ -581,7 +710,7 @@
           </div>
 
           <div style="padding:34px 40px 40px;">
-            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 26px;max-width:720px;">Beyond Flights and NOTAM Check, four pages let you shape what the wall shows and how it behaves. Each carries its own "How this page works" panel at the top.</p>
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 26px;max-width:720px;">Beyond Flights and NOTAM Check, several pages let you shape what the wall shows and how it behaves — Operators, Aircraft, Limitations, Important, Webhooks and Settings. Each carries its own "How this page works" panel at the top. The console now uses the <strong>full screen width</strong>, and every flight row on the Flights page shows that flight's timeline markers inline.</p>
 
             <!-- OPERATORS -->
             <h3 style="font-size:19px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:10px;"><i data-lucide="users" style="width:19px;height:19px;color:#2563eb;"></i>Operators</h3>
@@ -714,12 +843,21 @@
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
-                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Upcoming horizon</div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">17 h</span></div>
-                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">How far ahead the wall looks. Flights beyond this window stay off the timeline until they come into range. Adjustable.</div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Overlay scale <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:2px 8px;border-radius:5px;border:1px solid #99e0d3;vertical-align:middle;">NEW</span></div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">1.0×</span></div>
+                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">Sizes the flight <strong>side-overlay</strong> on its own, so the live flight's detail reads large without changing lane density.</div>
                 </div>
                 <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
-                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Post-landing removal</div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">2 h</span></div>
-                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">How long an arrived flight lingers before it drops off. Long-landed flights clear automatically. Adjustable.</div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">Sidebar scale <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:2px 8px;border-radius:5px;border:1px solid #99e0d3;vertical-align:middle;">NEW</span></div><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--accent2);">1.0×</span></div>
+                  <div style="font-size:13px;line-height:1.5;color:var(--tx3);">Sizes the <strong>status legend and limitation cards</strong> down the side independently of the timeline.</div>
+                </div>
+              </div>
+              <div style="border:1px solid var(--bd);border-radius:13px;padding:16px 18px;background:var(--card2);">
+                <div style="font-size:14.5px;font-weight:700;margin-bottom:4px;">Visible window — behind &amp; ahead of now <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#0f766e;background:#e6f7f3;padding:2px 8px;border-radius:5px;border:1px solid #99e0d3;vertical-align:middle;">NEW</span></div>
+                <div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-bottom:12px;">Two independent bounds set how much of the day the timeline draws. A flight <strong>ages off</strong> once its arrival time passes the <em>behind-now</em> bound; the <em>ahead</em> bound is the upcoming horizon. Post-landing removal is the extra grace period counted from actual landing.</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                  <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card);"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;"><div style="font-size:13.5px;font-weight:700;">Behind now</div><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);">3 h</span></div><div style="font-size:12.5px;line-height:1.45;color:var(--tx3);">How far into the past the wall keeps drawing before a flight ages off.</div></div>
+                  <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card);"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;"><div style="font-size:13.5px;font-weight:700;">Upcoming horizon</div><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);">17 h</span></div><div style="font-size:12.5px;line-height:1.45;color:var(--tx3);">How far ahead the wall looks; flights beyond it wait off-screen.</div></div>
+                  <div style="border:1px solid var(--bd);border-radius:11px;padding:13px 15px;background:var(--card);"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;"><div style="font-size:13.5px;font-weight:700;">Post-landing removal</div><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);">2 h</span></div><div style="font-size:12.5px;line-height:1.45;color:var(--tx3);">Grace period an arrived flight lingers before it drops off.</div></div>
                 </div>
               </div>
             </div>
@@ -731,13 +869,213 @@
         </div>
       </section>
 
-      <!-- ===== 07 CAA DETAILS ===== -->
+      <!-- ===== 07 WEBHOOKS ===== -->
+      <section id="webhooks" data-section data-screen-label="Webhooks" style="scroll-margin-top:16px;">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
+          <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="webhook" style="width:22px;height:22px;color:#2563eb;"></i></div>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">07 · INTEGRATION</div>
+              <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Webhooks · live updates</h2>
+            </div>
+          </div>
+
+          <div style="padding:34px 40px 40px;">
+            <p style="font-size:16.5px;line-height:1.65;color:var(--tx2);margin:0 0 14px;max-width:720px;">A <strong>webhook</strong> is simply Leon telling the wall the instant something happens, instead of the wall having to keep asking. This page is where you switch those live updates on and check they're working — <strong>you never need to touch Leon's own website</strong>.</p>
+
+            <!-- POLL vs PUSH -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0 8px;">
+              <div style="border:1px solid var(--bd);border-radius:14px;padding:20px 22px;background:var(--card2);">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;"><i data-lucide="refresh-cw" style="width:18px;height:18px;color:var(--tx4);"></i><div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);">BEFORE · POLLING</div></div>
+                <p style="font-size:14px;line-height:1.55;color:var(--tx3);margin:0;">The wall asked Leon "what changed?" <strong>every 60&nbsp;seconds</strong>. Leon never reported landings that way, so a flight that had landed could sit as <em>flying</em> on the wall for hours.</p>
+              </div>
+              <div style="border:1px solid #cfe0ff;border-radius:14px;padding:20px 22px;background:var(--info-bg);">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;"><i data-lucide="zap" style="width:18px;height:18px;color:#2563eb;"></i><div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#2563eb;">NOW · WEBHOOKS</div></div>
+                <p style="font-size:14px;line-height:1.55;color:var(--info-tx);margin:0;">Leon <strong>pushes</strong> an event the moment a flight lands, is cancelled, rescheduled or created — and the wall updates in about <strong>2&nbsp;seconds</strong>. No more stale "flying" pills.</p>
+              </div>
+            </div>
+
+            <!-- SAFETY MODEL -->
+            <div style="display:flex;gap:14px;background:var(--card2);border:1px solid var(--bd);border-radius:14px;padding:16px 18px;margin-top:16px;">
+              <i data-lucide="shield-check" style="width:19px;height:19px;color:#15803d;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--tx2);"><strong>Trusted, but verified.</strong> The wall doesn't blindly believe a pushed message — it re-checks that flight through its normal pipeline before changing anything. And the 60-second poll still runs underneath as a fallback, so if an event is ever missed, the next poll <strong>self-heals</strong> it.</div>
+            </div>
+
+            <!-- rendered-from-spec marker -->
+            <div style="display:inline-flex;align-items:center;gap:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:7px 12px;margin:26px 0 12px;"><i data-lucide="image" style="width:15px;height:15px;color:#c2703b;"></i><span style="font-size:12.5px;color:#9a5a24;line-height:1.4;">The page below is <strong>rendered from spec</strong> — swap for a real capture once available.</span></div>
+
+            <p style="font-size:15px;line-height:1.6;color:var(--tx3);margin:0 0 18px;max-width:720px;">The page shows one <strong>card per operator</strong>. Each lists the six events Leon can push, whether each is live, and a health banner up top. To see whether Leon is sending updates, open this page and read the banners.</p>
+
+            <!-- OPERATOR CARD · HEALTHY (Live + Not-available states, green banner) -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:6px 0 10px;">A · A HEALTHY OPERATOR</div>
+            <div style="background:#fff;border:1px solid #e6e7ea;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.05),0 10px 26px rgba(16,18,22,.06);">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid #eef0f2;">
+                <div style="display:flex;align-items:baseline;gap:9px;"><span style="font-size:18px;font-weight:800;color:#17181c;">Sunway</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9aa0a8;">sunway</span></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:4px 10px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live on Leon</span>
+                <span style="flex:1;"></span>
+                <button style="font-family:inherit;font-size:13px;font-weight:600;color:#17181c;background:#fff;border:1px solid #d6d8dc;padding:8px 14px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;"><i data-lucide="refresh-cw" style="width:14px;height:14px;color:#475569;"></i>Re-register all</button>
+              </div>
+              <div style="padding:12px 20px;border-bottom:1px solid #f0f1f4;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;">WEBHOOK URL</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#64748b;background:#f6f7f9;border:1px solid #eceef1;padding:3px 8px;border-radius:6px;">https://clearway.verxyl.com/digital-wall/leon/webhook/sunway</span>
+              </div>
+              <div style="padding:12px 20px;background:#f7fbf8;border-bottom:1px solid #eef0f2;"><span style="display:inline-flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:#15803d;"><i data-lucide="check-circle-2" style="width:16px;height:16px;"></i>Healthy <span style="font-weight:500;color:#3f7a54;">· some triggers not available on this operator</span></span></div>
+
+              <!-- rows -->
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightWatchChanged</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Flight-watch times set/edited (ATD/ATA — the landing signal).</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 3m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightWatchCreated</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">First flight-watch entry created for a flight.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 3m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightCancellation</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Flight cancelled — instant removal.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 3m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightScheduleChange</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Times/airports changed — instant repositioning.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 3m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightCreate</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 9px;border-radius:999px;">Not available <i data-lucide="info" style="width:12px;height:12px;"></i></span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">New flight — instant lane appearance. <span style="color:#94a3b8;">Leon doesn't offer this trigger for this operator — nothing to fix.</span></div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#c3c8cf;white-space:nowrap;">—</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#c3c8cf;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#c3c8cf;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#e3e6ea;position:relative;flex:none;"><span style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">tripStatusChanged</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Trip Option/Confirmed flips — triggers an incremental sync.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 3m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+            </div>
+            <p style="font-size:13px;line-height:1.55;color:var(--tx4);margin:10px 0 0;">A "Not available" row is <strong>calm grey, never red</strong> — Leon simply doesn't offer that trigger for this operator, so there's nothing to fix. A mostly-working operator reads as <strong>Healthy</strong>, not an outage.</p>
+
+            <!-- OPERATOR CARD · NEEDS ATTENTION (red banner, two remedies) -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--tx4);margin:30px 0 10px;">B · AN OPERATOR THAT NEEDS ATTENTION</div>
+            <div style="background:#fff;border:1px solid #f1d4d4;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.05),0 10px 26px rgba(16,18,22,.06);">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid #eef0f2;">
+                <div style="display:flex;align-items:baseline;gap:9px;"><span style="font-size:18px;font-weight:800;color:#17181c;">Fastjet</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9aa0a8;">fastjet</span></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:4px 10px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:12px;height:12px;"></i>Needs attention</span>
+                <span style="flex:1;"></span>
+                <button style="font-family:inherit;font-size:13px;font-weight:600;color:#17181c;background:#fff;border:1px solid #d6d8dc;padding:8px 14px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;"><i data-lucide="refresh-cw" style="width:14px;height:14px;color:#475569;"></i>Re-register all</button>
+              </div>
+              <div style="padding:12px 20px;border-bottom:1px solid #f0f1f4;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;">WEBHOOK URL</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#64748b;background:#f6f7f9;border:1px solid #eceef1;padding:3px 8px;border-radius:6px;">https://clearway.verxyl.com/digital-wall/leon/webhook/fastjet</span>
+              </div>
+              <div style="padding:12px 20px;background:#fdf3f3;border-bottom:1px solid #f6e0e0;"><span style="display:inline-flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:#b91c1c;"><i data-lucide="triangle-alert" style="width:16px;height:16px;"></i>2 triggers need attention <span style="font-weight:500;color:#a35;">· each row states the fix</span></span></div>
+
+              <!-- token/oprId failure -->
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:13px 20px;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightWatchChanged</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:3px 9px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:12px;height:12px;"></i>Needs attention</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Flight-watch times set/edited (ATD/ATA — the landing signal).</div><div style="font-size:12.5px;color:#b91c1c;margin-top:6px;display:flex;align-items:center;gap:6px;"><i data-lucide="wrench" style="width:13px;height:13px;flex:none;"></i>Check this operator's refresh token / oprId, then Re-register.</div></div>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;flex:none;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;flex:none;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;margin-top:2px;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <!-- core green -->
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightCancellation</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Flight cancelled — instant removal.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 12m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid #f4f5f7;">
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightScheduleChange</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Times/airports changed — instant repositioning.</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;white-space:nowrap;">reg 12m ago</span>
+                <button title="History" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#6c7079;display:inline-flex;"><i data-lucide="scroll-text" style="width:16px;height:16px;"></i></button>
+                <button title="Delete" style="border:none;background:transparent;cursor:pointer;padding:5px;border-radius:7px;color:#9aa0a8;display:inline-flex;"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <span style="width:36px;height:20px;border-radius:999px;background:#2563eb;position:relative;flex:none;"><span style="position:absolute;top:2px;left:18px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);"></span></span>
+              </div>
+              <!-- API key scope failures (two operator-scoped events) -->
+              <div style="padding:13px 20px;border-top:1px solid #f4f5f7;background:#fffaf0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;"><i data-lucide="key-round" style="width:14px;height:14px;color:#b45309;"></i><span style="font-size:12px;font-weight:700;color:#b45309;">These two need Leon's API key regenerated with the "Operator" scope</span></div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">flightCreate</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:3px 9px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:12px;height:12px;"></i>Needs attention</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">New flight — instant lane appearance.</div></div>
+                  <span style="width:36px;height:20px;border-radius:999px;background:#cbd2da;position:relative;flex:none;"><span style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);"></span></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:11px;">
+                  <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;color:#17181c;">tripStatusChanged</span><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:3px 9px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:12px;height:12px;"></i>Needs attention</span></div><div style="font-size:12.5px;color:#6c7079;margin-top:3px;">Trip Option/Confirmed flips — triggers an incremental sync.</div></div>
+                  <span style="width:36px;height:20px;border-radius:999px;background:#cbd2da;position:relative;flex:none;"><span style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);"></span></span>
+                </div>
+                <div style="font-size:12.5px;color:#9a5a24;margin-top:10px;line-height:1.5;">The core three above stay <strong>green</strong> — only the two <em>operator-scoped</em> events fail. Regenerate this operator's Leon API key with the <strong>"Operator"</strong> scope, then Re-register.</div>
+              </div>
+            </div>
+
+            <!-- STATUS STATES REFERENCE -->
+            <h3 style="font-size:18px;font-weight:700;margin:34px 0 12px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The four status states</h3>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+              <div style="border:1px solid var(--bd);border-radius:12px;padding:15px 17px;background:var(--card2);"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:3px 9px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:#22a559;"></span>Live on Leon</span><div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-top:9px;">Registered and confirmed — Leon is pushing this event and the wall is acting on it.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;padding:15px 17px;background:var(--card2);"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;padding:3px 9px;border-radius:999px;">Not available <i data-lucide="info" style="width:12px;height:12px;"></i></span><div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-top:9px;">Calm grey, <strong>not red</strong>. Leon doesn't offer this trigger for this operator — nothing you can fix. The tooltip explains why.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;padding:15px 17px;background:var(--card2);"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:3px 9px;border-radius:999px;"><i data-lucide="triangle-alert" style="width:12px;height:12px;"></i>Needs attention</span><div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-top:9px;"><strong>Actionable.</strong> The row states the fix — a token / oprId problem, or an API-key scope problem. Only real problems look alarming.</div></div>
+              <div style="border:1px solid var(--bd);border-radius:12px;padding:15px 17px;background:var(--card2);"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#b45309;background:#fef3e2;border:1px solid #f4d4b8;padding:3px 9px;border-radius:999px;"><i data-lucide="help-circle" style="width:12px;height:12px;"></i>Status unknown</span><div style="font-size:13px;line-height:1.5;color:var(--tx3);margin-top:9px;">Amber — Leon itself was unreachable when the status was last checked. Usually clears on its own; re-check shortly.</div></div>
+            </div>
+
+            <!-- LOG HISTORY OVERLAY -->
+            <h3 style="font-size:18px;font-weight:700;margin:34px 0 12px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>The log history <span style="font-size:12px;font-weight:600;color:var(--tx4);">— opened from a row's <i data-lucide="scroll-text" style="width:14px;height:14px;vertical-align:-2px;"></i> icon</span></h3>
+            <div style="background:#fff;border:1px solid #e6e7ea;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,22,.05),0 10px 26px rgba(16,18,22,.06);max-width:640px;">
+              <div style="display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #eef0f2;"><i data-lucide="scroll-text" style="width:17px;height:17px;color:#2563eb;"></i><div style="font-size:15px;font-weight:800;color:#17181c;">flightWatchChanged</div><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9aa0a8;">sunway</span><span style="flex:1;"></span><span style="font-size:12px;color:#9aa0a8;">newest first</span></div>
+              <div style="display:flex;gap:13px;padding:14px 18px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;white-space:nowrap;padding-top:2px;">12:05:11Z</span>
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#17181c;">BTI472</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;">fnid 88213</span><span style="font-size:11px;font-weight:700;color:#15803d;background:#e7f6ec;border:1px solid #c7ead2;padding:2px 8px;border-radius:5px;">updated</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3a3d44;background:#f6f7f9;border:1px solid #eceef1;border-radius:7px;padding:7px 10px;">movementState: airborne → arrived · landed (ATA 12:05)</div></div>
+              </div>
+              <div style="display:flex;gap:13px;padding:14px 18px;border-top:1px solid #f4f5f7;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;white-space:nowrap;padding-top:2px;">11:42:03Z</span>
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#17181c;">ORO1041</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;">fnid 88190</span><span style="font-size:11px;font-weight:700;color:#1d4ed8;background:#eef4ff;border:1px solid #dbe6ff;padding:2px 8px;border-radius:5px;">updated</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3a3d44;background:#f6f7f9;border:1px solid #eceef1;border-radius:7px;padding:7px 10px;">ETD 11:30 → 12:10</div></div>
+              </div>
+              <div style="display:flex;gap:13px;padding:14px 18px;border-top:1px solid #f4f5f7;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;white-space:nowrap;padding-top:2px;">11:20:47Z</span>
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#17181c;">PNV210</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;">fnid 88176</span><span style="font-size:11px;font-weight:700;color:#b91c1c;background:#fdecec;border:1px solid #f4cdcd;padding:2px 8px;border-radius:5px;">evicted: cancelled</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3a3d44;background:#f6f7f9;border:1px solid #eceef1;border-radius:7px;padding:7px 10px;">removed — cancelled</div></div>
+              </div>
+              <div style="display:flex;gap:13px;padding:14px 18px;border-top:1px solid #f4f5f7;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9aa0a8;white-space:nowrap;padding-top:2px;">10:58:09Z</span>
+                <div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#17181c;">ORO1052</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9aa0a8;">fnid 88203</span><span style="font-size:11px;font-weight:700;color:#7c3aed;background:#f3ecff;border:1px solid #e2d3fb;padding:2px 8px;border-radius:5px;">incremental sync</span></div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#3a3d44;background:#f6f7f9;border:1px solid #eceef1;border-radius:7px;padding:7px 10px;">new flight added</div></div>
+              </div>
+            </div>
+
+            <!-- REMEDIATION -->
+            <h3 style="font-size:18px;font-weight:700;margin:34px 0 12px;display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:2px;background:#2563eb;"></span>When an operator needs attention</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:12px;align-items:flex-start;border:1px solid var(--bd);border-radius:12px;padding:14px 16px;background:var(--card2);"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:var(--chip);color:#2563eb;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</span><div style="font-size:14px;line-height:1.55;color:var(--tx2);"><strong>Token / oprId problem</strong> — check this operator's refresh token and oprId are correct, then press <strong>Re-register all</strong>.</div></div>
+              <div style="display:flex;gap:12px;align-items:flex-start;border:1px solid var(--bd);border-radius:12px;padding:14px 16px;background:var(--card2);"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:var(--chip);color:#2563eb;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</span><div style="font-size:14px;line-height:1.55;color:var(--tx2);"><strong>API-key scope problem</strong> — if the operator-scoped events fail while the core three stay green, regenerate this operator's Leon API key with the <strong>"Operator"</strong> scope, then Re-register.</div></div>
+              <div style="display:flex;gap:12px;align-items:flex-start;border:1px solid var(--bd);border-radius:12px;padding:14px 16px;background:var(--card2);"><span style="flex:none;width:26px;height:26px;border-radius:8px;background:var(--chip);color:#2563eb;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</span><div style="font-size:14px;line-height:1.55;color:var(--tx2);"><strong>After rotating a refresh token</strong> you must <strong>Re-register</strong> from this page — the old registration won't carry over.</div></div>
+            </div>
+            <div style="display:flex;gap:14px;background:var(--info-bg);border:1px solid var(--info-bd);border-radius:14px;padding:16px 18px;margin-top:14px;">
+              <i data-lucide="check-circle-2" style="width:19px;height:19px;color:#2563eb;flex:none;margin-top:1px;"></i>
+              <div style="font-size:14.5px;line-height:1.55;color:var(--info-tx);"><strong style="color:var(--accent2);">Re-registering is always safe.</strong> It's <strong>idempotent</strong> — running it again just re-confirms what's already there, so you can press <strong>Re-register all</strong> whenever a status looks off without any risk of duplicates.</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--bd2);padding:15px 40px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+            <img class="gw-logo" src="assets/clearway.svg" alt="Clearway" style="height:14px;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tx4);letter-spacing:0.02em;"><span>Built by</span><img class="gw-logo" src="assets/verxyl.png" alt="Verxyl" style="height:10px;opacity:.6;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 08 CAA DETAILS ===== -->
       <section id="caa" data-section data-screen-label="CAA" style="scroll-margin-top:16px;">
         <div style="background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(16,18,22,.04),0 14px 34px rgba(16,18,22,.05);overflow:hidden;">
           <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
             <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="landmark" style="width:22px;height:22px;color:#2563eb;"></i></div>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">07 · THE CONSOLE</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">08 · THE CONSOLE</div>
               <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">CAA details</h2>
             </div>
           </div>
@@ -901,7 +1239,7 @@
           <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
             <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="file-text" style="width:22px;height:22px;color:#2563eb;"></i></div>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">08 · THE CONSOLE</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">09 · THE CONSOLE</div>
               <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">AIP &amp; GEN documents</h2>
             </div>
           </div>
@@ -972,7 +1310,7 @@
           <div style="padding:26px 40px;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:16px;">
             <div style="width:46px;height:46px;border-radius:12px;background:var(--chip);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="log-in" style="width:22px;height:22px;color:#2563eb;"></i></div>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">09 · GETTING IN</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.14em;color:var(--tx4);">10 · GETTING IN</div>
               <h2 style="font-size:27px;font-weight:800;letter-spacing:-0.02em;margin:3px 0 0;">Signing in</h2>
             </div>
           </div>
@@ -1089,9 +1427,10 @@ class Component extends DCLogic {
       ['notam','04','The daily NOTAM check'],
       ['weather','05','Weather (WX)'],
       ['console','06','Managing the console'],
-      ['caa','07','CAA details'],
-      ['docs','08','AIP & GEN documents'],
-      ['auth','09','Signing in'],
+      ['webhooks','07','Webhooks · live updates'],
+      ['caa','08','CAA details'],
+      ['docs','09','AIP & GEN documents'],
+      ['auth','10','Signing in'],
     ];
     const toc = defs.map(([id,num,label])=>{
       const on = id === active;

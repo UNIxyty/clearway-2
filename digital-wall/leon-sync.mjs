@@ -141,6 +141,11 @@ const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator
 // which Leon never delivers through the modified-list — reaches the wall.
 const MOVEMENT_REFRESH_EVERY_N_CYCLES = 2;
 
+// Hard cap for one whole sync cycle (all operators). 9 operators with
+// stagger and a few requests each finish in well under 2 minutes; 5 min
+// means "hung", not "slow".
+const SYNC_CYCLE_WATCHDOG_MS = 5 * 60 * 1000;
+
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
   "etd", "etdIso", "eta", "etaIso",
@@ -1112,10 +1117,31 @@ export class LeonTimelineService {
     // Concurrent callers (backend timer + any refresh=true request) share
     // ONE in-flight cycle instead of stacking extra Leon bursts.
     if (this.syncCycleInFlight) return this.syncCycleInFlight;
-    this.syncCycleInFlight = this.#runSyncCycleInner().finally(() => {
-      this.syncCycleInFlight = null;
-    });
-    return this.syncCycleInFlight;
+    // Watchdog: a cycle may NEVER hold the latch forever — when one hangs
+    // past the cap the latch clears, the failure is surfaced, and the next
+    // timer tick starts fresh (per-fetch timeouts reap the zombie work).
+    const inner = this.#runSyncCycleInner();
+    let watchdogTimer;
+    const guarded = Promise.race([
+      inner,
+      new Promise((_, reject) => {
+        watchdogTimer = setTimeout(
+          () => reject(new Error(`sync cycle exceeded ${SYNC_CYCLE_WATCHDOG_MS / 60000} min — abandoning hung cycle`)),
+          SYNC_CYCLE_WATCHDOG_MS
+        );
+      }),
+    ])
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.state.lastError = message;
+        console.error(`[leon-sync] ${message}`);
+      })
+      .finally(() => {
+        clearTimeout(watchdogTimer);
+        if (this.syncCycleInFlight === guarded) this.syncCycleInFlight = null;
+      });
+    this.syncCycleInFlight = guarded;
+    return guarded;
   }
 
   /** Rate-limit shaped failure? (Leon's gateway answers HTML 403/429.) */
@@ -1299,6 +1325,9 @@ export class LeonTimelineService {
     const response = await fetch(`${this.getBaseUrl(oprId)}/access_token/refresh/`, {
       method: "POST",
       body: form,
+      // Unbounded fetches froze the whole sync loop when a socket hung
+      // (2026-07-23: all operators' stamps stopped for hours, no errors).
+      signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) {
       throw new Error(`API key token refresh failed: ${response.status}`);
@@ -1328,14 +1357,16 @@ export class LeonTimelineService {
         body: JSON.stringify({ query, variables }),
         signal: controller.signal,
       });
+      // Body reads stay under the same abort window — a stalled body
+      // stream (headers arrived, body never finishes) must also time out.
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`GraphQL request failed: ${response.status} ${errorBody.slice(0, 400)}`);
+      }
+      var payload = await response.json();
     } finally {
       clearTimeout(timeout);
     }
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`GraphQL request failed: ${response.status} ${errorBody.slice(0, 400)}`);
-    }
-    const payload = await response.json();
     if (payload.errors?.length) {
       throw new Error(`GraphQL returned errors: ${payload.errors[0].message}`);
     }

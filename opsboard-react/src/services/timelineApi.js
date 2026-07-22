@@ -165,6 +165,12 @@ function mapAircraft(group) {
   const mappedFlights = (group.flights || []).map((flight) => mapFlight(flight, group)).filter(Boolean);
   if (mappedFlights.length === 0) return null;
   return {
+    // Identity: registrations are NOT unique across operators — cwy-cwy's
+    // aggregator tenant carries other carriers' tails (LY-JMS, LY-BGS…) that
+    // also exist under their own operator (klj). Rows must key on
+    // oprId:registration, never the registration alone.
+    id: `${group.oprId || 'opr'}:${group.registration || 'UNKNOWN'}`,
+    oprId: group.oprId || null,
     reg: group.registration || 'UNKNOWN',
     type: group.operatorName || group.oprId || 'OPS',
     flights: mappedFlights,

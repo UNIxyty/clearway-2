@@ -450,7 +450,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 });
                 const rowHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
-                <div key={ac.reg} style={{ ...s.row, height: rowHeight }}>
+                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>

@@ -1120,3 +1120,29 @@ Findings + fixes:
 No cached-shape change; FLIGHT_CACHE_VERSION stays 3. After deploy the
 wall should show klj's LY#### legs as estimated airborne/arrived and the
 "Ground Han" row gone.
+
+## Placeholder rule reverted + prod sync freeze (2026-07-23)
+
+The lowercase-registration heuristic from the previous entry was WRONG and
+is fully removed — "Ground Han" is a row ops wants shown, and no fuzzy
+name-shape rule hides anything anymore. Complete damage audit (prod
+payload incl. hidden + rosters): the rule could ever hide exactly ONE row
+— vpc "Ground Han" (cwy's "Transfer" has no flights, so no row). It was
+almost certainly never live (the running build predates it). T7-LASER is
+UPPERCASE and was never matched: its wall absence = its only flight
+(T7LASER, dep Jul 21 14:50Z) aged past the 17.5h behind-window and cwy's
+tenant has no upcoming legs for it; it reappears whenever it flies. To
+hide a genuine non-aircraft row, use the console's per-aircraft hide
+(exact oprId:registration) — never a pattern.
+
+While auditing, found prod's REAL outage: the sync loop froze at 21:20Z
+(every operator's last_sync_at frozen for 4+ h, zero errors, API fine).
+Root cause: the access-token refresh fetch had NO timeout — one hung
+socket kept `syncCycleInFlight` latched forever, and every subsequent
+cycle returned the stuck promise. That freeze — not the placeholder rule
+— is also why rows (incl. "Ground Han") vanished: Leon-side changes were
+evicted at ~21:00-21:20 and nothing could be re-added afterwards. Fixed:
+15s abort on token refresh, graphql body reads inside the 20s window, and
+a 5-min watchdog that clears the latch, records the error and lets the
+next tick recover. Restart the backend to unfreeze, then verify Ground
+Han returns once vpc's tenant carries its records again.

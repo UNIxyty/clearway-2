@@ -1023,3 +1023,51 @@ and legacy strings, so old clients can't regress the shape.
 Rendering: wall overlay prints one value per line (rows already use
 pre-wrap); console form shows pills. AFTN / SITA / VFR addresses are
 deliberately unchanged (owner will decide separately).
+
+## Wall bugs: attribution, operator toggling, Klasjet, stale timings
+
+Shared root cause across the four: identity/staleness — registrations are
+not unique across operators, and three separate delivery gaps let stale
+flight state survive on the wall.
+
+1. Wrong-operator aircraft: cwy-cwy is an AGGREGATOR tenant — it carries
+   other carriers' tails flying their legs (live: LY-JMS / LY-BBN / LY-BGS
+   flying KLJ flights, EC-NQS/EC-OMU flying ORO). Those registrations also
+   exist under their own operator (klj). The board keyed aircraft rows by
+   registration alone (`key={ac.reg}`) → duplicate sibling React keys →
+   rows could render with the wrong operator's label/flights. Fix: groups
+   carry `id = oprId:registration` and the board keys rows by it. Audited
+   every other join: roster/type joins, hide keys, schedule, webhooks —
+   all already oprId-scoped.
+
+2. Operator toggling: the PATCH route awaited a full multi-operator sync
+   cycle before broadcasting (disable felt ~30s; the wall's active-set
+   filter was already instant once notified). Now: broadcast immediately;
+   on ENABLE the incremental checkpoint is dropped (modified-list never
+   re-delivers untouched flights) and a background full re-pull starts at
+   once, so past-departure flights come back with real movement, not white.
+   Webhook events for a disabled operator are ignored (`ignored-disabled`
+   in the trigger log) — nid-less events used to trigger full sync cycles.
+
+3. Klasjet: klj is a configured operator, token healthy (last sync
+   "success"), but DISABLED in the store at the time of the report — so
+   nothing synced and stale white pills lingered (bug 2). Its flights do
+   carry movement data: the same KLJ legs inside cwy-cwy's tenant show full
+   ATD/ATA/TO/LDG (3/3 in ±36h — KLJ5855, KLJ5608, KLJ6904). The klj
+   tenant itself can't be introspected from the dev machine (stored token
+   is encrypted with the server-only key), but with the enable-time full
+   re-pull + the movement refresh, enabling klj pulls real states
+   immediately. Not a klj-specific mapping gap.
+
+4. Stale timings: every backend path fully replaces the flight record and
+   recomputes delays (verified), and fw.etd-first precedence is CORRECT
+   (live: KLJ5608 STD 01:30z vs flight-watch ETD 09:00z — flight watch is
+   the fresher estimate; delay derives from it vs the planned STD). The
+   real gaps were delivery: no wall subscription to flight.changed, no
+   broadcast from sync cycles, and the movement refresh never evicting
+   flights that vanished from the window (deleted/replaced/cancelled/
+   rescheduled while webhooks were down, the operator disabled, or during
+   backoff). All three fixed (see commit); the window pull is now
+   authoritative with an empty-response guard.
+
+No cached-data shape change — FLIGHT_CACHE_VERSION stays 3.

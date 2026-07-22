@@ -370,6 +370,20 @@ function normalizeHexColor(value) {
  * no movement data exists; `movementStateEstimated` marks the difference).
  * Real movement data (atd/ata) always wins and disables the estimate.
  */
+/**
+ * Ops-created placeholder "aircraft" — live finding: vpc's tenant has a
+ * pseudo-tail literally registered "Ground Han" (ground-handling jobs,
+ * "flights" named after the HANDLED tail: OHTFD, N110DM), and cwy's roster
+ * has "Transfer". Rendering those as aircraft rows misattributes foreign
+ * tails to the tenant operator. Real registrations are always UPPERCASE
+ * (ES-BTC, B2 868, 15+01…) — lowercase letters mean prose, i.e. a
+ * placeholder. Excluded from the wall; still listed under includeHidden
+ * (console aircraft management) for transparency.
+ */
+export function isPlaceholderRegistration(registration) {
+  return /[a-z]/.test(String(registration || ""));
+}
+
 export function estimateMovementState(flight, nowMs) {
   if (flight?.atd || flight?.ata) return null; // real data drives the state
   const state = flight?.movementState;
@@ -1805,6 +1819,7 @@ export class LeonTimelineService {
         if (!overlapsRange(flight, from, to)) continue;
         const registration = aircraft.registration ?? flight.aircraftRegistration ?? "UNKNOWN";
         if (hiddenKeys.has(this.aircraftHideKey(activeOprId, registration))) continue;
+        if (includeHidden !== true && isPlaceholderRegistration(registration)) continue;
         if (!inTimeWindow(flight)) continue;
         const operator = operatorById.get(activeOprId);
         const operatorName = flight.operatorName ?? operator.name ?? activeOprId;
@@ -1847,6 +1862,7 @@ export class LeonTimelineService {
       };
       const hideKey = this.aircraftHideKey(aircraft.oprId ?? this.operatorId, aircraft.registration);
       if (hiddenKeys.has(hideKey)) continue;
+      if (includeHidden !== true && isPlaceholderRegistration(aircraft.registration)) continue;
       if (!inTimeWindow(flight)) continue;
       const fallbackOprId = aircraft.oprId ?? this.operatorId;
       records.push({

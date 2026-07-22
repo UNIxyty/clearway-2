@@ -18,7 +18,7 @@
 import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
-import { flightVisibleInWindow } from "../leon-sync.mjs";
+import { flightVisibleInWindow, isPlaceholderRegistration } from "../leon-sync.mjs";
 import { mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
 import {
   compileNotamGroups,
@@ -215,6 +215,9 @@ export class NotamCheckService {
     const airports = new Map();
     for (const [key, flight] of this.timelineService.flightsByNid.entries()) {
       if (flight.isCnl) continue;
+      // Ground-handling placeholder rows (registration is prose, not a
+      // tail) are off the wall — their airports don't join the daily check.
+      if (isPlaceholderRegistration(this.timelineService.aircraftByFlightNid?.get(key)?.registration ?? "")) continue;
       if (flightZonedDay(flight) !== day) continue;
       // Item 9: airport collection follows the same visibility window as the
       // wall — a flight beyond the upcoming horizon (or long landed) doesn't

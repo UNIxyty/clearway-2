@@ -360,6 +360,28 @@ function normalizeHexColor(value) {
  * are treated as "no data" explicitly, so a missing timestamp neither hides
  * a valid flight nor pins an invalid one forever.
  */
+/**
+ * Honest fallback for flights whose operator never writes flight watch
+ * (live finding: klj's own scheduled LY#### ops carry no ATD/ATA/TO/LDG in
+ * their tenant at all — 22 behind-now flights sat white). A CONFIRMED
+ * flight past its (estimated) departure must not read as "not departed":
+ * derive an ESTIMATED airborne/arrived from the schedule/estimates at
+ * DECORATION time (display-only — the cached record keeps the truth that
+ * no movement data exists; `movementStateEstimated` marks the difference).
+ * Real movement data (atd/ata) always wins and disables the estimate.
+ */
+export function estimateMovementState(flight, nowMs) {
+  if (flight?.atd || flight?.ata) return null; // real data drives the state
+  const state = flight?.movementState;
+  if (state === "airborne" || state === "arrived" || state === "cancelled") return null;
+  const start = parseDate(flight?.etd ?? flight?.startTimeUTC)?.getTime();
+  const end = parseDate(flight?.eta ?? flight?.endTimeUTC)?.getTime();
+  if (!Number.isFinite(start)) return null;
+  if (Number.isFinite(end) && nowMs >= end) return "arrived";
+  if (nowMs >= start) return "airborne";
+  return null;
+}
+
 export function flightVisibleInWindow(flight, nowMs, settings = {}) {
   const aheadHours = Number(settings.upcomingHorizonHours);
   const behindHours = Number(settings.postLandingHours);
@@ -2268,8 +2290,16 @@ export class LeonTimelineService {
     const wxDep = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
     const wxArr = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
 
+    // Estimated movement state (display-only) for operators with no flight
+    // watch — a behind-now CONFIRMED flight renders airborne/arrived from
+    // its schedule instead of staying white forever.
+    const estimated = estimateMovementState(flight, Date.now());
+    const stateOverride = estimated
+      ? { movementState: estimated, movementStateEstimated: true }
+      : {};
+
     if (limitations.length === 0) {
-      return { ...flight, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };
+      return { ...flight, ...stateOverride, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };
     }
     const allIds = limitations.map((item) => item.id);
     const primary = limitations[0] || null;
@@ -2280,7 +2310,7 @@ export class LeonTimelineService {
             msg: primary.description || primary.title,
           }
         : null;
-    return { ...flight, limitationIds: allIds, limitations, lim, wxDep, wxArr };
+    return { ...flight, ...stateOverride, limitationIds: allIds, limitations, lim, wxDep, wxArr };
   }
 
   /**

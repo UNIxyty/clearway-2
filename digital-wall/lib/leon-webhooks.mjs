@@ -313,6 +313,22 @@ export class LeonWebhookService {
     const tenant = this.tenant(oprId);
     const nids = [...extractFlightNids(payload)];
     const eventName = this.guessEventName(payload);
+    // A disabled operator must not process events: its flights are hidden
+    // from the wall, and a re-pull would refresh tokens / re-touch the cache
+    // for data nobody displays (nid-less events even triggered a FULL sync
+    // cycle). Leon keeps sending until subscriptions are removed — ignore.
+    const configured = await this.timelineService.listConfiguredOperators().catch(() => []);
+    if (!configured.some((operator) => operator.oprId === oprId)) {
+      tenant.lastEventAt[eventName] = new Date().toISOString();
+      await this.appendLog(oprId, eventName, {
+        at: new Date().toISOString(),
+        flightNid: nids[0] != null ? String(nids[0]) : null,
+        callsign: null,
+        action: "ignored-disabled",
+        change: "operator is disabled — event ignored",
+      });
+      return { ok: true, ignored: "operator-disabled" };
+    }
     tenant.lastEventAt[eventName] = new Date().toISOString();
     tenant.lastError = null;
     try {

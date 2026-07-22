@@ -750,7 +750,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const operator = await operatorsStore.setOperatorActive(id, Boolean(body.isActive));
-      await timelineService.refreshNow().catch(() => {});
+      // Toggle must be INSTANT: getFlights already filters by the active
+      // operator set, so the wall drops/readds this operator's flights on
+      // the very next fetch — broadcast now, never behind a Leon sync cycle
+      // (awaiting refreshNow here once made disable take ~30s).
+      if (body.isActive) {
+        // Re-enable: the incremental modified-list never re-delivers
+        // untouched flights (flight-watch writes don't mark them modified),
+        // so resuming from the old checkpoint would leave past-departure
+        // flights white. Drop the checkpoint → next cycle runs a FULL
+        // initial sync; kick that cycle in the background right away.
+        timelineService.syncStateByOperator.delete(operator.oprId);
+        timelineService.invalidateOperatorCredentials(operator.oprId);
+        timelineService.refreshNow().catch(() => {});
+      }
       sseHub.broadcast({ type: "roster.changed", action: "operator-toggle", oprId: operator.oprId });
       sendJson(res, { ok: true, operator });
       return;

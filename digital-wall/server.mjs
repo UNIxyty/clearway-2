@@ -56,6 +56,11 @@ await timelineService.bootstrap();
 
 const sseHub = new SseHub();
 process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
+// Any sync cycle that changed flights pushes the wall to re-read the cache
+// immediately — updated timings/movement land in ~1-2s, not at the next poll.
+timelineService.onFlightsChanged = ({ updated, deleted }) => {
+  sseHub.broadcast({ type: "flight.changed", via: "sync", updated, deleted });
+};
 
 const alertsService = new AlertsService({ timelineService, sseHub });
 await alertsService.load();

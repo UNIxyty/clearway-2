@@ -146,6 +146,10 @@ export default function DisplayApp() {
       // appear/disappear within ~1-2s (cache read; whole-slice replace keeps
       // it idempotent with the 60s poll).
       subscribeWallStream('roster.changed', () => loadTimeline({ refresh: false })),
+      // Flight data changed server-side (webhook re-pull or a sync cycle
+      // that updated/evicted flights): re-read the decorated cache so new
+      // ETD/ETA/ATD/ATA, delays and movement states show within ~1-2s.
+      subscribeWallStream('flight.changed', () => loadTimeline({ refresh: false })),
       // CheckWX categories refreshed (rides with the daily check) — re-read
       // so the per-airport WX dots update.
       subscribeWallStream('weather.changed', () => loadTimeline({ refresh: false })),

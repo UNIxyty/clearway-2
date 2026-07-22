@@ -1173,6 +1173,7 @@ export class LeonTimelineService {
           if (hadCheckpoint && this.syncCycleCount % MOVEMENT_REFRESH_EVERY_N_CYCLES === 0) {
             const movementStats = await this.movementRefresh(operator.oprId);
             cycleStats.updated += movementStats.updated ?? 0;
+            cycleStats.deleted += movementStats.deleted ?? 0;
             for (const [kind, count] of Object.entries(movementStats.excluded ?? {})) {
               cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
             }
@@ -1223,6 +1224,12 @@ export class LeonTimelineService {
       }
       if (cycleStats.updated > 0 || cycleStats.deleted > 0 || this.flightsByNid.size === 0) {
         await this.persistLocalCache();
+      }
+      // Live wall repaint: any cycle that changed flights notifies the SSE
+      // hub (wired in server.mjs) so walls re-read the cache in ~1-2s
+      // instead of waiting out their poll interval.
+      if (cycleStats.updated > 0 || cycleStats.deleted > 0) {
+        this.onFlightsChanged?.({ updated: cycleStats.updated, deleted: cycleStats.deleted });
       }
     } catch (error) {
       this.state.healthy = false;
@@ -1557,6 +1564,33 @@ export class LeonTimelineService {
         aircraftNid: rawFlight.acft?.aircraftNid ?? null,
         registration: rawFlight.acft?.registration ?? "UNKNOWN",
       });
+    }
+
+    // The window pull is AUTHORITATIVE: a cached flight of this operator
+    // lying fully inside the pulled window that Leon did not return no
+    // longer exists as a non-cancelled flight — deleted, replaced by a new
+    // leg, cancelled (the pull filters isCnl:false), or rescheduled away
+    // (a move re-delivers under the same nid via the modified list). This
+    // is what clears stale pills left from webhook/backoff/disabled gaps.
+    // Skipped when the pull came back empty so a bad response can't wipe
+    // an operator's cache.
+    if (rawFlights.length > 0) {
+      const returned = new Set(rawFlights.map((raw) => this.flightCacheKey(oprId, raw.flightNid)));
+      const prefix = `${oprId}:`;
+      for (const [key, flight] of [...this.flightsByNid.entries()]) {
+        if (!key.startsWith(prefix) || returned.has(key)) continue;
+        const start = parseDate(flight.startTimeUTC)?.getTime();
+        const end = parseDate(flight.endTimeUTC)?.getTime();
+        if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+        if (start >= from.getTime() && end <= to.getTime()) {
+          this.flightsByNid.delete(key);
+          this.aircraftByFlightNid.delete(key);
+          stats.deleted += 1;
+        }
+      }
+      if (stats.deleted > 0) {
+        console.log(`[leon-sync] movement refresh ${oprId}: evicted ${stats.deleted} stale flight(s) missing from the window pull`);
+      }
     }
     return stats;
   }

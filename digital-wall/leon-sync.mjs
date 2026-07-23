@@ -1498,9 +1498,16 @@ export class LeonTimelineService {
     while (chunkStart <= toDate) {
       const chunkEnd = minDate(addDays(chunkStart, 9), toDate);
       const chunkStartText = chunkStart.toISOString().slice(0, 10);
-      // Leon rejects zero-length intervals in some tenants; ensure at least 1 day.
+      // Leon's timeInterval END DAY IS EXCLUSIVE (proven live 2026-07-23:
+      // end "2026-07-23" returned ZERO flights starting that day; end
+      // "2026-07-24" returned them all). Query one day PAST the requested
+      // end so the range is fully covered — under-covering here once let
+      // the movement refresh miss every flight starting "today" and mass-
+      // evict airborne flights from the wall. This also closes the gap the
+      // old code left at every 10-day chunk boundary (the boundary day
+      // belonged to neither chunk).
       const requestedEnd = chunkEnd <= chunkStart ? addDays(chunkStart, 1) : chunkEnd;
-      const chunkEndText = requestedEnd.toISOString().slice(0, 10);
+      const chunkEndText = addDays(requestedEnd, 1).toISOString().slice(0, 10);
       const data = await this.graphqlRequest(
         `
           query {
@@ -1619,30 +1626,56 @@ export class LeonTimelineService {
       });
     }
 
-    // The window pull is AUTHORITATIVE: a cached flight of this operator
-    // lying fully inside the pulled window that Leon did not return no
-    // longer exists as a non-cancelled flight — deleted, replaced by a new
-    // leg, cancelled (the pull filters isCnl:false), or rescheduled away
-    // (a move re-delivers under the same nid via the modified list). This
-    // is what clears stale pills left from webhook/backoff/disabled gaps.
-    // Skipped when the pull came back empty so a bad response can't wipe
-    // an operator's cache.
+    // The window pull is AUTHORITATIVE — but only a COMPLETED, PLAUSIBLE
+    // pull may evict. Any fetch failure (HTTP error, timeout/abort, 403/
+    // 429, GraphQL errors) THROWS above and never reaches this point, so
+    // errors always leave the cache untouched. The remaining risk is a
+    // response that LOOKS successful but is incomplete (gateway
+    // truncation, or the day-exclusive end bug that caused the 2026-07-23
+    // mass-vanish of airborne flights) — hence three more layers:
+    //   1. non-empty guard (empty pull never evicts),
+    //   2. sanity share guard: if the pull would evict an implausibly
+    //      large share of this operator's in-window flights, treat the
+    //      response as suspect and evict NOTHING,
+    //   3. airborne flights (departed, not yet arrived) are NEVER evicted
+    //      on the basis of absence — absence of the highest-risk rows is
+    //      itself evidence the pull is incomplete.
+    // Every eviction (or refusal) is logged with counts for diagnosis.
     if (rawFlights.length > 0) {
       const returned = new Set(rawFlights.map((raw) => this.flightCacheKey(oprId, raw.flightNid)));
       const prefix = `${oprId}:`;
+      const candidates = [];
+      let inWindow = 0;
+      let airborneSpared = 0;
       for (const [key, flight] of [...this.flightsByNid.entries()]) {
-        if (!key.startsWith(prefix) || returned.has(key)) continue;
+        if (!key.startsWith(prefix)) continue;
         const start = parseDate(flight.startTimeUTC)?.getTime();
         const end = parseDate(flight.endTimeUTC)?.getTime();
         if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
-        if (start >= from.getTime() && end <= to.getTime()) {
+        if (start < from.getTime() || end > to.getTime()) continue;
+        inWindow += 1;
+        if (returned.has(key)) continue;
+        const isAirborne = Boolean(flight.atd && !flight.ata) || flight.movementState === "airborne";
+        if (isAirborne) {
+          airborneSpared += 1;
+          console.warn(`[leon-sync] movement refresh ${oprId}: pull did NOT return AIRBORNE ${flight.flightNo} (nid ${flight.flightNid}, dep ${flight.startTimeUTC}) — keeping it (airborne flights are never absence-evicted)`);
+          continue;
+        }
+        candidates.push({ key, flight });
+      }
+      const maxPlausible = Math.max(3, Math.ceil(inWindow * 0.3));
+      if (candidates.length > maxPlausible || (airborneSpared > 0 && candidates.length > 0 && candidates.length >= inWindow * 0.2)) {
+        console.error(`[leon-sync] movement refresh ${oprId}: REFUSING eviction — pull would remove ${candidates.length}/${inWindow} in-window flight(s) (limit ${maxPlausible}, airborne missing: ${airborneSpared}). Response treated as partial; cache left intact.`);
+      } else {
+        for (const { key, flight } of candidates) {
           this.flightsByNid.delete(key);
           this.aircraftByFlightNid.delete(key);
           stats.deleted += 1;
+          console.log(`[leon-sync] movement refresh ${oprId}: evicted ${flight.flightNo} (nid ${flight.flightNid}, ${flight.startTimeUTC} -> ${flight.endTimeUTC}) — absent from a complete window pull (deleted/replaced/cancelled/moved)`);
         }
-      }
-      if (stats.deleted > 0) {
-        console.log(`[leon-sync] movement refresh ${oprId}: evicted ${stats.deleted} stale flight(s) missing from the window pull`);
+        if (stats.deleted > 0) {
+          console.log(`[leon-sync] movement refresh ${oprId}: evicted ${stats.deleted}/${inWindow} in-window flight(s)`);
+        }
       }
     }
     return stats;

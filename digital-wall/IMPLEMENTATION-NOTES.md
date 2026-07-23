@@ -1204,3 +1204,42 @@ registry; the console shows them read-only next to the toggle. Verified:
 30-row floor cases scroll; bounding-box overlap audit clean at every
 computed size including the floor. Also removed the "OPS · <date>"
 caption from the wall header.
+
+## INCIDENT: airborne flights vanished from the wall (2026-07-23)
+
+Where they vanished: the backend CACHE — the movement-refresh eviction
+removed them; the wall faithfully rendered the shrunken cache. They
+returned minutes later as webhook re-pulls / modified-list deliveries
+re-added flights one by one.
+
+Root cause, proven live: Leon's timeInterval END DAY IS EXCLUSIVE —
+end "2026-07-23" returned ZERO flights starting Jul 23; end "2026-07-24"
+returned 9 more, airborne among them. The movement refresh truncated its
+end (now+6h) to a DAY string, so whenever now+6h fell before the next
+midnight (00:00–18:00Z — most of the day) the pull silently excluded
+every flight that started "today". A perfectly successful, non-empty
+response — so the empty-response guard passed and the eviction pass
+removed all of today's in-window cached flights, including AIRBORNE
+ones. (Suspects ruled out: HTTP errors/timeouts/403/429/GraphQL errors
+all THROW before eviction; the watchdog can't split the synchronous
+upsert+evict block; the wall renders the cache, no payload race.)
+Side finding: the same exclusivity left a one-day GAP at every 10-day
+chunk boundary of the initial sync.
+
+Fix (layered, per the "never evict on a failed/partial pull" rule):
+1. fetchFlightsForOperatorRange queries one day PAST the requested end —
+   the eviction window is now strictly inside the query window whatever
+   Leon's boundary semantics; also closes the chunk-boundary gap.
+2. Eviction runs only after a fully successful pull (errors throw past
+   it — now stated explicitly).
+3. Sanity share guard: a pull that would evict more than max(3, 30%) of
+   the operator's in-window flights — or any airborne-missing response
+   evicting ≥20% — is treated as PARTIAL: nothing evicted, loud error
+   log.
+4. AIRBORNE flights (atd, no ata) are never absence-evicted, ever.
+5. Every eviction (and every refusal) logs flight identity + counts.
+
+Verified: failed pull → cache intact; 60%-missing partial → refused,
+intact; legit single removal → evicted with log; airborne-missing →
+spared; live fixed pull at 16:30Z now returns all 9 of today's cwy
+flights that the broken window excluded, evicting nothing.

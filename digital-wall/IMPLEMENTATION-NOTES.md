@@ -1161,3 +1161,46 @@ visibility-window and overlay/sidebar scale docs. Wiring untouched (auth
 gate, traversal guard, console Guide button). Verified through the real
 server route: 10 TOC sections, 50 images rendered, 0 broken, 0 network
 errors. Frontend/guide container rebuild needed to serve it.
+
+## Wall sizing: diagnostic, auto-fit, per-device profiles (2026-07-24)
+
+Item 1 (diagnostic): every wall/console surface now reports its real
+rendering environment to /api/display/env (viewport CSS px, DPR, screen,
+visualViewport scale, outer/inner zoom ratio, root font size, device id)
+on load and resize; `?debug=viewport` on the wall shows the same values
+live on screen. The console Settings device list displays each screen's
+report. VERDICT PENDING THE WALL'S FIRST REPORT after deploy: if the wall
+reports ~1920×1080 like a desktop, no in-app setting can add pixel area —
+everything is just physically larger, and the real win is running the
+wall at native panel resolution / lower browser zoom (then auto-fit uses
+whatever it gains automatically). Desktop baseline for comparison
+(headless test browser): 1900×950 css px, DPR 1, screen 1900×950,
+visualViewport scale 1.
+
+Item 3 (profiles): settings are per DEVICE. Stable per-browser id
+(localStorage `dw-device-id`, cookie fallback); server store shape
+{ default, profiles: {deviceId} } with legacy flat-file migration into
+default (nothing lost). Reads resolve device → default; writes with a
+deviceId land only in that profile; config.changed carries the deviceId
+and every surface ignores events for other devices — desktop tuning
+cannot resize the wall (verified end-to-end against the real server:
+migration, isolation, reset-to-defaults, env registry). Console Settings
+has a "Which screen are you tuning?" selector (rename, own-profile
+chips, Use-defaults reset); Display scale / Hour spacing / Vertical
+sizing / Panel scales are per-device; visibility window + clocks stay
+global (the backend filters flights globally).
+
+Item 2 (auto-fit): autoFitRows per profile. The board measures its rows
+viewport, counts rows/lanes (real timeline width — a fake width once
+over-counted lanes and over-shrank), and binary-searches a common factor
+over rowZoom/pillHeight/markerScale/labelScale through the shared
+pillVerticalMetrics. Grows on tall screens, shrinks on cramped ones;
+sliders act as ceilings; floors (fonts ≥7px, chips ≥10px) always win.
+CHOSEN degrade behaviour: if all rows can't fit even at the floors, rows
+render AT the floor and the board scrolls vertically — fit as many as
+possible, never illegible. Computed knobs are reported to the device
+registry; the console shows them read-only next to the toggle. Verified:
+8 rows shrink to 96px (768/775px used), 4 rows grow to 200px, 14- and
+30-row floor cases scroll; bounding-box overlap audit clean at every
+computed size including the floor. Also removed the "OPS · <date>"
+caption from the wall header.

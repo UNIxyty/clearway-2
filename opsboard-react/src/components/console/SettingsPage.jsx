@@ -1,13 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchAlertRules,
   fetchDisplayClocks,
+  fetchDisplayDevices,
   fetchDisplaySettings,
+  renameDisplayDevice,
+  reportDisplayEnv,
+  resetDeviceProfile,
   saveAlertRules,
   saveDisplayClocks,
   saveDisplaySettings,
   triggerAlertScan,
 } from '../../services/timelineApi';
+import { collectViewportEnv, getDeviceId } from '../../services/device';
+
+// Item 3 (wall sizing): which screen's profile the sizing cards edit.
+// null = the shared defaults (screens without their own profile).
+const DeviceCtx = createContext({ deviceId: null, device: null });
 import Icon from './icons';
 import {
   Button,
@@ -217,7 +226,124 @@ function ClocksCard() {
 }
 
 // ── Display scale card (ops-room legibility) ─────────────────────────────────
+function timeAgoShort(iso) {
+  if (!iso) return 'never';
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.round(mins / 60);
+  return h < 48 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+}
+
+/**
+ * Item 3 (wall sizing): pick WHICH screen the sizing cards below edit.
+ * Each browser/device has a stable id; the wall keeps its own profile so
+ * desktop tuning can't resize it. "Defaults" edits every screen that has
+ * no profile of its own. The list doubles as the Item-1 diagnostic: each
+ * device shows the viewport it actually reported.
+ */
+function DeviceProfileCard({ selected, onSelect, devices, onReload }) {
+  const myId = getDeviceId();
+  const flash = useToast();
+  const [renaming, setRenaming] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+
+  const rowStyle = (active) => ({
+    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+    border: `1.5px solid ${active ? t.blue : t.borderInner}`, borderRadius: 11,
+    cursor: 'pointer', marginBottom: 8, background: active ? '#f0f6ff' : t.card,
+  });
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Which screen are you tuning?</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
+        Sizing settings are per screen. The cards below edit the selected profile only —
+        changing this device's sliders never resizes the ops wall, and vice versa.
+        Screens appear here after loading the wall or this page once.
+      </p>
+      <div style={rowStyle(selected === null)} onClick={() => onSelect(null)}>
+        <Icon name="users" size={17} color={selected === null ? t.blue : t.faint} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>Defaults</div>
+          <div style={{ fontSize: 12.5, color: t.faint }}>every screen without its own profile</div>
+        </div>
+        {selected === null && <MonoChip color="#1d4ed8" bg="#e3edff">editing</MonoChip>}
+      </div>
+      {devices.map((device) => {
+        const env = device.env || {};
+        const active = selected === device.deviceId;
+        const isMe = device.deviceId === myId;
+        return (
+          <div key={device.deviceId} style={rowStyle(active)} onClick={() => onSelect(device.deviceId)}>
+            <Icon name={device.surface === 'wall' ? 'plane' : 'settings'} size={17} color={active ? t.blue : t.faint} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
+                {renaming === device.deviceId ? (
+                  <input
+                    autoFocus
+                    value={newLabel}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        try {
+                          await renameDisplayDevice(device.deviceId, newLabel);
+                          setRenaming('');
+                          onReload();
+                          flash('Screen renamed');
+                        } catch (err) { flash(String(err.message || err), '#f87171'); }
+                      }
+                      if (e.key === 'Escape') setRenaming('');
+                    }}
+                    style={{ fontSize: 14, padding: '2px 6px', border: `1px solid ${t.borderInput}`, borderRadius: 6 }}
+                  />
+                ) : (
+                  <>{device.label || `${device.surface === 'wall' ? 'Wall display' : 'Console browser'}`}</>
+                )}
+                {isMe && <MonoChip color="#0f766e" bg="#e6f6f3">this device</MonoChip>}
+                {device.hasProfile ? (
+                  <MonoChip color="#92500b" bg="#fdf3e2">own profile</MonoChip>
+                ) : (
+                  <MonoChip color="#6c7079" bg="#eef1f5">uses defaults</MonoChip>
+                )}
+              </div>
+              <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono, marginTop: 2 }}>
+                {env.innerWidth ? `${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio} · screen ${env.screenWidth}×${env.screenHeight}` : 'no viewport report yet'}
+                {' · seen '}{timeAgoShort(device.lastSeenAt)}
+              </div>
+            </div>
+            <IconButton
+              icon="pencil"
+              title="Rename screen"
+              onClick={(e) => { e.stopPropagation(); setRenaming(device.deviceId); setNewLabel(device.label || ''); }}
+            />
+            {device.hasProfile && (
+              <Button
+                size="sm"
+                variant="soft"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    await resetDeviceProfile(device.deviceId);
+                    onReload();
+                    flash('Profile removed — screen follows Defaults again');
+                  } catch (err) { flash(String(err.message || err), '#f87171'); }
+                }}
+              >
+                Use defaults
+              </Button>
+            )}
+            {active && <MonoChip color="#1d4ed8" bg="#e3edff">editing</MonoChip>}
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
 function DisplayScaleCard() {
+  const { deviceId } = useContext(DeviceCtx);
   const [scale, setScale] = useState(1.3);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -225,7 +351,7 @@ function DisplayScaleCard() {
   const flash = useToast();
 
   useEffect(() => {
-    fetchDisplaySettings()
+    fetchDisplaySettings(deviceId)
       .then((payload) => {
         if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       })
@@ -241,7 +367,7 @@ function DisplayScaleCard() {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await saveDisplaySettings({ scale: next });
+        await saveDisplaySettings({ scale: next }, deviceId);
         flash(`Display scale ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -281,6 +407,7 @@ function DisplayScaleCard() {
 
 // ── Hour spacing card (time-axis zoom) ───────────────────────────────────────
 function HourSpacingCard() {
+  const { deviceId } = useContext(DeviceCtx);
   const [timeZoom, setTimeZoom] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -288,7 +415,7 @@ function HourSpacingCard() {
   const flash = useToast();
 
   useEffect(() => {
-    fetchDisplaySettings()
+    fetchDisplaySettings(deviceId)
       .then((payload) => {
         if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       })
@@ -305,7 +432,7 @@ function HourSpacingCard() {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await saveDisplaySettings({ timeZoom: next });
+        await saveDisplaySettings({ timeZoom: next }, deviceId);
         flash(`Hour spacing ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -346,15 +473,17 @@ function HourSpacingCard() {
 }
 
 function VerticalSizingCard() {
+  const { deviceId, device } = useContext(DeviceCtx);
   const DEFAULTS = { rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1 };
   const [values, setValues] = useState(DEFAULTS);
+  const [autoFit, setAutoFit] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
   const flash = useToast();
 
   useEffect(() => {
-    fetchDisplaySettings()
+    fetchDisplaySettings(deviceId)
       .then((payload) => {
         setValues((prev) => {
           const next = { ...prev };
@@ -363,6 +492,7 @@ function VerticalSizingCard() {
           }
           return next;
         });
+        setAutoFit(payload.settings?.autoFitRows === true);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
@@ -376,7 +506,7 @@ function VerticalSizingCard() {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await saveDisplaySettings({ [key]: next });
+        await saveDisplaySettings({ [key]: next }, deviceId);
         flash(`${label} ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -400,6 +530,40 @@ function VerticalSizingCard() {
         is untouched. Hard floors keep everything legible at the minimums.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? '#f0f6ff' : t.card }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit rows to the screen</div>
+          <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+            The wall measures its own viewport and computes the four knobs below so EVERY aircraft
+            row fits — recomputed live as rows come and go. Sliders become ceilings while on; the
+            legibility floors (fonts ≥7px, chips ≥10px) always win, and if rows still can't fit
+            they render at the floor and the board scrolls.
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={autoFit ? 'primary' : 'soft'}
+          disabled={!loaded}
+          onClick={async () => {
+            const next = !autoFit;
+            setAutoFit(next);
+            try {
+              await saveDisplaySettings({ autoFitRows: next }, deviceId);
+              flash(`Auto-fit ${next ? 'ON' : 'off'}${deviceId ? ' for this screen' : ' (defaults)'}`);
+            } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+          }}
+        >
+          {autoFit ? 'Auto-fit ON' : 'Auto-fit off'}
+        </Button>
+      </div>
+      {autoFit && device?.computedFit && (
+        <div style={{ fontFamily: t.mono, fontSize: 12.5, color: t.muted, border: `1px dashed ${t.borderInner}`, borderRadius: 9, padding: '8px 12px', marginBottom: 14 }}>
+          computed on this screen: ×{device.computedFit.factor} → row {device.computedFit.rowZoom?.toFixed(2)} ·
+          pill {device.computedFit.pillHeight?.toFixed(2)} · marker {device.computedFit.markerScale?.toFixed(2)} ·
+          label {device.computedFit.labelScale?.toFixed(2)} · {device.computedFit.fits ? 'all rows fit' : 'AT FLOOR — board scrolls'}
+          {device.computedFit.availPx ? ` (${device.computedFit.requiredPx}px into ${device.computedFit.availPx}px)` : ''}
+        </div>
+      )}
       {rows.map((row) => (
         <WindowRow
           key={row.key}
@@ -411,7 +575,7 @@ function VerticalSizingCard() {
           unit="×"
           value={values[row.key]}
           defaultValue={DEFAULTS[row.key]}
-          loaded={loaded}
+          loaded={loaded && !autoFit}
           onChange={(next) => onChange(row.key, row.label, next)}
         />
       ))}
@@ -452,6 +616,7 @@ function WindowRow({ label, hint, min, max, step, unit, value, defaultValue, loa
 }
 
 function PanelScalesCard() {
+  const { deviceId } = useContext(DeviceCtx);
   const [overlayScale, setOverlayScale] = useState(1.3);
   const [sidebarScale, setSidebarScale] = useState(1.3);
   const [loaded, setLoaded] = useState(false);
@@ -460,7 +625,7 @@ function PanelScalesCard() {
   const flash = useToast();
 
   useEffect(() => {
-    fetchDisplaySettings()
+    fetchDisplaySettings(deviceId)
       .then((payload) => {
         if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
         if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
@@ -474,7 +639,7 @@ function PanelScalesCard() {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       try {
-        await saveDisplaySettings(patch);
+        await saveDisplaySettings(patch, deviceId);
         flash(message);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -853,6 +1018,25 @@ function AlertFilterCard() {
 }
 
 export default function SettingsPage() {
+  const [selectedDevice, setSelectedDevice] = useState(null); // null = Defaults
+  const [devices, setDevices] = useState([]);
+
+  async function loadDevices() {
+    try {
+      const payload = await fetchDisplayDevices();
+      setDevices(payload.devices || []);
+    } catch { /* list is best-effort */ }
+  }
+
+  useEffect(() => {
+    // Register THIS browser so it appears as a selectable profile target
+    // (also the Item-1 diagnostic readout for desktops).
+    reportDisplayEnv({ deviceId: getDeviceId(), surface: 'console', env: collectViewportEnv() });
+    loadDevices();
+  }, []);
+
+  const selectedInfo = devices.find((d) => d.deviceId === selectedDevice) || null;
+
   return (
     <div>
       <PageHeader
@@ -860,10 +1044,16 @@ export default function SettingsPage() {
         desc="Configure the wall clocks and the NOTAM / alert filter that drives automatic flagging."
         descMax={600}
       />
-      <DisplayScaleCard />
-      <HourSpacingCard />
-      <VerticalSizingCard />
-      <PanelScalesCard />
+      <DeviceProfileCard selected={selectedDevice} onSelect={setSelectedDevice} devices={devices} onReload={loadDevices} />
+      <DeviceCtx.Provider value={{ deviceId: selectedDevice, device: selectedInfo }}>
+        {/* key remounts the cards so they re-fetch the selected profile */}
+        <div key={selectedDevice ?? 'default'}>
+          <DisplayScaleCard />
+          <HourSpacingCard />
+          <VerticalSizingCard />
+          <PanelScalesCard />
+        </div>
+      </DeviceCtx.Provider>
       <VisibilityWindowCard />
       <ClocksCard />
       <AlertFilterCard />

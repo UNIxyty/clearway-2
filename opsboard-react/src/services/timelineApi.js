@@ -208,19 +208,54 @@ export async function fetchTimelineAircraft({ refresh = true } = {}) {
   };
 }
 
+/** Item 3: registered display devices (viewport env + profile state). */
+export async function fetchDisplayDevices() {
+  return fetchJson('/api/display/devices', 'Devices request failed');
+}
+
+export async function renameDisplayDevice(deviceId, label) {
+  const response = await fetch(buildApiUrl(`/api/display/devices/${encodeURIComponent(deviceId)}`), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Rename failed');
+  return payload;
+}
+
+export async function resetDeviceProfile(deviceId) {
+  const response = await fetch(buildApiUrl(`/api/display/settings/profile/${encodeURIComponent(deviceId)}`), {
+    method: 'DELETE',
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Reset failed');
+  return payload;
+}
+
+/** Item 1: report this screen's rendering environment (fire-and-forget). */
+export function reportDisplayEnv(body) {
+  fetch(buildApiUrl('/api/display/env'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => {});
+}
+
 export async function fetchDisplayClocks() {
   return fetchJson('/api/display/clocks', 'Clocks request failed');
 }
 
-export async function fetchDisplaySettings() {
-  return fetchJson('/api/display/settings', 'Display settings request failed');
+export async function fetchDisplaySettings(deviceId) {
+  const query = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : '';
+  return fetchJson(`/api/display/settings${query}`, 'Display settings request failed');
 }
 
-export async function saveDisplaySettings(settings) {
+export async function saveDisplaySettings(settings, deviceId) {
   const response = await fetch(buildApiUrl('/api/display/settings'), {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ settings }),
+    body: JSON.stringify({ settings, ...(deviceId ? { deviceId } : {}) }),
   });
   const payload = await response.json();
   if (!response.ok || payload.ok === false) {

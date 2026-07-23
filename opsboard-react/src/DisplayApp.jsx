@@ -8,8 +8,39 @@ import {
   fetchDisplaySettings,
   fetchNotamCheckToday,
   fetchTimelineAircraft,
+  reportDisplayEnv,
 } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
+import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/device';
+
+// Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
+// screen's real rendering environment without devtools. The same values are
+// reported to /api/display/env either way (visible on console Settings).
+function ViewportDebug() {
+  const [env, setEnv] = useState(() => collectViewportEnv());
+  useEffect(() => {
+    const onResize = () => setEnv(collectViewportEnv());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const rows = [
+    ['viewport (CSS px)', `${env.innerWidth} × ${env.innerHeight}`],
+    ['devicePixelRatio', String(env.devicePixelRatio)],
+    ['screen', `${env.screenWidth} × ${env.screenHeight}`],
+    ['visualViewport scale', String(env.visualViewportScale ?? '—')],
+    ['outer/inner ratio', String(env.zoomOuterRatio ?? '—')],
+    ['root font size', `${env.rootFontSize}px`],
+    ['device id', getDeviceId()],
+  ];
+  return (
+    <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 9999, background: 'rgba(8,12,22,.92)', border: '1px solid rgba(120,150,220,.5)', borderRadius: 8, padding: '10px 14px', fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#cfe0ff', lineHeight: 1.7 }}>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: '#8fb3ff' }}>VIEWPORT DEBUG</div>
+      {rows.map(([k, v]) => (
+        <div key={k}><span style={{ color: '#7a8aab' }}>{k}: </span>{v}</div>
+      ))}
+    </div>
+  );
+}
 
 // Daily NOTAM-check wall sign (view-only: the display just renders the state
 // the backend pushes; acknowledgments happen in the Console).
@@ -44,6 +75,10 @@ function NotamSign({ sign, scale = 1 }) {
 
 const POLL_MS = 60_000;
 
+// Captured at module evaluation — the router normalizes the URL (dropping
+// the query) before components mount, so read it before that happens.
+const DEBUG_VIEWPORT = /[?&#]debug/.test(window.location.href);
+
 /**
  * The Display surface — a pure wall screen. No tabs, no CRUD controls, no
  * management UI; just the clock bar, the timeline board and the limitation
@@ -71,7 +106,10 @@ export default function DisplayApp() {
   const [labelScale, setLabelScale] = useState(1); // ID / route / times text (Item 3)
   const [overlayScale, setOverlayScale] = useState(1.3); // side overlay, independent of the board
   const [sidebarScale, setSidebarScale] = useState(1.3); // clocks bar + legend/limitations panel
+  const [autoFitRows, setAutoFitRows] = useState(false); // Item 2: fit all rows to the viewport
   const loadingRef = useRef(false);
+  const deviceIdRef = useRef(getDeviceId());
+  const debugViewport = DEBUG_VIEWPORT;
 
   async function loadTimeline({ refresh = true } = {}) {
     if (loadingRef.current) return;
@@ -105,7 +143,8 @@ export default function DisplayApp() {
 
   async function loadSettings() {
     try {
-      const payload = await fetchDisplaySettings();
+      const payload = await fetchDisplaySettings(deviceIdRef.current);
+      setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
@@ -129,7 +168,19 @@ export default function DisplayApp() {
     loadSettings();
     fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
     const id = setInterval(() => loadTimeline({ refresh: false }), POLL_MS);
-    return () => clearInterval(id);
+    // Item 1: report this screen's real rendering environment (and again on
+    // resize) so the console shows what the wall actually has to work with.
+    reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', label: undefined, env: collectViewportEnv() });
+    let envTimer;
+    const onResize = () => {
+      clearTimeout(envTimer);
+      envTimer = setTimeout(() => {
+        reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', env: collectViewportEnv() });
+        loadSettings();
+      }, 1500);
+    };
+    window.addEventListener('resize', onResize);
+    return () => { clearInterval(id); clearTimeout(envTimer); window.removeEventListener('resize', onResize); };
   }, []);
 
   // Live pushes from the Console: limitations edits repaint the sidebar and
@@ -163,6 +214,9 @@ export default function DisplayApp() {
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
         if (!event.section || event.section === 'settings') {
+          // Profile scoping (Item 3): an edit aimed at ANOTHER device's
+          // profile must not resize this screen.
+          if (event.deviceId && event.deviceId !== deviceIdRef.current) return;
           loadSettings();
           // Visibility-window settings (upcoming horizon / post-landing)
           // filter flights SERVER-side — re-read the timeline so a changed
@@ -203,7 +257,14 @@ export default function DisplayApp() {
         markerScale={markerScale}
         labelScale={labelScale}
         sidebarScale={sidebarScale}
+        autoFitRows={autoFitRows}
+        onAutoFitComputed={(computedFit) => {
+          // Read-only readout for console Settings; debounced by the fact
+          // that Board only calls this when the computed values CHANGE.
+          reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', env: collectViewportEnv(), computedFit });
+        }}
       />
+      {debugViewport && <ViewportDebug />}
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
     </div>

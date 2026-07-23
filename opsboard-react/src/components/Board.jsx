@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { p2, clamp } from '../data';
 import FlightPill, { pillVerticalMetrics } from './FlightPill';
 
@@ -126,7 +126,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3 }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, autoFitRows = false, onAutoFitComputed = null }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -149,12 +149,108 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // pills, labels, now-line) derives from these two numbers.
   const VIEWPORT_HOURS = 10 / scale / timeZoom;
   const BEFORE_NOW_HOURS = 3 / scale / timeZoom;
+  // ── Auto-fit (Item 2): measure the rows viewport, count rows/lanes, and
+  // scale the four vertical knobs so EVERY aircraft row fits on screen.
+  // The manual slider values stay authoritative when autoFitRows is off,
+  // and act as the shape/ratio baseline when it is on (each knob is the
+  // slider value × a common fit factor, clamped to the slider ranges whose
+  // minimums embed the absolute legibility floors in pillVerticalMetrics).
+  // If all rows can't fit even at the floors, rows render AT the floors and
+  // the board scrolls vertically — never illegible, never clipped.
+  const [rowsViewportH, setRowsViewportH] = useState(0);
+  useEffect(() => {
+    const el = bodyScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    let timer;
+    const measure = () => setRowsViewportH(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(measure, 150); // debounce — no thrash on drag-resize
+    });
+    ro.observe(el);
+    return () => { ro.disconnect(); clearTimeout(timer); };
+  }, []);
+
+  const fit = useMemo(() => {
+    const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const knobsFor = (f) => ({
+      rowZoom: clampTo(rowZoom * f, 0.4, 1.4),
+      pillHeight: clampTo(pillHeight * f, 0.4, 1.4),
+      markerScale: clampTo(markerScale * f, 0.5, 1.3),
+      labelScale: clampTo(labelScale * f, 0.5, 1.3),
+    });
+    if (!autoFitRows || rowsViewportH <= 0 || aircraft.length === 0) {
+      return { active: false, knobs: knobsFor(1 / Math.max(1e-6, 1)), factor: 1, fits: true };
+    }
+    const szl = (v) => Math.round(v * scale);
+    // Same window + timeline-width derivation as the render below — lane
+    // counts must match what actually draws (the lane gap is a fraction of
+    // timelinePx, so a fake width would over/under-count lanes).
+    const ws = new Date(windowStartUtc || '').getTime();
+    const we = new Date(windowEndUtc || '').getTime();
+    const fitWindowStartMs = Number.isFinite(ws) ? ws : Date.now() - 6 * 3600_000;
+    const fitWindowDurationMs = Number.isFinite(we) && we > fitWindowStartMs ? we - fitWindowStartMs : 24 * 3600_000;
+    const fitTimelinePx = (fitWindowDurationMs / 3600_000) * (visibleTimelineWidth / (10 / scale / timeZoom));
+    // Lane counts are horizontal-overlap facts — independent of vertical
+    // sizing, so they can be computed once per aircraft per window.
+    const laneCounts = aircraft.map((ac) => {
+      try {
+        return assignFlightLanes(ac.flights || [], { windowStartMs: fitWindowStartMs, windowDurationMs: fitWindowDurationMs, timelinePx: fitTimelinePx }).lanes || 1;
+      } catch { return 1; }
+    });
+    const totalFor = (f) => {
+      const k = knobsFor(f);
+      const V = pillVerticalMetrics(scale, k.rowZoom, { pillHeight: k.pillHeight, markerScale: k.markerScale, labelScale: k.labelScale });
+      const step = V.total + Math.max(2, Math.round(12 * scale * k.rowZoom));
+      return laneCounts.reduce(
+        (sum, lanes) => sum + Math.max(step + szl(24), szl(20) + lanes * step) + 1, // +1 row border
+        0
+      );
+    };
+    // Monotone in f → binary search the largest factor that still fits
+    // (grows on tall viewports, shrinks on cramped ones).
+    let lo = 0.25, hi = 1.6;
+    if (totalFor(lo) > rowsViewportH) {
+      const k = knobsFor(lo);
+      return { active: true, knobs: k, factor: lo, fits: false, requiredPx: totalFor(lo), availPx: rowsViewportH };
+    }
+    for (let i = 0; i < 22; i += 1) {
+      const mid = (lo + hi) / 2;
+      if (totalFor(mid) <= rowsViewportH) lo = mid;
+      else hi = mid;
+    }
+    const factor = Math.round(lo * 100) / 100;
+    return { active: true, knobs: knobsFor(factor), factor, fits: true, requiredPx: totalFor(factor), availPx: rowsViewportH };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFitRows, rowsViewportH, aircraft, rowZoom, pillHeight, markerScale, labelScale, scale, timeZoom, visibleTimelineWidth, windowStartUtc, windowEndUtc]);
+
+  const effRowZoom = fit.active ? fit.knobs.rowZoom : rowZoom;
+  const effPillHeight = fit.active ? fit.knobs.pillHeight : pillHeight;
+  const effMarkerScale = fit.active ? fit.knobs.markerScale : markerScale;
+  const effLabelScale = fit.active ? fit.knobs.labelScale : labelScale;
+
+  // Read-only readout for the console — only when the numbers change.
+  const lastComputedRef = useRef('');
+  useEffect(() => {
+    if (!onAutoFitComputed) return;
+    const payload = fit.active
+      ? { factor: fit.factor, fits: fit.fits, ...fit.knobs, availPx: fit.availPx ?? null, requiredPx: fit.requiredPx ?? null, at: new Date().toISOString() }
+      : null;
+    const key = JSON.stringify(payload && { ...payload, at: null });
+    if (key !== lastComputedRef.current) {
+      lastComputedRef.current = key;
+      onAutoFitComputed(payload);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit]);
+
   // rowZoom (vertical size slider) thins lane/pill HEIGHTS only — text stays
   // on the display scale. Metrics come from the pill so lane maths and the
   // rendered pill can never drift apart.
-  const pillV = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale });
+  const pillV = pillVerticalMetrics(scale, effRowZoom, { pillHeight: effPillHeight, markerScale: effMarkerScale, labelScale: effLabelScale });
   const FLIGHT_PILL_HEIGHT = pillV.total;
-  const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * rowZoom));
+  const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * effRowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -508,10 +604,10 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         windowDurationMs={windowDurationMs}
                         timelinePx={timelinePx}
                         scale={scale}
-                        rowZoom={rowZoom}
-                        pillHeight={pillHeight}
-                        markerScale={markerScale}
-                        labelScale={labelScale}
+                        rowZoom={effRowZoom}
+                        pillHeight={effPillHeight}
+                        markerScale={effMarkerScale}
+                        labelScale={effLabelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                       />
                     ))}

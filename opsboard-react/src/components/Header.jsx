@@ -47,7 +47,6 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
             e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: 'CLEARWAY' }));
           }}
         />
-        <span style={s.brandSub}>OPS · {fmtDate()}</span>
       </div>
 
       <div style={s.clocks}>

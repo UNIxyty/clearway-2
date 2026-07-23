@@ -82,8 +82,8 @@ process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "i
 // Item 9: getFlights filters by the adjustable upcoming-horizon /
 // post-landing window; thresholds live with the display settings.
 timelineService.getVisibilitySettings = async () => {
-  const stored = await displaySettingsStore.read().catch(() => null);
-  return { ...DEFAULT_DISPLAY_SETTINGS, ...(stored || {}) };
+  const shape = await readDisplayProfiles();
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
 };
 
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
@@ -130,8 +130,39 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, overlayScale: 1.3, sidebarScale: 1.3, upcomingHorizonHours: 17, postLandingHours: 2 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, upcomingHorizonHours: 17, postLandingHours: 2 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
+
+// Item 3 (wall sizing): per-DEVICE settings profiles. File shape:
+//   { default: {settings}, profiles: { <deviceId>: {settings} } }
+// A legacy flat file (global settings only) migrates into `default`, so the
+// wall keeps its tuned config. Devices without their own profile follow
+// `default`; the first per-device save copies default into that profile.
+// The server-side visibility window (getVisibilitySettings) deliberately
+// reads DEFAULT — the flight set the backend serves stays global.
+function migrateSettingsShape(stored) {
+  if (stored && typeof stored === "object" && stored.default && typeof stored.default === "object") {
+    return { default: stored.default, profiles: stored.profiles && typeof stored.profiles === "object" ? stored.profiles : {} };
+  }
+  const { updatedAt, ...legacy } = stored || {};
+  return { default: { ...DEFAULT_DISPLAY_SETTINGS, ...legacy }, profiles: {} };
+}
+
+async function readDisplayProfiles() {
+  const stored = await displaySettingsStore.read().catch(() => null);
+  return migrateSettingsShape(stored);
+}
+
+function resolveDisplaySettings(shape, deviceId) {
+  const id = String(deviceId || "").trim();
+  if (id && shape.profiles[id]) {
+    return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...shape.profiles[id] }, source: "device" };
+  }
+  return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default }, source: "default" };
+}
+
+// Registered display devices (viewport diagnostics + profile labels).
+const displayDevicesStore = new JsonFileStore("display-devices.json", { devices: {} });
 
 function sanitizeDisplaySettings(input = {}) {
   const scale = Number(input.scale);
@@ -191,6 +222,9 @@ function sanitizeDisplaySettings(input = {}) {
     throw new Error("postLandingHours must be a number between 0 and 24.");
   }
   return {
+    // Item 2 (wall sizing): wall computes vertical knobs itself to fit all
+    // aircraft rows; the sliders become the ceiling values.
+    autoFitRows: input.autoFitRows === true,
     scale: Math.round(scale * 100) / 100,
     timeZoom: Math.round(timeZoom * 100) / 100,
     rowZoom: Math.round(rowZoom * 100) / 100,
@@ -659,26 +693,106 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/display/settings" && req.method === "GET") {
-      const stored = await displaySettingsStore.read();
-      sendJson(res, { ok: true, settings: { ...DEFAULT_DISPLAY_SETTINGS, ...stored } });
+      const shape = await readDisplayProfiles();
+      const deviceId = url.searchParams.get("deviceId") || "";
+      const resolved = resolveDisplaySettings(shape, deviceId);
+      sendJson(res, { ok: true, settings: resolved.settings, source: resolved.source, deviceId: deviceId || null });
       return;
     }
 
     if (pathname === "/api/display/settings" && req.method === "PUT") {
       const body = await readJsonBody(req);
+      const deviceId = String(body.deviceId || "").trim();
       let settings;
+      const shape = await readDisplayProfiles();
       try {
-        // Merge over the stored settings so a partial PUT (e.g. only scale)
-        // never silently resets the other knobs.
-        const stored = await displaySettingsStore.read();
-        settings = sanitizeDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...stored, ...(body.settings ?? body) });
+        // Merge over the target profile so a partial PUT (e.g. only scale)
+        // never silently resets the other knobs. With a deviceId the write
+        // lands ONLY in that device's profile (created from default on
+        // first save); without one it edits the shared default.
+        const base = deviceId
+          ? { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.profiles[deviceId] ?? {}) }
+          : { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
+        settings = sanitizeDisplaySettings({ ...base, ...(body.settings ?? body) });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;
       }
-      await displaySettingsStore.write({ ...settings, updatedAt: new Date().toISOString() });
-      sseHub.broadcast({ type: "config.changed", section: "settings" });
-      sendJson(res, { ok: true, settings });
+      if (deviceId) shape.profiles[deviceId] = settings;
+      else shape.default = settings;
+      await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
+      // deviceId in the event lets each surface ignore edits aimed at a
+      // DIFFERENT device's profile (desktop tuning must not resize the wall).
+      sseHub.broadcast({ type: "config.changed", section: "settings", deviceId: deviceId || null });
+      sendJson(res, { ok: true, settings, deviceId: deviceId || null });
+      return;
+    }
+
+    // Item 3: forget a device's own profile (falls back to default).
+    if (pathname.startsWith("/api/display/settings/profile/") && req.method === "DELETE") {
+      const deviceId = decodeURIComponent(pathname.split("/").pop());
+      const shape = await readDisplayProfiles();
+      if (shape.profiles[deviceId]) {
+        delete shape.profiles[deviceId];
+        await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
+        sseHub.broadcast({ type: "config.changed", section: "settings", deviceId });
+      }
+      sendJson(res, { ok: true });
+      return;
+    }
+
+    // Item 1 diagnostic + device registry: every wall/console surface
+    // reports its rendering environment (viewport, DPR, zoom, root font)
+    // so sizing decisions rest on real numbers, not guesses. Auto-fit also
+    // reports its computed knobs here for the read-only console readout.
+    if (pathname === "/api/display/env" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      const deviceId = String(body.deviceId || "").trim();
+      if (!deviceId) {
+        sendJson(res, { ok: false, error: "deviceId is required" }, 400);
+        return;
+      }
+      const stored = await displayDevicesStore.read();
+      const devices = stored.devices && typeof stored.devices === "object" ? stored.devices : {};
+      const existing = devices[deviceId] ?? {};
+      devices[deviceId] = {
+        ...existing,
+        label: typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 60) : existing.label ?? null,
+        surface: typeof body.surface === "string" ? body.surface.slice(0, 20) : existing.surface ?? null,
+        env: body.env && typeof body.env === "object" ? body.env : existing.env ?? null,
+        computedFit: body.computedFit && typeof body.computedFit === "object" ? body.computedFit : existing.computedFit ?? null,
+        firstSeenAt: existing.firstSeenAt ?? new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+      };
+      await displayDevicesStore.write({ devices });
+      sendJson(res, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/display/devices" && req.method === "GET") {
+      const stored = await displayDevicesStore.read();
+      const shape = await readDisplayProfiles();
+      const devices = Object.entries(stored.devices ?? {}).map(([id, device]) => ({
+        deviceId: id,
+        ...device,
+        hasProfile: Boolean(shape.profiles[id]),
+      }));
+      devices.sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)));
+      sendJson(res, { ok: true, devices });
+      return;
+    }
+
+    if (pathname.startsWith("/api/display/devices/") && req.method === "PATCH") {
+      const deviceId = decodeURIComponent(pathname.split("/").pop());
+      const body = await readJsonBody(req);
+      const stored = await displayDevicesStore.read();
+      if (!stored.devices?.[deviceId]) {
+        sendJson(res, { ok: false, error: "Unknown device" }, 404);
+        return;
+      }
+      if (typeof body.label === "string") stored.devices[deviceId].label = body.label.trim().slice(0, 60) || null;
+      await displayDevicesStore.write(stored);
+      sendJson(res, { ok: true, device: { deviceId, ...stored.devices[deviceId] } });
       return;
     }
 

@@ -377,6 +377,10 @@ function normalizeHexColor(value) {
  */
 export function estimateMovementState(flight, nowMs) {
   if (flight?.atd || flight?.ata) return null; // real data drives the state
+  // CONFIRMED trips only: guessing that an UNCONFIRMED (OPTION/OPPORTUNITY)
+  // flight is airborne stacks two assumptions — those keep their real state
+  // (scheduled/white) until Leon confirms the trip or delivers movement.
+  if (flight?.isConfirmed === false) return null;
   const state = flight?.movementState;
   if (state === "airborne" || state === "arrived" || state === "cancelled") return null;
   const start = parseDate(flight?.etd ?? flight?.startTimeUTC)?.getTime();

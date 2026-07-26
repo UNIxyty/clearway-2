@@ -1243,3 +1243,22 @@ Verified: failed pull → cache intact; 60%-missing partial → refused,
 intact; legit single removal → evicted with log; airborne-missing →
 spared; live fixed pull at 16:30Z now returns all 9 of today's cwy
 flights that the broken window excluded, evicting nothing.
+
+## Estimated states: hollow pills + CONFIRMED-only (2026-07-27)
+
+Visual convention: SOLID pill = movement confirmed by real flight-watch
+data; HOLLOW pill (outline ring + faint fill + state-coloured ICAO text,
+same muted palette) = state estimated from the schedule
+(movementStateEstimated). Ring is an inset box-shadow — zero geometry
+change, overlap audit clean at defaults and minimums; the delay hatch
+draws correctly on hollow pills. Wall legend has a hollow "Estimated"
+swatch. Overlay: "State: airborne (estimated — no flight watch)".
+Console: rows show "Airborne (est.)", the detail header carries the
+full explanation, and console status now derives from the decorated
+movementState (same source as the wall — it previously showed
+"Scheduled" for flights the wall showed as estimated-arrived).
+estimateMovementState is additionally gated to CONFIRMED trips —
+unconfirmed (OPTION/OPPORTUNITY) flights stay white rather than being
+guessed forward (at gating time prod had 0 such flights; prophylactic).
+Real data arriving still flips hollow→solid automatically (the estimate
+returns null whenever atd/ata exists). Both containers need rebuilding.

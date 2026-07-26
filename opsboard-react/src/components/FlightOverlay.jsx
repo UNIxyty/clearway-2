@@ -191,6 +191,11 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
             <div style={s.timingGrid}>
               <span style={s.tLabel}>STD</span><span style={s.tVal}>{fmtDT(flight.startTimeUTC)}</span>
               <span style={s.tLabel}>STA</span><span style={s.tVal}>{fmtDT(flight.endTimeUTC)}</span>
+              <span style={s.tLabel}>State</span>
+              <span style={s.tVal}>
+                {flight.movementState || '—'}
+                {flight.movementStateEstimated ? ' (estimated — no flight watch)' : ''}
+              </span>
               <span style={s.tLabel}>ETD</span><span style={s.tVal}>{fmtDT(flight.etd)}</span>
               <span style={s.tLabel}>ETA</span><span style={s.tVal}>{fmtDT(flight.eta)}</span>
               <span style={s.tLabel}>ATD</span><span style={s.tVal}>{fmtDT(flight.atd)}</span>

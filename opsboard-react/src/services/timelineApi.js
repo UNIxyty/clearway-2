@@ -145,6 +145,8 @@ function mapFlight(flight, group) {
     depDelayMin,
     arrDelayMin,
     status: statusFromFlight(flight),
+    // Clock-derived estimate (no flight-watch data) — pill renders HOLLOW.
+    estimated: flight.movementStateEstimated === true,
     // Leon-driven pill semantics (Part A):
     isConfirmed: flight.isConfirmed !== false,
     checklistColor: flight.checklistColor || null,

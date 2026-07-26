@@ -9,6 +9,9 @@ const LEGEND = [
   { status: 'ctot',      label: 'CTOT / slot', color: '#9d8cc2' },
   { status: 'airborne',  label: 'Flying',      color: '#7d9cc4' },
   { status: 'arrived',   label: 'Arrived',     color: '#bd8ba4' },
+  // Hollow = ESTIMATED from schedule (no flight-watch data in Leon); the
+  // solid variants above always mean Leon-confirmed movement.
+  { status: 'estimated', label: 'Estimated',   color: '#7d9cc4', hollow: true },
   { status: 'aog',       label: 'AOG',         color: 'rgba(180,60,60,.4)', hatch: true },
 ];
 
@@ -467,8 +470,10 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 ...s.legendSwatch,
                 background: l.hatch
                   ? `repeating-linear-gradient(-45deg,${l.color} 0,${l.color} 3px,rgba(20,24,36,.9) 3px,rgba(20,24,36,.9) 8px)`
-                  : l.color,
-                border: l.hatch ? '1px dashed rgba(200,80,80,.4)' : 'none',
+                  : l.hollow
+                    ? 'rgba(125,156,196,.14)'
+                    : l.color,
+                border: l.hatch ? '1px dashed rgba(200,80,80,.4)' : l.hollow ? `2px solid ${l.color}` : 'none',
               }} />
               <span style={s.legendLabel}>{l.label}</span>
             </div>

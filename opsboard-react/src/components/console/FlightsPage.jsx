@@ -49,6 +49,14 @@ const STATUS_STYLE = {
 
 function deriveStatus(flight) {
   if (flight.isCnl) return 'Cancelled';
+  // Same source as the wall pill: the decorated movementState (which may be
+  // an estimate). Estimated states carry an explicit suffix here — on the
+  // wall the pill renders hollow instead.
+  const state = flight.movementState;
+  if (state === 'airborne' || state === 'arrived') {
+    const label = state === 'airborne' ? 'Airborne' : 'Arrived';
+    return flight.movementStateEstimated ? `${label} (est.)` : label;
+  }
   if (flight.ata) return 'Arrived';
   if (flight.atd) return 'Airborne';
   if ((Number(flight.departureDelayMin) || 0) > 0) return 'Delayed';
@@ -331,7 +339,7 @@ function TimingBox({ label, rows }) {
 }
 
 function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
-  const st = STATUS_STYLE[status] || STATUS_STYLE.Scheduled;
+  const st = STATUS_STYLE[status.replace(' (est.)', '')] || STATUS_STYLE.Scheduled;
   const impEntries = (flight.limitations || []).filter((lim) => lim.type === 'IMP');
   const depDelay = Number(flight.departureDelayMin) || 0;
   const hasAnyMarker =
@@ -352,6 +360,11 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
           <div style={{ fontSize: 14, color: t.muted, marginTop: 3 }}>
             {flight.adep?.icao ?? 'UNK'} → {flight.ades?.icao ?? 'UNK'} · {flight.operatorName || flight.oprId}
           </div>
+          {flight.movementStateEstimated && (
+            <div style={{ fontSize: 12.5, color: '#92500b', marginTop: 4 }}>
+              State is estimated from the schedule — Leon holds no flight-watch data for this leg.
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -638,7 +651,7 @@ export default function FlightsPage() {
             const isSel = key === selectedKey;
             const onWall = String(flight.flightNid) === overlayNid;
             const status = onWall ? 'On wall' : deriveStatus(flight);
-            const st = STATUS_STYLE[status] || STATUS_STYLE.Scheduled;
+            const st = STATUS_STYLE[status.replace(' (est.)', '')] || STATUS_STYLE.Scheduled;
             return (
               <div
                 key={key}

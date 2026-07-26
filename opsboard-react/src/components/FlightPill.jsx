@@ -415,6 +415,12 @@ export default function FlightPill({
   // AIRBORNE flight is blue (the leading dashed segment still shows the
   // delay); "delayed" (yellow) means delayed and not yet departed.
   const theme = STATUS[status] || STATUS.scheduled;
+  // Estimated states (clock-derived, no flight-watch data) render HOLLOW:
+  // outline + faint fill in the state's colour. Solid = confirmed by real
+  // Leon data; hollow = presumed from the schedule. Drawn with an inset
+  // ring (not a border) so geometry — and the overlap audit — is unchanged.
+  const hollow = flight.estimated === true && (status === 'airborne' || status === 'arrived');
+  const hollowRing = Math.max(2, Math.round(2 * scale));
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -635,7 +641,7 @@ export default function FlightPill({
         </span>
       </div>
 
-      <div style={{ width: '100%', height: F.body, borderRadius: 99, overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: F.body, borderRadius: 99, overflow: 'hidden', ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}>
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
           {depDelayMin > 0 && depCrossSectionF > 0 && (
             <div
@@ -660,8 +666,8 @@ export default function FlightPill({
                 depDelayMin > 0 && depCrossSectionF > 0
                   ? (arrDelayMin > 0 && arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
                   : (arrDelayMin > 0 && arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
-              background: theme.bg,
-              boxShadow: 'inset 0 0 0 1px rgba(12,16,26,.22)',
+              background: hollow ? hexA(theme.bg, 0.14) : theme.bg,
+              boxShadow: hollow ? 'none' : 'inset 0 0 0 1px rgba(12,16,26,.22)',
               display: 'flex',
               alignItems: 'center',
               padding: `0 ${sz(9)}px`,
@@ -677,9 +683,9 @@ export default function FlightPill({
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showFull && (
                 <>
-                  <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
-                  <span style={{ width: 1, background: 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                  <span style={{ ...icaoStyle(F.icao), color: theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
+                  <span style={{ ...icaoStyle(F.icao), color: hollow ? theme.bg : theme.text, opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
+                  <span style={{ width: 1, background: hollow ? hexA(theme.bg, 0.45) : 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
+                  <span style={{ ...icaoStyle(F.icao), color: hollow ? theme.bg : theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
                 </>
               )}
             </div>

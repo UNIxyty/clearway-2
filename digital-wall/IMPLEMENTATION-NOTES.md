@@ -1262,3 +1262,33 @@ unconfirmed (OPTION/OPPORTUNITY) flights stay white rather than being
 guessed forward (at gating time prod had 0 such flights; prophylactic).
 Real data arriving still flips hollow→solid automatically (the estimate
 returns null whenever atd/ata exists). Both containers need rebuilding.
+
+## Wall declutter + density (old-DigitalWall style, 2026-08-10)
+
+Item 1: logo tagline gone (clearway-mark.svg = same art, viewBox cropped
+before the "HANDLING & OPERATIONS" paths), presence/account chip off the
+wall, ICAO type letter chip off wall pills (console keeps it).
+Item 2: WX renders as category-coloured TEXT ("IFR: EGGW"; bare "IFR"
+at icon degradation; dots/+N unchanged). Console lists keep chips.
+Item 3: limitations are amber NUMBERED CIRCLES in front of the callsign
+(sidebar list stays the key; ack rules unchanged); LIM chip and
+inside-pill badges removed; never part of marker degradation.
+Item 4 (the vertical win): single-line layout — LIM circles + callsign
+sit LEFT of the pill, markers RIGHT of it; the label row above the pill
+is gone (band = max(body, callsign, markers) + times row). Lane packing
+reserves each flight's front-text width, and the neighbour gap ends at
+the NEXT flight's front text; markers hide entirely below +N width.
+Item 5: subtle alternating row tint rgba(148,163,196,.045).
+Item 6: rowZoom min 0.02, scale min 0.1 (7px font floors still apply);
+hour labels rotate 90° when the column is narrower than the label (the
+header strip grows to hold vertical text; tick font floors at 9px);
+new per-device chrome controls headerScale (top clock bar, 0.3–2,
+default 1.3 — the overlay top offset follows it) and acColScale (left
+registration column, 0.3–1.5); sidebar min widened to 0.3. Auto-fit
+clamps follow the new floors.
+Item 7 verified: no ellipsis anywhere; 21-minute flights show the full
+"LLBG→LCLK · 22:01–22:22" below the pill at BOTH defaults and minimums.
+Overlap audit: 0 collisions at defaults (101 elements) and at the full
+minimums (169 elements, rotated ticks). Density: 24-aircraft board
+shows 7 rows at defaults, 18 at minimums on the same 950px viewport.
+Frontend + backend containers both need rebuilding.

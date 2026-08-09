@@ -123,6 +123,27 @@ function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }
   if (!color) return null;
   const light = variant === 'light' ? WX_CATEGORY_LIGHT[category] : null;
   const isDep = side === 'dep';
+  // Wall declutter (Item 2): plain coloured TEXT instead of a chip —
+  // "IFR: EGGW" full form, bare "IFR" when degraded to icon width. Less
+  // visual weight, still colour-coded and readable at distance.
+  if (variant === 'wall') {
+    return (
+      <span
+        title={`${icao} ${category} (CheckWX, ${isDep ? 'departure' : 'arrival'})`}
+        style={{
+          fontFamily: "'IBM Plex Mono',monospace",
+          fontSize: sz(10),
+          fontWeight: 700,
+          letterSpacing: '.4px',
+          color,
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}
+      >
+        {iconOnly ? category : `${category}: ${icao}`}
+      </span>
+    );
+  }
   return (
     <span
       title={`${icao} ${category} (CheckWX, ${isDep ? 'departure' : 'arrival'})`}
@@ -189,12 +210,14 @@ export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = []) {
   if (mode === 'count') return sz(26);
   const per = (m) => {
     if (mode === 'icons') {
-      return m.key === 'IMP' ? sz(16) : m.key.startsWith('WX') ? sz(20) : sz(16);
+      // WX degraded = bare category text ("LIFR" worst case ~4 chars)
+      return m.key === 'IMP' ? sz(16) : m.key.startsWith('WX') ? sz(28) : sz(16);
     }
-    // full chips
+    // full forms
     if (m.key === 'IMP') return sz(16);
     if (m.key === 'CAA') return sz(30);
-    if (m.key.startsWith('WX')) return sz(36);
+    // WX text "MVFR: EGGW" ~10 mono chars at sz(10)
+    if (m.key.startsWith('WX')) return sz(64);
     return sz(32); // NTM
   };
   return markers.reduce((total, m) => total + per(m) + gap, 0);

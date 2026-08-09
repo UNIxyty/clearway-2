@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
 import FlightOverlay from './components/FlightOverlay';
-import PresencePills from './components/PresencePills';
 import {
   fetchDisplayClocks,
   fetchDisplaySettings,
@@ -235,12 +234,7 @@ export default function DisplayApp() {
       <Header
         clocks={clocks}
         scale={sidebarScale}
-        rightSlot={
-          <>
-            <NotamSign sign={notamSign} scale={sidebarScale} />
-            <PresencePills surface="display" compact />
-          </>
-        }
+        rightSlot={<NotamSign sign={notamSign} scale={sidebarScale} />}
       />
       <FlightOverlay topOffset={Math.round(92 * sidebarScale)} scale={overlayScale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations

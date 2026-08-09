@@ -527,14 +527,7 @@ export default function FlightPill({
   // the flight ID. Colour meaning survives at every level; +N counts ALL
   // hidden markers (incl. the LIM cluster, folded in as an amber marker).
   const monoW = (chars, size) => chars * size * 0.62;
-  // ICAO flight-type letter (S/N/G/M/X) — RESERVED slot beside the flight
-  // ID, outside the alert-marker degradation ladder: it renders at every
-  // marker mode, and its width counts into idW so the alert chips budget
-  // around it instead of overlapping it.
-  const icaoTypeLetter = flight.icaoType || null;
-  const icaoTypeFont = Math.max(7, Math.round(F.id * 0.76));
-  const icaoTypeW = icaoTypeLetter ? icaoTypeFont * 0.62 + Math.max(2, Math.round(icaoTypeFont * 0.35)) * 2 + sz(6) : 0;
-  const idW = monoW(String(fn ?? '').length, F.id) + sz(6) + icaoTypeW;
+  const idW = monoW(String(fn ?? '').length, F.id) + sz(6);
   const hasLim = Array.isArray(limIndices) && limIndices.length > 0;
   const limExtra = hasLim
     ? [{ key: 'LIM', color: '#f0c06b', label: `Limitations ${limIndices.join(',')}` }]
@@ -618,7 +611,6 @@ export default function FlightPill({
           >
             {fn}
           </span>
-          <IcaoTypeChip letter={icaoTypeLetter} size={icaoTypeFont} />
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
           <FlightMarkers flight={flight} sz={szm} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} />

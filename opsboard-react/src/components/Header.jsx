@@ -40,8 +40,8 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
         {/* Same asset as the console top bar; forced white for the dark wall.
             Falls back to the text wordmark if the asset ever goes missing. */}
         <img
-          src={`${import.meta.env.BASE_URL}assets/clearway-logo.svg`}
-          alt="Clearway — Handling & Operations"
+          src={`${import.meta.env.BASE_URL}assets/clearway-mark.svg`}
+          alt="Clearway"
           style={{ height: sz(26), width: 'auto', display: 'block', filter: 'brightness(0) invert(1)', opacity: 0.92 }}
           onError={(e) => {
             e.currentTarget.replaceWith(Object.assign(document.createElement('span'), { textContent: 'CLEARWAY' }));

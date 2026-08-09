@@ -425,9 +425,6 @@ export default function FlightPill({
     times: V.fonts.times,
     icao: V.fonts.icao,
     body: V.body,
-    // LIM circles live INSIDE the body — cap them so a thin pill (low
-    // pillHeight/labelScale) can never have its badges spill past the fill.
-    badge: Math.min(sz(18), Math.max(10, V.body - sz(4))),
     labelRow: V.labelRow,
     timesRow: V.timesRow,
   };
@@ -530,7 +527,6 @@ export default function FlightPill({
     ? mainPx >= icaoW * 2 + sz(22)
     : (mainSectionF / totalF) > 0.14;
   const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(6) : (mainSectionF / totalF) > 0.08;
-  const showBadgesInside = mainPx >= icaoW * 2 + sz(58);
   // Timings drop before ICAOs: on a pill too narrow for even the compact
   // combined label, render no times row at all (details live in the overlay).
   const showTimes = timelinePx > 0 ? pillPx >= labelW * 1.15 : true;
@@ -550,20 +546,19 @@ export default function FlightPill({
   // the flight ID. Colour meaning survives at every level; +N counts ALL
   // hidden markers (incl. the LIM cluster, folded in as an amber marker).
   const monoW = (chars, size) => chars * size * 0.62;
-  const idW = monoW(String(fn ?? '').length, F.id) + sz(6);
+  // Limitations render as numbered circles IN FRONT of the callsign (old-
+  // DigitalWall style) — always visible, never part of marker degradation.
   const hasLim = Array.isArray(limIndices) && limIndices.length > 0;
-  const limExtra = hasLim
-    ? [{ key: 'LIM', color: '#f0c06b', label: `Limitations ${limIndices.join(',')}` }]
-    : [];
-  const limChipW = hasLim ? monoW(4 + limIndices.join(',').length, szm(9.5)) + szm(14) : 0;
+  const limCircle = Math.max(10, F.id + sz(3));
+  const limRowW = hasLim ? limIndices.length * (limCircle + sz(3)) : 0;
+  const idW = monoW(String(fn ?? '').length, F.id) + sz(6) + limRowW;
   const markerBudget = budgetPx - idW;
   const markerMode = (() => {
-    if (markerRowWidthEstimate(flight, szm, 'full') + limChipW <= markerBudget) return 'full';
-    if (markerRowWidthEstimate(flight, szm, 'icons') + limChipW <= markerBudget) return 'icons';
-    if (markerRowWidthEstimate(flight, szm, 'dots', limExtra) <= markerBudget) return 'dots';
+    if (markerRowWidthEstimate(flight, szm, 'full') <= markerBudget) return 'full';
+    if (markerRowWidthEstimate(flight, szm, 'icons') <= markerBudget) return 'icons';
+    if (markerRowWidthEstimate(flight, szm, 'dots') <= markerBudget) return 'dots';
     return 'count';
   })();
-  const showLimChip = hasLim && (markerMode === 'full' || markerMode === 'icons');
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
   // INSIDE the pill, the pill stays clean and the route renders below with
@@ -621,6 +616,29 @@ export default function FlightPill({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: sz(3), height: F.labelRow }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(4), flexShrink: 0 }}>
+          {hasLim && limIndices.map((indexValue, idx) => (
+            <span
+              key={`lim-${indexValue}-${idx}`}
+              title={`Limitation ${indexValue} — see sidebar list`}
+              style={{
+                width: limCircle,
+                height: limCircle,
+                borderRadius: '50%',
+                background: '#f0c06b',
+                color: '#3a2a06',
+                fontSize: Math.max(7, Math.round(limCircle * 0.62)),
+                fontWeight: 800,
+                fontFamily: "'IBM Plex Mono',monospace",
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1,
+                flexShrink: 0,
+              }}
+            >
+              {indexValue}
+            </span>
+          ))}
           <span
             style={{
               fontFamily: "'IBM Plex Mono',monospace",
@@ -636,23 +654,7 @@ export default function FlightPill({
           </span>
         </span>
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={szm} mode={markerMode} extraMarkers={markerMode === 'dots' || markerMode === 'count' ? limExtra : []} />
-          {showLimChip && (
-            <span
-              style={{
-                fontFamily: "'IBM Plex Mono',monospace",
-                fontSize: szm(9.5),
-                color: '#f0c06b',
-                border: '1px solid rgba(240,177,59,.4)',
-                borderRadius: 999,
-                padding: `1px ${szm(6)}px`,
-                lineHeight: `${szm(12)}px`,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              LIM {limIndices.join(',')}
-            </span>
-          )}
+          <FlightMarkers flight={flight} sz={szm} mode={markerMode} />
         </span>
       </div>
 
@@ -705,38 +707,6 @@ export default function FlightPill({
               )}
             </div>
 
-            {showBadgesInside && Array.isArray(limIndices) && limIndices.length > 0 && (
-              <div style={{ marginLeft: 4, display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-                {limIndices.slice(0, 3).map((indexValue, idx) => (
-                  <div
-                    key={`${fn}-lim-${indexValue}-${idx}`}
-                    title="Limitation"
-                    style={{
-                      flexShrink: 0,
-                      width: F.badge,
-                      height: F.badge,
-                      borderRadius: '50%',
-                      background: 'rgba(240,177,59,.3)',
-                      border: '1px solid rgba(160,110,20,.6)',
-                      color: '#5c3d05',
-                      fontSize: Math.round(F.badge * 0.58),
-                      fontWeight: 700,
-                      fontFamily: "'IBM Plex Mono',monospace",
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {indexValue}
-                  </div>
-                ))}
-                {limIndices.length > 3 && (
-                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(9.5), color: theme.text }}>
-                    +{limIndices.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
 
           {arrDelayMin > 0 && arrCrossSectionF > 0 && (

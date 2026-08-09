@@ -568,7 +568,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
           <div style={{ width: AC_LABEL_W + timelinePx + END_PAD_PX, position: 'relative' }}>
             <div style={s.board} ref={boardRef}>
-              {aircraft.map(ac => {
+              {aircraft.map((ac, acIndex) => {
                 const laneData = assignFlightLanes(ac.flights || [], {
                   frontPadFracOf: frontPadFrac,
                   windowStartMs,
@@ -577,7 +577,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 });
                 const rowHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
                 return (
-                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight }}>
+                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? 'rgba(148,163,196,.045)' : 'transparent' }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>

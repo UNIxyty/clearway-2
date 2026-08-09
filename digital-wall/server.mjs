@@ -130,7 +130,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, upcomingHorizonHours: 17, postLandingHours: 2 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Item 3 (wall sizing): per-DEVICE settings profiles. File shape:
@@ -166,8 +166,11 @@ const displayDevicesStore = new JsonFileStore("display-devices.json", { devices:
 
 function sanitizeDisplaySettings(input = {}) {
   const scale = Number(input.scale);
-  if (!Number.isFinite(scale) || scale < 1 || scale > 2) {
-    throw new Error("scale must be a number between 1.0 and 2.0.");
+  // Density push (wall declutter): floors low enough for a physically huge
+  // screen to pack many rows; absolute legibility floors live in
+  // pillVerticalMetrics (fonts never below 7px).
+  if (!Number.isFinite(scale) || scale < 0.1 || scale > 2) {
+    throw new Error("scale must be a number between 0.1 and 2.0.");
   }
   // Time-axis zoom: horizontal distance between hour gridlines. 1 = default;
   // 0.5 fits twice the hours on screen, 2.5 spreads them 2.5x wider.
@@ -178,8 +181,8 @@ function sanitizeDisplaySettings(input = {}) {
   // Vertical size: lane/pill height multiplier. <1 thins the timeline so
   // more registrations fit on screen; text keeps the display scale.
   const rowZoom = input.rowZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.rowZoom : Number(input.rowZoom);
-  if (!Number.isFinite(rowZoom) || rowZoom < 0.4 || rowZoom > 1.4) {
-    throw new Error("rowZoom must be a number between 0.4 and 1.4.");
+  if (!Number.isFinite(rowZoom) || rowZoom < 0.02 || rowZoom > 1.4) {
+    throw new Error("rowZoom must be a number between 0.02 and 1.4.");
   }
   // Item 3: finer vertical sizing — pill body thickness, marker-row size and
   // label (ID / route / times) size adjust independently of row spacing.
@@ -205,8 +208,18 @@ function sanitizeDisplaySettings(input = {}) {
     throw new Error("overlayScale must be a number between 1.0 and 2.0.");
   }
   const sidebarScale = input.sidebarScale === undefined ? DEFAULT_DISPLAY_SETTINGS.sidebarScale : Number(input.sidebarScale);
-  if (!Number.isFinite(sidebarScale) || sidebarScale < 1 || sidebarScale > 2) {
-    throw new Error("sidebarScale must be a number between 1.0 and 2.0.");
+  if (!Number.isFinite(sidebarScale) || sidebarScale < 0.3 || sidebarScale > 2) {
+    throw new Error("sidebarScale must be a number between 0.3 and 2.0.");
+  }
+  // Shrinkable chrome (wall declutter): the top clock bar and the left
+  // aircraft column size independently so they don't eat row space.
+  const headerScale = input.headerScale === undefined ? DEFAULT_DISPLAY_SETTINGS.headerScale : Number(input.headerScale);
+  if (!Number.isFinite(headerScale) || headerScale < 0.3 || headerScale > 2) {
+    throw new Error("headerScale must be a number between 0.3 and 2.0.");
+  }
+  const acColScale = input.acColScale === undefined ? DEFAULT_DISPLAY_SETTINGS.acColScale : Number(input.acColScale);
+  if (!Number.isFinite(acColScale) || acColScale < 0.3 || acColScale > 1.5) {
+    throw new Error("acColScale must be a number between 0.3 and 1.5.");
   }
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
@@ -233,6 +246,8 @@ function sanitizeDisplaySettings(input = {}) {
     labelScale: Math.round(labelScale * 100) / 100,
     overlayScale: Math.round(overlayScale * 100) / 100,
     sidebarScale: Math.round(sidebarScale * 100) / 100,
+    headerScale: Math.round(headerScale * 100) / 100,
+    acColScale: Math.round(acColScale * 100) / 100,
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };

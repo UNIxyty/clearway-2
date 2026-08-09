@@ -104,7 +104,9 @@ export default function DisplayApp() {
   const [markerScale, setMarkerScale] = useState(1); // marker chip row size (Item 3)
   const [labelScale, setLabelScale] = useState(1); // ID / route / times text (Item 3)
   const [overlayScale, setOverlayScale] = useState(1.3); // side overlay, independent of the board
-  const [sidebarScale, setSidebarScale] = useState(1.3); // clocks bar + legend/limitations panel
+  const [sidebarScale, setSidebarScale] = useState(1.3); // legend/limitations panel
+  const [headerScale, setHeaderScale] = useState(1.3); // top clock bar (own control)
+  const [acColScale, setAcColScale] = useState(1); // left aircraft column (own control)
   const [autoFitRows, setAutoFitRows] = useState(false); // Item 2: fit all rows to the viewport
   const loadingRef = useRef(false);
   const deviceIdRef = useRef(getDeviceId());
@@ -152,6 +154,8 @@ export default function DisplayApp() {
       if (Number.isFinite(payload.settings?.labelScale)) setLabelScale(payload.settings.labelScale);
       if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
       if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
+      if (Number.isFinite(payload.settings?.headerScale)) setHeaderScale(payload.settings.headerScale);
+      if (Number.isFinite(payload.settings?.acColScale)) setAcColScale(payload.settings.acColScale);
     } catch {
       /* keep current scale */
     }
@@ -233,10 +237,10 @@ export default function DisplayApp() {
           with its own scale — the board scale moves neither (Item 2). */}
       <Header
         clocks={clocks}
-        scale={sidebarScale}
+        scale={headerScale}
         rightSlot={<NotamSign sign={notamSign} scale={sidebarScale} />}
       />
-      <FlightOverlay topOffset={Math.round(92 * sidebarScale)} scale={overlayScale} />
+      <FlightOverlay topOffset={Math.round(92 * headerScale)} scale={overlayScale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
       <Board
@@ -251,6 +255,7 @@ export default function DisplayApp() {
         markerScale={markerScale}
         labelScale={labelScale}
         sidebarScale={sidebarScale}
+        acColScale={acColScale}
         autoFitRows={autoFitRows}
         onAutoFitComputed={(computedFit) => {
           // Read-only readout for console Settings; debounced by the fact

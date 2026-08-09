@@ -384,10 +384,10 @@ function DisplayScaleCard() {
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ fontSize: 12, color: t.faint }}>1.0×</span>
+        <span style={{ fontSize: 12, color: t.faint }}>0.1×</span>
         <input
           type="range"
-          min="1"
+          min="0.1"
           max="2"
           step="0.05"
           value={scale}
@@ -515,7 +515,7 @@ function VerticalSizingCard() {
   }
 
   const rows = [
-    { key: 'rowZoom', label: 'Row spacing', hint: 'vertical space per aircraft row and gap between lanes', min: 0.4, max: 1.4 },
+    { key: 'rowZoom', label: 'Row spacing', hint: 'vertical space per aircraft row and gap between lanes', min: 0.02, max: 1.4 },
     { key: 'pillHeight', label: 'Pill height', hint: "the pill body's own thickness", min: 0.4, max: 1.4 },
     { key: 'markerScale', label: 'Marker size', hint: 'the IMP/CAA/WX/NTM chip row above the pill', min: 0.5, max: 1.3 },
     { key: 'labelScale', label: 'Label size', hint: 'flight ID and the route/times text', min: 0.5, max: 1.3 },
@@ -619,6 +619,8 @@ function PanelScalesCard() {
   const { deviceId } = useContext(DeviceCtx);
   const [overlayScale, setOverlayScale] = useState(1.3);
   const [sidebarScale, setSidebarScale] = useState(1.3);
+  const [headerScale, setHeaderScale] = useState(1.3);
+  const [acColScale, setAcColScale] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
@@ -629,6 +631,8 @@ function PanelScalesCard() {
       .then((payload) => {
         if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
         if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
+        if (Number.isFinite(payload.settings?.headerScale)) setHeaderScale(payload.settings.headerScale);
+        if (Number.isFinite(payload.settings?.acColScale)) setAcColScale(payload.settings.acColScale);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
@@ -673,8 +677,8 @@ function PanelScalesCard() {
       />
       <WindowRow
         label="Sidebar size"
-        hint="clocks bar, status legend and the limitations panel"
-        min={1}
+        hint="status legend and the limitations panel"
+        min={0.3}
         max={2}
         step={0.05}
         unit="×"
@@ -684,6 +688,36 @@ function PanelScalesCard() {
         onChange={(next) => {
           setSidebarScale(next);
           persist({ sidebarScale: next }, `Sidebar size ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Top clock bar"
+        hint="the time-zone clocks strip — shrink it to give rows more height"
+        min={0.3}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={headerScale}
+        defaultValue={1.3}
+        loaded={loaded}
+        onChange={(next) => {
+          setHeaderScale(next);
+          persist({ headerScale: next }, `Top bar ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Aircraft column"
+        hint="the left registration column — shrink it to give the timeline more width"
+        min={0.3}
+        max={1.5}
+        step={0.05}
+        unit="×"
+        value={acColScale}
+        defaultValue={1}
+        loaded={loaded}
+        onChange={(next) => {
+          setAcColScale(next);
+          persist({ acColScale: next }, `Aircraft column ${next.toFixed(2)}× — wall updates in seconds`);
         }}
       />
     </Card>

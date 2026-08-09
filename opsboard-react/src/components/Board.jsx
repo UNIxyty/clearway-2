@@ -136,7 +136,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, autoFitRows = false, onAutoFitComputed = null }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, autoFitRows = false, onAutoFitComputed = null }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
@@ -150,8 +150,11 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // The left panel (legend + limitations) sizes with its OWN scale setting —
   // the board scale no longer moves it (Item 2).
   const szSide = (v) => Math.round(v * sidebarScale);
-  const s = makeStyles(sz, szSide);
-  const AC_LABEL_W = sz(150);
+  // The left aircraft column shrinks/grows with its OWN control so it never
+  // eats space needed for rows (fonts floor at 7px for legibility).
+  const AC_LABEL_W = Math.max(34, Math.round(150 * scale * acColScale));
+  const acFont = (v) => Math.max(7, Math.round(v * scale * acColScale));
+  const s = makeStyles(sz, szSide, { AC_LABEL_W, acFont });
   const END_PAD_PX = sz(260);
   // timeZoom stretches/squeezes the hour axis independently of text scale:
   // 2 = hour gridlines twice as far apart (fewer hours visible), 0.5 = twice
@@ -185,7 +188,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const fit = useMemo(() => {
     const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const knobsFor = (f) => ({
-      rowZoom: clampTo(rowZoom * f, 0.4, 1.4),
+      rowZoom: clampTo(rowZoom * f, 0.02, 1.4),
       pillHeight: clampTo(pillHeight * f, 0.4, 1.4),
       markerScale: clampTo(markerScale * f, 0.5, 1.3),
       labelScale: clampTo(labelScale * f, 0.5, 1.3),
@@ -290,6 +293,11 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const windowDurationMs = Math.max(60 * 60 * 1000, windowEndMs - windowStartMs);
   const timelineHours = Math.max(1, Math.ceil(windowDurationMs / (60 * 60 * 1000)));
   const pxPerHour = visibleTimelineWidth / VIEWPORT_HOURS;
+  // Hour labels rotate when their column is too narrow (old-wall trick);
+  // the header strip must then be tall enough to hold the vertical text.
+  const tickFont = Math.max(9, sz(12));
+  const ticksRotated = pxPerHour < tickFont * 5 * 0.62 + 8;
+  const timeHeaderH = ticksRotated ? Math.max(sz(42), Math.round(tickFont * 5 * 0.62) + 12) : sz(42);
   const timelinePx = timelineHours * pxPerHour;
   const nowStr = nowTimeStr(nowMs);
   const nowX = nowFracUtc(nowMs, windowStartMs, windowDurationMs) * timelinePx;
@@ -543,14 +551,22 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       <div style={s.main}>
 
         {/* Timeline tick header */}
-        <div style={s.timeHeader}>
+        <div style={{ ...s.timeHeader, height: timeHeaderH }}>
           <div style={s.acSpacer} />
           <div className="timeline-scroll timeline-scroll--header" style={s.timeScroll} ref={headerScrollRef}>
             <div style={{ ...s.timeInner, width: timelinePx + END_PAD_PX }}>
               {Array.from({ length: timelineHours }, (_, i) => {
                 const tick = new Date(windowStartMs + i * 60 * 60 * 1000);
                 const hour = `${p2(tick.getUTCHours())}:00`;
-                return <div key={i} style={{ ...s.tick, width: pxPerHour }}>{hour}</div>;
+                // Old-wall trick: when an hour column is too narrow for the
+                // horizontal label, rotate it 90° instead of overlapping.
+                // The label font floors at 9px (legibility), and the
+                // rotation threshold derives from that floored size.
+                return (
+                  <div key={i} style={{ ...s.tick, width: pxPerHour, fontSize: tickFont, height: timeHeaderH, ...(ticksRotated ? { paddingLeft: 0, justifyContent: 'center' } : {}) }}>
+                    <span style={ticksRotated ? { transform: 'rotate(-90deg)', fontSize: Math.min(tickFont, 10), letterSpacing: 0, whiteSpace: 'nowrap' } : undefined}>{hour}</span>
+                  </div>
+                );
               })}
               <div style={{ width: END_PAD_PX, flexShrink: 0 }} />
             </div>
@@ -659,7 +675,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   );
 }
 
-function makeStyles(sz, szSide = sz) {
+function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {}) {
   return {
   outer: {
     display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0,
@@ -719,7 +735,7 @@ function makeStyles(sz, szSide = sz) {
     borderBottom: '1px solid #222840', background: '#161b26',
     position: 'relative',
   },
-  acSpacer: { width: sz(150), flexShrink: 0, borderRight: '1px solid #222840' },
+  acSpacer: { width: AC_LABEL_W, flexShrink: 0, borderRight: '1px solid #222840' },
   timeScroll: { flex: 1, overflowX: 'auto', overflowY: 'hidden' },
   timeInner: { position: 'relative', display: 'flex', minWidth: '100%' },
   tick: {
@@ -764,7 +780,7 @@ function makeStyles(sz, szSide = sz) {
   board: { minHeight: '100%' },
   row: { display: 'flex', height: 64, borderBottom: '1px solid #1e243580' },
   acLabel: {
-    width: sz(150), flexShrink: 0,
+    width: AC_LABEL_W, flexShrink: 0,
     position: 'sticky',
     left: 0,
     zIndex: 35,
@@ -772,8 +788,8 @@ function makeStyles(sz, szSide = sz) {
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
     padding: '0 12px', borderRight: '1px solid #222840',
   },
-  reg:    { fontSize: sz(15), fontWeight: 700, letterSpacing: '.3px', color: '#f2f5fb' },
-  acType: { fontSize: sz(11.5), color: '#8090b8', marginTop: 2 },
+  reg:    { fontSize: acFont(15), fontWeight: 700, letterSpacing: '.3px', color: '#f2f5fb' },
+  acType: { fontSize: acFont(11.5), color: '#8090b8', marginTop: 2 },
   timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
   timelineEndPad: { width: sz(260), flexShrink: 0 },
   aogLabel: {

@@ -104,12 +104,16 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
   const icao = Math.max(7, Math.round(12 * scale * labelScale));
   const times = Math.max(7, Math.round(11 * scale * labelScale));
   const markerH = Math.max(10, Math.round(16 * scale * markerScale));
-  const labelRow = vz(18, Math.max(id + sz(2), markerH + 2));
   const body = Math.max(icao + sz(4), Math.round(30 * scale * rowZoom * pillHeight));
+  // Old-DigitalWall layout: the callsign (+ LIM circles) sits IN FRONT of
+  // the pill and the markers AFTER it — one band instead of a label row
+  // above, which is the main vertical saving. The band floors at whatever
+  // is tallest on the line.
+  const band = Math.max(body, id + 2, markerH);
   const timesRow = vz(17, times + sz(3));
-  // top offset 4 + label row + 3 + body + 2 + times row (see render)
-  const total = labelRow + sz(3) + body + sz(2) + timesRow;
-  return { labelRow, body, timesRow, total, fonts: { id, icao, times }, markerH };
+  // top offset 4 + band + 2 + times row (see render)
+  const total = band + sz(2) + timesRow;
+  return { band, body, timesRow, total, fonts: { id, icao, times }, markerH };
 }
 
 /**
@@ -425,7 +429,7 @@ export default function FlightPill({
     times: V.fonts.times,
     icao: V.fonts.icao,
     body: V.body,
-    labelRow: V.labelRow,
+    band: V.band,
     timesRow: V.timesRow,
   };
 
@@ -548,16 +552,22 @@ export default function FlightPill({
   const monoW = (chars, size) => chars * size * 0.62;
   // Limitations render as numbered circles IN FRONT of the callsign (old-
   // DigitalWall style) — always visible, never part of marker degradation.
+  // The lane assigner reserves the front-text width, so the group can never
+  // sit on top of the previous pill.
   const hasLim = Array.isArray(limIndices) && limIndices.length > 0;
   const limCircle = Math.max(10, F.id + sz(3));
-  const limRowW = hasLim ? limIndices.length * (limCircle + sz(3)) : 0;
-  const idW = monoW(String(fn ?? '').length, F.id) + sz(6) + limRowW;
-  const markerBudget = budgetPx - idW;
+  // Markers live AFTER the pill: their budget is the gap between this
+  // pill's end and the next flight's front text. 'none' hides them when
+  // even a +N cluster can't fit (details stay in the overlay/console).
+  const afterGapPx = Number.isFinite(neighborGapPx)
+    ? neighborGapPx - pillPx - sz(10)
+    : Number.POSITIVE_INFINITY;
   const markerMode = (() => {
-    if (markerRowWidthEstimate(flight, szm, 'full') <= markerBudget) return 'full';
-    if (markerRowWidthEstimate(flight, szm, 'icons') <= markerBudget) return 'icons';
-    if (markerRowWidthEstimate(flight, szm, 'dots') <= markerBudget) return 'dots';
-    return 'count';
+    if (markerRowWidthEstimate(flight, szm, 'full') <= afterGapPx) return 'full';
+    if (markerRowWidthEstimate(flight, szm, 'icons') <= afterGapPx) return 'icons';
+    if (markerRowWidthEstimate(flight, szm, 'dots') <= afterGapPx) return 'dots';
+    if (szm(26) <= afterGapPx) return 'count';
+    return 'none';
   })();
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
@@ -609,13 +619,15 @@ export default function FlightPill({
       width: (totalF * 100).toFixed(3) + '%',
       top: sz(4) + lane * laneStep,
       transform: 'none',
-      minHeight: F.labelRow + F.body + F.timesRow,
+      minHeight: F.band + F.timesRow,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'stretch',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: sz(3), height: F.labelRow }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: sz(4), flexShrink: 0 }}>
+      <div style={{ position: 'relative', height: F.band }}>
+        {/* Front group: LIM circles + callsign, on the SAME line as the
+            pill (old-DigitalWall) — anchored just before the pill start. */}
+        <span style={{ position: 'absolute', right: '100%', marginRight: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: sz(4), whiteSpace: 'nowrap' }}>
           {hasLim && limIndices.map((indexValue, idx) => (
             <span
               key={`lim-${indexValue}-${idx}`}
@@ -653,12 +665,13 @@ export default function FlightPill({
             {fn}
           </span>
         </span>
-        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-          <FlightMarkers flight={flight} sz={szm} mode={markerMode} />
-        </span>
-      </div>
+        {markerMode !== 'none' && (
+          <span style={{ position: 'absolute', left: '100%', marginLeft: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}>
+            <FlightMarkers flight={flight} sz={szm} mode={markerMode} />
+          </span>
+        )}
 
-      <div style={{ width: '100%', height: F.body, borderRadius: 99, overflow: 'hidden', ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}>
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
           {depDelayMin > 0 && depCrossSectionF > 0 && (
             <div
@@ -723,6 +736,7 @@ export default function FlightPill({
             />
           )}
         </div>
+      </div>
       </div>
 
       {belowMode === 'combined' || belowMode === 'route-only' ? (

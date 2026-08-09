@@ -66,7 +66,7 @@ function toMs(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx }) {
+function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx, frontPadFracOf = null }) {
   const MIN_VISUAL_DURATION_MS = 45 * 60 * 1000;
   const LANE_GAP_PX = 14; // visual breathing room between rounded pills
   const frac = (ms) => clamp((ms - windowStartMs) / windowDurationMs);
@@ -86,6 +86,10 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
         ...flight,
         __startFrac: frac(startMs),
         __endFrac: frac(endMs),
+        // Callsign-in-front (old-wall layout): the front text occupies real
+        // horizontal space BEFORE the pill — reserve it during packing so
+        // a callsign can never print over the previous pill in the lane.
+        __frontPadFrac: typeof frontPadFracOf === 'function' ? Math.max(0, frontPadFracOf(flight)) : 0,
       };
     })
     .sort((a, b) => a.__startFrac - b.__startFrac);
@@ -94,7 +98,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   const withLanes = [];
 
   for (const flight of sorted) {
-    const startFrac = flight.__startFrac;
+    const startFrac = flight.__startFrac - flight.__frontPadFrac;
     const endFrac = flight.__endFrac;
     let lane = laneEnds.findIndex((laneEndFrac) => startFrac >= laneEndFrac);
     if (lane < 0) {
@@ -118,7 +122,10 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
     laneFlights.sort((a, b) => a.__laneStartFrac - b.__laneStartFrac);
     for (let i = 0; i < laneFlights.length; i += 1) {
       const next = laneFlights[i + 1];
-      laneFlights[i].__nextGapFrac = next ? next.__laneStartFrac - laneFlights[i].__laneStartFrac : null;
+      // The usable gap ends where the NEXT flight's front text begins.
+      laneFlights[i].__nextGapFrac = next
+        ? (next.__laneStartFrac - (next.__frontPadFrac || 0)) - laneFlights[i].__laneStartFrac
+        : null;
       laneFlights[i].__laneStartFrac = undefined;
     }
   }
@@ -199,7 +206,15 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     // sizing, so they can be computed once per aircraft per window.
     const laneCounts = aircraft.map((ac) => {
       try {
-        return assignFlightLanes(ac.flights || [], { windowStartMs: fitWindowStartMs, windowDurationMs: fitWindowDurationMs, timelinePx: fitTimelinePx }).lanes || 1;
+        const fitIdFont = Math.max(7, Math.round(12.5 * scale * labelScale));
+        return assignFlightLanes(ac.flights || [], {
+          windowStartMs: fitWindowStartMs,
+          windowDurationMs: fitWindowDurationMs,
+          timelinePx: fitTimelinePx,
+          frontPadFracOf: (fl) => fitTimelinePx > 0
+            ? (((fl.limitationIds || []).length) * (fitIdFont + 6) + String(fl.fn ?? '').length * fitIdFont * 0.62 + 12) / fitTimelinePx
+            : 0,
+        }).lanes || 1;
       } catch { return 1; }
     });
     const totalFor = (f) => {
@@ -255,6 +270,16 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const FLIGHT_PILL_HEIGHT = pillV.total;
   const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * effRowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
+  // Width of the LIM circles + callsign in front of a pill, as a fraction
+  // of the timeline — mirrors FlightPill's own metrics so packing and
+  // render agree.
+  const frontPadFrac = (fl) => {
+    if (!(timelinePx > 0)) return 0;
+    const limCircle = Math.max(10, pillV.fonts.id + sz(3));
+    const limW = ((fl.limitationIds || []).length) * (limCircle + sz(3));
+    const fnW = String(fl.fn ?? '').length * pillV.fonts.id * 0.62;
+    return (limW + fnW + sz(12)) / timelinePx;
+  };
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
   const fallbackStart = Date.now() - 6 * 60 * 60 * 1000;
@@ -545,6 +570,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
             <div style={s.board} ref={boardRef}>
               {aircraft.map(ac => {
                 const laneData = assignFlightLanes(ac.flights || [], {
+                  frontPadFracOf: frontPadFrac,
                   windowStartMs,
                   windowDurationMs,
                   timelinePx,

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 // prefix: /timeline, /console/operators, ...
 
 export const CONSOLE_PAGES = ['flights', 'notam-check', 'operators', 'aircraft', 'limitations', 'important',
-  'caa', 'webhooks', 'settings'];
+  'caa', 'webhooks', 'reports', 'settings'];
 const LEGACY_CONSOLE_ALIASES = {
   aircrafts: 'aircraft',
   operators: 'operators',

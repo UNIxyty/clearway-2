@@ -306,6 +306,33 @@ export function reportDisplayEnv(body) {
   }).catch(() => {});
 }
 
+/** Console Reports (bug report item 13). */
+export async function fetchReports({ status = '', category = '', q = '' } = {}) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (category) params.set('category', category);
+  if (q) params.set('q', q);
+  const qs = params.toString();
+  return fetchJson(`/api/reports${qs ? `?${qs}` : ''}`, 'Reports request failed');
+}
+
+async function jsonRequest(path, method, body) {
+  const response = await fetch(buildApiUrl(path), {
+    method,
+    headers: { 'content-type': 'application/json' },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || `${method} ${path} failed (${response.status})`);
+  return payload;
+}
+
+export const createReport = (body) => jsonRequest('/api/reports', 'POST', body);
+export const updateReport = (id, body) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'PATCH', body);
+export const deleteReport = (id) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'DELETE');
+export const sendReport = (id, to) => jsonRequest(`/api/reports/${encodeURIComponent(id)}/send`, 'POST', { to });
+export const saveReportsConfig = (body) => jsonRequest('/api/reports/config', 'PUT', body);
+
 export async function fetchDisplayClocks() {
   return fetchJson('/api/display/clocks', 'Clocks request failed');
 }

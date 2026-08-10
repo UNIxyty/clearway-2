@@ -135,3 +135,33 @@ mapping and rendering are correct; no code change required.
   the schedule), `ctot`, `offBlock/blon` (block times), the `status` enum,
   and per-flight checklist items. All are carried on every normalized flight
   and persisted in the local cache, so the console can use them too.
+
+## Timing display precedence (ops rules, bug report 7–9 — exact)
+
+Source fields: CTOT, ETD, BLOFF, T/O, EET, ETA, LDG, STD, STA (flight-watch
+panel). Reference: initial schedule = STD/STA; actual = T/O (departure) and
+LDG (arrival).
+
+Departure label (pill start):
+1. **T/O** — always wins when present, overrides everything.
+2. else **the LATER of CTOT and ETD** (equal priority; label names the one
+   that supplied the later instant).
+3. else plain STD time (no prefix).
+**BLOFF is never displayed** (it still participates in movement-STATE via
+the atd/ata fallback chain — state and display are separate).
+
+Arrival label (pill end):
+1. **LDG** once landed.
+2. **ETA** once T/O is set (in-flight) — or when a flight-watch ETA differs
+   from STA.
+3. else plain STA time.
+
+Schedule differences: the SIGNED delta vs STD/STA rides on each label
+(+late amber, −early green — early is as visible as late), and the striped
+segment on the pill covers min(sched,actual)→max(sched,actual) on each end,
+so both delays and early movements read geometrically too. In-flight the
+labels are exactly T/O + ETA; after arrival exactly T/O + LDG (per ops).
+The old mid-pill boundary labels (ETD…ATD pairs) are gone — they were why
+a flight with a real T/O could render as bare "ETD 05:50": the endpoint
+always showed ETD and the actual only appeared when a positive delay AND
+wide clearance allowed a boundary label.

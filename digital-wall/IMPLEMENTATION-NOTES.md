@@ -1292,3 +1292,18 @@ Overlap audit: 0 collisions at defaults (101 elements) and at the full
 minimums (169 elements, rotated ticks). Density: 24-aircraft board
 shows 7 rows at defaults, 18 at minimums on the same 950px viewport.
 Frontend + backend containers both need rebuilding.
+
+## Pill timing rules (bug report 7-9, 2026-08-10)
+
+Implemented exactly as ops specified — precedence table lives in
+LEON-PILL-MAPPING.md ("Timing display precedence"). Key points: T/O
+always wins the departure label; CTOT vs ETD -> the LATER shows; arrival
+flips to ETA at T/O and LDG at landing; BLOFF never displays (still
+feeds movement-state); signed deltas vs STD/STA on the labels (+amber /
+-green) plus symmetric striped segments make EARLY as visible as late.
+Boundary labels removed — they were the "ETD shown, T/O missing" bug
+(endpoint always showed ETD; the actual needed positive delay + wide
+clearance to appear). leon-sync exposes takeOffUTC/landingUTC/ctotUTC
+(FLIGHT_CACHE_VERSION 4 -> one clean re-sync). Live check: 20/24 cwy
+flights carry T/O, all label correctly incl. early departures. Overlap
+audit clean at defaults and small sizing. Both containers rebuild.

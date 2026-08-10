@@ -120,7 +120,8 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // investigation.md).
 // v2: isActive in the selection + "inactive" excluded kind (2026-07-18).
 // v3: icaoType (ICAO flight-type letter) in the selection (2026-07-20).
-const FLIGHT_CACHE_VERSION = 3;
+// v4: takeOffUTC/landingUTC/ctotUTC on the mapped flight (2026-08-10).
+const FLIGHT_CACHE_VERSION = 4;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
 // Simulator entries so ingestion can drop them. Confirmed on live Leon:
@@ -467,6 +468,13 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
   const tripStatus = rawFlight.status ?? null;
 
   return {
+    // ── Ops timing rules (bug report 7-9): the pill needs the raw chain ──
+    // T/O and LDG are the ACTUAL schedule (display precedence: T/O beats
+    // everything; CTOT vs ETD -> the LATER wins; BLOFF is never displayed —
+    // it only participates in movement-STATE via atd/ata below).
+    takeOffUTC: takeOff,
+    landingUTC: landing,
+    ctotUTC: ctot,
     // ── Leon-driven pill semantics (see LEON-PILL-MAPPING.md) ──
     blockOff,
     takeOff,

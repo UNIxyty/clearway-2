@@ -121,7 +121,8 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // v2: isActive in the selection + "inactive" excluded kind (2026-07-18).
 // v3: icaoType (ICAO flight-type letter) in the selection (2026-07-20).
 // v4: takeOffUTC/landingUTC/ctotUTC on the mapped flight (2026-08-10).
-const FLIGHT_CACHE_VERSION = 4;
+// v5: isFerry in the selection (IMP/CAA load matching, 2026-08-10).
+const FLIGHT_CACHE_VERSION = 5;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
 // Simulator entries so ingestion can drop them. Confirmed on live Leon:
@@ -135,7 +136,7 @@ const FLIGHT_CACHE_VERSION = 4;
 // Aircraft tab is the per-aircraft default (defaultFlightType); each flight
 // carries its own icaoType which inherits that default. Confirmed by live
 // introspection 2026-07-20. NOT the 4-char model designator (acftType.icao).
-const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial", "icaoType"];
+const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial", "icaoType", "isFerry"];
 
 // Movement refresh cadence: every 2nd poll cycle (~4 min at the 120s poll)
 // each operator gets one narrow flightList re-pull so flight-watch data —
@@ -521,6 +522,9 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     // Item 4: commercial vs private, straight from Leon (drives the CAA
     // appliesTo flag). null = unknown (tenant without the field).
     isCommercial: typeof rawFlight.isCommercial === "boolean" ? rawFlight.isCommercial : null,
+    // Load (bug report 10-11): Leon's isFerry marks empty/ferry legs —
+    // true = FERRY, false = PAX, null = unknown (matches "any"/"all" only).
+    isFerry: typeof rawFlight.isFerry === "boolean" ? rawFlight.isFerry : null,
     flightLastModificationTime: rawFlight.flightLastModificationTime ?? null,
     adep: rawFlight.startAirport
       ? {
@@ -2270,6 +2274,7 @@ export class LeonTimelineService {
       startTimeUTC: flight?.startTimeUTC ?? null,
       flightNid: flight?.flightNid ?? null,
       isCommercial: typeof flight?.isCommercial === "boolean" ? flight.isCommercial : null,
+      isFerry: typeof flight?.isFerry === "boolean" ? flight.isFerry : null,
     };
   }
 
@@ -2313,6 +2318,7 @@ export class LeonTimelineService {
             aftn: entry.aftn,
             vfrAddresses: entry.vfrAddresses,
             appliesTo: entry.appliesTo,
+            load: entry.load ?? "all",
           },
         });
       }

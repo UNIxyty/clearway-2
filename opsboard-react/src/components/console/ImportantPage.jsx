@@ -569,6 +569,22 @@ export default function ImportantPage() {
                     </div>
                   </div>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                  <SegmentedRow
+                    label="Flight type"
+                    options={FLIGHT_TYPES}
+                    value={form.appliesTo}
+                    onChange={(v) => setForm((prev) => ({ ...prev, appliesTo: v }))}
+                    hint="From Leon's isCommercial flag; flights with an unknown kind only match Any."
+                  />
+                  <SegmentedRow
+                    label="Load"
+                    options={LOADS}
+                    value={form.load}
+                    onChange={(v) => setForm((prev) => ({ ...prev, load: v }))}
+                    hint="From Leon's isFerry flag (true = ferry/empty leg); unknown only matches All."
+                  />
+                </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                   <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={() => save()}>
                     Save changes

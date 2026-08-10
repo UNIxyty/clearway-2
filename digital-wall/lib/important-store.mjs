@@ -57,6 +57,16 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
   const now = new Date().toISOString();
   const match = input.match || {};
   const direction = DIRECTIONS.has(String(match.direction || "any")) ? String(match.direction || "any") : "any";
+  // Flight type + load (bug report item 10): permits can depend on
+  // commercial/private and on PAX vs FERRY. "any" keeps prior behaviour.
+  const APPLIES_TO = new Set(["any", "commercial", "private"]);
+  const LOADS = new Set(["any", "pax", "ferry"]);
+  const appliesTo = APPLIES_TO.has(String(input.appliesTo ?? existing?.appliesTo ?? "any"))
+    ? String(input.appliesTo ?? existing?.appliesTo ?? "any")
+    : "any";
+  const load = LOADS.has(String(input.load ?? existing?.load ?? "any"))
+    ? String(input.load ?? existing?.load ?? "any")
+    : "any";
 
   // Audit metadata (Item 8): added* is stamped once at creation; confirmed*
   // records WHO flipped reviewed to true and when. Un-reviewing clears the
@@ -88,6 +98,8 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
       validFrom: toIsoDateOrNull(match.validFrom),
       validTo: toIsoDateOrNull(match.validTo),
     },
+    appliesTo,
+    load,
     isActive: input.isActive !== false,
     reviewed: isReviewed,
     source: String(input.source || existing?.source || "manual"),
@@ -300,6 +312,15 @@ export class ImportantStore {
 
       if (m.validFrom && Number.isFinite(flightMs) && flightMs < new Date(m.validFrom).getTime()) continue;
       if (m.validTo && Number.isFinite(flightMs) && flightMs > new Date(m.validTo).getTime()) continue;
+
+      // Flight type + load gates (same convention as CAA: an UNKNOWN value
+      // on the flight only ever matches "any").
+      const isCommercial = typeof ctx.isCommercial === "boolean" ? ctx.isCommercial : null;
+      const isFerry = typeof ctx.isFerry === "boolean" ? ctx.isFerry : null;
+      if (entry.appliesTo === "commercial" && isCommercial !== true) continue;
+      if (entry.appliesTo === "private" && isCommercial !== false) continue;
+      if (entry.load === "pax" && isFerry !== false) continue;
+      if (entry.load === "ferry" && isFerry !== true) continue;
 
       matched.push(entry);
     }

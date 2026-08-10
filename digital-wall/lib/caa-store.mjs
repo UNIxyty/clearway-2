@@ -16,6 +16,8 @@
 import { JsonFileStore } from "./json-store.mjs";
 
 const APPLIES_TO = new Set(["any", "commercial", "private"]);
+// Load (bug report item 11): PAX / FERRY / ALL, alongside appliesTo.
+const CAA_LOADS = new Set(["all", "pax", "ferry"]);
 
 // The sheet's Function column is messy free text. functionKind is the
 // STRUCTURED, filterable classification derived from it (the verbatim text
@@ -89,7 +91,26 @@ export function sanitizeCaaEntry(input = {}, existing = null) {
     : existing?.appliesTo && APPLIES_TO.has(existing.appliesTo)
       ? existing.appliesTo
       : "any";
+  const load = CAA_LOADS.has(String(input.load || "").trim())
+    ? String(input.load).trim()
+    : existing?.load && CAA_LOADS.has(existing.load)
+      ? existing.load
+      : "all";
   const functionText = text(input.functionText ?? existing?.functionText);
+  // Acknowledgement (parity with IMPORTANT): reviewed + who confirmed it.
+  // Un-reviewing clears the confirmation stamp.
+  const wasReviewed = existing ? existing.reviewed !== false : false;
+  const isReviewed = input.reviewed === undefined ? wasReviewed : input.reviewed === true;
+  const actor = String(input.__actor || "").trim() || null;
+  let confirmedAt = existing?.confirmedAt ?? null;
+  let confirmedBy = existing?.confirmedBy ?? null;
+  if (isReviewed && !wasReviewed) {
+    confirmedAt = now;
+    confirmedBy = actor;
+  } else if (!isReviewed && wasReviewed) {
+    confirmedAt = null;
+    confirmedBy = null;
+  }
 
   return {
     id: String(input.id || existing?.id || `CAA-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1296).toString(36).toUpperCase()}`),
@@ -114,6 +135,10 @@ export function sanitizeCaaEntry(input = {}, existing = null) {
       airportIcaos: normalizeList(match.airportIcaos ?? existing?.match?.airportIcaos, { upper: true }),
     },
     appliesTo,
+    load,
+    reviewed: isReviewed,
+    confirmedAt,
+    confirmedBy,
     isActive: input.isActive === undefined ? existing?.isActive !== false : input.isActive !== false,
     source: String(input.source || existing?.source || "manual"),
     createdAt: existing?.createdAt || now,
@@ -244,6 +269,9 @@ export class CaaStore {
 
       if (entry.appliesTo === "commercial" && isCommercial !== true) continue;
       if (entry.appliesTo === "private" && isCommercial !== false) continue;
+      const isFerry = typeof ctx.isFerry === "boolean" ? ctx.isFerry : null;
+      if (entry.load === "pax" && isFerry !== false) continue;
+      if (entry.load === "ferry" && isFerry !== true) continue;
       matched.push(entry);
     }
     return matched;

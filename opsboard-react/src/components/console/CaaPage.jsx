@@ -49,6 +49,17 @@ const CONDITIONS = [
   { value: 'private', label: 'Private only', icon: 'key-round' },
 ];
 
+const CAA_LOADS = [
+  { value: 'all', label: 'All loads', icon: 'plane' },
+  { value: 'pax', label: 'PAX only', icon: 'users' },
+  { value: 'ferry', label: 'Ferry only', icon: 'plane-takeoff' },
+];
+const LOAD_CHIP = {
+  all: null, // default — no chip noise
+  pax: { label: 'PAX', color: '#0369a1', bg: '#e0f2fe' },
+  ferry: { label: 'FERRY', color: '#6d28d9', bg: '#ede9fe' },
+};
+
 const COND_CHIP = {
   any: { label: 'Any', color: '#475569', bg: '#eef1f5' },
   commercial: { label: 'Commercial', color: '#0369a1', bg: '#e0f2fe' },
@@ -73,6 +84,8 @@ function entryToForm(entry) {
     countries: entry.match?.countries || [],
     airportIcaos: entry.match?.airportIcaos || [],
     appliesTo: entry.appliesTo || 'any',
+    load: entry.load || 'all',
+    reviewed: entry.reviewed !== false,
     isActive: entry.isActive !== false,
   };
 }
@@ -175,6 +188,8 @@ export default function CaaPage() {
         vfrAddresses: form.vfrAddresses,
         match: { countries: form.countries, airportIcaos: form.airportIcaos },
         appliesTo: form.appliesTo,
+        load: form.load,
+        reviewed: form.reviewed,
         isActive: form.isActive,
       };
       const payload = form.id ? await updateCaa(form.id, body) : await upsertCaa(body);
@@ -347,6 +362,7 @@ export default function CaaPage() {
               const isSel = entry.id === selectedId;
               const active = entry.isActive !== false;
               const cond = COND_CHIP[entry.appliesTo || 'any'];
+              const loadChip = LOAD_CHIP[entry.load || 'all'];
               return (
                 <div
                   key={entry.id}
@@ -422,6 +438,7 @@ export default function CaaPage() {
                     <StatusPill color={COND_CHIP[form.appliesTo].color} bg={COND_CHIP[form.appliesTo].bg}>
                       {COND_CHIP[form.appliesTo].label}
                     </StatusPill>
+                        {loadChip && <StatusPill color={loadChip.color} bg={loadChip.bg}>{loadChip.label}</StatusPill>}
                   </div>
                   {selected && (
                     <div style={{ fontSize: 13, color: t.muted, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -532,6 +549,28 @@ export default function CaaPage() {
                 <div style={{ fontSize: 11.5, color: t.faint, marginTop: 8, lineHeight: 1.4 }}>
                   Commercial vs private comes from Leon's <span style={{ fontFamily: t.mono }}>isCommercial</span> flight flag; flights with an unknown kind only match “Any flight”.
                 </div>
+                <div style={{ marginTop: 14 }}>
+                  <FieldLabel>Load</FieldLabel>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {CAA_LOADS.map((option) => {
+                      const on = form.load === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setForm((prev) => ({ ...prev, load: option.value }))}
+                          style={{ fontFamily: 'inherit', flex: 1, fontSize: 13, fontWeight: 600, border: `1px solid ${on ? '#2f9e8f' : t.borderInput}`, background: on ? '#ccfbf1' : '#fff', color: on ? '#0f766e' : t.muted, padding: 10, borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+                        >
+                          <Icon name={option.icon} size={15} />
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: t.faint, marginTop: 8, lineHeight: 1.4 }}>
+                    PAX vs ferry comes from Leon's <span style={{ fontFamily: t.mono }}>isFerry</span> flight flag; flights with an unknown load only match “All loads”.
+                  </div>
+                </div>
               </div>
 
               {/* actions */}
@@ -541,6 +580,15 @@ export default function CaaPage() {
                 </Button>
                 <Button variant="ghost" size="lg" disabled={saving} onClick={() => setSelectedId(form.id || '')}>
                   Cancel
+                </Button>
+                <Button
+                  variant={form.reviewed ? 'soft' : 'successSoft'}
+                  size="lg"
+                  icon={form.reviewed ? undefined : 'check'}
+                  disabled={saving}
+                  onClick={() => setForm((prev) => ({ ...prev, reviewed: !prev.reviewed }))}
+                >
+                  {form.reviewed ? 'Reviewed ✓ (click to un-review)' : 'Mark reviewed'}
                 </Button>
               </div>
             </div>

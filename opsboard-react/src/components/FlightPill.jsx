@@ -414,7 +414,7 @@ export default function FlightPill({
   labelScale = 1,
   neighborGapPx = null,
 }) {
-  const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, status } = flight;
+  const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, depDeltaMin = 0, arrDeltaMin = 0, depKind = 'STD', arrKind = 'STA', depHm, arrHm, status } = flight;
   // Ops-room legibility: every metric scales with the display scale setting.
   // Heights additionally follow rowZoom/pillHeight, marker chips follow
   // markerScale, and the ID/ICAO/times fonts follow labelScale — all via
@@ -463,9 +463,9 @@ export default function FlightPill({
   const arrCrossEndF = clamp(frac(arrCrossEndMs));
 
   const totalF = Math.max(arrCrossEndF - depF, 0.005);
-  const depCrossSectionF = depDelayMin > 0 ? Math.max(depCrossF - depF, 0) : 0;
+  const depCrossSectionF = depDeltaMin !== 0 ? Math.max(depCrossF - depF, 0) : 0;
   const mainSectionF = Math.max(arrCrossStartF - depCrossF, 0.003);
-  const arrCrossSectionF = arrDelayMin > 0 ? Math.max(arrCrossEndF - arrCrossStartF, 0) : 0;
+  const arrCrossSectionF = arrDeltaMin !== 0 ? Math.max(arrCrossEndF - arrCrossStartF, 0) : 0;
 
   const depCrossPct = ((depCrossSectionF / totalF) * 100).toFixed(2) + '%';
   const mainPct = ((mainSectionF / totalF) * 100).toFixed(2) + '%';
@@ -487,22 +487,24 @@ export default function FlightPill({
   const idColor = readableIdColor(flight.checklistColor, '#d4ddf2');
   const idStyle = flight.isConfirmed === false ? 'italic' : 'normal';
 
-  // ── Timing labels (Item 6): delayed flights show planned AND actual ─────
-  // Departure: "ETD 08:00" at the pill start, "ATD 08:35" at the end of the
-  // hatched delay segment (plain time when the flight hasn't departed yet —
-  // the hatch end is then only an estimate, and we never invent an actual).
-  // Arrival: "ETA 11:30" at the boundary, "ATA 11:52" at the right end.
-  // On-time ends keep the plain untagged time.
-  const depTagged = depDelayMin > 0;
-  const arrTagged = arrDelayMin > 0;
-  const startLabel = depTagged ? `ETD ${etd}` : etd;
-  const depBoundaryText = depTagged
-    ? (flight.atdHm ? `ATD ${flight.atdHm}` : hmUtc(depCrossEndMs))
-    : hmUtc(depCrossEndMs);
-  const arrBoundaryText = arrTagged ? `ETA ${eta}` : eta;
-  const endLabel = arrTagged
-    ? (flight.ataHm ? `ATA ${flight.ataHm}` : hmUtc(renderEndMs))
-    : eta;
+  // ── Ops timing rules (bug report 7-9) — exact precedence ───────────────
+  // Departure label: T/O overrides everything; else the LATER of CTOT/ETD;
+  // plain STD time otherwise. Arrival label: LDG once landed, ETA once
+  // airborne (or estimated), plain STA time otherwise. BLOFF never shows.
+  // The SIGNED delta vs the initial schedule (STD/STA) rides on the labels
+  // (+late amber / −early green) so any difference — including EARLY — is
+  // explicit, not just the yellow fill; the striped segment marks the same
+  // difference on the pill itself.
+  const depPrefix = depKind === 'STD' ? '' : `${depKind} `;
+  const arrPrefix = arrKind === 'STA' ? '' : `${arrKind} `;
+  const startLabel = `${depPrefix}${depHm ?? etd}`;
+  const endLabel = `${arrPrefix}${arrHm ?? eta}`;
+  const deltaTag = (deltaMin) =>
+    deltaMin === 0 ? null : (
+      <span style={{ color: deltaMin > 0 ? '#e8a33d' : '#4ade80', fontWeight: 700 }}>
+        {' '}{deltaMin > 0 ? '+' : '\u2212'}{Math.abs(deltaMin)}
+      </span>
+    );
 
   // ── Pixel-aware layout (anti-overlap) ──────────────────────────────────
   // Narrow pills switch layout instead of letting text collide. All
@@ -512,7 +514,8 @@ export default function FlightPill({
   const pillPx = totalF * timelinePx;
   const mainPx = (mainSectionF / totalF) * pillPx;
   const plainLabelW = F.times * 3.2;
-  const labelW = depTagged || arrTagged ? plainLabelW * 1.8 : plainLabelW;
+  const tagged = Boolean(depPrefix || arrPrefix || depDeltaMin !== 0 || arrDeltaMin !== 0);
+  const labelW = tagged ? plainLabelW * 2 : plainLabelW;
 
   // ── Degradation priority (Item 10): ICAOs beat timings ────────────────────
   // When space is tight the pill drops content in this order:
@@ -522,7 +525,9 @@ export default function FlightPill({
   //   4. the departure ICAO (dep-only → none) — only when truly no room.
   // A missing ICAO in the DATA ('UNK') is a data gap, rendered dimmed — it is
   // never dropped because a timing is missing, and vice versa.
-  const compactTimes = timelinePx > 0 && pillPx < labelW * 4.2;
+  // Only two endpoint labels exist now (boundary labels are gone), so the
+  // compact threshold is just "both endpoint labels can't clear each other".
+  const compactTimes = timelinePx > 0 && pillPx < labelW * 2.3;
   const icaoW = F.icao * 2.6;
   // Both codes need room for the divider and paddings — otherwise fall back
   // to ADEP-only rather than ellipsizing ("EV…"). Badges are NOT reserved
@@ -575,7 +580,7 @@ export default function FlightPill({
   // the times — never truncated. Budgeted like the marker row; when tight,
   // the times drop FIRST and the route survives (route > times).
   const routeText = `${dep}→${arr}`;
-  const timesText = `${etd}–${arrDelayMin > 0 ? hmUtc(renderEndMs) : eta}`;
+  const timesText = `${depHm ?? etd}\u2013${arrHm ?? eta}`;
   const belowBudget = budgetPx - sz(4);
   const belowMode = (() => {
     if (showFull) return 'anchored'; // ICAOs inside — keep the classic times row
@@ -584,22 +589,6 @@ export default function FlightPill({
     return 'none';
   })();
 
-  // Boundary (delay-crossing) labels position by REAL times. Each needs
-  // clearance from the endpoint labels and from each other — the later one
-  // drops rather than colliding. Compact mode replaces the whole row.
-  const depBoundaryPx = ((depCrossF - depF) / totalF) * pillPx;
-  const arrBoundaryPx = ((arrCrossStartF - depF) / totalF) * pillPx;
-  const clearance = labelW * 1.35;
-  const showDepBoundaryLabel =
-    !compactTimes && depDelayMin > 0 && depBoundaryPx >= clearance && pillPx - depBoundaryPx >= clearance;
-  const showArrBoundaryLabel =
-    !compactTimes &&
-    arrDelayMin > 0 &&
-    arrBoundaryPx >= clearance &&
-    pillPx - arrBoundaryPx >= clearance &&
-    (!showDepBoundaryLabel || arrBoundaryPx - depBoundaryPx >= labelW * 1.55);
-  const depBoundaryPct = `${((depCrossF - depF) / totalF) * 100}%`;
-  const arrBoundaryPct = `${((arrCrossStartF - depF) / totalF) * 100}%`;
 
   const timeStyle = {
     position: 'absolute',
@@ -673,7 +662,7 @@ export default function FlightPill({
 
       <div style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}>
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
-          {depDelayMin > 0 && depCrossSectionF > 0 && (
+          {depDeltaMin !== 0 && depCrossSectionF > 0 && (
             <div
               style={{
                 width: depCrossPct,
@@ -693,9 +682,9 @@ export default function FlightPill({
               height: '100%',
               flexShrink: 0,
               borderRadius:
-                depDelayMin > 0 && depCrossSectionF > 0
-                  ? (arrDelayMin > 0 && arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
-                  : (arrDelayMin > 0 && arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
+                depDeltaMin !== 0 && depCrossSectionF > 0
+                  ? (arrDeltaMin !== 0 && arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
+                  : (arrDeltaMin !== 0 && arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
               background: hollow ? hexA(theme.bg, 0.14) : theme.bg,
               boxShadow: hollow ? 'none' : 'inset 0 0 0 1px rgba(12,16,26,.22)',
               display: 'flex',
@@ -722,7 +711,7 @@ export default function FlightPill({
 
           </div>
 
-          {arrDelayMin > 0 && arrCrossSectionF > 0 && (
+          {arrDeltaMin !== 0 && arrCrossSectionF > 0 && (
             <div
               style={{
                 width: arrCrossPct,
@@ -776,20 +765,18 @@ export default function FlightPill({
             whiteSpace: 'nowrap',
           }}
         >
-          {etd}–{arrDelayMin > 0 ? hmUtc(renderEndMs) : eta}
+          {monoW(startLabel.length + endLabel.length + 9, F.times) <= belowBudget ? (
+            <>
+              {startLabel}{deltaTag(depDeltaMin)}<span>–</span>{endLabel}{deltaTag(arrDeltaMin)}
+            </>
+          ) : (
+            <>{depHm ?? etd}–{arrHm ?? eta}</>
+          )}
         </div>
       ) : (
         <div style={{ position: 'relative', height: F.timesRow, marginTop: sz(2) }}>
-          <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{startLabel}</span>
-          {showDepBoundaryLabel && <span style={{ ...timeStyle, left: depBoundaryPct }}>{depBoundaryText}</span>}
-          {arrDelayMin > 0 ? (
-            <>
-              {showArrBoundaryLabel && <span style={{ ...timeStyle, left: arrBoundaryPct }}>{arrBoundaryText}</span>}
-              <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}</span>
-            </>
-          ) : (
-            <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}</span>
-          )}
+          <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{startLabel}{deltaTag(depDeltaMin)}</span>
+          <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}{deltaTag(arrDeltaMin)}</span>
         </div>
       )}
     </div>

@@ -95,25 +95,77 @@ function toNumber(value, fallback = 0) {
 }
 
 function mapFlight(flight, group) {
-  const start = toDate(flight.etd || flight.startTimeUTC);
-  const scheduledEnd = toDate(flight.eta || flight.endTimeUTC);
-  const etd = toHm(start);
-  const eta = toHm(scheduledEnd);
+  // ── Ops timing rules (bug report 7-9) ─────────────────────────────────
+  // Initial schedule = STD/STA. Actual = T/O (departure) and LDG (arrival).
+  // Departure display precedence: T/O beats everything; otherwise the
+  // LATER of CTOT and ETD; plain STD when no flight-watch estimate exists.
+  // Arrival display: LDG once landed; ETA once airborne (or estimated).
+  // BLOFF is never displayed. Deltas vs schedule are SIGNED — early shows
+  // as a negative difference, not just delays.
+  const stdMs = toDate(flight.startTimeUTC)?.getTime();
+  const staMs = toDate(flight.endTimeUTC)?.getTime();
+  if (!Number.isFinite(stdMs) || !Number.isFinite(staMs)) return null;
+  // Sanity clamp (stale epoch bugs once produced -29645850 min deltas):
+  // any instant >48h from its scheduled anchor is unusable.
+  const sane = (value, refMs) => {
+    const ms = toDate(value)?.getTime();
+    return Number.isFinite(ms) && Math.abs(ms - refMs) <= 48 * 3600_000 ? ms : null;
+  };
+  const toMs = sane(flight.takeOffUTC, stdMs);
+  const ldgMs = sane(flight.landingUTC, staMs);
+  const ctotMs = sane(flight.ctotUTC, stdMs);
+  const etdMs = sane(flight.etd, stdMs) ?? stdMs;
+  const etaMs = sane(flight.eta, staMs) ?? staMs;
+
+  let depKind;
+  let depDisplayMs;
+  if (toMs != null) {
+    depKind = 'T/O';
+    depDisplayMs = toMs;
+  } else if (ctotMs != null || etdMs !== stdMs) {
+    // CTOT and ETD are EQUAL priority — the LATER (bigger) one is shown.
+    depDisplayMs = Math.max(ctotMs ?? -Infinity, etdMs);
+    depKind = ctotMs != null && ctotMs >= etdMs ? 'CTOT' : 'ETD';
+  } else {
+    depKind = 'STD';
+    depDisplayMs = stdMs;
+  }
+  let arrKind;
+  let arrDisplayMs;
+  if (ldgMs != null) {
+    arrKind = 'LDG';
+    arrDisplayMs = ldgMs;
+  } else if (toMs != null) {
+    // Once T/O is set the arrival side switches to ETA.
+    arrKind = 'ETA';
+    arrDisplayMs = etaMs;
+  } else {
+    arrKind = etaMs !== staMs ? 'ETA' : 'STA';
+    arrDisplayMs = etaMs;
+  }
+
+  const depDeltaMin = Math.round((depDisplayMs - stdMs) / 60_000);
+  const arrDeltaMin = Math.round((arrDisplayMs - staMs) / 60_000);
+
+  // Pill spans cover schedule AND actual; the min/max ends render as the
+  // striped difference segments (works for early — negative — too).
+  const spanStartMs = Math.min(stdMs, depDisplayMs);
+  const hatchDepEndMs = Math.max(stdMs, depDisplayMs);
+  let solidEndMs = Math.min(staMs, arrDisplayMs);
+  if (solidEndMs < hatchDepEndMs) solidEndMs = hatchDepEndMs;
+  let spanEndMs = Math.max(staMs, arrDisplayMs);
+  if (spanEndMs < solidEndMs) spanEndMs = solidEndMs;
+
+  const start = new Date(spanStartMs);
+  const scheduledEnd = new Date(solidEndMs);
+  const etd = toHm(new Date(stdMs));
+  const eta = toHm(new Date(staMs));
   const dep = flight.adep?.icao || 'UNK';
   const arr = flight.ades?.icao || 'UNK';
-  // Clamp to a sane band: stale cache entries from a since-fixed epoch bug
-  // carried delays like -29645850 min; anything past ±48h is treated as no
-  // usable delay rather than distorting the pill geometry.
-  const saneDelay = (value, fallback) => {
-    const n = toNumber(value, toNumber(fallback, 0));
-    return n > 0 && n <= 48 * 60 ? n : 0;
-  };
-  const depDelayMin = saneDelay(flight.departureDelayMin, flight.delayMin);
-  const arrDelayMin = saneDelay(flight.arrivalDelayMin, flight.delayMin);
-
-  if (!start || !scheduledEnd || !etd || !eta) return null;
-  const delayedDep = toDate(flight.delayedDepartureUTC) || new Date(start.getTime() + depDelayMin * 60_000);
-  const delayedArr = toDate(flight.delayedArrivalUTC) || new Date(scheduledEnd.getTime() + arrDelayMin * 60_000);
+  const depDelayMin = Math.max(depDeltaMin, 0);
+  const arrDelayMin = Math.max(arrDeltaMin, 0);
+  const delayedDep = new Date(hatchDepEndMs);
+  const delayedArr = new Date(spanEndMs);
 
   const oprId = flight.oprId || group?.oprId || null;
   const flightNid = flight.flightNid != null ? String(flight.flightNid) : null;
@@ -144,6 +196,14 @@ function mapFlight(flight, group) {
     dlyMin: Math.max(depDelayMin, arrDelayMin),
     depDelayMin,
     arrDelayMin,
+    // Ops timing display (exact rules): what to label each pill end with,
+    // the value, and the SIGNED difference vs the initial schedule.
+    depKind,
+    arrKind,
+    depHm: toHm(new Date(depDisplayMs)),
+    arrHm: toHm(new Date(arrDisplayMs)),
+    depDeltaMin,
+    arrDeltaMin,
     status: statusFromFlight(flight),
     // Clock-derived estimate (no flight-watch data) — pill renders HOLLOW.
     estimated: flight.movementStateEstimated === true,

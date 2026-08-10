@@ -413,8 +413,14 @@ export default function FlightPill({
   markerScale = 1,
   labelScale = 1,
   neighborGapPx = null,
+  infoOpen = false,
+  onToggleInfo = null,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, depDeltaMin = 0, arrDeltaMin = 0, depKind = 'STD', arrKind = 'STA', depHm, arrHm, status } = flight;
+  // Info tab (bug report item 1): a flight with IMP/NOTAM/WX/CAA content is
+  // click-expandable — click again (or ✕) collapses. No hover involved.
+  const hasInfoContent = (flight.limitations || []).length > 0 || Boolean(flight.wxDep || flight.wxArr);
+  const clickable = hasInfoContent && typeof onToggleInfo === 'function';
   // Ops-room legibility: every metric scales with the display scale setting.
   // Heights additionally follow rowZoom/pillHeight, marker chips follow
   // markerScale, and the ID/ICAO/times fonts follow labelScale — all via
@@ -660,7 +666,11 @@ export default function FlightPill({
           </span>
         )}
 
-      <div style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}>
+      <div
+        onClick={clickable ? onToggleInfo : undefined}
+        title={clickable ? 'Show limitations / NOTAM / WX / CAA for this flight' : undefined}
+        style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: '2px solid #6dc4ff', outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}
+      >
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
           {depDeltaMin !== 0 && depCrossSectionF > 0 && (
             <div

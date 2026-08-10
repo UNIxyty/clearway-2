@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { p2, clamp } from '../data';
 import FlightPill, { pillVerticalMetrics } from './FlightPill';
+import FlightInfoTab from './FlightInfoTab';
 
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 const LEGEND = [
@@ -138,6 +139,14 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
 
 export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, autoFitRows = false, onAutoFitComputed = null }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // Retractable info tab (bug report item 1): one open at a time so the
+  // board stays clean; auto-collapses after 3 min of being left open.
+  const [openInfoId, setOpenInfoId] = useState(null);
+  useEffect(() => {
+    if (!openInfoId) return undefined;
+    const timer = setTimeout(() => setOpenInfoId(null), 180_000);
+    return () => clearTimeout(timer);
+  }, [openInfoId]);
   const [visibleTimelineWidth, setVisibleTimelineWidth] = useState(720);
   const boardRef = useRef(null);
   const headerScrollRef = useRef(null);
@@ -591,7 +600,12 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                   windowDurationMs,
                   timelinePx,
                 });
-                const rowHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
+                const openFlight = openInfoId ? laneData.flights.find((fl) => fl.id === openInfoId) : null;
+                const INFO_TAB_H = 210;
+                const lanesHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
+                // The row GROWS to hold the tab — in-place expansion never
+                // obscures other flights or rows.
+                const rowHeight = lanesHeight + (openFlight ? INFO_TAB_H + 10 : 0);
                 return (
                 <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? 'rgba(148,163,196,.045)' : 'transparent' }}>
 
@@ -640,6 +654,21 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                     })()}
 
                     {/* Flight pills */}
+                    {!ac.aog && openFlight && (() => {
+                      const startF = clamp((toMs(openFlight.startUtcMs, windowStartMs) - windowStartMs) / windowDurationMs);
+                      const tabW = Math.min(460, Math.max(320, timelinePx * 0.25));
+                      const tabLeft = Math.max(4, Math.min(startF * timelinePx, timelinePx - tabW - 8));
+                      return (
+                        <FlightInfoTab
+                          flight={openFlight}
+                          left={tabLeft}
+                          top={lanesHeight + 2}
+                          width={tabW}
+                          height={INFO_TAB_H}
+                          onClose={() => setOpenInfoId(null)}
+                        />
+                      );
+                    })()}
                     {!ac.aog && laneData.flights.map(fl => (
                       <FlightPill
                         key={fl.id}
@@ -656,6 +685,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         markerScale={effMarkerScale}
                         labelScale={effLabelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
+                        infoOpen={fl.id === openInfoId}
+                        onToggleInfo={() => setOpenInfoId((prev) => (prev === fl.id ? null : fl.id))}
                       />
                     ))}
                   </div>

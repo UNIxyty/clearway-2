@@ -220,6 +220,8 @@ function mapFlight(flight, group) {
     // CheckWX flight categories per airport (VFR/MVFR/IFR/LIFR or null).
     wxDep: flight.wxDep || null,
     wxArr: flight.wxArr || null,
+    // Per-flight Checked acks (info tab) — { imp|ntm|wx|caa: {at, by} }.
+    checks: flight.checks || {},
   };
 }
 
@@ -497,6 +499,18 @@ export async function triggerAlertScan() {
 }
 
 // ── Console-initiated AIP/GEN send (emailed to the signed-in user) ─────────
+
+/** Info-tab acknowledgement: per flight + per type ('all' for everything). */
+export async function postFlightCheck({ flightNid, oprId, types, checked = true }) {
+  const response = await fetch(buildApiUrl('/api/flight-checks'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ flightNid, oprId, types, checked }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Check failed');
+  return payload;
+}
 
 export async function sendFlightDocs({ flightNid, oprId, airports, docs }) {
   const response = await fetch(buildApiUrl('/api/aip/send'), {

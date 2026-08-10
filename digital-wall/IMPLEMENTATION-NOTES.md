@@ -1358,3 +1358,26 @@ console rows, overlay and the tab all clear together over the
 flight.changed broadcast. POST /api/flight-checks. The wall's browser
 is pointer-capable (it already scrolls), so the Checked button lives in
 the tab where ops asked for it. Both containers need rebuilding.
+
+## Console Reports (bug report item 13, 2026-08-10)
+
+Internal issue/request tracker. Store lib/reports-store.mjs
+(data/reports.json): { reports, categories, presets }. Report shape:
+id, category, title, body, status, createdAt/By, updatedAt/By,
+sends[{to, at, by, resendId}]. Status lifecycle EXACTLY as ops wrote:
+untouched (default) -> under_process -> done / impossible. Categories
+are an editable list seeded IT/Office/Ops/Other — a new category typed
+in the form is added automatically. Recipient presets (label -> email)
+are edited on the page and stored in the same file; NO new env vars
+(DIGITAL_WALL_PUBLIC_URL, RESEND_API_KEY and DIGITAL_WALL_EMAIL_FROM
+were already in use). Endpoints: GET/POST /api/reports, PATCH/DELETE
+/api/reports/:id, POST /api/reports/:id/send, PUT /api/reports/config;
+reports.changed SSE. Email: templates/report.html — same branded frame
+as the AIP mail (absolute Supabase-hosted logos so images render),
+category/status chips, body, raised-by line, and a deep link
+{PUBLIC_URL}/console/reports?report=<id>; sends are recorded on the
+report and mailer failures surface as HTTP 502 with the provider error
+(also shown as a persistent banner on the page — never silent).
+Verified end-to-end against a local Resend capture server; a real-inbox
+confirmation needs the deployed backend's RESEND_API_KEY (not present
+locally by design). Backend + frontend containers need rebuilding.

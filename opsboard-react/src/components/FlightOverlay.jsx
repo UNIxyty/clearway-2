@@ -312,6 +312,11 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
                           {caa.appliesTo === 'commercial' ? 'COMMERCIAL' : 'PRIVATE'}
                         </span>
                       )}
+                      {caa.load && caa.load !== 'all' && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#93b4ff', border: '1px solid rgba(120,150,220,.4)', borderRadius: 6, padding: '1px 7px' }}>
+                          {caa.load.toUpperCase()} ONLY
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', marginTop: 8 }}>
                       {rows.map(([k, v, mono]) => (

@@ -1055,7 +1055,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/caa" && req.method === "POST") {
       const body = await readJsonBody(req);
       try {
-        const entry = await caaStore.upsert(body);
+        const entry = await caaStore.upsert({ ...body, __actor: requestUser?.email ?? null });
         sseHub.broadcast({ type: "caa.changed", action: "upsert", id: entry.id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
@@ -1072,7 +1072,7 @@ const server = http.createServer(async (req, res) => {
         const entry =
           keys.length === 1 && keys[0] === "isActive"
             ? await caaStore.setActive(id, Boolean(body.isActive))
-            : await caaStore.patch(id, body);
+            : await caaStore.patch(id, { ...body, __actor: requestUser?.email ?? null });
         sseHub.broadcast({ type: "caa.changed", action: "update", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {

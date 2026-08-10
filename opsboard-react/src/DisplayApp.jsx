@@ -197,6 +197,9 @@ export default function DisplayApp() {
       // they only affect per-flight pill markers, so a cheap re-read of the
       // decorated flights is all these events need.
       subscribeWallStream('important.changed', () => loadTimeline({ refresh: false })),
+      // CAA parity with IMPORTANT (bug report item 12): entry edits repaint
+      // the matched flights' markers/overlay data within ~1-2s.
+      subscribeWallStream('caa.changed', () => loadTimeline({ refresh: false })),
       subscribeWallStream('alerts.changed', () => loadTimeline({ refresh: false })),
       // Operator activated/deactivated or aircraft shown/hidden: lanes
       // appear/disappear within ~1-2s (cache read; whole-slice replace keeps

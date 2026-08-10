@@ -16,6 +16,8 @@ import { NotamCheckService, flightZonedDay, zonedNow } from "./lib/notam-check.m
 import { AipSendService } from "./lib/aip-send.mjs";
 import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
+import { ReportsStore, REPORT_STATUS_LABELS } from "./lib/reports-store.mjs";
+import { escapeHtml, mailerConfigured, renderTemplateFile, sendEmail } from "./lib/mailer.mjs";
 import {
   deleteAttachmentBytes,
   MAX_ATTACHMENT_BYTES,
@@ -86,6 +88,10 @@ timelineService.getVisibilitySettings = async () => {
   const shape = await readDisplayProfiles();
   return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts?.[MAIN_WALL_ACCOUNT] ?? {}) };
 };
+
+// Console Reports (bug report item 13) — internal issue tracker + routing.
+const reportsStore = new ReportsStore();
+await reportsStore.load();
 
 // Per-flight "Checked" acks (timeline info tab) — reset each check cycle.
 const flightChecksStore = new FlightChecksStore();
@@ -550,6 +556,116 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       sendJson(res, { ok: false, error: 'action must be "open" or "close".' }, 400);
+      return;
+    }
+
+    // ── Console Reports (bug report item 13) ──
+    if (pathname === "/api/reports" && req.method === "GET") {
+      const reports = reportsStore.list({
+        status: url.searchParams.get("status") || "",
+        category: url.searchParams.get("category") || "",
+        q: url.searchParams.get("q") || "",
+      });
+      sendJson(res, {
+        ok: true,
+        reports,
+        categories: reportsStore.categories,
+        presets: reportsStore.presets,
+        mailerConfigured: mailerConfigured(),
+      });
+      return;
+    }
+
+    if (pathname === "/api/reports" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const report = await reportsStore.upsert(body, requestUser?.email ?? null);
+        sseHub.broadcast({ type: "reports.changed", action: "upsert", id: report.id });
+        sendJson(res, { ok: true, report });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    if (pathname === "/api/reports/config" && req.method === "PUT") {
+      const body = await readJsonBody(req);
+      try {
+        const config = await reportsStore.saveConfig(body);
+        sseHub.broadcast({ type: "reports.changed", action: "config" });
+        sendJson(res, { ok: true, ...config });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    // Send a report to specific recipients through the branded template.
+    // Failures are LOUD: a non-ok mailer result becomes a 502 with the
+    // provider error surfaced to the page (this system was bitten by
+    // silent email failures before).
+    if (/^\/api\/reports\/[^/]+\/send$/.test(pathname) && req.method === "POST") {
+      const id = decodeURIComponent(pathname.split("/")[3]);
+      const body = await readJsonBody(req);
+      const to = (Array.isArray(body.to) ? body.to : [body.to])
+        .map((v) => String(v || "").trim())
+        .filter((v) => /.+@.+\..+/.test(v));
+      if (to.length === 0) {
+        sendJson(res, { ok: false, error: "At least one valid recipient email is required." }, 400);
+        return;
+      }
+      const report = reportsStore.reports.find((r) => r.id === id);
+      if (!report) {
+        sendJson(res, { ok: false, error: "Report not found." }, 404);
+        return;
+      }
+      const base = String(process.env.DIGITAL_WALL_PUBLIC_URL || "https://clearway.verxyl.com/digital-wall")
+        .trim()
+        .replace(/\/+$/, "");
+      const subject = `[REPORT · ${report.category}] ${report.title}`;
+      const html = await renderTemplateFile(path.resolve(cwd, "templates", "report.html"), {
+        subject,
+        category: report.category,
+        title: report.title,
+        statusLabel: REPORT_STATUS_LABELS[report.status] ?? report.status,
+        raisedLine: `RAISED BY ${(report.createdBy || "console").toUpperCase()} · ${String(report.createdAt).slice(0, 16).replace("T", " ")}Z`,
+        bodyHtml: escapeHtml(report.body || "(no description)").replaceAll("\n", "<br/>"),
+        link: `${base}/console/reports?report=${encodeURIComponent(report.id)}`,
+      });
+      const result = await sendEmail({ to, subject, html });
+      if (!result.ok) {
+        console.error(`[reports] send FAILED for ${id} -> ${to.join(", ")}: ${result.error}`);
+        sendJson(res, { ok: false, error: `Email send failed: ${result.error}` }, 502);
+        return;
+      }
+      const updated = await reportsStore.recordSend(id, { to, by: requestUser?.email ?? null, resendId: result.id });
+      sseHub.broadcast({ type: "reports.changed", action: "sent", id });
+      sendJson(res, { ok: true, report: updated, resendId: result.id });
+      return;
+    }
+
+    if (pathname.startsWith("/api/reports/") && req.method === "PATCH") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const body = await readJsonBody(req);
+      try {
+        const report = await reportsStore.patch(id, body, requestUser?.email ?? null);
+        sseHub.broadcast({ type: "reports.changed", action: "upsert", id });
+        sendJson(res, { ok: true, report });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    if (pathname.startsWith("/api/reports/") && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      try {
+        await reportsStore.remove(id);
+        sseHub.broadcast({ type: "reports.changed", action: "delete", id });
+        sendJson(res, { ok: true });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
       return;
     }
 

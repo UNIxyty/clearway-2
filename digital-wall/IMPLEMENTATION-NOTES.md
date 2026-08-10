@@ -1334,3 +1334,27 @@ CAA/IMPORTANT wall parity (item 12): wall subscribes to caa.changed
 acknowledgement flow (reviewed + confirmedAt/confirmedBy from the
 signed-in account). Marker + overlay contact block existed already.
 Both containers need rebuilding.
+
+## Retractable timeline info tab + per-flight Checked (2026-08-10)
+
+Ops bug report item 1 (referenced again in item 12). Clicking a pill
+with IMP/NOTAM/WX/CAA content expands an IN-PLACE tab under that
+flight's lanes — the aircraft row grows to hold it (never obscures
+other flights; lane packing/budgets untouched); click again or ✕
+collapses; one open at a time; auto-collapse after 3 min; default
+collapsed. Content comes from the decorated payload (IMP title+body,
+NTM/WX findings, CAA contacts) plus a flight-info fetch on expand for
+decoded weather and portal NOTAM counts (full NOTAM text stays on the
+NOTAM Check page — existing policy).
+
+Acks: per FLIGHT and per TYPE (chosen: per-type buttons + a Check all,
+since ops named the types as a group but granular is strictly better),
+stored in flight-checks.json keyed oprId:flightNid with {at, by, cycle},
+stamped from the signed-in account. Validity = ONE check cycle, the
+exact daily-NOTAM-check cadence (cycle = Riga day of its 10:00 start;
+next cycle re-flags new flights; expired acks pruned). Decoration
+filters acked content per flight — single point, so wall markers,
+console rows, overlay and the tab all clear together over the
+flight.changed broadcast. POST /api/flight-checks. The wall's browser
+is pointer-capable (it already scrolls), so the Checked button lives in
+the tab where ops asked for it. Both containers need rebuilding.

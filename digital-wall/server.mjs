@@ -15,6 +15,7 @@ import { AlertsService } from "./lib/alerts.mjs";
 import { NotamCheckService, flightZonedDay, zonedNow } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
 import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
+import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
 import {
   deleteAttachmentBytes,
   MAX_ATTACHMENT_BYTES,
@@ -85,6 +86,11 @@ timelineService.getVisibilitySettings = async () => {
   const shape = await readDisplayProfiles();
   return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts?.[MAIN_WALL_ACCOUNT] ?? {}) };
 };
+
+// Per-flight "Checked" acks (timeline info tab) — reset each check cycle.
+const flightChecksStore = new FlightChecksStore();
+await flightChecksStore.load();
+timelineService.flightChecksStore = flightChecksStore;
 
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
 await notamCheck.load();
@@ -544,6 +550,31 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       sendJson(res, { ok: false, error: 'action must be "open" or "close".' }, 400);
+      return;
+    }
+
+    // ── Per-flight Checked acks (timeline info tab) ──
+    if (pathname === "/api/flight-checks" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      const oprId = String(body.oprId || "").trim();
+      const flightNid = String(body.flightNid || "").trim();
+      if (!oprId || !flightNid) {
+        sendJson(res, { ok: false, error: "oprId and flightNid are required." }, 400);
+        return;
+      }
+      const types = body.types === "all" ? [...CHECK_TYPES] : body.types;
+      try {
+        const checks = await flightChecksStore.setChecked(`${oprId}:${flightNid}`, types, {
+          actor: requestUser?.email ?? null,
+          checked: body.checked !== false,
+        });
+        // Everything reads the decorated payload, so one broadcast updates
+        // the wall pill markers, console rows and the tab within ~1-2s.
+        sseHub.broadcast({ type: "flight.changed", via: "flight-checks", oprId, flightNids: [flightNid] });
+        sendJson(res, { ok: true, checks });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
       return;
     }
 

@@ -2279,6 +2279,12 @@ export class LeonTimelineService {
   }
 
   decorateFlightWithLimitations(flight, context = {}) {
+    // Per-flight "Checked" acks (timeline info tab): an acked type's
+    // content and indicator disappear FOR THIS FLIGHT for the rest of the
+    // current check cycle. Filtering here propagates everywhere at once —
+    // wall markers, console rows, overlay, the tab itself.
+    const checkKey = `${context.oprId ?? flight?.oprId ?? ""}:${flight?.flightNid ?? ""}`;
+    const flightChecks = this.flightChecksStore?.statusFor?.(checkKey) ?? {};
     const limitationIds = this.getMatchedLimitationIds(flight);
     const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
     const limitations = limitationIds
@@ -2296,7 +2302,7 @@ export class LeonTimelineService {
 
     // CAA Details (Item 4): matched authorities ride as type "CAA" — the
     // pill shows the teal CAA marker, the overlay renders the contact block.
-    if (this.caaStore?.loaded) {
+    if (this.caaStore?.loaded && !flightChecks.caa) {
       for (const entry of this.caaStore.matchFlight(matchCtx)) {
         limitations.push({
           id: entry.id,
@@ -2324,7 +2330,7 @@ export class LeonTimelineService {
       }
     }
 
-    if (this.importantStore?.loaded) {
+    if (this.importantStore?.loaded && !flightChecks.imp) {
       for (const entry of this.importantStore.matchFlight(matchCtx)) {
         limitations.push({
           id: entry.id,
@@ -2352,6 +2358,8 @@ export class LeonTimelineService {
         ) {
           continue;
         }
+        if (flightChecks.ntm && finding.badge === "NTM") continue;
+        if (flightChecks.wx && finding.badge === "WX") continue;
         limitations.push({
           id: finding.id,
           title: finding.title,
@@ -2368,7 +2376,8 @@ export class LeonTimelineService {
     // WX categories attach ONLY to today's flights (Riga day — the same set
     // the 10:00 daily check fetched weather for). A flight days out shows no
     // WX marker until its own day, even if its airports happen to be cached.
-    const wxEligible = typeof this.weatherEligible === "function" ? this.weatherEligible(flight) : true;
+    const wxAcked = Boolean(flightChecks.wx);
+    const wxEligible = !wxAcked && (typeof this.weatherEligible === "function" ? this.weatherEligible(flight) : true);
     const wxDep = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
     const wxArr = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
 
@@ -2381,7 +2390,7 @@ export class LeonTimelineService {
       : {};
 
     if (limitations.length === 0) {
-      return { ...flight, ...stateOverride, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };
+      return { ...flight, ...stateOverride, checks: flightChecks, limitationIds: [], limitations: [], lim: null, wxDep, wxArr };
     }
     const allIds = limitations.map((item) => item.id);
     const primary = limitations[0] || null;
@@ -2392,7 +2401,7 @@ export class LeonTimelineService {
             msg: primary.description || primary.title,
           }
         : null;
-    return { ...flight, ...stateOverride, limitationIds: allIds, limitations, lim, wxDep, wxArr };
+    return { ...flight, ...stateOverride, checks: flightChecks, limitationIds: allIds, limitations, lim, wxDep, wxArr };
   }
 
   /**

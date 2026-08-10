@@ -893,6 +893,40 @@ export function PendingNote({ children }) {
 // ── Toasts (dark, bottom-center) ─────────────────────────────────────────────
 const ToastContext = createContext(() => {});
 
+/**
+ * Design-system confirmation dialog — replaces window.confirm so destructive
+ * actions look and behave like the rest of the console.
+ */
+export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', danger = true, busy = false, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(10,14,24,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onCancel}
+    >
+      <div
+        className="cw-fade"
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: '100%', padding: '22px 24px' }}
+      >
+        <div style={{ display: 'flex', gap: 13, alignItems: 'flex-start', marginBottom: 16 }}>
+          <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="alert-triangle" size={19} color={danger ? t.red : t.blueDeep} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ fontSize: 16.5, fontWeight: 800, margin: '3px 0 6px' }}>{title}</h3>
+            {body && <div style={{ fontSize: 13.5, color: t.muted, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{body}</div>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant={danger ? 'danger' : 'primary'} spin={busy} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function useToast() {
   return useContext(ToastContext);
 }

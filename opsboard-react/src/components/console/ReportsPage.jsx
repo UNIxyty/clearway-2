@@ -12,6 +12,8 @@ import Icon from './icons';
 import {
   Button,
   Card,
+  ConfirmDialog,
+  Dropdown,
   EmptyState,
   ErrorBanner,
   FieldLabel,
@@ -104,6 +106,7 @@ export default function ReportsPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [presetsOpen, setPresetsOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [presetDraft, setPresetDraft] = useState([]);
   const flash = useToast();
 
@@ -139,7 +142,8 @@ export default function ReportsPage() {
     if (!form?.title.trim()) return;
     setSaving(true);
     try {
-      const body = { category: form.category, title: form.title, body: form.body, status: form.status };
+      const category = form.category === '__new__' ? (form.newCategory || '').trim() || 'Other' : form.category;
+      const body = { category, title: form.title, body: form.body, status: form.status };
       if (form.id) await updateReport(form.id, body);
       else await createReport(body);
       flash(form.id ? 'Report updated' : 'Report created');
@@ -241,10 +245,25 @@ export default function ReportsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 14, marginBottom: 12 }}>
             <div>
               <FieldLabel>Category</FieldLabel>
-              <TextInput list="report-categories" value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} />
-              <datalist id="report-categories">
-                {categories.map((c) => <option key={c} value={c} />)}
-              </datalist>
+              {form.category === '__new__' ? (
+                <TextInput
+                  autoFocus
+                  placeholder="New category name"
+                  value={form.newCategory || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, newCategory: e.target.value }))}
+                />
+              ) : (
+                <Dropdown
+                  label="Category"
+                  value={form.category}
+                  options={[
+                    ...categories.map((c) => ({ value: c, label: c })),
+                    { value: '__new__', label: '+ New category…' },
+                  ]}
+                  onChange={(v) => setForm((prev) => ({ ...prev, category: v, newCategory: '' }))}
+                  style={{ width: '100%' }}
+                />
+              )}
             </div>
             <div>
               <FieldLabel>Title</FieldLabel>
@@ -355,21 +374,23 @@ export default function ReportsPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <IconButton icon="send" title="Send to email" onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
                 <IconButton icon="pencil" title="Edit" onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
-                <IconButton
-                  icon="trash-2"
-                  title="Delete"
-                  onClick={async () => {
-                    // eslint-disable-next-line no-alert
-                    if (!window.confirm(`Delete report "${report.title}"?`)) return;
-                    try { await deleteReport(report.id); flash('Report deleted', '#f87171'); await load(); }
-                    catch (err) { setError(String(err.message || err)); }
-                  }}
-                />
+                <IconButton icon="trash-2" title="Delete" onClick={() => setConfirmDelete(report)} />
               </div>
             </div>
           </div>
         ))}
       </TableShell>
+
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title={`Delete report "${confirmDelete?.title ?? ''}"?`}
+        body="The report and its send history are removed. This cannot be undone."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => {
+          try { await deleteReport(confirmDelete.id); flash('Report deleted', '#f87171'); setConfirmDelete(null); await load(); }
+          catch (err) { setError(String(err.message || err)); setConfirmDelete(null); }
+        }}
+      />
     </div>
   );
 }

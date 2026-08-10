@@ -26,6 +26,7 @@ import {
   timeAgo,
   Toggle,
   useToast,
+  ConfirmDialog,
 } from './ui';
 
 // Operators — Leon operators feeding the wall + sync health (approved design).
@@ -205,12 +206,10 @@ export default function OperatorsPage() {
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   async function removeOperator(operator) {
     const label = operator.name || operator.oprId;
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete operator "${label}" (${operator.oprId})?\n\nThis removes its Leon connection, all its cached flights and aircraft-visibility settings. Its lanes disappear from the wall. This cannot be undone.`)) {
-      return;
-    }
     setDeletingId(operator.id);
     try {
       await deleteOperator(operator.id);
@@ -374,7 +373,7 @@ export default function OperatorsPage() {
                     icon="trash-2"
                     title="Delete operator"
                     disabled={deletingId === operator.id}
-                    onClick={() => removeOperator(operator)}
+                    onClick={() => setConfirmDelete(operator)}
                   />
                 </div>
               </div>
@@ -388,6 +387,13 @@ export default function OperatorsPage() {
           );
         })}
       </TableShell>
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title={`Delete operator "${confirmDelete?.name || confirmDelete?.oprId || ''}"?`}
+        body={`This removes its Leon connection, all its cached flights and aircraft-visibility settings. Its lanes disappear from the wall. This cannot be undone.`}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => { const target = confirmDelete; setConfirmDelete(null); await removeOperator(target); }}
+      />
     </div>
   );
 }

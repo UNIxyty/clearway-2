@@ -14,6 +14,7 @@ import {
   TableShell,
   Toggle,
   useToast,
+  ConfirmDialog,
 } from './ui';
 
 // Aircraft — choose which tails render on the wall (approved design).
@@ -105,12 +106,11 @@ export default function AircraftPage() {
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   async function removeAircraft(row) {
     const key = `${row.oprId}:${row.registration}`;
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete aircraft ${row.registration} (${row.operatorName || row.oprId})?\n\nIts cached flights are purged and its lane leaves the wall now. Because aircraft come from Leon, it stays hidden — if a later sync re-adds its flights they will not show on the wall until you re-enable it.`)) {
-      return;
-    }
+
     setDeletingKey(key);
     try {
       await deleteAircraft({ oprId: row.oprId, registration: row.registration });
@@ -229,13 +229,20 @@ export default function AircraftPage() {
                   icon="trash-2"
                   title="Delete aircraft"
                   disabled={deletingKey === `${row.oprId}:${row.registration}`}
-                  onClick={() => removeAircraft(row)}
+                  onClick={() => setConfirmDelete(row)}
                 />
               </div>
             </div>
           );
         })}
       </TableShell>
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title={`Delete aircraft ${confirmDelete?.registration ?? ''}?`}
+        body="Its cached flights are purged and its lane leaves the wall now. Because aircraft come from Leon, it stays hidden — if a later sync re-adds its flights they will not show on the wall until you re-enable it."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => { const target = confirmDelete; setConfirmDelete(null); await removeAircraft(target); }}
+      />
     </div>
   );
 }

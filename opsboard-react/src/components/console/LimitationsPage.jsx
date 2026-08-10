@@ -26,6 +26,7 @@ import {
   TextInput,
   Toggle,
   useToast,
+  ConfirmDialog,
 } from './ui';
 
 // Limitations — manual text limitations for the wall sidebar, reworked model
@@ -224,9 +225,9 @@ export default function LimitationsPage() {
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   async function remove(item) {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete limitation "${item.title}"?\n\nIt disappears from the wall sidebar immediately. This cannot be undone.`)) return;
     setBusyId(item.id);
     try {
       await deleteLimitation(item.id);
@@ -312,7 +313,7 @@ export default function LimitationsPage() {
                         disabled
                       />
                     ) : (
-                      <IconButton icon="trash-2" title="Delete limitation" disabled={busyId === item.id} onClick={() => remove(item)} />
+                      <IconButton icon="trash-2" title="Delete limitation" disabled={busyId === item.id} onClick={() => setConfirmDelete(item)} />
                     )}
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.5, color: t.body, marginBottom: 6 }}>{item.description || '—'}</div>
@@ -498,6 +499,13 @@ export default function LimitationsPage() {
           window={windowText({ isPermanent: form.isPermanent, startDate: form.startDate, endDate: form.endDate })}
         />
       </div>
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title={`Delete limitation "${confirmDelete?.title ?? ''}"?`}
+        body="It disappears from the wall sidebar immediately. This cannot be undone."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => { const target = confirmDelete; setConfirmDelete(null); await remove(target); }}
+      />
     </div>
   );
 }

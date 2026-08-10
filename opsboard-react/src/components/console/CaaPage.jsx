@@ -26,6 +26,8 @@ import {
   TextInput,
   Toggle,
   useToast,
+  ConfirmDialog,
+  Dropdown,
 } from './ui';
 
 // CAA details — Civil Aviation Authority contact records + permit processes
@@ -213,9 +215,9 @@ export default function CaaPage() {
     }
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   async function remove(entry) {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm(`Delete the CAA entry for "${entry.authorityName || entry.country}"? This cannot be undone.`)) return;
     try {
       await deleteCaa(entry.id);
       flash('CAA entry deleted', '#f87171');
@@ -295,26 +297,20 @@ export default function CaaPage() {
             style={{ marginBottom: 10 }}
           />
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <select
+            <Dropdown
+              label="All countries"
               value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              style={{ flex: 1, minWidth: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: countryFilter ? t.blueDeep : t.muted, background: countryFilter ? t.blueTint : '#fff', border: `1px solid ${countryFilter ? t.blueBorder : t.borderInput}`, height: 38, padding: '0 10px', borderRadius: 9, outline: 'none' }}
-            >
-              <option value="">All countries</option>
-              {countryOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select
+              options={[{ value: '', label: 'All countries' }, ...countryOptions.map((c) => ({ value: c, label: c }))]}
+              onChange={setCountryFilter}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <Dropdown
+              label="All functions"
               value={funcFilter}
-              onChange={(e) => setFuncFilter(e.target.value)}
-              style={{ flex: 1, minWidth: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: funcFilter ? t.blueDeep : t.muted, background: funcFilter ? t.blueTint : '#fff', border: `1px solid ${funcFilter ? t.blueBorder : t.borderInput}`, height: 38, padding: '0 10px', borderRadius: 9, outline: 'none' }}
-            >
-              <option value="">All functions</option>
-              {Object.entries(FUNCTION_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+              options={[{ value: '', label: 'All functions' }, ...Object.entries(FUNCTION_LABELS).map(([value, label]) => ({ value, label }))]}
+              onChange={setFuncFilter}
+              style={{ flex: 1, minWidth: 0 }}
+            />
           </div>
           <div style={{ display: 'flex', background: '#eef0f2', borderRadius: 9, padding: 3, marginBottom: 12 }}>
             {[{ value: '', label: 'All' }, { value: 'any', label: 'Any' }, { value: 'commercial', label: 'Comm.' }, { value: 'private', label: 'Private' }].map((f) => {
@@ -475,7 +471,7 @@ export default function CaaPage() {
                         toggleActive(selected, !form.isActive);
                       }}
                     />
-                    <IconButton icon="trash-2" title="Delete entry" onClick={() => remove(selected)} />
+                    <IconButton icon="trash-2" title="Delete entry" onClick={() => setConfirmDelete(selected)} />
                   </div>
                 )}
               </div>
@@ -604,6 +600,14 @@ export default function CaaPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title={`Delete the CAA entry for "${confirmDelete?.authorityName || confirmDelete?.country || ''}"?`}
+        body="This cannot be undone."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => { const target = confirmDelete; setConfirmDelete(null); await remove(target); }}
+      />
     </div>
   );
 }

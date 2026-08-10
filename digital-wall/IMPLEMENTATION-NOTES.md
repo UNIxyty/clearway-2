@@ -1307,3 +1307,30 @@ clearance to appear). leon-sync exposes takeOffUTC/landingUTC/ctotUTC
 (FLIGHT_CACHE_VERSION 4 -> one clean re-sync). Live check: 20/24 cwy
 flights carry T/O, all label correctly incl. early departures. Overlap
 audit clean at defaults and small sizing. Both containers rebuild.
+
+## Per-account settings + IMP/CAA type-load fields (2026-08-10)
+
+Settings are now PER ACCOUNT (bug report item 3): resolved server-side
+from the Supabase session; the ops-room wall signs in as
+ops@clearway.aero and that account's profile IS the big screen. Console
+Settings: "Whose view are you tuning?" — My view vs Main wall (any
+console user may edit the main wall; nobody can write another user's
+personal profile — such writes land on the caller's own). Migration
+seeds the main-wall profile from the pre-existing settings (the brief
+device-keyed profiles are dropped); config.changed carries the account;
+the backend visibility window follows the MAIN WALL profile. Verified
+E2E on the real server: migration + both isolation directions.
+
+IMP entries: appliesTo (any|commercial|private) + load (any|pax|ferry);
+CAA entries: load (all|pax|ferry). Both gated in matchFlight with the
+shared convention: unknown flight values only match any/all. Flight
+side: isCommercial (existing) and isFerry (NEW in the guarded selection
+— true = ferry/empty leg, false = PAX, null = unknown;
+FLIGHT_CACHE_VERSION 5). Editors use segmented controls; CAA rows show
+PAX/FERRY chips; the overlay CAA block shows a load chip.
+
+CAA/IMPORTANT wall parity (item 12): wall subscribes to caa.changed
+(live repaint like important.changed) and CAA entries carry the same
+acknowledgement flow (reviewed + confirmedAt/confirmedBy from the
+signed-in account). Marker + overlay contact block existed already.
+Both containers need rebuilding.

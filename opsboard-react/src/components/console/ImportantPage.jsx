@@ -50,6 +50,53 @@ const DIRECTIONS = [
   { value: 'arr', label: 'Arrival' },
 ];
 
+// Bug report item 10: permits can depend on flight type and load.
+const FLIGHT_TYPES = [
+  { value: 'any', label: 'Any' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'private', label: 'Private' },
+];
+const LOADS = [
+  { value: 'any', label: 'All' },
+  { value: 'pax', label: 'PAX' },
+  { value: 'ferry', label: 'Ferry' },
+];
+
+function SegmentedRow({ label, options, value, onChange, hint }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {options.map((option) => {
+          const on = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              style={{
+                fontFamily: 'inherit',
+                flex: 1,
+                fontSize: 13,
+                fontWeight: 600,
+                border: `1px solid ${on ? t.blue : t.borderInput}`,
+                background: on ? t.blueTint : '#fff',
+                color: on ? t.blueDeep : t.muted,
+                padding: 9,
+                borderRadius: 9,
+                cursor: 'pointer',
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {hint && <div style={{ fontSize: 12, color: t.faint, marginTop: 7 }}>{hint}</div>}
+    </div>
+  );
+}
+
 function toDateInput(value) {
   if (!value) return '';
   const dt = new Date(value);
@@ -73,6 +120,8 @@ function entryToForm(entry) {
     operators: entry.match?.operators || [],
     registrations: entry.match?.registrations || [],
     direction: entry.match?.direction || 'any',
+    appliesTo: entry.appliesTo || 'any',
+    load: entry.load || 'any',
     validFrom: toDateInput(entry.match?.validFrom),
     validTo: toDateInput(entry.match?.validTo),
   };
@@ -89,6 +138,8 @@ const NEW_FORM = {
   operators: [],
   registrations: [],
   direction: 'any',
+  appliesTo: 'any',
+  load: 'any',
   validFrom: '',
   validTo: '',
 };
@@ -253,6 +304,8 @@ export default function ImportantPage() {
         body: form.body,
         isActive: form.isActive,
         reviewed: markReviewed ? true : form.reviewed,
+        appliesTo: form.appliesTo,
+        load: form.load,
         match: {
           countries: form.countries,
           airportIcaos: form.airportIcaos,

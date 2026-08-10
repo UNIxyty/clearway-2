@@ -305,8 +305,13 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // Hour labels rotate when their column is too narrow (old-wall trick);
   // the header strip must then be tall enough to hold the vertical text.
   const tickFont = Math.max(9, sz(12));
-  const ticksRotated = pxPerHour < tickFont * 5 * 0.62 + 8;
-  const timeHeaderH = ticksRotated ? Math.max(sz(42), Math.round(tickFont * 5 * 0.62) + 12) : sz(42);
+  // Rotate as soon as the column gets CRAMPED (under ~1.6x the label
+  // width), not only at the point of literal overlap — the vertical labels
+  // are the old-wall look ops expect whenever the axis is dense. Defaults
+  // (wide columns) stay horizontal.
+  const tickLabelW = tickFont * 5 * 0.62;
+  const ticksRotated = pxPerHour < tickLabelW * 2.2;
+  const timeHeaderH = ticksRotated ? Math.max(sz(42), Math.round(tickLabelW) + 14) : sz(42);
   const timelinePx = timelineHours * pxPerHour;
   const nowStr = nowTimeStr(nowMs);
   const nowX = nowFracUtc(nowMs, windowStartMs, windowDurationMs) * timelinePx;

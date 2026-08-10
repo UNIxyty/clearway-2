@@ -389,6 +389,11 @@ export default function CaaPage() {
                     <span style={{ fontSize: 11, fontWeight: 600, color: cond.color, background: cond.bg, padding: '3px 8px', borderRadius: 6 }}>
                       {cond.label}
                     </span>
+                    {loadChip && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: loadChip.color, background: loadChip.bg, padding: '3px 8px', borderRadius: 6 }}>
+                        {loadChip.label}
+                      </span>
+                    )}
                     <div style={{ flex: 1 }} />
                     <span title={active ? 'Active on wall' : 'Inactive'} style={{ width: 8, height: 8, borderRadius: '50%', background: active ? t.green : '#c3c7cd' }} />
                   </div>
@@ -438,7 +443,11 @@ export default function CaaPage() {
                     <StatusPill color={COND_CHIP[form.appliesTo].color} bg={COND_CHIP[form.appliesTo].bg}>
                       {COND_CHIP[form.appliesTo].label}
                     </StatusPill>
-                        {loadChip && <StatusPill color={loadChip.color} bg={loadChip.bg}>{loadChip.label}</StatusPill>}
+                    {LOAD_CHIP[form.load || 'all'] && (
+                      <StatusPill color={LOAD_CHIP[form.load || 'all'].color} bg={LOAD_CHIP[form.load || 'all'].bg}>
+                        {LOAD_CHIP[form.load || 'all'].label}
+                      </StatusPill>
+                    )}
                   </div>
                   {selected && (
                     <div style={{ fontSize: 13, color: t.muted, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

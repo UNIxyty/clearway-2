@@ -83,7 +83,7 @@ process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "i
 // post-landing window; thresholds live with the display settings.
 timelineService.getVisibilitySettings = async () => {
   const shape = await readDisplayProfiles();
-  return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts?.[MAIN_WALL_ACCOUNT] ?? {}) };
 };
 
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
@@ -133,19 +133,33 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
-// Item 3 (wall sizing): per-DEVICE settings profiles. File shape:
-//   { default: {settings}, profiles: { <deviceId>: {settings} } }
-// A legacy flat file (global settings only) migrates into `default`, so the
-// wall keeps its tuned config. Devices without their own profile follow
-// `default`; the first per-device save copies default into that profile.
-// The server-side visibility window (getVisibilitySettings) deliberately
-// reads DEFAULT — the flight set the backend serves stays global.
+// Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
+//   { default: {settings}, accounts: { <email>: {settings} } }
+// The main ops-room wall signs in as MAIN_WALL_ACCOUNT — its profile IS the
+// big screen. Personal accounts get their own profile on first save; until
+// then they follow `default`. Migration: a legacy flat file becomes
+// `default`; the short-lived per-DEVICE shape (v2) migrates its default
+// into the main-wall account (device profiles are dropped — they existed
+// for days and the requirement is account-keyed). Any signed-in console
+// user may edit the main wall (console access is the privilege gate);
+// personal profiles are writable only by their own account.
+const MAIN_WALL_ACCOUNT = "ops@clearway.aero";
+
 function migrateSettingsShape(stored) {
+  if (stored && typeof stored === "object" && stored.accounts && typeof stored.accounts === "object") {
+    return { default: stored.default ?? {}, accounts: stored.accounts };
+  }
   if (stored && typeof stored === "object" && stored.default && typeof stored.default === "object") {
-    return { default: stored.default, profiles: stored.profiles && typeof stored.profiles === "object" ? stored.profiles : {} };
+    // v2 (device-keyed): seed the main wall from the shared default so the
+    // big screen looks unchanged after deploy.
+    return {
+      default: stored.default,
+      accounts: { [MAIN_WALL_ACCOUNT]: { ...DEFAULT_DISPLAY_SETTINGS, ...stored.default } },
+    };
   }
   const { updatedAt, ...legacy } = stored || {};
-  return { default: { ...DEFAULT_DISPLAY_SETTINGS, ...legacy }, profiles: {} };
+  const base = { ...DEFAULT_DISPLAY_SETTINGS, ...legacy };
+  return { default: base, accounts: { [MAIN_WALL_ACCOUNT]: base } };
 }
 
 async function readDisplayProfiles() {
@@ -153,10 +167,10 @@ async function readDisplayProfiles() {
   return migrateSettingsShape(stored);
 }
 
-function resolveDisplaySettings(shape, deviceId) {
-  const id = String(deviceId || "").trim();
-  if (id && shape.profiles[id]) {
-    return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...shape.profiles[id] }, source: "device" };
+function resolveDisplaySettings(shape, account) {
+  const key = String(account || "").trim().toLowerCase();
+  if (key && shape.accounts[key]) {
+    return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...shape.accounts[key] }, source: "account" };
   }
   return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default }, source: "default" };
 }
@@ -709,48 +723,62 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/display/settings" && req.method === "GET") {
       const shape = await readDisplayProfiles();
-      const deviceId = url.searchParams.get("deviceId") || "";
-      const resolved = resolveDisplaySettings(shape, deviceId);
-      sendJson(res, { ok: true, settings: resolved.settings, source: resolved.source, deviceId: deviceId || null });
+      const own = String(requestUser?.email || "").toLowerCase();
+      const requested = String(url.searchParams.get("account") || "").toLowerCase();
+      // Explicit targets: your own profile or the main wall. Anything else
+      // falls back to your own view.
+      const account = requested === MAIN_WALL_ACCOUNT || requested === own ? requested : own;
+      const resolved = resolveDisplaySettings(shape, account);
+      sendJson(res, {
+        ok: true,
+        settings: resolved.settings,
+        source: resolved.source,
+        account,
+        mainWallAccount: MAIN_WALL_ACCOUNT,
+        isMainWall: account === MAIN_WALL_ACCOUNT,
+      });
       return;
     }
 
     if (pathname === "/api/display/settings" && req.method === "PUT") {
       const body = await readJsonBody(req);
-      const deviceId = String(body.deviceId || "").trim();
+      const own = String(requestUser?.email || "").toLowerCase();
+      const requested = String(body.account || "").trim().toLowerCase();
+      // Writable targets: your OWN profile (default) or the MAIN WALL.
+      // Another user's personal profile is never writable.
+      const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
       let settings;
       const shape = await readDisplayProfiles();
       try {
         // Merge over the target profile so a partial PUT (e.g. only scale)
-        // never silently resets the other knobs. With a deviceId the write
-        // lands ONLY in that device's profile (created from default on
-        // first save); without one it edits the shared default.
-        const base = deviceId
-          ? { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.profiles[deviceId] ?? {}) }
-          : { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
+        // never silently resets the other knobs. First save copies the
+        // resolved view into the account's own profile.
+        const base = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts[account] ?? {}) };
         settings = sanitizeDisplaySettings({ ...base, ...(body.settings ?? body) });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;
       }
-      if (deviceId) shape.profiles[deviceId] = settings;
-      else shape.default = settings;
+      shape.accounts[account] = settings;
       await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
-      // deviceId in the event lets each surface ignore edits aimed at a
-      // DIFFERENT device's profile (desktop tuning must not resize the wall).
-      sseHub.broadcast({ type: "config.changed", section: "settings", deviceId: deviceId || null });
-      sendJson(res, { ok: true, settings, deviceId: deviceId || null });
+      // The account in the event lets each surface ignore edits aimed at a
+      // DIFFERENT profile (personal tuning must not resize the big screen).
+      sseHub.broadcast({ type: "config.changed", section: "settings", account });
+      sendJson(res, { ok: true, settings, account });
       return;
     }
 
-    // Item 3: forget a device's own profile (falls back to default).
+    // Forget an account's own profile (falls back to default). Same access
+    // rule as PUT: your own, or the main wall.
     if (pathname.startsWith("/api/display/settings/profile/") && req.method === "DELETE") {
-      const deviceId = decodeURIComponent(pathname.split("/").pop());
+      const own = String(requestUser?.email || "").toLowerCase();
+      const requested = decodeURIComponent(pathname.split("/").pop()).toLowerCase();
+      const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
       const shape = await readDisplayProfiles();
-      if (shape.profiles[deviceId]) {
-        delete shape.profiles[deviceId];
+      if (shape.accounts[account]) {
+        delete shape.accounts[account];
         await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
-        sseHub.broadcast({ type: "config.changed", section: "settings", deviceId });
+        sseHub.broadcast({ type: "config.changed", section: "settings", account });
       }
       sendJson(res, { ok: true });
       return;
@@ -786,11 +814,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/display/devices" && req.method === "GET") {
       const stored = await displayDevicesStore.read();
-      const shape = await readDisplayProfiles();
       const devices = Object.entries(stored.devices ?? {}).map(([id, device]) => ({
         deviceId: id,
         ...device,
-        hasProfile: Boolean(shape.profiles[id]),
       }));
       devices.sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)));
       sendJson(res, { ok: true, devices });

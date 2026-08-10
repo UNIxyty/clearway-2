@@ -110,6 +110,7 @@ export default function DisplayApp() {
   const [autoFitRows, setAutoFitRows] = useState(false); // Item 2: fit all rows to the viewport
   const loadingRef = useRef(false);
   const deviceIdRef = useRef(getDeviceId());
+  const accountRef = useRef(''); // this screen's signed-in account (profile key)
   const debugViewport = DEBUG_VIEWPORT;
 
   async function loadTimeline({ refresh = true } = {}) {
@@ -144,7 +145,8 @@ export default function DisplayApp() {
 
   async function loadSettings() {
     try {
-      const payload = await fetchDisplaySettings(deviceIdRef.current);
+      const payload = await fetchDisplaySettings();
+      accountRef.current = String(payload.account || '').toLowerCase();
       setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
@@ -217,9 +219,9 @@ export default function DisplayApp() {
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
         if (!event.section || event.section === 'settings') {
-          // Profile scoping (Item 3): an edit aimed at ANOTHER device's
-          // profile must not resize this screen.
-          if (event.deviceId && event.deviceId !== deviceIdRef.current) return;
+          // Profile scoping: an edit aimed at ANOTHER account's profile
+          // must not resize this screen (personal tuning vs the big wall).
+          if (event.account && accountRef.current && event.account !== accountRef.current) return;
           loadSettings();
           // Visibility-window settings (upcoming horizon / post-landing)
           // filter flights SERVER-side — re-read the timeline so a changed

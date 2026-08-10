@@ -286,8 +286,8 @@ export async function renameDisplayDevice(deviceId, label) {
   return payload;
 }
 
-export async function resetDeviceProfile(deviceId) {
-  const response = await fetch(buildApiUrl(`/api/display/settings/profile/${encodeURIComponent(deviceId)}`), {
+export async function resetProfile(account) {
+  const response = await fetch(buildApiUrl(`/api/display/settings/profile/${encodeURIComponent(account)}`), {
     method: 'DELETE',
   });
   const payload = await response.json();
@@ -308,16 +308,19 @@ export async function fetchDisplayClocks() {
   return fetchJson('/api/display/clocks', 'Clocks request failed');
 }
 
-export async function fetchDisplaySettings(deviceId) {
-  const query = deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : '';
+// Settings are per ACCOUNT (the main ops wall signs in as
+// ops@clearway.aero — its profile IS the big screen). No account argument
+// = your own profile, resolved server-side from the session.
+export async function fetchDisplaySettings(account) {
+  const query = account ? `?account=${encodeURIComponent(account)}` : '';
   return fetchJson(`/api/display/settings${query}`, 'Display settings request failed');
 }
 
-export async function saveDisplaySettings(settings, deviceId) {
+export async function saveDisplaySettings(settings, account) {
   const response = await fetch(buildApiUrl('/api/display/settings'), {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ settings, ...(deviceId ? { deviceId } : {}) }),
+    body: JSON.stringify({ settings, ...(account ? { account } : {}) }),
   });
   const payload = await response.json();
   if (!response.ok || payload.ok === false) {

@@ -6,16 +6,20 @@ import {
   fetchDisplaySettings,
   renameDisplayDevice,
   reportDisplayEnv,
-  resetDeviceProfile,
+  resetProfile,
   saveAlertRules,
   saveDisplayClocks,
   saveDisplaySettings,
   triggerAlertScan,
 } from '../../services/timelineApi';
 import { collectViewportEnv, getDeviceId } from '../../services/device';
+import { fetchCurrentUser } from '../../services/timelineApi';
 
-// Item 3 (wall sizing): which screen's profile the sizing cards edit.
-// null = the shared defaults (screens without their own profile).
+// Which ACCOUNT's profile the sizing cards edit. null = your own view;
+// the string carries the target account (the main wall signs in as
+// ops@clearway.aero). Field names kept from the device era so the sizing
+// cards below stay unchanged — deviceId IS the account key now.
+const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
 import Icon from './icons';
 import {
@@ -236,108 +240,61 @@ function timeAgoShort(iso) {
 }
 
 /**
- * Item 3 (wall sizing): pick WHICH screen the sizing cards below edit.
- * Each browser/device has a stable id; the wall keeps its own profile so
- * desktop tuning can't resize it. "Defaults" edits every screen that has
- * no profile of its own. The list doubles as the Item-1 diagnostic: each
- * device shows the viewport it actually reported.
+ * Per-ACCOUNT view settings: every signed-in account has its own DigitalWall
+ * view profile; the big ops-room screen is signed in as ops@clearway.aero,
+ * so "Main wall" edits that account's profile. Changing "My view" never
+ * moves the big screen. Any console user may edit the main wall — console
+ * access is the privilege gate.
  */
-function DeviceProfileCard({ selected, onSelect, devices, onReload }) {
-  const myId = getDeviceId();
-  const flash = useToast();
-  const [renaming, setRenaming] = useState('');
-  const [newLabel, setNewLabel] = useState('');
-
+function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
   const rowStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
     border: `1.5px solid ${active ? t.blue : t.borderInner}`, borderRadius: 11,
     cursor: 'pointer', marginBottom: 8, background: active ? '#f0f6ff' : t.card,
   });
-
+  const flash = useToast();
+  const env = wallDevice?.env || null;
   return (
     <Card style={{ marginBottom: 22 }}>
-      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Which screen are you tuning?</h3>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Whose view are you tuning?</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
-        Sizing settings are per screen. The cards below edit the selected profile only —
-        changing this device's sliders never resizes the ops wall, and vice versa.
-        Screens appear here after loading the wall or this page once.
+        View settings are per account. <strong>My view</strong> only changes how the wall looks on
+        your own screens; <strong>Main wall</strong> edits the big ops-room display
+        (signed in as {MAIN_WALL_ACCOUNT}).
       </p>
       <div style={rowStyle(selected === null)} onClick={() => onSelect(null)}>
         <Icon name="users" size={17} color={selected === null ? t.blue : t.faint} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700 }}>Defaults</div>
-          <div style={{ fontSize: 12.5, color: t.faint }}>every screen without its own profile</div>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>My view</div>
+          <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono }}>{myEmail || 'this account'}</div>
         </div>
         {selected === null && <MonoChip color="#1d4ed8" bg="#e3edff">editing</MonoChip>}
       </div>
-      {devices.map((device) => {
-        const env = device.env || {};
-        const active = selected === device.deviceId;
-        const isMe = device.deviceId === myId;
-        return (
-          <div key={device.deviceId} style={rowStyle(active)} onClick={() => onSelect(device.deviceId)}>
-            <Icon name={device.surface === 'wall' ? 'plane' : 'settings'} size={17} color={active ? t.blue : t.faint} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
-                {renaming === device.deviceId ? (
-                  <input
-                    autoFocus
-                    value={newLabel}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setNewLabel(e.target.value)}
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter') {
-                        try {
-                          await renameDisplayDevice(device.deviceId, newLabel);
-                          setRenaming('');
-                          onReload();
-                          flash('Screen renamed');
-                        } catch (err) { flash(String(err.message || err), '#f87171'); }
-                      }
-                      if (e.key === 'Escape') setRenaming('');
-                    }}
-                    style={{ fontSize: 14, padding: '2px 6px', border: `1px solid ${t.borderInput}`, borderRadius: 6 }}
-                  />
-                ) : (
-                  <>{device.label || `${device.surface === 'wall' ? 'Wall display' : 'Console browser'}`}</>
-                )}
-                {isMe && <MonoChip color="#0f766e" bg="#e6f6f3">this device</MonoChip>}
-                {device.hasProfile ? (
-                  <MonoChip color="#92500b" bg="#fdf3e2">own profile</MonoChip>
-                ) : (
-                  <MonoChip color="#6c7079" bg="#eef1f5">uses defaults</MonoChip>
-                )}
-              </div>
-              <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono, marginTop: 2 }}>
-                {env.innerWidth ? `${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio} · screen ${env.screenWidth}×${env.screenHeight}` : 'no viewport report yet'}
-                {' · seen '}{timeAgoShort(device.lastSeenAt)}
-              </div>
-            </div>
-            <IconButton
-              icon="pencil"
-              title="Rename screen"
-              onClick={(e) => { e.stopPropagation(); setRenaming(device.deviceId); setNewLabel(device.label || ''); }}
-            />
-            {device.hasProfile && (
-              <Button
-                size="sm"
-                variant="soft"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    await resetDeviceProfile(device.deviceId);
-                    onReload();
-                    flash('Profile removed — screen follows Defaults again');
-                  } catch (err) { flash(String(err.message || err), '#f87171'); }
-                }}
-              >
-                Use defaults
-              </Button>
-            )}
-            {active && <MonoChip color="#1d4ed8" bg="#e3edff">editing</MonoChip>}
+      <div style={rowStyle(selected === MAIN_WALL_ACCOUNT)} onClick={() => onSelect(MAIN_WALL_ACCOUNT)}>
+        <Icon name="plane" size={17} color={selected === MAIN_WALL_ACCOUNT ? t.blue : t.faint} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700 }}>Main wall (ops room)</div>
+          <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono }}>
+            {MAIN_WALL_ACCOUNT}
+            {env ? ` · ${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio}` : ''}
           </div>
-        );
-      })}
+        </div>
+        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">editing the BIG SCREEN</MonoChip>}
+      </div>
+      {selected === MAIN_WALL_ACCOUNT && (
+        <Button
+          size="sm"
+          variant="soft"
+          onClick={async () => {
+            try {
+              await resetProfile(MAIN_WALL_ACCOUNT);
+              flash('Main wall reset to defaults');
+            } catch (err) { flash(String(err.message || err), '#f87171'); }
+          }}
+        >
+          Reset main wall to defaults
+        </Button>
+      )}
     </Card>
   );
 }
@@ -1052,24 +1009,20 @@ function AlertFilterCard() {
 }
 
 export default function SettingsPage() {
-  const [selectedDevice, setSelectedDevice] = useState(null); // null = Defaults
+  const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
   const [devices, setDevices] = useState([]);
-
-  async function loadDevices() {
-    try {
-      const payload = await fetchDisplayDevices();
-      setDevices(payload.devices || []);
-    } catch { /* list is best-effort */ }
-  }
+  const [myEmail, setMyEmail] = useState('');
 
   useEffect(() => {
-    // Register THIS browser so it appears as a selectable profile target
-    // (also the Item-1 diagnostic readout for desktops).
+    // Diagnostics registry (viewport readouts + auto-fit values).
     reportDisplayEnv({ deviceId: getDeviceId(), surface: 'console', env: collectViewportEnv() });
-    loadDevices();
+    fetchDisplayDevices().then((payload) => setDevices(payload.devices || [])).catch(() => {});
+    fetchCurrentUser().then((r) => setMyEmail(r.user?.email || '')).catch(() => {});
   }, []);
 
-  const selectedInfo = devices.find((d) => d.deviceId === selectedDevice) || null;
+  // The wall's newest device report supplies the auto-fit readout when
+  // editing the main wall profile.
+  const wallDevice = devices.find((d) => d.surface === 'wall') || null;
 
   return (
     <div>
@@ -1078,10 +1031,10 @@ export default function SettingsPage() {
         desc="Configure the wall clocks and the NOTAM / alert filter that drives automatic flagging."
         descMax={600}
       />
-      <DeviceProfileCard selected={selectedDevice} onSelect={setSelectedDevice} devices={devices} onReload={loadDevices} />
-      <DeviceCtx.Provider value={{ deviceId: selectedDevice, device: selectedInfo }}>
+      <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+      <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
         {/* key remounts the cards so they re-fetch the selected profile */}
-        <div key={selectedDevice ?? 'default'}>
+        <div key={selectedAccount ?? 'own'}>
           <DisplayScaleCard />
           <HourSpacingCard />
           <VerticalSizingCard />

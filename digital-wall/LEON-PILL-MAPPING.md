@@ -165,3 +165,21 @@ The old mid-pill boundary labels (ETD…ATD pairs) are gone — they were why
 a flight with a real T/O could render as bare "ETD 05:50": the endpoint
 always showed ETD and the actual only appeared when a positive delay AND
 wide clearance allowed a boundary label.
+
+## Corrected delay/hatch geometry (bug report 2 item 4)
+
+The label precedence above is UNCHANGED (T/O overrides everything;
+CTOT-vs-ETD later-wins; LDG→ETA flips; BLOFF never displays). What
+changed is GEOMETRY, per the ops mockups:
+- The pill BODY sits at the actual/current times: [displayed departure,
+  displayed arrival]. Arrival with no explicit LDG/ETA is PROJECTED by
+  shifting the schedule's elapsed time onto the displayed departure
+  (EET = STA − STD), so a delayed flight keeps its real duration.
+- The hatched segment TRAILS AFTER the body, length = |signed schedule
+  difference| — never before the body, never a bar that swallows the
+  flight. Labels carry the signed delta (`T/O 13:22 +22`, `LDG 15:35 +5`;
+  early = green negative).
+- Stale-estimate guard: a flight-watch ETD >30 min BEFORE STD on a
+  not-departed flight is treated as re-planning residue and ignored
+  (the 'ETD 07:00 −120' backwards-hatch case); real early departures
+  come through T/O, which is actual data and always wins.

@@ -117,44 +117,57 @@ function mapFlight(flight, group) {
   const etdMs = sane(flight.etd, stdMs) ?? stdMs;
   const etaMs = sane(flight.eta, staMs) ?? staMs;
 
+  // Stale-estimate guard (bug report 2, item 4): a flight-watch ETD more
+  // than 30 min BEFORE the schedule on a not-yet-departed flight is almost
+  // always a leftover from re-planning (real case: 'ETD 07:00 -120' with a
+  // backwards hatch). Real early departures still show through T/O, which
+  // is actual data and always wins.
+  const etdEffMs = toMs == null && etdMs < stdMs - 30 * 60_000 ? stdMs : etdMs;
+
   let depKind;
   let depDisplayMs;
   if (toMs != null) {
     depKind = 'T/O';
     depDisplayMs = toMs;
-  } else if (ctotMs != null || etdMs !== stdMs) {
+  } else if (ctotMs != null || etdEffMs !== stdMs) {
     // CTOT and ETD are EQUAL priority — the LATER (bigger) one is shown.
-    depDisplayMs = Math.max(ctotMs ?? -Infinity, etdMs);
-    depKind = ctotMs != null && ctotMs >= etdMs ? 'CTOT' : 'ETD';
+    depDisplayMs = Math.max(ctotMs ?? -Infinity, etdEffMs);
+    depKind = ctotMs != null && ctotMs >= etdEffMs ? 'CTOT' : 'ETD';
   } else {
     depKind = 'STD';
     depDisplayMs = stdMs;
   }
+  const depDeltaMin = Math.round((depDisplayMs - stdMs) / 60_000);
+
+  // Arrival: explicit data wins; otherwise PROJECT the schedule's elapsed
+  // time (EET = STA - STD) onto the displayed departure, so a delayed or
+  // early flight keeps its real duration instead of being squashed against
+  // the old STA (the giant-hatch/sliver bug).
   let arrKind;
   let arrDisplayMs;
   if (ldgMs != null) {
     arrKind = 'LDG';
     arrDisplayMs = ldgMs;
-  } else if (toMs != null) {
-    // Once T/O is set the arrival side switches to ETA.
+  } else if (etaMs !== staMs) {
     arrKind = 'ETA';
     arrDisplayMs = etaMs;
+  } else if (toMs != null || depDeltaMin !== 0) {
+    arrKind = 'ETA';
+    arrDisplayMs = staMs + depDeltaMin * 60_000;
   } else {
-    arrKind = etaMs !== staMs ? 'ETA' : 'STA';
-    arrDisplayMs = etaMs;
+    arrKind = 'STA';
+    arrDisplayMs = staMs;
   }
-
-  const depDeltaMin = Math.round((depDisplayMs - stdMs) / 60_000);
   const arrDeltaMin = Math.round((arrDisplayMs - staMs) / 60_000);
 
-  // Pill spans cover schedule AND actual; the min/max ends render as the
-  // striped difference segments (works for early — negative — too).
-  const spanStartMs = Math.min(stdMs, depDisplayMs);
-  const hatchDepEndMs = Math.max(stdMs, depDisplayMs);
-  let solidEndMs = Math.min(staMs, arrDisplayMs);
-  if (solidEndMs < hatchDepEndMs) solidEndMs = hatchDepEndMs;
-  let spanEndMs = Math.max(staMs, arrDisplayMs);
-  if (spanEndMs < solidEndMs) spanEndMs = solidEndMs;
+  // Ops model (their mockups): the BODY sits at the actual/current times;
+  // the hatched TAIL trails AFTER it, sized to the schedule difference —
+  // never before the body, never a multi-hour bar swallowing the flight.
+  const tailMin = Math.abs(arrDeltaMin !== 0 ? arrDeltaMin : depDeltaMin);
+  const spanStartMs = depDisplayMs;
+  const hatchDepEndMs = depDisplayMs; // no leading hatch in this model
+  const solidEndMs = Math.max(arrDisplayMs, depDisplayMs + 5 * 60_000);
+  const spanEndMs = solidEndMs + tailMin * 60_000;
 
   const start = new Date(spanStartMs);
   const scheduledEnd = new Date(solidEndMs);

@@ -78,6 +78,14 @@ const MARK_LIGHT = {
   NTM: { text: '#b3541e', border: 'rgba(200,100,40,.5)',  bg: 'rgba(255,145,80,.16)' },
 };
 
+// Bug report 2 item 1: weather colours the AIRPORT CODE itself.
+// VFR green, MVFR amber, LIFR red, IFR = default colour (deliberate — the
+// sidebar WX agenda explains the scheme, so an uncoloured code reads as
+// IFR/no-forecast, not as a rendering failure). Two variants: dark tones
+// for light pill fills, bright tones for text on the dark board.
+export const WX_ICAO_DARK = { VFR: '#166534', MVFR: '#92400e', LIFR: '#b91c1c', IFR: null };
+export const WX_ICAO_BRIGHT = { VFR: '#3fbf6f', MVFR: '#e8a33d', LIFR: '#ef6a6a', IFR: null };
+
 /** Hex -> rgba with alpha, for the marker chip border/backing. */
 function hexA(hex, alpha) {
   const n = parseInt(String(hex).slice(1), 16);
@@ -190,12 +198,12 @@ function hmUtc(ms) {
  * per its flags): this component just renders what the flight carries.
  */
 /** The markers a flight carries, as data — shared by renderer and budgeter. */
-export function markerListOf(flight) {
+export function markerListOf(flight, { wx = true } = {}) {
   const list = [];
   if ((flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: '#f5c064', label: 'Important' });
   if ((flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: '#5eead4', label: 'CAA details' });
-  if (flight.wxDep && WX_CATEGORY_COLORS[flight.wxDep]) list.push({ key: 'WXD', color: WX_CATEGORY_COLORS[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
-  if (flight.wxArr && WX_CATEGORY_COLORS[flight.wxArr]) list.push({ key: 'WXA', color: WX_CATEGORY_COLORS[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
+  if (wx && flight.wxDep && WX_CATEGORY_COLORS[flight.wxDep]) list.push({ key: 'WXD', color: WX_CATEGORY_COLORS[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
+  if (wx && flight.wxArr && WX_CATEGORY_COLORS[flight.wxArr]) list.push({ key: 'WXA', color: WX_CATEGORY_COLORS[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
   for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK[l.type]).map((l) => l.type))) {
     list.push({ key: type, color: ALERT_MARK[type].text, label: 'Unreviewed NOTAM' });
   }
@@ -206,8 +214,8 @@ export function markerListOf(flight) {
  * Estimated pixel widths per degradation mode (design 1B) — mono-font
  * heuristics consistent with the pill's other width maths.
  */
-export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = []) {
-  const markers = [...markerListOf(flight), ...extraMarkers];
+export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = [], { wx = true } = {}) {
+  const markers = [...markerListOf(flight, { wx }), ...extraMarkers];
   if (markers.length === 0) return 0;
   const gap = 4;
   if (mode === 'dots') return markers.length * (sz(8) + gap);
@@ -280,7 +288,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
   // marker to a coloured dot, count folds everything into one +N chip.
   // Colour meaning survives at every level.
   if (variant === 'wall' && (mode === 'dots' || mode === 'count')) {
-    const markers = [...markerListOf(flight), ...(extraMarkers || [])];
+    const markers = [...markerListOf(flight, { wx: false }), ...(extraMarkers || [])];
     if (markers.length === 0) return null;
     if (mode === 'count') {
       return (
@@ -370,8 +378,8 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           {iconsOnly ? 'C' : 'CAA'}
         </span>
       )}
-      <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} iconOnly={iconsOnly} />
-      <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} iconOnly={iconsOnly} />
+      {variant !== 'wall' && <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} iconOnly={iconsOnly} />}
+      {variant !== 'wall' && <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} iconOnly={iconsOnly} />}
       {alertTypes.map((type) => (
         <span
           key={type}
@@ -451,6 +459,9 @@ export default function FlightPill({
   // ring (not a border) so geometry — and the overlap audit — is unchanged.
   const hollow = flight.estimated === true && (status === 'airborne' || status === 'arrived');
   const hollowRing = Math.max(2, Math.round(2 * scale));
+  // WX colour for an ICAO: dark tones on solid light fills, bright tones on
+  // hollow pills (dark background shows through). null = default colour.
+  const wxIcaoColor = (cat) => (cat ? (hollow ? WX_ICAO_BRIGHT[cat] : WX_ICAO_DARK[cat]) ?? null : null);
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -544,7 +555,7 @@ export default function FlightPill({
   const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(6) : (mainSectionF / totalF) > 0.08;
   // Timings drop before ICAOs: on a pill too narrow for even the compact
   // combined label, render no times row at all (details live in the overlay).
-  const showTimes = timelinePx > 0 ? pillPx >= labelW * 1.15 : true;
+  const showTimes = true; // timings always visible (bug report 2 item 3)
 
   // ── Neighbour-aware width budget (1B/2A) ──────────────────────────────
   // Everything anchored at this pill's left edge (marker row, below-pill
@@ -574,9 +585,9 @@ export default function FlightPill({
     ? neighborGapPx - pillPx - sz(10)
     : Number.POSITIVE_INFINITY;
   const markerMode = (() => {
-    if (markerRowWidthEstimate(flight, szm, 'full') <= afterGapPx) return 'full';
-    if (markerRowWidthEstimate(flight, szm, 'icons') <= afterGapPx) return 'icons';
-    if (markerRowWidthEstimate(flight, szm, 'dots') <= afterGapPx) return 'dots';
+    if (markerRowWidthEstimate(flight, szm, 'full', [], { wx: false }) <= afterGapPx) return 'full';
+    if (markerRowWidthEstimate(flight, szm, 'icons', [], { wx: false }) <= afterGapPx) return 'icons';
+    if (markerRowWidthEstimate(flight, szm, 'dots', [], { wx: false }) <= afterGapPx) return 'dots';
     if (szm(26) <= afterGapPx) return 'count';
     return 'none';
   })();
@@ -587,13 +598,11 @@ export default function FlightPill({
   // the times drop FIRST and the route survives (route > times).
   const routeText = `${dep}→${arr}`;
   const timesText = `${depHm ?? etd}\u2013${arrHm ?? eta}`;
-  const belowBudget = budgetPx - sz(4);
-  const belowMode = (() => {
-    if (showFull) return 'anchored'; // ICAOs inside — keep the classic times row
-    if (monoW(routeText.length + 3 + timesText.length, F.times) <= belowBudget) return 'combined';
-    if (monoW(routeText.length, F.times) <= belowBudget) return 'route-only';
-    return 'none';
-  })();
+  // Bug report 2 item 3: airport codes and timings are ALWAYS visible.
+  // The lane assigner reserves each flight's below-text width, so the
+  // combined route+times line always has room — no drop modes.
+  const belowMode = showFull ? 'anchored' : 'combined';
+  const belowBudget = budgetPx - sz(4); // still used by the compact-label fit check
 
 
   const timeStyle = {
@@ -712,9 +721,9 @@ export default function FlightPill({
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showFull && (
                 <>
-                  <span style={{ ...icaoStyle(F.icao), color: hollow ? theme.bg : theme.text, opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
+                  <span style={{ ...icaoStyle(F.icao), color: wxIcaoColor(flight.wxDep) ?? (hollow ? theme.bg : theme.text), opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
                   <span style={{ width: 1, background: hollow ? hexA(theme.bg, 0.45) : 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
-                  <span style={{ ...icaoStyle(F.icao), color: hollow ? theme.bg : theme.text, opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
+                  <span style={{ ...icaoStyle(F.icao), color: wxIcaoColor(flight.wxArr) ?? (hollow ? theme.bg : theme.text), opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
                 </>
               )}
             </div>
@@ -754,7 +763,11 @@ export default function FlightPill({
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ color: '#ccd6ee', fontWeight: 700 }}>{routeText}</span>
+          <span style={{ fontWeight: 700 }}>
+            <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep}</span>
+            <span style={{ color: '#ccd6ee' }}>→</span>
+            <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}>{arr}</span>
+          </span>
           {belowMode === 'combined' && <span> · {timesText}</span>}
         </div>
       ) : belowMode === 'none' ? (
@@ -786,7 +799,9 @@ export default function FlightPill({
       ) : (
         <div style={{ position: 'relative', height: F.timesRow, marginTop: sz(2) }}>
           <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{startLabel}{deltaTag(depDeltaMin)}</span>
-          <span style={{ ...timeStyle, right: 0, left: 'auto', transform: 'none' }}>{endLabel}{deltaTag(arrDeltaMin)}</span>
+          {/* Anchored under the BODY end — the hatched schedule-difference
+              tail extends beyond it and is not where the time belongs. */}
+          <span style={{ ...timeStyle, left: `${((arrCrossStartF - depF) / totalF) * 100}%`, transform: 'translateX(-100%)' }}>{endLabel}{deltaTag(arrDeltaMin)}</span>
         </div>
       )}
     </div>

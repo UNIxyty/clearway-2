@@ -1381,3 +1381,36 @@ report and mailer failures surface as HTTP 502 with the provider error
 Verified end-to-end against a local Resend capture server; a real-inbox
 confirmation needs the deployed backend's RESEND_API_KEY (not present
 locally by design). Backend + frontend containers need rebuilding.
+
+## Bug report 2 — wall fixes (2026-08-14)
+
+Step 0 deploy check: the previous batch IS live (bundle carries
+clearway-mark.svg, info tab, lane code). Two reported items were still
+genuinely broken for different reasons:
+- Logo (item 2): the viewBox crop was live but SVG clips to the
+  VIEWPORT, not the viewBox — with width=300/height=55 (aspect 5.45) vs
+  the 4.36 viewBox, the tagline rendered in the right letterbox. The 19
+  tagline paths are now deleted from clearway-mark.svg.
+- Truncation (item 3): the below-text drop modes ('route-only'/'none')
+  read as truncation to ops. Route+times now ALWAYS render; lane
+  packing reserves their width (flights wrap to a new lane instead of
+  colliding) at every scale incl. minimums.
+
+Item 4 (priority): geometry model corrected — see LEON-PILL-MAPPING.md
+"Corrected delay/hatch geometry". Body at actual times, EET-projected
+arrival when no LDG/ETA, |delta| tail AFTER the body, signed deltas on
+labels, stale pre-departure ETD (>30min before STD) ignored. Label
+precedence rules fully preserved (nothing discarded → no ask needed).
+
+Item 1: WX text markers deleted; the ICAO codes carry the category
+colour (VFR green / MVFR amber / LIFR red / IFR default) — dark tones
+on light fills, bright on hollow/below-text. Items 5+6: sidebar = date,
+WX AGENDA (same vocabulary as the ICAO colours; ops' "above/below
+average" wording is a label-only change if insisted), TIMELINE AGENDA
+(exact mockup labels), PERMANENT: numbered titles only. Item 7: tab
+gains LIMITATIONS w/ descriptions + 'lim' check type. Item 8: white
+now line + badge, above pills with a dark edge (chosen: z-order + 1px
+outline, slight transparency). Item 9: translucent scrollbar. Overlap
+audit: 0 collisions at defaults and full minimums; verified against
+the reported flight shapes (KLJ7004 stale ETD, arrived +22/+5,
+giant-hatch, EET). Both containers need rebuilding.

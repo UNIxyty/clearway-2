@@ -4,16 +4,28 @@ import FlightPill, { pillVerticalMetrics } from './FlightPill';
 import FlightInfoTab from './FlightInfoTab';
 
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
+// Timeline agenda — the exact labels from the ops mockup, plus the two
+// existing wall states (hollow Estimated, hatched AOG) that still exist.
 const LEGEND = [
-  { status: 'scheduled', label: 'Scheduled',   color: '#dde1ea' },
-  { status: 'delayed',   label: 'Delayed',     color: '#c9ab62' },
-  { status: 'ctot',      label: 'CTOT / slot', color: '#9d8cc2' },
-  { status: 'airborne',  label: 'Flying',      color: '#7d9cc4' },
-  { status: 'arrived',   label: 'Arrived',     color: '#bd8ba4' },
-  // Hollow = ESTIMATED from schedule (no flight-watch data in Leon); the
-  // solid variants above always mean Leon-confirmed movement.
-  { status: 'estimated', label: 'Estimated',   color: '#7d9cc4', hollow: true },
-  { status: 'aog',       label: 'AOG',         color: 'rgba(180,60,60,.4)', hatch: true },
+  { status: 'scheduled', label: 'Not departed', color: '#dde1ea' },
+  { status: 'airborne',  label: 'Airborne',     color: '#7d9cc4' },
+  { status: 'delayed',   label: 'Delayed',      color: '#c9ab62' },
+  { status: 'ctot',      label: 'CTOT',         color: '#9d8cc2' },
+  { status: 'arrived',   label: 'Arrived',      color: '#bd8ba4' },
+  { status: 'estimated', label: 'Estimated',    color: '#7d9cc4', hollow: true },
+  { status: 'aog',       label: 'AOG',          color: 'rgba(180,60,60,.4)', hatch: true },
+];
+
+// WX agenda — the SAME scheme that colours the airport codes on pills
+// (bug report 2 items 1+6): one vocabulary, not two. Ops wrote
+// "above/average/below average / no forecast"; these labels reconcile that
+// wording with the real flight categories — a label-only change if they
+// insist on their exact words.
+const WX_LEGEND = [
+  { label: 'VFR — good',            color: '#3fbf6f' },
+  { label: 'MVFR — marginal',       color: '#e8a33d' },
+  { label: 'LIFR — worst',          color: '#ef6a6a' },
+  { label: 'IFR / no forecast',     color: 'rgba(222,225,234,.9)', border: '1px solid rgba(160,170,200,.4)' },
 ];
 
 const LIM_TYPE_COLOR = {
@@ -67,7 +79,7 @@ function toMs(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx, frontPadFracOf = null }) {
+function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx, frontPadFracOf = null, minWidthFracOf = null }) {
   const MIN_VISUAL_DURATION_MS = 45 * 60 * 1000;
   const LANE_GAP_PX = 14; // visual breathing room between rounded pills
   const frac = (ms) => clamp((ms - windowStartMs) / windowDurationMs);
@@ -83,10 +95,15 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
       const schedArrMs = Math.max(depCrossEndMs, toMs(flight.scheduledEndUtcMs, depCrossEndMs));
       const arrCrossEndMs = Math.max(schedArrMs, toMs(flight.endUtcMs, schedArrMs));
       const endMs = Math.max(startMs + MIN_VISUAL_DURATION_MS, arrCrossEndMs);
+      const startFrac = frac(startMs);
+      // Route/times below the pill are ALWAYS visible (bug report 2 item
+      // 3): reserve their width in the lane so nothing can sit on them —
+      // flights that would collide wrap to a new lane instead.
+      const minWidthFrac = typeof minWidthFracOf === 'function' ? Math.max(0, minWidthFracOf(flight)) : 0;
       return {
         ...flight,
-        __startFrac: frac(startMs),
-        __endFrac: frac(endMs),
+        __startFrac: startFrac,
+        __endFrac: Math.max(frac(endMs), startFrac + minWidthFrac),
         // Callsign-in-front (old-wall layout): the front text occupies real
         // horizontal space BEFORE the pill — reserve it during packing so
         // a callsign can never print over the previous pill in the lane.
@@ -291,6 +308,14 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const limW = ((fl.limitationIds || []).length) * (limCircle + sz(3));
     const fnW = String(fl.fn ?? '').length * pillV.fonts.id * 0.62;
     return (limW + fnW + sz(12)) / timelinePx;
+  };
+  // Below-text reservation (route + times + delta suffixes) so the always-
+  // visible line has guaranteed room — mirrors FlightPill's formatting.
+  const belowPadFrac = (fl) => {
+    if (!(timelinePx > 0)) return 0;
+    const chars = String(fl.dep ?? '').length + String(fl.arr ?? '').length + 4
+      + String(fl.depHm ?? '').length + String(fl.arrHm ?? '').length + 10;
+    return (chars * pillV.fonts.times * 0.62 + sz(10)) / timelinePx;
   };
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
@@ -505,11 +530,34 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 
   return (
     <div style={s.outer}>
+      {/* Transparent limitations scrollbar (bug report 2 item 9): subtle
+          translucent thumb, no solid track. */}
+      <style>{`
+        .cw-lim-scroll::-webkit-scrollbar{width:7px;background:transparent}
+        .cw-lim-scroll::-webkit-scrollbar-track{background:transparent}
+        .cw-lim-scroll::-webkit-scrollbar-thumb{background:rgba(150,165,205,.28);border-radius:8px}
+        .cw-lim-scroll{scrollbar-width:thin;scrollbar-color:rgba(150,165,205,.28) transparent}
+      `}</style>
 
       {/* ── LEFT PANEL: STATUS LEGEND + LIMITATIONS (view-only, readable at
              distance: full text always visible, no click-to-expand) ── */}
       <div style={s.leftPanel}>
-        <div style={s.panelTitle}>STATUS</div>
+        {/* Mockup order: date, WX agenda, timeline agenda, permanent lims */}
+        <div style={s.sidebarDate}>
+          {(() => { const d = new Date(nowMs); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`; })()}
+        </div>
+
+        <div style={s.panelTitle}>WX AGENDA</div>
+        <div style={s.legendGrid}>
+          {WX_LEGEND.map((w) => (
+            <div key={w.label} style={s.legendItem}>
+              <div style={{ ...s.legendSwatch, background: w.color, border: w.border || 'none' }} />
+              <span style={s.legendLabel}>{w.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ ...s.panelTitle, marginTop: 18 }}>TIMELINE AGENDA</div>
         <div style={s.legendGrid}>
           {LEGEND.map(l => (
             <div key={l.status} style={s.legendItem}>
@@ -527,37 +575,17 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           ))}
         </div>
 
-        <div style={{ ...s.panelTitle, marginTop: 22 }}>LIMITATIONS</div>
-        <div style={s.limList}>
+        <div style={{ ...s.panelTitle, marginTop: 18 }}>PERMANENT:</div>
+        <div className="cw-lim-scroll" style={s.limList}>
           {allLims.length === 0 && <div style={s.limEmpty}>None active</div>}
-          {allLims.map((l, i) => {
-            // Reworked model (Item 9): no type taxonomy — one neutral accent;
-            // scope = the OR-matched targets (flights, airports, countries),
-            // plus the active window / permanent flag.
-            const match = l.match || {};
-            const scope = [
-              ...(match.flights || []).map((f) => f.label || f.nid),
-              ...(match.airportIcaos || l.airportIcaos || []),
-              ...(match.countries || l.countries || []),
-            ].join(' · ');
-            const window = l.isPermanent
-              ? null
-              : [l.startDate ? `from ${l.startDate}` : null, l.endDate ? `until ${l.endDate}` : null]
-                  .filter(Boolean)
-                  .join(' ');
-            return (
-              <div key={l.id} style={{ ...s.limCard, borderLeft: '5px solid #f0c060' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
-                  <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
-                  {l.isPermanent && <span style={{ ...s.limType, color: '#f0c060' }}>PERMANENT</span>}
-                  {window && <span style={{ ...s.limScope, marginTop: 0 }}>{window}</span>}
-                </div>
-                <div style={s.limTitle}>{l.title}</div>
-                {l.description && <div style={s.limDesc}>{l.description}</div>}
-                {scope && <div style={s.limScope}>{scope}</div>}
-              </div>
-            );
-          })}
+          {/* Titles ONLY (bug report 2 item 5) — the full description lives
+              in the flight's retractable tab. */}
+          {allLims.map((l, i) => (
+            <div key={l.id} style={s.limTitleRow}>
+              <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
+              <span style={s.limTitle}>{l.title}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -601,6 +629,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
               {aircraft.map((ac, acIndex) => {
                 const laneData = assignFlightLanes(ac.flights || [], {
                   frontPadFracOf: frontPadFrac,
+                  minWidthFracOf: belowPadFrac,
                   windowStartMs,
                   windowDurationMs,
                   timelinePx,
@@ -737,7 +766,12 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   legendItem: { display: 'flex', alignItems: 'center', gap: szSide(8), padding: `${szSide(3)}px ${szSide(4)}px` },
   legendSwatch: { width: szSide(24), height: szSide(11), borderRadius: 3, flexShrink: 0 },
   legendLabel: { fontSize: szSide(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
-  limList: { display: 'flex', flexDirection: 'column', gap: szSide(10), padding: `0 ${szSide(12)}px ${szSide(14)}px` },
+  sidebarDate: {
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: szSide(20), fontWeight: 700,
+    color: '#f2f5fb', letterSpacing: '1px', padding: `${szSide(14)}px ${szSide(12)}px ${szSide(6)}px`,
+  },
+  limTitleRow: { display: 'flex', alignItems: 'center', gap: szSide(9), padding: `${szSide(3)}px 0` },
+  limList: { display: 'flex', flexDirection: 'column', gap: szSide(6), padding: `0 ${szSide(12)}px ${szSide(14)}px`, overflowY: 'auto', minHeight: 0 },
   limEmpty: { fontSize: szSide(14), color: '#5a6a94', padding: '6px 4px' },
   limCard: {
     background: '#1a2130',
@@ -788,25 +822,28 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
     alignItems: 'center', justifyContent: 'center',
     zIndex: 40, pointerEvents: 'none',
   },
+  // WHITE now marker (bug report 2 item 8): blue collided with the
+  // Airborne pill state. Drawn ABOVE the pills with a 1px dark edge each
+  // side + slight transparency, so it stays visible crossing white bodies.
   nowTimeLabel: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11.5), fontWeight: 600,
-    color: '#6dc4ff', letterSpacing: '.5px',
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11.5), fontWeight: 700,
+    color: '#ffffff', letterSpacing: '.5px',
     background: '#161b26', padding: '1px 5px', borderRadius: 3,
-    border: '1px solid rgba(95,181,255,.3)',
+    border: '1px solid rgba(255,255,255,.45)',
   },
   nowTriangle: {
     width: 0, height: 0, marginTop: 2,
     borderLeft: '4px solid transparent',
     borderRight: '4px solid transparent',
-    borderTop: '5px solid rgba(95,181,255,.6)',
+    borderTop: '5px solid rgba(255,255,255,.75)',
   },
   nowFixedLine: {
     position: 'absolute',
     top: sz(42),
     bottom: 0,
     width: 2,
-    background: 'linear-gradient(to bottom, rgba(95,181,255,.98) 0%, rgba(95,181,255,.55) 100%)',
-    boxShadow: '0 0 10px rgba(95,181,255,.65)',
+    background: 'linear-gradient(to bottom, rgba(255,255,255,.92) 0%, rgba(255,255,255,.5) 100%)',
+    boxShadow: '0 0 0 1px rgba(10,14,24,.55), 0 0 10px rgba(255,255,255,.35)',
     zIndex: 95,
     pointerEvents: 'none',
   },

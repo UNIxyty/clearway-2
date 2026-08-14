@@ -10,7 +10,7 @@ import { WX_CATEGORY_COLORS } from './FlightPill';
 // check cycle. Click-driven (no hover): the wall is a display, but its
 // browser has a pointer for exactly this.
 
-const TYPE_LABEL = { imp: 'Important', ntm: 'NOTAM', wx: 'Weather', caa: 'CAA' };
+const TYPE_LABEL = { imp: 'Important', ntm: 'NOTAM', wx: 'Weather', caa: 'CAA', lim: 'Limitations' };
 
 export default function FlightInfoTab({ flight, left, top, width, height, onClose }) {
   const [busy, setBusy] = useState('');
@@ -26,6 +26,7 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
 
   const lims = flight.limitations || [];
   const impEntries = lims.filter((l) => l.type === 'IMP');
+  const limEntries = lims.filter((l) => l.type === 'LIM' && l.source === 'custom');
   const caaEntries = lims.filter((l) => l.type === 'CAA');
   const ntmEntries = lims.filter((l) => l.source === 'alert' && l.type === 'NTM');
   const wxAlertEntries = lims.filter((l) => l.source === 'alert' && l.type === 'WX');
@@ -65,7 +66,7 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
     );
   }
 
-  const anyContent = impEntries.length || ntmEntries.length || hasWx || caaEntries.length;
+  const anyContent = impEntries.length || ntmEntries.length || hasWx || caaEntries.length || limEntries.length;
 
   return (
     <div style={{ ...s.tab, left, top, width, maxHeight: height }} onClick={(e) => e.stopPropagation()}>
@@ -86,6 +87,16 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
         </span>
       </div>
       <div style={s.bodyScroll}>
+        {limEntries.length > 0 && (
+          <Section typeKey="lim" title={`LIMITATIONS (${limEntries.length})`}>
+            {limEntries.map((entry) => (
+              <div key={entry.id} style={s.entry}>
+                <div style={s.entryTitle}>{entry.title}</div>
+                {entry.description && <div style={s.entryBody}>{entry.description}</div>}
+              </div>
+            ))}
+          </Section>
+        )}
         {impEntries.length > 0 && (
           <Section typeKey="imp" title={`IMPORTANT (${impEntries.length})`}>
             {impEntries.map((entry) => (

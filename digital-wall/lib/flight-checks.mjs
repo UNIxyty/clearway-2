@@ -10,7 +10,7 @@
 import { JsonFileStore } from "./json-store.mjs";
 import { zonedNow } from "./notam-check.mjs";
 
-export const CHECK_TYPES = ["imp", "ntm", "wx", "caa"];
+export const CHECK_TYPES = ["imp", "ntm", "wx", "caa", "lim"];
 
 function checkHour() {
   const parsed = Number(process.env.NOTAM_CHECK_HOUR);

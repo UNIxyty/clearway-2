@@ -2285,7 +2285,8 @@ export class LeonTimelineService {
     // wall markers, console rows, overlay, the tab itself.
     const checkKey = `${context.oprId ?? flight?.oprId ?? ""}:${flight?.flightNid ?? ""}`;
     const flightChecks = this.flightChecksStore?.statusFor?.(checkKey) ?? {};
-    const limitationIds = this.getMatchedLimitationIds(flight);
+    // 'lim' ack clears the manual-limitation circles for this flight.
+    const limitationIds = flightChecks.lim ? [] : this.getMatchedLimitationIds(flight);
     const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
     const limitations = limitationIds
       .map((id) => limitationMap.get(id))

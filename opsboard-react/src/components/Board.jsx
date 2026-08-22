@@ -733,6 +733,11 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         markerScale={effMarkerScale}
                         labelScale={effLabelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
+                        stickyLeftPx={AC_LABEL_W + 6}
+                        nowMs={nowMs}
+                        viewportPx={visibleTimelineWidth}
+                        mvtThresholdMin={mvtThresholdMin}
+                        mvtFlashSeconds={mvtFlashSeconds}
                         infoOpen={fl.id === openInfoId}
                         onToggleInfo={() => setOpenInfoId((prev) => (prev === fl.id ? null : fl.id))}
                       />
@@ -883,7 +888,10 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   },
   reg:    { fontSize: acFont(15), fontWeight: 700, letterSpacing: '.3px', color: '#f2f5fb' },
   acType: { fontSize: acFont(11.5), color: '#8090b8', marginTop: 2 },
-  timeline: { flex: 1, position: 'relative', overflow: 'hidden' },
+  // 'clip' (not 'hidden'): identical clipping, but hidden would make this a
+  // scroll container and swallow the pills' position:sticky labels (bug
+  // report 3 item 4) — clip lets them stick to the real scroller instead.
+  timeline: { flex: 1, position: 'relative', overflow: 'clip' },
   timelineEndPad: { width: sz(260), flexShrink: 0 },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',

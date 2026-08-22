@@ -63,6 +63,9 @@ async function fetchJson(pathWithQuery, errorPrefix) {
 }
 
 function toDate(value) {
+  // new Date(null) is the 1970 epoch, not Invalid Date — a null ATD/ATA
+  // must NOT read as "00:00" (it broke every has-actual-time check).
+  if (value == null || value === '') return null;
   const dt = new Date(value);
   return Number.isFinite(dt.getTime()) ? dt : null;
 }

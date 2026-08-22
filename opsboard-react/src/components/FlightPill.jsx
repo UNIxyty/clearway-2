@@ -421,6 +421,11 @@ export default function FlightPill({
   markerScale = 1,
   labelScale = 1,
   neighborGapPx = null,
+  stickyLeftPx = 0,
+  nowMs = 0,
+  viewportPx = 0,
+  mvtThresholdMin = 15,
+  mvtFlashSeconds = 1,
   infoOpen = false,
   onToggleInfo = null,
 }) {
@@ -480,7 +485,9 @@ export default function FlightPill({
   const arrCrossEndF = clamp(frac(arrCrossEndMs));
 
   const totalF = Math.max(arrCrossEndF - depF, 0.005);
-  const depCrossSectionF = depDeltaMin !== 0 ? Math.max(depCrossF - depF, 0) : 0;
+  // Wider than the viewport => both ends can't be on screen at once.
+  const pillClipped = viewportPx > 0 && totalF * timelinePx > viewportPx;
+  const depCrossSectionF = depDeltaMin > 0 ? Math.max(depCrossF - depF, 0) : 0;
   const mainSectionF = Math.max(arrCrossStartF - depCrossF, 0.003);
   const arrCrossSectionF = arrDeltaMin !== 0 ? Math.max(arrCrossEndF - arrCrossStartF, 0) : 0;
 
@@ -773,12 +780,14 @@ export default function FlightPill({
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ fontWeight: 700 }}>
-            <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep}</span>
-            <span style={{ color: '#ccd6ee' }}>→</span>
-            <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}>{arr}</span>
+          <span style={{ position: 'sticky', left: stickyLeftPx, display: 'inline-block' }}>
+            <span style={{ fontWeight: 700 }}>
+              <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep}</span>
+              <span style={{ color: '#ccd6ee' }}>→</span>
+              <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}>{arr}</span>
+            </span>
+            {belowMode === 'combined' && <span> · {timesText}</span>}
           </span>
-          {belowMode === 'combined' && <span> · {timesText}</span>}
         </div>
       ) : belowMode === 'none' ? (
         <div style={{ height: F.timesRow, marginTop: sz(2) }} />
@@ -798,20 +807,31 @@ export default function FlightPill({
             whiteSpace: 'nowrap',
           }}
         >
-          {monoW(startLabel.length + endLabel.length + 9, F.times) <= belowBudget ? (
-            <>
-              {startLabel}{deltaTag(depDeltaMin)}<span>–</span>{endLabel}{deltaTag(arrDeltaMin)}
-            </>
-          ) : (
-            <>{depHm ?? etd}–{arrHm ?? eta}</>
-          )}
+          <span style={{ position: 'sticky', left: stickyLeftPx, display: 'inline-block' }}>
+            {monoW(startLabel.length + endLabel.length + 9, F.times) <= belowBudget ? (
+              <>
+                {startLabel}{deltaTag(depDeltaMin)}<span>–</span>{endLabel}{deltaTag(arrDeltaMin)}
+              </>
+            ) : (
+              <>{depHm ?? etd}–{arrHm ?? eta}</>
+            )}
+          </span>
         </div>
       ) : (
-        <div style={{ position: 'relative', height: F.timesRow, marginTop: sz(2) }}>
-          <span style={{ ...timeStyle, left: 0, transform: 'none' }}>{startLabel}{deltaTag(depDeltaMin)}</span>
-          {/* Anchored under the BODY end — the hatched schedule-difference
-              tail extends beyond it and is not where the time belongs. */}
-          <span style={{ ...timeStyle, left: `${((arrCrossStartF - depF) / totalF) * 100}%`, transform: 'translateX(-100%)' }}>{endLabel}{deltaTag(arrDeltaMin)}</span>
+        // Anchored labels ride the pill's ends — but a pill WIDER than the
+        // viewport scrolls them (and its in-body ICAOs) out of sight (bug
+        // report 3 item 4). Sticky flex children clamp each label into the
+        // visible run of the pill; when clipped, the labels also carry the
+        // ICAO codes so the route stays readable mid-flight.
+        <div style={{ display: 'flex', justifyContent: 'space-between', height: F.timesRow, marginTop: sz(2), width: `${((arrCrossStartF - depF) / totalF) * 100}%` }}>
+          <span style={{ ...timeStyle, position: 'sticky', left: stickyLeftPx, transform: 'none' }}>
+            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep} </span>}
+            {startLabel}{deltaTag(depDeltaMin)}
+          </span>
+          <span style={{ ...timeStyle, position: 'sticky', right: sz(8), transform: 'none' }}>
+            {endLabel}{deltaTag(arrDeltaMin)}
+            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}> {arr}</span>}
+          </span>
         </div>
       )}
     </div>

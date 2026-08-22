@@ -154,11 +154,14 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, autoFitRows = false, onAutoFitComputed = null }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   // Retractable info tab (bug report item 1): one open at a time so the
   // board stays clean; auto-collapses after 3 min of being left open.
   const [openInfoId, setOpenInfoId] = useState(null);
+  // Bug report 3 item 2: sidebar limitation rows expand their description
+  // in place (retractable, collapsed by default).
+  const [openLimId, setOpenLimId] = useState(null);
   useEffect(() => {
     if (!openInfoId) return undefined;
     const timer = setTimeout(() => setOpenInfoId(null), 180_000);
@@ -537,6 +540,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         .cw-lim-scroll::-webkit-scrollbar-track{background:transparent}
         .cw-lim-scroll::-webkit-scrollbar-thumb{background:rgba(150,165,205,.28);border-radius:8px}
         .cw-lim-scroll{scrollbar-width:thin;scrollbar-color:rgba(150,165,205,.28) transparent}
+        @keyframes cwmvtblink{0%,49%{opacity:1}50%,100%{opacity:0}}
       `}</style>
 
       {/* ── LEFT PANEL: STATUS LEGEND + LIMITATIONS (view-only, readable at
@@ -581,9 +585,19 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           {/* Titles ONLY (bug report 2 item 5) — the full description lives
               in the flight's retractable tab. */}
           {allLims.map((l, i) => (
-            <div key={l.id} style={s.limTitleRow}>
-              <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
-              <span style={s.limTitle}>{l.title}</span>
+            <div key={l.id}>
+              <div
+                style={{ ...s.limTitleRow, cursor: 'pointer' }}
+                onClick={() => setOpenLimId((prev) => (prev === l.id ? null : l.id))}
+                title="Show description"
+              >
+                <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
+                <span style={s.limTitle}>{l.title}</span>
+                <span style={{ marginLeft: 'auto', color: '#5a6a94', fontSize: szSide(11) }}>{openLimId === l.id ? '▴' : '▾'}</span>
+              </div>
+              {openLimId === l.id && (l.description || l.body) && (
+                <div style={s.limDescTab}>{l.description || l.body}</div>
+              )}
             </div>
           ))}
         </div>
@@ -743,7 +757,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {}) {
   return {
   outer: {
-    display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0,
+    display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0, minWidth: 0,
   },
 
   // Left panel — sized for reading the full limitation text from across the
@@ -771,6 +785,12 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
     color: '#f2f5fb', letterSpacing: '1px', padding: `${szSide(14)}px ${szSide(12)}px ${szSide(6)}px`,
   },
   limTitleRow: { display: 'flex', alignItems: 'center', gap: szSide(9), padding: `${szSide(3)}px 0` },
+  limDescTab: {
+    margin: `${szSide(2)}px 0 ${szSide(6)}px ${szSide(26)}px`,
+    padding: `${szSide(8)}px ${szSide(10)}px`,
+    background: '#1a2130', borderRadius: 9, borderLeft: '3px solid rgba(240,177,59,.5)',
+    fontSize: szSide(12.5), lineHeight: 1.5, color: '#b7c2dc', whiteSpace: 'pre-wrap',
+  },
   limList: { display: 'flex', flexDirection: 'column', gap: szSide(6), padding: `0 ${szSide(12)}px ${szSide(14)}px`, overflowY: 'auto', minHeight: 0 },
   limEmpty: { fontSize: szSide(14), color: '#5a6a94', padding: '6px 4px' },
   limCard: {

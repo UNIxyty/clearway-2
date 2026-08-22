@@ -166,20 +166,55 @@ a flight with a real T/O could render as bare "ETD 05:50": the endpoint
 always showed ETD and the actual only appeared when a positive delay AND
 wide clearance allowed a boundary label.
 
-## Corrected delay/hatch geometry (bug report 2 item 4)
+## Delay/hatch geometry (bug report 3 item 1 — REVERSES report 2 item 4)
 
 The label precedence above is UNCHANGED (T/O overrides everything;
-CTOT-vs-ETD later-wins; LDG→ETA flips; BLOFF never displays). What
-changed is GEOMETRY, per the ops mockups:
-- The pill BODY sits at the actual/current times: [displayed departure,
+CTOT-vs-ETD later-wins; LDG→ETA flips; BLOFF never displays). The
+geometry per the NEWEST ops mockups (this reverses the report-2
+"trailing tail" model):
+- The hatched segment LEADS the body: it spans schedule→actual
+  departure ([STD, T/O] — or CTOT/ETD while not departed), rendered in
+  WHITE & BLACK stripes. It only appears when the departure is late.
+- The coloured BODY is the actual flight: [displayed departure,
   displayed arrival]. Arrival with no explicit LDG/ETA is PROJECTED by
   shifting the schedule's elapsed time onto the displayed departure
   (EET = STA − STD), so a delayed flight keeps its real duration.
-- The hatched segment TRAILS AFTER the body, length = |signed schedule
-  difference| — never before the body, never a bar that swallows the
-  flight. Labels carry the signed delta (`T/O 13:22 +22`, `LDG 15:35 +5`;
-  early = green negative).
+- No trailing tail; arrival differences show only through the signed
+  label deltas (`T/O 13:22 +22`, `LDG 15:35 +5`; early = green negative).
 - Stale-estimate guard: a flight-watch ETD >30 min BEFORE STD on a
   not-departed flight is treated as re-planning residue and ignored
   (the 'ETD 07:00 −120' backwards-hatch case); real early departures
   come through T/O, which is actual data and always wins.
+
+## Window visibility (bug report 3 items 5+8)
+
+A flight is on the wall while its [start, end] interval OVERLAPS
+[now − postLandingHours, now + upcomingHorizonHours] (start = ATD→ETD→STD,
+end = ATA→ETA→STA). The window is GLOBAL — `getVisibilitySettings` reads
+only the shared default; per-account profiles no longer override it (the
+main-wall profile once carried a stale copy and shrank the wall's world).
+
+## MVT flash (bug report 3 item 7)
+
+No T/O `mvtThresholdMin` minutes (default 15) past the reference time —
+CTOT/ETD when set, else STD (that instant is exactly the pill's displayed
+departure) — blinks a red RING around the pill contour every
+`mvtFlashSeconds` (default 1 s). Contour only: the overlay ring never
+touches the fill, the hollow-estimate inset or the info-tab outline. It
+stops the moment a T/O (or any actual departure) arrives and never fires
+on arrived or cancelled flights. Both knobs are per-account settings.
+
+## Per-airport checklist colours (bug report 3 item 10)
+
+The Upcoming Flight Table colours ADEP/ADES by the flight's SLOT &
+HANDLING services. Live-introspected (2026-08-23, cwy tenant):
+`checklist { getAvailableDefinitions(groupId: OPS) { nid label
+affectedAirport statuses { status color } } }` — each definition names the
+airport it affects (`AffectedAirport: adep | ades | both`; e.g.
+`Slot (ADEP)` nid 11 / `Slot (ADES)` nid 12 / `Handling (ADEP/ADES)`
+nids 7/8, plus Passenger/Cargo Handling and friends). Selection rule:
+OPS-group items whose definition label matches /slot|handling/i; per side
+the least-complete item (worst progress in its ordered status list) wins,
+mirroring the flight-level aggregate. Status palette on the live tenant:
+QSM/UNT/REJ #FF0000, RQS/CNX #FFA500, CNF #86BF53, NAP #BBBBBC. Mapped
+onto `checklistAdepColor` / `checklistAdesColor` (flight cache v6).

@@ -1414,3 +1414,36 @@ outline, slight transparency). Item 9: translucent scrollbar. Overlap
 audit: 0 collisions at defaults and full minimums; verified against
 the reported flight shapes (KLJ7004 stale ETD, arrived +22/+5,
 giant-hatch, EET). Both containers need rebuilding.
+
+## Bug report 3 (August 2026) — wall fixes + Upcoming Flight Table
+
+Item 1: delay geometry REVERSED per the newest mockups — the white/black
+striped hatch now LEADS the body (STD→actual departure) and the coloured
+body is the real flight; no trailing tail. Label precedence untouched.
+Items 5+8: the >13h-flights-invisible / early-vanish bug was NOT the
+overlap test (already an interval-overlap) — the main-wall account
+profile carried a stale horizon copy that overrode the shared default;
+getVisibilitySettings now reads only the default. Item 3: lim acks keep
+the numbered circles, muted/outlined; info tab shows '✓ checked'.
+Item 2: sidebar PERMANENT titles click-expand their description in place.
+Item 4 (what was still failing): the packer reserved width but the text
+anchored at the pill START, off-screen for in-progress legs — below-text
+is now position:sticky (rows clip with overflow:clip, since hidden makes
+each row a scroll container that swallows sticky) and viewport-wide pills
+carry their ICAOs in the sticky labels. Also fixed toDate(null)→epoch
+('00:00' phantom ATDs). Item 6: already covered — clocks support UTC
+(label 'UTC', no city) and drag-reorder to any position incl. middle.
+Item 7: MVT flash — red blinking contour ring when no T/O 15 min (per-
+account mvtThresholdMin) past CTOT/ETD-else-STD; per-account flash period;
+stops on T/O; never on arrived/cancelled. Item 9 (YU-APR/sbb): NOT a bug —
+sbb is active/syncing, YU-APR is in the registry un-hidden with 4 cached
+flights; at investigation time its next flight (24 Aug 07:00Z) was ~21h
+out, beyond the 13h look-ahead, so the row (correctly) had nothing to
+show. Item 10: Upcoming Flight Table — /api/upcoming/flights (from today
+00:01 UTC, applyTimeWindow:false), FLIGHT coloured by the OPS aggregate,
+ADEP/ADES by SLOT & HANDLING services via definition affectedAirport
+(cache v6), WX dots, per-account enable/side/text-size/width settings;
+the timeline flexes beside it. Overlap audit re-run at defaults and full
+minimums, with and without the table: no text collisions, no page
+overflow, no console errors. Both containers need rebuilding; the v6
+cache stamp forces one clean full re-sync on first boot.

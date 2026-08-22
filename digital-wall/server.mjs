@@ -85,8 +85,14 @@ process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "i
 // Item 9: getFlights filters by the adjustable upcoming-horizon /
 // post-landing window; thresholds live with the display settings.
 timelineService.getVisibilitySettings = async () => {
+  // Bug report 3 items 5+8: the visible window is GLOBAL — one wall
+  // reality. It reads ONLY the shared default (the Visibility card writes
+  // there); per-account profiles carry stale copies of the window keys
+  // from full-object saves (the main wall's seeded 17h/2h silently
+  // overrode every later edit — flights >13h out never appeared and
+  // landed flights vanished after ~2h no matter what ops configured).
   const shape = await readDisplayProfiles();
-  return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts?.[MAIN_WALL_ACCOUNT] ?? {}) };
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
 };
 
 // Console Reports (bug report item 13) — internal issue tracker + routing.

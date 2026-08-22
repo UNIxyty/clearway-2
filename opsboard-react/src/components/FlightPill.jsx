@@ -610,6 +610,7 @@ export default function FlightPill({
 
   const timeStyle = {
     position: 'absolute',
+    // (anchored mode overrides position to sticky — see below)
     fontFamily: "'IBM Plex Mono',monospace",
     fontSize: F.times,
     fontWeight: 600,
@@ -635,29 +636,35 @@ export default function FlightPill({
         {/* Front group: LIM circles + callsign, on the SAME line as the
             pill (old-DigitalWall) — anchored just before the pill start. */}
         <span style={{ position: 'absolute', right: '100%', marginRight: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: sz(4), whiteSpace: 'nowrap' }}>
-          {hasLim && limIndices.map((indexValue, idx) => (
-            <span
-              key={`lim-${indexValue}-${idx}`}
-              title={`Limitation ${indexValue} — see sidebar list`}
-              style={{
-                width: limCircle,
-                height: limCircle,
-                borderRadius: '50%',
-                background: '#f0c06b',
-                color: '#3a2a06',
-                fontSize: Math.max(7, Math.round(limCircle * 0.62)),
-                fontWeight: 800,
-                fontFamily: "'IBM Plex Mono',monospace",
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
-            >
-              {indexValue}
-            </span>
-          ))}
+          {hasLim && limIndices.map((indexValue, idx) => {
+            // Checked limitations stay VISIBLE but muted: outlined circle,
+            // dim number (chosen visual) — solid amber = needs attention.
+            const done = Boolean(flight.checks?.lim);
+            return (
+              <span
+                key={`lim-${indexValue}-${idx}`}
+                title={done ? `Limitation ${indexValue} — checked` : `Limitation ${indexValue} — see sidebar list`}
+                style={{
+                  width: limCircle,
+                  height: limCircle,
+                  borderRadius: '50%',
+                  background: done ? 'transparent' : '#f0c06b',
+                  border: done ? '1.5px solid rgba(240,192,107,.55)' : 'none',
+                  color: done ? 'rgba(240,192,107,.75)' : '#3a2a06',
+                  fontSize: Math.max(7, Math.round(limCircle * 0.62)),
+                  fontWeight: 800,
+                  fontFamily: "'IBM Plex Mono',monospace",
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+              >
+                {indexValue}
+              </span>
+            );
+          })}
           <span
             style={{
               fontFamily: "'IBM Plex Mono',monospace",

@@ -48,18 +48,23 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
     .join(' · ');
 
   function Section({ typeKey, title, children }) {
+    const done = Boolean(checks[typeKey]);
     return (
       <div style={s.section}>
         <div style={s.sectionHead}>
           <span style={s.sectionTitle}>{title}</span>
-          <button
-            type="button"
-            style={{ ...s.checkBtn, opacity: busy ? 0.6 : 1 }}
-            disabled={Boolean(busy)}
-            onClick={(e) => { e.stopPropagation(); check([typeKey]); }}
-          >
-            {busy === typeKey ? '…' : 'Checked ✓'}
-          </button>
+          {done ? (
+            <span style={{ ...s.checkBtn, cursor: 'default', opacity: 0.75 }}>✓ checked</span>
+          ) : (
+            <button
+              type="button"
+              style={{ ...s.checkBtn, opacity: busy ? 0.6 : 1 }}
+              disabled={Boolean(busy)}
+              onClick={(e) => { e.stopPropagation(); check([typeKey]); }}
+            >
+              {busy === typeKey ? '…' : 'Checked ✓'}
+            </button>
+          )}
         </div>
         {children}
       </div>

@@ -2285,8 +2285,10 @@ export class LeonTimelineService {
     // wall markers, console rows, overlay, the tab itself.
     const checkKey = `${context.oprId ?? flight?.oprId ?? ""}:${flight?.flightNid ?? ""}`;
     const flightChecks = this.flightChecksStore?.statusFor?.(checkKey) ?? {};
-    // 'lim' ack clears the manual-limitation circles for this flight.
-    const limitationIds = flightChecks.lim ? [] : this.getMatchedLimitationIds(flight);
+    // Bug report 3 item 3: a 'lim' ack must NOT hide the circles — ops
+    // still need to see the flight HAS limitations. The ids stay; the pill
+    // renders them muted/outlined via flight.checks.lim.
+    const limitationIds = this.getMatchedLimitationIds(flight);
     const limitationMap = new Map(this.customLimitations.map((item) => [item.id, item]));
     const limitations = limitationIds
       .map((id) => limitationMap.get(id))

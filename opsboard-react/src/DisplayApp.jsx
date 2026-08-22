@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Header, { FALLBACK_CLOCKS } from './components/Header';
 import Board from './components/Board';
+import UpcomingTable from './components/UpcomingTable';
 import FlightOverlay from './components/FlightOverlay';
 import {
   fetchDisplayClocks,
@@ -108,6 +109,9 @@ export default function DisplayApp() {
   const [headerScale, setHeaderScale] = useState(1.3); // top clock bar (own control)
   const [acColScale, setAcColScale] = useState(1); // left aircraft column (own control)
   const [autoFitRows, setAutoFitRows] = useState(false); // Item 2: fit all rows to the viewport
+  const [mvtThresholdMin, setMvtThresholdMin] = useState(15); // MVT flash threshold
+  const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1); // MVT blink period
+  const [upcomingTable, setUpcomingTable] = useState({ enabled: false, side: 'right', scale: 1, widthPct: 30 });
   const loadingRef = useRef(false);
   const deviceIdRef = useRef(getDeviceId());
   const accountRef = useRef(''); // this screen's signed-in account (profile key)
@@ -148,6 +152,14 @@ export default function DisplayApp() {
       const payload = await fetchDisplaySettings();
       accountRef.current = String(payload.account || '').toLowerCase();
       setAutoFitRows(payload.settings?.autoFitRows === true);
+      if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
+      if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
+      setUpcomingTable({
+        enabled: payload.settings?.upcomingTableEnabled === true,
+        side: payload.settings?.upcomingTableSide === 'left' ? 'left' : 'right',
+        scale: Number.isFinite(payload.settings?.upcomingTableScale) ? payload.settings.upcomingTableScale : 1,
+        widthPct: Number.isFinite(payload.settings?.upcomingTableWidthPct) ? payload.settings.upcomingTableWidthPct : 30,
+      });
       if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       if (Number.isFinite(payload.settings?.rowZoom)) setRowZoom(payload.settings.rowZoom);
@@ -248,6 +260,10 @@ export default function DisplayApp() {
       <FlightOverlay topOffset={Math.round(92 * headerScale)} scale={overlayScale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
+      <div style={s.boardRow}>
+      {upcomingTable.enabled && upcomingTable.side === 'left' && (
+        <UpcomingTable scale={upcomingTable.scale} widthPct={upcomingTable.widthPct} />
+      )}
       <Board
         aircraft={aircraft}
         limitations={limitations}
@@ -261,6 +277,8 @@ export default function DisplayApp() {
         labelScale={labelScale}
         sidebarScale={sidebarScale}
         acColScale={acColScale}
+        mvtThresholdMin={mvtThresholdMin}
+        mvtFlashSeconds={mvtFlashSeconds}
         autoFitRows={autoFitRows}
         onAutoFitComputed={(computedFit) => {
           // Read-only readout for console Settings; debounced by the fact
@@ -268,6 +286,10 @@ export default function DisplayApp() {
           reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', env: collectViewportEnv(), computedFit });
         }}
       />
+      {upcomingTable.enabled && upcomingTable.side === 'right' && (
+        <UpcomingTable scale={upcomingTable.scale} widthPct={upcomingTable.widthPct} />
+      )}
+      </div>
       {debugViewport && <ViewportDebug />}
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
@@ -277,6 +299,8 @@ export default function DisplayApp() {
 
 const s = {
   shell: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  // Upcoming Flight Table sits beside the board; the board flexes to the rest.
+  boardRow: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', overflow: 'hidden' },
   notice: {
     position: 'fixed',
     bottom: 10,

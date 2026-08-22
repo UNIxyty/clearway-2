@@ -343,6 +343,44 @@ async function jsonRequest(path, method, body) {
   return payload;
 }
 
+// Upcoming Flight Table (bug report 3 item 10): flat rows since 00:01 UTC,
+// no visibility window. Colours come from Leon checklists — FLIGHT by the
+// OPS aggregate, ADEP/ADES by the SLOT & HANDLING services for that side.
+export async function fetchUpcomingFlights() {
+  const payload = await fetchJson('/api/upcoming/flights', 'Upcoming flights request failed');
+  const rows = [];
+  for (const group of payload.aircraft || []) {
+    for (const flight of group.flights || []) {
+      if (flight.isCnl) continue;
+      const stdMs = toDate(flight.startTimeUTC)?.getTime();
+      if (!Number.isFinite(stdMs)) continue;
+      const dly = Number.isFinite(flight.departureDelayMin) ? flight.departureDelayMin : null;
+      rows.push({
+        id: `${group.oprId ?? 'unknown'}:${flight.flightNid}`,
+        fn: flight.flightNo || group.registration || 'UNKNOWN',
+        reg: group.registration || '',
+        dep: flight.adep?.icao || '——',
+        arr: flight.ades?.icao || '——',
+        wxDep: flight.wxDep || null,
+        wxArr: flight.wxArr || null,
+        stdMs,
+        etdHm: toHm(flight.etd ?? flight.startTimeUTC),
+        dly,
+        atdHm: toHm(flight.atd),
+        etaHm: toHm(flight.eta ?? flight.endTimeUTC),
+        ataHm: toHm(flight.ata),
+        date: (() => { const d = new Date(stdMs); return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; })(),
+        trip: flight.tripNo ?? flight.tripCode ?? '—',
+        flightColor: flight.checklistColor || null,
+        adepColor: flight.checklistAdepColor || null,
+        adesColor: flight.checklistAdesColor || null,
+      });
+    }
+  }
+  rows.sort((a, b) => a.stdMs - b.stdMs);
+  return rows;
+}
+
 export const createReport = (body) => jsonRequest('/api/reports', 'POST', body);
 export const updateReport = (id, body) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'PATCH', body);
 export const deleteReport = (id) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'DELETE');

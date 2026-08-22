@@ -25,6 +25,7 @@ import Icon from './icons';
 import {
   Button,
   Card,
+  Dropdown,
   ErrorBanner,
   IconButton,
   LoadingState,
@@ -536,6 +537,116 @@ function VerticalSizingCard() {
           onChange={(next) => onChange(row.key, row.label, next)}
         />
       ))}
+    </Card>
+  );
+}
+
+// Upcoming Flight Table (bug report 3 item 10): per-account enable, side,
+// text size and width of the wall's right/left flight table.
+function UpcomingTableCard() {
+  const { deviceId } = useContext(DeviceCtx);
+  const [enabled, setEnabled] = useState(false);
+  const [side, setSide] = useState('right');
+  const [tblScale, setTblScale] = useState(1);
+  const [widthPct, setWidthPct] = useState(30);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings(deviceId)
+      .then((payload) => {
+        setEnabled(payload.settings?.upcomingTableEnabled === true);
+        setSide(payload.settings?.upcomingTableSide === 'left' ? 'left' : 'right');
+        if (Number.isFinite(payload.settings?.upcomingTableScale)) setTblScale(payload.settings.upcomingTableScale);
+        if (Number.isFinite(payload.settings?.upcomingTableWidthPct)) setWidthPct(payload.settings.upcomingTableWidthPct);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  function persist(patch, message) {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings(patch, deviceId);
+        flash(message);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Upcoming Flight Table</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        A side table on the wall listing every flight from 00:01 UTC today onward — FLIGHT
+        coloured by the OPS checklist, ADEP/ADES by the SLOT &amp; HANDLING services, WX as
+        coloured dots. Independent of the timeline's visibility window.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: enabled ? '#f0f6ff' : t.card }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Show the table on the wall</div>
+          <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+            The timeline shrinks to make room; pick the side it docks to.
+          </div>
+        </div>
+        <Dropdown
+          value={side}
+          disabled={!loaded}
+          options={[{ value: 'right', label: 'Right side' }, { value: 'left', label: 'Left side' }]}
+          onChange={(next) => {
+            setSide(next);
+            persist({ upcomingTableSide: next }, `Table docked ${next} — wall updates in seconds`);
+          }}
+        />
+        <Button
+          size="sm"
+          variant={enabled ? 'primary' : 'soft'}
+          disabled={!loaded}
+          onClick={() => {
+            const next = !enabled;
+            setEnabled(next);
+            persist({ upcomingTableEnabled: next }, `Upcoming table ${next ? 'ON' : 'off'}`);
+          }}
+        >
+          {enabled ? 'Table ON' : 'Table off'}
+        </Button>
+      </div>
+      <WindowRow
+        label="Table text size"
+        hint="fonts and paddings inside the table"
+        min={0.5}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={tblScale}
+        defaultValue={1}
+        loaded={loaded}
+        onChange={(next) => {
+          setTblScale(next);
+          persist({ upcomingTableScale: next }, `Table text ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Table width"
+        hint="share of the screen the table takes; the timeline gets the rest"
+        min={15}
+        max={60}
+        step={1}
+        unit="%"
+        value={widthPct}
+        defaultValue={30}
+        loaded={loaded}
+        onChange={(next) => {
+          setWidthPct(next);
+          persist({ upcomingTableWidthPct: next }, `Table width ${next}% — wall updates in seconds`);
+        }}
+      />
     </Card>
   );
 }
@@ -1073,6 +1184,7 @@ export default function SettingsPage() {
           <HourSpacingCard />
           <VerticalSizingCard />
           <PanelScalesCard />
+          <UpcomingTableCard />
         </div>
       </DeviceCtx.Provider>
       <VisibilityWindowCard />

@@ -308,6 +308,12 @@ function sanitizeDisplaySettings(input = {}) {
     sidebarScale: Math.round(sidebarScale * 100) / 100,
     headerScale: Math.round(headerScale * 100) / 100,
     acColScale: Math.round(acColScale * 100) / 100,
+    mvtThresholdMin: Math.round(mvtThresholdMin),
+    mvtFlashSeconds: Math.round(mvtFlashSeconds * 10) / 10,
+    upcomingTableEnabled,
+    upcomingTableSide,
+    upcomingTableScale: Math.round(upcomingTableScale * 100) / 100,
+    upcomingTableWidthPct: Math.round(upcomingTableWidthPct),
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };
@@ -1119,6 +1125,25 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: true, ...deleted });
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
+    if (pathname === "/api/upcoming/flights" && req.method === "GET") {
+      // Upcoming Flight Table (bug report 3 item 10): every flight from
+      // today 00:01 UTC onward, ignoring the wall's visibility window —
+      // the table IS the look-ahead. Hidden aircraft stay hidden.
+      try {
+        const dayStart = new Date();
+        dayStart.setUTCHours(0, 1, 0, 0);
+        const payload = await timelineService.getFlights({
+          from: dayStart.toISOString(),
+          allOperators: true,
+          applyTimeWindow: false,
+        });
+        sendJson(res, payload);
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
       }
       return;
     }

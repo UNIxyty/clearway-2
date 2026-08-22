@@ -122,7 +122,8 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // v3: icaoType (ICAO flight-type letter) in the selection (2026-07-20).
 // v4: takeOffUTC/landingUTC/ctotUTC on the mapped flight (2026-08-10).
 // v5: isFerry in the selection (IMP/CAA load matching, 2026-08-10).
-const FLIGHT_CACHE_VERSION = 5;
+// v6: checklistAdepColor/checklistAdesColor (Upcoming Flight Table, 2026-08-23).
+const FLIGHT_CACHE_VERSION = 6;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
 // Simulator entries so ingestion can drop them. Confirmed on live Leon:
@@ -340,6 +341,37 @@ function aggregateChecklistColor(rawChecklist, defs) {
   return normalizeHexColor(worst?.color);
 }
 
+/**
+ * Upcoming Flight Table (bug report 3 item 10): per-AIRPORT service colours.
+ * Only SLOT & HANDLING services count — OPS definitions whose label matches
+ * /slot|handling/i (live tenant: "Slot (ADEP/ADES)", "Handling (ADEP/ADES)",
+ * "Passenger/Cargo Handling …"). Each definition declares which airport it
+ * affects (AffectedAirport: adep / ades / both — introspected live
+ * 2026-08-23); the least-complete matching item per side wins, same
+ * worst-progress rule as the flight-level colour.
+ */
+function aggregateAirportChecklistColors(rawChecklist, defs) {
+  const items = rawChecklist?.allItems;
+  if (!Array.isArray(items) || items.length === 0 || !defs) return { adep: null, ades: null };
+  const worst = { adep: null, ades: null };
+  for (const item of items) {
+    const itemGroup = item?.definition?.groupId;
+    if (itemGroup && String(itemGroup).toUpperCase() !== "OPS") continue;
+    const def = defs.get(item?.cdNid);
+    if (!def || !/slot|handling/i.test(String(def.label ?? ""))) continue;
+    const index = def.order.indexOf(item.csId);
+    if (index < 0) continue;
+    const progress = def.order.length > 1 ? index / (def.order.length - 1) : 1;
+    const sides = def.airport === "both" ? ["adep", "ades"] : def.airport === "ades" ? ["ades"] : ["adep"];
+    for (const side of sides) {
+      if (!worst[side] || progress < worst[side].progress) {
+        worst[side] = { progress, color: def.colorByStatus[item.csId] ?? null };
+      }
+    }
+  }
+  return { adep: normalizeHexColor(worst.adep?.color), ades: normalizeHexColor(worst.ades?.color) };
+}
+
 /** Leon checklist colors come back as bare hex ("86BF53") — prefix them. */
 function normalizeHexColor(value) {
   const raw = String(value ?? "").trim();
@@ -487,6 +519,10 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     tripStatus,
     isConfirmed: tripStatus == null ? true : String(tripStatus).toUpperCase() === "CONFIRMED",
     checklistColor: aggregateChecklistColor(rawFlight.checklist, checklistDefs),
+    ...(() => {
+      const c = aggregateAirportChecklistColors(rawFlight.checklist, checklistDefs);
+      return { checklistAdepColor: c.adep, checklistAdesColor: c.ades };
+    })(),
     movementState: movementStateOf({
       hasArrived,
       isAirborne,
@@ -1445,7 +1481,7 @@ export class LeonTimelineService {
     let defs = null;
     try {
       const data = await this.graphqlRequest(
-        `query { checklist { getAvailableDefinitions(groupId: OPS) { nid statuses { status color } } } }`,
+        `query { checklist { getAvailableDefinitions(groupId: OPS) { nid label affectedAirport statuses { status color } } } }`,
         undefined,
         oprId
       );
@@ -1456,6 +1492,11 @@ export class LeonTimelineService {
           {
             order: (definition.statuses ?? []).map((s) => s.status),
             colorByStatus: Object.fromEntries((definition.statuses ?? []).map((s) => [s.status, s.color])),
+            // Upcoming Flight Table (bug report 3 item 10): which airport
+            // cell this service colours (Leon AffectedAirport: adep/ades/
+            // both) and its label (only Slot/Handling services count).
+            label: definition.label ?? null,
+            airport: definition.affectedAirport ?? null,
           },
         ])
       );

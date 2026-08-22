@@ -578,6 +578,8 @@ function PanelScalesCard() {
   const [sidebarScale, setSidebarScale] = useState(1.3);
   const [headerScale, setHeaderScale] = useState(1.3);
   const [acColScale, setAcColScale] = useState(1);
+  const [mvtThresholdMin, setMvtThresholdMin] = useState(15);
+  const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
@@ -590,6 +592,8 @@ function PanelScalesCard() {
         if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
         if (Number.isFinite(payload.settings?.headerScale)) setHeaderScale(payload.settings.headerScale);
         if (Number.isFinite(payload.settings?.acColScale)) setAcColScale(payload.settings.acColScale);
+        if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
+        if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
@@ -660,6 +664,36 @@ function PanelScalesCard() {
         onChange={(next) => {
           setHeaderScale(next);
           persist({ headerScale: next }, `Top bar ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="MVT flash threshold"
+        hint="minutes past expected departure (CTOT/ETD if set, else STD) before a flight with no T/O starts flashing"
+        min={5}
+        max={60}
+        step={1}
+        unit="m"
+        value={mvtThresholdMin}
+        defaultValue={15}
+        loaded={loaded}
+        onChange={(next) => {
+          setMvtThresholdMin(next);
+          persist({ mvtThresholdMin: next }, `MVT threshold ${next}m — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="MVT flash period"
+        hint="blink rate of the missing-movement contour"
+        min={0.4}
+        max={4}
+        step={0.1}
+        unit="s"
+        value={mvtFlashSeconds}
+        defaultValue={1}
+        loaded={loaded}
+        onChange={(next) => {
+          setMvtFlashSeconds(next);
+          persist({ mvtFlashSeconds: next }, `MVT flash ${next}s — wall updates in seconds`);
         }}
       />
       <WindowRow

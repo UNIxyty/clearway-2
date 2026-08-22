@@ -463,7 +463,20 @@ export default function FlightPill({
   // Leon data; hollow = presumed from the schedule. Drawn with an inset
   // ring (not a border) so geometry — and the overlap audit — is unchanged.
   const hollow = flight.estimated === true && (status === 'airborne' || status === 'arrived');
+  // MVT flash (bug report 3 item 7): no T/O `mvtThresholdMin` past the
+  // expected departure — reference is CTOT/ETD when set (suppression rule),
+  // else STD; that instant IS delayedStartUtcMs under the current mapping.
+  // Only the CONTOUR blinks; stops the moment a T/O arrives.
+  const mvtRefMs = Number(flight.delayedStartUtcMs) || Number(flight.startUtcMs) || 0;
+  const mvtFlashing =
+    depKind !== 'T/O' &&
+    !flight.atdHm &&
+    status !== 'arrived' &&
+    !flight.isCnl &&
+    mvtRefMs > 0 &&
+    Number(nowMs) > mvtRefMs + mvtThresholdMin * 60_000;
   const hollowRing = Math.max(2, Math.round(2 * scale));
+
   // WX colour for an ICAO: dark tones on solid light fills, bright tones on
   // hollow pills (dark background shows through). null = default colour.
   const wxIcaoColor = (cat) => (cat ? (hollow ? WX_ICAO_BRIGHT[cat] : WX_ICAO_DARK[cat]) ?? null : null);
@@ -692,13 +705,29 @@ export default function FlightPill({
           </span>
         )}
 
+      {mvtFlashing && (
+        <div
+          style={{
+            position: 'absolute',
+            left: -2,
+            right: -2,
+            top: Math.max(0, Math.round((F.band - F.body) / 2)) - 2,
+            height: F.body + 4,
+            borderRadius: 99,
+            border: '2px solid #ff5f5f',
+            pointerEvents: 'none',
+            zIndex: 3,
+            animation: `cwmvtblink ${mvtFlashSeconds}s step-start infinite`,
+          }}
+        />
+      )}
       <div
         onClick={clickable ? onToggleInfo : undefined}
         title={clickable ? 'Show limitations / NOTAM / WX / CAA for this flight' : undefined}
         style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: '2px solid #6dc4ff', outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}
       >
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
-          {depDeltaMin !== 0 && depCrossSectionF > 0 && (
+          {depDeltaMin > 0 && depCrossSectionF > 0 && (
             <div
               style={{
                 width: depCrossPct,

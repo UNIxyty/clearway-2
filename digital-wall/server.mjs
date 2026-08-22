@@ -148,7 +148,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30 };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -252,6 +252,34 @@ function sanitizeDisplaySettings(input = {}) {
   const acColScale = input.acColScale === undefined ? DEFAULT_DISPLAY_SETTINGS.acColScale : Number(input.acColScale);
   if (!Number.isFinite(acColScale) || acColScale < 0.3 || acColScale > 1.5) {
     throw new Error("acColScale must be a number between 0.3 and 1.5.");
+  }
+  // MVT flash (bug report 3 item 7): missing T/O past threshold blinks the
+  // pill outline. Reference = CTOT/ETD when present, else STD.
+  const mvtThresholdMin = input.mvtThresholdMin === undefined ? DEFAULT_DISPLAY_SETTINGS.mvtThresholdMin : Number(input.mvtThresholdMin);
+  if (!Number.isFinite(mvtThresholdMin) || mvtThresholdMin < 5 || mvtThresholdMin > 60) {
+    throw new Error("mvtThresholdMin must be a number between 5 and 60.");
+  }
+  const mvtFlashSeconds = input.mvtFlashSeconds === undefined ? DEFAULT_DISPLAY_SETTINGS.mvtFlashSeconds : Number(input.mvtFlashSeconds);
+  if (!Number.isFinite(mvtFlashSeconds) || mvtFlashSeconds < 0.4 || mvtFlashSeconds > 4) {
+    throw new Error("mvtFlashSeconds must be a number between 0.4 and 4.");
+  }
+  // Upcoming Flight Table (bug report 3 item 10).
+  const upcomingTableEnabled = input.upcomingTableEnabled === undefined
+    ? DEFAULT_DISPLAY_SETTINGS.upcomingTableEnabled
+    : input.upcomingTableEnabled === true;
+  const upcomingTableSide = input.upcomingTableSide === undefined
+    ? DEFAULT_DISPLAY_SETTINGS.upcomingTableSide
+    : String(input.upcomingTableSide);
+  if (!["left", "right"].includes(upcomingTableSide)) {
+    throw new Error("upcomingTableSide must be 'left' or 'right'.");
+  }
+  const upcomingTableScale = input.upcomingTableScale === undefined ? DEFAULT_DISPLAY_SETTINGS.upcomingTableScale : Number(input.upcomingTableScale);
+  if (!Number.isFinite(upcomingTableScale) || upcomingTableScale < 0.5 || upcomingTableScale > 2) {
+    throw new Error("upcomingTableScale must be a number between 0.5 and 2.");
+  }
+  const upcomingTableWidthPct = input.upcomingTableWidthPct === undefined ? DEFAULT_DISPLAY_SETTINGS.upcomingTableWidthPct : Number(input.upcomingTableWidthPct);
+  if (!Number.isFinite(upcomingTableWidthPct) || upcomingTableWidthPct < 15 || upcomingTableWidthPct > 60) {
+    throw new Error("upcomingTableWidthPct must be a number between 15 and 60.");
   }
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined

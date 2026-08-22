@@ -493,10 +493,13 @@ export default function FlightPill({
   // (or between STA and the delayed arrival on the trailing side). Parallel
   // 45° lines over the muted state colour (reference-image treatment) so the
   // delay reads as "this pill, not yet solid".
+  // Bug report 3 item 1: WHITE & BLACK stripes (old-DigitalWall), not the
+  // state-tinted hatch — the schedule→actual gap reads the same on every
+  // pill colour.
   const delayDashBg = `repeating-linear-gradient(
     45deg,
-    ${theme.bg} 0px, ${theme.bg} ${sz(6)}px,
-    rgba(10,13,22,.30) ${sz(6)}px, rgba(10,13,22,.30) ${sz(10)}px
+    rgba(238,241,248,.9) 0px, rgba(238,241,248,.9) ${sz(6)}px,
+    rgba(12,15,24,.9) ${sz(6)}px, rgba(12,15,24,.9) ${sz(10)}px
   )`;
 
   // ID text: Leon checklist color (contrast-guarded on the dark board),
@@ -701,9 +704,9 @@ export default function FlightPill({
               height: '100%',
               flexShrink: 0,
               borderRadius:
-                depDeltaMin !== 0 && depCrossSectionF > 0
-                  ? (arrDeltaMin !== 0 && arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
-                  : (arrDeltaMin !== 0 && arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
+                depDeltaMin > 0 && depCrossSectionF > 0
+                  ? (arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
+                  : (arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
               background: hollow ? hexA(theme.bg, 0.14) : theme.bg,
               boxShadow: hollow ? 'none' : 'inset 0 0 0 1px rgba(12,16,26,.22)',
               display: 'flex',

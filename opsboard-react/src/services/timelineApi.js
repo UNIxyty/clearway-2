@@ -160,14 +160,14 @@ function mapFlight(flight, group) {
   }
   const arrDeltaMin = Math.round((arrDisplayMs - staMs) / 60_000);
 
-  // Ops model (their mockups): the BODY sits at the actual/current times;
-  // the hatched TAIL trails AFTER it, sized to the schedule difference —
-  // never before the body, never a multi-hour bar swallowing the flight.
-  const tailMin = Math.abs(arrDeltaMin !== 0 ? arrDeltaMin : depDeltaMin);
-  const spanStartMs = depDisplayMs;
-  const hatchDepEndMs = depDisplayMs; // no leading hatch in this model
+  // Ops model, REVERSED in bug report 3 (their newest mockups): the hatch
+  // LEADS the body — it spans schedule→actual departure (STD→T/O), and the
+  // coloured body runs from the actual departure to the arrival. No
+  // trailing tail; arrival differences show through the signed label.
+  const spanStartMs = Math.min(stdMs, depDisplayMs);
+  const hatchDepEndMs = depDisplayMs; // leading hatch = [STD, actual dep] when delayed
   const solidEndMs = Math.max(arrDisplayMs, depDisplayMs + 5 * 60_000);
-  const spanEndMs = solidEndMs + tailMin * 60_000;
+  const spanEndMs = solidEndMs;
 
   const start = new Date(spanStartMs);
   const scheduledEnd = new Date(solidEndMs);

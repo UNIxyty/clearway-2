@@ -1447,3 +1447,18 @@ the timeline flexes beside it. Overlap audit re-run at defaults and full
 minimums, with and without the table: no text collisions, no page
 overflow, no console errors. Both containers need rebuilding; the v6
 cache stamp forces one clean full re-sync on first boot.
+
+## Daily flight-weather pull (August 2026)
+
+Weather now has its own daily cycle, decoupled from the 10:00 NOTAM check:
+at 00:01 UTC the wall collects every dep/arr airport of flights from today
+00:01 UTC through the END of tomorrow (flights sync two days ahead) and
+pulls fresh decoded METARs for all of them, overwriting whatever the
+previous day's run stored. Minute-poll scheduler, same self-healing shape
+as the NOTAM check (a restart later in the day catches up; a missing
+CHECKWX_API_KEY or failed run does NOT mark the day, so it keeps
+retrying). WX eligibility widened to match: pills, info tab and the
+Upcoming Flight Table attach categories to flights of today AND tomorrow
+(UTC), not just today. Manual trigger for testing/catch-up:
+POST /api/admin/refresh-flight-weather. State (incl. the per-day marker)
+persists in data/weather.json.

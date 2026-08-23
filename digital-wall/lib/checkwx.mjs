@@ -100,11 +100,17 @@ export class CheckwxWeatherService {
     this.sseHub = sseHub;
     this.store = new JsonFileStore("weather.json", { byIcao: {} });
     this.byIcao = {};
+    // Daily flight-weather refresh (00:01 UTC): last UTC day it ran, so a
+    // restart later the same day doesn't re-burn CheckWX calls.
+    this.dailyFiredFor = null;
+    this.dailyInterval = null;
+    this.lastDailyRun = null; // { day, airports, ok, error?, at }
   }
 
   async load() {
     const payload = await this.store.read();
     this.byIcao = payload.byIcao && typeof payload.byIcao === "object" ? payload.byIcao : {};
+    this.dailyFiredFor = typeof payload.dailyFiredFor === "string" ? payload.dailyFiredFor : null;
   }
 
   /** Refresh a set of ICAOs (sequential — be gentle; responses are cached). */
@@ -125,10 +131,60 @@ export class CheckwxWeatherService {
       };
       refreshed += 1;
     }
-    await this.store.write({ byIcao: this.byIcao, updatedAt: new Date().toISOString() });
+    await this.store.write({ byIcao: this.byIcao, dailyFiredFor: this.dailyFiredFor, updatedAt: new Date().toISOString() });
     this.sseHub?.broadcast({ type: "weather.changed", airports: unique.length });
     console.log(`[checkwx] refreshed decoded METARs for ${refreshed} airport(s)`);
     return { ok: true, refreshed };
+  }
+
+  /**
+   * Daily flight-weather refresh. Every day at 00:01 UTC it pulls fresh
+   * decoded METARs for EVERY airport touched by a flight from today
+   * 00:01 UTC through the END OF TOMORROW (flights are already synced two
+   * days ahead), overwriting whatever yesterday's run stored for those
+   * airports. `listIcaos` is injected (the server collects dep/arr ICAOs
+   * from the flight cache) so this class stays Leon-free.
+   */
+  async runDailyFlightRefresh(listIcaos, { reason = "scheduled" } = {}) {
+    const day = new Date().toISOString().slice(0, 10);
+    let icaos = [];
+    try {
+      icaos = await listIcaos();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[checkwx] daily flight-weather refresh (${reason}): airport list failed: ${message}`);
+      this.lastDailyRun = { day, airports: 0, ok: false, error: message, at: new Date().toISOString() };
+      return { ok: false, error: message };
+    }
+    const result = await this.refreshFor(icaos, { fresh: true });
+    if (result.ok) {
+      // Mark the UTC day only on success — a missing API key or a down
+      // CheckWX keeps the minute-poll retrying instead of skipping the day.
+      this.dailyFiredFor = day;
+      await this.store.write({ byIcao: this.byIcao, dailyFiredFor: this.dailyFiredFor, updatedAt: new Date().toISOString() });
+    }
+    this.lastDailyRun = { day, airports: result.refreshed ?? 0, ok: result.ok, error: result.ok ? null : "refresh skipped/failed", at: new Date().toISOString() };
+    console.log(`[checkwx] daily flight-weather refresh (${reason}) for ${day}: ${result.ok ? `${result.refreshed} airport(s)` : "did not run"}`);
+    return result;
+  }
+
+  /**
+   * Minute-poll scheduler, same self-healing shape as the NOTAM check: fires
+   * once per UTC day as soon as the clock passes 00:01, including catch-up
+   * after a restart or downtime (a boot at 09:00 still runs that day's pull).
+   */
+  startDailyFlightScheduler(listIcaos) {
+    this.dailyInterval = setInterval(() => {
+      const now = new Date();
+      const day = now.toISOString().slice(0, 10);
+      const minutesIntoDay = now.getUTCHours() * 60 + now.getUTCMinutes();
+      if (minutesIntoDay >= 1 && this.dailyFiredFor !== day) {
+        this.runDailyFlightRefresh(listIcaos, { reason: "scheduled" }).catch((error) => {
+          console.error("[checkwx] daily flight-weather refresh crashed:", error?.message || error);
+        });
+      }
+    }, 60_000);
+    if (typeof this.dailyInterval.unref === "function") this.dailyInterval.unref();
   }
 
   /** flight_category for the pill markers (null = unknown/no data). */

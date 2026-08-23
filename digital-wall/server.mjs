@@ -12,7 +12,7 @@ import { CaaStore } from "./lib/caa-store.mjs";
 import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
-import { NotamCheckService, flightZonedDay, zonedNow } from "./lib/notam-check.mjs";
+import { NotamCheckService } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
 import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
@@ -77,10 +77,43 @@ timelineService.alertsStore = alertsService;
 const weatherService = new CheckwxWeatherService({ sseHub });
 await weatherService.load();
 timelineService.weatherLookup = (icao) => weatherService.categoryOf(icao);
-// Item 4: WX behaves like the NOTAM check — fetched once per day at 10:00
-// Riga for TODAY's airports; markers attach only to today's flights.
-timelineService.weatherEligible = (flight) => flightZonedDay(flight) === zonedNow().day;
+// WX markers attach to flights of TODAY and TOMORROW (UTC) — the same
+// two-day span the daily 00:01 UTC weather pull covers (flights sync two
+// days ahead; each day's run overwrites what yesterday fetched).
+timelineService.weatherEligible = (flight) => {
+  const start = Date.parse(flight?.startTimeUTC ?? "");
+  if (!Number.isFinite(start)) return false;
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  return start >= dayStart.getTime() && start < dayStart.getTime() + 2 * 86_400_000;
+};
 process.stdout.write(`CheckWX weather: ${checkwxConfigured() ? "configured" : "idle (set CHECKWX_API_KEY)"}\n`);
+
+// Daily flight-weather pull (00:01 UTC): collect every dep/arr airport of
+// flights from today 00:01 UTC through the END of tomorrow and refresh
+// their decoded METARs once per UTC day, overwriting yesterday's entries.
+const listUpcomingWeatherIcaos = async () => {
+  const from = new Date();
+  from.setUTCHours(0, 1, 0, 0);
+  const to = new Date(from.getTime());
+  to.setUTCDate(to.getUTCDate() + 2);
+  to.setUTCHours(0, 0, 0, 0);
+  const payload = await timelineService.getFlights({
+    from: from.toISOString(),
+    to: to.toISOString(),
+    allOperators: true,
+    applyTimeWindow: false,
+  });
+  const icaos = [];
+  for (const group of payload.aircraft ?? []) {
+    for (const flight of group.flights ?? []) {
+      if (flight?.adep?.icao) icaos.push(flight.adep.icao);
+      if (flight?.ades?.icao) icaos.push(flight.ades.icao);
+    }
+  }
+  return icaos;
+};
+weatherService.startDailyFlightScheduler(listUpcomingWeatherIcaos);
 
 // Item 9: getFlights filters by the adjustable upcoming-horizon /
 // post-landing window; thresholds live with the display settings.
@@ -755,12 +788,12 @@ const server = http.createServer(async (req, res) => {
         depIcao ? resolveAipPdf(depIcao) : { available: false },
         arrIcao ? resolveAipPdf(arrIcao) : { available: false },
       ]);
-      // Decoded CheckWX summaries from the wall's weather state (refreshed by
-      // the daily check; fetch on demand if an airport was never seen).
-      // Item 4: NO on-demand CheckWX fetches — weather is fetched once per
-      // day (10:00 Riga, today's airports) plus manual resync. The overlay
-      // serves whatever the daily run cached, and only for today's flights.
-      const wxToday = flightZonedDay(found.flight) === zonedNow().day;
+      // Decoded CheckWX summaries from the wall's weather state. Still NO
+      // on-demand CheckWX fetches — the 00:01 UTC daily pull (today through
+      // end of tomorrow) plus the 10:00 NOTAM-check refresh and manual
+      // resync keep the cache warm; the tab serves whatever is cached, for
+      // the same two-day span the pills use.
+      const wxToday = timelineService.weatherEligible(found.flight);
       sendJson(res, {
         ok: true,
         portalConfigured: portalConfigured(),
@@ -850,6 +883,14 @@ const server = http.createServer(async (req, res) => {
     // ── Daily NOTAM check (wall sign + per-airport acknowledgments) ──
     // One-shot admin purge of the cached flights (auth-gated like all
     // /api/* routes). Flights only — config stores are untouched.
+    if (pathname === "/api/admin/refresh-flight-weather" && req.method === "POST") {
+      // Manual trigger of the daily 00:01 UTC flight-weather pull (testing /
+      // catch-up). Same code path as the scheduler.
+      const result = await weatherService.runDailyFlightRefresh(listUpcomingWeatherIcaos, { reason: "manual" });
+      sendJson(res, { ok: result.ok === true, refreshed: result.refreshed ?? 0, lastRun: weatherService.lastDailyRun });
+      return;
+    }
+
     if (pathname === "/api/admin/clear-flight-cache" && req.method === "POST") {
       try {
         const cleared = await timelineService.clearFlightCache();

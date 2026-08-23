@@ -45,7 +45,71 @@ function checkTz() {
   return String(process.env.NOTAM_CHECK_TZ || "Europe/Riga").trim();
 }
 
+// ── Console-editable digest config ──────────────────────────────────────────
+// Overrides live in data/notam-digest.json and win over the env defaults
+// (NOTAM_DIGEST_TO / NOTAM_CHECK_HOUR / NOTAM_REMINDER_INTERVAL_MIN); a null
+// field means "use the env/default". Loaded once at boot, saved from the
+// console Settings page.
+const digestConfigStore = new JsonFileStore("notam-digest.json", { recipients: null, checkHour: null, reminderIntervalMin: null });
+const digestConfig = { recipients: null, checkHour: null, reminderIntervalMin: null };
+
+export async function loadDigestConfig() {
+  const payload = await digestConfigStore.read();
+  digestConfig.recipients = Array.isArray(payload.recipients) ? payload.recipients.filter((v) => /.+@.+\..+/.test(String(v))) : null;
+  digestConfig.checkHour = Number.isFinite(payload.checkHour) && payload.checkHour >= 0 && payload.checkHour <= 23 ? Math.round(payload.checkHour) : null;
+  digestConfig.reminderIntervalMin = Number.isFinite(payload.reminderIntervalMin) && payload.reminderIntervalMin >= 1 ? Math.round(payload.reminderIntervalMin) : null;
+  return { ...digestConfig };
+}
+
+export async function saveDigestConfig(patch = {}) {
+  if ("recipients" in patch) {
+    const list = Array.isArray(patch.recipients) ? patch.recipients.map((v) => String(v || "").trim()).filter(Boolean) : [];
+    const bad = list.filter((v) => !/.+@.+\..+/.test(v));
+    if (bad.length > 0) throw new Error(`Not an email address: ${bad.join(", ")}`);
+    digestConfig.recipients = list.length > 0 ? list : null; // empty = fall back to env
+  }
+  if ("checkHour" in patch) {
+    if (patch.checkHour === null || patch.checkHour === "") {
+      digestConfig.checkHour = null;
+    } else {
+      const hour = Number(patch.checkHour);
+      if (!Number.isFinite(hour) || hour < 0 || hour > 23) throw new Error("Check hour must be 0–23.");
+      digestConfig.checkHour = Math.round(hour);
+    }
+  }
+  if ("reminderIntervalMin" in patch) {
+    if (patch.reminderIntervalMin === null || patch.reminderIntervalMin === "") {
+      digestConfig.reminderIntervalMin = null;
+    } else {
+      const minutes = Number(patch.reminderIntervalMin);
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) throw new Error("Reminder interval must be 1–1440 minutes.");
+      digestConfig.reminderIntervalMin = Math.round(minutes);
+    }
+  }
+  await digestConfigStore.write({ ...digestConfig, updatedAt: new Date().toISOString() });
+  return { ...digestConfig };
+}
+
+export function getDigestConfig() {
+  return {
+    ...digestConfig,
+    effective: {
+      recipients: digestRecipients(),
+      checkHour: checkHour(),
+      timeZone: checkTz(),
+      reminderIntervalMin: Math.round(reminderIntervalMs() / 60_000),
+      envRecipients: String(process.env.NOTAM_DIGEST_TO || "").split(",").map((v) => v.trim()).filter(Boolean),
+    },
+  };
+}
+
+/** The resolved daily check hour — also drives the flight-check ack cycle. */
+export function currentCheckHour() {
+  return checkHour();
+}
+
 function checkHour() {
+  if (digestConfig.checkHour !== null) return digestConfig.checkHour;
   const parsed = Number(process.env.NOTAM_CHECK_HOUR);
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= 23 ? parsed : 10;
 }
@@ -54,6 +118,7 @@ function checkHour() {
 // unset NOTAM_DIGEST_TO silently mailed a mailbox nobody reads — the #1 way
 // "the notification isn't arriving". Unset now records a visible emailError.
 function digestRecipients() {
+  if (digestConfig.recipients && digestConfig.recipients.length > 0) return [...digestConfig.recipients];
   return String(process.env.NOTAM_DIGEST_TO || "")
     .split(",")
     .map((v) => v.trim())
@@ -62,6 +127,7 @@ function digestRecipients() {
 
 /** Reminder cadence while airports remain unchecked (default 120 min, min 1). */
 function reminderIntervalMs() {
+  if (digestConfig.reminderIntervalMin !== null) return digestConfig.reminderIntervalMin * 60_000;
   const minutes = Number(process.env.NOTAM_REMINDER_INTERVAL_MIN);
   return (Number.isFinite(minutes) && minutes >= 1 ? minutes : 120) * 60_000;
 }

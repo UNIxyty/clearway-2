@@ -8,14 +8,13 @@
 // run — mirrored from notam-check, not invented).
 
 import { JsonFileStore } from "./json-store.mjs";
-import { zonedNow } from "./notam-check.mjs";
+import { currentCheckHour, zonedNow } from "./notam-check.mjs";
 
 export const CHECK_TYPES = ["imp", "ntm", "wx", "caa", "lim"];
 
-function checkHour() {
-  const parsed = Number(process.env.NOTAM_CHECK_HOUR);
-  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 23 ? parsed : 10;
-}
+// The ack cycle boundary follows the NOTAM check hour — including a
+// console-configured override (notam-digest.json), not just the env.
+const checkHour = () => currentCheckHour();
 
 /** The identity of the current check cycle: the Riga day of its 10:00 start. */
 export function currentCycleDay() {

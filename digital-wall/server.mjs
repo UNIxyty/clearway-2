@@ -12,7 +12,7 @@ import { CaaStore } from "./lib/caa-store.mjs";
 import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
 import { CheckwxWeatherService, checkwxConfigured } from "./lib/checkwx.mjs";
 import { AlertsService } from "./lib/alerts.mjs";
-import { NotamCheckService } from "./lib/notam-check.mjs";
+import { NotamCheckService, getDigestConfig, loadDigestConfig, saveDigestConfig } from "./lib/notam-check.mjs";
 import { AipSendService } from "./lib/aip-send.mjs";
 import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
@@ -137,6 +137,7 @@ const flightChecksStore = new FlightChecksStore();
 await flightChecksStore.load();
 timelineService.flightChecksStore = flightChecksStore;
 
+await loadDigestConfig(); // console overrides for recipients/hour/reminder
 const notamCheck = new NotamCheckService({ timelineService, alertsService, sseHub, weatherService });
 await notamCheck.load();
 notamCheck.startScheduler();
@@ -883,6 +884,27 @@ const server = http.createServer(async (req, res) => {
     // ── Daily NOTAM check (wall sign + per-airport acknowledgments) ──
     // One-shot admin purge of the cached flights (auth-gated like all
     // /api/* routes). Flights only — config stores are untouched.
+    if (pathname === "/api/notam-check/digest-config" && req.method === "GET") {
+      sendJson(res, { ok: true, config: getDigestConfig() });
+      return;
+    }
+
+    if (pathname === "/api/notam-check/digest-config" && req.method === "PUT") {
+      // Console-editable digest: recipients, daily check hour, reminder
+      // cadence. Null/empty field = fall back to the env default.
+      try {
+        const body = await readJsonBody(req);
+        await saveDigestConfig(body);
+        // A changed hour/cadence must re-arm the pending reminder loop.
+        notamCheck.armReminder();
+        notamCheck.broadcast();
+        sendJson(res, { ok: true, config: getDigestConfig() });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
+      return;
+    }
+
     if (pathname === "/api/admin/refresh-flight-weather" && req.method === "POST") {
       // Manual trigger of the daily 00:01 UTC flight-weather pull (testing /
       // catch-up). Same code path as the scheduler.

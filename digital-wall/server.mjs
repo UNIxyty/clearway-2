@@ -1204,6 +1204,16 @@ const server = http.createServer(async (req, res) => {
           allOperators: true,
           applyTimeWindow: false,
         });
+        // The table ALWAYS shows weather for today+tomorrow flights — an
+        // info-tab WX ack hides the wall's flag, not the table's data
+        // (decoration nulls wxDep/wxArr once acked, so re-attach raw here).
+        for (const group of payload.aircraft ?? []) {
+          for (const flight of group.flights ?? []) {
+            const eligible = typeof timelineService.weatherEligible === "function" ? timelineService.weatherEligible(flight) : true;
+            flight.wxDep = eligible ? (timelineService.weatherLookup?.(flight.adep?.icao) ?? null) : null;
+            flight.wxArr = eligible ? (timelineService.weatherLookup?.(flight.ades?.icao) ?? null) : null;
+          }
+        }
         sendJson(res, payload);
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);

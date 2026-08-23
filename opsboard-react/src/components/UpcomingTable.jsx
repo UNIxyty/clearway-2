@@ -43,7 +43,10 @@ export default function UpcomingTable({ scale = 1, widthPct = 30 }) {
     load();
     const timer = setInterval(load, 120_000);
     const unsubscribe = subscribeWallStream('flight.changed', load);
-    return () => { alive = false; clearInterval(timer); unsubscribe(); };
+    // A weather fetch (00:01 UTC daily or the console button) must repaint
+    // the WX dots immediately, not on the next 2-minute tick.
+    const unsubscribeWx = subscribeWallStream('weather.changed', load);
+    return () => { alive = false; clearInterval(timer); unsubscribe(); unsubscribeWx(); };
   }, []);
 
   const sz = (v) => Math.max(1, Math.round(v * scale));

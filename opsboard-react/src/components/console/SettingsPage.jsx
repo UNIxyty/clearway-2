@@ -1,13 +1,16 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchAlertRules,
+  fetchDigestConfig,
   fetchDisplayClocks,
   fetchDisplayDevices,
   fetchDisplaySettings,
   renameDisplayDevice,
+  refreshFlightWeather,
   reportDisplayEnv,
   resetProfile,
   saveAlertRules,
+  saveDigestConfig,
   saveDisplayClocks,
   saveDisplaySettings,
   triggerAlertScan,
@@ -25,14 +28,17 @@ import Icon from './icons';
 import {
   Button,
   Card,
+  ChipInput,
   Dropdown,
   ErrorBanner,
+  FieldLabel,
   IconButton,
   LoadingState,
   MonoChip,
   PageHeader,
   PendingNote,
   SearchBox,
+  Segmented,
   t,
   TextInput,
   useToast,
@@ -1157,6 +1163,141 @@ function AlertFilterCard() {
   );
 }
 
+// ── NOTAM digest card (console-editable; falls back to the env) ─────────────
+function NotamDigestCard() {
+  const [config, setConfig] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDigestConfig()
+      .then((payload) => setConfig(payload.config))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
+  async function persist(patch, message) {
+    setSaving(true);
+    setError('');
+    try {
+      const payload = await saveDigestConfig(patch);
+      setConfig(payload.config);
+      flash(message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+    setSaving(false);
+  }
+
+  const recipients = config?.recipients ?? [];
+  const usingEnv = recipients.length === 0;
+  const effective = config?.effective ?? {};
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>NOTAM digest</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        Who receives the daily NOTAM digest email, when the daily check runs, and how often the
+        pending-airports reminder repeats. Cleared fields fall back to the server defaults.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      {!config && !error && <LoadingState>Loading digest config…</LoadingState>}
+      {config && (
+        <>
+          <FieldLabel extra={usingEnv && effective.envRecipients?.length > 0 ? `using server default: ${effective.envRecipients.join(', ')}` : null}>
+            Digest recipients
+          </FieldLabel>
+          <ChipInput
+            values={recipients}
+            placeholder="Add e-mail and press Enter…"
+            chipColor="#1d4ed8"
+            chipBg="#e8effe"
+            onAdd={(value) => persist({ recipients: [...recipients, value] }, `Recipient added — digest goes to ${recipients.length + 1} address(es)`)}
+            onRemove={(value) => persist({ recipients: recipients.filter((v) => v !== value) }, recipients.length - 1 === 0 ? 'Recipients cleared — using the server default' : 'Recipient removed')}
+          />
+          <div style={{ display: 'flex', gap: 26, flexWrap: 'wrap', marginTop: 16 }}>
+            <div>
+              <FieldLabel>Daily check hour ({effective.timeZone || 'Europe/Riga'})</FieldLabel>
+              <Dropdown
+                value={config.checkHour ?? 'default'}
+                options={[{ value: 'default', label: `Default (${String(effective.checkHour).padStart(2, '0')}:00)` },
+                  ...Array.from({ length: 24 }, (_, h) => ({ value: h, label: `${String(h).padStart(2, '0')}:00` }))]}
+                onChange={(next) => persist(
+                  { checkHour: next === 'default' ? null : next },
+                  next === 'default' ? 'Check hour reset to default' : `Daily check moves to ${String(next).padStart(2, '0')}:00`
+                )}
+              />
+            </div>
+            <div>
+              <FieldLabel>Reminder every</FieldLabel>
+              <Dropdown
+                value={config.reminderIntervalMin ?? 'default'}
+                options={[{ value: 'default', label: `Default (${effective.reminderIntervalMin} min)` },
+                  ...[30, 60, 90, 120, 180, 240, 360].map((m) => ({ value: m, label: `${m} min` }))]}
+                onChange={(next) => persist(
+                  { reminderIntervalMin: next === 'default' ? null : next },
+                  next === 'default' ? 'Reminder cadence reset to default' : `Reminder every ${next} min while airports are unchecked`
+                )}
+              />
+            </div>
+          </div>
+          <p style={{ fontSize: 12.5, color: t.faint, margin: '14px 0 0' }}>
+            Effective now: digest → {effective.recipients?.length ? effective.recipients.join(', ') : '— nobody (set recipients!)'} ·
+            check at {String(effective.checkHour).padStart(2, '0')}:00 · reminder every {effective.reminderIntervalMin} min.
+            {saving ? ' Saving…' : ''}
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ── Weather card: manual trigger of the daily flight-weather pull ───────────
+function WeatherCard() {
+  const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState(null);
+  const [error, setError] = useState('');
+  const flash = useToast();
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Weather</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
+        Decoded METARs refresh automatically at 00:01 UTC for every airport with a flight from
+        today through the end of tomorrow. Use the button after adding flights mid-day or if
+        categories look stale — same pull, on demand.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Button
+          variant="primary"
+          icon="cloud-download"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError('');
+            try {
+              const payload = await refreshFlightWeather();
+              setLast(payload);
+              flash(`Weather refreshed for ${payload.refreshed} airport(s) — wall updates in seconds`);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            }
+            setBusy(false);
+          }}
+        >
+          {busy ? 'Fetching weather…' : 'Fetch weather now'}
+        </Button>
+        {last && !busy && (
+          <span style={{ fontSize: 12.5, color: t.faint }}>
+            last manual run: {last.refreshed} airport(s){last.lastRun?.at ? ` · ${String(last.lastRun.at).slice(11, 16)} UTC` : ''}
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
   const [devices, setDevices] = useState([]);
@@ -1173,27 +1314,56 @@ export default function SettingsPage() {
   // editing the main wall profile.
   const wallDevice = devices.find((d) => d.surface === 'wall') || null;
 
+  // Sections: the page had grown into one endless scroll of cards — a
+  // segmented switch groups them by what ops are actually trying to do.
+  const [section, setSection] = useState('display');
+
   return (
     <div>
       <PageHeader
         title="Settings"
-        desc="Configure the wall clocks and the NOTAM / alert filter that drives automatic flagging."
+        desc="Wall display profiles, timeline content, clocks, and the NOTAM / alert / weather machinery."
         descMax={600}
       />
-      <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
-      <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
-        {/* key remounts the cards so they re-fetch the selected profile */}
-        <div key={selectedAccount ?? 'own'}>
-          <DisplayScaleCard />
-          <HourSpacingCard />
-          <VerticalSizingCard />
-          <PanelScalesCard />
-          <UpcomingTableCard />
-        </div>
-      </DeviceCtx.Provider>
-      <VisibilityWindowCard />
-      <ClocksCard />
-      <AlertFilterCard />
+      <div style={{ margin: '0 0 18px', display: 'inline-block' }}>
+        <Segmented
+          value={section}
+          onChange={setSection}
+          options={[
+            { value: 'display', label: 'Display & sizing' },
+            { value: 'wall', label: 'Wall content' },
+            { value: 'checks', label: 'NOTAM, alerts & WX' },
+          ]}
+        />
+      </div>
+      {section === 'display' && (
+        <>
+          <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+          <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+            {/* key remounts the cards so they re-fetch the selected profile */}
+            <div key={selectedAccount ?? 'own'}>
+              <DisplayScaleCard />
+              <HourSpacingCard />
+              <VerticalSizingCard />
+              <PanelScalesCard />
+              <UpcomingTableCard />
+            </div>
+          </DeviceCtx.Provider>
+        </>
+      )}
+      {section === 'wall' && (
+        <>
+          <VisibilityWindowCard />
+          <ClocksCard />
+        </>
+      )}
+      {section === 'checks' && (
+        <>
+          <NotamDigestCard />
+          <WeatherCard />
+          <AlertFilterCard />
+        </>
+      )}
     </div>
   );
 }

@@ -381,6 +381,13 @@ export async function fetchUpcomingFlights() {
   return rows;
 }
 
+// NOTAM digest config (console-editable; null field = env default).
+export const fetchDigestConfig = () => fetchJson('/api/notam-check/digest-config', 'Digest config request failed');
+export const saveDigestConfig = (body) => jsonRequest('/api/notam-check/digest-config', 'PUT', body);
+
+// Manual trigger of the daily 00:01 UTC flight-weather pull.
+export const refreshFlightWeather = () => jsonRequest('/api/admin/refresh-flight-weather', 'POST', {});
+
 export const createReport = (body) => jsonRequest('/api/reports', 'POST', body);
 export const updateReport = (id, body) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'PATCH', body);
 export const deleteReport = (id) => jsonRequest(`/api/reports/${encodeURIComponent(id)}`, 'DELETE');

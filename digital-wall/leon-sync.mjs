@@ -2416,12 +2416,12 @@ export class LeonTimelineService {
     }
 
     // CheckWX flight categories for the pill's per-airport WX markers
-    // (acknowledgment-only; null = no data). Injected by server.mjs.
-    // WX categories attach ONLY to today's flights (Riga day — the same set
-    // the 10:00 daily check fetched weather for). A flight days out shows no
-    // WX marker until its own day, even if its airports happen to be cached.
-    const wxAcked = Boolean(flightChecks.wx);
-    const wxEligible = !wxAcked && (typeof this.weatherEligible === "function" ? this.weatherEligible(flight) : true);
+    // (null = no data). Injected by server.mjs; attaches to flights of
+    // today AND tomorrow (UTC) — the span the 00:01 daily pull covers.
+    // A WX ack ("Checked"/"Check all") does NOT clear these: the ICAO
+    // colours are weather DATA, not a review flag — only the WX alert
+    // entries above disappear on ack (user call, 2026-08-24).
+    const wxEligible = typeof this.weatherEligible === "function" ? this.weatherEligible(flight) : true;
     const wxDep = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.adep?.icao) : null;
     const wxArr = wxEligible && typeof this.weatherLookup === "function" ? this.weatherLookup(flight.ades?.icao) : null;
 

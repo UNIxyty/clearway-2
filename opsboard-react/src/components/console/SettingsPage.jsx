@@ -42,7 +42,11 @@ import {
 
 function timeZoneOptions() {
   try {
-    return Intl.supportedValuesOf('timeZone');
+    // V8/Chrome's list holds only IANA region zones — plain "UTC" (and the
+    // Etc/* aliases) are NOT in it, so searching "utc" found nothing.
+    // Prepend it: it's a valid Intl timeZone and the wall's main use case.
+    const zones = Intl.supportedValuesOf('timeZone');
+    return zones.includes('UTC') ? zones : ['UTC', ...zones];
   } catch {
     return ['UTC', 'Europe/Riga', 'Europe/London', 'America/New_York'];
   }

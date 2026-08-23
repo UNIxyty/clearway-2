@@ -1462,3 +1462,15 @@ Upcoming Flight Table attach categories to flights of today AND tomorrow
 (UTC), not just today. Manual trigger for testing/catch-up:
 POST /api/admin/refresh-flight-weather. State (incl. the per-day marker)
 persists in data/weather.json.
+
+## Console QoL (August 2026)
+
+Settings is sectioned: a segmented switch splits it into "Display &
+sizing" (profiles + sizing + upcoming table), "Wall content" (visibility
+window, clocks) and "NOTAM, alerts & WX". The NOTAM digest is editable in
+the console (recipients / daily check hour / reminder cadence; overrides
+live in data/notam-digest.json and win over the env; cleared = env
+default; the flight-check ack cycle follows the same resolved hour). A
+"Fetch weather now" button triggers the daily flight-weather pull on
+demand. Also: plain "UTC" is selectable in the clocks zone search (V8's
+Intl zone list doesn't contain it).

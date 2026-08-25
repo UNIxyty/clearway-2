@@ -219,12 +219,19 @@ async function readDisplayProfiles() {
   return migrateSettingsShape(stored);
 }
 
+// The two visibility-window keys are GLOBAL (one wall reality) — they
+// resolve from the shared default even when an account profile carries a
+// stale copy from the pre-report-4 full-object saves.
+const GLOBAL_SETTING_KEYS = ["upcomingHorizonHours", "postLandingHours"];
+
 function resolveDisplaySettings(shape, account) {
+  const globalBase = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
+  const globals = Object.fromEntries(GLOBAL_SETTING_KEYS.map((k) => [k, globalBase[k]]));
   const key = String(account || "").trim().toLowerCase();
   if (key && shape.accounts[key]) {
-    return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...shape.accounts[key] }, source: "account" };
+    return { settings: { ...globalBase, ...shape.accounts[key], ...globals }, source: "account" };
   }
-  return { settings: { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default }, source: "default" };
+  return { settings: globalBase, source: "default" };
 }
 
 // Registered display devices (viewport diagnostics + profile labels).
@@ -1009,12 +1016,36 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;
       }
+      // Bug report 4 item 2 — the ACTUAL cause of the recurring ">13h
+      // flights invisible": report 3 made the wall's window gate read ONLY
+      // shape.default, but this route kept writing the sliders into
+      // shape.accounts[account] — reads and writes never met, so the wall
+      // stayed at whatever the default held (13h/1.5h on prod) no matter
+      // what ops configured. The window keys are GLOBAL: persist them into
+      // the default and keep them OUT of account profiles.
+      const windowTouched = GLOBAL_SETTING_KEYS.some((k) => (body.settings ?? body ?? {})[k] !== undefined);
+      shape.default = shape.default && typeof shape.default === "object" ? shape.default : {};
+      for (const k of GLOBAL_SETTING_KEYS) {
+        shape.default[k] = settings[k];
+        delete settings[k]; // never store a per-account copy again
+      }
       shape.accounts[account] = settings;
+      // Hygiene: stale window copies in OTHER profiles are inert (resolution
+      // forces the default) but confusing in the file — purge them all.
+      for (const profile of Object.values(shape.accounts)) {
+        for (const k of GLOBAL_SETTING_KEYS) delete profile[k];
+      }
       await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
       // The account in the event lets each surface ignore edits aimed at a
       // DIFFERENT profile (personal tuning must not resize the big screen).
       sseHub.broadcast({ type: "config.changed", section: "settings", account });
-      sendJson(res, { ok: true, settings, account });
+      if (windowTouched) {
+        // The window gate lives server-side in the flights payload — nudge
+        // every wall to re-pull immediately so the change is visible now,
+        // not on the next natural refetch.
+        sseHub.broadcast({ type: "flight.changed", reason: "visibility-window" });
+      }
+      sendJson(res, { ok: true, settings: resolveDisplaySettings(shape, account).settings, account });
       return;
     }
 

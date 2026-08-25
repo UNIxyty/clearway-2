@@ -3,29 +3,18 @@
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon, SquareIcon } from "lucide-react";
+import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon, SquareIcon, MapPinIcon, CloudSunIcon, ScrollTextIcon } from "lucide-react";
+import PortalShell from "@/components/portal/Shell";
+import { PButton, PCard, PMono, PSectionTitle, PTh } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
-import UserBadge from "@/components/UserBadge";
 import { useBackgroundSearch, type SyncStage } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
-import CountryServiceStatusBanner from "@/components/country-service-status-banner";
 import BugReportModal from "@/components/bug-report-modal";
 import BugReportsHoverBanner from "@/components/bug-reports-hover-banner";
 import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
@@ -59,6 +48,19 @@ const BROWSE_LOADING_STEPS = [
   { id: "browse-1", label: "Loading…", duration: 400 },
   { id: "browse-2", label: "Ready", duration: 250 },
 ];
+
+type RecentEntry = { icao: string; name: string; country: string; ts: number };
+const RECENTS_STORAGE_KEY = "portal-recents";
+const RECENTS_MAX = 8;
+
+function formatRecentTimestamp(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} d ago`;
+  return new Date(ts).toLocaleDateString();
+}
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -430,157 +432,143 @@ function AIPResultCard({
   const hasGen = airport.gen1_2 || airport.gen1_2_point_4;
 
   return (
-    <Card
-      className={`bg-card/80 border-border/60 transition-all duration-200 ${isSelected ? "ring-2 ring-primary" : ""} ${onSelect ? "cursor-pointer hover:bg-card hover:shadow-md" : ""}`}
+    <div
+      className={`${isSelected ? "rounded-[10px] ring-2 ring-[#2563eb] " : ""}${onSelect ? "cursor-pointer " : ""}`}
       role={onSelect ? "button" : undefined}
       onClick={onSelect}
     >
-      <CardHeader className="pb-2 px-4 sm:px-6">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm sm:text-base flex items-center gap-2 shrink-0">
-            {flagUrl ? (
+      <div className="mb-3 flex flex-wrap items-center gap-2.5">
+        {flagUrl ? (
+          <img
+            src={flagUrl}
+            alt=""
+            width={22}
+            height={16}
+            className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
+          />
+        ) : (
+          <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
+        )}
+        <span className="font-mono text-[15px] font-semibold text-[#17181c]">{airport.icao}</span>
+        {airport.name ? <span className="text-sm text-[#6c7079]">{airport.name}</span> : null}
+      </div>
+      <div className="flex flex-col gap-4">
+        {orderedSectionKeys.map((section) => {
+          const sectionRows = rowsBySection[section];
+          const sectionTitle = SECTION_TITLE_BY_KEY[section] || section || "Section";
+          const isRunwaySection = section === "AD 2.12";
+          const runwayNumberRow = isRunwaySection
+            ? sectionRows.find((row) => row.key === "runwayNumber")
+            : undefined;
+          const runwayDimensionsRow = isRunwaySection
+            ? sectionRows.find((row) => row.key === "runwayDimensions")
+            : undefined;
+          const runwayRows = (runwayNumberRow?.value || runwayDimensionsRow?.value)
+            ? parseRunwayRows(runwayNumberRow?.value ?? "", runwayDimensionsRow?.value ?? "")
+            : [];
+          const normalRows = isRunwaySection
+            ? sectionRows.filter((row) => row.key !== "runwayNumber" && row.key !== "runwayDimensions")
+            : sectionRows;
+
+          return (
+            <section key={section || "general"} className="overflow-hidden rounded-[10px] border border-[#eef0f2]">
+              <div className="flex items-center gap-2 border-b border-[#eef0f2] bg-[#fbfbfc] px-3.5 py-2">
+                {section ? (
+                  <PMono className="text-[11px] font-semibold tracking-wide text-[#2563eb]">{section}</PMono>
+                ) : null}
+                <PSectionTitle className="tracking-[0.06em]">{sectionTitle}</PSectionTitle>
+              </div>
+              <dl className="divide-y divide-[#f2f3f5]">
+                {normalRows.map(({ key, section: rowSection, label, value }) => (
+                  <div
+                    key={`${rowSection}-${label}`}
+                    className="grid grid-cols-1 gap-1.5 px-3.5 py-2.5 sm:grid-cols-[minmax(160px,190px)_1fr] sm:gap-4"
+                  >
+                    <dt className="text-[11.5px] leading-5 text-[#9aa0a8]">{label}</dt>
+                    <dd className={`flex min-w-0 items-center gap-2 font-mono text-[13px] leading-relaxed text-[#17181c] ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
+                      {key === "country" && flagUrl ? (
+                        <>
+                          <img
+                            src={flagUrl}
+                            alt=""
+                            width={28}
+                            height={21}
+                            className="shrink-0 rounded-sm object-cover align-middle"
+                          />
+                          <span>{value}</span>
+                        </>
+                      ) : (
+                        formatTimesInAipText(value)
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {isRunwaySection && runwayRows.length > 0 && (
+                <div className="border-t border-[#eef0f2] px-3.5 py-3.5">
+                  <PSectionTitle className="mb-2.5">Runways</PSectionTitle>
+                  <div className="overflow-hidden rounded-[10px] border border-[#eef0f2]">
+                    <table className="w-full text-[13px]">
+                      <thead className="bg-[#fbfbfc]">
+                        <tr>
+                          <th className="w-28 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-[#9aa0a8]">Runway</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-[#9aa0a8]">Dimensions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f2f3f5]">
+                        {runwayRows.map((r) => (
+                          <tr key={`${r.runway}-${r.dimensions}`}>
+                            <td className="px-3 py-2 font-mono text-[#17181c]">{r.runway || "—"}</td>
+                            <td className="px-3 py-2 font-mono text-[#3a3d44]">{r.dimensions || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+      {hasGen && (
+        <div className="mt-4 border-t border-[#eef0f2] pt-4">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowGen((v) => !v); }}
+            className="flex cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-sm font-semibold text-[#6c7079] hover:text-[#17181c]"
+          >
+            {showGen ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
+            {flagUrl && (
               <img
                 src={flagUrl}
                 alt=""
                 width={22}
                 height={16}
-                className="rounded-sm shrink-0 object-cover border border-border/60"
+                className="inline-block shrink-0 rounded-sm object-cover align-middle"
               />
-            ) : (
-              <GlobeIcon className="size-4 text-muted-foreground shrink-0" />
             )}
-            <span className="font-mono text-primary">{airport.icao}</span>
-          </CardTitle>
-        </div>
-        <CardDescription className="font-normal text-foreground/90 text-xs sm:text-sm">
-          {airport.name}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-xs sm:text-sm pt-0 px-4 sm:px-6">
-        <div className="space-y-3 sm:space-y-4">
-          {orderedSectionKeys.map((section) => {
-            const sectionRows = rowsBySection[section];
-            const sectionTitle = SECTION_TITLE_BY_KEY[section] || section || "Section";
-            const isRunwaySection = section === "AD 2.12";
-            const runwayNumberRow = isRunwaySection
-              ? sectionRows.find((row) => row.key === "runwayNumber")
-              : undefined;
-            const runwayDimensionsRow = isRunwaySection
-              ? sectionRows.find((row) => row.key === "runwayDimensions")
-              : undefined;
-            const runwayRows = (runwayNumberRow?.value || runwayDimensionsRow?.value)
-              ? parseRunwayRows(runwayNumberRow?.value ?? "", runwayDimensionsRow?.value ?? "")
-              : [];
-            const normalRows = isRunwaySection
-              ? sectionRows.filter((row) => row.key !== "runwayNumber" && row.key !== "runwayDimensions")
-              : sectionRows;
-
-            return (
-              <section key={section || "general"} className="rounded-md border border-border/60 bg-muted/20 overflow-hidden">
-                <div className="px-3 sm:px-4 py-2 border-b border-border/60 bg-card/70 flex items-center gap-2">
-                  {section ? (
-                    <span className="font-mono text-[11px] sm:text-xs font-semibold tracking-wide text-primary">{section}</span>
-                  ) : null}
-                  <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {sectionTitle}
-                  </span>
+            GEN (General — {airport.country})
+          </button>
+          {showGen && (
+            <div className="mt-3 space-y-4">
+              {airport.gen1_2 && (
+                <div className="max-w-none">
+                  <p className="mb-1.5 text-sm font-semibold text-[#17181c]">GEN 1.2</p>
+                  <p className="text-[13px] leading-6 text-[#3a3d44]">{airport.gen1_2}</p>
                 </div>
-                <dl className="divide-y divide-border/50">
-                  {normalRows.map(({ key, section: rowSection, label, value }) => (
-                    <div
-                      key={`${rowSection}-${label}`}
-                      className="px-3 sm:px-4 py-2.5 sm:py-3 grid grid-cols-1 sm:grid-cols-[minmax(160px,190px)_1fr] gap-1.5 sm:gap-4"
-                    >
-                      <dt className="font-medium text-[11px] sm:text-xs uppercase tracking-wide text-muted-foreground">
-                        {label}
-                      </dt>
-                      <dd className={`text-foreground/95 min-w-0 text-xs sm:text-sm leading-snug flex items-center gap-2 ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
-                        {key === "country" && flagUrl ? (
-                          <>
-                            <img
-                              src={flagUrl}
-                              alt=""
-                              width={28}
-                              height={21}
-                              className="rounded-sm shrink-0 object-cover align-middle"
-                            />
-                            <span>{value}</span>
-                          </>
-                        ) : (
-                          formatTimesInAipText(value)
-                        )}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                {isRunwaySection && runwayRows.length > 0 && (
-                  <div className="px-3 sm:px-4 py-3 sm:py-4 border-t border-border/60">
-                    <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 sm:mb-3">
-                      Runways
-                    </p>
-                    <div className="rounded-md border border-border/60 overflow-hidden bg-card/60">
-                      <table className="w-full text-xs sm:text-sm">
-                        <thead className="bg-muted/50 text-[11px] sm:text-xs uppercase tracking-wide text-muted-foreground">
-                          <tr>
-                            <th className="text-left px-3 py-2 font-semibold w-28">Runway</th>
-                            <th className="text-left px-3 py-2 font-semibold">Dimensions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/50">
-                          {runwayRows.map((r) => (
-                            <tr key={`${r.runway}-${r.dimensions}`}>
-                              <td className="px-3 py-2 font-mono text-primary">{r.runway || "—"}</td>
-                              <td className="px-3 py-2 text-foreground/95">{r.dimensions || "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </section>
-            );
-          })}
-        </div>
-        {hasGen && (
-          <div className="border-t border-border/60 pt-3 sm:pt-4 mt-3 sm:mt-4">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setShowGen((v) => !v); }}
-              className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground hover:text-foreground font-semibold"
-            >
-              {showGen ? <ChevronUpIcon className="size-4 sm:size-5" /> : <ChevronDownIcon className="size-4 sm:size-5" />}
-              {flagUrl && (
-                <img
-                  src={flagUrl}
-                  alt=""
-                  width={22}
-                  height={16}
-                  className="rounded-sm shrink-0 object-cover align-middle inline-block"
-                />
               )}
-              GEN (General — {airport.country})
-            </button>
-            {showGen && (
-              <div className="mt-3 space-y-4 sm:space-y-5">
-                {airport.gen1_2 && (
-                  <div className="max-w-none">
-                    <p className="text-sm sm:text-base font-semibold text-foreground mb-1.5 sm:mb-2">GEN 1.2</p>
-                    <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7">{airport.gen1_2}</p>
-                  </div>
-                )}
-                {airport.gen1_2_point_4 && (
-                  <div className="max-w-none">
-                    <p className="text-sm sm:text-base font-semibold text-foreground mb-1.5 sm:mb-2">GEN 1.2 Point 4</p>
-                    <p className="text-[13px] sm:text-[15px] text-foreground leading-6 sm:leading-7">{airport.gen1_2_point_4}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {airport.gen1_2_point_4 && (
+                <div className="max-w-none">
+                  <p className="mb-1.5 text-sm font-semibold text-[#17181c]">GEN 1.2 Point 4</p>
+                  <p className="text-[13px] leading-6 text-[#3a3d44]">{airport.gen1_2_point_4}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -625,7 +613,7 @@ function AIPPortalPageInner() {
   const [weatherSyncingIcao, setWeatherSyncingIcao] = useState<string | null>(null);
   const [weatherSyncSteps, setWeatherSyncSteps] = useState<string[]>([]);
   const [weatherSyncRequestedIcao, setWeatherSyncRequestedIcao] = useState<string | null>(null);
-  const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null; updatedAt?: string | null }>>({});
+  const [aipEadCache, setAipEadCache] = useState<Record<string, { airport: AIPAirport | null; error: string | null; updatedAt?: string | null; cache?: { ttlMs?: number; staleAfterMs?: number } | null }>>({});
   const [aipEadLoadingIcao, setAipEadLoadingIcao] = useState<string | null>(null);
   const [aipEadSyncingIcao, setAipEadSyncingIcao] = useState<string | null>(null);
   const [aipEadSyncRequestedIcao, setAipEadSyncRequestedIcao] = useState<string | null>(null);
@@ -653,6 +641,7 @@ function AIPPortalPageInner() {
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [bugModalOpen, setBugModalOpen] = useState(false);
   const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
+  const [recents, setRecents] = useState<RecentEntry[]>([]);
 
   const [bugReportError, setBugReportError] = useState<string | null>(null);
   const [deletingBugReportId, setDeletingBugReportId] = useState<string | null>(null);
@@ -670,6 +659,39 @@ function AIPPortalPageInner() {
   }, [results, selectedIcao]);
 
   const viewingAirport = selectedAirport;
+
+  const recentIcao = viewingAirport?.icao ?? null;
+  const recentName = viewingAirport?.name ?? "";
+  const recentCountry = viewingAirport?.country ?? "";
+
+  // Load "Recently opened" entries once on mount (client-only localStorage list).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECENTS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as RecentEntry[];
+      if (Array.isArray(parsed)) {
+        setRecents(parsed.filter((r) => r && typeof r.icao === "string"));
+      }
+    } catch {
+      // corrupt or unavailable localStorage — start with an empty list
+    }
+  }, []);
+
+  // Record every opened airport into the "Recently opened" list.
+  useEffect(() => {
+    if (!recentIcao) return;
+    setRecents((prev) => {
+      const entry: RecentEntry = { icao: recentIcao, name: recentName, country: recentCountry, ts: Date.now() };
+      const next = [entry, ...prev.filter((r) => r.icao !== recentIcao)].slice(0, RECENTS_MAX);
+      try {
+        window.localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore quota / availability errors
+      }
+      return next;
+    });
+  }, [recentIcao, recentName, recentCountry]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1440,7 +1462,7 @@ function AIPPortalPageInner() {
           code?: number;
           airports?: unknown[];
           updatedAt?: string | null;
-          cache?: { served?: boolean; stale?: boolean; ageMs?: number | null; refreshStarted?: boolean };
+          cache?: { served?: boolean; stale?: boolean; ageMs?: number | null; refreshStarted?: boolean; ttlMs?: number; staleAfterMs?: number };
         };
         if (!res.ok) {
           const msg = formatAipSyncError(data);
@@ -1460,7 +1482,7 @@ function AIPPortalPageInner() {
             ? "Russia"
             : "EAD (EU AIP)";
         const airport = mapExtractedRowToAirport(match, icao, fallbackCountry);
-        setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt } }));
+        setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt, cache: data.cache ?? null } }));
         setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
         if (doSync && !useStream && data.cache?.served) {
@@ -2036,260 +2058,22 @@ function AIPPortalPageInner() {
   const showMap = !!(results?.length && viewingAirport);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden">
-      <div className={`flex-1 w-full min-h-0 overflow-auto p-4 sm:p-6 lg:p-8 ${showMap ? "lg:flex lg:flex-col lg:gap-6 lg:max-w-[1600px] lg:mx-auto" : ""}`}>
-        <div className={`${showMap ? "w-full" : "w-full max-w-2xl mx-auto"} mb-4`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex items-start gap-3">
+    <PortalShell>
+      <div className="px-4 py-6 pb-12 sm:px-[30px]">
+        {!viewingAirport ? (
+          <div className="mx-auto w-full max-w-[1560px]">
+            {/* Page header */}
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
               <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Clearway</p>
-              <p className="text-sm text-muted-foreground">AIP Data Portal</p>
+                <h1 className="mb-1 text-[26px] font-extrabold tracking-[-0.02em]">Search airport data</h1>
+                <p className="text-[15px] leading-normal text-[#6c7079]">
+                  Look up AIP, GEN, NOTAM and weather data for any aerodrome by ICAO code, name or country.
+                </p>
               </div>
-            </div>
-            <UserBadge />
-          </div>
-        </div>
-        <div className={showMap ? "lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden lg:w-full" : "w-full max-w-2xl mx-auto space-y-6 sm:space-y-8"}>
-          {/* Map and NOTAMs — right side (order-2) */}
-          {showMap && viewingAirport && (
-            <div className="hidden lg:flex lg:shrink-0 lg:w-[min(380px,36vw)] lg:flex-col lg:min-h-0 rounded-xl overflow-hidden border border-border/80 shadow-md bg-card lg:order-2 animate-fade-in-up-stagger">
-              <div className="px-3 py-2 border-b border-border/60 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                <span>Location — {viewingAirport.icao}</span>
-              </div>
-              <div className="flex-1 min-h-[240px] shrink-0">
-                {viewingAirport.lat != null && viewingAirport.lon != null ? (
-                  <AirportMap
-                    lat={viewingAirport.lat}
-                    lon={viewingAirport.lon}
-                    icao={viewingAirport.icao}
-                    name={viewingAirport.name}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted/30 text-sm text-muted-foreground p-4 text-center">
-                    Coordinates will appear after AIP sync or when available from data.
-                  </div>
-                )}
-              </div>
-              <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
-                <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <FileWarningIcon className="size-3.5" />
-                    NOTAMs — {viewingAirport.icao}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => requestSyncNotams(viewingAirport.icao)}
-                    disabled={notamsLoading}
-                    title="Refresh NOTAMs"
-                  >
-                    <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
-                <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
-                  {notamsLoading && (
-                    <div className="flex flex-col gap-4 py-4 animate-fade-in">
-                      {notamsSyncing ? (
-                        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-muted-foreground" />
-                            <span className="text-sm font-medium">Loading steps…</span>
-                          </div>
-                          {notamsSyncSteps.length > 0 && (
-                            <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
-                              {notamsSyncSteps.map((step, i) => (
-                                <li key={i}>{step}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {notamsSyncSteps.length === 0 && (
-                            <span className="text-xs text-muted-foreground">Starting loading steps · can take 1–2 min</span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Spinner className="size-4 shrink-0 text-muted-foreground" />
-                            <span>Loading NOTAMs…</span>
-                          </div>
-                          <div className="space-y-2 section-loading-skeleton">
-                            <div className="h-3 w-full rounded bg-muted" />
-                            <div className="h-3 w-4/5 rounded bg-muted" />
-                            <div className="h-3 w-3/4 rounded bg-muted" />
-                            <div className="h-12 w-full rounded bg-muted mt-2" />
-                            <div className="h-3 w-2/3 rounded bg-muted" />
-                            <div className="h-12 w-full rounded bg-muted mt-2" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!notamsLoading && notamsUpdatedAt && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Last updated: {new Date(notamsUpdatedAt).toLocaleString()}
-                    </p>
-                  )}
-                  {!notamsLoading && notamsError && (
-                    <div className="space-y-2 py-2">
-                      <p className="text-sm text-destructive font-medium">NOTAMs unavailable</p>
-                      <p className="text-xs text-muted-foreground break-words">{notamsError}</p>
-                      <p className="text-xs text-muted-foreground">Run locally: <code className="bg-muted px-1 rounded">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
-                    </div>
-                  )}
-                  {!notamsLoading && !notamsError && notams && notams.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-2">No NOTAMs returned.</p>
-                  )}
-                  {!notamsLoading && !notamsError && notams && notams.length > 0 && (
-                    <ul className="space-y-3">
-                      {notams.slice(0, 50).map((n, i) => (
-                        <li key={`${n.number}-${i}`} className="text-xs border-b border-border/50 pb-2 last:border-0">
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
-                            <span className="font-mono">{n.number}</span>
-                            <span className="text-muted-foreground">{n.class}</span>
-                            {(n.startDateUtc || n.endDateUtc) && (
-                              <span className="text-muted-foreground">
-                                {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">
-                            {n.condition
-                              .split("\n")
-                              .filter((line) => !/^\|#\d+\|[-\s]+/.test(line) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(line))
-                              .join("\n")
-                              .trim()}
-                          </p>
-                        </li>
-                      ))}
-                      {notams.length > 50 && (
-                        <li className="text-muted-foreground text-xs pt-1">
-                          +{notams.length - 50} more NOTAMs
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </div>
-              <div className="border-t border-border/60 flex flex-col min-h-0 flex-1 overflow-hidden">
-                <div className="px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider shrink-0 flex items-center justify-between gap-2">
-                  <span>Weather — {viewingAirport.icao}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => requestSyncWeather(viewingAirport.icao)}
-                    disabled={weatherLoading}
-                    title="Refresh weather"
-                  >
-                    <RefreshCwIcon className={`size-3.5 ${weatherLoading ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
-                <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-3">
-                  {weatherLoading && (
-                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Spinner className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="text-sm font-medium">
-                          {weatherSyncing ? "Loading steps…" : "Loading weather..."}
-                        </span>
-                      </div>
-                      {weatherSyncing && weatherSyncSteps.length > 0 && (
-                        <ul className="space-y-1 pl-5 list-disc text-xs text-muted-foreground">
-                          {weatherSyncSteps.map((step, i) => (
-                            <li key={i}>{step}</li>
-                          ))}
-                        </ul>
-                      )}
-                      {weatherSyncing && weatherSyncSteps.length === 0 && (
-                        <div className="space-y-2 section-loading-skeleton">
-                          <div className="h-3 w-full rounded bg-muted" />
-                          <div className="h-3 w-4/5 rounded bg-muted" />
-                          <div className="h-3 w-3/4 rounded bg-muted" />
-                          <div className="h-12 w-full rounded bg-muted mt-2" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {!weatherLoading && cachedWeather?.updatedAt && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Last updated: {new Date(cachedWeather.updatedAt).toLocaleString()}
-                    </p>
-                  )}
-                  {!weatherLoading && cachedWeather?.error && (
-                    <p className="text-xs text-destructive break-words">{cachedWeather.error}</p>
-                  )}
-                  {!weatherLoading && !cachedWeather?.error && (
-                    <>
-                      {weatherDisplay.bullets.length > 0 ? (
-                        <div className="space-y-3">
-                          {weatherDisplay.airportLine && (
-                            <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
-                              {weatherDisplay.airportLine}
-                            </p>
-                          )}
-                          <ul className="space-y-3">
-                            {weatherDisplay.bullets.map((b, i) => (
-                              <li
-                                key={`${b.kind}-${b.id}-${i}`}
-                                className="text-xs border-b border-border/50 pb-2 last:border-0"
-                              >
-                                <div className="flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-foreground mb-0.5">
-                                  <span className="font-mono">{b.id}</span>
-                                  <span className="text-muted-foreground">{b.kind}</span>
-                                </div>
-                                <p className="text-foreground/90 leading-snug whitespace-pre-wrap break-words">
-                                  {b.body}
-                                </p>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : weatherDisplay.strippedPlain.trim() ? (
-                        <pre className="whitespace-pre-wrap break-words text-xs text-foreground/90 font-sans leading-5">
-                          {weatherDisplay.strippedPlain}
-                        </pre>
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-2">No weather text returned yet.</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Center column: search + AIP data — left side (order-1) */}
-          <div className={showMap ? "lg:min-w-0 lg:flex-1 lg:flex lg:flex-col lg:overflow-hidden lg:order-1" : "space-y-6 sm:space-y-8"}>
-            <header className="text-center space-y-1.5 sm:space-y-2 shrink-0 animate-fade-in-up py-3 mb-2">
-              <img
-                src="/header_logo_white.svg"
-                alt="Clearway"
-                className="mx-auto h-10 sm:h-12 w-auto max-w-[280px] object-contain [filter:brightness(0)] transition-transform duration-200 hover:scale-[1.02]"
-              />
-            </header>
-
-            <div className={showMap ? "lg:min-h-0 lg:flex-1 lg:overflow-auto lg:space-y-6" : "space-y-6 sm:space-y-8"}>
-        <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
-          <CardHeader className="pb-2 px-4 sm:px-6">
-            <CardTitle className="text-base sm:text-lg font-semibold">
-              Search airport data
-            </CardTitle>
-            <CardDescription className="text-muted-foreground text-sm">
-              Enter airport code (ICAO) or name (e.g. OIAA, Iran, ABADAN)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 px-4 sm:px-6">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
+              <div className="flex flex-none flex-wrap items-center gap-2">
+                <PButton
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  variant="secondary"
                   onClick={() => {
                     setBrowseMenuOpen((o) => !o);
                     if (!browseMenuOpen) {
@@ -2301,1217 +2085,1572 @@ function AIPPortalPageInner() {
                   }}
                   aria-expanded={browseMenuOpen}
                 >
-                  <GlobeIcon className="size-4 shrink-0" />
+                  <GlobeIcon className="size-4 shrink-0 text-[#6c7079]" />
                   {selectedRegion && selectedCountry
                     ? selectedCountry === "United States of America" && (selectedState || browseSelectedState)
                       ? `${selectedRegion} → ${selectedCountry} → ${selectedState || browseSelectedState}`
                       : `${selectedRegion} → ${selectedCountry}`
                     : "Browse by region & country"}
                   {browseMenuOpen ? <ChevronUpIcon className="size-4 shrink-0" /> : <ChevronDownIcon className="size-4 shrink-0" />}
-                </Button>
+                </PButton>
                 {selectedCountry && getCountryFlagUrl(selectedCountry) && (
                   <img
                     src={getCountryFlagUrl(selectedCountry)!}
                     alt=""
                     width={28}
                     height={21}
-                    className="rounded-sm shrink-0 object-cover border border-border"
+                    className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
                   />
                 )}
-                {loadingCountry && <Spinner className="size-5 text-muted-foreground" />}
+                {loadingCountry && <Spinner className="size-5 text-[#9aa0a8]" />}
+              </div>
+            </div>
+
+            {/* Search card */}
+            <PCard className="mb-6 px-5 py-5 sm:px-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <label htmlFor="search" className="sr-only">
+                  Search
+                </label>
+                <div className="flex h-12 min-w-[240px] flex-1 items-center gap-2.5 rounded-[10px] border border-[#d6d8dc] bg-white px-3.5 transition-colors focus-within:border-[#2563eb]">
+                  <SearchIcon className="size-[18px] shrink-0 text-[#9aa0a8]" aria-hidden />
+                  <input
+                    id="search"
+                    placeholder="Airport code / name / country..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={loading}
+                    className="h-full min-w-0 flex-1 border-none bg-transparent font-mono text-[15px] tracking-[0.02em] text-[#17181c] outline-none placeholder:text-[#9aa0a8] disabled:opacity-60"
+                  />
+                  <PMono className="hidden text-[11px] text-[#c3c7cd] sm:inline">ICAO</PMono>
+                </div>
+                <PButton
+                  type="button"
+                  variant="primary"
+                  className="h-12 shrink-0 px-6 text-[15px]"
+                  onClick={() => {
+                    void search();
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <Spinner className="size-4" /> : "Find"}
+                </PButton>
+                <PButton
+                  type="button"
+                  variant="stop"
+                  className="h-12 shrink-0 px-5 text-[15px]"
+                  onClick={stopSearch}
+                  disabled={!loading && !notamsLoading && !weatherLoading && !aipEadLoadingIcao && !genLoadingPrefix}
+                >
+                  <SquareIcon className="size-3 fill-current" />
+                  Stop search
+                </PButton>
               </div>
 
-              {browseMenuOpen && (
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-4 space-y-4 shadow-sm animate-browse-menu-in overflow-hidden">
-                  {/* Step indicator: 4 steps when region has USA (region → country → state → airports), 3 otherwise */}
-                  <div className="flex items-center gap-1.5">
-                    {(regionHasUSA ? [1, 2, 3, 4] : [1, 2, 3]).map((s) => (
-                      <div
-                        key={s}
-                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                          browseStep >= s ? "bg-primary" : "bg-muted"
-                        }`}
-                      />
-                    ))}
-                  </div>
+              {loading && (
+                <p className="mt-4 flex items-center gap-2 text-sm text-[#6c7079]">
+                  <Spinner className="size-4 shrink-0" />
+                  Searching…
+                </p>
+              )}
 
-                  {browseLoading ? (
-                    <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
-                      <div className="flex items-center justify-center gap-3 mb-2">
-                        <PlaneIcon className="size-6 text-primary animate-fly" strokeWidth={1.8} aria-hidden />
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          {browseStep === 1 ? "Loading region…" : browseStep === 2 ? "Loading country…" : "Adding airports…"}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        {BROWSE_LOADING_STEPS.map((step, i) => (
-                          <div key={step.id} className="flex items-center gap-2 text-sm">
-                            {i < browseLoadingStepIndex ? (
-                              <span className="text-primary">✓</span>
-                            ) : i === browseLoadingStepIndex ? (
-                              <Spinner className="size-3.5 text-primary" />
-                            ) : (
-                              <span className="text-muted-foreground/50">○</span>
-                            )}
-                            <span className={i <= browseLoadingStepIndex ? "text-foreground" : "text-muted-foreground/70"}>
-                              {step.label}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <Progress value={((browseLoadingStepIndex + 1) / BROWSE_LOADING_STEPS.length) * 100} className="h-1.5" />
-                    </div>
-                  ) : browseStep === 1 ? (
-                    <div className="animate-step-enter space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="browse-country-search" className="text-sm font-semibold text-foreground">
-                          Find country
-                        </Label>
-                        <div className="relative flex items-center gap-2">
-                          <SearchIcon className="absolute left-3 size-4 text-muted-foreground pointer-events-none" aria-hidden />
-                          <Input
-                            id="browse-country-search"
-                            type="search"
-                            autoComplete="off"
-                            placeholder="Type country or region…"
-                            value={browseCountrySearch}
-                            onChange={(e) => setBrowseCountrySearch(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && countrySearchMatches.length === 1) {
-                                e.preventDefault();
-                                const only = countrySearchMatches[0];
-                                applyBrowseCountrySelection(only.country, only.region);
-                              }
-                            }}
-                            className={`h-10 pl-9 ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
-                            aria-describedby="browse-country-search-hint"
-                          />
-                          {browseCountrySearch.trim() ? (
-                            <button
-                              type="button"
-                              aria-label="Clear country search"
-                              className="absolute right-2 rounded p-1 text-muted-foreground hover:text-foreground"
-                              onClick={() => setBrowseCountrySearch("")}
-                            >
-                              <XIcon className="size-4" />
-                            </button>
-                          ) : null}
-                        </div>
-                        <p id="browse-country-search-hint" className="text-xs text-muted-foreground">
-                          {browseCountrySearch.trim()
-                            ? "Pick a country below, or browse by region."
-                            : "Or choose a region below to list countries."}
-                        </p>
-                      </div>
-                      {browseCountrySearch.trim() ? (
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Matches
-                          </p>
-                          {countrySearchMatches.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-2">No countries match.</p>
-                          ) : (
-                            <div
-                              role="listbox"
-                              aria-label="Country search results"
-                              className="max-h-[min(220px,40vh)] overflow-y-auto rounded-lg border border-border/60 bg-background/80 p-1.5 space-y-1"
-                            >
-                              {countrySearchMatches.map(({ country, region }) => (
-                                <button
-                                  key={`${region}::${country}`}
-                                  type="button"
-                                  role="option"
-                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                  onClick={() => applyBrowseCountrySelection(country, region)}
-                                >
-                                  {getCountryFlagUrl(country) ? (
-                                    <img
-                                      src={getCountryFlagUrl(country)!}
-                                      alt=""
-                                      width={22}
-                                      height={16}
-                                      className="rounded-sm shrink-0 object-cover"
-                                    />
-                                  ) : (
-                                    <span className="size-[22px] shrink-0" aria-hidden />
-                                  )}
-                                  <span className="min-w-0 flex-1 truncate font-medium">{country}</span>
-                                  <span className="shrink-0 text-xs text-muted-foreground">{region}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
-                      <div className={browseCountrySearch.trim() ? "pt-2 border-t border-border/60 space-y-3" : "space-y-3"}>
-                        <p className="text-sm font-semibold text-foreground">Select region</p>
-                        <div className="flex flex-wrap gap-2">
-                          {regions.map((r) => (
-                            <Button
-                              key={r.region}
-                              type="button"
-                              variant={selectedRegion === r.region ? "default" : "outline"}
-                              size="sm"
-                              className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
-                              onClick={() => {
-                                setBrowseCountrySearch("");
-                                setSelectedRegion(r.region);
-                                setSelectedCountry("");
-                                setSelectedState("");
-                                setBrowseStep(2);
-                              }}
-                            >
-                              {r.region}
-                              <ChevronRightIcon className="size-4" />
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {!browseLoading && browseStep === 2 && (
-                    <div className="animate-step-enter space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Select country</p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => {
-                            setBrowseCountrySearch("");
-                            setBrowseStep(1);
-                          }}
-                        >
-                          ← Back
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{selectedRegion}</p>
-                      <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto pr-1">
-                        {countriesInRegion.map((c, i) => (
-                          <Button
-                            key={c}
-                            type="button"
-                            variant={selectedCountry === c ? "default" : "outline"}
-                            size="sm"
-                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
-                            style={{ animationDelay: `${i * 30}ms` }}
-                            onClick={() => {
-                              setBrowseSelectedCountry(c);
-                              setBrowseStep(3);
-                            }}
-                          >
-                            {getCountryFlagUrl(c) && (
-                              <img
-                                src={getCountryFlagUrl(c)!}
-                                alt=""
-                                width={20}
-                                height={15}
-                                className="rounded-sm shrink-0 object-cover"
-                              />
-                            )}
-                            {c}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
+              {!loading && hasSearched && (
+                <div className="mt-4 space-y-3 border-t border-[#eef0f2] pt-4">
+                  {error && (
+                    <p className="text-sm text-[#e5484d]">{error}</p>
                   )}
-
-                  {!browseLoading && browseStep === 3 && isUSABrowse && (
-                    <div className="animate-step-enter space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Select state or territory</p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => setBrowseStep(2)}
-                        >
-                          ← Back
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{selectedRegion} → {browseSelectedCountry}</p>
-                      <div className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto pr-1">
-                        {usaStates.map((stateName, i) => (
-                          <Button
-                            key={stateName}
-                            type="button"
-                            variant={browseSelectedState === stateName ? "default" : "outline"}
-                            size="sm"
-                            className="h-10 gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm"
-                            style={{ animationDelay: `${i * 30}ms` }}
-                            onClick={() => {
-                              setBrowseSelectedState(stateName);
-                              setBrowseStep(4);
-                            }}
-                          >
-                            {USA_STATE_ABBR[stateName] ? (
-                              <>
-                                <span className="font-mono text-muted-foreground shrink-0">({USA_STATE_ABBR[stateName]})</span>
-                                {stateName}
-                              </>
-                            ) : (
-                              stateName
-                            )}
-                            <ChevronRightIcon className="size-4" />
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
+                  {!error && results === null && (
+                    <p className="text-sm text-[#6c7079]">Search failed. Try again.</p>
                   )}
-
-                  {!browseLoading && (browseStep === 3 && !isUSABrowse || browseStep === 4) && (
-                    <div className="animate-step-enter space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">Select airport(s)</p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => browseStep === 4 ? setBrowseStep(3) : setBrowseStep(2)}
-                        >
-                          ← Back
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {browseStep === 4
-                          ? `${selectedRegion} → ${browseSelectedCountry} → ${browseSelectedState} · Click to toggle, then Done`
-                          : `${selectedRegion} → ${browseSelectedCountry} · Click to toggle, then Done`}
+                  {!error && results !== null && results.length === 0 && (
+                    <p className="text-sm text-[#6c7079]">
+                      No airports found. Try ICAO (e.g. OIAA), airport name, or country.
+                    </p>
+                  )}
+                  {!error && results !== null && results.length === 1 && (
+                    <p className="py-1 text-xs font-semibold uppercase tracking-wider text-[#9aa0a8]">
+                      1 result — AIP data below
+                    </p>
+                  )}
+                  {!error && results !== null && results.length > 1 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#9aa0a8]">
+                        {results.length} airports — switch tab to view
                       </p>
-                      {isAdmin && (
-                        <div className="flex justify-end">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => router.push("/admin/airports/deleted")}
-                          >
-                            Restore deleted airports
-                          </Button>
-                        </div>
-                      )}
-                      <div className="max-h-[240px] overflow-y-auto space-y-1.5 pr-1">
-                        {loadingCountry ? (
-                          <div className="flex items-center justify-center py-8">
-                            <Spinner className="size-6 text-primary" />
-                          </div>
-                        ) : browseCountryAirports.length > 0 ? (
-                          browseCountryAirports.map((airport, i) => {
-                            const isSelected = browseSelection.some((a) => a.icao === airport.icao);
-                            const isDeleting = Boolean(browseDeletingIcaos[airport.icao]);
-                            return (
-                              <div
-                                key={airport.icao}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {results.map((airport, i) => {
+                          const isActive = (viewingAirport as AIPAirport | null)?.icao === airport.icao;
+                          const flagUrl = getCountryFlagUrl(airport.country);
+                          return (
+                            <div
+                              key={`${airport.icao}-${airport.country}`}
+                              className={`flex items-center overflow-hidden rounded-[10px] border transition-colors ${
+                                isActive
+                                  ? "border-[#2563eb] bg-[#eef4ff]"
+                                  : "border-[#e6e7ea] bg-white hover:bg-[#f5f6f7]"
+                              }`}
+                            >
+                              <button
+                                type="button"
                                 onClick={() => {
-                                  setBrowseSelection((prev) =>
-                                    isSelected
-                                      ? prev.filter((a) => a.icao !== airport.icao)
-                                      : [...prev, airport]
-                                  );
+                                  setSelectedIcao(airport.icao);
                                 }}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    setBrowseSelection((prev) =>
-                                      isSelected
-                                        ? prev.filter((a) => a.icao !== airport.icao)
-                                        : [...prev, airport]
-                                    );
-                                  }
-                                }}
-                                className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                                  isSelected
-                                    ? "border-primary bg-primary/15 shadow-sm"
-                                    : "border-border/80 bg-background/80 hover:bg-primary/5 hover:border-primary/20"
-                                }`}
-                                style={{ animationDelay: `${i * 25}ms` }}
+                                className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-[#17181c]"
                               >
-                                <span
-                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-medium transition-colors ${
-                                    isSelected
-                                      ? "border-primary bg-primary text-primary-foreground"
-                                      : "border-muted-foreground/40 bg-background"
-                                  }`}
-                                >
-                                  {isSelected ? "✓" : ""}
-                                </span>
-                                {getCountryFlagUrl(airport.country) && (
+                                {flagUrl ? (
                                   <img
-                                    src={getCountryFlagUrl(airport.country)!}
+                                    src={flagUrl}
                                     alt=""
-                                    width={24}
-                                    height={18}
-                                    className="rounded shrink-0 object-cover"
+                                    width={22}
+                                    height={16}
+                                    className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
                                   />
+                                ) : (
+                                  <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
                                 )}
-                                <span className="font-mono text-sm font-semibold text-primary shrink-0">
-                                  {airport.icao}
-                                </span>
-                                <span className="text-sm text-muted-foreground truncate min-w-0">
-                                  {airport.name}
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label={`Hide ${airport.icao}`}
-                                  className="ml-auto rounded border border-border/70 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 disabled:opacity-50"
-                                  disabled={isDeleting}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void deleteAirportFromPortal(airport);
-                                  }}
-                                >
-                                  <Trash2Icon className="size-4" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-sm text-muted-foreground py-4 text-center">
-                            No airports found for this country.
-                          </p>
-                        )}
+                                {airport.icao}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = results.filter((_, j) => j !== i);
+                                  setResults(next.length ? next : []);
+                                  setSelectedIcao(next.length ? (next[0].icao === airport.icao ? next[0].icao : selectedIcao ?? next[0].icao) : null);
+                                }}
+                                className="shrink-0 cursor-pointer rounded-sm border-none bg-transparent p-2 text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#e5484d]"
+                                title="Close tab"
+                              >
+                                <XIcon className="size-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                      {browseCountryAirports.length > 0 && (
-                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
-                          <span className="text-xs text-muted-foreground">
-                            {browseSelection.length} selected
-                          </span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              if (browseSelection.length > 0) {
-                                // Log each selected airport immediately before animation starts
-                                for (const airport of browseSelection) {
-                                  fetch("/api/search/log", {
-                                    method: "POST",
-                                    credentials: "include",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ query: airport.icao, resultCount: 1, source: "browse" }),
-                                  }).catch(() => {});
-                                }
-                                runBrowseLoading(() => {
-                                  const merged = [...(results ?? []), ...browseSelection];
-                                  const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
-                                  setResults(byIcao);
-                                  const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
-                                  const nextIcao = withCoords?.icao ?? browseSelection[0].icao;
-                                  setSelectedIcao(nextIcao);
-                                  setSelectedCountry(browseSelectedCountry);
-                                  setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
-                                  setBrowseMenuOpen(false);
-                                  setHasSearched(true);
-                                });
-                              }
-                            }}
-                            disabled={browseSelection.length === 0}
-                          >
-                            Done{browseSelection.length > 0 ? ` (${browseSelection.length})` : ""}
-                          </Button>
-                        </div>
+                      {(viewingAirport as AIPAirport | null)?.icao && (
+                        <p className="py-2 text-xs text-[#6c7079]">
+                          AIP data for {(viewingAirport as AIPAirport | null)?.icao} below.
+                        </p>
                       )}
                     </div>
                   )}
                 </div>
               )}
-            </div>
+            </PCard>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or search</span>
-              </div>
-            </div>
-
-            <div className="flex justify-start items-center gap-2">
-              <div className="flex-1 flex items-center min-w-0">
-                <Label htmlFor="search" className="sr-only">
-                  Search
-                </Label>
-                <Input
-                  id="search"
-                  placeholder="Airport code / name / country..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={loading}
-                  className="h-10 flex-1 min-w-0"
-                />
-              </div>
-              <Button
-                onClick={() => {
-                  void search();
-                }}
-                disabled={loading}
-                type="button"
-                className="h-10 px-5 shrink-0"
-              >
-                {loading ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  "Find"
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 px-4 shrink-0 border-amber-500/60 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30 dark:hover:text-amber-300 font-semibold"
-                onClick={stopSearch}
-                disabled={!loading && !notamsLoading && !weatherLoading && !aipEadLoadingIcao && !genLoadingPrefix}
-              >
-                <SquareIcon className="size-4 mr-2 fill-current" />
-                Stop Search
-              </Button>
-            </div>
-
-            {loading && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2 animate-fade-in">
-                <Spinner className="size-4 shrink-0" />
-                Searching…
-              </p>
-            )}
-
-            {!loading && hasSearched && (
-              <div className="space-y-3 pt-2">
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
-                {!error && results === null && (
-                  <p className="text-sm text-muted-foreground">Search failed. Try again.</p>
-                )}
-                {!error && results !== null && results.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No airports found. Try ICAO (e.g. OIAA), airport name, or country.
-                  </p>
-                )}
-                {!error && results !== null && results.length === 1 && (
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-1">
-                    1 result — AIP data below
-                  </p>
-                )}
-                {!error && results !== null && results.length > 1 && (
-                  <div className="space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {results.length} airports — switch tab to view
-                    </p>
-                    <div className="flex items-end gap-0.5 overflow-x-auto min-h-[52px] border-b border-border -mx-1 px-1">
-                      {results.map((airport, i) => {
-                        const isActive = viewingAirport?.icao === airport.icao;
-                        const flagUrl = getCountryFlagUrl(airport.country);
-                        return (
-                          <div
-                            key={`${airport.icao}-${airport.country}`}
-                            className={`flex items-center rounded-t-lg border border-b-0 shrink-0 overflow-hidden transition-all duration-150 ${
-                              isActive
-                                ? "bg-card border-border shadow-[0_-1px_0_0_hsl(var(--card))] z-[1]"
-                                : "border-transparent bg-muted/50 hover:bg-muted/80"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedIcao(airport.icao);
-                              }}
-                              className="flex items-center gap-2 px-4 py-3 text-sm font-mono font-semibold text-foreground min-w-0"
-                            >
-                              {flagUrl ? (
-                                <img
-                                  src={flagUrl}
-                                  alt=""
-                                  width={28}
-                                  height={21}
-                                  className="rounded shrink-0 object-cover border border-border/60"
-                                />
-                              ) : (
-                                <GlobeIcon className="size-4 text-muted-foreground shrink-0" />
-                              )}
-                              {airport.icao}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const next = results.filter((_, j) => j !== i);
-                                setResults(next.length ? next : []);
-                                setSelectedIcao(next.length ? (next[0].icao === airport.icao ? next[0].icao : selectedIcao ?? next[0].icao) : null);
-                              }}
-                              className="p-2 text-muted-foreground hover:text-destructive hover:bg-muted/80 rounded-sm shrink-0"
-                              title="Close tab"
-                            >
-                              <XIcon className="size-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {viewingAirport && (
-                      <p className="text-xs text-muted-foreground py-2">
-                        AIP data for {viewingAirport.icao} below.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-            {/* Single synced AIP section: EAD + Russia */}
-            {viewingAirport && supportsSyncedAipIcao(viewingAirport.icao) && (
-              <Card
-                className={`shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200 ${
-                  aipEadSyncingIcao === viewingAirport.icao
-                    ? "border-2 border-primary/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]"
-                    : ""
-                }`}
-              >
-                <CardHeader className="pb-2 px-4 sm:px-6 flex flex-row items-center justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base sm:text-lg font-semibold">
-                      AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "Scraper" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) — {viewingAirport.icao}
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground text-sm">
-                      {aipEadCache[viewingAirport.icao]?.updatedAt
-                        ? (() => {
-                            const cached = new Date(aipEadCache[viewingAirport.icao].updatedAt!);
-                            const expires = new Date(cached.getTime() + 12 * 60 * 60 * 1000);
-                            const isExpired = expires <= new Date();
-                            return (
-                              <>
-                                {`Cached ${cached.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}. `}
-                                {isExpired
-                                  ? <span className="text-amber-600 dark:text-amber-400">PDF expired — will refresh on next sync.</span>
-                                  : <span>{`Expires ${expires.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`}</span>}
-                              </>
-                            );
-                          })()
-                        : isAsecnaIcao(viewingAirport.icao)
-                          ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
-                          : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                            ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
-                          : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 h-9 gap-1.5 px-2"
-                      disabled={
-                        pdfDownloading ||
-                        !(
-                          aipPdfReady[viewingAirport.icao] ||
-                          aipEadCache[viewingAirport.icao]?.updatedAt ||
-                          aipPdfExistsOnServer[viewingAirport.icao]
-                        )
-                      }
-                      title={
-                        aipPdfReady[viewingAirport.icao] ||
-                        aipEadCache[viewingAirport.icao]?.updatedAt ||
-                        aipPdfExistsOnServer[viewingAirport.icao]
-                          ? "Download current AIP PDF (AD 2)"
-                          : "Sync this airport first to download the PDF"
-                      }
-                      onClick={async () => {
-                        if (!viewingAirport?.icao) return;
-                        const icao = viewingAirport.icao;
-                        if (getCaptchaCountryByIcao(icao)) {
-                          setPdfDownloadError(null);
-                          setAipEadSyncSteps([
-                            "Captcha verification required. Opened embedded noVNC viewer. Complete it before downloading this AIP PDF.",
-                          ]);
-                          void openCaptchaNoVncPopup(icao);
-                          return;
-                        }
-                        const pushPdfStep = (step: string) => {
-                          setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
-                        };
-                        setPdfDownloadError(null);
-                        setPdfDownloading(true);
-                        setAipEadLoadingIcao(icao);
-                        setAipEadSyncingIcao(icao);
-                        setAipEadSyncRequestedIcao(null);
-                        setAipEadSyncSteps(["Checking PDF cache on server…"]);
-                        let slowHintTimer: number | null = null;
-                        try {
-                          const pdfRoute = isAsecnaIcao(icao)
-                            ? "/api/aip/asecna/pdf"
-                            : isBahrainScraperIcao(icao, viewingAirport)
-                              ? "/api/aip/scraper/pdf"
-                              : "/api/aip/ead/pdf";
-                          const pdfSource = isAsecnaIcao(icao) ? "asecna"
-                            : isBahrainScraperIcao(icao, viewingAirport) ? "scraper"
-                            : isUsaAipIcao(icao) ? "usa"
-                            : "ead";
-
-                          // Fetch download time estimate (fire-and-forget, non-blocking)
-                          const estimateData = await fetch(
-                            `/api/aip/download-estimate?icao=${encodeURIComponent(icao)}&source=${pdfSource}`,
-                            { cache: "no-store" }
-                          ).then((r) => r.json()).catch(() => null) as { estimate: number | null } | null;
-                          const estimateMs = estimateData?.estimate ?? null;
-                          const fmtEstimate = (ms: number) => {
-                            if (ms < 60_000) return `~${Math.round(ms / 1000)}s`;
-                            const m = Math.floor(ms / 60_000);
-                            const s = Math.round((ms % 60_000) / 1000);
-                            return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
-                          };
-
-                          const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, {
-                            method: "HEAD",
-                            cache: "no-store",
-                          }).catch(() => null);
-                          if (headRes?.ok) {
-                            pushPdfStep("Cached PDF found in storage.");
-                          } else {
-                            pushPdfStep("PDF missing in cache. Triggering source download…");
-                          }
-                          slowHintTimer = window.setTimeout(() => {
-                            pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes.");
-                          }, 12000);
-                          pushPdfStep(estimateMs !== null
-                            ? `Downloading PDF bytes… (estimated ${fmtEstimate(estimateMs)})`
-                            : "Downloading PDF bytes…");
-                          const downloadStart = Date.now();
-                          const res = await fetch(
-                            `${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`
-                          );
-                          if (!res.ok) {
-                            const data = await res.json().catch(() => ({}));
-                            const msg = data.detail || data.error || "Failed to load PDF";
-                            pushPdfStep(`Failed: ${msg}`);
-                            setPdfDownloadError(msg);
-                            return;
-                          }
-                          pushPdfStep("Preparing file for browser download…");
-                          const blob = await res.blob();
-                          const downloadDurationMs = Date.now() - downloadStart;
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `${icao}_${isAsecnaIcao(icao) ? "ASECNA" : isBahrainScraperIcao(icao, viewingAirport) ? "SCRAPER" : "AIP"}_AD2.pdf`;
-                          a.click();
-                          URL.revokeObjectURL(url);
-                          setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
-                          setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
-                          pushPdfStep(`Download started (took ${fmtEstimate(downloadDurationMs)}).`);
-                        } catch (err) {
-                          pushPdfStep("Failed to download PDF.");
-                          setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
-                        } finally {
-                          if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
-                          setPdfDownloading(false);
-                          window.setTimeout(() => {
-                            setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
-                            setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
-                            setAipEadSyncSteps((prev) => (prev.length ? [] : prev));
-                          }, 900);
-                        }
-                      }}
-                    >
-                      <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
-                      <span className="text-xs hidden sm:inline">Download PDF</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 h-9 gap-1.5 px-2"
-                      onClick={() => requestSyncAipEad(viewingAirport.icao)}
-                      disabled={aipEadLoadingIcao === viewingAirport.icao || aipEadSyncingIcao === viewingAirport.icao}
-                      title={
-                        aipEadCache[viewingAirport.icao]?.airport
-                          ? "Cached extraction exists; click to show it"
-                          : "Run AI extraction now"
-                      }
-                    >
-                      <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
-                      <span className="text-xs hidden sm:inline">Extract Data</span>
-                    </Button>
-                    {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || isUsaAipIcao(viewingAirport.icao)) && (
-                      <div
-                        className="relative"
-                        onMouseEnter={() => setShowGenSyncOverlay(true)}
-                        onMouseLeave={() => setShowGenSyncOverlay(false)}
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="shrink-0 h-9 gap-1.5 px-2"
-                          onClick={() => downloadGenPdfWithSync(viewingAirport.icao, isAsecnaAirport(viewingAirport), isBahrainScraperAirport(viewingAirport))}
-                          disabled={
-                            genPdfDownloading ||
-                            isJapanScraperIcao(viewingAirport.icao) ||
-                            (isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao))
-                          }
-                          title={
-                            isJapanScraperIcao(viewingAirport.icao)
-                              ? "No GEN files to scrape for Japan"
-                              : isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
-                              ? "GEN 1.2 is not available for this ASECNA country"
-                              : "Instantly fetch and download GEN PDF"
-                          }
+            {/* Browse wizard */}
+            {browseMenuOpen && (
+              <PCard className="mb-6 overflow-hidden">
+                <div className="border-b border-[#eef0f2] px-5 pb-4 pt-[18px]">
+                  <div className="mb-3 flex flex-wrap items-center gap-3.5">
+                    {(regionHasUSA
+                      ? ([[1, "Region"], [2, "Country"], [3, "State"], [4, "Aerodromes"]] as const)
+                      : ([[1, "Region"], [2, "Country"], [3, "Aerodromes"]] as const)
+                    ).map(([n, label]) => (
+                      <div key={n} className="flex items-center gap-2">
+                        <span
+                          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-xs font-bold ${
+                            browseStep >= n ? "bg-[#2563eb] text-white" : "bg-[#eef0f2] text-[#9aa0a8]"
+                          }`}
                         >
-                          <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
-                          <span className="text-xs hidden sm:inline">GEN PDF</span>
-                        </Button>
-                        {showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao) && (
-                          <div className="absolute right-0 mt-1 w-72 rounded-md border border-border/70 bg-popover p-3 shadow-lg z-20">
-                            {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
-                              <>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                                  Not Available
-                                </p>
-                                <p className="text-xs text-foreground/80">
-                                  GEN 1.2 is not published on the ASECNA eAIP for this country.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                                  GEN loading steps
-                                </p>
-                                <ul className="space-y-1 text-xs text-foreground/90">
-                                  {(genSyncSteps.length > 0
-                                    ? genSyncSteps
-                                    : [
-                                        "Checking GEN PDF cache…",
-                                        "Downloading GEN PDF from source…",
-                                        "Uploading to storage…",
-                                        "Preparing download…",
-                                      ]).map((step, i) => (
-                                    <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                                      <span className="mt-0.5 size-1.5 rounded-full bg-primary/70 shrink-0" />
-                                      <span>{step}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </>
-                            )}
+                          {n}
+                        </span>
+                        <span className={`text-[13.5px] ${browseStep === n ? "font-bold text-[#17181c]" : "font-medium text-[#9aa0a8]"}`}>
+                          {label}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex-1" />
+                    <PMono className="text-[12.5px] text-[#9aa0a8]">
+                      STEP {browseStep} / {regionHasUSA ? 4 : 3}
+                    </PMono>
+                  </div>
+                  <div className="h-[5px] overflow-hidden rounded-full bg-[#eef0f2]">
+                    <div
+                      className="h-full rounded-full bg-[#2563eb] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (browseStep / (regionHasUSA ? 4 : 3)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {browseLoading ? (
+                  <div className="space-y-3 px-5 py-6">
+                    <div className="mb-2 flex items-center justify-center gap-3">
+                      <PlaneIcon className="size-6 text-[#2563eb] animate-fly" strokeWidth={1.8} aria-hidden />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6c7079]">
+                        {browseStep === 1 ? "Loading region…" : browseStep === 2 ? "Loading country…" : "Adding airports…"}
+                      </p>
+                    </div>
+                    <div className="mx-auto max-w-sm space-y-2">
+                      {BROWSE_LOADING_STEPS.map((step, i) => (
+                        <div key={step.id} className="flex items-center gap-2 text-sm">
+                          {i < browseLoadingStepIndex ? (
+                            <span className="text-[#2563eb]">✓</span>
+                          ) : i === browseLoadingStepIndex ? (
+                            <Spinner className="size-3.5 text-[#2563eb]" />
+                          ) : (
+                            <span className="text-[#c3c7cd]">○</span>
+                          )}
+                          <span className={i <= browseLoadingStepIndex ? "text-[#17181c]" : "text-[#9aa0a8]"}>
+                            {step.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mx-auto h-[5px] max-w-sm overflow-hidden rounded-full bg-[#eef0f2]">
+                      <div
+                        className="h-full rounded-full bg-[#2563eb] transition-all duration-300"
+                        style={{ width: `${((browseLoadingStepIndex + 1) / BROWSE_LOADING_STEPS.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : browseStep === 1 ? (
+                  <div className="space-y-4 px-5 py-5">
+                    <div className="space-y-2">
+                      <label htmlFor="browse-country-search" className="text-sm font-semibold text-[#17181c]">
+                        Find country
+                      </label>
+                      <div className="relative flex max-w-[420px] items-center">
+                        <SearchIcon className="pointer-events-none absolute left-3 size-4 text-[#9aa0a8]" aria-hidden />
+                        <input
+                          id="browse-country-search"
+                          type="search"
+                          autoComplete="off"
+                          placeholder="Type country or region…"
+                          value={browseCountrySearch}
+                          onChange={(e) => setBrowseCountrySearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && countrySearchMatches.length === 1) {
+                              e.preventDefault();
+                              const only = countrySearchMatches[0];
+                              applyBrowseCountrySelection(only.country, only.region);
+                            }
+                          }}
+                          className={`h-[42px] w-full rounded-[10px] border border-[#d6d8dc] bg-white pl-9 text-sm text-[#17181c] outline-none transition-colors focus:border-[#2563eb] ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
+                          aria-describedby="browse-country-search-hint"
+                        />
+                        {browseCountrySearch.trim() ? (
+                          <button
+                            type="button"
+                            aria-label="Clear country search"
+                            className="absolute right-2 cursor-pointer rounded border-none bg-transparent p-1 text-[#9aa0a8] hover:text-[#17181c]"
+                            onClick={() => setBrowseCountrySearch("")}
+                          >
+                            <XIcon className="size-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                      <p id="browse-country-search-hint" className="text-xs text-[#9aa0a8]">
+                        {browseCountrySearch.trim()
+                          ? "Pick a country below, or browse by region."
+                          : "Or choose a region below to list countries."}
+                      </p>
+                    </div>
+                    {browseCountrySearch.trim() ? (
+                      <div className="space-y-2">
+                        <PSectionTitle>Matches</PSectionTitle>
+                        {countrySearchMatches.length === 0 ? (
+                          <p className="py-2 text-sm text-[#6c7079]">No countries match.</p>
+                        ) : (
+                          <div
+                            role="listbox"
+                            aria-label="Country search results"
+                            className="max-h-[min(220px,40vh)] space-y-1 overflow-y-auto rounded-[10px] border border-[#e6e7ea] bg-white p-1.5"
+                          >
+                            {countrySearchMatches.map(({ country, region }) => (
+                              <button
+                                key={`${region}::${country}`}
+                                type="button"
+                                role="option"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2 py-2 text-left text-sm transition-colors hover:bg-[#f5f6f7] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
+                                onClick={() => applyBrowseCountrySelection(country, region)}
+                              >
+                                {getCountryFlagUrl(country) ? (
+                                  <img
+                                    src={getCountryFlagUrl(country)!}
+                                    alt=""
+                                    width={22}
+                                    height={16}
+                                    className="shrink-0 rounded-sm object-cover"
+                                  />
+                                ) : (
+                                  <span className="size-[22px] shrink-0" aria-hidden />
+                                )}
+                                <span className="min-w-0 flex-1 truncate font-semibold">{country}</span>
+                                <span className="shrink-0 text-xs text-[#9aa0a8]">{region}</span>
+                              </button>
+                            ))}
                           </div>
                         )}
                       </div>
-                    )}
-                    {Boolean(
-                      viewingAirport.webAipUrl ||
-                      getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
-                      getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                      getEadWebAipUrlForAirport(viewingAirport) ||
-                      isUsaAipIcao(viewingAirport.icao)
-                    ) && (
-                      <Button
+                    ) : null}
+                    <div className={browseCountrySearch.trim() ? "space-y-3 border-t border-[#eef0f2] pt-4" : "space-y-3"}>
+                      <p className="text-sm font-semibold text-[#17181c]">Select region</p>
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+                        {regions.map((r) => (
+                          <button
+                            key={r.region}
+                            type="button"
+                            className={`flex cursor-pointer items-center gap-3.5 rounded-xl border px-[18px] py-4 text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
+                              selectedRegion === r.region ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                            }`}
+                            onClick={() => {
+                              setBrowseCountrySearch("");
+                              setSelectedRegion(r.region);
+                              setSelectedCountry("");
+                              setSelectedState("");
+                              setBrowseStep(2);
+                            }}
+                          >
+                            <GlobeIcon className="size-5 shrink-0 text-[#2563eb]" />
+                            <span className="flex-1 text-[15px] font-bold">{r.region}</span>
+                            <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {!browseLoading && browseStep === 2 && (
+                  <div className="space-y-4 px-5 py-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[#17181c]">Select country</p>
+                      <PButton
                         type="button"
-                        variant="default"
+                        variant="quiet"
                         size="sm"
-                        className="shrink-0 h-9 gap-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white"
                         onClick={() => {
-                          const isUsa = isUsaAipIcao(viewingAirport.icao);
-                          const isRussia = isRussiaIcao(viewingAirport.icao);
-                          const webAip =
-                            viewingAirport.webAipUrl ||
-                            getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
-                            getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                            getEadWebAipUrlForAirport(viewingAirport) ||
-                            (isUsa ? USA_WEB_AIP_URL : null);
-                          if (webAip) {
-                            if (isUsa || isRussia) {
-                              window.open(webAip, "_blank", "noopener,noreferrer");
-                              return;
+                          setBrowseCountrySearch("");
+                          setBrowseStep(1);
+                        }}
+                      >
+                        ← Back
+                      </PButton>
+                    </div>
+                    <p className="text-xs text-[#9aa0a8]">{selectedRegion}</p>
+                    <div className="grid max-h-[260px] grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-2 overflow-y-auto pr-1">
+                      {countriesInRegion.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          className={`flex cursor-pointer items-center gap-3 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
+                            selectedCountry === c ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                          }`}
+                          onClick={() => {
+                            setBrowseSelectedCountry(c);
+                            setBrowseStep(3);
+                          }}
+                        >
+                          {getCountryFlagUrl(c) && (
+                            <img
+                              src={getCountryFlagUrl(c)!}
+                              alt=""
+                              width={20}
+                              height={15}
+                              className="shrink-0 rounded-sm object-cover"
+                            />
+                          )}
+                          <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">{c}</span>
+                          <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!browseLoading && browseStep === 3 && isUSABrowse && (
+                  <div className="space-y-4 px-5 py-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[#17181c]">Select state or territory</p>
+                      <PButton type="button" variant="quiet" size="sm" onClick={() => setBrowseStep(2)}>
+                        ← Back
+                      </PButton>
+                    </div>
+                    <p className="text-xs text-[#9aa0a8]">{selectedRegion} → {browseSelectedCountry}</p>
+                    <div className="grid max-h-[260px] grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-2 overflow-y-auto pr-1">
+                      {usaStates.map((stateName) => (
+                        <button
+                          key={stateName}
+                          type="button"
+                          className={`flex cursor-pointer items-center gap-2.5 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
+                            browseSelectedState === stateName ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                          }`}
+                          onClick={() => {
+                            setBrowseSelectedState(stateName);
+                            setBrowseStep(4);
+                          }}
+                        >
+                          {USA_STATE_ABBR[stateName] ? (
+                            <PMono className="shrink-0 text-xs text-[#9aa0a8]">({USA_STATE_ABBR[stateName]})</PMono>
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">{stateName}</span>
+                          <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!browseLoading && (browseStep === 3 && !isUSABrowse || browseStep === 4) && (
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3 border-b border-[#eef0f2] px-5 py-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#17181c]">Select airport(s)</p>
+                        <p className="mt-0.5 text-xs text-[#9aa0a8]">
+                          {browseStep === 4
+                            ? `${selectedRegion} → ${browseSelectedCountry} → ${browseSelectedState} · Click to toggle, then Done`
+                            : `${selectedRegion} → ${browseSelectedCountry} · Click to toggle, then Done`}
+                        </p>
+                      </div>
+                      <div className="flex-1" />
+                      {isAdmin && (
+                        <PButton
+                          type="button"
+                          variant="quiet"
+                          size="sm"
+                          onClick={() => router.push("/admin/airports/deleted")}
+                        >
+                          Restore deleted airports
+                        </PButton>
+                      )}
+                    </div>
+                    <div className="max-h-[320px] overflow-y-auto px-5 py-2">
+                      {loadingCountry ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Spinner className="size-6 text-[#2563eb]" />
+                        </div>
+                      ) : browseCountryAirports.length > 0 ? (
+                        browseCountryAirports.map((airport) => {
+                          const isSelected = browseSelection.some((a) => a.icao === airport.icao);
+                          const isDeleting = Boolean(browseDeletingIcaos[airport.icao]);
+                          return (
+                            <div
+                              key={airport.icao}
+                              onClick={() => {
+                                setBrowseSelection((prev) =>
+                                  isSelected
+                                    ? prev.filter((a) => a.icao !== airport.icao)
+                                    : [...prev, airport]
+                                );
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setBrowseSelection((prev) =>
+                                    isSelected
+                                      ? prev.filter((a) => a.icao !== airport.icao)
+                                      : [...prev, airport]
+                                  );
+                                }
+                              }}
+                              className="flex w-full cursor-pointer items-center gap-3.5 border-b border-[#f2f3f5] px-1 py-3 text-left last:border-b-0 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
+                            >
+                              <span
+                                className={`flex h-5 w-5 flex-none items-center justify-center rounded-[6px] border text-xs font-medium transition-colors ${
+                                  isSelected
+                                    ? "border-[#2563eb] bg-[#2563eb] text-white"
+                                    : "border-[#d6d8dc] bg-white"
+                                }`}
+                              >
+                                {isSelected ? "✓" : ""}
+                              </span>
+                              {getCountryFlagUrl(airport.country) && (
+                                <img
+                                  src={getCountryFlagUrl(airport.country)!}
+                                  alt=""
+                                  width={24}
+                                  height={18}
+                                  className="shrink-0 rounded object-cover"
+                                />
+                              )}
+                              <PMono className="w-16 shrink-0 text-[14.5px] font-semibold text-[#17181c]">
+                                {airport.icao}
+                              </PMono>
+                              <span className="min-w-0 flex-1 truncate text-[14.5px] text-[#3a3d44]">
+                                {airport.name}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Hide ${airport.icao}`}
+                                className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-[#9aa0a8] hover:bg-[#fdecec] hover:text-[#e5484d] disabled:opacity-50"
+                                disabled={isDeleting}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void deleteAirportFromPortal(airport);
+                                }}
+                              >
+                                <Trash2Icon className="size-4" />
+                              </button>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="py-4 text-center text-sm text-[#6c7079]">
+                          No airports found for this country.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3.5 border-t border-[#eef0f2] bg-[#fbfbfc] px-5 py-4">
+                      <span className="text-sm text-[#6c7079]">
+                        <strong className="font-bold text-[#17181c]">{browseSelection.length} selected</strong>
+                      </span>
+                      <div className="flex-1" />
+                      <PButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => browseStep === 4 ? setBrowseStep(3) : setBrowseStep(2)}
+                      >
+                        Back
+                      </PButton>
+                      {browseCountryAirports.length > 0 && (
+                        <PButton
+                          type="button"
+                          variant="primary"
+                          onClick={() => {
+                            if (browseSelection.length > 0) {
+                              // Log each selected airport immediately before animation starts
+                              for (const airport of browseSelection) {
+                                fetch("/api/search/log", {
+                                  method: "POST",
+                                  credentials: "include",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ query: airport.icao, resultCount: 1, source: "browse" }),
+                                }).catch(() => {});
+                              }
+                              runBrowseLoading(() => {
+                                const merged = [...(results ?? []), ...browseSelection];
+                                const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
+                                setResults(byIcao);
+                                const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
+                                const nextIcao = withCoords?.icao ?? browseSelection[0].icao;
+                                setSelectedIcao(nextIcao);
+                                setSelectedCountry(browseSelectedCountry);
+                                setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
+                                setBrowseMenuOpen(false);
+                                setHasSearched(true);
+                              });
                             }
-                            setWebAipConsent({
-                              url: webAip,
-                              label: viewingAirport.country || viewingAirport.icao || "this airport",
-                            });
+                          }}
+                          disabled={browseSelection.length === 0}
+                        >
+                          Done · open {browseSelection.length}
+                        </PButton>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </PCard>
+            )}
+
+            {/* Recently opened */}
+            {!results?.length && recents.length > 0 && (
+              <div>
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-[17px] font-bold">Recently opened</h2>
+                  <span className="text-[13px] text-[#9aa0a8]">Stored on this device</span>
+                </div>
+                <PCard className="overflow-x-auto">
+                  <div className="min-w-[680px]">
+                    <div className="grid grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-[#eef0f2] bg-[#fbfbfc] px-[18px] py-[11px]">
+                      <PTh>ICAO</PTh>
+                      <PTh>AERODROME</PTh>
+                      <PTh>COUNTRY</PTh>
+                      <PTh>OPENED</PTh>
+                      <PTh className="text-right" />
+                    </div>
+                    {recents.map((r) => (
+                      <div
+                        key={r.icao}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setQuery(r.icao);
+                          void search(r.icao);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setQuery(r.icao);
+                            void search(r.icao);
                           }
                         }}
-                        title={
-                          isAsecnaIcao(viewingAirport.icao)
-                            ? "Open ASECNA Web AIP"
-                            : isUsaAipIcao(viewingAirport.icao)
-                              ? "Open FAA USA AIP"
-                            : `Open ${viewingAirport.country || "Airport"} Web AIP`
-                        }
+                        className="grid cursor-pointer grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-[#f2f3f5] px-[18px] py-[13px] last:border-b-0 hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
                       >
-                        <GlobeIcon className="size-4" />
-                        <span className="text-xs hidden sm:inline">Web AIP</span>
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="shrink-0 h-9 gap-1.5 px-2 bg-red-600 hover:bg-red-700 text-white border border-red-400"
-                      title="Report a bug for this airport"
-                      onClick={() => {
-                        setBugReportError(null);
-                        setBugModalOpen(true);
-                      }}
-                    >
-                      <FileWarningIcon className="size-4" />
-                      <span className="text-xs hidden sm:inline">Found a bug</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4">
-                  <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                    Source:{" "}
-                    <strong>
-                      {isAsecnaIcao(viewingAirport.icao)
-                        ? "ASECNA Web AIP (dynamically updated)"
-                        : isUsaAipIcao(viewingAirport.icao)
-                          ? "FAA USA AIP (hard-coded source PDF set)"
-                        : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                          ? `${viewingAirport.country || "Scraper"} Web AIP (dynamically updated)`
-                        : isRussiaIcao(viewingAirport.icao)
-                          ? "CAICA Russia AIP"
-                          : "Eurocontrol (EAD)"}
-                    </strong>.
-                    {" "}
-                    {isAsecnaIcao(viewingAirport.icao)
-                      ? "PDF is fetched from live ASECNA source and stored to S3."
-                      : isUsaAipIcao(viewingAirport.icao)
-                        ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3. AI extraction runs on-demand when you press Extract Data."
-                      : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                        ? "PDF is fetched from live scraper source and stored to S3."
-                      : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
-                    {isBahrainScraperIcao(viewingAirport.icao, viewingAirport) && viewingAirport.effectiveDate
-                      ? ` Effective: ${viewingAirport.effectiveDate}.`
-                      : ""}
-                  </div>
-                  {isKuwaitScraperIcao(viewingAirport.icao) && (
-                    <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      Kuwait AIP access is now paid. Review the subscription terms and pricing in the official order form before requesting files.
-                      {" "}
-                      <a
-                        href="https://dgcawebappstg.blob.core.windows.net/upload/AIPItemSub/live/627/AIP%20Subscription%20order%20form%202026.pdf"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline underline-offset-2 font-medium"
-                      >
-                        Open 2026 AIP subscription order form (PDF)
-                      </a>
-                      {" "}·{" "}
-                      <a
-                        href="https://dgca.gov.kw/AIP"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline underline-offset-2 font-medium"
-                      >
-                        Open DGCA Kuwait AIP page
-                      </a>
-                      .
-                    </div>
-                  )}
-                  {isUsaAipIcao(viewingAirport.icao) && (
-                    <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                      USA AIP here uses hard-coded PDF files extracted from an FAA multi-page document released on 10.11.2016.
-                      {" "}
-                      <a
-                        href={USA_WEB_AIP_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline underline-offset-2 font-medium"
-                      >
-                        Open FAA AIP web publication
-                      </a>
-                      .
-                    </div>
-                  )}
-                  <div className="mb-3 flex rounded-lg border border-border/60 p-0.5 bg-muted/30 w-fit">
-                    <button
-                      type="button"
-                      onClick={() => setAipViewMode("ai")}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aipViewMode === "ai" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      AI Extracted
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAipViewMode("pdf")}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aipViewMode === "pdf" ? "bg-background shadow-sm text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      PDF Viewer
-                    </button>
-                  </div>
-                  {pdfDownloadError && (
-                    <p className="text-sm text-destructive mb-2">{pdfDownloadError}</p>
-                  )}
-                  {aipViewMode === "pdf" && aipEadLoadingIcao !== viewingAirport.icao && (
-                    <div className="mb-3 rounded-lg border border-border/60 bg-muted/10 p-2">
-                      {aipPdfReady[viewingAirport.icao] ||
-                      aipPdfExistsOnServer[viewingAirport.icao] ? (
-                        <object
-                          data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
-                          type="application/pdf"
-                          className="w-full h-[520px] rounded-md border border-border/60 bg-background"
-                          aria-label={`AIP PDF ${viewingAirport.icao}`}
-                        >
-                          <div className="p-3 text-sm text-muted-foreground">
-                            Native PDF preview is not available in this browser.
-                            {" "}
-                            <a
-                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline underline-offset-2"
-                            >
-                              Open PDF in new tab
-                            </a>
-                            {" "}or{" "}
-                            <a
-                              href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
-                              className="underline underline-offset-2"
-                            >
-                              download it
-                            </a>
-                            .
-                          </div>
-                        </object>
-                      ) : aipEadLoadingIcao === viewingAirport.icao ? null : (
-                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Spinner className="size-4 shrink-0 text-amber-700" />
-                            <span className="font-medium">
-                              PDF is still loading from the source website.
-                            </span>
-                          </div>
-                          <p>
-                            Some airports serve large files slowly. The sync is still running unless an error appears.
-                          </p>
-                          {aipEadSyncSteps.length > 0 && (
-                            <div className="rounded border border-amber-300/60 bg-amber-100/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
-                              {aipEadSyncSteps.map((step, i) => (
-                                <div key={`${step}-${i}`}>{step}</div>
-                              ))}
-                            </div>
-                          )}
+                        <PMono className="text-[14.5px] font-semibold">{r.icao}</PMono>
+                        <div className="truncate pr-3 text-sm text-[#17181c]">{r.name}</div>
+                        <div className="truncate pr-3 text-sm text-[#6c7079]">{r.country}</div>
+                        <PMono className="text-[12.5px] text-[#9aa0a8]">{formatRecentTimestamp(r.ts)}</PMono>
+                        <div className="flex justify-end">
+                          <PButton
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="text-[#1d4ed8]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuery(r.icao);
+                              void search(r.icao);
+                            }}
+                          >
+                            Open
+                          </PButton>
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {aipEadLoadingIcao === viewingAirport.icao && (
-                    <div className="flex flex-col gap-4 py-4 animate-fade-in">
-                      {aipEadSyncingIcao === viewingAirport.icao ? (
-                        <div
-                          className={`space-y-2 rounded-xl border-2 p-4 ${
-                            aipPdfSlowIcao === viewingAirport.icao
-                              ? "border-amber-300 bg-amber-50 text-amber-900"
-                              : "border-border/60 bg-muted/20 text-foreground"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-primary"}`} />
-                            <span className="text-sm font-medium">
-                              {aipEadSyncRequestedIcao === viewingAirport.icao
-                                ? "Extracting AIP data…"
-                                : "Fetching AIP PDF…"}
-                            </span>
-                          </div>
-                          <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-muted-foreground"}`}>
-                            Live status · elapsed {aipSyncElapsedSec}s
-                          </p>
-                          {aipPdfSlowIcao === viewingAirport.icao && (
-                            <p className="text-xs text-amber-800">
-                              Source is still responding. Sync is running; large files can take extra time.
-                            </p>
-                          )}
-                          {aipEadSyncSteps.length > 0 && (
-                            <div
-                              className={`rounded p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap ${
-                                aipPdfSlowIcao === viewingAirport.icao
-                                  ? "border border-amber-200 bg-white/80 text-amber-900"
-                                  : "border border-border/60 bg-background/70 text-muted-foreground"
-                              }`}
-                            >
-                              {aipEadSyncSteps.map((step, i) => (
-                                <div key={i}>{step}</div>
-                              ))}
-                            </div>
-                          )}
-                          {aipEadSyncSteps.length === 0 && (
-                            <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-muted-foreground"}`}>
-                              {aipEadSyncRequestedIcao === viewingAirport.icao
-                                ? "Starting extraction… can take 1–2 min."
-                                : "Checking cache first, then fetching live PDF if needed…"}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Spinner className="size-4 shrink-0 text-primary" />
-                            <span>Loading AIP cache…</span>
-                          </div>
-                          <div className="space-y-2 section-loading-skeleton rounded-lg border border-border/60 bg-muted/20 p-4">
-                            <div className="h-4 w-24 rounded bg-muted" />
-                            <div className="h-3 w-full rounded bg-muted" />
-                            <div className="h-3 w-5/6 rounded bg-muted" />
-                            <div className="h-3 w-4/5 rounded bg-muted mt-3" />
-                            <div className="h-3 w-full rounded bg-muted" />
-                            <div className="h-3 w-2/3 rounded bg-muted mt-3" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
-                    <p className="text-sm text-destructive py-2">{aipEadCache[viewingAirport.icao].error}</p>
-                  )}
-                  {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
-                    <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
-                  )}
-                  {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
-                    <AIPResultCard airport={viewingAirport} />
-                  )}
-                  {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
-                    <p className="text-sm text-muted-foreground py-2">No AIP data for this airport in this sync.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Single AIP section: stored data for non-synced countries */}
-            {viewingAirport && !supportsSyncedAipIcao(viewingAirport.icao) && (
-              <Card className="shadow-md border-border/80 shrink-0 animate-fade-in-up transition-all duration-200">
-                <CardHeader className="pb-2 px-4 sm:px-6">
-                  <CardTitle className="text-base sm:text-lg font-semibold">
-                    AIP — {viewingAirport.icao}
-                  </CardTitle>
-                  <CardDescription className="text-muted-foreground text-sm">
-                    Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use PDF + Extract flow.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6 pb-4">
-                  <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                    Source:{" "}
-                    <strong>
-                      {viewingAirport.sourceType === "ASECNA_DYNAMIC"
-                        ? "ASECNA (Dynamically Updated)"
-                        : "Hard Coded (PDF Based)"}
-                    </strong>.
-                    {" "}
-                    {viewingAirport.sourceType === "ASECNA_DYNAMIC"
-                      ? "Data is refreshed from live Web AIP sync."
-                      : "This information may be old and inaccurate."}
+                      </div>
+                    ))}
                   </div>
-                  <AIPResultCard airport={viewingAirport} />
-                </CardContent>
-              </Card>
-            )}
-
-            {webAipConsent && (
-              <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-3 sm:items-center sm:p-4">
-                <div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Web AIP access notice"
-                  className="w-full max-w-xl rounded-xl border border-border bg-background p-4 shadow-2xl sm:p-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm sm:text-base font-semibold">Before opening Web AIP</h3>
-                      <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-                        These links are from official websites and can be paid or inaccessible due to geographical position.
-                        If this source is not working, you can always find actual new and free information on{" "}
-                        <a
-                          href={EAD_BASIC_LOGIN_URL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline underline-offset-2 font-medium"
-                        >
-                          EUROCONTROL EAD Basic
-                        </a>
-                        .
-                      </p>
-                      <p className="mt-2 text-[11px] sm:text-xs text-muted-foreground">
-                        Target source: <span className="font-medium text-foreground">{webAipConsent.label}</span>
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2"
-                      onClick={() => setWebAipConsent(null)}
-                    >
-                      <XIcon className="size-4" />
-                    </Button>
-                  </div>
-                  <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setWebAipConsent(null)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="bg-sky-600 hover:bg-sky-700 text-white"
-                      onClick={() => {
-                        window.open(webAipConsent.url, "_blank", "noopener,noreferrer");
-                        setWebAipConsent(null);
-                      }}
-                    >
-                      I understand, open Web AIP
-                    </Button>
-                  </div>
-                </div>
+                </PCard>
               </div>
             )}
+          </div>
+        ) : (
+          (() => {
+            const detailIcao = viewingAirport.icao;
+            const detailFlagUrl = getCountryFlagUrl(viewingAirport.country);
+            const detailSynced = supportsSyncedAipIcao(detailIcao);
+            const detailCacheEntry = aipEadCache[detailIcao];
+            return (
+              <div className="mx-auto w-full max-w-[1600px]">
+                {/* Breadcrumb */}
+                <div className="mb-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIcao(null)}
+                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-semibold text-[#6c7079] hover:text-[#17181c]"
+                  >
+                    Search
+                  </button>
+                  <ChevronRightIcon className="size-3.5 text-[#c3c7cd]" />
+                  <PMono className="text-[13px] text-[#17181c]">{detailIcao}</PMono>
+                </div>
 
-            <CaptchaConsentDialog
-              open={captchaConsentDialog.open}
-              country={captchaConsentDialog.country}
-              onContinue={handleCaptchaConsentContinue}
-              onDontShowAgain={handleCaptchaConsentDontShowAgain}
-              onClose={handleCaptchaConsentClose}
-            />
+                {/* Open airport tabs */}
+                {results !== null && results.length > 1 && (
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    {results.map((airport, i) => {
+                      const isActive = viewingAirport.icao === airport.icao;
+                      const flagUrl = getCountryFlagUrl(airport.country);
+                      return (
+                        <div
+                          key={`${airport.icao}-${airport.country}`}
+                          className={`flex items-center overflow-hidden rounded-[10px] border transition-colors ${
+                            isActive
+                              ? "border-[#2563eb] bg-[#eef4ff]"
+                              : "border-[#e6e7ea] bg-white hover:bg-[#f5f6f7]"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedIcao(airport.icao);
+                            }}
+                            className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-[#17181c]"
+                          >
+                            {flagUrl ? (
+                              <img
+                                src={flagUrl}
+                                alt=""
+                                width={22}
+                                height={16}
+                                className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
+                              />
+                            ) : (
+                              <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
+                            )}
+                            {airport.icao}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = results.filter((_, j) => j !== i);
+                              setResults(next.length ? next : []);
+                              setSelectedIcao(next.length ? (next[0].icao === airport.icao ? next[0].icao : selectedIcao ?? next[0].icao) : null);
+                            }}
+                            className="shrink-0 cursor-pointer rounded-sm border-none bg-transparent p-2 text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#e5484d]"
+                            title="Close tab"
+                          >
+                            <XIcon className="size-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-            <BugReportModal
-              open={bugModalOpen}
-              initialIcao={viewingAirport?.icao || null}
-              submitting={bugReportSubmitting}
-              error={bugReportError}
-              onClose={() => setBugModalOpen(false)}
-              onSubmit={submitBugReport}
-            />
+                {/* Header */}
+                <div className="mb-[18px] flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-3">
+                      <h1 className="m-0 font-mono text-[30px] font-semibold tracking-[0.01em]">{detailIcao}</h1>
+                      {viewingAirport.name ? (
+                        <span className="text-[22px] font-bold tracking-[-0.01em]">{viewingAirport.name}</span>
+                      ) : null}
+                      {detailFlagUrl ? (
+                        <img
+                          src={detailFlagUrl}
+                          alt=""
+                          width={24}
+                          height={18}
+                          className="shrink-0 self-center rounded-sm border border-[#e6e7ea] object-cover"
+                        />
+                      ) : null}
+                      {viewingAirport.country ? (
+                        <span className="text-[15px] text-[#6c7079]">{viewingAirport.country}</span>
+                      ) : null}
+                    </div>
+                    {detailSynced && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+                        {detailCacheEntry?.updatedAt ? (
+                          (() => {
+                            const cached = new Date(detailCacheEntry.updatedAt!);
+                            const ttlMs = detailCacheEntry.cache?.ttlMs ?? 24 * 60 * 60 * 1000;
+                            const expires = new Date(cached.getTime() + ttlMs);
+                            const isExpired = expires <= new Date();
+                            return (
+                              <>
+                                <PMono className="text-[12.5px] text-[#9aa0a8]">
+                                  Cached {cached.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · expires {expires.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                                </PMono>
+                                {isExpired && (
+                                  <span className="rounded-full bg-[#fef3e2] px-2.5 py-1 text-xs font-semibold text-[#b45309]">
+                                    PDF expired — will refresh on next sync.
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()
+                        ) : (
+                          <span className="text-[13px] text-[#9aa0a8]">
+                            {isAsecnaIcao(detailIcao)
+                              ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
+                              : isBahrainScraperIcao(detailIcao, viewingAirport)
+                                ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
+                              : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {detailSynced && (
+                    <div className="flex flex-none flex-wrap items-center gap-2">
+                      <PButton
+                        type="button"
+                        variant="primary"
+                        disabled={
+                          pdfDownloading ||
+                          !(
+                            aipPdfReady[viewingAirport.icao] ||
+                            aipEadCache[viewingAirport.icao]?.updatedAt ||
+                            aipPdfExistsOnServer[viewingAirport.icao]
+                          )
+                        }
+                        title={
+                          aipPdfReady[viewingAirport.icao] ||
+                          aipEadCache[viewingAirport.icao]?.updatedAt ||
+                          aipPdfExistsOnServer[viewingAirport.icao]
+                            ? "Download current AIP PDF (AD 2)"
+                            : "Sync this airport first to download the PDF"
+                        }
+                        onClick={async () => {
+                          if (!viewingAirport?.icao) return;
+                          const icao = viewingAirport.icao;
+                          if (getCaptchaCountryByIcao(icao)) {
+                            setPdfDownloadError(null);
+                            setAipEadSyncSteps([
+                              "Captcha verification required. Opened embedded noVNC viewer. Complete it before downloading this AIP PDF.",
+                            ]);
+                            void openCaptchaNoVncPopup(icao);
+                            return;
+                          }
+                          const pushPdfStep = (step: string) => {
+                            setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
+                          };
+                          setPdfDownloadError(null);
+                          setPdfDownloading(true);
+                          setAipEadLoadingIcao(icao);
+                          setAipEadSyncingIcao(icao);
+                          setAipEadSyncRequestedIcao(null);
+                          setAipEadSyncSteps(["Checking PDF cache on server…"]);
+                          let slowHintTimer: number | null = null;
+                          try {
+                            const pdfRoute = isAsecnaIcao(icao)
+                              ? "/api/aip/asecna/pdf"
+                              : isBahrainScraperIcao(icao, viewingAirport)
+                                ? "/api/aip/scraper/pdf"
+                                : "/api/aip/ead/pdf";
+                            const pdfSource = isAsecnaIcao(icao) ? "asecna"
+                              : isBahrainScraperIcao(icao, viewingAirport) ? "scraper"
+                              : isUsaAipIcao(icao) ? "usa"
+                              : "ead";
 
-            <CountryServiceStatusBanner
-              currentCountry={viewingAirport?.country || null}
-            />
-            <BugReportsHoverBanner
-              reports={bugReports}
-              onDeleteFixed={deleteFixedBugReport}
-              deletingReportId={deletingBugReportId}
-            />
+                            // Fetch download time estimate (fire-and-forget, non-blocking)
+                            const estimateData = await fetch(
+                              `/api/aip/download-estimate?icao=${encodeURIComponent(icao)}&source=${pdfSource}`,
+                              { cache: "no-store" }
+                            ).then((r) => r.json()).catch(() => null) as { estimate: number | null } | null;
+                            const estimateMs = estimateData?.estimate ?? null;
+                            const fmtEstimate = (ms: number) => {
+                              if (ms < 60_000) return `~${Math.round(ms / 1000)}s`;
+                              const m = Math.floor(ms / 60_000);
+                              const s = Math.round((ms % 60_000) / 1000);
+                              return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
+                            };
 
-        <p className="text-center text-[10px] sm:text-xs text-muted-foreground lg:text-left shrink-0">
-          Data sourced from official AIP publications. For operational use only.
-        </p>
-        <div className="flex flex-col items-center gap-1.5 pt-4 shrink-0">
-          <span className="text-[10px] sm:text-xs text-muted-foreground/80 uppercase tracking-wider">Built by</span>
-          <img src="/logo.png" alt="Clearway" className="h-14 sm:h-16 w-auto max-w-[320px] object-contain opacity-90 hover:opacity-100 transition-opacity" />
-        </div>
+                            const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, {
+                              method: "HEAD",
+                              cache: "no-store",
+                            }).catch(() => null);
+                            if (headRes?.ok) {
+                              pushPdfStep("Cached PDF found in storage.");
+                            } else {
+                              pushPdfStep("PDF missing in cache. Triggering source download…");
+                            }
+                            slowHintTimer = window.setTimeout(() => {
+                              pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes.");
+                            }, 12000);
+                            pushPdfStep(estimateMs !== null
+                              ? `Downloading PDF bytes… (estimated ${fmtEstimate(estimateMs)})`
+                              : "Downloading PDF bytes…");
+                            const downloadStart = Date.now();
+                            const res = await fetch(
+                              `${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`
+                            );
+                            if (!res.ok) {
+                              const data = await res.json().catch(() => ({}));
+                              const msg = data.detail || data.error || "Failed to load PDF";
+                              pushPdfStep(`Failed: ${msg}`);
+                              setPdfDownloadError(msg);
+                              return;
+                            }
+                            pushPdfStep("Preparing file for browser download…");
+                            const blob = await res.blob();
+                            const downloadDurationMs = Date.now() - downloadStart;
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${icao}_${isAsecnaIcao(icao) ? "ASECNA" : isBahrainScraperIcao(icao, viewingAirport) ? "SCRAPER" : "AIP"}_AD2.pdf`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+                            setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+                            pushPdfStep(`Download started (took ${fmtEstimate(downloadDurationMs)}).`);
+                          } catch (err) {
+                            pushPdfStep("Failed to download PDF.");
+                            setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
+                          } finally {
+                            if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
+                            setPdfDownloading(false);
+                            window.setTimeout(() => {
+                              setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
+                              setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+                              setAipEadSyncSteps((prev) => (prev.length ? [] : prev));
+                            }, 900);
+                          }
+                        }}
+                      >
+                        <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
+                        Download PDF
+                      </PButton>
+                      <PButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => requestSyncAipEad(viewingAirport.icao)}
+                        disabled={aipEadLoadingIcao === viewingAirport.icao || aipEadSyncingIcao === viewingAirport.icao}
+                        title={
+                          aipEadCache[viewingAirport.icao]?.airport
+                            ? "Cached extraction exists; click to show it"
+                            : "Run AI extraction now"
+                        }
+                      >
+                        <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
+                        Extract Data
+                      </PButton>
+                      {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || isUsaAipIcao(viewingAirport.icao)) && (
+                        <div
+                          className="relative"
+                          onMouseEnter={() => setShowGenSyncOverlay(true)}
+                          onMouseLeave={() => setShowGenSyncOverlay(false)}
+                        >
+                          <PButton
+                            type="button"
+                            variant="secondary"
+                            onClick={() => downloadGenPdfWithSync(viewingAirport.icao, isAsecnaAirport(viewingAirport), isBahrainScraperAirport(viewingAirport))}
+                            disabled={
+                              genPdfDownloading ||
+                              isJapanScraperIcao(viewingAirport.icao) ||
+                              (isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao))
+                            }
+                            title={
+                              isJapanScraperIcao(viewingAirport.icao)
+                                ? "No GEN files to scrape for Japan"
+                                : isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
+                                ? "GEN 1.2 is not available for this ASECNA country"
+                                : "Instantly fetch and download GEN PDF"
+                            }
+                          >
+                            <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
+                            GEN PDF
+                          </PButton>
+                          {showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao) && (
+                            <div className="absolute right-0 z-20 mt-1 w-72 rounded-[14px] border border-[#e6e7ea] bg-white p-3.5 shadow-[0_16px_44px_rgba(16,18,22,.16)]">
+                              {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
+                                <>
+                                  <PSectionTitle className="mb-1.5">
+                                    Not Available
+                                  </PSectionTitle>
+                                  <p className="text-xs text-[#3a3d44]">
+                                    GEN 1.2 is not published on the ASECNA eAIP for this country.
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <PSectionTitle className="mb-1.5">
+                                    GEN loading steps
+                                  </PSectionTitle>
+                                  <ul className="space-y-1 text-xs text-[#3a3d44]">
+                                    {(genSyncSteps.length > 0
+                                      ? genSyncSteps
+                                      : [
+                                          "Checking GEN PDF cache…",
+                                          "Downloading GEN PDF from source…",
+                                          "Uploading to storage…",
+                                          "Preparing download…",
+                                        ]).map((step, i) => (
+                                      <li key={`${step}-${i}`} className="flex items-start gap-1.5">
+                                        <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-[#2563eb]/70" />
+                                        <span>{step}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {Boolean(
+                        viewingAirport.webAipUrl ||
+                        getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
+                        getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
+                        getEadWebAipUrlForAirport(viewingAirport) ||
+                        isUsaAipIcao(viewingAirport.icao)
+                      ) && (
+                        <PButton
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            const isUsa = isUsaAipIcao(viewingAirport.icao);
+                            const isRussia = isRussiaIcao(viewingAirport.icao);
+                            const webAip =
+                              viewingAirport.webAipUrl ||
+                              getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
+                              getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
+                              getEadWebAipUrlForAirport(viewingAirport) ||
+                              (isUsa ? USA_WEB_AIP_URL : null);
+                            if (webAip) {
+                              if (isUsa || isRussia) {
+                                window.open(webAip, "_blank", "noopener,noreferrer");
+                                return;
+                              }
+                              setWebAipConsent({
+                                url: webAip,
+                                label: viewingAirport.country || viewingAirport.icao || "this airport",
+                              });
+                            }
+                          }}
+                          title={
+                            isAsecnaIcao(viewingAirport.icao)
+                              ? "Open ASECNA Web AIP"
+                              : isUsaAipIcao(viewingAirport.icao)
+                                ? "Open FAA USA AIP"
+                              : `Open ${viewingAirport.country || "Airport"} Web AIP`
+                          }
+                        >
+                          <GlobeIcon className="size-4 text-[#6c7079]" />
+                          Web AIP
+                        </PButton>
+                      )}
+                      <span className="hidden h-[26px] w-px bg-[#e6e7ea] sm:block" />
+                      <PButton
+                        type="button"
+                        variant="danger-quiet"
+                        title="Report a bug for this airport"
+                        onClick={() => {
+                          setBugReportError(null);
+                          setBugModalOpen(true);
+                        }}
+                      >
+                        <FileWarningIcon className="size-4" />
+                        Report a problem
+                      </PButton>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-start gap-5">
+                  {/* Document column */}
+                  <div className="min-w-0 flex-1 basis-[560px] space-y-5">
+                    {detailSynced ? (
+                      <PCard className={`overflow-hidden ${aipEadSyncingIcao === viewingAirport.icao ? "ring-2 ring-[#2563eb]/70" : ""}`}>
+                        <div className="flex flex-wrap items-center gap-3.5 border-b border-[#eef0f2] px-[18px] py-3.5">
+                          <div className="flex rounded-[10px] bg-[#eef0f2] p-[3px]">
+                            <button
+                              type="button"
+                              onClick={() => setAipViewMode("ai")}
+                              className={`cursor-pointer rounded-lg border-none px-[15px] py-[7px] text-[13.5px] font-semibold transition-colors ${aipViewMode === "ai" ? "bg-white text-[#17181c] shadow-[0_1px_2px_rgba(0,0,0,.06)]" : "bg-transparent text-[#6c7079] hover:text-[#17181c]"}`}
+                            >
+                              AI Extracted
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAipViewMode("pdf")}
+                              className={`cursor-pointer rounded-lg border-none px-[15px] py-[7px] text-[13.5px] font-semibold transition-colors ${aipViewMode === "pdf" ? "bg-white text-[#17181c] shadow-[0_1px_2px_rgba(0,0,0,.06)]" : "bg-transparent text-[#6c7079] hover:text-[#17181c]"}`}
+                            >
+                              PDF Viewer
+                            </button>
+                          </div>
+                          <PMono className="text-[12.5px] text-[#9aa0a8]">
+                            AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "Scraper" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) · {viewingAirport.icao}
+                          </PMono>
+                        </div>
+                        <div className="border-b border-[#dbe6ff] bg-[#f2f7ff] px-[18px] py-[11px] text-[13.5px] text-[#3a5170]">
+                          Source:{" "}
+                          <strong className="font-bold text-[#1d4ed8]">
+                            {isAsecnaIcao(viewingAirport.icao)
+                              ? "ASECNA Web AIP (dynamically updated)"
+                              : isUsaAipIcao(viewingAirport.icao)
+                                ? "FAA USA AIP (hard-coded source PDF set)"
+                              : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
+                                ? `${viewingAirport.country || "Scraper"} Web AIP (dynamically updated)`
+                              : isRussiaIcao(viewingAirport.icao)
+                                ? "CAICA Russia AIP"
+                                : "Eurocontrol (EAD)"}
+                          </strong>.
+                          {" "}
+                          {isAsecnaIcao(viewingAirport.icao)
+                            ? "PDF is fetched from live ASECNA source and stored to S3."
+                            : isUsaAipIcao(viewingAirport.icao)
+                              ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3. AI extraction runs on-demand when you press Extract Data."
+                            : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
+                              ? "PDF is fetched from live scraper source and stored to S3."
+                            : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
+                          {isBahrainScraperIcao(viewingAirport.icao, viewingAirport) && viewingAirport.effectiveDate
+                            ? ` Effective: ${viewingAirport.effectiveDate}.`
+                            : ""}
+                        </div>
+                        <div className="p-[18px]">
+                          {isKuwaitScraperIcao(viewingAirport.icao) && (
+                            <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                              Kuwait AIP access is now paid. Review the subscription terms and pricing in the official order form before requesting files.
+                              {" "}
+                              <a
+                                href="https://dgcawebappstg.blob.core.windows.net/upload/AIPItemSub/live/627/AIP%20Subscription%20order%20form%202026.pdf"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline underline-offset-2 font-medium"
+                              >
+                                Open 2026 AIP subscription order form (PDF)
+                              </a>
+                              {" "}·{" "}
+                              <a
+                                href="https://dgca.gov.kw/AIP"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline underline-offset-2 font-medium"
+                              >
+                                Open DGCA Kuwait AIP page
+                              </a>
+                              .
+                            </div>
+                          )}
+                          {isUsaAipIcao(viewingAirport.icao) && (
+                            <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                              USA AIP here uses hard-coded PDF files extracted from an FAA multi-page document released on 10.11.2016.
+                              {" "}
+                              <a
+                                href={USA_WEB_AIP_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline underline-offset-2 font-medium"
+                              >
+                                Open FAA AIP web publication
+                              </a>
+                              .
+                            </div>
+                          )}
+                          {pdfDownloadError && (
+                            <p className="mb-2 text-sm text-[#e5484d]">{pdfDownloadError}</p>
+                          )}
+                          {aipViewMode === "pdf" && aipEadLoadingIcao !== viewingAirport.icao && (
+                            <div className="mb-3 rounded-[10px] border border-[#e6e7ea] bg-[#fbfbfc] p-2">
+                              {aipPdfReady[viewingAirport.icao] ||
+                              aipPdfExistsOnServer[viewingAirport.icao] ? (
+                                <object
+                                  data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                                  type="application/pdf"
+                                  className="h-[520px] w-full rounded-md border border-[#e6e7ea] bg-white"
+                                  aria-label={`AIP PDF ${viewingAirport.icao}`}
+                                >
+                                  <div className="p-3 text-sm text-[#6c7079]">
+                                    Native PDF preview is not available in this browser.
+                                    {" "}
+                                    <a
+                                      href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="underline underline-offset-2"
+                                    >
+                                      Open PDF in new tab
+                                    </a>
+                                    {" "}or{" "}
+                                    <a
+                                      href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
+                                      className="underline underline-offset-2"
+                                    >
+                                      download it
+                                    </a>
+                                    .
+                                  </div>
+                                </object>
+                              ) : aipEadLoadingIcao === viewingAirport.icao ? null : (
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Spinner className="size-4 shrink-0 text-amber-700" />
+                                    <span className="font-medium">
+                                      PDF is still loading from the source website.
+                                    </span>
+                                  </div>
+                                  <p>
+                                    Some airports serve large files slowly. The sync is still running unless an error appears.
+                                  </p>
+                                  {aipEadSyncSteps.length > 0 && (
+                                    <div className="rounded border border-amber-300/60 bg-amber-100/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
+                                      {aipEadSyncSteps.map((step, i) => (
+                                        <div key={`${step}-${i}`}>{step}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {aipEadLoadingIcao === viewingAirport.icao && (
+                            <div className="flex flex-col gap-4 py-4 animate-fade-in">
+                              {aipEadSyncingIcao === viewingAirport.icao ? (
+                                <div
+                                  className={`space-y-2 rounded-xl border-2 p-4 ${
+                                    aipPdfSlowIcao === viewingAirport.icao
+                                      ? "border-amber-300 bg-amber-50 text-amber-900"
+                                      : "border-[#e6e7ea] bg-[#fbfbfc] text-[#17181c]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-[#2563eb]"}`} />
+                                    <span className="text-sm font-medium">
+                                      {aipEadSyncRequestedIcao === viewingAirport.icao
+                                        ? "Extracting AIP data…"
+                                        : "Fetching AIP PDF…"}
+                                    </span>
+                                  </div>
+                                  <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
+                                    Live status · elapsed {aipSyncElapsedSec}s
+                                  </p>
+                                  {aipPdfSlowIcao === viewingAirport.icao && (
+                                    <p className="text-xs text-amber-800">
+                                      Source is still responding. Sync is running; large files can take extra time.
+                                    </p>
+                                  )}
+                                  {aipEadSyncSteps.length > 0 && (
+                                    <div
+                                      className={`rounded p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap ${
+                                        aipPdfSlowIcao === viewingAirport.icao
+                                          ? "border border-amber-200 bg-white/80 text-amber-900"
+                                          : "border border-[#e6e7ea] bg-white text-[#6c7079]"
+                                      }`}
+                                    >
+                                      {aipEadSyncSteps.map((step, i) => (
+                                        <div key={i}>{step}</div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {aipEadSyncSteps.length === 0 && (
+                                    <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
+                                      {aipEadSyncRequestedIcao === viewingAirport.icao
+                                        ? "Starting extraction… can take 1–2 min."
+                                        : "Checking cache first, then fetching live PDF if needed…"}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm text-[#6c7079]">
+                                    <Spinner className="size-4 shrink-0 text-[#2563eb]" />
+                                    <span>Loading AIP cache…</span>
+                                  </div>
+                                  <div className="space-y-2 section-loading-skeleton rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
+                                    <div className="h-4 w-24 rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-5/6 rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-4/5 rounded bg-[#f0f1f3] mt-3" />
+                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-2/3 rounded bg-[#f0f1f3] mt-3" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
+                            <p className="py-2 text-sm text-[#e5484d]">{aipEadCache[viewingAirport.icao].error}</p>
+                          )}
+                          {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
+                            <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
+                          )}
+                          {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
+                            <AIPResultCard airport={viewingAirport} />
+                          )}
+                          {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
+                            <p className="py-2 text-sm text-[#6c7079]">No AIP data for this airport in this sync.</p>
+                          )}
+                        </div>
+                      </PCard>
+                    ) : (
+                      <PCard className="overflow-hidden">
+                        <div className="border-b border-[#eef0f2] px-[18px] py-3.5">
+                          <div className="text-base font-bold">AIP — {viewingAirport.icao}</div>
+                          <p className="mt-0.5 text-sm text-[#6c7079]">
+                            Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use PDF + Extract flow.
+                          </p>
+                        </div>
+                        <div className="p-[18px]">
+                          <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            Source:{" "}
+                            <strong>
+                              {viewingAirport.sourceType === "ASECNA_DYNAMIC"
+                                ? "ASECNA (Dynamically Updated)"
+                                : "Hard Coded (PDF Based)"}
+                            </strong>.
+                            {" "}
+                            {viewingAirport.sourceType === "ASECNA_DYNAMIC"
+                              ? "Data is refreshed from live Web AIP sync."
+                              : "This information may be old and inaccurate."}
+                          </div>
+                          <AIPResultCard airport={viewingAirport} />
+                        </div>
+                      </PCard>
+                    )}
+                  </div>
+
+                  {/* Right rail */}
+                  {showMap && (
+                    <div className="hidden w-[min(380px,36vw)] flex-none flex-col gap-3.5 lg:flex">
+                      {/* LOCATION */}
+                      <PCard className="overflow-hidden">
+                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
+                          <MapPinIcon className="size-[15px] text-[#6c7079]" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">LOCATION</span>
+                          {viewingAirport.lat != null && viewingAirport.lon != null && (
+                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                              {viewingAirport.lat.toFixed(4)} {viewingAirport.lon.toFixed(4)}
+                            </PMono>
+                          )}
+                        </div>
+                        <div className="h-[240px]">
+                          {viewingAirport.lat != null && viewingAirport.lon != null ? (
+                            <AirportMap
+                              lat={viewingAirport.lat}
+                              lon={viewingAirport.lon}
+                              icao={viewingAirport.icao}
+                              name={viewingAirport.name}
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-[#f5f6f7] p-4 text-center text-sm text-[#6c7079]">
+                              Coordinates will appear after AIP sync or when available from data.
+                            </div>
+                          )}
+                        </div>
+                      </PCard>
+
+                      {/* NOTAMS */}
+                      <PCard className="overflow-hidden">
+                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
+                          <ScrollTextIcon className="size-[15px] text-[#6c7079]" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">NOTAMS — {viewingAirport.icao}</span>
+                          <button
+                            type="button"
+                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#17181c] disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => requestSyncNotams(viewingAirport.icao)}
+                            disabled={notamsLoading}
+                            title="Refresh NOTAMs"
+                          >
+                            <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
+                          </button>
+                        </div>
+                        {!notamsLoading && notamsUpdatedAt && (
+                          <div className="border-b border-[#f2f3f5] px-[15px] py-2">
+                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                              updated {new Date(notamsUpdatedAt).toLocaleString()}
+                            </PMono>
+                          </div>
+                        )}
+                        <div className="max-h-[340px] overflow-auto px-[15px] py-3">
+                          {notamsLoading && (
+                            <div className="flex flex-col gap-4 py-2 animate-fade-in">
+                              {notamsSyncing ? (
+                                <div className="space-y-3 rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
+                                  <div className="flex items-center gap-2">
+                                    <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                    <span className="text-sm font-medium">Loading steps…</span>
+                                  </div>
+                                  {notamsSyncSteps.length > 0 && (
+                                    <ul className="list-disc space-y-1 pl-5 text-xs text-[#6c7079]">
+                                      {notamsSyncSteps.map((step, i) => (
+                                        <li key={i}>{step}</li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {notamsSyncSteps.length === 0 && (
+                                    <span className="text-xs text-[#6c7079]">Starting loading steps · can take 1–2 min</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm text-[#6c7079]">
+                                    <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                    <span>Loading NOTAMs…</span>
+                                  </div>
+                                  <div className="space-y-2 section-loading-skeleton">
+                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-4/5 rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-3/4 rounded bg-[#f0f1f3]" />
+                                    <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-2/3 rounded bg-[#f0f1f3]" />
+                                    <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!notamsLoading && notamsError && (
+                            <div className="space-y-2 py-2">
+                              <p className="text-sm font-medium text-[#e5484d]">NOTAMs unavailable</p>
+                              <p className="break-words text-xs text-[#6c7079]">{notamsError}</p>
+                              <p className="text-xs text-[#6c7079]">Run locally: <code className="rounded bg-[#f0f1f3] px-1">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
+                            </div>
+                          )}
+                          {!notamsLoading && !notamsError && notams && notams.length === 0 && (
+                            <p className="py-2 text-sm text-[#6c7079]">No NOTAMs returned.</p>
+                          )}
+                          {!notamsLoading && !notamsError && notams && notams.length > 0 && (
+                            <ul className="space-y-3">
+                              {notams.slice(0, 50).map((n, i) => (
+                                <li key={`${n.number}-${i}`} className="border-b border-[#f2f3f5] pb-2 text-xs last:border-0">
+                                  <div className="mb-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-[#17181c]">
+                                    <span className="font-mono">{n.number}</span>
+                                    <span className="text-[#6c7079]">{n.class}</span>
+                                    {(n.startDateUtc || n.endDateUtc) && (
+                                      <span className="font-mono font-normal text-[#9aa0a8]">
+                                        {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="whitespace-pre-wrap break-words leading-snug text-[#3a3d44]">
+                                    {n.condition
+                                      .split("\n")
+                                      .filter((line) => !/^\|#\d+\|[-\s]+/.test(line) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(line))
+                                      .join("\n")
+                                      .trim()}
+                                  </p>
+                                </li>
+                              ))}
+                              {notams.length > 50 && (
+                                <li className="pt-1 text-xs text-[#9aa0a8]">
+                                  +{notams.length - 50} more NOTAMs
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
+                      </PCard>
+
+                      {/* WEATHER */}
+                      <PCard className="overflow-hidden">
+                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
+                          <CloudSunIcon className="size-[15px] text-[#6c7079]" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">WEATHER — {viewingAirport.icao}</span>
+                          <button
+                            type="button"
+                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#17181c] disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => requestSyncWeather(viewingAirport.icao)}
+                            disabled={weatherLoading}
+                            title="Refresh weather"
+                          >
+                            <RefreshCwIcon className={`size-3.5 ${weatherLoading ? "animate-spin" : ""}`} />
+                          </button>
+                        </div>
+                        {!weatherLoading && cachedWeather?.updatedAt && (
+                          <div className="border-b border-[#f2f3f5] px-[15px] py-2">
+                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                              updated {new Date(cachedWeather.updatedAt).toLocaleString()}
+                            </PMono>
+                          </div>
+                        )}
+                        <div className="max-h-[340px] overflow-auto px-[15px] py-3">
+                          {weatherLoading && (
+                            <div className="space-y-3 rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
+                              <div className="flex items-center gap-2">
+                                <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                <span className="text-sm font-medium">
+                                  {weatherSyncing ? "Loading steps…" : "Loading weather..."}
+                                </span>
+                              </div>
+                              {weatherSyncing && weatherSyncSteps.length > 0 && (
+                                <ul className="list-disc space-y-1 pl-5 text-xs text-[#6c7079]">
+                                  {weatherSyncSteps.map((step, i) => (
+                                    <li key={i}>{step}</li>
+                                  ))}
+                                </ul>
+                              )}
+                              {weatherSyncing && weatherSyncSteps.length === 0 && (
+                                <div className="space-y-2 section-loading-skeleton">
+                                  <div className="h-3 w-full rounded bg-[#f0f1f3]" />
+                                  <div className="h-3 w-4/5 rounded bg-[#f0f1f3]" />
+                                  <div className="h-3 w-3/4 rounded bg-[#f0f1f3]" />
+                                  <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!weatherLoading && cachedWeather?.error && (
+                            <p className="break-words text-xs text-[#e5484d]">{cachedWeather.error}</p>
+                          )}
+                          {!weatherLoading && !cachedWeather?.error && (
+                            <>
+                              {weatherDisplay.bullets.length > 0 ? (
+                                <div className="space-y-3">
+                                  {weatherDisplay.airportLine && (
+                                    <p className="whitespace-pre-wrap break-words text-xs text-[#6c7079]">
+                                      {weatherDisplay.airportLine}
+                                    </p>
+                                  )}
+                                  <ul className="space-y-3">
+                                    {weatherDisplay.bullets.map((b, i) => (
+                                      <li key={`${b.kind}-${b.id}-${i}`} className="text-xs">
+                                        <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                          <PMono className="text-[12.5px] font-semibold text-[#17181c]">{b.id}</PMono>
+                                          <span className="text-[11px] font-bold tracking-[0.06em] text-[#6c7079]">{b.kind}</span>
+                                        </div>
+                                        <p className="whitespace-pre-wrap break-words rounded-lg bg-[#f5f6f7] px-[11px] py-[9px] font-mono text-[12.5px] leading-relaxed text-[#3a3d44]">
+                                          {b.body}
+                                        </p>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : weatherDisplay.strippedPlain.trim() ? (
+                                <pre className="whitespace-pre-wrap break-words rounded-lg bg-[#f5f6f7] px-[11px] py-[9px] font-mono text-[12px] leading-5 text-[#3a3d44]">
+                                  {weatherDisplay.strippedPlain}
+                                </pre>
+                              ) : (
+                                <p className="py-2 text-sm text-[#6c7079]">No weather text returned yet.</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </PCard>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()
+        )}
+
+        {/* Web AIP consent modal */}
+        {webAipConsent && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(16,18,22,.42)] p-3 sm:items-center sm:p-8">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Web AIP access notice"
+              className="w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(16,18,22,.28)] sm:p-6"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold sm:text-lg">Before opening Web AIP</h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#6c7079] sm:text-sm">
+                    These links are from official websites and can be paid or inaccessible due to geographical position.
+                    If this source is not working, you can always find actual new and free information on{" "}
+                    <a
+                      href={EAD_BASIC_LOGIN_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium underline underline-offset-2"
+                    >
+                      EUROCONTROL EAD Basic
+                    </a>
+                    .
+                  </p>
+                  <p className="mt-2 text-[11px] text-[#6c7079] sm:text-xs">
+                    Target source: <span className="font-medium text-[#17181c]">{webAipConsent.label}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3]"
+                  onClick={() => setWebAipConsent(null)}
+                >
+                  <XIcon className="size-4" />
+                </button>
+              </div>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <PButton type="button" variant="secondary" onClick={() => setWebAipConsent(null)}>
+                  Cancel
+                </PButton>
+                <PButton
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    window.open(webAipConsent.url, "_blank", "noopener,noreferrer");
+                    setWebAipConsent(null);
+                  }}
+                >
+                  I understand, open Web AIP
+                </PButton>
+              </div>
             </div>
           </div>
+        )}
 
-        </div>
+        <CaptchaConsentDialog
+          open={captchaConsentDialog.open}
+          country={captchaConsentDialog.country}
+          onContinue={handleCaptchaConsentContinue}
+          onDontShowAgain={handleCaptchaConsentDontShowAgain}
+          onClose={handleCaptchaConsentClose}
+        />
+
+        <BugReportModal
+          open={bugModalOpen}
+          initialIcao={viewingAirport?.icao || null}
+          submitting={bugReportSubmitting}
+          error={bugReportError}
+          onClose={() => setBugModalOpen(false)}
+          onSubmit={submitBugReport}
+        />
+
+        <BugReportsHoverBanner
+          reports={bugReports}
+          onDeleteFixed={deleteFixedBugReport}
+          deletingReportId={deletingBugReportId}
+        />
       </div>
-    </div>
+    </PortalShell>
   );
 }
 
@@ -3519,8 +3658,8 @@ export default function AIPPortalPage() {
   return (
     <Suspense
       fallback={
-        <div className="h-screen w-full flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100">
-          <div className="text-sm text-muted-foreground">Loading…</div>
+        <div className="flex h-screen w-full items-center justify-center bg-[#f5f6f7]">
+          <div className="text-sm text-[#6c7079]">Loading…</div>
         </div>
       }
     >

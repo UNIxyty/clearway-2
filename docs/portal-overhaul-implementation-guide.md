@@ -604,3 +604,35 @@ Before going live, verify:
 - [ ] PDF Viewer tab appears on EAD AIP card after sync
 - [ ] Source banners visible on both EAD and non-EAD airport cards
 - [ ] Email OTP and Google OAuth still work
+
+---
+
+## Portal redesign (August 2026) — console design system
+
+UI-only redesign on branch `portal-redesign` (APIs, data flow, caching and
+auth untouched; the digital wall's consumption of /api/notams, /api/aip/*,
+/files/* is unaffected — verified by diff, the only API change is two
+ADDITIVE fields `cache.ttlMs`/`cache.staleAfterMs` in /api/aip/ead).
+
+- Shell: components/portal/Shell.tsx (top bar + left nav + footer) wraps /
+  and the light secondary pages (Profile, Notification Settings, Stats,
+  Deleted airports, Admin users, Country service status). Pickem/Playoffs
+  untouched (verified rendering with the new shared fonts).
+- Fonts: Public Sans + IBM Plex Mono via next/font (self-hosted). Mono is
+  kept for ICAOs, NOTAM ids, timestamps, raw METAR/TAF.
+- The floating "Portal Service Status" overlay is retired: a health pill in
+  the top bar + the new /status page (donut, legend, searchable/filterable
+  country list) serve the same 10s-polled endpoint.
+- Airport detail: action hierarchy (Download PDF primary; Extract Data /
+  GEN PDF / Web AIP secondary; "Report a problem" quiet), segmented tabs,
+  breadcrumb; "Cached … expires …" now computed from the server's real TTL
+  (cache.ttlMs) instead of a hard-coded 12h; bug modal copy says "Sends to
+  the Clearway team" (it stores to Supabase + Telegram, no email).
+- "Recently opened" on the search screen is client-side only (localStorage
+  portal-recents, max 8).
+- All empty/loading/error strings preserved; wizard stays 4-step for USA;
+  wizard restore stays admin-gated navigation; account dropdown contents
+  and order unchanged (restyled). "Deleted airports" ungated on purpose —
+  the feature is per-user (delete/list/restore all scope to deleted_by).
+- Dev note: the ?icao= deep link aborts its first fetch under next dev
+  (StrictMode double-mount) — works in production builds; pre-existing.

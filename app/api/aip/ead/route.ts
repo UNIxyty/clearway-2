@@ -112,6 +112,10 @@ export async function GET(request: NextRequest) {
           stale,
           ageMs: age,
           refreshStarted: false,
+          // Portal redesign: the UI shows "Cached ... expires ..." from the REAL
+          // backend windows instead of a hard-coded 12h guess. Additive.
+          ttlMs: CACHE_TTL_MS,
+          staleAfterMs: FAST_CACHE_MAX_AGE_MS,
         },
       });
     }

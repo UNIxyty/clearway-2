@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeftIcon } from "lucide-react";
+import PortalShell from "@/components/portal/Shell";
+import { PCard, PButton, PSectionTitle } from "@/components/portal/ui";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   getNotificationPermission,
@@ -12,6 +11,9 @@ import {
   requestNotificationPermission,
   type NotificationPrefs,
 } from "@/lib/notifications";
+
+const checkboxClass = "h-4 w-4 accent-[#2563eb]";
+const checkRowClass = "flex items-center gap-3 text-sm text-[#17181c]";
 
 export default function NotificationSettingsPage() {
   const router = useRouter();
@@ -90,70 +92,69 @@ export default function NotificationSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading notification settings…</div>
-      </div>
+      <PortalShell>
+        <div className="flex min-h-[320px] items-center justify-center">
+          <div className="text-sm text-[#6c7079]">Loading notification settings…</div>
+        </div>
+      </PortalShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/profile")}>
-            <ArrowLeftIcon className="size-4 mr-1" />
-            Back to Profile
-          </Button>
-        </div>
+    <PortalShell>
+      <div className="max-w-[1100px] px-[30px] pb-10 pt-[26px]">
+        <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
+          Browser Notifications
+        </h1>
+        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+          Choose which events should display native browser notifications.
+        </p>
 
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Browser Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Choose which events should display native browser notifications.
-          </p>
-        </div>
+        <div className="flex max-w-[680px] flex-col gap-4">
+          {error && (
+            <div className="rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+              {error}
+            </div>
+          )}
 
-        {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          {success && (
+            <div className="rounded-[10px] border border-[#c7ead2] bg-[#e7f6ec] px-3.5 py-2.5 text-sm text-[#15803d]">
+              Notification settings saved successfully
+            </div>
+          )}
 
-        {success && (
-          <div className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
-            Notification settings saved successfully
-          </div>
-        )}
-
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="text-base">Notification Preferences</CardTitle>
-            <CardDescription>
+          <PCard className="p-[22px]">
+            <PSectionTitle>Notification Preferences</PSectionTitle>
+            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
               Enable browser notifications and control which sync events create alerts.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            </p>
+
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-[10px] bg-[#fbfbfc] px-3.5 py-3">
               <div>
-                <p className="text-sm font-medium">Permission</p>
-                <p className="text-xs text-muted-foreground">
-                  Status: {isNotificationSupported() ? notificationPermission : "unsupported"}
+                <p className="m-0 text-sm font-semibold text-[#17181c]">Permission</p>
+                <p className="m-0 mt-0.5 text-xs text-[#6c7079]">
+                  Status:{" "}
+                  <span className="font-mono">
+                    {isNotificationSupported() ? notificationPermission : "unsupported"}
+                  </span>
                 </p>
               </div>
-              <Button
+              <PButton
                 type="button"
-                variant="outline"
+                variant="secondary"
+                size="sm"
                 onClick={handleNotificationPermission}
                 disabled={!isNotificationSupported() || notificationPermission === "granted"}
               >
                 {notificationPermission === "granted" ? "Granted" : "Enable Notifications"}
-              </Button>
+              </PButton>
             </div>
 
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 text-sm">
+            <div className="mt-4 flex flex-col gap-2.5">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_enabled}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_enabled: e.target.checked }))
@@ -162,9 +163,10 @@ export default function NotificationSettingsPage() {
                 Enable notifications
               </label>
 
-              <label className="flex items-center gap-3 text-sm">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_search_start}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_search_start: e.target.checked }))
@@ -174,9 +176,10 @@ export default function NotificationSettingsPage() {
                 Search started
               </label>
 
-              <label className="flex items-center gap-3 text-sm">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_search_end}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_search_end: e.target.checked }))
@@ -186,9 +189,10 @@ export default function NotificationSettingsPage() {
                 Search completed
               </label>
 
-              <label className="flex items-center gap-3 text-sm">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_notam}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_notam: e.target.checked }))
@@ -198,9 +202,10 @@ export default function NotificationSettingsPage() {
                 NOTAM retrieved
               </label>
 
-              <label className="flex items-center gap-3 text-sm">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_aip}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_aip: e.target.checked }))
@@ -210,9 +215,10 @@ export default function NotificationSettingsPage() {
                 AIP retrieved
               </label>
 
-              <label className="flex items-center gap-3 text-sm">
+              <label className={checkRowClass}>
                 <input
                   type="checkbox"
+                  className={checkboxClass}
                   checked={notificationPrefs.notify_gen}
                   onChange={(e) =>
                     setNotificationPrefs((prev) => ({ ...prev, notify_gen: e.target.checked }))
@@ -222,18 +228,18 @@ export default function NotificationSettingsPage() {
                 GEN retrieved
               </label>
             </div>
-          </CardContent>
-        </Card>
+          </PCard>
 
-        <div className="flex gap-3">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save Notification Settings"}
-          </Button>
-          <Button variant="outline" onClick={() => router.push("/profile")}>
-            Back to Profile
-          </Button>
+          <div className="flex gap-3">
+            <PButton variant="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : "Save Notification Settings"}
+            </PButton>
+            <PButton variant="secondary" onClick={() => router.push("/profile")}>
+              Back to Profile
+            </PButton>
+          </div>
         </div>
       </div>
-    </div>
+    </PortalShell>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Trash2Icon } from "lucide-react";
+import PortalShell from "@/components/portal/Shell";
+import { PCard, PButton, PEmpty, PMono, PSectionTitle } from "@/components/portal/ui";
 
 type DeletedAirportRow = {
   id: number;
@@ -19,7 +19,6 @@ type DeletedAirportRow = {
 };
 
 export default function DeletedAirportsPage() {
-  const router = useRouter();
   const [rows, setRows] = useState<DeletedAirportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,26 +95,23 @@ export default function DeletedAirportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Deleted airports</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Restore airports hidden from the portal menu.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => router.push("/")}>
-            Back to portal
-          </Button>
-        </div>
+    <PortalShell>
+      <div className="max-w-[1100px] px-[30px] pb-10 pt-[26px]">
+        <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
+          Deleted airports
+        </h1>
+        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+          Restore airports hidden from the portal menu.
+        </p>
+
         {rows.length > 0 && (
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              {selectedIds.length} selected
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <p className="m-0 text-[12.5px] text-[#6c7079]">
+              <PMono className="font-semibold text-[#17181c]">{selectedIds.length}</PMono> selected
             </p>
-            <Button
+            <PButton
               type="button"
+              variant="primary"
               size="sm"
               onClick={() => {
                 void restoreSelected();
@@ -123,77 +119,77 @@ export default function DeletedAirportsPage() {
               disabled={selectedIds.length === 0 || restoringBulk}
             >
               {restoringBulk ? "Restoring selected…" : `Restore selected${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
-            </Button>
+            </PButton>
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="mb-4 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
             {error}
           </div>
         )}
 
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="text-base">Recently deleted</CardTitle>
-            <CardDescription>
+        <PCard className="overflow-hidden">
+          <div className="border-b border-[#eef0f2] px-[18px] py-4">
+            <PSectionTitle>Recently deleted</PSectionTitle>
+            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
               Airports hidden by your account. Restore returns airport to your browse menu.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No deleted airports.</p>
-            ) : (
-              <div className="space-y-2">
-                {rows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/70 px-3 py-2"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <input
-                        id={`deleted-airport-${row.id}`}
-                        type="checkbox"
-                        className="mt-1 size-4"
-                        checked={selectedIds.includes(row.id)}
-                        onChange={(e) => {
-                          setSelectedIds((prev) =>
-                            e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
-                          );
-                        }}
-                        aria-label={`Select ${row.icao} for restore`}
-                      />
-                      <div className="min-w-0">
-                      <p className="text-sm font-medium">
-                        <span className="font-mono mr-2">{row.icao}</span>
-                        <span>{row.airport_snapshot?.name || "Unnamed airport"}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {(row.airport_snapshot?.country || "Unknown country") +
-                          (row.airport_snapshot?.state ? ` · ${row.airport_snapshot.state}` : "")}
-                        {" · "}
-                        {new Date(row.deleted_at).toLocaleString()}
-                      </p>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        void restore(row);
-                      }}
-                      disabled={restoringId === row.id}
-                    >
-                      {restoringId === row.id ? "Restoring…" : "Restore"}
-                    </Button>
+            </p>
+          </div>
+          {loading ? (
+            <p className="m-0 px-[18px] py-5 text-sm text-[#6c7079]">Loading…</p>
+          ) : rows.length === 0 ? (
+            <PEmpty icon={<Trash2Icon className="h-5 w-5" />} title="No deleted airports." />
+          ) : (
+            <div>
+              {rows.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex items-center gap-3.5 border-b border-[#f2f3f5] px-[18px] py-3.5 last:border-b-0"
+                >
+                  <input
+                    id={`deleted-airport-${row.id}`}
+                    type="checkbox"
+                    className="h-4 w-4 flex-none accent-[#2563eb]"
+                    checked={selectedIds.includes(row.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) =>
+                        e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
+                      );
+                    }}
+                    aria-label={`Select ${row.icao} for restore`}
+                  />
+                  <PMono className="w-16 flex-none text-[14.5px] font-semibold text-[#17181c]">
+                    {row.icao}
+                  </PMono>
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-[14.5px] text-[#17181c]">
+                      {row.airport_snapshot?.name || "Unnamed airport"}
+                    </p>
+                    <p className="m-0 mt-0.5 truncate text-xs text-[#6c7079]">
+                      {(row.airport_snapshot?.country || "Unknown country") +
+                        (row.airport_snapshot?.state ? ` · ${row.airport_snapshot.state}` : "")}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <PMono className="hidden flex-none text-[12.5px] text-[#9aa0a8] sm:block">
+                    {new Date(row.deleted_at).toLocaleString()}
+                  </PMono>
+                  <button
+                    type="button"
+                    className="flex-none cursor-pointer rounded-[9px] border-none bg-[#eef4ff] px-3.5 py-2 text-[13px] font-semibold text-[#1d4ed8] hover:bg-[#e0eaff] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => {
+                      void restore(row);
+                    }}
+                    disabled={restoringId === row.id}
+                  >
+                    {restoringId === row.id ? "Restoring…" : "Restore"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </PCard>
       </div>
-    </div>
+    </PortalShell>
   );
 }

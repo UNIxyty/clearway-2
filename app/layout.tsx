@@ -1,6 +1,23 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+
+// Portal redesign: the same type stack as the Display Console — Public Sans
+// for UI, IBM Plex Mono for ICAOs / NOTAM ids / timestamps / raw METAR-TAF.
+// Loaded via next/font (self-hosted at build, no runtime Google request).
+const publicSans = Public_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sans",
+  display: "swap",
+});
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Clearway AIP Data Lookup Portal",
@@ -27,7 +44,7 @@ export default function RootLayout({
   `;
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${publicSans.variable} ${plexMono.variable}`}>
       <body className="min-h-screen bg-background font-sans">
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         <Providers>{children}</Providers>

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PortalShell from "@/components/portal/Shell";
+import { PCard, PSectionTitle } from "@/components/portal/ui";
 
 export default async function StatsPage() {
   const supabase = createSupabaseServerClient();
@@ -40,92 +40,88 @@ export default async function StatsPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <Link
-            href="/"
-            className="inline-flex h-8 items-center rounded-md border border-border/70 bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-          >
-            Back
-          </Link>
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Search statistics</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Hidden page (direct link only). Identity: <span className="font-mono">{identityId}</span>
-          </p>
-        </div>
+    <PortalShell>
+      <div className="max-w-[1100px] px-[30px] pb-10 pt-[26px]">
+        <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
+          Search statistics
+        </h1>
+        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+          Hidden page (direct link only). Identity: <span className="font-mono">{identityId}</span>
+        </p>
 
-        {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive space-y-1">
-            <p>Failed to load stats: {error.message}</p>
-            {(error.message.includes("search_events") || error.message.includes("does not exist")) && (
-              <p className="text-muted-foreground">
-                Run the SQL in <code className="bg-muted px-1 rounded">docs/supabase-search-events.sql</code> in your
-                Supabase project → SQL Editor. See <code className="bg-muted px-1 rounded">docs/SUPABASE-SETUP.md</code>.
-              </p>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col gap-4">
+          {error && (
+            <div className="space-y-1 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+              <p className="m-0">Failed to load stats: {error.message}</p>
+              {(error.message.includes("search_events") || error.message.includes("does not exist")) && (
+                <p className="m-0 text-[#6c7079]">
+                  Run the SQL in{" "}
+                  <code className="rounded bg-[#f0f1f3] px-1 font-mono">docs/supabase-search-events.sql</code>{" "}
+                  in your Supabase project → SQL Editor. See{" "}
+                  <code className="rounded bg-[#f0f1f3] px-1 font-mono">docs/SUPABASE-SETUP.md</code>.
+                </p>
+              )}
+            </div>
+          )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Total searches</CardTitle>
-              <CardDescription>Last 500 events stored</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{total}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Last 7 days</CardTitle>
-              <CardDescription>Rolling window</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{last7}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Top queries</CardTitle>
-            <CardDescription>Your most searched terms</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {topQueries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No searches yet.</p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {topQueries.map(([q, n]) => (
-                  <div key={q} className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
-                    <div className="text-sm font-medium break-words">{q}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{n} searches</div>
-                  </div>
-                ))}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PCard className="p-[22px]">
+              <PSectionTitle>Total searches</PSectionTitle>
+              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-[#17181c]">
+                {total}
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="mt-2 text-[12.5px] text-[#9aa0a8]">Last 500 events stored</div>
+            </PCard>
+            <PCard className="p-[22px]">
+              <PSectionTitle>Last 7 days</PSectionTitle>
+              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-[#17181c]">
+                {last7}
+              </div>
+              <div className="mt-2 text-[12.5px] text-[#9aa0a8]">Rolling window</div>
+            </PCard>
+          </div>
 
-        <Card className="border-border/70">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Recent searches</CardTitle>
-            <CardDescription>Most recent first</CardDescription>
-          </CardHeader>
-          <CardContent>
+          <PCard className="p-[22px]">
+            <PSectionTitle>Top queries</PSectionTitle>
+            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">Your most searched terms</p>
+            <div className="mt-4">
+              {topQueries.length === 0 ? (
+                <p className="m-0 text-sm text-[#6c7079]">No searches yet.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {topQueries.map(([q, n]) => (
+                    <div
+                      key={q}
+                      className="rounded-[10px] border border-[#e6e7ea] bg-[#fbfbfc] px-3.5 py-2.5"
+                    >
+                      <div className="break-words text-sm font-semibold text-[#17181c]">{q}</div>
+                      <div className="mt-0.5 font-mono text-xs text-[#9aa0a8]">{n} searches</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </PCard>
+
+          <PCard className="overflow-hidden">
+            <div className="border-b border-[#eef0f2] px-[22px] py-4">
+              <PSectionTitle>Recent searches</PSectionTitle>
+              <p className="m-0 mt-1 text-[13px] text-[#6c7079]">Most recent first</p>
+            </div>
             {(events ?? []).slice(0, 30).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No searches yet.</p>
+              <p className="m-0 px-[22px] py-5 text-sm text-[#6c7079]">No searches yet.</p>
             ) : (
-              <div className="space-y-2">
+              <div>
                 {(events ?? []).slice(0, 30).map((e, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3 border-b border-[#f2f3f5] px-[22px] py-3 last:border-b-0"
+                  >
                     <div className="min-w-0">
-                      <div className="text-sm font-medium break-words">{e.query}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="break-words text-sm font-semibold text-[#17181c]">
+                        {e.query}
+                      </div>
+                      <div className="mt-0.5 font-mono text-xs text-[#9aa0a8]">
                         {new Date(e.created_at).toLocaleString()}
                         {typeof e.result_count === "number" ? ` • ${e.result_count} results` : ""}
                       </div>
@@ -134,10 +130,9 @@ export default async function StatsPage() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </PCard>
+        </div>
       </div>
-    </div>
+    </PortalShell>
   );
 }
-

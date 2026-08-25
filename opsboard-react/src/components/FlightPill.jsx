@@ -541,7 +541,7 @@ export default function FlightPill({
   const endLabel = `${arrPrefix}${arrHm ?? eta}`;
   const deltaTag = (deltaMin) =>
     deltaMin === 0 ? null : (
-      <span style={{ color: deltaMin > 0 ? '#e8a33d' : '#4ade80', fontWeight: 700 }}>
+      <span style={{ color: deltaMin > 0 ? '#ffb224' : '#3fe97a', fontWeight: 800 }}>
         {' '}{deltaMin > 0 ? '+' : '\u2212'}{Math.abs(deltaMin)}
       </span>
     );
@@ -568,14 +568,18 @@ export default function FlightPill({
   // Only two endpoint labels exist now (boundary labels are gone), so the
   // compact threshold is just "both endpoint labels can't clear each other".
   const compactTimes = timelinePx > 0 && pillPx < labelW * 2.3;
-  const icaoW = F.icao * 2.6;
-  // Both codes need room for the divider and paddings — otherwise fall back
-  // to ADEP-only rather than ellipsizing ("EV…"). Badges are NOT reserved
-  // space here: they only render once both ICAOs already fit comfortably.
+  // Bug report 4 item 6 (third report of "LI…"): the old gate reserved
+  // icaoW*2 + sz(22) but the row actually needs the outer padding
+  // (2×sz(9)), TWO 8px flex gaps, the 1px divider and the .5px/char
+  // letter-spacing on top of the glyph advances — ~13px more at defaults.
+  // Pills in that band passed the gate and ellipsized. Reserve the EXACT
+  // layout cost (+6px safety); the rule is: both codes fit completely or
+  // nothing renders inside — the route below the pill is authoritative.
+  const icaoCodePx = (code) => String(code).length * (F.icao * 0.62 + 0.5);
+  const inPillIcaoNeedPx = icaoCodePx(dep) + icaoCodePx(arr) + 1 + 2 * 8 + 2 * sz(9) + sz(6);
   const showFull = timelinePx > 0
-    ? mainPx >= icaoW * 2 + sz(22)
+    ? mainPx >= inPillIcaoNeedPx
     : (mainSectionF / totalF) > 0.14;
-  const showRoute = timelinePx > 0 ? mainPx >= icaoW + sz(6) : (mainSectionF / totalF) > 0.08;
   // Timings drop before ICAOs: on a pill too narrow for even the compact
   // combined label, render no times row at all (details live in the overlay).
   const showTimes = true; // timings always visible (bug report 2 item 3)
@@ -854,7 +858,7 @@ export default function FlightPill({
         // ICAO codes so the route stays readable mid-flight.
         <div style={{ display: 'flex', justifyContent: 'space-between', height: F.timesRow, marginTop: sz(2), width: `${((arrCrossStartF - depF) / totalF) * 100}%` }}>
           <span style={{ ...timeStyle, position: 'sticky', left: stickyLeftPx, transform: 'none' }}>
-            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep} </span>}
+            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#f2f6ff' }}>{dep} </span>}
             {startLabel}{deltaTag(depDeltaMin)}
           </span>
           <span style={{ ...timeStyle, position: 'sticky', right: sz(8), transform: 'none' }}>
@@ -874,9 +878,9 @@ function icaoStyle(fontSize) {
     fontWeight: 700,
     letterSpacing: '.5px',
     whiteSpace: 'nowrap',
-    flexShrink: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    // NEVER ellipsize an ICAO (bug report 4 item 6): the fit gate reserves
+    // the exact width, and a code that can't fit simply doesn't render.
+    flexShrink: 0,
     lineHeight: 1,
   };
 }

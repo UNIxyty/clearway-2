@@ -64,3 +64,16 @@ html, body, #root {
 .timeline-scroll::-webkit-scrollbar-corner {
   background: #151a27;
 }
+
+/* Bug report 4 item 3: the header (hour ruler) keeps scroll SYNC with the
+   body but must not draw its own bar — it sat on top of the hour labels.
+   Only the bottom scrollbar remains. */
+.timeline-scroll--header {
+  scrollbar-width: none;
+}
+
+.timeline-scroll--header::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

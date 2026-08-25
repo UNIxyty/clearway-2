@@ -291,8 +291,8 @@ function sanitizeDisplaySettings(input = {}) {
     throw new Error("headerScale must be a number between 0.3 and 2.0.");
   }
   const acColScale = input.acColScale === undefined ? DEFAULT_DISPLAY_SETTINGS.acColScale : Number(input.acColScale);
-  if (!Number.isFinite(acColScale) || acColScale < 0.3 || acColScale > 1.5) {
-    throw new Error("acColScale must be a number between 0.3 and 1.5.");
+  if (!Number.isFinite(acColScale) || acColScale < 0.2 || acColScale > 1.5) {
+    throw new Error("acColScale must be a number between 0.2 and 1.5.");
   }
   // MVT flash (bug report 3 item 7): missing T/O past threshold blinks the
   // pill outline. Reference = CTOT/ETD when present, else STD.

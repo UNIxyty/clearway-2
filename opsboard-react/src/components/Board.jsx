@@ -181,7 +181,10 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const szSide = (v) => Math.round(v * sidebarScale);
   // The left aircraft column shrinks/grows with its OWN control so it never
   // eats space needed for rows (fonts floor at 7px for legibility).
-  const AC_LABEL_W = Math.max(34, Math.round(150 * scale * acColScale));
+  // Bug report 4 item 4: tighter column, more timeline. 118px base keeps a
+  // 6-char registration + operator name legible at ops-room distance; the
+  // floor drops with the wider acColScale range (0.2 min server-side).
+  const AC_LABEL_W = Math.max(26, Math.round(118 * scale * acColScale));
   const acFont = (v) => Math.max(7, Math.round(v * scale * acColScale));
   const s = makeStyles(sz, szSide, { AC_LABEL_W, acFont });
   const END_PAD_PX = sz(260);

@@ -820,7 +820,7 @@ function PanelScalesCard() {
       <WindowRow
         label="Aircraft column"
         hint="the left registration column — shrink it to give the timeline more width"
-        min={0.3}
+        min={0.2}
         max={1.5}
         step={0.05}
         unit="×"

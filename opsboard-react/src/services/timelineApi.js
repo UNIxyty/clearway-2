@@ -370,7 +370,6 @@ export async function fetchUpcomingFlights() {
         etaHm: toHm(flight.eta ?? flight.endTimeUTC),
         ataHm: toHm(flight.ata),
         date: (() => { const d = new Date(stdMs); return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; })(),
-        trip: flight.tripNo ?? flight.tripCode ?? '—',
         flightColor: flight.checklistColor || null,
         adepColor: flight.checklistAdepColor || null,
         adesColor: flight.checklistAdesColor || null,

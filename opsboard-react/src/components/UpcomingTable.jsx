@@ -26,7 +26,6 @@ const COLS = [
   { key: 'etaHm', label: 'ETA' },
   { key: 'ataHm', label: 'ATA' },
   { key: 'date', label: 'DATE' },
-  { key: 'trip', label: 'TRIP' },
 ];
 
 export default function UpcomingTable({ scale = 1, widthPct = 30 }) {

@@ -9,16 +9,20 @@ import Icon from './console/icons';
 // Softened ops-room palette (Part 2): desaturated, dusty tones — same state
 // semantics, easier on the eyes across a shift. All fills are mid-light so a
 // single dark ink stays legible on every state (contrast ≥ ~7:1 at scale).
+// Bug report 4 item 1: brighter, more saturated fills — the mid-tones
+// blended into the dark panel from across the ops room. Same semantic
+// mapping, higher luminance and chroma; the dark in-pill text keeps its
+// contrast on every fill.
 const STATUS = {
-  scheduled: { bg: '#dde1ea', text: '#1a1e2a' },
-  delayed:   { bg: '#c9ab62', text: '#221c08' },
-  ctot:      { bg: '#9d8cc2', text: '#1e1930' },
-  airborne:  { bg: '#7d9cc4', text: '#101a28' },
-  arrived:   { bg: '#bd8ba4', text: '#26121d' }, // dusty mauve (reference tone)
+  scheduled: { bg: '#f2f5fb', text: '#141824' },
+  delayed:   { bg: '#e9bd45', text: '#221c08' },
+  ctot:      { bg: '#af92e8', text: '#1e1930' },
+  airborne:  { bg: '#74aef0', text: '#0c1622' },
+  arrived:   { bg: '#dd93bd', text: '#26121d' }, // mauve, brightened
   cancelled: { bg: 'rgba(90,97,120,.45)', text: '#a7aec4' },
   // legacy aliases (older cached data)
-  boarding:  { bg: '#dde1ea', text: '#1a1e2a' },
-  slot:      { bg: '#9d8cc2', text: '#1e1930' },
+  boarding:  { bg: '#f2f5fb', text: '#141824' },
+  slot:      { bg: '#af92e8', text: '#1e1930' },
 };
 
 // Leon checklist colors can be arbitrary; on the dark board a too-dark ID
@@ -26,22 +30,40 @@ const STATUS = {
 // most important signal in the room — cwy-cwy returns FF0000): instead mix
 // the color toward white until it clears the legibility threshold.
 function readableIdColor(hex, fallback) {
+  // Bug report 4 item 1: the old version mixed toward WHITE until bright
+  // enough — Leon's FF0000 became washed-out pink (#ff9e9e), the exact
+  // "letters wash out on the panel" complaint. Brighten in HSL instead:
+  // floor the lightness AND keep the chroma, so red stays RED and Leon's
+  // olive green becomes the vivid green ops point to on the old wall.
   const raw = String(hex || '').trim().replace('#', '');
   const expanded = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
   const m = /^([0-9a-f]{6})$/i.exec(expanded);
   if (!m) return fallback;
   const n = parseInt(m[1], 16);
-  let r = (n >> 16) & 255;
-  let g = (n >> 8) & 255;
-  let b = n & 255;
-  const luminance = () => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  for (let step = 0; luminance() < 0.55 && step < 8; step += 1) {
-    r = Math.round(r + (255 - r) * 0.25);
-    g = Math.round(g + (255 - g) * 0.25);
-    b = Math.round(b + (255 - b) * 0.25);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  const d = max - min;
+  if (d > 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
   }
-  const toHex = (v) => v.toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  const l0 = (max + min) / 2;
+  const s0 = d === 0 ? 0 : d / (1 - Math.abs(2 * l0 - 1));
+  if (s0 < 0.18) return '#f2f5fb'; // achromatic (greys) -> near-white
+  const sat = Math.max(s0, 0.85);
+  const lig = Math.min(Math.max(l0, 0.6), 0.74);
+  const c = (1 - Math.abs(2 * lig - 1)) * sat;
+  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
+  const mm = lig - c / 2;
+  const seg = Math.floor(h * 6) % 6;
+  const rgb = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][seg];
+  const toHex = (v) => Math.round((v + mm) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
 }
 
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small
@@ -57,10 +79,10 @@ const ALERT_MARK = {
 // so "worst" is distinguishable from plain IFR red. Adjust here if ops wants
 // different hues.
 export const WX_CATEGORY_COLORS = {
-  VFR:  '#3fbf6f', // good
-  MVFR: '#e8a33d', // marginal
-  IFR:  '#e5484d', // bad
-  LIFR: '#b03aa0', // worst — deep magenta, never green
+  VFR:  '#41e277', // good
+  MVFR: '#ffb224', // marginal
+  IFR:  '#ff4d55', // bad
+  LIFR: '#d84ad0', // worst — vivid magenta, never green
 };
 
 // Light-theme marker palette (console lists): same semantics as the wall
@@ -84,7 +106,7 @@ const MARK_LIGHT = {
 // IFR/no-forecast, not as a rendering failure). Two variants: dark tones
 // for light pill fills, bright tones for text on the dark board.
 export const WX_ICAO_DARK = { VFR: '#166534', MVFR: '#92400e', LIFR: '#b91c1c', IFR: null };
-export const WX_ICAO_BRIGHT = { VFR: '#3fbf6f', MVFR: '#e8a33d', LIFR: '#ef6a6a', IFR: null };
+export const WX_ICAO_BRIGHT = { VFR: '#41e277', MVFR: '#ffb224', LIFR: '#ff5d5d', IFR: null };
 
 /** Hex -> rgba with alpha, for the marker chip border/backing. */
 function hexA(hex, alpha) {
@@ -298,7 +320,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: sz(9.5),
             fontWeight: 800,
-            color: '#aeb9d6',
+            color: '#e2e9f8',
             border: '1px solid rgba(160,175,210,.45)',
             borderRadius: 4,
             padding: `1px ${sz(4)}px`,
@@ -524,7 +546,7 @@ export default function FlightPill({
 
   // ID text: Leon checklist color (contrast-guarded on the dark board),
   // italic when the trip is not CONFIRMED (Option/Opportunity).
-  const idColor = readableIdColor(flight.checklistColor, '#d4ddf2');
+  const idColor = readableIdColor(flight.checklistColor, '#f2f5fb');
   const idStyle = flight.isConfirmed === false ? 'italic' : 'normal';
 
   // ── Ops timing rules (bug report 7-9) — exact precedence ───────────────
@@ -637,8 +659,8 @@ export default function FlightPill({
     // (anchored mode overrides position to sticky — see below)
     fontFamily: "'IBM Plex Mono',monospace",
     fontSize: F.times,
-    fontWeight: 600,
-    color: '#aeb9d6',
+    fontWeight: 700,
+    color: '#e2e9f8',
     lineHeight: `${F.timesRow}px`,
     transform: 'translateX(-50%)',
     whiteSpace: 'nowrap',
@@ -672,9 +694,9 @@ export default function FlightPill({
                   width: limCircle,
                   height: limCircle,
                   borderRadius: '50%',
-                  background: done ? 'transparent' : '#f0c06b',
-                  border: done ? '1.5px solid rgba(240,192,107,.55)' : 'none',
-                  color: done ? 'rgba(240,192,107,.75)' : '#3a2a06',
+                  background: done ? 'transparent' : '#ff3b30',
+                  border: done ? '1.5px solid rgba(255,95,80,.6)' : 'none',
+                  color: done ? 'rgba(255,125,110,.9)' : '#ffffff',
                   fontSize: Math.max(7, Math.round(limCircle * 0.62)),
                   fontWeight: 800,
                   fontFamily: "'IBM Plex Mono',monospace",
@@ -807,17 +829,17 @@ export default function FlightPill({
             marginTop: sz(2),
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: F.times,
-            fontWeight: 600,
-            color: '#aeb9d6',
+            fontWeight: 700,
+            color: '#e2e9f8',
             lineHeight: `${F.timesRow}px`,
             whiteSpace: 'nowrap',
           }}
         >
           <span style={{ position: 'sticky', left: stickyLeftPx, display: 'inline-block' }}>
             <span style={{ fontWeight: 700 }}>
-              <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#ccd6ee' }}>{dep}</span>
-              <span style={{ color: '#ccd6ee' }}>→</span>
-              <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}>{arr}</span>
+              <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#f2f6ff' }}>{dep}</span>
+              <span style={{ color: '#f2f6ff' }}>→</span>
+              <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#f2f6ff' }}>{arr}</span>
             </span>
             {belowMode === 'combined' && <span> · {timesText}</span>}
           </span>
@@ -834,8 +856,8 @@ export default function FlightPill({
             marginTop: sz(2),
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: F.times,
-            fontWeight: 600,
-            color: '#aeb9d6',
+            fontWeight: 700,
+            color: '#e2e9f8',
             lineHeight: `${F.timesRow}px`,
             whiteSpace: 'nowrap',
           }}

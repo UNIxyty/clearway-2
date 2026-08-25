@@ -591,7 +591,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 onClick={() => setOpenLimId((prev) => (prev === l.id ? null : l.id))}
                 title="Show description"
               >
-                <span style={{ ...s.limBadgeNum, borderColor: 'rgba(240,177,59,.4)', color: '#f0c060' }}>{i + 1}</span>
+                <span style={{ ...s.limBadgeNum, borderColor: 'rgba(255,90,80,.5)', color: '#ff6b60' }}>{i + 1}</span>
                 <span style={s.limTitle}>{l.title}</span>
                 <span style={{ marginLeft: 'auto', color: '#5a6a94', fontSize: szSide(11) }}>{openLimId === l.id ? '▴' : '▾'}</span>
               </div>
@@ -655,7 +655,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 // obscures other flights or rows.
                 const rowHeight = lanesHeight + (openFlight ? INFO_TAB_H + 10 : 0);
                 return (
-                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? 'rgba(148,163,196,.045)' : 'transparent' }}>
+                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? 'rgba(148,163,196,.07)' : 'transparent' }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>
@@ -836,7 +836,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   tick: {
     width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
     borderRight: '1px solid #222840',
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 600, color: '#8794b8',
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 700, color: '#b9c6e6',
   },
 
   // NOW header marker
@@ -884,10 +884,10 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
     zIndex: 35,
     background: '#151a27',
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
-    padding: '0 12px', borderRight: '1px solid #222840',
+    padding: '0 9px', borderRight: '1px solid #222840',
   },
-  reg:    { fontSize: acFont(15), fontWeight: 700, letterSpacing: '.3px', color: '#f2f5fb' },
-  acType: { fontSize: acFont(11.5), color: '#8090b8', marginTop: 2 },
+  reg:    { fontSize: acFont(15), fontWeight: 800, letterSpacing: '.3px', color: '#ffffff' },
+  acType: { fontSize: acFont(11.5), color: '#aab8da', marginTop: 2 },
   // 'clip' (not 'hidden'): identical clipping, but hidden would make this a
   // scroll container and swallow the pills' position:sticky labels (bug
   // report 3 item 4) — clip lets them stick to the real scroller instead.

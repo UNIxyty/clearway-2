@@ -1474,3 +1474,32 @@ default; the flight-check ack cycle follows the same resolved hour). A
 "Fetch weather now" button triggers the daily flight-weather pull on
 demand. Also: plain "UTC" is selectable in the clocks zone search (V8's
 Intl zone list doesn't contain it).
+
+## Bug report 4 (August 2026) — panel contrast + recurring visibility bugs
+
+Judged against the PHOTOGRAPHED ops-room panel, not a desktop browser.
+Item 1: tone-only contrast pass (semantics untouched). readableIdColor
+now brightens in HSL keeping chroma — the old mix-toward-white turned
+Leon's FF0000 callsigns washed-out pink (#ff9e9e), the core "washes out"
+complaint; it is now vivid #ff3333 (the upcoming table's praised red is
+the reference). Fills, times (weight 700), ticks, ICAOs, deltas all
+brightened — measured WCAG ratios in the commit message; limitation
+circles amber → strong red per the old wall.
+Item 2 (>13h, THIRD report) — actual root cause: report 3 fixed the READ
+side (gate reads shape.default) but the settings PUT still wrote the
+sliders into shape.accounts[user]; reads and writes never met, so the
+wall sat at the default 13h/1.5h no matter what ops configured. Window
+keys are now global on both sides (PUT → default, purge account copies,
+resolution force-serves default) and a window change broadcasts an
+immediate wall re-pull. Proven with seeded prod-like state and an 18h
+flight: HIDDEN at 13/1.5 → VISIBLE at 30/4 after a plain-user PUT.
+Item 3: header scroller keeps sync but draws no bar. Item 4: aircraft
+column base 150→118px, floor 26px, acColScale min 0.2, padding 9px.
+Item 5: TRIP column removed. Item 6 ('LI…', THIRD report) — actual root
+cause: the in-pill fit gate under-reserved the row chrome (~13px:
+padding, flex gaps, divider, letter-spacing), so a band of pill widths
+passed the gate and CSS-ellipsized; reports 2/3 had fixed the below-text
+paths instead. The gate now reserves the exact layout cost and ellipsis
+is removed outright — both codes fit or nothing renders inside. Audit at
+defaults AND minimums with 25/40/85-min flights, table shown: zero '…',
+zero clipped ICAOs, zero overlaps, no top scrollbar, no page overflow.

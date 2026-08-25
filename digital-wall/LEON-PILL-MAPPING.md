@@ -190,9 +190,13 @@ geometry per the NEWEST ops mockups (this reverses the report-2
 
 A flight is on the wall while its [start, end] interval OVERLAPS
 [now − postLandingHours, now + upcomingHorizonHours] (start = ATD→ETD→STD,
-end = ATA→ETA→STA). The window is GLOBAL — `getVisibilitySettings` reads
-only the shared default; per-account profiles no longer override it (the
-main-wall profile once carried a stale copy and shrank the wall's world).
+end = ATA→ETA→STA). The window is GLOBAL on BOTH sides (bug report 4
+item 2): `getVisibilitySettings` reads only the shared default, AND the
+settings PUT persists the two window keys into that default (never into
+account profiles — stale copies are purged, and resolution force-serves
+the keys from the default). Report 3 fixed only the read side while the
+sliders kept writing to account profiles nobody read — the wall stayed at
+13h/1.5h regardless of settings, the recurring ">13h flights invisible".
 
 ## MVT flash (bug report 3 item 7)
 

@@ -636,3 +636,43 @@ ADDITIVE fields `cache.ttlMs`/`cache.staleAfterMs` in /api/aip/ead).
   the feature is per-user (delete/list/restore all scope to deleted_by).
 - Dev note: the ?icao= deep link aborts its first fetch under next dev
   (StrictMode double-mount) — works in production builds; pre-existing.
+
+---
+
+## Redesign follow-ups (August 2026)
+
+UI-only, verified against a production build with an authed pass:
+1. Real brand assets shared with the console (public/brand/* copied from
+   opsboard-react/public/assets/*): clearway-logo.svg in the top bar,
+   verxyl-footer.png in the footer. "Built by Verxyl" appears exactly once
+   per page (footer only; the sidebar text block was removed).
+2. Flags render in fixed-width inline slots so flag + mono ICAO + name sit
+   on one baseline everywhere (wizard rows, result tabs, detail header,
+   country lists, recents).
+3. The GEN loading-steps popover renders through a portal to document.body
+   at z-2100 (above Leaflet's ~1000 panes); Web AIP modal raised to
+   z-2200; captcha consent dialog and bug-reports hover banner bumped
+   above the map too.
+4. AI Extracted tab + Extract Data button removed (UI only). Backend
+   extract=1 routes and the sync worker untouched. Now-unreachable client
+   code left in place and documented in the commit: requestSyncAipEad,
+   the SSE extract branch of the AIP sync effect, isEadPlaceholder, and
+   the extraction-progress strings. "No AIP data for this airport in this
+   sync." left with the removed AI view.
+5. Web AIP = blue-tint accent, Report a problem = red-tint accent;
+   Download PDF stays the sole primary.
+6. Health pill colours by aggregate status — thresholds: RED when >=10%
+   of countries are in issues; AMBER when >=10% are not operational
+   (in work/partial/issues combined); GREEN otherwise. Number matches
+   /status (verified: 103/106 -> green).
+7. Live search suggestions: 250ms debounce, >=2 chars, existing
+   GET /api/search only, ranked exact-ICAO > ICAO-prefix > name/country,
+   cap 8, full keyboard nav; selecting runs the exact search(icao) path so
+   /api/search/log fires unchanged.
+8. Digital Wall / Console / Guide dropdown links verified against the live
+   gateway (200/200/302); contents and order unchanged.
+9. One shared UserBadge via the shell; page padding uniform
+   (px-[30px] pt-[26px] pattern across all shell pages).
+10. Sidebar rebuilt to Display Console parity: 236px, same paddings/item
+    metrics/active tint, bottom status card (live country-service summary,
+    the console's "Sync status" analogue); Search statistics added to nav.

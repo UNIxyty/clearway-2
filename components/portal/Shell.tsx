@@ -1,13 +1,16 @@
 "use client";
 
-// Portal app shell — console-style slim top bar, left nav, footer. Wraps the
-// main portal page and the light secondary pages (Profile, Stats, Deleted
-// airports, admin lists). Pickem/Playoffs intentionally do NOT use it.
+// Portal app shell — console-parity top bar, left nav and footer. The
+// sidebar mirrors the Display Console's exactly (236px, same paddings, item
+// metrics, active tint, bottom status card) so the two apps read as one
+// product. Real brand assets (shared with the console: public/brand/* are
+// copies of opsboard-react/public/assets/*) — "Built by Verxyl" appears
+// exactly ONCE per page, in the footer.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { GlobeIcon, SearchIcon, ActivityIcon, Trash2Icon } from "lucide-react";
+import { SearchIcon, ActivityIcon, Trash2Icon, BarChart3Icon } from "lucide-react";
 import { clsx } from "clsx";
 import UserBadge from "@/components/UserBadge";
 import {
@@ -18,13 +21,24 @@ import {
 type StatusRow = { country: string; state: CountryServiceState };
 
 /**
- * The former floating "Portal Service Status" banner, re-homed as a compact
- * health pill in the top bar. Same endpoint, same 10s poll; clicking goes to
- * the dedicated /status page.
+ * Aggregate portal health from the country statuses. Thresholds (stated in
+ * docs): RED when ≥10% of countries are in `issues`; AMBER when ≥10% are
+ * not operational (in work / partial / issues combined); GREEN otherwise —
+ * i.e. effectively all operational. 103/106 operational with 3 issues
+ * (~2.8%) reads GREEN, matching what /status shows.
  */
-function HealthPill() {
-  const [rows, setRows] = useState<StatusRow[] | null>(null);
+function healthTone(rows: StatusRow[]) {
+  const total = rows.length;
+  if (!total) return null;
+  const operational = rows.filter((r) => r.state === "operational").length;
+  const issues = rows.filter((r) => r.state === "issues").length;
+  const notOperational = total - operational;
+  const tone = issues / total >= 0.1 ? "red" : notOperational / total >= 0.1 ? "amber" : "green";
+  return { tone, operational, total } as const;
+}
 
+function useStatusRows() {
+  const [rows, setRows] = useState<StatusRow[] | null>(null);
   useEffect(() => {
     let alive = true;
     const load = async () => {
@@ -44,34 +58,48 @@ function HealthPill() {
       clearInterval(timer);
     };
   }, []);
+  return rows;
+}
 
-  const summary = useMemo(() => {
-    if (!rows || rows.length === 0) return null;
-    const operational = rows.filter((r) => r.state === "operational").length;
-    const issues = rows.filter((r) => r.state === "issues").length;
-    const tone = issues > 0 ? "issues" : operational > 0 ? "operational" : "not_checked";
-    return { operational, total: rows.length, tone } as const;
-  }, [rows]);
+const TONE_STYLES = {
+  green: {
+    pill: "border-[#c7ead2] bg-[#e7f6ec] hover:bg-[#dcf0e4]",
+    text: "text-[#15803d]",
+    dot: "#16a34a",
+    halo: "rgba(22,163,74,.15)",
+  },
+  amber: {
+    pill: "border-[#f0e0c2] bg-[#fdf6e7] hover:bg-[#faefd6]",
+    text: "text-[#b45309]",
+    dot: "#f59e0b",
+    halo: "rgba(245,158,11,.16)",
+  },
+  red: {
+    pill: "border-[#f0d4d4] bg-[#fdf2f2] hover:bg-[#fbe8e8]",
+    text: "text-[#a12a2e]",
+    dot: "#ef4444",
+    halo: "rgba(229,72,77,.12)",
+  },
+} as const;
 
+function HealthPill({ rows }: { rows: StatusRow[] | null }) {
+  const summary = useMemo(() => healthTone(rows ?? []), [rows]);
   if (!summary) return null;
-  const meta = COUNTRY_SERVICE_STATE_META[summary.tone as CountryServiceState];
-  const good = summary.tone === "operational";
+  const s = TONE_STYLES[summary.tone];
   return (
     <Link
       href="/status"
       className={clsx(
         "hidden items-center gap-2 rounded-full border px-3 py-1.5 no-underline md:inline-flex",
-        good
-          ? "border-[#c7ead2] bg-[#e7f6ec] hover:bg-[#dcf0e4]"
-          : "border-[#f0d4d4] bg-[#fdf2f2] hover:bg-[#fbe8e8]"
+        s.pill
       )}
       title="Country service statuses"
     >
       <span
         className="h-2 w-2 rounded-full"
-        style={{ background: meta?.hex ?? "#9ca3af", boxShadow: `0 0 0 4px ${good ? "rgba(22,163,74,.15)" : "rgba(229,72,77,.12)"}` }}
+        style={{ background: s.dot, boxShadow: `0 0 0 4px ${s.halo}` }}
       />
-      <span className={clsx("text-[12.5px] font-semibold", good ? "text-[#15803d]" : "text-[#a12a2e]")}>
+      <span className={clsx("text-[12.5px] font-semibold", s.text)}>
         {summary.operational} of {summary.total} countries operational
       </span>
     </Link>
@@ -82,6 +110,7 @@ const NAV = [
   { href: "/", label: "Search", icon: SearchIcon },
   { href: "/status", label: "Service status", icon: ActivityIcon },
   { href: "/admin/airports/deleted", label: "Deleted airports", icon: Trash2Icon },
+  { href: "/stats", label: "Search statistics", icon: BarChart3Icon },
 ] as const;
 
 export default function PortalShell({
@@ -93,6 +122,8 @@ export default function PortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const rows = useStatusRows();
+  const summary = useMemo(() => healthTone(rows ?? []), [rows]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f5f6f7] font-sans text-[#17181c]">
@@ -102,27 +133,26 @@ export default function PortalShell({
           onClick={() => router.push("/")}
           className="flex cursor-pointer items-center gap-3 border-none bg-transparent p-0"
         >
-          <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-[#17181c]">
-            <span className="h-[9px] w-[9px] rounded-full bg-[#17181c]" />
-          </span>
-          <span className="text-base font-extrabold tracking-[-0.01em]">clearway</span>
+          {/* Same asset the Display Console serves. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/clearway-logo.svg" alt="Clearway" className="h-[30px] w-auto" />
           <span className="mx-0.5 h-5 w-px bg-[#e6e7ea]" />
           <span className="text-sm font-semibold text-[#6c7079]">AIP Data Portal</span>
         </button>
         <div className="flex items-center gap-3.5">
-          <HealthPill />
+          <HealthPill rows={rows} />
           <span className="hidden h-6 w-px bg-[#e6e7ea] md:block" />
           <UserBadge />
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1">
-        {/* LEFT NAV */}
-        <div className="hidden w-[228px] flex-none flex-col border-r border-[#e6e7ea] bg-white px-3 pb-3.5 pt-4 lg:flex">
-          <div className="px-2.5 pb-2.5 text-[10.5px] font-bold tracking-[0.13em] text-[#9aa0a8]">
+        {/* LEFT NAV — console parity: 236px, 18/14 padding, same item metrics */}
+        <div className="hidden w-[236px] flex-none flex-col border-r border-[#e6e7ea] bg-white px-3.5 py-[18px] lg:flex">
+          <div className="px-2.5 pb-3 text-[10.5px] font-bold tracking-[0.13em] text-[#9aa0a8]">
             PORTAL
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-[3px]">
             {NAV.map((item) => {
               const active =
                 item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
@@ -132,22 +162,36 @@ export default function PortalShell({
                   key={item.href}
                   href={item.href}
                   className={clsx(
-                    "flex items-center gap-[11px] rounded-[10px] px-[11px] py-[9px] text-sm no-underline",
+                    "flex items-center gap-3 rounded-[10px] px-[11px] py-[10px] text-[14.5px] no-underline",
                     active
                       ? "bg-[#eef4ff] font-bold text-[#1d4ed8]"
                       : "font-medium text-[#3a3d44] hover:bg-[#f5f6f7] hover:text-[#17181c]"
                   )}
                 >
-                  <Icon className="h-[17px] w-[17px]" />
+                  <Icon className="h-[18px] w-[18px]" />
                   <span className="flex-1">{item.label}</span>
                 </Link>
               );
             })}
           </div>
           <div className="flex-1" />
-          <div className="flex flex-col gap-1 border-t border-[#eef0f2] pt-3">
-            <div className="text-[11px] font-bold tracking-[0.1em] text-[#c3c7cd]">BUILT BY</div>
-            <div className="text-[15px] font-extrabold tracking-[0.06em]">VERXYL</div>
+          {/* Bottom card — the console has "Sync status" here; the portal's
+              equivalent is the live country-service summary. */}
+          <div className="rounded-xl border border-[#e6e7ea] bg-[#fbfbfc] px-3.5 py-[13px]">
+            <div className="mb-[7px] flex items-center gap-2 text-[12.5px] font-bold">
+              Service status
+              <span
+                className="ml-auto h-2 w-2 rounded-full"
+                style={{
+                  background: summary ? TONE_STYLES[summary.tone].dot : "#d6d8dc",
+                }}
+              />
+            </div>
+            <div className="text-[11.5px] leading-[1.45] text-[#9aa0a8]">
+              {summary
+                ? `${summary.operational} of ${summary.total} countries operational`
+                : "Checking country statuses…"}
+            </div>
           </div>
         </div>
 
@@ -156,18 +200,22 @@ export default function PortalShell({
           <div className={clsx("min-h-[calc(100vh-60px-63px)]", !wide && "mx-auto max-w-[1100px]")}>
             {children}
           </div>
+          {/* The ONLY "Built by Verxyl" on the page. */}
           <div className="flex items-center gap-3.5 border-t border-[#e6e7ea] bg-white px-[30px] py-[18px]">
             <span className="flex-1 text-[12.5px] text-[#9aa0a8]">
               Data sourced from official AIP publications. For operational use only.
             </span>
-            <span className="text-[11px] font-bold tracking-[0.1em] text-[#c3c7cd]">BUILT BY</span>
-            <span className="text-sm font-extrabold tracking-[0.06em]">VERXYL</span>
+            <span className="text-[11.5px] text-[#9aa0a8]">Built by</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/verxyl-footer.png"
+              srcSet="/brand/verxyl-footer.png 1x, /brand/verxyl-footer@2x.png 2x, /brand/verxyl-footer@3x.png 3x"
+              alt="Verxyl"
+              className="h-[22px] w-auto opacity-85"
+            />
           </div>
         </div>
       </div>
-      <span className="sr-only">
-        <GlobeIcon />
-      </span>
     </div>
   );
 }

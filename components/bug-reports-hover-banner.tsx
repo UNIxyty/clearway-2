@@ -33,7 +33,7 @@ export default function BugReportsHoverBanner({ reports, onDeleteFixed, deleting
 
   return (
     <div
-      className="fixed top-[98px] left-3 z-[69]"
+      className="fixed top-[98px] left-3 z-[2000]"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, Trash2Icon, RefreshCwIcon, XIcon, GlobeIcon, Download, SearchIcon, SquareIcon, MapPinIcon, CloudSunIcon, ScrollTextIcon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
+import GenPopover from "@/components/portal/GenPopover";
 import { PButton, PCard, PMono, PSectionTitle, PTh } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
@@ -438,18 +439,20 @@ function AIPResultCard({
       onClick={onSelect}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2.5">
-        {flagUrl ? (
-          <img
-            src={flagUrl}
-            alt=""
-            width={22}
-            height={16}
-            className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
-          />
-        ) : (
-          <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
-        )}
-        <span className="font-mono text-[15px] font-semibold text-[#17181c]">{airport.icao}</span>
+        <span className="inline-flex w-[22px] flex-none items-center justify-center">
+          {flagUrl ? (
+            <img
+              src={flagUrl}
+              alt=""
+              width={22}
+              height={16}
+              className="rounded-sm border border-[#e6e7ea] object-cover"
+            />
+          ) : (
+            <GlobeIcon className="size-4 text-[#9aa0a8]" />
+          )}
+        </span>
+        <span className="whitespace-nowrap font-mono text-[15px] font-semibold text-[#17181c]">{airport.icao}</span>
         {airport.name ? <span className="text-sm text-[#6c7079]">{airport.name}</span> : null}
       </div>
       <div className="flex flex-col gap-4">
@@ -581,6 +584,9 @@ function AIPPortalPageInner() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<AIPAirport[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestHighlight, setSuggestHighlight] = useState(-1);
   const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
   const [results, setResults] = useState<AIPAirport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -622,7 +628,6 @@ function AIPPortalPageInner() {
   const [aipSyncElapsedSec, setAipSyncElapsedSec] = useState(0);
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
   const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
-  const [aipViewMode, setAipViewMode] = useState<"ai" | "pdf">("ai");
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
@@ -760,6 +765,9 @@ function AIPPortalPageInner() {
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
   const handledIcaoParamRef = useRef<string | null>(null);
   const requestControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const genPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
+  const suggestAbortRef = useRef<AbortController | null>(null);
+  const suggestDebounceRef = useRef<number | null>(null);
 
   const beginRequest = useCallback((key: string) => {
     const prev = requestControllersRef.current.get(key);
@@ -793,7 +801,6 @@ function AIPPortalPageInner() {
   useEffect(() => {
     setPdfDownloadError(null);
     setGenPdfDownloadError(null);
-    setAipViewMode("pdf");
     setShowGenSyncOverlay(false);
     setGenSyncSteps([]);
   }, [viewingAirport?.icao]);
@@ -1075,7 +1082,6 @@ function AIPPortalPageInner() {
       setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
       return;
     }
-    setAipViewMode("ai");
     const cachedAirport = aipEadCache[icao]?.airport;
     if (cachedAirport) {
       setAipEadSyncRequestedIcao(null);
@@ -1323,7 +1329,6 @@ function AIPPortalPageInner() {
     const hasExtractCache = Boolean(cacheEntry?.airport);
     const syncRequested = aipEadSyncRequestedIcao === icao;
     if (syncRequested && hasExtractCache) {
-      setAipViewMode("ai");
       setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       return;
     }
@@ -1365,7 +1370,6 @@ function AIPPortalPageInner() {
       } else {
         setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
       }
-      if (!shouldExtractSync) setAipViewMode("pdf");
       updateStage(
         icao,
         "aip",
@@ -2051,8 +2055,120 @@ function AIPPortalPageInner() {
     }
   }, [bgList, loading, notamsLoadingIcao, aipEadLoadingIcao, genLoadingPrefix, finishBackground]);
 
+  // Live search suggestions: debounce 250ms, >=2 chars, reuse the existing
+  // /api/search endpoint with an AbortController per keystroke.
+  const closeSuggestions = useCallback(() => {
+    if (suggestDebounceRef.current != null) {
+      window.clearTimeout(suggestDebounceRef.current);
+      suggestDebounceRef.current = null;
+    }
+    suggestAbortRef.current?.abort();
+    suggestAbortRef.current = null;
+    setSuggestOpen(false);
+    setSuggestHighlight(-1);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (suggestDebounceRef.current != null) window.clearTimeout(suggestDebounceRef.current);
+      suggestAbortRef.current?.abort();
+    };
+  }, []);
+
+  const rankSuggestions = useCallback((list: AIPAirport[], q: string): AIPAirport[] => {
+    const qUp = q.toUpperCase();
+    const qLow = q.toLowerCase();
+    const score = (a: AIPAirport) => {
+      const icao = String(a.icao || "").toUpperCase();
+      if (icao === qUp) return 0;
+      if (icao.startsWith(qUp)) return 1;
+      if (
+        String(a.name || "").toLowerCase().includes(qLow) ||
+        String(a.country || "").toLowerCase().includes(qLow)
+      ) {
+        return 2;
+      }
+      return 3;
+    };
+    const seen = new Set<string>();
+    const deduped = list.filter((a) => {
+      const key = String(a.icao || "").toUpperCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [...deduped].sort((a, b) => score(a) - score(b)).slice(0, 8);
+  }, []);
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    if (suggestDebounceRef.current != null) {
+      window.clearTimeout(suggestDebounceRef.current);
+      suggestDebounceRef.current = null;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+      suggestAbortRef.current?.abort();
+      suggestAbortRef.current = null;
+      setSuggestions([]);
+      setSuggestOpen(false);
+      setSuggestHighlight(-1);
+      return;
+    }
+    suggestDebounceRef.current = window.setTimeout(() => {
+      suggestDebounceRef.current = null;
+      suggestAbortRef.current?.abort();
+      const controller = new AbortController();
+      suggestAbortRef.current = controller;
+      fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : { results: [] }))
+        .then((data: { results?: AIPAirport[] }) => {
+          if (controller.signal.aborted) return;
+          const ranked = rankSuggestions(data.results ?? [], trimmed);
+          setSuggestions(ranked);
+          setSuggestOpen(ranked.length > 0);
+          setSuggestHighlight(-1);
+        })
+        .catch(() => {
+          // aborted or network error — leave dropdown as-is
+        });
+    }, 250);
+  }, [rankSuggestions]);
+
+  const pickSuggestion = useCallback((airport: AIPAirport) => {
+    closeSuggestions();
+    // Same path the ?icao= deep link uses: search() fires /api/search/log exactly as now.
+    setQuery(airport.icao);
+    void search(airport.icao);
+  }, [closeSuggestions, search]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") search();
+    if (suggestOpen && suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSuggestHighlight((h) => (h + 1 >= suggestions.length ? 0 : h + 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSuggestHighlight((h) => (h <= 0 ? suggestions.length - 1 : h - 1));
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeSuggestions();
+        return;
+      }
+      if (e.key === "Enter" && suggestHighlight >= 0 && suggestHighlight < suggestions.length) {
+        e.preventDefault();
+        pickSuggestion(suggestions[suggestHighlight]);
+        return;
+      }
+    }
+    if (e.key === "Enter") {
+      closeSuggestions();
+      search();
+    }
   };
 
   const showMap = !!(results?.length && viewingAirport);
@@ -2112,18 +2228,74 @@ function AIPPortalPageInner() {
                 <label htmlFor="search" className="sr-only">
                   Search
                 </label>
-                <div className="flex h-12 min-w-[240px] flex-1 items-center gap-2.5 rounded-[10px] border border-[#d6d8dc] bg-white px-3.5 transition-colors focus-within:border-[#2563eb]">
+                <div className="relative flex h-12 min-w-[240px] flex-1 items-center gap-2.5 rounded-[10px] border border-[#d6d8dc] bg-white px-3.5 transition-colors focus-within:border-[#2563eb]">
                   <SearchIcon className="size-[18px] shrink-0 text-[#9aa0a8]" aria-hidden />
                   <input
                     id="search"
                     placeholder="Airport code / name / country..."
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => handleQueryChange(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onBlur={() => {
+                      // Suggestion rows use onMouseDown+preventDefault, so row clicks
+                      // land before this closes the dropdown.
+                      setSuggestOpen(false);
+                      setSuggestHighlight(-1);
+                    }}
+                    role="combobox"
+                    aria-expanded={suggestOpen}
+                    aria-autocomplete="list"
+                    aria-controls="search-suggestions"
+                    autoComplete="off"
                     disabled={loading}
                     className="h-full min-w-0 flex-1 border-none bg-transparent font-mono text-[15px] tracking-[0.02em] text-[#17181c] outline-none placeholder:text-[#9aa0a8] disabled:opacity-60"
                   />
                   <PMono className="hidden text-[11px] text-[#c3c7cd] sm:inline">ICAO</PMono>
+                  {suggestOpen && suggestions.length > 0 && (
+                    <div
+                      id="search-suggestions"
+                      role="listbox"
+                      aria-label="Airport suggestions"
+                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-[120] overflow-hidden rounded-[12px] border border-[#e6e7ea] bg-white py-1 shadow-[0_16px_44px_rgba(16,18,22,.16)]"
+                    >
+                      {suggestions.map((s, i) => {
+                        const flagUrl = getCountryFlagUrl(s.country);
+                        return (
+                          <button
+                            key={`${s.icao}-${s.country}`}
+                            type="button"
+                            role="option"
+                            aria-selected={i === suggestHighlight}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => pickSuggestion(s)}
+                            onMouseEnter={() => setSuggestHighlight(i)}
+                            className={`flex w-full cursor-pointer items-center gap-2.5 border-none px-3 py-2 text-left text-sm transition-colors ${
+                              i === suggestHighlight ? "bg-[#eef4ff]" : "bg-transparent hover:bg-[#f5f6f7]"
+                            }`}
+                          >
+                            <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                              {flagUrl ? (
+                                <img
+                                  src={flagUrl}
+                                  alt=""
+                                  width={22}
+                                  height={16}
+                                  className="rounded-sm border border-[#e6e7ea] object-cover"
+                                />
+                              ) : (
+                                <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                              )}
+                            </span>
+                            <PMono className="whitespace-nowrap text-[13.5px] font-semibold text-[#17181c]">
+                              {s.icao}
+                            </PMono>
+                            <span className="min-w-0 flex-1 truncate text-[#3a3d44]">{s.name}</span>
+                            <span className="flex-none text-xs text-[#9aa0a8]">{s.country}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <PButton
                   type="button"
@@ -2198,18 +2370,20 @@ function AIPPortalPageInner() {
                                 }}
                                 className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-[#17181c]"
                               >
-                                {flagUrl ? (
-                                  <img
-                                    src={flagUrl}
-                                    alt=""
-                                    width={22}
-                                    height={16}
-                                    className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
-                                  />
-                                ) : (
-                                  <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
-                                )}
-                                {airport.icao}
+                                <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                                  {flagUrl ? (
+                                    <img
+                                      src={flagUrl}
+                                      alt=""
+                                      width={22}
+                                      height={16}
+                                      className="rounded-sm border border-[#e6e7ea] object-cover"
+                                    />
+                                  ) : (
+                                    <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                                  )}
+                                </span>
+                                <span className="whitespace-nowrap">{airport.icao}</span>
                               </button>
                               <button
                                 type="button"
@@ -2366,17 +2540,17 @@ function AIPPortalPageInner() {
                                 className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2 py-2 text-left text-sm transition-colors hover:bg-[#f5f6f7] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
                                 onClick={() => applyBrowseCountrySelection(country, region)}
                               >
-                                {getCountryFlagUrl(country) ? (
-                                  <img
-                                    src={getCountryFlagUrl(country)!}
-                                    alt=""
-                                    width={22}
-                                    height={16}
-                                    className="shrink-0 rounded-sm object-cover"
-                                  />
-                                ) : (
-                                  <span className="size-[22px] shrink-0" aria-hidden />
-                                )}
+                                <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                                  {getCountryFlagUrl(country) ? (
+                                    <img
+                                      src={getCountryFlagUrl(country)!}
+                                      alt=""
+                                      width={22}
+                                      height={16}
+                                      className="rounded-sm object-cover"
+                                    />
+                                  ) : null}
+                                </span>
                                 <span className="min-w-0 flex-1 truncate font-semibold">{country}</span>
                                 <span className="shrink-0 text-xs text-[#9aa0a8]">{region}</span>
                               </button>
@@ -2443,15 +2617,17 @@ function AIPPortalPageInner() {
                             setBrowseStep(3);
                           }}
                         >
-                          {getCountryFlagUrl(c) && (
-                            <img
-                              src={getCountryFlagUrl(c)!}
-                              alt=""
-                              width={20}
-                              height={15}
-                              className="shrink-0 rounded-sm object-cover"
-                            />
-                          )}
+                          <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                            {getCountryFlagUrl(c) && (
+                              <img
+                                src={getCountryFlagUrl(c)!}
+                                alt=""
+                                width={20}
+                                height={15}
+                                className="rounded-sm object-cover"
+                              />
+                            )}
+                          </span>
                           <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">{c}</span>
                           <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
                         </button>
@@ -2558,16 +2734,18 @@ function AIPPortalPageInner() {
                               >
                                 {isSelected ? "✓" : ""}
                               </span>
-                              {getCountryFlagUrl(airport.country) && (
-                                <img
-                                  src={getCountryFlagUrl(airport.country)!}
-                                  alt=""
-                                  width={24}
-                                  height={18}
-                                  className="shrink-0 rounded object-cover"
-                                />
-                              )}
-                              <PMono className="w-16 shrink-0 text-[14.5px] font-semibold text-[#17181c]">
+                              <span className="inline-flex w-[24px] flex-none items-center justify-center">
+                                {getCountryFlagUrl(airport.country) && (
+                                  <img
+                                    src={getCountryFlagUrl(airport.country)!}
+                                    alt=""
+                                    width={24}
+                                    height={18}
+                                    className="rounded object-cover"
+                                  />
+                                )}
+                              </span>
+                              <PMono className="w-16 flex-none whitespace-nowrap text-[14.5px] font-semibold text-[#17181c]">
                                 {airport.icao}
                               </PMono>
                               <span className="min-w-0 flex-1 truncate text-[14.5px] text-[#3a3d44]">
@@ -2681,7 +2859,22 @@ function AIPPortalPageInner() {
                         }}
                         className="grid cursor-pointer grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-[#f2f3f5] px-[18px] py-[13px] last:border-b-0 hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
                       >
-                        <PMono className="text-[14.5px] font-semibold">{r.icao}</PMono>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                            {getCountryFlagUrl(r.country) ? (
+                              <img
+                                src={getCountryFlagUrl(r.country)!}
+                                alt=""
+                                width={22}
+                                height={16}
+                                className="rounded-sm border border-[#e6e7ea] object-cover"
+                              />
+                            ) : (
+                              <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                            )}
+                          </span>
+                          <PMono className="whitespace-nowrap text-[14.5px] font-semibold">{r.icao}</PMono>
+                        </div>
                         <div className="truncate pr-3 text-sm text-[#17181c]">{r.name}</div>
                         <div className="truncate pr-3 text-sm text-[#6c7079]">{r.country}</div>
                         <PMono className="text-[12.5px] text-[#9aa0a8]">{formatRecentTimestamp(r.ts)}</PMono>
@@ -2750,18 +2943,20 @@ function AIPPortalPageInner() {
                             }}
                             className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-[#17181c]"
                           >
-                            {flagUrl ? (
-                              <img
-                                src={flagUrl}
-                                alt=""
-                                width={22}
-                                height={16}
-                                className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
-                              />
-                            ) : (
-                              <GlobeIcon className="size-4 shrink-0 text-[#9aa0a8]" />
-                            )}
-                            {airport.icao}
+                            <span className="inline-flex w-[22px] flex-none items-center justify-center">
+                              {flagUrl ? (
+                                <img
+                                  src={flagUrl}
+                                  alt=""
+                                  width={22}
+                                  height={16}
+                                  className="rounded-sm border border-[#e6e7ea] object-cover"
+                                />
+                              ) : (
+                                <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                              )}
+                            </span>
+                            <span className="whitespace-nowrap">{airport.icao}</span>
                           </button>
                           <button
                             type="button"
@@ -2786,18 +2981,20 @@ function AIPPortalPageInner() {
                 <div className="mb-[18px] flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-3">
-                      <h1 className="m-0 font-mono text-[30px] font-semibold tracking-[0.01em]">{detailIcao}</h1>
+                      {detailFlagUrl ? (
+                        <span className="inline-flex w-[24px] flex-none items-center justify-center self-center">
+                          <img
+                            src={detailFlagUrl}
+                            alt=""
+                            width={24}
+                            height={18}
+                            className="rounded-sm border border-[#e6e7ea] object-cover"
+                          />
+                        </span>
+                      ) : null}
+                      <h1 className="m-0 whitespace-nowrap font-mono text-[30px] font-semibold tracking-[0.01em]">{detailIcao}</h1>
                       {viewingAirport.name ? (
                         <span className="text-[22px] font-bold tracking-[-0.01em]">{viewingAirport.name}</span>
-                      ) : null}
-                      {detailFlagUrl ? (
-                        <img
-                          src={detailFlagUrl}
-                          alt=""
-                          width={24}
-                          height={18}
-                          className="shrink-0 self-center rounded-sm border border-[#e6e7ea] object-cover"
-                        />
                       ) : null}
                       {viewingAirport.country ? (
                         <span className="text-[15px] text-[#6c7079]">{viewingAirport.country}</span>
@@ -2830,7 +3027,7 @@ function AIPPortalPageInner() {
                               ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
                               : isBahrainScraperIcao(detailIcao, viewingAirport)
                                 ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
-                              : "PDF is fetched automatically. Run Extract Data when you want AI parsed fields."}
+                              : "PDF is fetched automatically."}
                           </span>
                         )}
                       </div>
@@ -2956,22 +3153,9 @@ function AIPPortalPageInner() {
                         <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
                         Download PDF
                       </PButton>
-                      <PButton
-                        type="button"
-                        variant="secondary"
-                        onClick={() => requestSyncAipEad(viewingAirport.icao)}
-                        disabled={aipEadLoadingIcao === viewingAirport.icao || aipEadSyncingIcao === viewingAirport.icao}
-                        title={
-                          aipEadCache[viewingAirport.icao]?.airport
-                            ? "Cached extraction exists; click to show it"
-                            : "Run AI extraction now"
-                        }
-                      >
-                        <RefreshCwIcon className={`size-4 shrink-0 ${aipEadLoadingIcao === viewingAirport.icao ? "animate-spin" : ""}`} />
-                        Extract Data
-                      </PButton>
                       {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || isUsaAipIcao(viewingAirport.icao)) && (
                         <div
+                          ref={genPopoverAnchorRef}
                           className="relative"
                           onMouseEnter={() => setShowGenSyncOverlay(true)}
                           onMouseLeave={() => setShowGenSyncOverlay(false)}
@@ -2996,8 +3180,12 @@ function AIPPortalPageInner() {
                             <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
                             GEN PDF
                           </PButton>
-                          {showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao) && (
-                            <div className="absolute right-0 z-20 mt-1 w-72 rounded-[14px] border border-[#e6e7ea] bg-white p-3.5 shadow-[0_16px_44px_rgba(16,18,22,.16)]">
+                          <GenPopover
+                            open={showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao)}
+                            anchorRef={genPopoverAnchorRef}
+                            onMouseEnter={() => setShowGenSyncOverlay(true)}
+                            onMouseLeave={() => setShowGenSyncOverlay(false)}
+                          >
                               {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
                                 <>
                                   <PSectionTitle className="mb-1.5">
@@ -3029,8 +3217,7 @@ function AIPPortalPageInner() {
                                   </ul>
                                 </>
                               )}
-                            </div>
-                          )}
+                          </GenPopover>
                         </div>
                       )}
                       {Boolean(
@@ -3040,9 +3227,9 @@ function AIPPortalPageInner() {
                         getEadWebAipUrlForAirport(viewingAirport) ||
                         isUsaAipIcao(viewingAirport.icao)
                       ) && (
-                        <PButton
+                        <button
                           type="button"
-                          variant="secondary"
+                          className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#c9ddff] bg-[#eef4ff] px-4 py-[10px] text-sm font-semibold text-[#1d4ed8] transition-colors hover:bg-[#e0eaff] disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => {
                             const isUsa = isUsaAipIcao(viewingAirport.icao);
                             const isRussia = isRussiaIcao(viewingAirport.icao);
@@ -3071,23 +3258,23 @@ function AIPPortalPageInner() {
                               : `Open ${viewingAirport.country || "Airport"} Web AIP`
                           }
                         >
-                          <GlobeIcon className="size-4 text-[#6c7079]" />
+                          <GlobeIcon className="size-4 shrink-0" />
                           Web AIP
-                        </PButton>
+                        </button>
                       )}
                       <span className="hidden h-[26px] w-px bg-[#e6e7ea] sm:block" />
-                      <PButton
+                      <button
                         type="button"
-                        variant="danger-quiet"
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#f6cdcf] bg-[#fdecec] px-4 py-[10px] text-sm font-semibold text-[#e5484d] transition-colors hover:bg-[#fadadb] disabled:cursor-not-allowed disabled:opacity-50"
                         title="Report a bug for this airport"
                         onClick={() => {
                           setBugReportError(null);
                           setBugModalOpen(true);
                         }}
                       >
-                        <FileWarningIcon className="size-4" />
+                        <FileWarningIcon className="size-4 shrink-0" />
                         Report a problem
-                      </PButton>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -3098,22 +3285,7 @@ function AIPPortalPageInner() {
                     {detailSynced ? (
                       <PCard className={`overflow-hidden ${aipEadSyncingIcao === viewingAirport.icao ? "ring-2 ring-[#2563eb]/70" : ""}`}>
                         <div className="flex flex-wrap items-center gap-3.5 border-b border-[#eef0f2] px-[18px] py-3.5">
-                          <div className="flex rounded-[10px] bg-[#eef0f2] p-[3px]">
-                            <button
-                              type="button"
-                              onClick={() => setAipViewMode("ai")}
-                              className={`cursor-pointer rounded-lg border-none px-[15px] py-[7px] text-[13.5px] font-semibold transition-colors ${aipViewMode === "ai" ? "bg-white text-[#17181c] shadow-[0_1px_2px_rgba(0,0,0,.06)]" : "bg-transparent text-[#6c7079] hover:text-[#17181c]"}`}
-                            >
-                              AI Extracted
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAipViewMode("pdf")}
-                              className={`cursor-pointer rounded-lg border-none px-[15px] py-[7px] text-[13.5px] font-semibold transition-colors ${aipViewMode === "pdf" ? "bg-white text-[#17181c] shadow-[0_1px_2px_rgba(0,0,0,.06)]" : "bg-transparent text-[#6c7079] hover:text-[#17181c]"}`}
-                            >
-                              PDF Viewer
-                            </button>
-                          </div>
+                          <span className="text-[13.5px] font-semibold text-[#17181c]">PDF Viewer</span>
                           <PMono className="text-[12.5px] text-[#9aa0a8]">
                             AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "Scraper" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) · {viewingAirport.icao}
                           </PMono>
@@ -3135,10 +3307,10 @@ function AIPPortalPageInner() {
                           {isAsecnaIcao(viewingAirport.icao)
                             ? "PDF is fetched from live ASECNA source and stored to S3."
                             : isUsaAipIcao(viewingAirport.icao)
-                              ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3. AI extraction runs on-demand when you press Extract Data."
+                              ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3."
                             : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
                               ? "PDF is fetched from live scraper source and stored to S3."
-                            : <>PDF is fetched first; extraction runs only after pressing <strong>Extract Data</strong>.</>}
+                            : "PDF is fetched automatically."}
                           {isBahrainScraperIcao(viewingAirport.icao, viewingAirport) && viewingAirport.effectiveDate
                             ? ` Effective: ${viewingAirport.effectiveDate}.`
                             : ""}
@@ -3186,7 +3358,7 @@ function AIPPortalPageInner() {
                           {pdfDownloadError && (
                             <p className="mb-2 text-sm text-[#e5484d]">{pdfDownloadError}</p>
                           )}
-                          {aipViewMode === "pdf" && aipEadLoadingIcao !== viewingAirport.icao && (
+                          {aipEadLoadingIcao !== viewingAirport.icao && (
                             <div className="mb-3 rounded-[10px] border border-[#e6e7ea] bg-[#fbfbfc] p-2">
                               {aipPdfReady[viewingAirport.icao] ||
                               aipPdfExistsOnServer[viewingAirport.icao] ? (
@@ -3251,11 +3423,7 @@ function AIPPortalPageInner() {
                                 >
                                   <div className="flex items-center gap-2">
                                     <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-[#2563eb]"}`} />
-                                    <span className="text-sm font-medium">
-                                      {aipEadSyncRequestedIcao === viewingAirport.icao
-                                        ? "Extracting AIP data…"
-                                        : "Fetching AIP PDF…"}
-                                    </span>
+                                    <span className="text-sm font-medium">Fetching AIP PDF…</span>
                                   </div>
                                   <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
                                     Live status · elapsed {aipSyncElapsedSec}s
@@ -3280,9 +3448,7 @@ function AIPPortalPageInner() {
                                   )}
                                   {aipEadSyncSteps.length === 0 && (
                                     <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
-                                      {aipEadSyncRequestedIcao === viewingAirport.icao
-                                        ? "Starting extraction… can take 1–2 min."
-                                        : "Checking cache first, then fetching live PDF if needed…"}
+                                      Checking cache first, then fetching live PDF if needed…
                                     </span>
                                   )}
                                 </div>
@@ -3307,15 +3473,6 @@ function AIPPortalPageInner() {
                           {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
                             <p className="py-2 text-sm text-[#e5484d]">{aipEadCache[viewingAirport.icao].error}</p>
                           )}
-                          {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.airport && (
-                            <AIPResultCard airport={aipEadCache[viewingAirport.icao].airport!} />
-                          )}
-                          {aipViewMode === "ai" && aipEadLoadingIcao !== viewingAirport.icao && !aipEadCache[viewingAirport.icao]?.airport && !aipEadCache[viewingAirport.icao]?.error && !isEadPlaceholder(viewingAirport) && (
-                            <AIPResultCard airport={viewingAirport} />
-                          )}
-                          {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao] && !aipEadCache[viewingAirport.icao].error && !aipEadCache[viewingAirport.icao].airport && (
-                            <p className="py-2 text-sm text-[#6c7079]">No AIP data for this airport in this sync.</p>
-                          )}
                         </div>
                       </PCard>
                     ) : (
@@ -3323,7 +3480,7 @@ function AIPPortalPageInner() {
                         <div className="border-b border-[#eef0f2] px-[18px] py-3.5">
                           <div className="text-base font-bold">AIP — {viewingAirport.icao}</div>
                           <p className="mt-0.5 text-sm text-[#6c7079]">
-                            Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use PDF + Extract flow.
+                            Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use the PDF flow.
                           </p>
                         </div>
                         <div className="p-[18px]">
@@ -3573,7 +3730,7 @@ function AIPPortalPageInner() {
 
         {/* Web AIP consent modal */}
         {webAipConsent && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(16,18,22,.42)] p-3 sm:items-center sm:p-8">
+          <div className="fixed inset-0 z-[2200] flex items-end justify-center bg-[rgba(16,18,22,.42)] p-3 sm:items-center sm:p-8">
             <div
               role="dialog"
               aria-modal="true"

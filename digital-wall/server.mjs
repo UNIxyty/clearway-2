@@ -182,7 +182,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30 };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {} };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -229,7 +229,16 @@ function resolveDisplaySettings(shape, account) {
   const globals = Object.fromEntries(GLOBAL_SETTING_KEYS.map((k) => [k, globalBase[k]]));
   const key = String(account || "").trim().toLowerCase();
   if (key && shape.accounts[key]) {
-    return { settings: { ...globalBase, ...shape.accounts[key], ...globals }, source: "account" };
+    const acct = shape.accounts[key];
+    return {
+      settings: {
+        ...globalBase,
+        ...acct,
+        ...globals,
+        colors: { ...(globalBase.colors ?? {}), ...(acct.colors ?? {}) },
+      },
+      source: "account",
+    };
   }
   return { settings: globalBase, source: "default" };
 }
@@ -322,6 +331,23 @@ function sanitizeDisplaySettings(input = {}) {
   if (!Number.isFinite(upcomingTableWidthPct) || upcomingTableWidthPct < 15 || upcomingTableWidthPct > 60) {
     throw new Error("upcomingTableWidthPct must be a number between 15 and 60.");
   }
+  // Colours tab: overrides for the wall's colour tokens. Only #rrggbb hex
+  // values survive; null/"" clears an override (Reset). The KEY list lives
+  // client-side (theme/wallColors.js) — the server just stores a hex map,
+  // capped so a bad client can't grow the file unboundedly.
+  let colors = input.colors === undefined ? {} : input.colors;
+  if (colors === null || typeof colors !== "object" || Array.isArray(colors)) colors = {};
+  const cleanColors = {};
+  for (const [key, value] of Object.entries(colors)) {
+    if (Object.keys(cleanColors).length >= 120) break;
+    if (!/^[a-zA-Z][a-zA-Z0-9]{0,40}$/.test(key)) continue;
+    if (value === null || value === "") continue; // cleared override
+    const hex = String(value).trim().toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) {
+      throw new Error(`colors.${key} must be a #rrggbb hex value.`);
+    }
+    cleanColors[key] = hex;
+  }
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
@@ -355,6 +381,7 @@ function sanitizeDisplaySettings(input = {}) {
     upcomingTableSide,
     upcomingTableScale: Math.round(upcomingTableScale * 100) / 100,
     upcomingTableWidthPct: Math.round(upcomingTableWidthPct),
+    colors: cleanColors,
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };
@@ -1011,7 +1038,14 @@ const server = http.createServer(async (req, res) => {
         // never silently resets the other knobs. First save copies the
         // resolved view into the account's own profile.
         const base = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts[account] ?? {}) };
-        settings = sanitizeDisplaySettings({ ...base, ...(body.settings ?? body) });
+        const patch = body.settings ?? body;
+        // Colours are a nested map — merge per KEY (a single-colour patch
+        // must not wipe the other overrides; null clears one override).
+        settings = sanitizeDisplaySettings({
+          ...base,
+          ...patch,
+          colors: { ...(base.colors ?? {}), ...(patch?.colors ?? {}) },
+        });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;

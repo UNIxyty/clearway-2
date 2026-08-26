@@ -1503,3 +1503,37 @@ paths instead. The gate now reserves the exact layout cost and ellipsis
 is removed outright — both codes fit or nothing renders inside. Audit at
 defaults AND minimums with 25/40/85-min flights, table shown: zero '…',
 zero clipped ICAOs, zero overlaps, no top scrollbar, no page overflow.
+
+## Colours tab (August 2026)
+
+Contrast/colour featured in four consecutive bug reports — ops now tune
+every wall colour from Settings → Colours, per-account (My view / Main
+wall), live over config.changed (~40ms broadcast + one settings refetch).
+
+One token source: opsboard-react/src/theme/wallColors.js. 40 tokens in 7
+groups — states (stateScheduled/Airborne/Delayed/Ctot/Arrived/Aog +
+estimatedOutline + stateCancelled/textCancelled), hatch (hatchLight/Dark),
+timeline text (textCallsign/Icao/Times/DeltaLate/DeltaEarly/Registration/
+Operator/Ticks), markers (markerImp/Ntm/Caa, limUnchecked/Checked,
+mvtRing), weather (wxVfr/Mvfr/Ifr/Lifr — drives ICAO colouring, bright +
+derived dark variants, AND the sidebar WX agenda), chrome (boardBg,
+rowAltTint, gridLines, nowLine, nowBadgeBg, sidebarBg, sidebarText),
+table (tableText, tableRed/Orange/Green — Leon checklist hexes
+FF0000/FFA500/86BF53 are normalised onto these at render). FlightPill,
+Board, Header and UpcomingTable contain ZERO hardcoded colour literals;
+hand-tuned shipped values that aren't plain derivations live in
+wallColors.js "shipped bridges" that yield the exact shipped literal while
+the driving token is default and derive from the override otherwise —
+defaults render byte-identically (126-assertion parity probe).
+
+Server: settings.colors hex map, per-key merge on PUT (one-colour patches
+never clobber others; null clears one override), deep-merged across
+default+account profiles, #rrggbb validation, 120-key cap.
+
+Guardrails in the tab: WCAG contrast badge per text/marker token vs the
+board background (⚠ under 4.5:1), live preview pill built purely from the
+resolved tokens, distinctness warnings via RGB distance (near-identical
+state fills, vanishing hatch, invisible MVT ring), per-token Reset +
+Reset all. Semantics never change — tokens recolour, never remap. Colour
+changes verified layout-neutral (identical pill bounding boxes, zero
+overlaps at defaults and minimums with the table shown).

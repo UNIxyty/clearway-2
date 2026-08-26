@@ -67,7 +67,14 @@ export default function UserBadge() {
           className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#e6e7ea] bg-white py-[5px] pl-[7px] pr-[11px] transition-colors hover:bg-[#f5f6f7]"
         >
           <span className="flex h-[29px] w-[29px] items-center justify-center rounded-full bg-[#2563eb] text-xs font-bold text-white">
-            {(displayText || "?").trim().slice(0, 2).toUpperCase()}
+            {/* Same derivation as the console's initialsOf — one rule, both apps. */}
+            {(displayText || "?")
+              .split(/[\s@.]+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((p) => p[0])
+              .join("")
+              .toUpperCase() || "??"}
           </span>
           <div className="text-left leading-[1.15]">
             <div className="text-[13px] font-semibold text-[#17181c]">{displayText}</div>

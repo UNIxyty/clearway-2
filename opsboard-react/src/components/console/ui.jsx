@@ -1013,7 +1013,22 @@ export function avatarColor(seed) {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-export function Avatar({ name, initials, seed, size = 32, style = {} }) {
+/**
+ * ONE initials rule for console AND portal (they showed "DS" vs "DM" for
+ * the same user): first character of the first two name parts, split on
+ * whitespace / @ / dots. "Dmitrijs Starkovs" -> DS, "ops@clearway.aero"
+ * -> OC. The portal's UserBadge mirrors this exact derivation.
+ */
+export function initialsOf(nameOrEmail) {
+  const parts = String(nameOrEmail || '')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) return '??';
+  return parts.map((part) => part[0]).join('').toUpperCase();
+}
+
+export function Avatar({ name, initials, seed, size = 32, color = null, style = {} }) {
   return (
     <div
       title={name}
@@ -1021,7 +1036,7 @@ export function Avatar({ name, initials, seed, size = 32, style = {} }) {
         width: size,
         height: size,
         borderRadius: '50%',
-        background: avatarColor(seed || name),
+        background: color || avatarColor(seed || name),
         color: '#fff',
         fontSize: Math.round(size * 0.38),
         fontWeight: 700,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './AuthGate';
 import Icon from './components/console/icons';
 import {
@@ -6,8 +6,7 @@ import {
   ConsoleStyles,
   t,
   timeAgo,
-  ToastProvider,
-} from './components/console/ui';
+  ToastProvider, initialsOf } from './components/console/ui';
 import AircraftPage from './components/console/AircraftPage';
 import NotamCheckPage from './components/console/NotamCheckPage';
 import FlightsPage from './components/console/FlightsPage';
@@ -69,17 +68,133 @@ const NAV = [
   { key: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
-function initialsOf(user) {
-  if (!user) return '??';
-  if (user.initials) return user.initials;
-  const name = user.name || user.email || '';
-  return name
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
+// initialsOf comes from ui.jsx — ONE derivation shared with the portal.
+
+/**
+ * Account chip + dropdown — pixel-matched to the portal's UserBadge
+ * (avatar t.blue like the portal's #2563eb token, same panel metrics,
+ * item styling, section labels and dividers) with WORKING navigation
+ * between the two apps. Portal paths are full navigations (the shared
+ * gateway session carries); admin items follow the portal's own gate
+ * (/api/admin/status — hidden when the probe fails or denies). The
+ * console keeps no Sign out entry: the wall stack has no logout
+ * endpoint, sign-out lives in the portal.
+ */
+function AccountMenu({ user }) {
+  const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/admin/status', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const item = (label, icon, onClick, { external = false } = {}) => (
+    <button
+      key={label}
+      type="button"
+      className="cw-hover-surface"
+      onClick={onClick}
+      style={{
+        fontFamily: 'inherit',
+        width: '100%',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 11,
+        padding: '9px 11px',
+        border: 'none',
+        borderRadius: 10,
+        cursor: 'pointer',
+        fontSize: 14,
+        fontWeight: 500,
+        color: '#3a3d44',
+        background: 'transparent',
+      }}
+    >
+      <Icon name={icon} size={17} color={t.muted} />
+      <span style={{ flex: 1 }}>{label}</span>
+      {external && <Icon name="arrow-up-right" size={14} color={t.faint} />}
+    </button>
+  );
+  const divider = (key) => <div key={key} style={{ height: 1, background: '#eef0f2', margin: '7px 4px' }} />;
+  const sectionLabel = (text) => (
+    <div key={text} style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.13em', color: t.faint, padding: '8px 11px 7px', textTransform: 'uppercase' }}>
+      {text}
+    </div>
+  );
+  const go = (path) => () => window.location.assign(path);
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="cw-hover-surface"
+        onClick={() => setOpen((v) => !v)}
+        title={user?.email || ''}
+        style={{ ...s.accountChip, cursor: 'pointer', fontFamily: 'inherit', background: t.card }}
+      >
+        <Avatar name={user?.name} initials={initialsOf(user?.name || user?.email)} seed={user?.userId} size={29} color={t.blue} />
+        <div style={{ lineHeight: 1.15, textAlign: 'left' }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name || user?.email || 'Signed in'}</div>
+          <div style={{ fontSize: 11, color: t.faint }}>Account</div>
+        </div>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={15} color={t.faint} />
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            right: 0,
+            width: 262,
+            background: '#fff',
+            border: '1px solid #e6e7ea',
+            borderRadius: 14,
+            boxShadow: '0 16px 44px rgba(16,18,22,.16)',
+            padding: 7,
+            zIndex: 200,
+          }}
+        >
+          <div style={{ padding: '8px 11px 4px' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{user?.name || user?.email || 'Signed in'}</div>
+            {user?.name && user?.email && <div style={{ fontSize: 11.5, color: t.faint }}>{user.email}</div>}
+          </div>
+          {divider('d0')}
+          {item('Profile', 'user', go('/profile'))}
+          {item('Notification Settings', 'bell', go('/settings/notifications'))}
+          {item('Stats', 'bar-chart-3', go('/stats'))}
+          {divider('d1')}
+          {sectionLabel('AIP Data Portal')}
+          {item('AIP Data Portal', 'search', go('/'), { external: true })}
+          {item('Service status', 'activity', go('/status'), { external: true })}
+          {item('Deleted airports', 'trash-2', go('/admin/airports/deleted'), { external: true })}
+          {isAdmin && item('Admin users', 'users', go('/admin/users'), { external: true })}
+          {isAdmin && item('Admin', 'shield-check', go('/admin/maintenance'), { external: true })}
+          {divider('d2')}
+          {sectionLabel('Digital Wall')}
+          {item('Digital Wall', 'monitor', go('/digital-wall/timeline/'))}
+          {item('Digital Wall Console', 'sliders-horizontal', go('/digital-wall/console/flights'))}
+          {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'), { external: true })}
+          {divider('d3')}
+          {item('Pickem', 'trophy', go('/pickem'), { external: true })}
+          {isAdmin && item('Pickem Admin', 'shield-check', go('/pickem/admin'), { external: true })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -329,14 +444,7 @@ export default function ConsoleApp({ page, navigate }) {
               Guide
             </a>
             <span style={{ width: 1, height: 26, background: t.border }} />
-            <div className="cw-hover-surface" style={s.accountChip} title={user?.email || ''}>
-              <Avatar name={user?.name} initials={initialsOf(user)} seed={user?.userId} size={30} />
-              <div style={{ lineHeight: 1.15 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name || user?.email || 'Signed in'}</div>
-                <div style={{ fontSize: 11, color: t.faint }}>Account</div>
-              </div>
-              <Icon name="chevron-down" size={15} color={t.faint} />
-            </div>
+            <AccountMenu user={user} />
           </div>
         </div>
 
@@ -500,8 +608,8 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '6px 12px 6px 8px',
-    border: `1px solid ${t.border}`,
+    padding: '5px 11px 5px 7px', // portal UserBadge parity
+    border: '1px solid #e6e7ea',
     borderRadius: 12,
     cursor: 'default',
     background: t.card,

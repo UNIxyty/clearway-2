@@ -4,6 +4,14 @@
 
 const ICONS = {
   "search": <><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></>,
+  "user": <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+  "bell": <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></>,
+  "bar-chart-3": <><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></>,
+  "activity": <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
+  "monitor": <><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></>,
+  "book-open": <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></>,
+  "trophy": <><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></>,
+  "arrow-up-right": <><path d="M7 7h10v10" /><path d="M7 17 17 7" /></>,
   "chevron-down": <><path d="m6 9 6 6 6-6" /></>,
   "chevron-up": <><path d="m18 15-6-6-6 6" /></>,
   "chevrons-up-down": <><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></>,

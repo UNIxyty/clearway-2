@@ -25,6 +25,7 @@ import { fetchCurrentUser } from '../../services/timelineApi';
 const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
 import Icon from './icons';
+import ColoursCard from './ColoursCard';
 import {
   Button,
   Card,
@@ -1331,6 +1332,7 @@ export default function SettingsPage() {
           onChange={setSection}
           options={[
             { value: 'display', label: 'Display & sizing' },
+            { value: 'colours', label: 'Colours' },
             { value: 'wall', label: 'Wall content' },
             { value: 'checks', label: 'NOTAM, alerts & WX' },
           ]}
@@ -1347,6 +1349,18 @@ export default function SettingsPage() {
               <VerticalSizingCard />
               <PanelScalesCard />
               <UpcomingTableCard />
+            </div>
+          </DeviceCtx.Provider>
+        </>
+      )}
+      {section === 'colours' && (
+        <>
+          {/* Same per-account model as the sizing cards: My view / Main wall
+              selector + the amber BIG SCREEN warning live in this card. */}
+          <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+          <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+            <div key={selectedAccount ?? 'own'}>
+              <ColoursCard deviceId={selectedAccount} />
             </div>
           </DeviceCtx.Provider>
         </>

@@ -1537,3 +1537,30 @@ state fills, vanishing hatch, invisible MVT ring), per-token Reset +
 Reset all. Semantics never change — tokens recolour, never remap. Colour
 changes verified layout-neutral (identical pill bounding boxes, zero
 overlaps at defaults and minimums with the table shown).
+
+## Colours tab UI rebuild (August 2026)
+
+Presentation only — registry, bridges, server merge/reset/validation, wall
+binding and SSE path untouched (verified: the diff is confined to console
+components; zero overrides still render byte-identically).
+
+- Custom picker (ColorPickerPopover.jsx) replaces the native color input:
+  swatch button opens a design-system popover through a portal to
+  document.body at z-2400 (nothing can clip it) with a saturation/value
+  area, hue rail, IBM Plex Mono hex field with an explicit invalid state
+  ("Not a colour yet…", never silent revert), recently-used colours
+  (localStorage, 8) and an "On the wall now" palette of the currently
+  resolved tokens. Esc / outside click close; Enter commits. NO alpha
+  slider anywhere by design: tokens are #rrggbb, every translucent use
+  derives via withAlpha in code and the server validates #rrggbb only.
+- Tab layout: 7 collapsible groups (first open by default) with count and
+  mini-swatch preview row while collapsed; "Find a colour…" search over
+  token/group names and the where-it-appears descriptions; "Show only
+  overridden" toggle; aligned grid rows (swatch · label + plain-language
+  location description + inline warnings · mono hex · contrast chip ·
+  Reset/default). Preview pill is sticky while scrolling the list.
+- Guardrails presentation: contrast as a pass/warn status chip with a
+  tooltip (measured vs boardBg, 4.5:1 threshold, advisory); distinctness
+  warnings render inline on BOTH affected tokens with directional copy.
+  Behaviour unchanged: advisory only, per-token Reset + Reset all restore
+  shipped defaults.

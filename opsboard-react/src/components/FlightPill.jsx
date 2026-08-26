@@ -1,29 +1,36 @@
 import { clamp } from '../data';
 import Icon from './console/icons';
+import { useWallColors } from '../theme/WallColorsContext';
+import {
+  PILL_SHIPPED,
+  chromeFor,
+  markerChipsFor,
+  markerLightFor,
+  resolveWallColors,
+  statusThemesFor,
+  tokenOr,
+  withAlpha,
+  wxBrightFor,
+  wxCategoryColorsFor,
+  wxDarkFor,
+  wxLightFor,
+  limStylesFor,
+} from '../theme/wallColors';
+
+// Static resolved defaults — for module-level exports and the shared
+// components when they render OUTSIDE the wall's WallColorsProvider (console
+// lists). Inside the provider every colour comes from useWallColors().
+const DEFAULT_COLORS = resolveWallColors({});
 
 // Pill body fill = flight state, derived from real Leon semantics
 // (digital-wall/LEON-PILL-MAPPING.md):
 //   white  = scheduled (not flying, on time)     yellow = delayed, not departed
 //   purple = active CTOT/slot, not yet airborne  blue   = flying
 //   pink   = arrived (landed / block-on)
-// Softened ops-room palette (Part 2): desaturated, dusty tones — same state
-// semantics, easier on the eyes across a shift. All fills are mid-light so a
-// single dark ink stays legible on every state (contrast ≥ ~7:1 at scale).
-// Bug report 4 item 1: brighter, more saturated fills — the mid-tones
-// blended into the dark panel from across the ops room. Same semantic
-// mapping, higher luminance and chroma; the dark in-pill text keeps its
-// contrast on every fill.
-const STATUS = {
-  scheduled: { bg: '#f2f5fb', text: '#141824' },
-  delayed:   { bg: '#e9bd45', text: '#221c08' },
-  ctot:      { bg: '#af92e8', text: '#1e1930' },
-  airborne:  { bg: '#74aef0', text: '#0c1622' },
-  arrived:   { bg: '#dd93bd', text: '#26121d' }, // mauve, brightened
-  cancelled: { bg: 'rgba(90,97,120,.45)', text: '#a7aec4' },
-  // legacy aliases (older cached data)
-  boarding:  { bg: '#f2f5fb', text: '#141824' },
-  slot:      { bg: '#af92e8', text: '#1e1930' },
-};
+// The fills/texts are the wall colour tokens (theme/wallColors.js) — the
+// shipped defaults are the post-bug-report-4 palette; ops tune them from the
+// console Colours tab. Per-state dark inks come from stateTextFor (shipped
+// values while the fill is default, auto-contrast once overridden).
 
 // Leon checklist colors can be arbitrary; on the dark board a too-dark ID
 // would vanish. NEVER discard the hue (a red = unfinished checklist is the
@@ -39,6 +46,7 @@ function readableIdColor(hex, fallback) {
   const expanded = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
   const m = /^([0-9a-f]{6})$/i.exec(expanded);
   if (!m) return fallback;
+  // (achromatic greys fall back to the near-white callsign token below)
   const n = parseInt(m[1], 16);
   const r = ((n >> 16) & 255) / 255;
   const g = ((n >> 8) & 255) / 255;
@@ -54,7 +62,7 @@ function readableIdColor(hex, fallback) {
   }
   const l0 = (max + min) / 2;
   const s0 = d === 0 ? 0 : d / (1 - Math.abs(2 * l0 - 1));
-  if (s0 < 0.18) return '#f2f5fb'; // achromatic (greys) -> near-white
+  if (s0 < 0.18) return fallback; // achromatic (greys) -> near-white token
   const sat = Math.max(s0, 0.85);
   const lig = Math.min(Math.max(l0, 0.6), 0.74);
   const c = (1 - Math.abs(2 * lig - 1)) * sat;
@@ -69,50 +77,25 @@ function readableIdColor(hex, fallback) {
 // Auto-derived per-flight markers (Feature 6 alerts). These render as small
 // type badges ABOVE the pill — they are NOT sidebar entries. WX markers
 // (per-airport CheckWX categories) share the same row and chip treatment.
-const ALERT_MARK = {
-  NTM: { text: '#ffab73', border: 'rgba(255,145,80,.5)', bg: 'rgba(255,145,80,.18)' },
-};
+// Chip colours come from markerChipsFor(tokens); this set gates which alert
+// types render at all.
+const ALERT_MARK_TYPES = new Set(['NTM']);
 
 // CheckWX flight_category → marker colour. STANDARD aviation mapping (green =
 // good), deliberately NOT the inverted mapping from the original request:
 // painting good weather red is unsafe at a glance. LIFR gets a deep magenta
-// so "worst" is distinguishable from plain IFR red. Adjust here if ops wants
-// different hues.
-export const WX_CATEGORY_COLORS = {
-  VFR:  '#41e277', // good
-  MVFR: '#ffb224', // marginal
-  IFR:  '#ff4d55', // bad
-  LIFR: '#d84ad0', // worst — vivid magenta, never green
-};
-
-// Light-theme marker palette (console lists): same semantics as the wall
-// chips, colours flipped for a white/card background — dark readable text on
-// a soft tint instead of bright text on dark.
-const WX_CATEGORY_LIGHT = {
-  VFR:  { text: '#15803d', border: 'rgba(21,128,61,.45)',  bg: 'rgba(63,191,111,.14)' },
-  MVFR: { text: '#b45309', border: 'rgba(180,83,9,.45)',   bg: 'rgba(232,163,61,.16)' },
-  IFR:  { text: '#b91c1c', border: 'rgba(185,28,28,.45)',  bg: 'rgba(229,72,77,.13)' },
-  LIFR: { text: '#a21caf', border: 'rgba(162,28,175,.45)', bg: 'rgba(176,58,160,.13)' },
-};
-const MARK_LIGHT = {
-  IMP: { text: '#92500b', border: 'rgba(180,120,20,.5)',  bg: 'rgba(240,177,59,.18)' },
-  CAA: { text: '#0f766e', border: 'rgba(47,158,143,.6)',  bg: 'rgba(47,158,143,.13)' },
-  NTM: { text: '#b3541e', border: 'rgba(200,100,40,.5)',  bg: 'rgba(255,145,80,.16)' },
-};
+// so "worst" is distinguishable from plain IFR red. Hues are the wx* tokens.
+// Static default map kept for consumers outside the provider (overlay/info
+// tab); the wall pill reads the live tokens via useWallColors().
+export const WX_CATEGORY_COLORS = wxCategoryColorsFor(DEFAULT_COLORS);
 
 // Bug report 2 item 1: weather colours the AIRPORT CODE itself.
 // VFR green, MVFR amber, LIFR red, IFR = default colour (deliberate — the
 // sidebar WX agenda explains the scheme, so an uncoloured code reads as
 // IFR/no-forecast, not as a rendering failure). Two variants: dark tones
 // for light pill fills, bright tones for text on the dark board.
-export const WX_ICAO_DARK = { VFR: '#166534', MVFR: '#92400e', LIFR: '#b91c1c', IFR: null };
-export const WX_ICAO_BRIGHT = { VFR: '#41e277', MVFR: '#ffb224', LIFR: '#ff5d5d', IFR: null };
-
-/** Hex -> rgba with alpha, for the marker chip border/backing. */
-function hexA(hex, alpha) {
-  const n = parseInt(String(hex).slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
-}
+export const WX_ICAO_DARK = wxDarkFor(DEFAULT_COLORS);
+export const WX_ICAO_BRIGHT = wxBrightFor(DEFAULT_COLORS);
 
 /**
  * Vertical metrics shared by the Board (lane maths) and the pill itself.
@@ -153,9 +136,10 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
  * a departure/arrival glyph so it's clear which airport it refers to.
  */
 function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }) {
-  const color = WX_CATEGORY_COLORS[category];
+  const c = useWallColors();
+  const color = wxCategoryColorsFor(c)[category];
   if (!color) return null;
-  const light = variant === 'light' ? WX_CATEGORY_LIGHT[category] : null;
+  const light = variant === 'light' ? wxLightFor(c)[category] : null;
   const isDep = side === 'dep';
   // Wall declutter (Item 2): plain coloured TEXT instead of a chip —
   // "IFR: EGGW" full form, bare "IFR" when degraded to icon width. Less
@@ -191,8 +175,8 @@ function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }
         lineHeight: `${sz(12)}px`,
         letterSpacing: '.5px',
         color: light ? light.text : color,
-        borderColor: light ? light.border : hexA(color, 0.55),
-        background: light ? light.bg : hexA(color, 0.16),
+        borderColor: light ? light.border : withAlpha(color, 0.55),
+        background: light ? light.bg : withAlpha(color, 0.16),
         display: 'inline-flex',
         alignItems: 'center',
         gap: sz(3),
@@ -220,14 +204,16 @@ function hmUtc(ms) {
  * per its flags): this component just renders what the flight carries.
  */
 /** The markers a flight carries, as data — shared by renderer and budgeter. */
-export function markerListOf(flight, { wx = true } = {}) {
+export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}) {
+  const chips = markerChipsFor(colors);
+  const wxColors = wxCategoryColorsFor(colors);
   const list = [];
-  if ((flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: '#f5c064', label: 'Important' });
-  if ((flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: '#5eead4', label: 'CAA details' });
-  if (wx && flight.wxDep && WX_CATEGORY_COLORS[flight.wxDep]) list.push({ key: 'WXD', color: WX_CATEGORY_COLORS[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
-  if (wx && flight.wxArr && WX_CATEGORY_COLORS[flight.wxArr]) list.push({ key: 'WXA', color: WX_CATEGORY_COLORS[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
-  for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK[l.type]).map((l) => l.type))) {
-    list.push({ key: type, color: ALERT_MARK[type].text, label: 'Unreviewed NOTAM' });
+  if ((flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: chips.IMP.text, label: 'Important' });
+  if ((flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: chips.CAA.text, label: 'CAA details' });
+  if (wx && flight.wxDep && wxColors[flight.wxDep]) list.push({ key: 'WXD', color: wxColors[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
+  if (wx && flight.wxArr && wxColors[flight.wxArr]) list.push({ key: 'WXA', color: wxColors[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
+  for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK_TYPES.has(l.type)).map((l) => l.type))) {
+    list.push({ key: type, color: chips.NTM.text, label: 'Unreviewed NOTAM' });
   }
   return list;
 }
@@ -279,6 +265,7 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
   if (!code) return null;
   const light = variant === 'light';
   const font = Math.max(7, Math.round(size));
+  const chip = PILL_SHIPPED.icaoChip;
   return (
     <span
       title={`ICAO type ${code} — ${ICAO_TYPE_MEANING[code] || 'Unknown'}`}
@@ -289,13 +276,13 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
         // Solid slate fill with dark ink: neutral (clearly not an alarm
         // colour) but high-contrast against the dark board — the old faint
         // tint blended into the background.
-        border: light ? '1px solid rgba(71,85,105,.55)' : '1px solid rgba(220,228,245,.25)',
+        border: light ? chip.lightBorder : chip.darkBorder,
         borderRadius: 3,
         padding: `0px ${Math.max(2, Math.round(font * 0.4))}px`,
         lineHeight: `${font + 3}px`,
         letterSpacing: 0,
-        color: light ? '#f8fafc' : '#10141f',
-        background: light ? '#64748b' : '#aab6cc',
+        color: light ? chip.lightText : chip.darkText,
+        background: light ? chip.lightBg : chip.darkBg,
         flexShrink: 0,
       }}
     >
@@ -305,12 +292,15 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
 }
 
 export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null }) {
+  const c = useWallColors();
+  const chips = markerChipsFor(c);
+  const lightChips = markerLightFor(c);
   const light = variant === 'light';
   // Degraded wall modes (1B): icons drop chip text, dots collapse each
   // marker to a coloured dot, count folds everything into one +N chip.
   // Colour meaning survives at every level.
   if (variant === 'wall' && (mode === 'dots' || mode === 'count')) {
-    const markers = [...markerListOf(flight, { wx: false }), ...(extraMarkers || [])];
+    const markers = [...markerListOf(flight, { wx: false, colors: c }), ...(extraMarkers || [])];
     if (markers.length === 0) return null;
     if (mode === 'count') {
       return (
@@ -320,8 +310,8 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: sz(9.5),
             fontWeight: 800,
-            color: '#e2e9f8',
-            border: '1px solid rgba(160,175,210,.45)',
+            color: c.textTimes,
+            border: `1px solid ${PILL_SHIPPED.countBorder}`,
             borderRadius: 4,
             padding: `1px ${sz(4)}px`,
             lineHeight: `${sz(12)}px`,
@@ -338,7 +328,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           <span
             key={m.key}
             title={m.label}
-            style={{ width: sz(8), height: sz(8), borderRadius: '50%', background: m.color, flexShrink: 0, boxShadow: '0 0 0 1px rgba(10,13,22,.5)' }}
+            style={{ width: sz(8), height: sz(8), borderRadius: '50%', background: m.color, flexShrink: 0, boxShadow: PILL_SHIPPED.dotEdge }}
           />
         ))}
       </span>
@@ -348,7 +338,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
   const alertTypes = [
     ...new Set(
       (flight.limitations || [])
-        .filter((lim) => lim.source === 'alert' && ALERT_MARK[lim.type])
+        .filter((lim) => lim.source === 'alert' && ALERT_MARK_TYPES.has(lim.type))
         .map((lim) => lim.type)
     ),
   ];
@@ -365,9 +355,9 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             width: sz(16),
             height: sz(16),
             borderRadius: 4,
-            background: light ? MARK_LIGHT.IMP.bg : 'rgba(240,177,59,.22)',
-            border: `1px solid ${light ? MARK_LIGHT.IMP.border : 'rgba(240,177,59,.55)'}`,
-            color: light ? MARK_LIGHT.IMP.text : '#f5c064',
+            background: light ? lightChips.IMP.bg : chips.IMP.bg,
+            border: `1px solid ${light ? lightChips.IMP.border : chips.IMP.border}`,
+            color: light ? lightChips.IMP.text : chips.IMP.text,
             fontSize: sz(11),
             fontWeight: 800,
             display: 'inline-flex',
@@ -387,13 +377,13 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: sz(9.5),
             fontWeight: 800,
-            border: `1px solid ${light ? MARK_LIGHT.CAA.border : '#2f9e8f'}`,
+            border: `1px solid ${light ? lightChips.CAA.border : chips.CAA.border}`,
             borderRadius: 4,
             padding: `1px ${sz(4)}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
-            color: light ? MARK_LIGHT.CAA.text : '#5eead4',
-            background: light ? MARK_LIGHT.CAA.bg : 'rgba(47,158,143,.18)',
+            color: light ? lightChips.CAA.text : chips.CAA.text,
+            background: light ? lightChips.CAA.bg : chips.CAA.bg,
             flexShrink: 0,
           }}
         >
@@ -415,9 +405,9 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             padding: `1px ${sz(4)}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
-            color: light ? MARK_LIGHT.NTM.text : ALERT_MARK[type].text,
-            borderColor: light ? MARK_LIGHT.NTM.border : ALERT_MARK[type].border,
-            background: light ? MARK_LIGHT.NTM.bg : ALERT_MARK[type].bg,
+            color: light ? lightChips.NTM.text : chips.NTM.text,
+            borderColor: light ? lightChips.NTM.border : chips.NTM.border,
+            background: light ? lightChips.NTM.bg : chips.NTM.bg,
             flexShrink: 0,
           }}
         >
@@ -452,6 +442,14 @@ export default function FlightPill({
   onToggleInfo = null,
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, depDeltaMin = 0, arrDeltaMin = 0, depKind = 'STD', arrKind = 'STA', depHm, arrHm, status } = flight;
+  // Resolved wall colour tokens (per-account overrides over the shipped
+  // defaults) — every colour below derives from these.
+  const c = useWallColors();
+  const STATUS = statusThemesFor(c);
+  const WX_BRIGHT = wxBrightFor(c);
+  const WX_DARK = wxDarkFor(c);
+  const lim = limStylesFor(c);
+  const chrome = chromeFor(c);
   // Info tab (bug report item 1): a flight with IMP/NOTAM/WX/CAA content is
   // click-expandable — click again (or ✕) collapses. No hover involved.
   const hasInfoContent = (flight.limitations || []).length > 0 || Boolean(flight.wxDep || flight.wxArr);
@@ -501,7 +499,7 @@ export default function FlightPill({
 
   // WX colour for an ICAO: dark tones on solid light fills, bright tones on
   // hollow pills (dark background shows through). null = default colour.
-  const wxIcaoColor = (cat) => (cat ? (hollow ? WX_ICAO_BRIGHT[cat] : WX_ICAO_DARK[cat]) ?? null : null);
+  const wxIcaoColor = (cat) => (cat ? (hollow ? WX_BRIGHT[cat] : WX_DARK[cat]) ?? null : null);
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -538,15 +536,17 @@ export default function FlightPill({
   // Bug report 3 item 1: WHITE & BLACK stripes (old-DigitalWall), not the
   // state-tinted hatch — the schedule→actual gap reads the same on every
   // pill colour.
+  const hatchA = withAlpha(c.hatchLight, 0.9);
+  const hatchB = withAlpha(c.hatchDark, 0.9);
   const delayDashBg = `repeating-linear-gradient(
     45deg,
-    rgba(238,241,248,.9) 0px, rgba(238,241,248,.9) ${sz(6)}px,
-    rgba(12,15,24,.9) ${sz(6)}px, rgba(12,15,24,.9) ${sz(10)}px
+    ${hatchA} 0px, ${hatchA} ${sz(6)}px,
+    ${hatchB} ${sz(6)}px, ${hatchB} ${sz(10)}px
   )`;
 
   // ID text: Leon checklist color (contrast-guarded on the dark board),
   // italic when the trip is not CONFIRMED (Option/Opportunity).
-  const idColor = readableIdColor(flight.checklistColor, '#f2f5fb');
+  const idColor = readableIdColor(flight.checklistColor, c.textCallsign);
   const idStyle = flight.isConfirmed === false ? 'italic' : 'normal';
 
   // ── Ops timing rules (bug report 7-9) — exact precedence ───────────────
@@ -563,7 +563,7 @@ export default function FlightPill({
   const endLabel = `${arrPrefix}${arrHm ?? eta}`;
   const deltaTag = (deltaMin) =>
     deltaMin === 0 ? null : (
-      <span style={{ color: deltaMin > 0 ? '#ffb224' : '#3fe97a', fontWeight: 800 }}>
+      <span style={{ color: deltaMin > 0 ? c.textDeltaLate : c.textDeltaEarly, fontWeight: 800 }}>
         {' '}{deltaMin > 0 ? '+' : '\u2212'}{Math.abs(deltaMin)}
       </span>
     );
@@ -660,7 +660,7 @@ export default function FlightPill({
     fontFamily: "'IBM Plex Mono',monospace",
     fontSize: F.times,
     fontWeight: 700,
-    color: '#e2e9f8',
+    color: c.textTimes,
     lineHeight: `${F.timesRow}px`,
     transform: 'translateX(-50%)',
     whiteSpace: 'nowrap',
@@ -694,9 +694,9 @@ export default function FlightPill({
                   width: limCircle,
                   height: limCircle,
                   borderRadius: '50%',
-                  background: done ? 'transparent' : '#ff3b30',
-                  border: done ? '1.5px solid rgba(255,95,80,.6)' : 'none',
-                  color: done ? 'rgba(255,125,110,.9)' : '#ffffff',
+                  background: done ? 'transparent' : lim.uncheckedBg,
+                  border: done ? `1.5px solid ${lim.checkedBorder}` : 'none',
+                  color: done ? lim.checkedText : lim.uncheckedText,
                   fontSize: Math.max(7, Math.round(limCircle * 0.62)),
                   fontWeight: 800,
                   fontFamily: "'IBM Plex Mono',monospace",
@@ -740,7 +740,7 @@ export default function FlightPill({
             top: Math.max(0, Math.round((F.band - F.body) / 2)) - 2,
             height: F.body + 4,
             borderRadius: 99,
-            border: '2px solid #ff5f5f',
+            border: `2px solid ${c.mvtRing}`,
             pointerEvents: 'none',
             zIndex: 3,
             animation: `cwmvtblink ${mvtFlashSeconds}s step-start infinite`,
@@ -750,7 +750,7 @@ export default function FlightPill({
       <div
         onClick={clickable ? onToggleInfo : undefined}
         title={clickable ? 'Show limitations / NOTAM / WX / CAA for this flight' : undefined}
-        style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: '2px solid #6dc4ff', outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}
+        style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: `2px solid ${chrome.accent}`, outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}
       >
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
           {depDeltaMin > 0 && depCrossSectionF > 0 && (
@@ -761,7 +761,7 @@ export default function FlightPill({
                 flexShrink: 0,
                 borderRadius: '99px 0 0 99px',
                 background: delayDashBg,
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.28)',
+                boxShadow: PILL_SHIPPED.hatchEdge,
                 overflow: 'hidden',
               }}
             />
@@ -776,8 +776,8 @@ export default function FlightPill({
                 depDeltaMin > 0 && depCrossSectionF > 0
                   ? (arrCrossSectionF > 0 ? '0' : '0 99px 99px 0')
                   : (arrCrossSectionF > 0 ? '99px 0 0 99px' : '99px'),
-              background: hollow ? hexA(theme.bg, 0.14) : theme.bg,
-              boxShadow: hollow ? 'none' : 'inset 0 0 0 1px rgba(12,16,26,.22)',
+              background: hollow ? withAlpha(theme.bg, 0.14) : theme.bg,
+              boxShadow: hollow ? 'none' : PILL_SHIPPED.edgeInset,
               display: 'flex',
               alignItems: 'center',
               padding: `0 ${sz(9)}px`,
@@ -794,7 +794,7 @@ export default function FlightPill({
               {showFull && (
                 <>
                   <span style={{ ...icaoStyle(F.icao), color: wxIcaoColor(flight.wxDep) ?? (hollow ? theme.bg : theme.text), opacity: dep === 'UNK' ? 0.55 : 1 }}>{dep}</span>
-                  <span style={{ width: 1, background: hollow ? hexA(theme.bg, 0.45) : 'rgba(0,0,0,.28)', height: F.icao + 2, flexShrink: 0 }} />
+                  <span style={{ width: 1, background: hollow ? withAlpha(theme.bg, 0.45) : PILL_SHIPPED.divider, height: F.icao + 2, flexShrink: 0 }} />
                   <span style={{ ...icaoStyle(F.icao), color: wxIcaoColor(flight.wxArr) ?? (hollow ? theme.bg : theme.text), opacity: arr === 'UNK' ? 0.55 : 1 }}>{arr}</span>
                 </>
               )}
@@ -810,7 +810,7 @@ export default function FlightPill({
                 flexShrink: 0,
                 borderRadius: '0 99px 99px 0',
                 background: delayDashBg,
-                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.28)',
+                boxShadow: PILL_SHIPPED.hatchEdge,
                 overflow: 'hidden',
               }}
             />
@@ -830,16 +830,16 @@ export default function FlightPill({
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: F.times,
             fontWeight: 700,
-            color: '#e2e9f8',
+            color: c.textTimes,
             lineHeight: `${F.timesRow}px`,
             whiteSpace: 'nowrap',
           }}
         >
           <span style={{ position: 'sticky', left: stickyLeftPx, display: 'inline-block' }}>
             <span style={{ fontWeight: 700 }}>
-              <span style={{ color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#f2f6ff' }}>{dep}</span>
-              <span style={{ color: '#f2f6ff' }}>→</span>
-              <span style={{ color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#f2f6ff' }}>{arr}</span>
+              <span style={{ color: (flight.wxDep && WX_BRIGHT[flight.wxDep]) || c.textIcao }}>{dep}</span>
+              <span style={{ color: c.textIcao }}>→</span>
+              <span style={{ color: (flight.wxArr && WX_BRIGHT[flight.wxArr]) || c.textIcao }}>{arr}</span>
             </span>
             {belowMode === 'combined' && <span> · {timesText}</span>}
           </span>
@@ -857,7 +857,7 @@ export default function FlightPill({
             fontFamily: "'IBM Plex Mono',monospace",
             fontSize: F.times,
             fontWeight: 700,
-            color: '#e2e9f8',
+            color: c.textTimes,
             lineHeight: `${F.timesRow}px`,
             whiteSpace: 'nowrap',
           }}
@@ -880,12 +880,12 @@ export default function FlightPill({
         // ICAO codes so the route stays readable mid-flight.
         <div style={{ display: 'flex', justifyContent: 'space-between', height: F.timesRow, marginTop: sz(2), width: `${((arrCrossStartF - depF) / totalF) * 100}%` }}>
           <span style={{ ...timeStyle, position: 'sticky', left: stickyLeftPx, transform: 'none' }}>
-            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxDep && WX_ICAO_BRIGHT[flight.wxDep]) || '#f2f6ff' }}>{dep} </span>}
+            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxDep && WX_BRIGHT[flight.wxDep]) || c.textIcao }}>{dep} </span>}
             {startLabel}{deltaTag(depDeltaMin)}
           </span>
           <span style={{ ...timeStyle, position: 'sticky', right: sz(8), transform: 'none' }}>
             {endLabel}{deltaTag(arrDeltaMin)}
-            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxArr && WX_ICAO_BRIGHT[flight.wxArr]) || '#ccd6ee' }}> {arr}</span>}
+            {pillClipped && <span style={{ fontWeight: 700, color: (flight.wxArr && WX_BRIGHT[flight.wxArr]) || tokenOr(c, 'textIcao', PILL_SHIPPED.clippedArrIcao) }}> {arr}</span>}
           </span>
         </div>
       )}

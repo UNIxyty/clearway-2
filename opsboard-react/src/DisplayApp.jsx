@@ -11,6 +11,7 @@ import {
   reportDisplayEnv,
 } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
+import { WallColorsProvider } from './theme/WallColorsContext';
 import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/device';
 
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
@@ -112,6 +113,11 @@ export default function DisplayApp() {
   const [mvtThresholdMin, setMvtThresholdMin] = useState(15); // MVT flash threshold
   const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1); // MVT blink period
   const [upcomingTable, setUpcomingTable] = useState({ enabled: false, side: 'right', scale: 1, widthPct: 30 });
+  // Per-account wall colour overrides ({ tokenKey: "#rrggbb" }) — resolved
+  // against the shipped defaults by WallColorsProvider. Arrives with the
+  // same settings fetch as the sizing knobs, so the config.changed SSE
+  // (section 'settings' → loadSettings) live-updates colours too.
+  const [wallColorOverrides, setWallColorOverrides] = useState({});
   const loadingRef = useRef(false);
   const deviceIdRef = useRef(getDeviceId());
   const accountRef = useRef(''); // this screen's signed-in account (profile key)
@@ -151,6 +157,8 @@ export default function DisplayApp() {
     try {
       const payload = await fetchDisplaySettings();
       accountRef.current = String(payload.account || '').toLowerCase();
+      const colors = payload.settings?.colors;
+      setWallColorOverrides(colors && typeof colors === 'object' ? colors : {});
       setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
       if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
@@ -249,6 +257,7 @@ export default function DisplayApp() {
   }, []);
 
   return (
+    <WallColorsProvider colors={wallColorOverrides}>
     <div style={s.shell}>
       {/* Clocks bar + wall sign scale with the SIDEBAR scale; the overlay
           with its own scale — the board scale moves neither (Item 2). */}
@@ -294,6 +303,7 @@ export default function DisplayApp() {
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
     </div>
+    </WallColorsProvider>
   );
 }
 

@@ -2,44 +2,44 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { p2, clamp } from '../data';
 import FlightPill, { pillVerticalMetrics } from './FlightPill';
 import FlightInfoTab from './FlightInfoTab';
+import { useWallColors } from '../theme/WallColorsContext';
+import {
+  aogStylesFor,
+  chromeFor,
+  legendSwatchesFor,
+  wxLegendSwatchesFor,
+} from '../theme/wallColors';
 
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 // Timeline agenda — the exact labels from the ops mockup, plus the two
 // existing wall states (hollow Estimated, hatched AOG) that still exist.
-const LEGEND = [
-  { status: 'scheduled', label: 'Not departed', color: '#dde1ea' },
-  { status: 'airborne',  label: 'Airborne',     color: '#7d9cc4' },
-  { status: 'delayed',   label: 'Delayed',      color: '#c9ab62' },
-  { status: 'ctot',      label: 'CTOT',         color: '#9d8cc2' },
-  { status: 'arrived',   label: 'Arrived',      color: '#bd8ba4' },
-  { status: 'estimated', label: 'Estimated',    color: '#7d9cc4', hollow: true },
-  { status: 'aog',       label: 'AOG',          color: 'rgba(180,60,60,.4)', hatch: true },
-];
+// Swatch colours come from legendSwatchesFor(tokens): the shipped muted
+// variants of the pill-fill tokens until a state token is overridden.
+function makeLegend(leg) {
+  return [
+    { status: 'scheduled', label: 'Not departed', color: leg.scheduled },
+    { status: 'airborne',  label: 'Airborne',     color: leg.airborne },
+    { status: 'delayed',   label: 'Delayed',      color: leg.delayed },
+    { status: 'ctot',      label: 'CTOT',         color: leg.ctot },
+    { status: 'arrived',   label: 'Arrived',      color: leg.arrived },
+    { status: 'estimated', label: 'Estimated',    color: leg.estimatedOutline, fill: leg.estimatedFill, hollow: true },
+    { status: 'aog',       label: 'AOG',          color: leg.aogFill, stripe: leg.aogStripe, border: `1px dashed ${leg.aogBorder}`, hatch: true },
+  ];
+}
 
 // WX agenda — the SAME scheme that colours the airport codes on pills
 // (bug report 2 items 1+6): one vocabulary, not two. Ops wrote
 // "above/average/below average / no forecast"; these labels reconcile that
 // wording with the real flight categories — a label-only change if they
-// insist on their exact words.
-const WX_LEGEND = [
-  { label: 'VFR — good',            color: '#3fbf6f' },
-  { label: 'MVFR — marginal',       color: '#e8a33d' },
-  { label: 'LIFR — worst',          color: '#ef6a6a' },
-  { label: 'IFR / no forecast',     color: 'rgba(222,225,234,.9)', border: '1px solid rgba(160,170,200,.4)' },
-];
-
-const LIM_TYPE_COLOR = {
-  AOG:  { bg: 'rgba(239,106,106,.18)', text: '#ef8080', border: 'rgba(239,106,106,.35)' },
-  WX:   { bg: 'rgba(95,181,255,.15)',  text: '#7ec8ff', border: 'rgba(95,181,255,.3)'   },
-  CREW: { bg: 'rgba(240,177,59,.15)',  text: '#f0c060', border: 'rgba(240,177,59,.3)'   },
-  PAX:  { bg: 'rgba(58,165,122,.15)',  text: '#60c898', border: 'rgba(58,165,122,.3)'   },
-  CTOT: { bg: 'rgba(184,140,255,.15)', text: '#c8a8ff', border: 'rgba(184,140,255,.3)'  },
-  // Alert scanner findings (Feature 6) and Important entries (Feature 7).
-  NTM:  { bg: 'rgba(255,145,80,.15)',  text: '#ffab73', border: 'rgba(255,145,80,.32)'  },
-  IMP:  { bg: 'rgba(255,105,180,.14)', text: '#ff8fc6', border: 'rgba(255,105,180,.32)' },
-};
-// The weather alert badge reuses the existing WX limitation color.
-LIM_TYPE_COLOR.WEATHER = LIM_TYPE_COLOR.WX;
+// insist on their exact words. Swatches from wxLegendSwatchesFor(tokens).
+function makeWxLegend(wx) {
+  return [
+    { label: 'VFR — good',        color: wx.VFR },
+    { label: 'MVFR — marginal',   color: wx.MVFR },
+    { label: 'LIFR — worst',      color: wx.LIFR },
+    { label: 'IFR / no forecast', color: wx.ifrFill, border: wx.ifrBorder },
+  ];
+}
 
 // Idle time before the view glides back to "now" (Item 3).
 const AUTO_RETURN_TO_NOW_MS = 10_000;
@@ -53,7 +53,7 @@ function nowTimeStr(nowMs) {
   return `${p2(n.getUTCHours())}:${p2(n.getUTCMinutes())} UTC`;
 }
 
-function SoftGrid({ hours }) {
+function SoftGrid({ hours, stroke }) {
   return (
     <svg
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
@@ -67,7 +67,7 @@ function SoftGrid({ hours }) {
           key={i}
           x1={((i + 1) / hours * 100).toFixed(3) + '%'} y1="0"
           x2={((i + 1) / hours * 100).toFixed(3) + '%'} y2="100%"
-          stroke="rgba(255,255,255,0.05)" strokeWidth="1" filter="url(#gblur)"
+          stroke={stroke} strokeWidth="1" filter="url(#gblur)"
         />
       ))}
     </svg>
@@ -155,6 +155,13 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
 }
 
 export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null }) {
+  // Resolved wall colour tokens — every colour on the board derives from
+  // these (chromeFor/legend*/aogStylesFor bridge the shipped odd shades).
+  const wallColors = useWallColors();
+  const chrome = chromeFor(wallColors);
+  const aog = aogStylesFor(wallColors);
+  const LEGEND = makeLegend(legendSwatchesFor(wallColors));
+  const WX_LEGEND = makeWxLegend(wxLegendSwatchesFor(wallColors));
   const [nowMs, setNowMs] = useState(() => Date.now());
   // Retractable info tab (bug report item 1): one open at a time so the
   // board stays clean; auto-collapses after 3 min of being left open.
@@ -186,7 +193,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // floor drops with the wider acColScale range (0.2 min server-side).
   const AC_LABEL_W = Math.max(26, Math.round(118 * scale * acColScale));
   const acFont = (v) => Math.max(7, Math.round(v * scale * acColScale));
-  const s = makeStyles(sz, szSide, { AC_LABEL_W, acFont });
+  const s = makeStyles(sz, szSide, { AC_LABEL_W, acFont, chrome, aog });
   const END_PAD_PX = sz(260);
   // timeZoom stretches/squeezes the hour axis independently of text scale:
   // 2 = hour gridlines twice as far apart (fewer hours visible), 0.5 = twice
@@ -541,8 +548,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       <style>{`
         .cw-lim-scroll::-webkit-scrollbar{width:7px;background:transparent}
         .cw-lim-scroll::-webkit-scrollbar-track{background:transparent}
-        .cw-lim-scroll::-webkit-scrollbar-thumb{background:rgba(150,165,205,.28);border-radius:8px}
-        .cw-lim-scroll{scrollbar-width:thin;scrollbar-color:rgba(150,165,205,.28) transparent}
+        .cw-lim-scroll::-webkit-scrollbar-thumb{background:${chrome.scrollThumb};border-radius:8px}
+        .cw-lim-scroll{scrollbar-width:thin;scrollbar-color:${chrome.scrollThumb} transparent}
         @keyframes cwmvtblink{0%,49%{opacity:1}50%,100%{opacity:0}}
       `}</style>
 
@@ -571,11 +578,11 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
               <div style={{
                 ...s.legendSwatch,
                 background: l.hatch
-                  ? `repeating-linear-gradient(-45deg,${l.color} 0,${l.color} 3px,rgba(20,24,36,.9) 3px,rgba(20,24,36,.9) 8px)`
+                  ? `repeating-linear-gradient(-45deg,${l.color} 0,${l.color} 3px,${l.stripe} 3px,${l.stripe} 8px)`
                   : l.hollow
-                    ? 'rgba(125,156,196,.14)'
+                    ? l.fill
                     : l.color,
-                border: l.hatch ? '1px dashed rgba(200,80,80,.4)' : l.hollow ? `2px solid ${l.color}` : 'none',
+                border: l.hatch ? l.border : l.hollow ? `2px solid ${l.color}` : 'none',
               }} />
               <span style={s.legendLabel}>{l.label}</span>
             </div>
@@ -594,9 +601,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 onClick={() => setOpenLimId((prev) => (prev === l.id ? null : l.id))}
                 title="Show description"
               >
-                <span style={{ ...s.limBadgeNum, borderColor: 'rgba(255,90,80,.5)', color: '#ff6b60' }}>{i + 1}</span>
+                <span style={{ ...s.limBadgeNum, borderColor: chrome.limNumBorder, color: chrome.limNum }}>{i + 1}</span>
                 <span style={s.limTitle}>{l.title}</span>
-                <span style={{ marginLeft: 'auto', color: '#5a6a94', fontSize: szSide(11) }}>{openLimId === l.id ? '▴' : '▾'}</span>
+                <span style={{ marginLeft: 'auto', color: chrome.sidebarMuted, fontSize: szSide(11) }}>{openLimId === l.id ? '▴' : '▾'}</span>
               </div>
               {openLimId === l.id && (l.description || l.body) && (
                 <div style={s.limDescTab}>{l.description || l.body}</div>
@@ -658,7 +665,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 // obscures other flights or rows.
                 const rowHeight = lanesHeight + (openFlight ? INFO_TAB_H + 10 : 0);
                 return (
-                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? 'rgba(148,163,196,.07)' : 'transparent' }}>
+                <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? chrome.rowAlt : 'transparent' }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>
@@ -669,7 +676,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                   {/* Timeline track */}
                   <div style={{ display: 'flex', width: timelinePx + END_PAD_PX }}>
                   <div style={{ ...s.timeline, width: timelinePx }}>
-                    <SoftGrid hours={timelineHours} />
+                    <SoftGrid hours={timelineHours} stroke={chrome.softGrid} />
 
                     {/* AOG band */}
                     {ac.aog && laneData.flights[0] && (() => {
@@ -681,11 +688,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                           position: 'absolute', top: 0, bottom: 0,
                           left: (x1 * 100).toFixed(2) + '%',
                           width: ((x2 - x1) * 100).toFixed(2) + '%',
-                          background: `repeating-linear-gradient(-45deg,
-                            rgba(180,60,60,.13) 0,rgba(180,60,60,.13) 5px,
-                            transparent 5px,transparent 11px)`,
-                          borderLeft: '1px dashed rgba(200,80,80,.35)',
-                          borderRight: '1px dashed rgba(200,80,80,.35)',
+                          background: aog.band,
+                          borderLeft: `1px dashed ${aog.border}`,
+                          borderRight: `1px dashed ${aog.border}`,
                         }}>
                           <span style={s.aogLabel}>AOG</span>
                           {Array.isArray(fl.limitationIds) && limIndexMap[fl.limitationIds[0]] && (
@@ -694,7 +699,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                                 position: 'absolute', top: '50%', right: 8,
                                 transform: 'translateY(-50%)',
                                 ...s.limBadgeInline,
-                                background: 'rgba(240,177,59,.2)',
+                                background: chrome.amberBg,
                               }}
                             >
                               {limIndexMap[fl.limitationIds[0]]}
@@ -762,7 +767,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   );
 }
 
-function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {}) {
+function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome, aog } = {}) {
   return {
   outer: {
     display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0, minWidth: 0,
@@ -772,14 +777,14 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   // ops room; the panel scrolls when entries exceed the height. Everything
   // here uses szSide (the independent sidebar scale), not the board scale.
   leftPanel: {
-    width: szSide(330), flexShrink: 0, background: '#141926',
-    borderRight: '1px solid #222840',
+    width: szSide(330), flexShrink: 0, background: chrome.panelBg,
+    borderRight: `1px solid ${chrome.gridLine}`,
     display: 'flex', flexDirection: 'column',
     padding: '14px 0', overflowY: 'auto',
   },
   panelTitle: {
     fontSize: szSide(11), fontWeight: 700, letterSpacing: '2.5px',
-    color: '#5a6a94', padding: `0 ${szSide(16)}px`, marginBottom: szSide(10),
+    color: chrome.sidebarMuted, padding: `0 ${szSide(16)}px`, marginBottom: szSide(10),
   },
   legendGrid: {
     display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${szSide(3)}px ${szSide(8)}px`,
@@ -787,42 +792,31 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   },
   legendItem: { display: 'flex', alignItems: 'center', gap: szSide(8), padding: `${szSide(3)}px ${szSide(4)}px` },
   legendSwatch: { width: szSide(24), height: szSide(11), borderRadius: 3, flexShrink: 0 },
-  legendLabel: { fontSize: szSide(12.5), color: '#a7b3d4', whiteSpace: 'nowrap' },
+  legendLabel: { fontSize: szSide(12.5), color: chrome.legendLabel, whiteSpace: 'nowrap' },
   sidebarDate: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: szSide(20), fontWeight: 700,
-    color: '#f2f5fb', letterSpacing: '1px', padding: `${szSide(14)}px ${szSide(12)}px ${szSide(6)}px`,
+    color: chrome.sidebarHeading, letterSpacing: '1px', padding: `${szSide(14)}px ${szSide(12)}px ${szSide(6)}px`,
   },
   limTitleRow: { display: 'flex', alignItems: 'center', gap: szSide(9), padding: `${szSide(3)}px 0` },
   limDescTab: {
     margin: `${szSide(2)}px 0 ${szSide(6)}px ${szSide(26)}px`,
     padding: `${szSide(8)}px ${szSide(10)}px`,
-    background: '#1a2130', borderRadius: 9, borderLeft: '3px solid rgba(240,177,59,.5)',
-    fontSize: szSide(12.5), lineHeight: 1.5, color: '#b7c2dc', whiteSpace: 'pre-wrap',
+    background: chrome.insetBg, borderRadius: 9, borderLeft: `3px solid ${chrome.amberBorder}`,
+    fontSize: szSide(12.5), lineHeight: 1.5, color: chrome.sidebarText, whiteSpace: 'pre-wrap',
   },
   limList: { display: 'flex', flexDirection: 'column', gap: szSide(6), padding: `0 ${szSide(12)}px ${szSide(14)}px`, overflowY: 'auto', minHeight: 0 },
-  limEmpty: { fontSize: szSide(14), color: '#5a6a94', padding: '6px 4px' },
-  limCard: {
-    background: '#1a2130',
-    borderRadius: 12,
-    padding: `${szSide(14)}px ${szSide(16)}px`,
-  },
+  limEmpty: { fontSize: szSide(14), color: chrome.sidebarMuted, padding: '6px 4px' },
   limBadgeNum: {
     width: szSide(24), height: szSide(24), borderRadius: '50%', flexShrink: 0,
     border: '1px solid',
-    background: 'rgba(255,255,255,.06)',
+    background: chrome.ghost,
     fontSize: szSide(13), fontWeight: 700,
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  limType: { fontSize: szSide(14), fontWeight: 800, letterSpacing: '1.5px' },
   limTitle: {
-    fontSize: szSide(21), fontWeight: 800, color: '#f6f8fd',
+    fontSize: szSide(21), fontWeight: 800, color: chrome.limTitle,
     lineHeight: 1.2, marginBottom: 7,
-  },
-  limDesc: { fontSize: szSide(17), lineHeight: 1.45, color: '#d7dce6', whiteSpace: 'pre-wrap' },
-  limScope: {
-    fontSize: szSide(13), fontFamily: "'IBM Plex Mono',monospace",
-    color: '#8f99ab', marginTop: 9,
   },
 
   // Main
@@ -830,16 +824,16 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
 
   timeHeader: {
     display: 'flex', height: sz(42), flexShrink: 0,
-    borderBottom: '1px solid #222840', background: '#161b26',
+    borderBottom: `1px solid ${chrome.gridLine}`, background: chrome.headerBg,
     position: 'relative',
   },
-  acSpacer: { width: AC_LABEL_W, flexShrink: 0, borderRight: '1px solid #222840' },
+  acSpacer: { width: AC_LABEL_W, flexShrink: 0, borderRight: `1px solid ${chrome.gridLine}` },
   timeScroll: { flex: 1, overflowX: 'auto', overflowY: 'hidden' },
   timeInner: { position: 'relative', display: 'flex', minWidth: '100%' },
   tick: {
     width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
-    borderRight: '1px solid #222840',
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 700, color: '#b9c6e6',
+    borderRight: `1px solid ${chrome.gridLine}`,
+    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 700, color: chrome.tickText,
   },
 
   // NOW header marker
@@ -855,23 +849,23 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   // side + slight transparency, so it stays visible crossing white bodies.
   nowTimeLabel: {
     fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11.5), fontWeight: 700,
-    color: '#ffffff', letterSpacing: '.5px',
-    background: '#161b26', padding: '1px 5px', borderRadius: 3,
-    border: '1px solid rgba(255,255,255,.45)',
+    color: chrome.nowBadgeText, letterSpacing: '.5px',
+    background: chrome.nowBadgeBg, padding: '1px 5px', borderRadius: 3,
+    border: `1px solid ${chrome.nowBadgeBorder}`,
   },
   nowTriangle: {
     width: 0, height: 0, marginTop: 2,
     borderLeft: '4px solid transparent',
     borderRight: '4px solid transparent',
-    borderTop: '5px solid rgba(255,255,255,.75)',
+    borderTop: `5px solid ${chrome.nowTriangle}`,
   },
   nowFixedLine: {
     position: 'absolute',
     top: sz(42),
     bottom: 0,
     width: 2,
-    background: 'linear-gradient(to bottom, rgba(255,255,255,.92) 0%, rgba(255,255,255,.5) 100%)',
-    boxShadow: '0 0 0 1px rgba(10,14,24,.55), 0 0 10px rgba(255,255,255,.35)',
+    background: chrome.nowLineGradient,
+    boxShadow: chrome.nowLineShadow,
     zIndex: 95,
     pointerEvents: 'none',
   },
@@ -879,18 +873,18 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   // Board rows
   rowsWrap: { flex: 1, position: 'relative', overflow: 'auto' },
   board: { minHeight: '100%' },
-  row: { display: 'flex', height: 64, borderBottom: '1px solid #1e243580' },
+  row: { display: 'flex', height: 64, borderBottom: `1px solid ${chrome.rowBorder}` },
   acLabel: {
     width: AC_LABEL_W, flexShrink: 0,
     position: 'sticky',
     left: 0,
     zIndex: 35,
-    background: '#151a27',
+    background: chrome.sidebarBg,
     display: 'flex', flexDirection: 'column', justifyContent: 'center',
-    padding: '0 9px', borderRight: '1px solid #222840',
+    padding: '0 9px', borderRight: `1px solid ${chrome.gridLine}`,
   },
-  reg:    { fontSize: acFont(15), fontWeight: 800, letterSpacing: '.3px', color: '#ffffff' },
-  acType: { fontSize: acFont(11.5), color: '#aab8da', marginTop: 2 },
+  reg:    { fontSize: acFont(15), fontWeight: 800, letterSpacing: '.3px', color: chrome.reg },
+  acType: { fontSize: acFont(11.5), color: chrome.operator, marginTop: 2 },
   // 'clip' (not 'hidden'): identical clipping, but hidden would make this a
   // scroll container and swallow the pills' position:sticky labels (bug
   // report 3 item 4) — clip lets them stick to the real scroller instead.
@@ -898,13 +892,13 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
   timelineEndPad: { width: sz(260), flexShrink: 0 },
   aogLabel: {
     position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-    left: 10, fontSize: sz(12), color: 'rgba(220,120,120,.8)',
+    left: 10, fontSize: sz(12), color: aog.label,
     whiteSpace: 'nowrap', pointerEvents: 'none',
   },
   limBadgeInline: {
     width: 16, height: 16, borderRadius: '50%',
-    border: '1px solid rgba(240,177,59,.5)',
-    color: '#f0b13b', fontSize: 9, fontWeight: 700,
+    border: `1px solid ${chrome.amberBorder}`,
+    color: chrome.amber, fontSize: 9, fontWeight: 700,
     fontFamily: "'IBM Plex Mono',monospace",
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', transition: 'background .15s',
@@ -915,9 +909,9 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz } = {})
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#8b98bb',
+    color: chrome.emptyText,
     fontSize: sz(15),
-    background: 'rgba(16,20,30,.35)',
+    background: chrome.emptyBg,
     zIndex: 5,
     pointerEvents: 'none',
   },

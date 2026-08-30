@@ -48,11 +48,13 @@ function ageMs(updatedAt: string | null): number | null {
   return Date.now() - ts;
 }
 
-async function fetchFromSyncServer(icao: string, extract: boolean, stream = false): Promise<Response> {
+async function fetchFromSyncServer(icao: string, extract: boolean, stream = false, force = false): Promise<Response> {
   if (!AIP_SYNC_URL) {
     throw new Error("AIP sync not configured");
   }
-  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&extract=${extract ? "1" : "0"}`;
+  // force=1 propagates to the sync worker so it refetches from the source and
+  // overwrites the stored JSON/PDF instead of serving its own cached copy.
+  const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}&extract=${extract ? "1" : "0"}${force ? "&force=1" : ""}`;
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
   const controller = new AbortController();
@@ -84,6 +86,24 @@ export async function GET(request: NextRequest) {
   if (!sync) {
     const fromStorage = await getFromStorage(icao);
     if (fromStorage) {
+      // meta=1 (optional, additive): also return the real cache TTL metadata so
+      // the UI can recompute "Cached … expires …" after a streamed re-sync
+      // without triggering any external request. Default response unchanged.
+      if (request.nextUrl.searchParams.get("meta") === "1") {
+        const age = ageMs(fromStorage.updatedAt);
+        return NextResponse.json({
+          airports: fromStorage.airports,
+          updatedAt: fromStorage.updatedAt,
+          cache: {
+            served: true,
+            stale: age === null || age > FAST_CACHE_MAX_AGE_MS,
+            ageMs: age,
+            refreshStarted: false,
+            ttlMs: CACHE_TTL_MS,
+            staleAfterMs: FAST_CACHE_MAX_AGE_MS,
+          },
+        });
+      }
       return NextResponse.json({ airports: fromStorage.airports, updatedAt: fromStorage.updatedAt });
     }
     return NextResponse.json({ airports: [], updatedAt: null }, { status: 200 });
@@ -122,7 +142,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetchFromSyncServer(icao, extract, stream);
+    const res = await fetchFromSyncServer(icao, extract, stream, force);
     if (stream && res.ok && res.body) {
       return new Response(res.body, {
         headers: {

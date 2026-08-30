@@ -286,6 +286,15 @@ function supportsSyncedAipIcao(icao: string): boolean {
   return isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, null) || isUsaAipIcao(icao);
 }
 
+/** Human name of the live source a force re-sync would hit (mirrors the "Source:" line). */
+function aipSyncSourceName(icao: string, airport: AIPAirport | null): string {
+  if (isAsecnaIcao(icao)) return "ASECNA Web AIP";
+  if (isBahrainScraperIcao(icao, airport)) return `${airport?.country || "Scraper"} Web AIP`;
+  if (isUsaAipIcao(icao)) return "FAA USA AIP";
+  if (isRussiaIcao(icao)) return "CAICA Russia AIP";
+  return "Eurocontrol (EAD)";
+}
+
 /** EAD airport that is not in stored data; we show sync UI only, no stored AIP card */
 function isEadPlaceholder(airport: AIPAirport | null): boolean {
   return airport?.name === "EAD UNDEFINED";
@@ -617,6 +626,10 @@ export default function AirportView({
   const [aipPdfSlowIcao, setAipPdfSlowIcao] = useState<string | null>(null);
   const [aipSyncStartedAt, setAipSyncStartedAt] = useState<number | null>(null);
   const [aipSyncElapsedSec, setAipSyncElapsedSec] = useState(0);
+  // Manual force re-sync (Phase 4): per-icao in-flight state + persistent
+  // failure banner. The banner keeps the previous cached document visible.
+  const [resyncingIcao, setResyncingIcao] = useState<string | null>(null);
+  const [resyncError, setResyncError] = useState<Record<string, { message: string; cachedAt: string | null }>>({});
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
   const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
@@ -775,6 +788,9 @@ export default function AirportView({
   }, []);
 
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
+  // Synchronous double-click guard for the force re-sync button: state updates
+  // are async, so a fast second click could start a second run without this.
+  const resyncInFlightRef = useRef<Set<string>>(new Set());
   const requestControllersRef = useRef<Map<string, AbortController>>(new Map());
   const genPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -938,6 +954,163 @@ export default function AirportView({
     setPendingCaptchaIcao((prev) => (prev === icao ? null : prev));
     setAipEadSyncRequestedIcao(icao);
   }, [aipEadCache, requestConsentForIcao, captchaConsentDismissed, openCaptchaNoVncPopup]);
+
+  // Force re-sync (Phase 4): bypass every cache layer and refetch the AIP from
+  // the live source. Reuses the exact SSE mechanism the page already uses
+  // (GET /api/aip/<source>?icao=..&sync=1&stream=1&extract=1) with force=1 so
+  // the sync worker overwrites the stored JSON/PDF. On failure the previous
+  // cached document stays on screen and a loud banner shows the real error.
+  const forceResyncAip = useCallback(async (icao: string) => {
+    if (isUsaAipIcao(icao)) return; // USA is a static PDF set — no live sync
+    if (resyncInFlightRef.current.has(icao)) return; // double-click race guard (sync check)
+    resyncInFlightRef.current.add(icao);
+
+    const previousEntry = aipEadCache[icao];
+    const previousCachedAt = previousEntry?.updatedAt ?? null;
+    const previousCacheMeta = previousEntry?.cache ?? null;
+
+    setResyncingIcao(icao);
+    setResyncError((prev) => {
+      if (!(icao in prev)) return prev;
+      const next = { ...prev };
+      delete next[icao];
+      return next;
+    });
+    aipEadInFlightRef.current.add(icao); // block the regular sync effect for this icao
+    setAipEadLoadingIcao(icao);
+    setAipEadSyncingIcao(icao);
+    setAipSyncStartedAt(Date.now());
+    setAipEadSyncSteps(["Refetching from source… (cache bypassed)"]);
+    updateStage(icao, "aip", "running", "Refetching from source…");
+
+    const aipApiBase = isAsecnaIcao(icao)
+      ? "/api/aip/asecna"
+      : isBahrainScraperIcao(icao, viewingAirport)
+        ? "/api/aip/scraper"
+        : "/api/aip/ead";
+    const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}&sync=1&stream=1&extract=1&force=1&_t=${Date.now()}`;
+    const controller = beginRequest(`aip-resync-${icao}`);
+
+    let settled = false;
+    const fail = (msg: string) => {
+      settled = true;
+      // LOUD failure: persistent banner with the source's real error text.
+      // Do NOT touch aipEadCache — the previous cached copy stays displayed.
+      setResyncError((prev) => ({ ...prev, [icao]: { message: msg, cachedAt: previousCachedAt } }));
+      updateStage(icao, "aip", "error", msg);
+    };
+
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      if (!res.ok || !res.body) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; code?: number };
+        fail(formatAipSyncError(data));
+        return;
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const events = buf.split(/\n\n/);
+          buf = events.pop() ?? "";
+          for (const event of events) {
+            const dataLine = event.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+            let data: {
+              step?: string;
+              done?: boolean;
+              error?: string;
+              detail?: string;
+              code?: number;
+              airports?: unknown[];
+              updatedAt?: string | null;
+              pdfReady?: boolean;
+            };
+            try {
+              data = JSON.parse(dataLine.slice(6));
+            } catch {
+              continue;
+            }
+            if (data.pdfReady) {
+              setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+              setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+            }
+            if (data.step) {
+              const step = data.step;
+              setAipEadSyncSteps((prev) => [...prev, step]);
+              updateStage(icao, "aip", "running", step);
+            } else if (data.done && Array.isArray(data.airports)) {
+              const list = data.airports as ExtractedAirportRow[];
+              const updatedAt = typeof data.updatedAt === "string" ? data.updatedAt : new Date().toISOString();
+              const match = pickExtractedAirportRow(list, icao);
+              const fallbackCountry = isAsecnaIcao(icao)
+                ? (viewingAirport?.country || "ASECNA")
+                : isBahrainScraperIcao(icao, viewingAirport)
+                  ? (viewingAirport?.country || "Scraper")
+                : isRussiaIcao(icao)
+                  ? "Russia"
+                  : "EAD (EU AIP)";
+              const airport = mapExtractedRowToAirport(match, icao, fallbackCountry);
+              // Store the fresh document/extract state the same way the normal
+              // sync path does (new updatedAt + cache object drive the
+              // "Cached … expires …" line).
+              setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt, cache: previousCacheMeta } }));
+              setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+              setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+              settled = true;
+              updateStage(icao, "aip", "done", "AIP re-synced from source");
+              sendNotification("aip", "AIP re-synced", `${icao}`, notifPrefs);
+              // EAD route: refresh the "Cached … expires …" line from the
+              // server's REAL TTL (cache.ttlMs). meta=1 is a pure storage read
+              // — never an external request.
+              if (aipApiBase === "/api/aip/ead") {
+                fetch(`/api/aip/ead?icao=${encodeURIComponent(icao)}&meta=1&_t=${Date.now()}`, { cache: "no-store" })
+                  .then((r) => (r.ok ? r.json() : null))
+                  .then((meta: { updatedAt?: string | null; cache?: { ttlMs?: number; staleAfterMs?: number } } | null) => {
+                    if (!meta?.cache?.ttlMs || !meta.updatedAt) return;
+                    setAipEadCache((c) => {
+                      const entry = c[icao];
+                      if (!entry) return c;
+                      return { ...c, [icao]: { ...entry, updatedAt: meta.updatedAt ?? entry.updatedAt, cache: meta.cache ?? entry.cache } };
+                    });
+                  })
+                  .catch(() => {});
+              }
+              return;
+            } else if (data.error) {
+              fail(formatAipSyncError(data));
+              return;
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      if (!settled) {
+        fail("Sync stream ended without a result from the source.");
+      }
+    } catch (err) {
+      if (isAbortError(err)) {
+        updateStage(icao, "aip", "cancelled", "AIP re-sync cancelled");
+        return;
+      }
+      fail(`Re-sync request failed: ${(err as Error | undefined)?.message ?? "network error"}`);
+    } finally {
+      finishRequest(`aip-resync-${icao}`, controller);
+      resyncInFlightRef.current.delete(icao);
+      aipEadInFlightRef.current.delete(icao);
+      setResyncingIcao((prev) => (prev === icao ? null : prev));
+      setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
+      setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
+      setAipSyncStartedAt(null);
+      setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
+      setAipEadSyncSteps([]);
+    }
+  }, [aipEadCache, viewingAirport, notifPrefs, updateStage, beginRequest, finishRequest, isAbortError]);
 
   const handleCaptchaConsentContinue = useCallback(() => {
     void openCaptchaNoVncPopup(pendingCaptchaIcao);
@@ -1857,7 +2030,9 @@ export default function AirportView({
                                 >
                                   <div className="flex items-center gap-2">
                                     <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-[#2563eb]"}`} />
-                                    <span className="text-sm font-medium">Fetching AIP PDF…</span>
+                                    <span className="text-sm font-medium">
+                                      {resyncingIcao === viewingAirport.icao ? "Re-sync — refetching from source…" : "Fetching AIP PDF…"}
+                                    </span>
                                   </div>
                                   <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
                                     Live status · elapsed {aipSyncElapsedSec}s
@@ -2387,6 +2562,31 @@ export default function AirportView({
                         <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
                         Download PDF
                       </PButton>
+                      {(() => {
+                        // Manual force re-sync (Phase 4). USA is a hard-coded
+                        // static PDF set — it has no live sync, so disabled.
+                        const hasLiveSync = !isUsaAipIcao(detailIcao);
+                        const resyncBusy = resyncingIcao === detailIcao;
+                        return (
+                          <PButton
+                            type="button"
+                            variant="secondary"
+                            className="!border-amber-300 !bg-amber-50 !text-amber-900 hover:!bg-amber-100"
+                            disabled={!hasLiveSync || resyncBusy || aipEadLoadingIcao === detailIcao}
+                            title={
+                              hasLiveSync
+                                ? `Bypasses the cache and refetches the AIP from ${aipSyncSourceName(detailIcao, viewingAirport)}. Slow — makes an external request.`
+                                : "This source has no live sync"
+                            }
+                            onClick={() => {
+                              void forceResyncAip(detailIcao);
+                            }}
+                          >
+                            <RefreshCwIcon className={`size-4 shrink-0 ${resyncBusy ? "animate-spin" : ""}`} />
+                            Re-sync from source
+                          </PButton>
+                        );
+                      })()}
                       {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || isUsaAipIcao(viewingAirport.icao)) && (
                         <div
                           ref={genPopoverAnchorRef}
@@ -2512,6 +2712,43 @@ export default function AirportView({
                     </div>
                   )}
                 </div>
+
+                {/* Force re-sync failure banner: LOUD, persistent until dismissed
+                    or a successful re-sync. The cached document below is untouched. */}
+                {detailSynced && resyncError[detailIcao] && (
+                  <div
+                    role="alert"
+                    className="mb-[18px] flex items-start gap-3 rounded-[10px] border border-[#f6cdcf] bg-[#fdecec] px-4 py-3 text-[#b3261e]"
+                  >
+                    <FileWarningIcon className="mt-0.5 size-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">
+                        Re-sync failed — the document shown below is the previous cached copy from{" "}
+                        {resyncError[detailIcao].cachedAt
+                          ? new Date(resyncError[detailIcao].cachedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+                          : "an earlier sync (timestamp unknown)"}
+                        .
+                      </p>
+                      <p className="mt-1 break-words font-mono text-[12.5px] leading-5">
+                        {resyncError[detailIcao].message}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      title="Dismiss"
+                      className="flex h-[26px] w-[26px] flex-none cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#b3261e] hover:bg-[#fadadb]"
+                      onClick={() =>
+                        setResyncError((prev) => {
+                          const next = { ...prev };
+                          delete next[detailIcao];
+                          return next;
+                        })
+                      }
+                    >
+                      <XIcon className="size-4" />
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-start gap-5">
                   {/* Document column — the tab decides which existing panel is the main card */}

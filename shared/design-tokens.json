@@ -1,0 +1,45 @@
+{
+  "$comment": "THE shared Clearway design-token source (platform redesign Phase 1). Consumed by BOTH builds — the portal (tailwind.config.ts + lib/tokens.ts) and the console (opsboard-react ui.jsx t object). Edit here, never per-app. Values are the Clearway Platform design's.",
+  "color": {
+    "page": "#fbfbfc",
+    "card": "#ffffff",
+    "cardSubtle": "#fbfbfc",
+    "sidebar": "#f5f6f7",
+    "border": "#e6e7ea",
+    "borderInner": "#eef0f2",
+    "text": "#17181c",
+    "textBody": "#3a3d44",
+    "textMuted": "#6c7079",
+    "textFaint": "#9aa0a8",
+    "primary": "#2563eb",
+    "primaryDeep": "#1d4ed8",
+    "primaryTint": "#eef4ff",
+    "primaryWash": "#dbeafe",
+    "green": "#16a34a",
+    "greenDeep": "#15803d",
+    "greenTint": "#e7f6ec",
+    "amber": "#f59e0b",
+    "amberDeep": "#b45309",
+    "amberTint": "#fef3e2",
+    "red": "#e5484d",
+    "redDeep": "#b91c1c",
+    "redTint": "#fee2e2",
+    "grey": "#9aa0a8",
+    "greyTint": "#eef1f5",
+    "hoverSurface": "#eceef0",
+    "scrim": "rgba(23,24,28,.42)"
+  },
+  "radius": { "card": 13, "control": 9, "chip": 999, "menu": 11 },
+  "spacing": { "pagePadX": 32, "pagePadY": 24, "cardPad": 18 },
+  "font": {
+    "sans": "'Public Sans', system-ui, sans-serif",
+    "mono": "'IBM Plex Mono', monospace"
+  },
+  "sidebar": { "width": 248, "railWidth": 68 },
+  "stateChip": {
+    "operational": { "fg": "#15803d", "bg": "#e7f6ec", "dot": "#16a34a" },
+    "degraded": { "fg": "#b45309", "bg": "#fef3e2", "dot": "#f59e0b" },
+    "down": { "fg": "#b91c1c", "bg": "#fee2e2", "dot": "#e5484d" },
+    "unknown": { "fg": "#475569", "bg": "#eef1f5", "dot": "#9aa0a8" }
+  }
+}

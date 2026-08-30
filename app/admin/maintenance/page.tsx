@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeftIcon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
+import PortalShell from "@/components/portal/Shell";
 
 type MaintenanceData = {
   enabled: boolean;
@@ -83,14 +84,8 @@ export default function AdminMaintenancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-10">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/profile")}>
-            <ArrowLeftIcon className="size-4 mr-1" />
-            Back
-          </Button>
-        </div>
+    <PortalShell title="Maintenance Control" crumb="/admin/maintenance" subtitle="Enable or disable portal-wide maintenance mode.">
+      <div className="max-w-3xl space-y-6 px-8 py-6">
 
         <Card className="border-border/70">
           <CardHeader>
@@ -229,6 +224,6 @@ export default function AdminMaintenancePage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PortalShell>
   );
 }

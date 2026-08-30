@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import PortalShell, { type DeepContext } from "@/components/portal/Shell";
+
+const DEBUG_DEEP_CONTEXT: DeepContext = {
+  icon: "terminal",
+  code: "Debug runner",
+  sub: "admin tooling",
+  backHref: "/",
+  items: [
+    { id: "dbg-run", label: "Run a check", icon: "play", href: "/admin/debug" },
+    { id: "dbg-raw", label: "Raw stream", icon: "server", href: "/admin/debug/raw" },
+    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/debug/email-logs" },
+  ],
+};
 
 type RunSummary = {
   id: string;
@@ -175,16 +188,22 @@ export default function AdminDebugPage() {
   }, [selectedRun]);
 
   if (isAdmin === false) {
-    return <div className="p-6 text-sm text-muted-foreground">Admin access required.</div>;
+    return (
+      <PortalShell title="Debug Runner" crumb="/admin/debug" deepContext={DEBUG_DEEP_CONTEXT}>
+        <div className="p-6 text-sm text-muted-foreground">Admin access required.</div>
+      </PortalShell>
+    );
   }
 
   return (
+    <PortalShell
+      title="Debug Runner"
+      crumb="/admin/debug"
+      subtitle="Start/stop admin debug runs and inspect airport step cards."
+      deepContext={DEBUG_DEEP_CONTEXT}
+    >
     <div className="p-4 md:p-6 space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>Debug Runner</CardTitle>
-          <CardDescription>Start/stop admin debug runs and inspect airport step cards.</CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <label className="text-sm">
             Quantity
@@ -471,5 +490,6 @@ export default function AdminDebugPage() {
         </Card>
       ))}
     </div>
+    </PortalShell>
   );
 }

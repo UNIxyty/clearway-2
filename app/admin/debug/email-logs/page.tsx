@@ -2,6 +2,19 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { AdminRoute } from '@/components/AdminRoute';
+import PortalShell, { type DeepContext } from '@/components/portal/Shell';
+
+const DEBUG_DEEP_CONTEXT: DeepContext = {
+  icon: 'terminal',
+  code: 'Debug runner',
+  sub: 'admin tooling',
+  backHref: '/',
+  items: [
+    { id: 'dbg-run', label: 'Run a check', icon: 'play', href: '/admin/debug' },
+    { id: 'dbg-raw', label: 'Raw stream', icon: 'server', href: '/admin/debug/raw' },
+    { id: 'dbg-logs', label: 'Email logs', icon: 'inbox', href: '/admin/debug/email-logs' },
+  ],
+};
 
 interface EmailLog {
   id: string;
@@ -55,33 +68,28 @@ function EmailLogsContent() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <div className="min-h-screen bg-page">
-      <div className="bg-white border-b border-black/[0.07]">
-        <div className="max-w-6xl mx-auto px-5 pt-6 pb-5 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <span className="text-[11px] font-extrabold tracking-[0.12em] text-bk-amber-dark bg-bk-amber/15 px-2 py-1 rounded-md">ADMIN</span>
-              <h1 className="text-[22px] font-black tracking-tight text-navy">Email Logs</h1>
-            </div>
-            <p className="text-[13px] font-semibold text-black/45">Most recent 200 email send attempts.</p>
-          </div>
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            className="h-9 px-4 rounded-lg bg-bk-blue hover:bg-bk-blue-dark text-white text-[13px] font-bold transition disabled:opacity-50"
-          >
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
+    <PortalShell
+      title="Email Logs"
+      crumb="/admin/debug/email-logs"
+      subtitle="Most recent 200 email send attempts."
+      deepContext={DEBUG_DEEP_CONTEXT}
+      headerRight={
+        <button
+          onClick={() => void load()}
+          disabled={loading}
+          className="h-9 px-4 rounded-lg bg-bk-blue hover:bg-bk-blue-dark text-white text-[13px] font-bold transition disabled:opacity-50"
+        >
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+      }
+    >
       <main className="max-w-6xl mx-auto px-5 py-6">
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-[13px] font-semibold text-red-700">
             {error}
           </div>
         )}
-        <div className="overflow-x-auto rounded-xl border border-black/[0.08] bg-white">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-black/[0.08] bg-white">
           <table className="w-full min-w-[760px] text-[12.5px]">
             <thead>
               <tr className="border-b border-black/[0.07] text-left text-[11px] font-bold uppercase tracking-wider text-black/40">
@@ -117,6 +125,6 @@ function EmailLogsContent() {
           </table>
         </div>
       </main>
-    </div>
+    </PortalShell>
   );
 }

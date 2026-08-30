@@ -640,6 +640,10 @@ export default function FlightsPage() {
             { label: 'STATUS' },
           ]}
         >
+          {/* Rows scroll inside the card (header stays put) so long days
+              never push the shell — the sidebar redesign keeps pages
+              in-viewport. */}
+          <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
           {loading && <LoadingState>Loading flights…</LoadingState>}
           {!loading && rows.length === 0 && (
             <EmptyState icon="plane" title="No flights match">
@@ -694,6 +698,7 @@ export default function FlightsPage() {
               </div>
             );
           })}
+          </div>
         </TableShell>
 
         <div style={{ width: 'clamp(400px, 26vw, 560px)', flex: 'none' }}>

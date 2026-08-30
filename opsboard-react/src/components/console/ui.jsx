@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import Icon from './icons';
+import sharedTokens from '../../../../shared/design-tokens.json';
 
 // Display Console UI kit — implements the approved Claude Design system
 // ("Display Console.dc.html" + "Console Shell & Style Tile"): light surfaces,
@@ -8,45 +9,56 @@ import Icon from './icons';
 // this kit; the wall display keeps its own dark styling and is untouched.
 
 // ── Design tokens ────────────────────────────────────────────────────────────
+// Keys that exist in the platform token source (shared/design-tokens.json)
+// are wired to it — ONE source for both the portal and the console. Values
+// are identical to what the console shipped with, so nothing shifts visually.
+// Keys without a shared counterpart stay console-local literals.
+const sc = sharedTokens.color;
+
 export const t = {
-  font: "'Public Sans', system-ui, -apple-system, sans-serif",
-  mono: "'IBM Plex Mono', ui-monospace, monospace",
+  font: sharedTokens.font.sans,
+  mono: sharedTokens.font.mono,
   // text
-  ink: '#17181c',
-  body: '#3a3d44',
-  muted: '#6c7079',
-  faint: '#9aa0a8',
+  ink: sc.text,
+  body: sc.textBody,
+  muted: sc.textMuted,
+  faint: sc.textFaint,
   ghost: '#c3c7cd',
   // surfaces
   canvas: '#e8e9ec',
   surface: '#f5f6f7',
-  card: '#ffffff',
-  subtle: '#fbfbfc',
+  card: sc.card,
+  subtle: sc.cardSubtle,
   wash: '#f0f1f3',
   segment: '#eef0f2',
   // borders
-  border: '#e6e7ea',
+  border: sc.border,
   borderInput: '#d6d8dc',
-  borderInner: '#eef0f2',
+  borderInner: sc.borderInner,
   rowLine: '#f2f3f5',
   // accents
-  blue: '#2563eb',
-  blueDeep: '#1d4ed8',
-  blueTint: '#eef4ff',
+  blue: sc.primary,
+  blueDeep: sc.primaryDeep,
+  blueTint: sc.primaryTint,
   blueChip: '#e8effe',
   blueWash: '#f2f7ff',
   blueBorder: '#dbe6ff',
   blueInk: '#3a5170',
-  green: '#16a34a',
-  greenDeep: '#15803d',
-  greenTint: '#e7f6ec',
+  green: sc.green,
+  greenDeep: sc.greenDeep,
+  greenTint: sc.greenTint,
   greenBorder: '#c7ead2',
-  red: '#e5484d',
+  red: sc.red,
+  // redDeep/redTint stay console-local: the shared redDeep (#b91c1c) /
+  // redTint (#fee2e2) differ from the shipped console values, and this
+  // wiring must not change a single rendered pixel.
   redDeep: '#b3383c',
   redTint: '#fdecec',
   redBorder: '#f4cdcd',
-  amber: '#b45309',
-  amberTint: '#fef3e2',
+  // the console's "amber" has always been the deep text tone (#b45309) —
+  // that is the shared source's amberDeep, not its amber (#f59e0b).
+  amber: sc.amberDeep,
+  amberTint: sc.amberTint,
   amberWash: '#fffaf3',
   amberBorder: '#f0d3ba',
   orange: '#ea8a4e',

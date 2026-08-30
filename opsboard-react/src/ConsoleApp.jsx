@@ -70,27 +70,41 @@ const NAV = [
 
 // initialsOf comes from ui.jsx — ONE derivation shared with the portal.
 
-/**
- * Account chip + dropdown — pixel-matched to the portal's UserBadge
- * (avatar t.blue like the portal's #2563eb token, same panel metrics,
- * item styling, section labels and dividers) with WORKING navigation
- * between the two apps. Portal paths are full navigations (the shared
- * gateway session carries); admin items follow the portal's own gate
- * (/api/admin/status — hidden when the probe fails or denies). The
- * console keeps no Sign out entry: the wall stack has no logout
- * endpoint, sign-out lives in the portal.
- */
-function AccountMenu({ user }) {
-  const [open, setOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const wrapRef = useRef(null);
+const PORTAL_HOME = '/'; // Phase 2: /dashboard
 
-  useEffect(() => {
-    fetch('/api/admin/status', { cache: 'no-store' })
-      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
-      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
-      .catch(() => setIsAdmin(false));
-  }, []);
+// Deep-context nav item (also used for the back / Open wall / collapse rows).
+// Collapsed rail: icon-only centered, tooltip carries the label; the
+// needs-review badge / NOTAM dot stay visible beside the icon.
+function navItemStyle(on, collapsed) {
+  return {
+    fontFamily: 'inherit',
+    width: '100%',
+    textAlign: 'left',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: collapsed ? 'center' : 'flex-start',
+    gap: collapsed ? 4 : 10,
+    padding: collapsed ? '8px 0' : '8px 9px',
+    border: 'none',
+    borderRadius: 9,
+    cursor: 'pointer',
+    fontSize: 13.5,
+    fontWeight: on ? 700 : 500,
+    background: on ? '#eef4ff' : 'transparent',
+    color: on ? '#1d4ed8' : t.body,
+  };
+}
+
+/**
+ * User badge pinned to the sidebar bottom — the platform deep-context
+ * pattern. Click opens the REDUCED account menu as a white card ABOVE the
+ * badge: identity header + Profile / Notification settings / Search
+ * statistics / Guide / Sign out. Portal paths are full navigations (the
+ * shared gateway session carries).
+ */
+function UserBadge({ user, collapsed }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -101,7 +115,8 @@ function AccountMenu({ user }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  const item = (label, icon, onClick, { external = false } = {}) => (
+  const go = (path) => () => window.location.assign(path);
+  const item = (label, icon, onClick) => (
     <button
       key={label}
       type="button"
@@ -126,16 +141,8 @@ function AccountMenu({ user }) {
     >
       <Icon name={icon} size={17} color={t.muted} />
       <span style={{ flex: 1 }}>{label}</span>
-      {external && <Icon name="arrow-up-right" size={14} color={t.faint} />}
     </button>
   );
-  const divider = (key) => <div key={key} style={{ height: 1, background: '#eef0f2', margin: '7px 4px' }} />;
-  const sectionLabel = (text) => (
-    <div key={text} style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.13em', color: t.faint, padding: '8px 11px 7px', textTransform: 'uppercase' }}>
-      {text}
-    </div>
-  );
-  const go = (path) => () => window.location.assign(path);
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
@@ -144,22 +151,41 @@ function AccountMenu({ user }) {
         className="cw-hover-surface"
         onClick={() => setOpen((v) => !v)}
         title={user?.email || ''}
-        style={{ ...s.accountChip, cursor: 'pointer', fontFamily: 'inherit', background: t.card }}
+        style={{
+          fontFamily: 'inherit',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          gap: 10,
+          padding: collapsed ? '6px 0' : '6px 8px',
+          border: 'none',
+          borderRadius: 10,
+          cursor: 'pointer',
+          background: 'transparent',
+          textAlign: 'left',
+        }}
       >
-        <Avatar name={user?.name} initials={initialsOf(user?.name || user?.email)} seed={user?.userId} size={29} color={t.blue} />
-        <div style={{ lineHeight: 1.15, textAlign: 'left' }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name || user?.email || 'Signed in'}</div>
-          <div style={{ fontSize: 11, color: t.faint }}>Account</div>
-        </div>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={15} color={t.faint} />
+        <Avatar name={user?.name} initials={initialsOf(user?.name || user?.email)} seed={user?.userId} size={28} color={t.blue} />
+        {!collapsed && (
+          <>
+            <div style={{ lineHeight: 1.15, minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name || user?.email || 'Signed in'}
+              </div>
+              <div style={{ fontSize: 11, color: t.faint }}>{user?.role || 'Account'}</div>
+            </div>
+            <Icon name={open ? 'chevron-down' : 'chevron-up'} size={15} color={t.faint} />
+          </>
+        )}
       </button>
       {open && (
         <div
           style={{
             position: 'absolute',
-            top: 'calc(100% + 8px)',
-            right: 0,
-            width: 262,
+            bottom: 'calc(100% + 8px)',
+            left: 0,
+            width: 240,
             background: '#fff',
             border: '1px solid #e6e7ea',
             borderRadius: 14,
@@ -168,29 +194,20 @@ function AccountMenu({ user }) {
             zIndex: 200,
           }}
         >
-          <div style={{ padding: '8px 11px 4px' }}>
+          <div style={{ padding: '8px 11px 6px' }}>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>{user?.name || user?.email || 'Signed in'}</div>
-            {user?.name && user?.email && <div style={{ fontSize: 11.5, color: t.faint }}>{user.email}</div>}
+            {user?.email && (
+              <div style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.email}
+              </div>
+            )}
           </div>
-          {divider('d0')}
+          <div style={{ height: 1, background: '#eef0f2', margin: '2px 4px 7px' }} />
           {item('Profile', 'user', go('/profile'))}
-          {item('Notification Settings', 'bell', go('/settings/notifications'))}
-          {item('Stats', 'bar-chart-3', go('/stats'))}
-          {divider('d1')}
-          {sectionLabel('AIP Data Portal')}
-          {item('AIP Data Portal', 'search', go('/'), { external: true })}
-          {item('Service status', 'activity', go('/status'), { external: true })}
-          {item('Deleted airports', 'trash-2', go('/admin/airports/deleted'), { external: true })}
-          {isAdmin && item('Admin users', 'users', go('/admin/users'), { external: true })}
-          {isAdmin && item('Admin', 'shield-check', go('/admin/maintenance'), { external: true })}
-          {divider('d2')}
-          {sectionLabel('Digital Wall')}
-          {item('Digital Wall', 'monitor', go('/digital-wall/timeline/'))}
-          {item('Digital Wall Console', 'sliders-horizontal', go('/digital-wall/console/flights'))}
-          {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'), { external: true })}
-          {divider('d3')}
-          {item('Pickem', 'trophy', go('/pickem'), { external: true })}
-          {isAdmin && item('Pickem Admin', 'shield-check', go('/pickem/admin'), { external: true })}
+          {item('Notification settings', 'bell', go('/settings/notifications'))}
+          {item('Search statistics', 'bar-chart-3', go('/stats'))}
+          {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'))}
+          {item('Sign out', 'log-out', go('/login'))}
         </div>
       )}
     </div>
@@ -198,12 +215,20 @@ function AccountMenu({ user }) {
 }
 
 /**
- * The Display Console shell (approved Claude Design "Display Console"):
- * white top bar with the wall-live pill + presence stack + account chip,
- * 236px left nav with the sync-status card, content pane per page.
+ * The Display Console shell: white top bar with the wall-live pill +
+ * presence stack, and the platform DEEP-CONTEXT sidebar — back to All
+ * services, Digital Wall context head, Open wall + console pages,
+ * sync-status card, user badge, collapse rail (248px / 68px).
  */
 export default function ConsoleApp({ page, navigate }) {
   const { user } = useAuth();
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('cw-console-collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [overlay, setOverlay] = useState({ open: false });
   const [wallFlight, setWallFlight] = useState(null);
   const [presence, setPresence] = useState([]);
@@ -329,6 +354,18 @@ export default function ConsoleApp({ page, navigate }) {
 
   const healthy = sync ? sync.healthy !== false : null;
 
+  function toggleCollapsed() {
+    setCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem('cw-console-collapsed', next ? '1' : '0');
+      } catch {
+        /* storage unavailable — state still toggles for the session */
+      }
+      return next;
+    });
+  }
+
   function renderPage() {
     switch (page) {
       case 'notam-check':
@@ -418,41 +455,67 @@ export default function ConsoleApp({ page, navigate }) {
                 {presence.length} online
               </span>
             </div>
-            {/* Quick-open instruction guide (served auth-gated at /digital-wall/guide/) */}
-            <a
-              className="cw-hover-surface"
-              href="/digital-wall/guide/"
-              target="_blank"
-              rel="noreferrer"
-              title="Open the Digital Wall instruction guide"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: 12.5,
-                fontWeight: 700,
-                color: t.blueDeep,
-                background: t.blueTint,
-                border: `1px solid ${t.blueBorder}`,
-                padding: '7px 13px',
-                borderRadius: 999,
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Icon name="info" size={14} />
-              Guide
-            </a>
-            <span style={{ width: 1, height: 26, background: t.border }} />
-            <AccountMenu user={user} />
           </div>
         </div>
 
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-          {/* ── Left nav ── */}
-          <div style={s.nav}>
-            <div style={s.navLabel}>CONSOLE</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* ── Sidebar: platform deep-context nav ── */}
+          <div className="cw-rail" style={{ ...s.nav, width: collapsed ? 68 : 248 }}>
+            {/* The rail sits on t.surface (#f5f6f7) — cw-hover-surface's
+                default hover is that same tone, so scope the platform
+                hover (#eceef0) to rail items. */}
+            <style>{'.cw-console .cw-rail .cw-hover-surface:hover { background: #eceef0 !important; }'}</style>
+
+            {/* Back to the platform home */}
+            <button
+              type="button"
+              className="cw-hover-surface"
+              title="All services"
+              onClick={() => window.location.assign(PORTAL_HOME)}
+              style={{ ...navItemStyle(false, collapsed), color: t.muted, fontWeight: 600 }}
+            >
+              <Icon name="arrow-left" size={17} />
+              {!collapsed && <span style={{ flex: 1 }}>All services</span>}
+            </button>
+
+            {/* Context head — which service this sidebar belongs to */}
+            {collapsed ? (
+              <div style={{ height: 10, flex: 'none' }} />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 9px 12px' }}>
+                <span
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    background: '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="monitor" size={17} color="#1d4ed8" />
+                </span>
+                <div style={{ minWidth: 0, lineHeight: 1.3 }}>
+                  <div style={{ fontFamily: t.mono, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>Digital Wall</div>
+                  <div style={{ fontSize: 12, color: '#6c7079' }}>Riga ops room</div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', overflowX: 'hidden' }}>
+              {/* Open the wall display itself (new tab) */}
+              <button
+                type="button"
+                className="cw-hover-surface"
+                title="Open wall"
+                onClick={() => window.open('/digital-wall/timeline/', '_blank')}
+                style={navItemStyle(false, collapsed)}
+              >
+                <Icon name="external-link" size={17} />
+                {!collapsed && <span style={{ flex: 1 }}>Open wall</span>}
+              </button>
               {NAV.map((item) => {
                 const on = item.key === page;
                 const badge = item.key === 'important' && needsReview > 0 ? needsReview : null;
@@ -462,33 +525,20 @@ export default function ConsoleApp({ page, navigate }) {
                     key={item.key}
                     type="button"
                     className={on ? '' : 'cw-hover-surface'}
+                    title={item.label}
                     onClick={() => navigate({ surface: 'console', page: item.key })}
-                    style={{
-                      fontFamily: 'inherit',
-                      textAlign: 'left',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '10px 11px',
-                      border: 'none',
-                      borderRadius: 10,
-                      cursor: 'pointer',
-                      fontSize: 14.5,
-                      fontWeight: on ? 700 : 500,
-                      background: on ? t.blueTint : 'transparent',
-                      color: on ? t.blueDeep : t.body,
-                    }}
+                    style={navItemStyle(on, collapsed)}
                   >
-                    <Icon name={item.icon} size={18} />
-                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <Icon name={item.icon} size={17} />
+                    {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
                     {badge && (
                       <span
                         style={{
-                          fontSize: 11,
+                          fontSize: collapsed ? 9.5 : 11,
                           fontWeight: 700,
                           color: t.red,
                           background: t.redTint,
-                          padding: '2px 7px',
+                          padding: collapsed ? '1px 4px' : '2px 7px',
                           borderRadius: 6,
                         }}
                       >
@@ -499,11 +549,11 @@ export default function ConsoleApp({ page, navigate }) {
                       <span
                         title={notamDot === 'CHECKED' ? 'All airports checked' : 'NOTAMs need checking'}
                         style={{
-                          fontSize: 10,
+                          fontSize: collapsed ? 8.5 : 10,
                           fontWeight: 800,
                           color: notamDot === 'CHECKED' ? t.greenDeep : t.red,
                           background: notamDot === 'CHECKED' ? t.greenTint : t.redTint,
-                          padding: '2px 7px',
+                          padding: collapsed ? '1px 4px' : '2px 7px',
                           borderRadius: 6,
                         }}
                       >
@@ -515,22 +565,35 @@ export default function ConsoleApp({ page, navigate }) {
               })}
             </div>
             <div style={{ flex: 1 }} />
-            <div style={s.syncCard}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
-                Sync status
-                <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.border }} />
-                </span>
+            {!collapsed && (
+              <div style={{ ...s.syncCard, marginBottom: 10 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Sync status
+                  <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.border }} />
+                  </span>
+                </div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
+                  {sync
+                    ? healthy
+                      ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
+                      : `Sync error · ${sync.lastError || 'see Operators page'}`
+                    : 'Checking sync status…'}
+                </div>
               </div>
-              <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
-                {sync
-                  ? healthy
-                    ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
-                    : `Sync error · ${sync.lastError || 'see Operators page'}`
-                  : 'Checking sync status…'}
-              </div>
-            </div>
+            )}
+            <UserBadge user={user} collapsed={collapsed} />
+            <button
+              type="button"
+              className="cw-hover-surface"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={toggleCollapsed}
+              style={{ ...navItemStyle(false, collapsed), color: t.muted, marginTop: 8 }}
+            >
+              <Icon name={collapsed ? 'panel-left-open' : 'panel-left-close'} size={17} />
+              {!collapsed && <span style={{ flex: 1 }}>Collapse</span>}
+            </button>
           </div>
 
           {/* ── Content ── */}
@@ -604,31 +667,16 @@ const s = {
     justifyContent: 'center',
   },
   logoDot: { width: 9, height: 9, borderRadius: '50%', background: t.ink },
-  accountChip: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '5px 11px 5px 7px', // portal UserBadge parity
-    border: '1px solid #e6e7ea',
-    borderRadius: 12,
-    cursor: 'default',
-    background: t.card,
-  },
   nav: {
-    width: 236,
-    background: t.card,
+    // width set inline: 248 expanded / 68 collapsed rail
+    background: t.surface,
     borderRight: `1px solid ${t.border}`,
     flex: 'none',
     display: 'flex',
     flexDirection: 'column',
-    padding: '18px 14px',
-  },
-  navLabel: {
-    fontSize: 10.5,
-    fontWeight: 700,
-    letterSpacing: '0.13em',
-    color: '#9aa0a8',
-    padding: '0 10px 12px',
+    padding: '14px 10px 12px',
+    transition: 'width .18s ease',
+    minHeight: 0,
   },
   syncCard: {
     border: `1px solid ${t.border}`,

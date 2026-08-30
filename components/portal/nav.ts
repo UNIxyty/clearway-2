@@ -26,16 +26,15 @@ export type NavTopic = {
 };
 
 export const NAV_TOPICS: NavTopic[] = [
-  // Phase 2: href becomes /dashboard
-  { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", roles: ["admin", "user"], href: "/" },
+  { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", roles: ["admin", "user"], href: "/dashboard" },
   {
     id: "aip",
     label: "AIP & Documents",
     icon: "file-text",
     roles: ["admin", "user"],
     items: [
-      { id: "aip-search", label: "Airport search", icon: "search", href: "/" }, // Phase 2: /aip
-      { id: "aip-status", label: "Service status", icon: "activity", href: "/status" }, // Phase 2: /aip/service-status
+      { id: "aip-search", label: "Airport search", icon: "search", href: "/aip" },
+      { id: "aip-status", label: "Service status", icon: "activity", href: "/aip/service-status" },
     ],
   },
   {
@@ -76,9 +75,9 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "adm-users", label: "Users", icon: "users", href: "/admin/users" },
       { id: "adm-maint", label: "Maintenance", icon: "wrench", href: "/admin/maintenance" },
       { id: "adm-email", label: "Email tools", icon: "mail", href: "/admin/email-tools" },
-      { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/debug/email-logs" },
+      { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
       { id: "adm-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
-      { id: "adm-status", label: "Service status editor", icon: "activity", href: "/admin/country-service-status" },
+      { id: "adm-status", label: "Service status editor", icon: "activity", href: "/admin/service-status" },
       { id: "adm-deleted", label: "Deleted airports", icon: "trash-2", href: "/admin/airports/deleted" },
     ],
   },
@@ -98,10 +97,10 @@ export const NAV_TOPICS: NavTopic[] = [
     icon: "user",
     roles: ["admin", "user", "guest"],
     items: [
-      { id: "acc-profile", label: "Profile", icon: "user", href: "/profile" },
-      { id: "acc-notify", label: "Notification settings", icon: "bell", href: "/settings/notifications" },
-      { id: "acc-stats", label: "Search statistics", icon: "chart-bar", href: "/stats" },
-      { id: "acc-guide", label: "Guide", icon: "book-open", href: "/digital-wall/guide/", external: true },
+      { id: "acc-profile", label: "Profile", icon: "user", href: "/account/profile" },
+      { id: "acc-notify", label: "Notification settings", icon: "bell", href: "/account/notifications" },
+      { id: "acc-stats", label: "Search statistics", icon: "chart-bar", href: "/account/search-stats" },
+      { id: "acc-guide", label: "Guide", icon: "book-open", href: "/account/guide" },
       { id: "acc-signout", label: "Sign out", icon: "log-out", href: "/login" },
     ],
   },

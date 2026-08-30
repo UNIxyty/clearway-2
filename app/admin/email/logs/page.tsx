@@ -12,7 +12,7 @@ const DEBUG_DEEP_CONTEXT: DeepContext = {
   items: [
     { id: 'dbg-run', label: 'Run a check', icon: 'play', href: '/admin/debug' },
     { id: 'dbg-raw', label: 'Raw stream', icon: 'server', href: '/admin/debug/raw' },
-    { id: 'dbg-logs', label: 'Email logs', icon: 'inbox', href: '/admin/debug/email-logs' },
+    { id: 'dbg-logs', label: 'Email logs', icon: 'inbox', href: '/admin/email/logs' },
   ],
 };
 
@@ -70,7 +70,7 @@ function EmailLogsContent() {
   return (
     <PortalShell
       title="Email Logs"
-      crumb="/admin/debug/email-logs"
+      crumb="/admin/email/logs"
       subtitle="Most recent 200 email send attempts."
       deepContext={DEBUG_DEEP_CONTEXT}
       headerRight={

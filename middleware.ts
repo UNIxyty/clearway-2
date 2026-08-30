@@ -112,6 +112,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/auth/") ||  // Auth API routes used during signup/password-reset (unauthenticated)
     pathname === "/api/pickem/health" ||
     pathname === "/pickem/api/health" ||
+    pathname === "/api/health" ||  // Portal health probe: must answer without a session (uptime checkers)
+
     pathname.startsWith("/maintenance")
   ) {
     return NextResponse.next();

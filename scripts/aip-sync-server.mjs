@@ -1231,6 +1231,13 @@ const server = createServer(async (req, res) => {
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
   const shouldExtract = !(url.searchParams.get("extract") === "0" || url.searchParams.get("extract") === "false");
   const scraperRequested = url.searchParams.get("scraper") === "1" || url.searchParams.get("scraper") === "true";
+  // Health probe (platform audit §6.4): unauthenticated, no scraping — proves
+  // the worker process answers.
+  if (url.pathname === "/health" || url.pathname === "/health/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, service: "aip-sync", time: new Date().toISOString() }));
+    return;
+  }
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");

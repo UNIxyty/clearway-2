@@ -177,6 +177,22 @@ const server = createServer(async (req, res) => {
   const isWeatherPath = url.pathname === "/sync/weather" || url.pathname === "/sync/weather/";
   const isNotamPath = url.pathname === "/sync" || url.pathname === "/sync/";
 
+  // Health probe (platform audit §6.4): unauthenticated, no scraping — proves
+  // the worker process answers. `service` reflects SYNC_SERVER_MODE because
+  // this one script also runs as the weather-sync container.
+  if (url.pathname === "/health" || url.pathname === "/health/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        service: SYNC_SERVER_MODE === "weather" ? "weather-sync" : "notam-sync",
+        mode: SYNC_SERVER_MODE,
+        time: new Date().toISOString(),
+      }),
+    );
+    return;
+  }
+
   if (!isWeatherPath && !isNotamPath) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));

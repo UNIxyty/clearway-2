@@ -1,6 +1,7 @@
 import path from "path";
 
-const ALLOWED_ROOTS = new Set(["aip", "notam", "weather"]);
+// service-checks: persisted availability-check results (lib/service-checker.ts)
+const ALLOWED_ROOTS = new Set(["aip", "notam", "weather", "service-checks"]);
 
 function normalizeKey(key: string): string {
   return key.replace(/\\/g, "/").replace(/^\/+/, "").trim();

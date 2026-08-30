@@ -498,6 +498,30 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── Health probe (platform audit §6.4) ──────────────────────────────
+    // Deliberately BEFORE the /api/* auth gate: internal uptime checkers
+    // have no Supabase session. A distinctive body is required because the
+    // unknown-/api/* fallback below answers ANY path with an empty {} 200 —
+    // checkers must validate service === "digital-wall", not just HTTP 200.
+    // The `leon` summary lets a checker without a session still judge the
+    // Leon feed (the full /api/timeline/sync-status stays session-gated).
+    if (pathname === "/api/health" && (req.method === "GET" || req.method === "HEAD")) {
+      const leonStatus = timelineService.getStatus();
+      sendJson(res, {
+        ok: true,
+        service: "digital-wall",
+        time: new Date().toISOString(),
+        leon: {
+          configured: Boolean(leonStatus.configured),
+          healthy: leonStatus.healthy !== false,
+          lastSyncTimestamp: leonStatus.lastSyncTimestamp ?? null,
+          lastRunAt: leonStatus.lastRunAt ?? null,
+          lastError: leonStatus.lastError ?? null,
+        },
+      });
+      return;
+    }
+
     if (pathname === "/backend-test" || pathname === "/backend-test.html") {
       await serveLocalFile(res, "backend-test.html");
       return;

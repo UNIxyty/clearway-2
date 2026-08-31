@@ -148,8 +148,10 @@ services:
 
   digital-wall-frontend:
     build:
-      context: ./opsboard-react
-      dockerfile: Dockerfile
+      # Root context so the image can COPY shared/ (the single token
+      # source) alongside the app — matches the portal/worker pattern.
+      context: .
+      dockerfile: opsboard-react/Dockerfile
       args:
         VITE_BASE_PATH: /digital-wall/timeline/
         VITE_API_BASE_URL: /digital-wall

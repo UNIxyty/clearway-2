@@ -957,7 +957,7 @@ export default function AirportView({
 
   // Force re-sync (Phase 4): bypass every cache layer and refetch the AIP from
   // the live source. Reuses the exact SSE mechanism the page already uses
-  // (GET /api/aip/<source>?icao=..&sync=1&stream=1&extract=1) with force=1 so
+  // (GET /api/aip/<source>?icao=..&sync=1&stream=1&extract=0) with force=1 so
   // the sync worker overwrites the stored JSON/PDF. On failure the previous
   // cached document stays on screen and a loud banner shows the real error.
   const forceResyncAip = useCallback(async (icao: string) => {
@@ -988,7 +988,11 @@ export default function AirportView({
       : isBahrainScraperIcao(icao, viewingAirport)
         ? "/api/aip/scraper"
         : "/api/aip/ead";
-    const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}&sync=1&stream=1&extract=1&force=1&_t=${Date.now()}`;
+    // extract=0: the re-sync refetches the DOCUMENT from the source. AI
+    // extraction is a retired feature (the tab was removed) and the worker's
+    // extract path still wants an Anthropic key — requesting it made the
+    // button fail. PDF-first, exactly like the normal sync flow.
+    const url = `${aipApiBase}?icao=${encodeURIComponent(icao)}&sync=1&stream=1&extract=0&force=1&_t=${Date.now()}`;
     const controller = beginRequest(`aip-resync-${icao}`);
 
     let settled = false;
@@ -1043,22 +1047,34 @@ export default function AirportView({
               const step = data.step;
               setAipEadSyncSteps((prev) => [...prev, step]);
               updateStage(icao, "aip", "running", step);
-            } else if (data.done && Array.isArray(data.airports)) {
-              const list = data.airports as ExtractedAirportRow[];
+            } else if (data.done) {
+              // extract=0: the done event carries no airports — success means
+              // the DOCUMENT was refetched. Keep whatever extract data the
+              // cache already holds; refresh updatedAt so the "Cached …" line
+              // moves. (If a worker still sends airports, use them.)
               const updatedAt = typeof data.updatedAt === "string" ? data.updatedAt : new Date().toISOString();
-              const match = pickExtractedAirportRow(list, icao);
-              const fallbackCountry = isAsecnaIcao(icao)
-                ? (viewingAirport?.country || "ASECNA")
-                : isBahrainScraperIcao(icao, viewingAirport)
-                  ? (viewingAirport?.country || "Scraper")
-                : isRussiaIcao(icao)
-                  ? "Russia"
-                  : "EAD (EU AIP)";
-              const airport = mapExtractedRowToAirport(match, icao, fallbackCountry);
-              // Store the fresh document/extract state the same way the normal
-              // sync path does (new updatedAt + cache object drive the
-              // "Cached … expires …" line).
-              setAipEadCache((c) => ({ ...c, [icao]: { airport, error: null, updatedAt, cache: previousCacheMeta } }));
+              let freshAirport: ReturnType<typeof mapExtractedRowToAirport> | null = null;
+              if (Array.isArray(data.airports) && data.airports.length > 0) {
+                const list = data.airports as ExtractedAirportRow[];
+                const match = pickExtractedAirportRow(list, icao);
+                const fallbackCountry = isAsecnaIcao(icao)
+                  ? (viewingAirport?.country || "ASECNA")
+                  : isBahrainScraperIcao(icao, viewingAirport)
+                    ? (viewingAirport?.country || "Scraper")
+                  : isRussiaIcao(icao)
+                    ? "Russia"
+                    : "EAD (EU AIP)";
+                freshAirport = mapExtractedRowToAirport(match, icao, fallbackCountry);
+              }
+              setAipEadCache((c) => ({
+                ...c,
+                [icao]: {
+                  airport: freshAirport ?? c[icao]?.airport ?? null,
+                  error: null,
+                  updatedAt,
+                  cache: previousCacheMeta,
+                },
+              }));
               setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
               setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
               settled = true;

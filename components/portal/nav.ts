@@ -109,14 +109,6 @@ export const NAV_TOPICS: NavTopic[] = [
 // The reduced account dropdown = identity + exactly these five.
 export const ACCOUNT_MENU_IDS = ["acc-profile", "acc-notify", "acc-stats", "acc-guide", "acc-signout"];
 
-/** Per-airport deep-context sub-nav (Phase 2 makes these real routes). */
-export const AIRPORT_DEEP_ITEMS = [
-  { id: "ap-aip", label: "AIP documents", icon: "file-text", tab: "" },
-  { id: "ap-gen", label: "GEN", icon: "book", tab: "gen" },
-  { id: "ap-notam", label: "NOTAM", icon: "file-check", tab: "notam" },
-  { id: "ap-wx", label: "Weather", icon: "cloud-sun", tab: "weather" },
-] as const;
-
 export type Role = "admin" | "user" | "guest";
 
 export function topicsForRole(role: Role): NavTopic[] {

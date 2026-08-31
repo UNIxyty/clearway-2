@@ -6,9 +6,9 @@
 // the Web AIP & bug modals, the GEN popover and every fetch/cache/SSE flow —
 // extracted VERBATIM from the old app/page.tsx monolith. State that used to
 // key off the in-page `viewingAirport` selection now keys off the `icao`
-// prop, which comes from the /aip/<ICAO> URL. The `tab` prop decides which
-// panel is the main card (aip | gen | notam | weather); the data flows are
-// identical on every tab.
+// prop, which comes from the /aip/<ICAO> URL. Everything renders on ONE
+// page: document card + GEN section in the main column, map/NOTAM/weather
+// cards in the right rail (the sub-tabs were removed; no capability was).
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
@@ -591,17 +591,7 @@ function emptyAirportForIcao(icao: string): AIPAirport {
   };
 }
 
-export type AirportTab = "aip" | "gen" | "notam" | "weather";
-
-export default function AirportView({
-  icao,
-  tab,
-  onAirportName,
-}: {
-  icao: string;
-  tab: AirportTab;
-  onAirportName?: (name: string | null) => void;
-}) {
+export default function AirportView({ icao }: { icao: string }) {
   const { bgList, updateStage, finishBackground } = useBackgroundSearch();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -669,14 +659,9 @@ export default function AirportView({
 
   // Airport row metadata (name/country/flag/lat/lon) comes from the same
   // GET /api/search the search page uses — exact-match pick on the ICAO.
-  const onAirportNameRef = useRef(onAirportName);
-  useEffect(() => {
-    onAirportNameRef.current = onAirportName;
-  }, [onAirportName]);
   useEffect(() => {
     let cancelled = false;
     setAirport(null);
-    onAirportNameRef.current?.(null);
     fetch(`/api/search?q=${encodeURIComponent(icao)}`)
       .then((res) => (res.ok ? res.json() : { results: [] }))
       .then((data: { results?: AIPAirport[] }) => {
@@ -684,7 +669,6 @@ export default function AirportView({
         const exact =
           (data.results ?? []).find((a) => String(a.icao || "").trim().toUpperCase() === icao) ?? null;
         setAirport(exact ?? emptyAirportForIcao(icao));
-        onAirportNameRef.current?.(exact?.name || null);
       })
       .catch(() => {
         if (cancelled) return;
@@ -2767,17 +2751,20 @@ export default function AirportView({
                 )}
 
                 <div className="flex flex-wrap items-start gap-5">
-                  {/* Document column — the tab decides which existing panel is the main card */}
+                  {/* Document column — the AIP document card, then the always-visible GEN section */}
                   <div className="min-w-0 flex-1 basis-[560px] space-y-5">
-                    {tab === "aip" ? documentCard : tab === "gen" ? genCard : tab === "notam" ? notamsCard : weatherCard}
+                    {documentCard}
+                    {genCard}
                   </div>
 
-                  {/* Right rail */}
+                  {/* Right rail — canonical home of the map + NOTAM + weather cards.
+                      Stacks below the document column on small screens (the removed
+                      sub-tabs were the only mobile path to NOTAMs/weather). */}
                   {showMap && (
-                    <div className="hidden w-[min(380px,36vw)] flex-none flex-col gap-3.5 lg:flex">
+                    <div className="flex w-full flex-none flex-col gap-3.5 lg:w-[min(380px,36vw)]">
                       {locationCard}
-                      {tab !== "notam" && notamsCard}
-                      {tab !== "weather" && weatherCard}
+                      {notamsCard}
+                      {weatherCard}
                     </div>
                   )}
                 </div>

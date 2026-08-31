@@ -12,10 +12,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { clsx } from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import MaskIcon from "@/components/portal/Icon";
+import ClientNavProgress from "@/components/portal/ClientNavProgress";
 import { NAV_TOPICS, ACCOUNT_MENU_IDS, topicsForRole, type NavTopic, type Role } from "@/components/portal/nav";
 
 const COLLAPSE_KEY = "cw-shell-collapsed";
@@ -114,22 +115,33 @@ export default function PortalShell({
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { email, display, initials, role } = useIdentity();
-  const [collapsed, setCollapsed] = useState(false);
-  const [openTopics, setOpenTopics] = useState<Set<string>>(new Set(["aip"]));
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const accountRef = useRef<HTMLDivElement>(null);
-
-  // Persisted UI state.
-  useEffect(() => {
+  // Persisted UI state is read in lazy initializers (typeof window guard for
+  // SSR) so the sidebar renders its persisted collapsed/open state on the
+  // FIRST client paint — no expand-flicker from a post-mount useEffect. The
+  // shell still mounts per-page, so this is what keeps route changes visually
+  // continuous.
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [openTopics, setOpenTopics] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set(["aip"]);
+    try {
       const raw = JSON.parse(localStorage.getItem(OPEN_TOPICS_KEY) || "null");
-      if (Array.isArray(raw)) setOpenTopics(new Set(raw));
+      if (Array.isArray(raw)) return new Set(raw);
     } catch {
       /* first visit */
     }
-  }, []);
+    return new Set(["aip"]);
+  });
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [navPending, startNavTransition] = useTransition();
+  const accountRef = useRef<HTMLDivElement>(null);
   const persistCollapsed = (v: boolean) => {
     setCollapsed(v);
     try {
@@ -162,10 +174,14 @@ export default function PortalShell({
     return (acc?.items ?? []).filter((i) => ACCOUNT_MENU_IDS.includes(i.id));
   }, []);
 
+  // Internal navigations go through startTransition so navPending drives the
+  // slim top progress bar (Next 14 App Router has no router events; the
+  // transition's pending flag is the reliable signal). External (cross-app)
+  // targets stay full navigations on purpose — no fake SPA bridge.
   const go = (href: string, external?: boolean) => {
     setDrawerOpen(false);
     if (external) window.location.assign(href);
-    else router.push(href);
+    else startNavTransition(() => router.push(href));
   };
   async function signOut() {
     const supabase = createSupabaseBrowserClient();
@@ -180,7 +196,7 @@ export default function PortalShell({
     <>
       {/* brand / context head */}
       {deepContext ? (
-        <div className="border-b border-cw-border px-3 pb-3 pt-3.5">
+        <div className="flex-none border-b border-cw-border px-3 pb-3 pt-3.5">
           <button
             onClick={() => go(deepContext.backHref)}
             className={clsx(
@@ -218,8 +234,8 @@ export default function PortalShell({
         </div>
       )}
 
-      {/* nav */}
-      <div className="flex-1 overflow-y-auto px-2 pb-3.5 pt-2.5">
+      {/* nav — the ONLY zone that scrolls inside the pinned sidebar */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3.5 pt-2.5">
         {deepContext
           ? deepContext.items.map((item) => (
               <NavButton
@@ -280,7 +296,12 @@ export default function PortalShell({
             })}
       </div>
 
-      {/* user badge (bottom) + reduced account menu */}
+      {/* user badge (bottom, pinned) + reduced account menu. The menu opens
+          upward IN FLOW inside this flex-none zone: overflow-y-auto lives on
+          the nav zone only, no ancestor between here and the viewport clips,
+          so no createPortal is needed (verified against the pinned h-screen
+          sidebar; worst-case menu+badge+head ≈ 370px, well under any
+          viewport — the nav zone shrinks via min-h-0 to make room). */}
       <div className="flex-none border-t border-cw-border px-2 py-2" ref={accountRef}>
         {accountOpen && labels && (
           <div className="mb-1.5 rounded-[11px] border border-cw-border bg-white p-1.5 shadow-[0_1px_2px_rgba(16,18,22,.04),0_12px_28px_rgba(16,18,22,.10)]">
@@ -358,10 +379,14 @@ export default function PortalShell({
 
   return (
     <div className="flex min-h-screen bg-cw-page font-sans text-cw-ink">
-      {/* desktop sidebar */}
+      <ClientNavProgress pending={navPending} />
+      {/* desktop sidebar — pinned to the viewport (sticky + h-screen inside
+          the min-h-screen flex row): head and user badge stay put, only the
+          nav list scrolls internally, only the content column scrolls the
+          page. Holds in expanded, 68px rail and deep-context modes. */}
       <div
         className={clsx(
-          "hidden flex-none flex-col border-r border-cw-border bg-cw-sidebar transition-[width] duration-150 lg:flex",
+          "sticky top-0 hidden h-screen flex-none flex-col border-r border-cw-border bg-cw-sidebar transition-[width] duration-150 lg:flex",
           collapsed ? "w-[68px]" : "w-[248px]"
         )}
       >

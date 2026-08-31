@@ -5,7 +5,7 @@ import path from "node:path";
 import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
-import { authenticateRequest, authEnabled, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
+import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
 import { CaaStore } from "./lib/caa-store.mjs";
@@ -440,6 +440,30 @@ const mockAuthPayload = {
   },
 };
 
+// Read-only endpoints the wall DISPLAY needs to keep rendering (audit §8.1:
+// the ops-room wall must never go dark). All serve the server's OWN cached
+// data (Leon cache, JSON stores) — no auth decision, no role, no writes.
+// Consulted ONLY while auth is MISCONFIGURED (Supabase env missing without
+// the testing bypass); with auth configured these stay session-gated.
+const DISPLAY_READ_PATHS = new Set([
+  "/api/stream",
+  "/api/display/overlay",
+  "/api/display/settings",
+  "/api/display/clocks",
+  "/api/aircraft/visibility",
+  "/api/timeline/flights",
+  "/api/timeline/aircraft",
+  "/api/timeline/limitations",
+  "/api/timeline/sync-status",
+  "/api/flights/data",
+  "/api/limitations",
+]);
+
+function isDisplayReadPath(pathname, method) {
+  if (method !== "GET" && method !== "HEAD") return false;
+  return DISPLAY_READ_PATHS.has(pathname);
+}
+
 function safeJoin(root, requestPath) {
   const sanitized = requestPath.replace(/^\/+/, "");
   const resolved = path.resolve(root, sanitized);
@@ -522,18 +546,21 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === "/backend-test" || pathname === "/backend-test.html") {
-      await serveLocalFile(res, "backend-test.html");
-      return;
-    }
-
-    if (pathname === "/operators" || pathname === "/operators.html") {
-      await serveLocalFile(res, "operators.html");
-      return;
-    }
-
-    if (pathname === "/aircrafts" || pathname === "/aircrafts.html") {
-      await serveLocalFile(res, "aircrafts.html");
+    // ── Retired legacy admin pages (audit §1.8) ─────────────────────────
+    // /backend-test, /operators(.html) and /aircrafts(.html) used to render
+    // with no access control above the login gate. Retired: explicit 404 so
+    // the requests cannot fall through to the SPA fallback below (which
+    // answers unknown paths with timeline.html and a 200).
+    if (
+      pathname === "/backend-test" ||
+      pathname === "/backend-test.html" ||
+      pathname === "/operators" ||
+      pathname === "/operators.html" ||
+      pathname === "/aircrafts" ||
+      pathname === "/aircrafts.html"
+    ) {
+      res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      res.end("Not found.");
       return;
     }
 
@@ -612,11 +639,18 @@ const server = http.createServer(async (req, res) => {
     // ── Authentication gate ─────────────────────────────────────────────
     // Every /api/* endpoint requires a Supabase session (verified from the
     // portal's cookies through the shared gateway). When auth is disabled
-    // for local dev, authenticateRequest() returns the mock ADMIN user.
+    // for local dev (DISABLE_AUTH_FOR_TESTING), authenticateRequest()
+    // returns the mock ADMIN user.
+    //
+    // Auth fails CLOSED (audit §8.3): a missing Supabase env denies instead
+    // of granting mock admin. One deliberate carve-out keeps the ops-room
+    // DISPLAY alive during such a misconfiguration: the read-only display
+    // endpoints in DISPLAY_READ_PATHS (server-cached data, no role/write
+    // decisions) are still served, with requestUser = null.
     let requestUser = null;
     if (pathname.startsWith("/api/")) {
       requestUser = await authenticateRequest(req);
-      if (!requestUser) {
+      if (!requestUser && !(authMisconfigured() && isDisplayReadPath(pathname, req.method))) {
         sendJson(
           res,
           { ok: false, error: "Unauthorized. Sign in through the Clearway portal first." },
@@ -1845,7 +1879,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, "0.0.0.0", () => {
   process.stdout.write(`Serving copied timeline at http://localhost:${port}\n`);
-  process.stdout.write(`Admin pages: /operators, /aircrafts, /backend-test\n`);
   process.stdout.write(
     `Timeline API ready at /api/timeline/flights, /api/timeline/aircraft, /api/timeline/limitations, /api/timeline/sync-status\n`
   );

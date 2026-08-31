@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { requireAuthenticatedUser } from "@/lib/admin-auth";
 
 export async function GET(
   _request: NextRequest,
   context: { params: { id: string } },
 ) {
+  // Session check in-handler (audit §2.9): middleware's file-extension bypass
+  // means a dotted id (e.g. /api/asecna/job/x.pdf) would otherwise skip the
+  // login gate entirely and read job rows via the service-role client.
+  const auth = await requireAuthenticatedUser();
+  if ("error" in auth) return auth.error;
+
   const id = context.params.id;
   const supabase = createSupabaseServiceRoleClient();
   if (!supabase) {

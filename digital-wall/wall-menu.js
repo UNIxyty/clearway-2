@@ -3,11 +3,11 @@
   window.__wallMenuInitialized = true;
 
   const currentPath = location.pathname;
+  // /operators, /aircrafts and /backend-test were retired (audit §1.8) —
+  // they rendered with no access control. Roster management lives in the
+  // console now.
   const navItems = [
     { href: "/timeline", label: "Timeline" },
-    { href: "/operators", label: "Operators" },
-    { href: "/aircrafts", label: "Aircrafts" },
-    { href: "/backend-test", label: "Backend Test" },
   ];
 
   const btn = document.createElement("button");

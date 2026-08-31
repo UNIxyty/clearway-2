@@ -33,6 +33,23 @@ function isTemporaryAllowedPath(pathname: string): boolean {
   );
 }
 
+// Auth fails CLOSED (audit §8.3): when Supabase is misconfigured or the auth
+// client fails unexpectedly, deny instead of allowing everything through.
+// APIs get a 503 JSON body; pages land on /maintenance (which is allowed
+// through explicitly, so there is no redirect loop).
+function failClosed(request: NextRequest, pathname: string) {
+  if (pathname.startsWith("/api")) {
+    return NextResponse.json(
+      { error: "Authentication is unavailable. Try again shortly." },
+      { status: 503, headers: { "retry-after": "60" } }
+    );
+  }
+  const maintenanceUrl = request.nextUrl.clone();
+  maintenanceUrl.pathname = "/maintenance";
+  maintenanceUrl.search = "";
+  return NextResponse.redirect(maintenanceUrl);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
@@ -58,27 +75,49 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Health probes must answer even while auth is misconfigured, so ops can
+  // see the outage instead of a 503 (§8.3 fail-closed exception).
+  if (
+    pathname === "/api/health" ||
+    pathname === "/api/pickem/health" ||
+    pathname === "/pickem/api/health"
+  ) {
+    return NextResponse.next();
+  }
+
+  // /maintenance must always render: it is both the maintenance-mode page and
+  // the fail-closed landing page. Allowing it here prevents a redirect loop.
+  if (pathname.startsWith("/maintenance")) {
+    return NextResponse.next();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    // If Supabase isn't configured, don't block the app.
-    return NextResponse.next();
+    // Supabase not configured → fail CLOSED (audit §8.3). The wall's
+    // x-debug-runner-secret bypass above still works: it never needs Supabase.
+    return failClosed(request, pathname);
   }
 
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  let supabase;
+  try {
+    supabase = createServerClient(url, anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            response.cookies.set(name, value, options);
+          }
+        },
       },
-      setAll(cookiesToSet) {
-        for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options);
-        }
-      },
-    },
-  });
+    });
+  } catch {
+    return failClosed(request, pathname);
+  }
 
   // Maintenance gate: allow only maintenance/admin/api while enabled.
   const maintenanceAllowed =
@@ -109,21 +148,24 @@ export async function middleware(request: NextRequest) {
   // handled below so an already-signed-in user bounces straight to `next`.
   if (
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/auth/") ||  // Auth API routes used during signup/password-reset (unauthenticated)
-    pathname === "/api/pickem/health" ||
-    pathname === "/pickem/api/health" ||
-    pathname === "/api/health" ||  // Portal health probe: must answer without a session (uptime checkers)
-
-    pathname.startsWith("/maintenance")
+    pathname.startsWith("/api/auth/")  // Auth API routes used during signup/password-reset (unauthenticated)
+    // Health probes and /maintenance are allowed earlier, before the Supabase
+    // env check, so they keep answering while auth is misconfigured.
   ) {
     return NextResponse.next();
   }
 
   const isAuthEntryPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user;
+  try {
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch {
+    // Unexpected auth-client failure → deny, don't allow through (§8.3).
+    return failClosed(request, pathname);
+  }
 
   if (isAuthEntryPage) {
     if (user) {

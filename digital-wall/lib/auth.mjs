@@ -7,9 +7,14 @@
 // the session from those cookies (or an Authorization: Bearer header) and
 // verify the access token server-side against Supabase's /auth/v1/user.
 //
-// Degradation rules (the wall must never go dark because auth is down):
-// - DISABLE_AUTH_FOR_TESTING=true  -> auth off, mock ADMIN user (local dev).
-// - Supabase env missing           -> auth off, mock user, warning at boot.
+// Degradation rules (auth fails CLOSED — audit §8.3 — but the wall display
+// must never go dark because auth is down):
+// - DISABLE_AUTH_FOR_TESTING=true  -> auth off, mock ADMIN user (local dev
+//   and isolated test environments only).
+// - Supabase env missing           -> FAIL CLOSED: every request is denied
+//   (unauthenticated, non-admin). The server keeps a small whitelist of
+//   read-only DISPLAY endpoints alive in this state (see server.mjs), so the
+//   ops-room wall still renders from the server's own cache.
 // - Supabase unreachable           -> requests with a previously verified
 //   token keep working for the cache TTL; new sessions fail closed (401).
 
@@ -39,17 +44,34 @@ function supabaseApiKey() {
   );
 }
 
-export function authEnabled() {
-  if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").trim() === "true") return false;
+function authTestingBypass() {
+  return String(process.env.DISABLE_AUTH_FOR_TESTING || "").trim() === "true";
+}
+
+function authConfigured() {
   return Boolean(supabaseUrl() && supabaseApiKey());
 }
 
+export function authEnabled() {
+  if (authTestingBypass()) return false;
+  return authConfigured();
+}
+
+/**
+ * True when auth SHOULD be on but can't work (Supabase env missing without
+ * the explicit testing bypass). In this state every auth decision fails
+ * closed; the server only keeps read-only display endpoints alive.
+ */
+export function authMisconfigured() {
+  return !authTestingBypass() && !authConfigured();
+}
+
 export function describeAuthPosture() {
-  if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").trim() === "true") {
+  if (authTestingBypass()) {
     return "disabled (DISABLE_AUTH_FOR_TESTING=true)";
   }
-  if (!supabaseUrl() || !supabaseApiKey()) {
-    return "disabled (Supabase URL / key not configured)";
+  if (!authConfigured()) {
+    return "MISCONFIGURED (Supabase URL / key not set) — failing closed; only read-only display endpoints served";
   }
   return "enabled (Supabase session required)";
 }
@@ -180,7 +202,11 @@ async function verifyAccessToken(token) {
 
 /** Resolve the authenticated user for a request, or null. */
 export async function authenticateRequest(req) {
-  if (!authEnabled()) return MOCK_USER;
+  // Explicit testing bypass only: mock ADMIN for local dev / test rigs.
+  if (authTestingBypass()) return MOCK_USER;
+  // Supabase env missing → FAIL CLOSED (audit §8.3). Never grant the mock
+  // admin because of a misconfiguration.
+  if (!authConfigured()) return null;
 
   const authHeader = String(req.headers.authorization || "");
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : "";

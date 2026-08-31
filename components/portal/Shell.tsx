@@ -221,15 +221,15 @@ export default function PortalShell({
           )}
         </div>
       ) : (
-        <div className="flex h-[60px] flex-none items-center gap-2.5 border-b border-cw-border px-3.5">
-          <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full border-2 border-cw-ink">
-            <span className="h-[9px] w-[9px] rounded-full bg-cw-ink" />
-          </span>
-          {labels && (
-            <div className="min-w-0 leading-[1.1]">
-              <div className="text-[15px] font-extrabold tracking-[-0.01em]">clearway</div>
-              <div className="text-[9px] font-bold tracking-[0.09em] text-cw-faint">HANDLING &amp; OPERATIONS</div>
-            </div>
+        <div className="flex h-[60px] flex-none items-center border-b border-cw-border px-3.5">
+          {/* The real Clearway logo (shared brand asset) — full logo when
+              expanded, the round mark alone on the 68px rail. */}
+          {labels ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/clearway-logo.svg" alt="Clearway — Handling & Operations" className="h-[30px] w-auto select-none" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/clearway-mark.svg" alt="Clearway" className="mx-auto h-[26px] w-auto select-none" />
           )}
         </div>
       )}
@@ -414,12 +414,8 @@ export default function PortalShell({
           >
             <MaskIcon name="menu" size={18} color="#3a3d44" />
           </button>
-          <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-cw-ink">
-              <span className="h-[7px] w-[7px] rounded-full bg-cw-ink" />
-            </span>
-            <span className="text-sm font-extrabold tracking-[-0.01em]">clearway</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/clearway-logo.svg" alt="Clearway" className="h-6 w-auto select-none" />
           <span className="ml-auto flex h-7 w-7 items-center justify-center rounded-full bg-cw-primary text-[11px] font-bold text-white">
             {initials}
           </span>

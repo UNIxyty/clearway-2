@@ -14,17 +14,6 @@ export default function DashboardPage() {
       title="Dashboard"
       crumb="/dashboard"
       subtitle="Everything worth knowing about the platform, in one screen."
-      headerRight={
-        // Product-home brand mark: the shared Clearway logo the old shell top
-        // bar used, at its prior 30px height — subtle, right of the header so
-        // it doesn't compete with the four regions.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src="/brand/clearway-logo.svg"
-          alt="Clearway"
-          className="h-[30px] w-auto select-none opacity-90"
-        />
-      }
     >
       <div className="px-4 py-6 pb-12 sm:px-[30px]">
         <div className="mx-auto w-full max-w-[1560px]">

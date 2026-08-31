@@ -12,12 +12,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { clsx } from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import MaskIcon from "@/components/portal/Icon";
 import ClientNavProgress from "@/components/portal/ClientNavProgress";
-import { NAV_TOPICS, ACCOUNT_MENU_IDS, topicsForRole, type NavTopic, type Role } from "@/components/portal/nav";
+import { topicsForRole, type Role } from "@/components/portal/nav";
 
 const COLLAPSE_KEY = "cw-shell-collapsed";
 const OPEN_TOPICS_KEY = "cw-shell-open-topics";
@@ -138,10 +138,8 @@ export default function PortalShell({
     }
     return new Set(["aip"]);
   });
-  const [accountOpen, setAccountOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [navPending, startNavTransition] = useTransition();
-  const accountRef = useRef<HTMLDivElement>(null);
   const persistCollapsed = (v: boolean) => {
     setCollapsed(v);
     try {
@@ -159,20 +157,7 @@ export default function PortalShell({
       return next;
     });
 
-  useEffect(() => {
-    if (!accountOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [accountOpen]);
-
   const topics = useMemo(() => topicsForRole(role), [role]);
-  const accountItems = useMemo(() => {
-    const acc = NAV_TOPICS.find((t) => t.id === "account");
-    return (acc?.items ?? []).filter((i) => ACCOUNT_MENU_IDS.includes(i.id));
-  }, []);
 
   // Internal navigations go through startTransition so navPending drives the
   // slim top progress bar (Next 14 App Router has no router events; the
@@ -279,7 +264,7 @@ export default function PortalShell({
                           label={item.label}
                           active={!item.external && isActive(item.href)}
                           showLabel={labels}
-                          onClick={() => go(item.href, item.external)}
+                          onClick={() => (item.id === "acc-signout" ? void signOut() : go(item.href, item.external))}
                           trailing={
                             item.external ? (
                               <MaskIcon name="arrow-up-right" size={13} color="#9aa0a8" />
@@ -296,50 +281,15 @@ export default function PortalShell({
             })}
       </div>
 
-      {/* user badge (bottom, pinned) + reduced account menu. The menu opens
-          upward IN FLOW inside this flex-none zone: overflow-y-auto lives on
-          the nav zone only, no ancestor between here and the viewport clips,
-          so no createPortal is needed (verified against the pinned h-screen
-          sidebar; worst-case menu+badge+head ≈ 370px, well under any
-          viewport — the nav zone shrinks via min-h-0 to make room). */}
-      <div className="flex-none border-t border-cw-border px-2 py-2" ref={accountRef}>
-        {accountOpen && labels && (
-          <div className="mb-1.5 rounded-[11px] border border-cw-border bg-white p-1.5 shadow-[0_1px_2px_rgba(16,18,22,.04),0_12px_28px_rgba(16,18,22,.10)]">
-            <div className="mb-1 border-b border-cw-borderInner px-2.5 pb-2 pt-1.5">
-              <div className="text-[13px] font-semibold">{display}</div>
-              {email && <div className="font-mono text-[11px] text-cw-faint">{email}</div>}
-            </div>
-            {accountItems.map((item) =>
-              item.id === "acc-signout" ? (
-                <button
-                  key={item.id}
-                  onClick={signOut}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] border-none bg-transparent px-2.5 py-[7px] text-left font-sans text-[13px] font-medium text-cw-body hover:bg-cw-sidebar"
-                >
-                  <MaskIcon name={item.icon} size={15} color="#9aa0a8" />
-                  {item.label}
-                </button>
-              ) : (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setAccountOpen(false);
-                    go(item.href, item.external);
-                  }}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] border-none bg-transparent px-2.5 py-[7px] text-left font-sans text-[13px] font-medium text-cw-body hover:bg-cw-sidebar"
-                >
-                  <MaskIcon name={item.icon} size={15} color="#9aa0a8" />
-                  {item.label}
-                </button>
-              )
-            )}
-          </div>
-        )}
-        <button
-          onClick={() => setAccountOpen((v) => !v)}
-          title={display}
+      {/* user badge (bottom, pinned): a plain IDENTITY display — no dropdown.
+          Profile / Notifications / Stats / Guide / Sign out all live under
+          the Account topic in the nav above; duplicating them here was
+          confusing. Email shows via the title tooltip. */}
+      <div className="flex-none border-t border-cw-border px-2 py-2">
+        <div
+          title={email || display}
           className={clsx(
-            "flex w-full cursor-pointer items-center gap-2 rounded-[9px] border-none bg-transparent px-2 py-[7px] text-left font-sans hover:bg-cw-hover",
+            "flex w-full items-center gap-2 rounded-[9px] px-2 py-[7px] font-sans",
             !labels && "justify-center"
           )}
         >
@@ -347,22 +297,19 @@ export default function PortalShell({
             {initials}
           </span>
           {labels && (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-semibold">{display}</span>
-                <span
-                  className={clsx(
-                    "block text-[11px] font-bold tracking-[0.05em]",
-                    role === "admin" ? "text-cw-primaryDeep" : "text-cw-faint"
-                  )}
-                >
-                  {role === "admin" ? "ADMIN" : "OPERATIONS"}
-                </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold">{display}</span>
+              <span
+                className={clsx(
+                  "block text-[11px] font-bold tracking-[0.05em]",
+                  role === "admin" ? "text-cw-primaryDeep" : "text-cw-faint"
+                )}
+              >
+                {role === "admin" ? "ADMIN" : "OPERATIONS"}
               </span>
-              <MaskIcon name={accountOpen ? "chevron-down" : "chevron-up"} size={14} color="#9aa0a8" />
-            </>
+            </span>
           )}
-        </button>
+        </div>
         <button
           onClick={() => persistCollapsed(!collapsed)}
           className={clsx(

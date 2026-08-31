@@ -10,6 +10,18 @@
 .flash-clear { animation: flashClear 0.9s ease; }
 @media (prefers-reduced-motion: reduce) { .flash-clear { animation: none; } }
 
+/* Shell navigation progress bar (components/portal/ClientNavProgress.tsx):
+   a 1/3-width segment sweeping across the 2px track while a client-side
+   navigation is pending. */
+@keyframes cw-nav-progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.cw-nav-progress-bar { animation: cw-nav-progress 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cw-nav-progress-bar { animation: none; }
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;

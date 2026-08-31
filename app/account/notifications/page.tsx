@@ -234,7 +234,7 @@ export default function NotificationSettingsPage() {
             <PButton variant="primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save Notification Settings"}
             </PButton>
-            <PButton variant="secondary" onClick={() => router.push("/profile")}>
+            <PButton variant="secondary" onClick={() => router.push("/account/profile")}>
               Back to Profile
             </PButton>
           </div>

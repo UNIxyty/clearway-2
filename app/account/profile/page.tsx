@@ -370,7 +370,7 @@ export default function ProfilePage() {
               <PButton
                 variant="secondary"
                 className="w-full justify-start"
-                onClick={() => router.push("/stats")}
+                onClick={() => router.push("/account/search-stats")}
               >
                 <BarChartIcon className="h-4 w-4" />
                 Search Stats
@@ -378,7 +378,7 @@ export default function ProfilePage() {
               <PButton
                 variant="secondary"
                 className="w-full justify-start"
-                onClick={() => router.push("/settings/notifications")}
+                onClick={() => router.push("/account/notifications")}
               >
                 <BellIcon className="h-4 w-4" />
                 Notification Settings

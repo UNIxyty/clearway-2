@@ -149,7 +149,7 @@ export default function AdminMaintenancePage() {
                     Manage users
                   </Button>
                   <Button type="button" variant="outline" asChild>
-                    <Link href="/admin/country-service-status">Country service statuses</Link>
+                    <Link href="/admin/service-status">Country service statuses</Link>
                   </Button>
                 </div>
 

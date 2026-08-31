@@ -9,7 +9,7 @@ Companion to docs/platform-audit.md. What shipped in the five phases
 | / | redirect → /dashboard | /?icao=X → /aip?icao=X → /aip/X |
 | /dashboard | landing: recents, service status, server health (admin), changelog | Phase 3 |
 | /aip | airport search (wizard, suggestions, recents) | old / |
-| /aip/<ICAO>[/gen|/notam|/weather] | deep-linkable airport view (state in URL; view mounts in [icao] layout so tab swaps don't re-sync) | Phase 2 |
+| /aip/<ICAO> | deep-linkable ONE-PAGE airport view (document + GEN + NOTAM/weather rail; main sidebar, no deep context) | /gen /notam /weather redirect here |
 | /aip/service-status | country service statuses | /status = redirect |
 | /account/{profile,notifications,search-stats,guide} | account pages (guide = in-shell iframe) | old paths redirect |
 | /admin/{users,maintenance,email-tools,email/logs,debug,debug/raw,service-status,airports/deleted} | admin; debug trio = deep context | country-service-status + debug/email-logs redirect |

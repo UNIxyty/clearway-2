@@ -22,7 +22,12 @@ notam-sync / weather-sync / aip-sync workers (/health) 2m · wall-health
 (/api/health on wall) 1m · leon-feed (wall sync-status) 2m ·
 checkwx/crewbriefing/ead freshness (cache age, degraded >24h) 30m.
 States operational/degraded/down/unknown + lastError + latency; results
-persisted under storage key service-checks/.
+persisted under storage key service-checks/. Self-probes (portal-health,
+aip-resolve, notams-cached, weather) resolve their base via candidates
+(PORTAL_SELF_URL -> 127.0.0.1 -> $HOSTNAME) with a cached winner and
+re-resolution on connection failure — Next standalone binds
+HOSTNAME||0.0.0.0 and Docker always sets HOSTNAME, so loopback refuses
+inside the container (the post-deploy false-unhealthy bug).
 
 ## Server metrics (/api/admin/metrics, requireAdmin)
 docker stats, /proc/loadavg, /sys/class/hwmon k10temp, free, df per

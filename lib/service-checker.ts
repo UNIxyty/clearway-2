@@ -54,8 +54,49 @@ const FRESHNESS_DEGRADED_MS = 24 * 60 * 60 * 1000; // audit: degraded when older
 // names/ports. The worker probes reuse the URL scheme already used by
 // scripts/check-sync-services.mjs.
 
-function portalBase(): string {
-  return (process.env.PORTAL_SELF_URL || `http://127.0.0.1:${process.env.PORT || 3000}`).replace(/\/+$/, "");
+// Self-probe base. THE deployment gotcha (post-deploy item 4): Next's
+// standalone server binds `process.env.HOSTNAME || '0.0.0.0'`, and Docker
+// always sets HOSTNAME to the container's — so inside the portal container
+// the server listens ONLY on the container IP and 127.0.0.1 refuses. That
+// made the four portal self-checks (portal/aip-resolve/notams/weather)
+// report down while the service worked from outside. We try candidates in
+// order and cache the first that connects; a later failure clears the
+// cache so the next sweep re-resolves.
+let resolvedPortalBase: string | null = null;
+
+function portalBaseCandidates(): string[] {
+  const port = process.env.PORT || 3000;
+  const list: string[] = [];
+  if (process.env.PORTAL_SELF_URL) list.push(process.env.PORTAL_SELF_URL.replace(/\/+$/, ""));
+  list.push(`http://127.0.0.1:${port}`);
+  if (process.env.HOSTNAME) list.push(`http://${process.env.HOSTNAME}:${port}`);
+  return list;
+}
+
+async function portalBase(): Promise<string> {
+  if (resolvedPortalBase) return resolvedPortalBase;
+  const candidates = portalBaseCandidates();
+  for (const base of candidates) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(`${base}/api/health`, { cache: "no-store", signal: controller.signal });
+      clearTimeout(timer);
+      if (res.status > 0) {
+        resolvedPortalBase = base;
+        return base;
+      }
+    } catch {
+      /* next candidate */
+    }
+  }
+  // Nothing connected — return the first candidate so the check reports a
+  // real connection error against a concrete URL.
+  return candidates[0];
+}
+
+export function resetPortalBaseCache(): void {
+  resolvedPortalBase = null;
 }
 function notamSyncBase(): string {
   return (process.env.NOTAM_SYNC_URL || "http://notam-sync:3001").replace(/\/+$/, "");
@@ -97,6 +138,9 @@ async function getJson(url: string, headers: Record<string, string> = {}): Promi
     }
     return { status: res.status, json, text };
   } catch (e) {
+    // A dead connection to the resolved self-base invalidates the cache so
+    // the next sweep re-resolves (e.g. container restart changed the IP).
+    if (resolvedPortalBase && url.startsWith(resolvedPortalBase)) resetPortalBaseCache();
     if (controller.signal.aborted) {
       throw new Error(`timed out after ${PROBE_TIMEOUT_MS}ms: ${url}`);
     }
@@ -139,14 +183,14 @@ function unauthenticatedOutcome(r: ProbeResponse): Outcome {
 // ── Individual checks ───────────────────────────────────────────────────────
 
 async function checkPortalHealth(): Promise<Outcome> {
-  const r = await getJson(`${portalBase()}/api/health`);
+  const r = await getJson(`${await portalBase()}/api/health`);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.ok === true && body.service === "portal") return OK;
   return downBecause(`unexpected /api/health response (HTTP ${r.status}): ${snippet(r)}`);
 }
 
 async function checkAipResolve(): Promise<Outcome> {
-  const r = await getJson(`${portalBase()}/api/aip/resolve?icao=${PROBE_ICAO}`, probeAuthHeaders());
+  const r = await getJson(`${await portalBase()}/api/aip/resolve?icao=${PROBE_ICAO}`, probeAuthHeaders());
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
   // Proof of function: the resolver must actually name a source for EVRA.
@@ -155,7 +199,7 @@ async function checkAipResolve(): Promise<Outcome> {
 }
 
 async function checkNotamsCachedRead(): Promise<Outcome> {
-  const r = await getJson(`${portalBase()}/api/notams?icao=${PROBE_ICAO}`, probeAuthHeaders());
+  const r = await getJson(`${await portalBase()}/api/notams?icao=${PROBE_ICAO}`, probeAuthHeaders());
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.icao === PROBE_ICAO && Array.isArray(body.notams)) return OK;
@@ -163,7 +207,7 @@ async function checkNotamsCachedRead(): Promise<Outcome> {
 }
 
 async function checkWeatherRead(): Promise<Outcome> {
-  const r = await getJson(`${portalBase()}/api/weather?icao=${PROBE_ICAO}`, probeAuthHeaders());
+  const r = await getJson(`${await portalBase()}/api/weather?icao=${PROBE_ICAO}`, probeAuthHeaders());
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.icao === PROBE_ICAO && typeof body.weather === "string") return OK;

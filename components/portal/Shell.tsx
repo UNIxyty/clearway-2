@@ -18,6 +18,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import MaskIcon from "@/components/portal/Icon";
 import ClientNavProgress from "@/components/portal/ClientNavProgress";
 import { topicsForRole, type Role } from "@/components/portal/nav";
+import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
 
 const COLLAPSE_KEY = "cw-shell-collapsed";
 const OPEN_TOPICS_KEY = "cw-shell-open-topics";
@@ -148,6 +149,44 @@ export default function PortalShell({
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [navPending, startNavTransition] = useTransition();
+  const [helpUnread, setHelpUnread] = useState(0);
+
+  // Help centre plumbing: the unread badge, the last-failed-request tracker,
+  // and the global shortcuts — ? opens help, ⇧? opens it pre-filled as a bug
+  // report for the current page. Never while typing in a field.
+  useEffect(() => {
+    installFailedRequestTracker();
+    let alive = true;
+    const refresh = () =>
+      fetch("/api/help/threads", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { threads: [] }))
+        .then((d) => alive && setHelpUnread(
+          (d.threads || []).reduce((n: number, t: { unread?: number }) => n + (t.unread ? 1 : 0), 0),
+        ))
+        .catch(() => {});
+    refresh();
+    const unsub = subscribeHelpStream(() => refresh());
+    return () => { alive = false; unsub(); };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "?") return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      e.preventDefault();
+      // The design says ⇧? for the pre-filled bug report, but ? already needs
+      // Shift on standard layouts, so the modifier that distinguishes the two
+      // here is ⌘/Ctrl (documented in the guide strip and the docs).
+      if (e.metaKey || e.ctrlKey) {
+        router.push(`/help/new?type=bug&page=${encodeURIComponent(window.location.pathname)}`);
+      } else {
+        router.push(`/help?page=${encodeURIComponent(window.location.pathname)}`);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
   const persistCollapsed = (v: boolean) => {
     setCollapsed(v);
     try {
@@ -287,6 +326,37 @@ export default function PortalShell({
                 </div>
               );
             })}
+      </div>
+
+      {/* Help & support — pinned in the sidebar FOOTER above the user badge,
+          never in the main list and never a floating button (a FAB would sit
+          on the wall console's controls and the AIP viewer's page controls).
+          Present in every sidebar state: expanded, 68px rail, deep contexts,
+          and the mobile drawer, because this block lives in sidebarBody. */}
+      <div className="flex-none border-t border-cw-border px-2 pb-1 pt-2">
+        <button
+          onClick={() => go(`/help?page=${encodeURIComponent(pathname)}`)}
+          title="Help & support"
+          className={clsx(
+            "relative flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] border border-cw-border bg-white px-[9px] py-2 text-left font-sans text-[13.5px] font-bold text-cw-ink hover:bg-cw-page",
+            !labels && "justify-center"
+          )}
+        >
+          <MaskIcon name="life-buoy" size={17} color="#2563eb" />
+          {labels && <span className="min-w-0 flex-1 truncate">Help &amp; support</span>}
+          {labels && helpUnread > 0 && (
+            <span className="rounded-[8px] bg-cw-primary px-1.5 py-px font-mono text-[10px] font-bold text-white">{helpUnread}</span>
+          )}
+          {!labels && helpUnread > 0 && (
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full border-[1.5px] border-cw-sidebar bg-cw-primary" />
+          )}
+        </button>
+        {labels && (
+          <div className="flex items-center gap-[7px] px-2.5 pb-1 pt-1.5">
+            <span className="rounded-[5px] border border-cw-border bg-white px-[5px] py-px font-mono text-[10px] font-bold text-cw-muted">?</span>
+            <span className="text-[11.5px] text-cw-faint">anywhere opens help</span>
+          </div>
+        )}
       </div>
 
       {/* user badge (bottom, pinned): a plain IDENTITY display — no dropdown.

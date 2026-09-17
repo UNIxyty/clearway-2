@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { startDebugRun } from "@/lib/debug-runner";
 import { listBugReports, updateBugReportStatus } from "@/lib/bug-reports-store";
+import { HELP_CALLBACK_PREFIX, parseHelpCallbackData } from "@/lib/help/telegram";
+import { HELP_STATUS_META } from "@/lib/help/shared";
+import {
+  addEvent as addHelpEvent,
+  getThread as getHelpThread,
+  setPresence as setHelpPresence,
+  setStatus as setHelpStatus,
+} from "@/lib/help/store";
+import { publishHelpEvent } from "@/lib/help/stream";
 import { BUG_REPORT_STATUSES, BUG_REPORT_STATUS_META, type BugReportRow, type BugReportStatus } from "@/lib/bug-reports-shared";
 import {
   TELEGRAM_BUG_CALLBACK_PREFIX,
@@ -27,6 +36,7 @@ type TelegramCallbackQuery = {
   id?: string;
   data?: string;
   message?: TelegramMessage;
+  from?: { username?: string; first_name?: string };
 };
 
 type TelegramUpdate = {
@@ -38,6 +48,7 @@ const DEFAULT_STEPS: DebugStep[] = ["aip", "pdf", "gen"];
 const ALLOWED_STEPS = new Set<DebugStep>(["aip", "notam", "weather", "pdf", "gen"]);
 const BOT_CALLBACK_PREFIX = "dbg:";
 const APPROVAL_CALLBACK_PREFIX = "approval:";
+const HELP_PREFIX = HELP_CALLBACK_PREFIX;
 type TelegramBotKind = "debug" | "bug";
 const BUG_VIEW_ALL_CALLBACK = `${TELEGRAM_BUG_CALLBACK_PREFIX}view:all`;
 const BUG_VIEW_AIRPORT_PREFIX = `${TELEGRAM_BUG_CALLBACK_PREFIX}view_airport:`;
@@ -668,9 +679,58 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
   const isKnownCallback =
     action.startsWith(BOT_CALLBACK_PREFIX) ||
     action.startsWith(TELEGRAM_BUG_CALLBACK_PREFIX) ||
-    action.startsWith(APPROVAL_CALLBACK_PREFIX);
+    action.startsWith(APPROVAL_CALLBACK_PREFIX) ||
+    action.startsWith(HELP_PREFIX);
   if (!callbackId || !chatId || !isKnownCallback) {
     return NextResponse.json({ ok: true, ignored: "not a supported callback" });
+  }
+
+  // Help Centre threads: status taps and chat joins from the notification message.
+  // Impossible is deliberately absent — it requires a written reason, which a
+  // keyboard tap cannot carry; that path exists only in the inbox surfaces.
+  if (action.startsWith(HELP_PREFIX)) {
+    if (bot !== "bug") return NextResponse.json({ ok: true, ignored: "help callback on debug bot" });
+    const parsed = parseHelpCallbackData(action);
+    if (!parsed) {
+      await answerCallbackQuery(callbackId, "Unsupported action", "bug");
+      return NextResponse.json({ ok: true, ignored: "invalid help callback" });
+    }
+    const thread = await getHelpThread(parsed.threadId);
+    if (!thread) {
+      await answerCallbackQuery(callbackId, "Thread not found", "bug");
+      return NextResponse.json({ ok: true, ignored: "help thread missing" });
+    }
+    const actor = String(cb?.from?.username || cb?.from?.first_name || "developer");
+    try {
+      if (parsed.action === "set") {
+        const { thread: updated, event } = await setHelpStatus({ thread, status: parsed.status, actor });
+        publishHelpEvent({
+          type: "thread.updated",
+          threadId: updated.id,
+          ownerUserId: updated.userId,
+          reference: updated.reference,
+          thread: updated,
+          event,
+        });
+        await answerCallbackQuery(callbackId, `${updated.reference} → ${HELP_STATUS_META[parsed.status].label}`, "bug");
+      } else {
+        const updated = (await setHelpPresence({ threadId: thread.id, presence: "present" })) ?? thread;
+        const event = await addHelpEvent({ threadId: thread.id, kind: "joined", actor });
+        publishHelpEvent({
+          type: "thread.updated",
+          threadId: thread.id,
+          ownerUserId: thread.userId,
+          reference: thread.reference,
+          thread: updated,
+          event,
+        });
+        await answerCallbackQuery(callbackId, `Joined ${thread.reference} — they can see you are here`, "bug");
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed";
+      await answerCallbackQuery(callbackId, msg, "bug");
+    }
+    return NextResponse.json({ ok: true, help: parsed.threadId });
   }
 
   if (action.startsWith(APPROVAL_CALLBACK_PREFIX)) {

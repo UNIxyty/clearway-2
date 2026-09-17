@@ -1,0 +1,24 @@
+[
+  {
+    "icao": "LQSA",
+    "iata": "SJJ",
+    "country": "Bosnia and Herzegovina",
+    "airportName": "Sarajevo International Airport",
+    "info": {
+      "slotPpr": "PPR required 48h in advance via handling agent, slot coordination mandatory during summer season",
+      "airportOfEntry": "yes",
+      "paxHandling": "Main Terminal GA lounge",
+      "customs": "available on request, prior notification required",
+      "fireCategory": "8",
+      "fuel": "JET A-1",
+      "runway": "8530' x 148' fts",
+      "elevation": "1708' fts",
+      "distanceToCity": "12 km",
+      "timeZone": "UTC +1 / when DST UTC +2"
+    },
+    "contacts": {
+      "tel": "+387 33 289 100",
+      "email": "lqsa@clearway.aero"
+    }
+  }
+]

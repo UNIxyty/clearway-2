@@ -38,7 +38,10 @@ function arg(name, dflt = null) {
 }
 
 const ONLY = arg("icao");
-const DATA_FILE = arg("data", path.join(SHEETS_DIR, "airports.json"));
+// Default data source: the per-airport folder (airports/<ICAO>/<ICAO>.json)
+// when it exists, else the flat airports.json array.
+const AIRPORTS_DIR = path.join(SHEETS_DIR, "airports");
+const DATA_FILE = arg("data", existsSync(AIRPORTS_DIR) ? AIRPORTS_DIR : path.join(SHEETS_DIR, "airports.json"));
 const MAKE_ZIP = process.argv.includes("--zip");
 const OUT_DIR =
   arg("out") ||
@@ -199,9 +202,30 @@ const logos = {
 };
 for (const [k, v] of Object.entries(logos)) if (!v) console.warn(`WARNING: shared logo missing: assets/logos/${k}.png`);
 
-let airports = JSON.parse(await fs.readFile(DATA_FILE, "utf-8"));
-if (!Array.isArray(airports)) throw new Error(`${DATA_FILE} must be a JSON array`);
+// --data accepts either a JSON array file or a folder of airports/<ICAO>/*.json
+async function loadAirports(src) {
+  if (!(await fs.stat(src)).isDirectory()) {
+    const arr = JSON.parse(await fs.readFile(src, "utf-8"));
+    if (!Array.isArray(arr)) throw new Error(`${src} must be a JSON array`);
+    return arr;
+  }
+  const out = [];
+  for (const entry of (await fs.readdir(src, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    const files = entry.isDirectory()
+      ? (await fs.readdir(path.join(src, entry.name))).filter((f) => f.endsWith(".json")).map((f) => path.join(src, entry.name, f))
+      : entry.name.endsWith(".json") ? [path.join(src, entry.name)] : [];
+    for (const f of files) out.push(JSON.parse(await fs.readFile(f, "utf-8")));
+  }
+  return out;
+}
+let airports = await loadAirports(DATA_FILE);
 const skipped = [];
+// Placeholder files that were never filled in produce no sheet.
+airports = airports.filter((a) => {
+  if (a.country || a.airportName) return true;
+  skipped.push([a.icao || "(no icao)", "placeholder not filled in"]);
+  return false;
+});
 if (ONLY && ONLY !== true) {
   const want = String(ONLY).toUpperCase().split(",").map((s) => s.trim()).filter(Boolean);
   const have = new Set(airports.map((a) => String(a.icao || "").toUpperCase()));

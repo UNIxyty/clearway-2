@@ -16,11 +16,21 @@ On the server output defaults to `/mnt/ssd-cache/airport-sheets` (never the root
 volume); on a machine without `/mnt/ssd-cache` it falls back to
 `data/.tmp/airport-sheets`.
 
+The generator reads the `airports/` folder by default (each airport's JSON lives
+in its own folder next to nothing else, so filling them in is per-airport work).
+A placeholder that hasn't been filled in yet (country and airport name still
+empty) is skipped and reported, not rendered as an empty sheet. `--data` also
+accepts a flat JSON-array file like `airports.json`.
+
 ## Where to drop files
 
 ```
 scripts/airport-sheets/
-├── airports.json          ← one entry per airport (schema below)
+├── airports/              ← THE data source: one folder per airport
+│   ├── EYVI/EYVI.json     (filled in — the model entry)
+│   ├── LROP/LROP.json     (placeholder: fill in the empty values)
+│   └── …                  (104 airports)
+├── airports.json          ← flat-array alternative / schema example
 ├── airports.stress.json   ← layout stress-test data (long names, missing fields)
 ├── template.html          ← the sheet layout; edit here to tweak the design
 └── assets/

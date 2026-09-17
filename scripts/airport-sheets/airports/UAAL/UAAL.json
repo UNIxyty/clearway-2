@@ -1,0 +1,27 @@
+{
+  "icao": "UAAL",
+  "iata": "",
+  "country": "",
+  "airportName": "",
+  "info": {
+    "slotPpr": "",
+    "airportOfEntry": "",
+    "paxHandling": "",
+    "customs": "",
+    "hangar": "",
+    "rampAccess": "",
+    "fireCategory": "",
+    "fuel": "",
+    "runway": "",
+    "elevation": "",
+    "distanceToCity": "",
+    "timeZone": ""
+  },
+  "paxFacilities": "",
+  "contacts": {
+    "tel": "",
+    "email": "",
+    "sita": "",
+    "aftn": ""
+  }
+}

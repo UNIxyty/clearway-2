@@ -1,0 +1,31 @@
+{
+  "icao": "EYVI",
+  "iata": "VNO",
+  "country": "Lithuania",
+  "airportName": "Vilnius Int. Airport",
+  "info": {
+    "slotPpr": "not required",
+    "airportOfEntry": "yes",
+    "paxHandling": "VIP Terminal",
+    "customs": "available",
+    "hangar": "available",
+    "rampAccess": "possible",
+    "fireCategory": "7",
+    "fuel": "JET A-1",
+    "runway": "8251' x 164' fts",
+    "elevation": "649' fts",
+    "distanceToCity": "7 km",
+    "timeZone": "UTC +2 / when DST UTC +3"
+  },
+  "paxFacilities": "VIP Terminal",
+  "contacts": {
+    "tel": "+371 67 660 773",
+    "email": "eyvi@clearway.aero",
+    "sita": "RIXCWCR",
+    "aftn": "KTEBXAAX"
+  },
+  "images": {
+    "hero": "hero/EYVI.jpg",
+    "pax": "pax/EYVI.jpg"
+  }
+}

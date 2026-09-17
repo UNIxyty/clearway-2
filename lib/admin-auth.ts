@@ -12,8 +12,8 @@ type AuthSuccess = {
 
 export type { AuthFailure, AuthSuccess };
 
-function parseAdminEmails() {
-  return String(process.env.ADMIN_EMAILS || "")
+function parseEmailList(raw: string | undefined) {
+  return String(raw || "")
     .split(",")
     .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
@@ -44,24 +44,27 @@ async function resolveRole(
   userId: string,
   email: string | null,
 ): Promise<Role> {
-  // Explicit role metadata on Supabase auth.users takes precedence.
-  const userRole = roleFromSupabaseUser(user);
-  if (userRole !== "none") return userRole;
+  // Developer is a flag, not an admin tier (help-centre gate): it comes ONLY
+  // from explicit developer signals — DEVELOPER_EMAILS, metadata role/flag, or
+  // user_preferences.is_developer. ADMIN_EMAILS confers admin, nothing more,
+  // so listing an ops manager there never opens the developer inbox.
+  const lowerEmail = email ? email.toLowerCase() : null;
+  if (lowerEmail && parseEmailList(process.env.DEVELOPER_EMAILS).includes(lowerEmail)) return "developer";
 
-  // ADMIN_EMAILS env var confers developer (highest) privilege.
-  const adminEmails = parseAdminEmails();
-  if (email && adminEmails.includes(email.toLowerCase())) return "developer";
+  const userRole = roleFromSupabaseUser(user);
+  if (userRole === "developer") return "developer";
 
   const { data, error } = await supabase
     .from("user_preferences")
     .select("is_admin, is_developer")
     .eq("user_id", userId)
     .maybeSingle();
+  const row = (error ? null : data) as { is_admin?: boolean; is_developer?: boolean } | null;
+  if (row?.is_developer) return "developer";
 
-  if (error || !data) return "none";
-  const row = data as { is_admin?: boolean; is_developer?: boolean };
-  if (row.is_developer) return "developer";
-  if (row.is_admin) return "admin";
+  if (userRole === "admin") return "admin";
+  if (lowerEmail && parseEmailList(process.env.ADMIN_EMAILS).includes(lowerEmail)) return "admin";
+  if (row?.is_admin) return "admin";
   return "none";
 }
 

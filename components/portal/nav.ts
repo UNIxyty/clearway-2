@@ -21,6 +21,9 @@ export type NavTopic = {
   label: string;
   icon: string;
   roles: Array<"admin" | "user" | "guest">;
+  // Developer is a FLAG, not a role tier (help-centre gate): admin does NOT
+  // see developer topics. Gated by the same flag as the routes and API scope.
+  developerOnly?: boolean;
   href?: string; // topic itself navigates (Dashboard)
   items?: NavItem[];
 };
@@ -82,6 +85,18 @@ export const NAV_TOPICS: NavTopic[] = [
     ],
   },
   {
+    id: "developer",
+    label: "Developer",
+    icon: "terminal",
+    roles: ["admin", "user"], // roles don't matter here — developerOnly is the gate
+    developerOnly: true,
+    items: [
+      { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
+      { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
+      { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
+    ],
+  },
+  {
     id: "pickem",
     label: "Pickem",
     icon: "trophy",
@@ -111,6 +126,6 @@ export const ACCOUNT_MENU_IDS = ["acc-profile", "acc-notify", "acc-stats", "acc-
 
 export type Role = "admin" | "user" | "guest";
 
-export function topicsForRole(role: Role): NavTopic[] {
-  return NAV_TOPICS.filter((t) => t.roles.includes(role));
+export function topicsForRole(role: Role, isDeveloper = false): NavTopic[] {
+  return NAV_TOPICS.filter((t) => t.roles.includes(role) && (!t.developerOnly || isDeveloper));
 }

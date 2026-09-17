@@ -34,6 +34,7 @@ function useIdentity() {
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("user");
+  const [isDeveloper, setIsDeveloper] = useState(false);
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
@@ -41,12 +42,19 @@ function useIdentity() {
       .then((r) => r.json())
       .then((d) => d.preferences?.display_name && setName(d.preferences.display_name))
       .catch(() => {});
-    // Existing admin check — never reimplemented (audit rule). A failed
-    // probe means NOT admin (fail closed).
+    // Existing admin check — never reimplemented (audit rule). A failed probe
+    // means NOT admin and NOT developer (fail closed) — the Developer nav
+    // group only ever appears on a confirmed developer flag.
     fetch("/api/admin/status", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { isAdmin: false }))
-      .then((d) => setRole(d?.isAdmin ? "admin" : "user"))
-      .catch(() => setRole("user"));
+      .then((r) => (r.ok ? r.json() : { isAdmin: false, isDeveloper: false }))
+      .then((d) => {
+        setRole(d?.isAdmin ? "admin" : "user");
+        setIsDeveloper(Boolean(d?.isDeveloper));
+      })
+      .catch(() => {
+        setRole("user");
+        setIsDeveloper(false);
+      });
   }, []);
   const display = name || email || "Signed in";
   const initials =
@@ -57,7 +65,7 @@ function useIdentity() {
       .map((p) => p[0])
       .join("")
       .toUpperCase() || "??";
-  return { email, display, initials, role };
+  return { email, display, initials, role, isDeveloper };
 }
 
 function NavButton({
@@ -114,7 +122,7 @@ export default function PortalShell({
 }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const { email, display, initials, role } = useIdentity();
+  const { email, display, initials, role, isDeveloper } = useIdentity();
   // Persisted UI state is read in lazy initializers (typeof window guard for
   // SSR) so the sidebar renders its persisted collapsed/open state on the
   // FIRST client paint — no expand-flicker from a post-mount useEffect. The
@@ -157,7 +165,7 @@ export default function PortalShell({
       return next;
     });
 
-  const topics = useMemo(() => topicsForRole(role), [role]);
+  const topics = useMemo(() => topicsForRole(role, isDeveloper), [role, isDeveloper]);
 
   // Internal navigations go through startTransition so navPending drives the
   // slim top progress bar (Next 14 App Router has no router events; the

@@ -3,7 +3,8 @@
 // PORTAL (never EAD/sources directly), zips them, and emails the result.
 //
 //   node scripts/bulk-aip-fetch.mjs --to you@example.com \
-//     [--list airports.txt] [--delay 3000] [--force] \
+//     [--list airports.txt] [--icaos "EVRA,EETN,UAAA"] [--sample 5] \
+//     [--delay 3000] [--force] \
 //     [--base http://localhost:3000] [--workdir /mnt/ssd-cache/bulk-aip] \
 //     [--cookie "<session cookie>"]   (testing off-server; default auth is
 //                                      the x-debug-runner-secret header)
@@ -91,6 +92,8 @@ function arg(name, fallback = null) {
 }
 const TO = arg("to");
 const LIST_FILE = arg("list");
+const ICAOS = arg("icaos"); // inline sample: --icaos "EVRA,EETN UAAA"
+const SAMPLE = Number(arg("sample", 0)); // random N from the list
 const DELAY_MS = Number(arg("delay", 3000));
 const FORCE = process.argv.includes("--force");
 const BASE = String(arg("base", "http://localhost:3000")).replace(/\/+$/, "");
@@ -113,7 +116,14 @@ function authHeaders() {
 }
 
 async function loadList() {
-  const raw = LIST_FILE && LIST_FILE !== true ? await fs.readFile(LIST_FILE, "utf-8") : DEFAULT_LIST;
+  // Precedence: --icaos (inline codes, comma/space separated) beats --list
+  // (file, one or more per line) beats the built-in default list.
+  const raw =
+    ICAOS && ICAOS !== true
+      ? String(ICAOS).replace(/,/g, " ")
+      : LIST_FILE && LIST_FILE !== true
+        ? await fs.readFile(LIST_FILE, "utf-8")
+        : DEFAULT_LIST;
   const seen = new Set();
   const out = [];
   for (const tok of raw.split(/\s+/)) {
@@ -121,6 +131,15 @@ async function loadList() {
     if (!/^[A-Z0-9]{4}$/.test(code) || seen.has(code)) continue; // de-dupes ENVA etc.
     seen.add(code);
     out.push(code);
+  }
+  // --sample N: a random draw, so repeated smoke runs cover different
+  // airports instead of always hammering the same first few.
+  if (Number.isFinite(SAMPLE) && SAMPLE > 0 && SAMPLE < out.length) {
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out.slice(0, SAMPLE).sort();
   }
   return out;
 }

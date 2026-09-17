@@ -1,7 +1,8 @@
 import path from "path";
 
 // service-checks: persisted availability-check results (lib/service-checker.ts)
-const ALLOWED_ROOTS = new Set(["aip", "notam", "weather", "service-checks"]);
+// help-attachments: Help Centre uploads (lib/help). Keep in sync with lib/storage.mjs.
+const ALLOWED_ROOTS = new Set(["aip", "notam", "weather", "service-checks", "help-attachments"]);
 
 function normalizeKey(key: string): string {
   return key.replace(/\\/g, "/").replace(/^\/+/, "").trim();

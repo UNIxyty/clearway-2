@@ -60,3 +60,92 @@ Graceful available:false sections off-Linux.
 - NEXT_PUBLIC_* env is inlined into the middleware bundle at build time:
   the env-missing branch protects builds without env; runtime env loss
   surfaces as getUser failures (also denied).
+
+## Help Centre (Sep 2026) — console + developer inbox + Telegram mini app
+
+Design source: claude.ai/design project "Help Centre.dc.html" + README Part 1.
+The idea preserved in the data model, not just styling: a REPORT is filed and
+carries a status; a CHAT means someone is waiting and carries presence, always
+stated in words with a timestamp.
+
+### Data model (migrations/20260917_create_help_centre.sql, service-role only, RLS deny-all)
+- `help_threads` — reference (generated `RPT-`/`CHT-` + identity, the shared
+  key on every surface), type (`bug|request|question|urgent|chat`), title,
+  status from EXACTLY the wall Reports vocabulary
+  (`untouched|under_process|done|impossible`), status_reason, owner
+  (user_id/email/name), context jsonb (six fixed fields), presence
+  (`none|not_notified|notified|joining|present|no_answer`) + presence_at,
+  linked_from, telegram message ids, ops/dev last-read stamps.
+- `help_messages` — author ops|developer, structured `blocks` jsonb (heading,
+  subheading, paragraph, quote, bullet, numbered, checklist, code, divider,
+  attachment — never rendered HTML), client_key unique per thread for
+  offline-resend dedupe.
+- `help_events` — system events distinct from messages (opened,
+  status_changed, joined, chat_closed, nudged, linked_report,
+  presence_changed); rendered as one line with a dot on every surface.
+- `help_attachments` — 10 MB / allow-listed mime guard, stored under
+  /storage `help-attachments/`, served ONLY via authed routes (never /files/*).
+- `help_saved_replies` — text + optional paired status + honest use_count
+  (five starters seeded).
+- Apply with `node scripts/tools/create-help-centre-tables.mjs` (mgmt API /
+  DATABASE_URL) or paste the SQL in the Supabase SQL editor.
+
+### Rules enforced in the backend, not the UI
+- Impossible cannot be saved without a written reason (store throws; API 400).
+- Done closes the thread to new replies after 48 h (API 409 `{closed:true}`;
+  clients then file a LINKED report via `linkedFrom`, keeping what was typed).
+- Presence `no_answer` is computed at read time (notified + 5 min), so no cron.
+- Ops only ever see their own threads (list scoped by user_id; GET by id
+  404s for non-owners). `/api/bug-reports` GET is now caller-scoped too —
+  closing the audit's data-exposure finding — and its POST files a help
+  thread (the old path folded in, one report path).
+
+### The developer gate — a flag, not an admin tier
+- Resolution (lib/admin-auth.ts): DEVELOPER_EMAILS env, metadata
+  role/is_developer, or user_preferences.is_developer. `ADMIN_EMAILS` now
+  confers ADMIN ONLY (it used to grant developer — that would have opened the
+  inbox to anyone listed there).
+- Same flag gates all three: the Developer nav group (Shell fetches
+  /api/admin/status, fail closed), the /developer/* routes (server layout →
+  redirect /forbidden, fail closed on thrown checks), and the API scope
+  (requireDeveloper on /api/help/inbox and /api/help/saved-replies).
+- On Telegram, the equivalent gate is TELEGRAM_DEVELOPER_USER_IDS against
+  HMAC-validated initData (lib/help/telegram-webapp.ts).
+
+### Live updates
+Portal SSE hub (lib/help/stream.ts, /api/help/stream): per-user routing —
+events reach the thread owner and developers, nobody else. Frames match the
+platform's SSE conventions (data JSON + comment heartbeats). The mini app
+polls (EventSource cannot carry the initData header).
+
+### Telegram
+Reuses the bug bot + TELEGRAM_BUG_CHAT_ID; `help:set`/`help:join` callbacks in
+the existing /api/telegram/debug webhook (Impossible deliberately absent from
+the keyboard — needs a written reason). Mini app at /telegram/support; setup +
+new env vars in docs/help-centre-telegram-setup.md
+(TELEGRAM_HELP_MINIAPP_URL, TELEGRAM_DEVELOPER_USER_IDS, DEVELOPER_EMAILS).
+
+### Cross-surface parity (console ↔ /developer/inbox ↔ mini app)
+| Behaviour | Shared | Shell-specific |
+| --- | --- | --- |
+| Reference, type chip hues, status words | identical everywhere | — |
+| Inbox groups | Needs you now (red waiting) / Waiting | — |
+| Filters | same four statuses + five types | chips+dropdowns on desk, sheet on phone |
+| Quick actions | status / Mark done / Go live | thread header vs above-thread row |
+| Canned replies | same list, paired status, use counts | ⇧⏎ popover vs chip row + sheet |
+| Reply composer | plain text + ``` code + attachments (dev side) | ops side gets the full block editor |
+| Auto-collected context | six fields, two red-when-problem | grid (ops, collapsed) / strip (desk) / grid-first (phone) |
+| Live chat | join from either marks present on both | presence prose (ops) vs red waiting time (dev) |
+| Closing out | Done/Impossible + system event + 48 h close | — |
+
+### Known deviations from the design (reasoned)
+- ⇧? cannot be a distinct shortcut (? already carries Shift): ⌘?/Ctrl+? opens
+  the pre-filled bug report instead.
+- "Developer available · last seen HH:MMZ" pill derives from the stated
+  reading window (06:00–22:00Z), not a tracked last-seen.
+- Go live appears on chat/urgent threads only — reports never carry presence
+  (the design's own data rule wins over the one artboard showing it on a bug).
+- Image thumbnails serve the original scaled by CSS (≤10 MB uploads) rather
+  than a generated thumbnail file.
+- Typing indicators are not implemented (no realtime typing channel); read
+  receipts derive from the other side's last-read stamp.

@@ -27,6 +27,32 @@ import { sendEmail, mailerConfigured } from "../digital-wall/lib/mailer.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// The server keeps secrets in env FILES consumed by the containers — a bare
+// shell doesn't have them exported. Load what we need from digital-wall/.env
+// (secret + Resend) and the repo .env as fallback, without overriding
+// anything already exported.
+const ENV_KEYS = [
+  "PORTAL_INTERNAL_SECRET",
+  "DEBUG_RUNNER_INTERNAL_SECRET",
+  "RESEND_API_KEY",
+  "RESEND_BASE_URL",
+  "DIGITAL_WALL_EMAIL_FROM",
+];
+for (const file of [path.join(__dirname, "../digital-wall/.env"), path.join(__dirname, "../.env")]) {
+  try {
+    const raw = await fs.readFile(file, "utf-8");
+    for (const line of raw.split("\n")) {
+      const eq = line.indexOf("=");
+      if (eq < 1 || line.trimStart().startsWith("#")) continue;
+      const key = line.slice(0, eq).trim();
+      if (!ENV_KEYS.includes(key) || process.env[key]) continue;
+      process.env[key] = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    /* file absent (dev machine) — fine */
+  }
+}
+
 // ── Defaults (edit the list here, or pass --list file with one ICAO/line) ──
 const DEFAULT_LIST = `
 LUKK LRBS LRSV LROP LRTR LRCK

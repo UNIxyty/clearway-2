@@ -70,6 +70,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // The Telegram mini app runs inside Telegram's webview with no Supabase
+  // session. The page is a shell; every /api/telegram/support call validates
+  // the HMAC-signed initData itself and fails closed (401).
+  if (pathname.startsWith("/telegram/support") || pathname.startsWith("/api/telegram/support")) {
+    return NextResponse.next();
+  }
+
   // Static and asset routes
   if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || isPublicAsset) {
     return NextResponse.next();

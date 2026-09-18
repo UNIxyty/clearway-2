@@ -1564,3 +1564,56 @@ components; zero overrides still render byte-identically).
   warnings render inline on BOTH affected tokens with directional copy.
   Behaviour unchanged: advisory only, per-token Reset + Reset all restore
   shipped defaults.
+
+## Mobile & tablet views (Sep 2026) — wall + console
+
+Design source: claude.ai/design "Mobile and Tablet.dc.html" + README Part 2.
+The ops-room wall is untouched: DisplayApp branches below 1920px; at ≥1920 the
+exact previous tree renders (proven byte-identical at 1920/2560 and console at
+1440 via tools/wall-audit.mjs frozen-fixture captures, before vs after).
+
+### Breakpoints (design section E, implemented in src/hooks/useViewport.js)
+| Concern | 0–429 | 430–767 | 768–1023 | 1024+ |
+| --- | --- | --- | --- | --- |
+| Navigation (console) | overlay drawer | overlay drawer | overlay drawer (deliberate) | 68px rail (collapsed default 1024–1279; ≥1280 as before) |
+| Console list pages | 3-line cards | 2-line cards | five-column 76px rows | list + side detail |
+| Console detail | pushed page + ↑/↓ | pushed page | pushed page | side panel |
+| Settings | one group open + steppers | same | two groups | unchanged full panel |
+| Wall primary | Now list, timeline 3rd tab | landscape → 3h mini timeline | reduced timeline | reduced timeline (4 rows) up to 1919; ops wall ≥1920 |
+| Wall sidebar | legend in the detail sheet | legend footer | 64px rail + drawer | rail+drawer to 1919; full sidebar ≥1920 |
+| Upcoming Flights | removed (Next out section) | removed | removed | as today ≥1920 |
+
+The wall is the only surface that changes with rotation (selection carries
+across); the console ignores rotation. Reuse, not forks: the phone mini,
+landscape and tablet timelines render through Board + FlightPill with additive
+props (hideSidebar, rowHeightPx, viewportHoursOverride, forceMarkerMode /
+markersInside, maxMarkers +N in IMP>NTM>CAA>WX order, staleMode, onPillTap,
+touchHitMinPx 44px gap-splitting overlays, bodyContent 'callsign' /
+'callsign-route'); defaults reproduce the wall byte-for-byte. Colours all via
+wallColors bridges — a Settings→Colours change applies to mobile identically.
+
+### Wall behaviours carried to mobile
+Movement labels & signed deltas (T/O overrides, later of CTOT/ETD, no BLOFF —
+inherited from mapFlight, incl. the stale-ETD guard, 48h sanity clamp and EET
+projection); estimated hollow pills + "Estimated — no flight watch" in words in
+the sheet; info-tab content (IMP full body, raw NOTAM + validity, wx + raw
+METAR, limitations, CAA) with the same postFlightCheck per-flight/per-cycle
+acks and who/when stamps; limitation numbered circles (solid unchecked /
+outlined checked, visible after checking); unconfirmed-trip italics; the
+global visibility window (server-side, unchanged — mobile shows the wall's
+set); auto-return-to-now on every timeline; per-account profiles (a phone
+reads the signed-in account's profile — a device is not a profile).
+Stated choices: MVT overdue is a STATIC red badge in phone lists (blinking
+survives on the timelines only); LIVE/RECONNECTING/STALE is NEW state derived
+in wallStream (subscribeConnectionState) — stale marks data unverified
+(dashed/dim/absolute times) and disables Checked; FlightOverlay ("show on
+wall") deliberately not carried to personal devices; multi-timezone clock bar
+reduced to UTC on phone/tablet; tablet keeps the wall's marker-row placement
+(right of pill, capped 3+N) rather than the artboard's above-pill row — same
+anatomy as the wall was judged more valuable than the artboard's variance.
+
+### Verification tooling
+opsboard-react/tools/{fixtures.mjs,wall-audit.mjs}: frozen 11:38Z fixtures
+covering every pill state, animation-frozen font-blocked byte-stable captures,
+clip-/line-aware text-overlap audit. Current results: desktop byte-identical;
+0 overlaps at 390×844, 844×390, 1024×768 (wall) and 390/768/1024 (console).

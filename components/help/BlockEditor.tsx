@@ -10,13 +10,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HelpBlock } from "@/lib/help/shared";
 import { HELP_ATTACHMENT_MAX_BYTES } from "@/lib/help/shared";
 import { uploadAttachment, utcTime } from "@/components/help/helpApi";
+import ImageAnnotator from "@/components/help/ImageAnnotator";
 
 // ── Editor line model (serialized to HelpBlocks on send) ────────────────────
 
 export type EditorLine =
   | { key: string; kind: "heading" | "subheading" | "paragraph" | "quote" | "bullet" | "numbered" | "code"; text: string }
   | { key: string; kind: "check"; text: string; checked: boolean }
-  | { key: string; kind: "divider" };
+  | { key: string; kind: "divider" }
+  // Inline image block (item 4): a real block in the flow — pasted, dropped or
+  // /image-inserted at the cursor; movable, captionable, annotatable.
+  | { key: string; kind: "image"; id?: string; originalId?: string; caption: string; uploading?: boolean; pct?: number; failed?: string; previewUrl?: string; name?: string };
 
 let keyCounter = 1;
 export const newKey = () => `l${keyCounter++}-${Date.now().toString(36)}`;
@@ -42,6 +46,10 @@ export function serializeLines(lines: EditorLine[]): HelpBlock[] {
       continue;
     }
     if (line.kind === "code") { blocks.push({ type: "code", text: line.text }); continue; }
+    if (line.kind === "image") {
+      if (line.id) blocks.push({ type: "image", id: line.id, ...(line.originalId ? { originalId: line.originalId } : {}), ...(line.caption.trim() ? { caption: line.caption.trim() } : {}) });
+      continue;
+    }
     if (!line.text.trim()) continue;
     blocks.push({ type: line.kind, text: line.text });
   }
@@ -55,10 +63,27 @@ export function linesFromBlocks(blocks: HelpBlock[]): EditorLine[] {
     else if (b.type === "bullet" || b.type === "numbered") b.items.forEach((t) => lines.push({ key: newKey(), kind: b.type, text: t }));
     else if (b.type === "checklist") b.items.forEach((it) => lines.push({ key: newKey(), kind: "check", text: it.text, checked: it.checked }));
     else if (b.type === "code") lines.push({ key: newKey(), kind: "code", text: b.text });
+    else if (b.type === "image") lines.push({ key: newKey(), kind: "image", id: b.id, originalId: b.originalId, caption: b.caption || "" });
     else if (b.type === "heading" || b.type === "subheading" || b.type === "paragraph" || b.type === "quote")
       lines.push({ key: newKey(), kind: b.type, text: b.text });
   }
   return lines.length ? lines : [paragraph()];
+}
+
+/** True while any inline image is still uploading (send gates on this). */
+export function linesUploading(lines: EditorLine[]): boolean {
+  return lines.some((l) => l.kind === "image" && l.uploading);
+}
+
+/** Attachment ids referenced by inline image blocks (displayed + originals). */
+export function imageAttachmentIds(lines: EditorLine[]): string[] {
+  const ids: string[] = [];
+  for (const l of lines) {
+    if (l.kind !== "image") continue;
+    if (l.id) ids.push(l.id);
+    if (l.originalId) ids.push(l.originalId);
+  }
+  return ids;
 }
 
 // ── Slash menu content (8 basic blocks + 4 inserts, markdown shortcuts) ─────
@@ -73,8 +98,8 @@ const MENU: MenuItem[] = [
   { id: "code", group: "BASIC BLOCKS", glyph: "{ }", label: "Code block", sub: "Monospaced, preserves line breaks", shortcut: "```" },
   { id: "quote", group: "BASIC BLOCKS", glyph: '"', label: "Quote", sub: "Quoted text", shortcut: ">" },
   { id: "divider", group: "BASIC BLOCKS", glyph: "—", label: "Divider", sub: "Horizontal rule", shortcut: "---" },
-  { id: "attach", group: "INSERT", glyph: "⎘", label: "Attach file", sub: "Any file up to 10 MB", shortcut: "" },
-  { id: "screenshot", group: "INSERT", glyph: "▣", label: "Insert screenshot", sub: "Or paste one", shortcut: "⌘V" },
+  { id: "attach", group: "INSERT", glyph: "⎘", label: "Attach file", sub: "Logs and documents, as a chip", shortcut: "" },
+  { id: "image", group: "INSERT", glyph: "▣", label: "Insert image", sub: "Placed at the cursor, annotatable", shortcut: "⌘V" },
   { id: "time", group: "INSERT", glyph: "◷", label: "Current time (UTC)", sub: "Inserted as text", shortcut: "" },
   { id: "url", group: "INSERT", glyph: "⌗", label: "This screen's URL", sub: "As inline code", shortcut: "" },
 ];
@@ -365,6 +390,56 @@ export default function BlockEditor({
   const refs = useRef(new Map<string, HTMLTextAreaElement>());
   const [menu, setMenu] = useState<{ lineKey: string; query: string; index: number; slashPos: number } | null>(null);
   const pendingFocus = useRef<{ key: string; pos: number } | null>(null);
+  const focusedKey = useRef<string | null>(null); // paste inserts AT the cursor
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageInsertAfter = useRef<string | null>(null);
+  const [annotating, setAnnotating] = useState<string | null>(null); // image line key
+
+  // ── Inline images ─────────────────────────────────────────────────────────
+  // Insert at a position, upload in place, keep the line's progress visible.
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
+  const patchImage = (key: string, patch: Record<string, unknown>) => {
+    onChangeRef.current(linesRef.current.map((l) => (l.key === key ? ({ ...l, ...patch } as EditorLine) : l)));
+  };
+  const insertImageFiles = (files: File[], afterKey: string | null) => {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return false;
+    let current = linesRef.current;
+    let anchor = afterKey;
+    for (const file of images) {
+      const line: EditorLine = {
+        key: newKey(), kind: "image", caption: "", uploading: true, pct: 0,
+        previewUrl: URL.createObjectURL(file), name: file.name || "pasted.png",
+      };
+      const idx = anchor ? current.findIndex((l) => l.key === anchor) : current.length - 1;
+      current = [...current.slice(0, idx + 1), line, ...current.slice(idx + 1)];
+      anchor = line.key;
+      uploadAttachment(file, (pct) => patchImage(line.key, { pct }))
+        .then((att) => patchImage(line.key, { uploading: false, pct: 100, id: att.id }))
+        .catch((error: Error) => patchImage(line.key, { uploading: false, failed: error.message === "network" ? "Connection dropped. Nothing was saved." : "Upload failed. Nothing was saved." }));
+    }
+    onChangeRef.current(current);
+    return true;
+  };
+  const uploadAnnotated = (lineKey: string, blob: Blob) => {
+    const line = linesRef.current.find((l) => l.key === lineKey);
+    if (!line || line.kind !== "image") return;
+    const base = (line.name || "image").replace(/\.[a-z0-9]+$/i, "");
+    const file = new File([blob], `${base}-annotated.png`, { type: "image/png" });
+    patchImage(lineKey, { uploading: true, pct: 0 });
+    uploadAttachment(file, (pct) => patchImage(lineKey, { pct }))
+      .then((att) => patchImage(lineKey, {
+        uploading: false, pct: 100,
+        originalId: line.originalId || line.id, id: att.id,
+        previewUrl: undefined,
+      }))
+      .catch(() => patchImage(lineKey, { uploading: false, failed: "Annotation upload failed — the original is untouched." }));
+    setAnnotating(null);
+  };
+
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const filtered = useMemo(() => {
     if (!menu) return [];
@@ -436,11 +511,17 @@ export default function BlockEditor({
         onChange([...lines.slice(0, idx), div, para, ...lines.slice(idx + 1)]);
         break;
       }
-      case "attach": case "screenshot": {
+      case "attach": {
         update(lineKey, { text: textAfterStrip } as Partial<EditorLine>);
         // The panel owns the picker; simulate its choose button.
         const panel = document.querySelector<HTMLInputElement>("input[type=file].hidden, input[type=file][class*=hidden]");
         panel?.click();
+        break;
+      }
+      case "image": case "screenshot": {
+        update(lineKey, { text: textAfterStrip } as Partial<EditorLine>);
+        imageInsertAfter.current = lineKey;
+        imageInputRef.current?.click();
         break;
       }
       case "time": {
@@ -496,7 +577,7 @@ export default function BlockEditor({
       if (e.key === "Enter") {
         e.preventDefault();
         const item = filtered[menu.index] || filtered[0];
-        if (line.kind !== "divider") {
+        if (line.kind !== "divider" && line.kind !== "image") {
           const text = line.text.slice(0, menu.slashPos) + line.text.slice((el.selectionStart ?? 0));
           applyAction(line.key, item.id, text, menu.slashPos);
         }
@@ -512,7 +593,7 @@ export default function BlockEditor({
       }
       return; // Enter inside code = newline, naturally
     }
-    if (line.kind === "divider") return;
+    if (line.kind === "divider" || line.kind === "image") return;
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -566,16 +647,89 @@ export default function BlockEditor({
       className="flex flex-col gap-1.5"
       onPaste={(e) => {
         const files = Array.from(e.clipboardData?.files || []);
-        if (files.length) {
-          e.preventDefault();
-          for (const f of files) atts.startUpload(f);
+        if (!files.length) return;
+        e.preventDefault();
+        // Images become inline blocks AT the cursor; everything else stays a chip.
+        insertImageFiles(files, focusedKey.current);
+        for (const f of files.filter((x) => !x.type.startsWith("image/"))) atts.startUpload(f);
+      }}
+      onDragOver={(e) => { if (e.dataTransfer?.types.includes("Files")) e.preventDefault(); }}
+      onDrop={(e) => {
+        const files = Array.from(e.dataTransfer?.files || []);
+        if (!files.length) return;
+        e.preventDefault();
+        // Insert at the DROP position: nearest line by pointer Y.
+        let afterKey: string | null = null;
+        const nodes = Array.from((e.currentTarget as HTMLElement).querySelectorAll("[data-lk]"));
+        for (const n of nodes) {
+          const r = (n as HTMLElement).getBoundingClientRect();
+          if (e.clientY > r.top + r.height / 2) afterKey = (n as HTMLElement).dataset.lk || afterKey;
         }
+        insertImageFiles(files, afterKey);
+        for (const f of files.filter((x) => !x.type.startsWith("image/"))) atts.startUpload(f);
       }}
     >
       {lines.map((line, li) => {
+        if (line.kind === "image") {
+          const src = line.previewUrl || (line.id ? `/api/help/attachments/${line.id}` : undefined);
+          const canMoveUp = li > 0;
+          const canMoveDown = li < lines.length - 1;
+          const move = (dir: -1 | 1) => {
+            const idx = lines.findIndex((l) => l.key === line.key);
+            const next = [...lines];
+            const [me] = next.splice(idx, 1);
+            next.splice(idx + dir, 0, me);
+            onChange(next);
+          };
+          return (
+            <div key={line.key} data-lk={line.key} className="group relative my-1 flex flex-col gap-1.5">
+              <div className="relative inline-block max-w-[440px] self-start overflow-hidden rounded-[11px] border border-cw-border bg-cw-page">
+                {src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={src} alt={line.caption || line.name || "image"} className="block max-h-[280px] max-w-full object-contain" style={{ opacity: line.uploading ? 0.6 : 1 }} />
+                ) : (
+                  <div className="flex h-[104px] w-[190px] items-center justify-center text-[11.5px] text-cw-faint">image</div>
+                )}
+                {line.uploading && <span className="absolute bottom-0 left-0 h-[3px] bg-cw-primary" style={{ width: `${line.pct || 0}%` }} />}
+                <div className="absolute right-1.5 top-1.5 hidden gap-1 group-hover:flex">
+                  <button title="Move up" disabled={!canMoveUp} onClick={() => move(-1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[12px] text-cw-body disabled:opacity-40">↑</button>
+                  <button title="Move down" disabled={!canMoveDown} onClick={() => move(1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[12px] text-cw-body disabled:opacity-40">↓</button>
+                  {line.id && !line.uploading && (
+                    <button onClick={() => setAnnotating(line.key)} className="flex h-7 cursor-pointer items-center rounded-[7px] border border-cw-border bg-white px-2 text-[11.5px] font-semibold text-cw-body">
+                      ✎ Annotate
+                    </button>
+                  )}
+                  <button title="Remove image" onClick={() => removeLine(line.key)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[11px] text-cw-muted">✕</button>
+                </div>
+                {line.originalId && !line.uploading && (
+                  <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-[rgba(23,24,28,.65)] px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.05em] text-white">ANNOTATED</span>
+                )}
+              </div>
+              {line.failed && (
+                <div className="flex items-center gap-2 self-start rounded-[9px] border border-[#f0c9ca] bg-[#fdf2f2] px-2.5 py-1.5 text-[12px] font-semibold text-[#b42318]">
+                  {line.failed}
+                  <button onClick={() => removeLine(line.key)} className="cursor-pointer border-none bg-transparent text-[11.5px] font-bold text-[#b42318] underline">Remove</button>
+                </div>
+              )}
+              <input
+                value={line.caption}
+                onChange={(e) => update(line.key, { caption: e.target.value } as Partial<EditorLine>)}
+                placeholder="Add a caption"
+                className="w-full max-w-[440px] border-none bg-transparent p-0 text-[12.5px] italic text-cw-muted outline-none placeholder:text-[#c3c7ce]"
+              />
+              {annotating === line.key && line.id && (
+                <ImageAnnotator
+                  src={`/api/help/attachments/${line.originalId || line.id}`}
+                  onCancel={() => setAnnotating(null)}
+                  onSave={(blob) => uploadAnnotated(line.key, blob)}
+                />
+              )}
+            </div>
+          );
+        }
         if (line.kind === "divider") {
           return (
-            <div key={line.key} className="group flex items-center gap-2 py-1">
+            <div key={line.key} className="group flex items-center gap-2 py-1" data-lk={line.key}>
               <div className="h-px flex-1 bg-cw-border" />
               <button
                 onClick={() => removeLine(line.key)}
@@ -591,7 +745,7 @@ export default function BlockEditor({
           ? lines.slice(0, li).reverse().reduce((n, l) => (l.kind === "numbered" ? n + 1 : n), 0) + 1
           : 0;
         return (
-          <div key={line.key} className="relative">
+          <div key={line.key} data-lk={line.key} className="relative">
             <div className={`flex items-start gap-2.5 ${line.kind === "code" ? "rounded-[10px] border border-cw-border bg-cw-page px-[13px] py-[11px]" : ""}`}>
               {line.kind === "bullet" && <span className="mt-[7px] text-[15px] leading-none text-cw-faint">•</span>}
               {line.kind === "numbered" && <span className="mt-[5px] text-[14px] leading-none text-cw-faint">{listIndex}.</span>}
@@ -615,6 +769,7 @@ export default function BlockEditor({
                 placeholder={li === 0 && !compact ? placeholder : line.kind === "code" ? "paste the error…" : ""}
                 onChange={(e) => { autoGrow(e.currentTarget); onTextChange(line, e.currentTarget.value, e.currentTarget); }}
                 onKeyDown={(e) => onKeyDown(line, e)}
+                onFocus={() => { focusedKey.current = line.key; }}
                 className={`w-full resize-none overflow-hidden border-none bg-transparent p-0 outline-none placeholder:text-[#c3c7ce] ${lineClass(line.kind)}`}
                 spellCheck={line.kind !== "code"}
               />
@@ -687,6 +842,19 @@ export default function BlockEditor({
           </div>
         );
       })}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          insertImageFiles(files, imageInsertAfter.current);
+          imageInsertAfter.current = null;
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }

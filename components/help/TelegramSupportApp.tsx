@@ -327,7 +327,19 @@ export default function TelegramSupportApp() {
           case "heading": case "subheading":
             return <span key={i} style={{ fontSize: 13.5, fontWeight: 700, color: theme.text }}>{b.text}</span>;
           case "paragraph":
-            return <span key={i} style={{ fontSize: 14, lineHeight: 1.5, color: theme.text, overflowWrap: "anywhere" }}>{b.text}</span>;
+            // Inline `code` spans render as mono chips here too (fixed hue —
+            // part of what makes a message recognisable across sides).
+            return (
+              <span key={i} style={{ fontSize: 14, lineHeight: 1.5, color: theme.text, overflowWrap: "anywhere" }}>
+                {b.text.split(/(`[^`]+`)/g).map((part, j) =>
+                  part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
+                    <span key={j} style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.92em", background: "#ffffff", border: "1px solid #e4e4e6", borderRadius: 4, padding: "0 4px", color: "#000000" }}>{part.slice(1, -1)}</span>
+                  ) : (
+                    <span key={j}>{part}</span>
+                  ),
+                )}
+              </span>
+            );
           case "quote":
             return <span key={i} style={{ fontSize: 13.5, lineHeight: 1.5, color: theme.hint, borderLeft: `2px solid ${theme.border}`, paddingLeft: 8 }}>{b.text}</span>;
           case "code":
@@ -361,6 +373,19 @@ export default function TelegramSupportApp() {
             );
           case "divider":
             return <div key={i} style={{ height: 1, background: theme.border }} />;
+          case "image": {
+            // Inline in the flow on the constrained surface too.
+            const src = `/api/telegram/support/attachment/${b.id}?mt=${mediaToken}`;
+            return (
+              <figure key={i} style={{ margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                <a href={src} target="_blank" rel="noreferrer" style={{ display: "block", maxWidth: "100%" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt={b.caption || "image"} style={{ display: "block", maxWidth: "100%", maxHeight: 260, objectFit: "contain", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.secondaryBg }} />
+                </a>
+                {b.caption && <figcaption style={{ fontSize: 11.5, fontStyle: "italic", color: theme.hint }}>{b.caption}</figcaption>}
+              </figure>
+            );
+          }
           case "attachment": {
             const a = atts.get(b.id);
             if (!a) return null;

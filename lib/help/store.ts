@@ -111,6 +111,15 @@ export function sanitizeBlocks(raw: unknown): HelpBlock[] {
       if (id) out.push({ type: "attachment", id });
       continue;
     }
+    if (type === "image") {
+      const id = String((b as Row).id || "").trim();
+      if (id) {
+        const originalId = String((b as Row).originalId || "").trim();
+        const caption = String((b as Row).caption || "").slice(0, 300);
+        out.push({ type: "image", id, ...(originalId ? { originalId } : {}), ...(caption ? { caption } : {}) });
+      }
+      continue;
+    }
     if (type === "bullet" || type === "numbered") {
       const items = Array.isArray((b as Row).items)
         ? ((b as Row).items as unknown[]).slice(0, MAX_ITEMS).map((x) => String(x).slice(0, MAX_TEXT))

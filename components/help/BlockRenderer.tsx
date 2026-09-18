@@ -137,6 +137,20 @@ export default function BlockRenderer({
       case "divider":
         out.push(<div key={i} className="my-1 h-px bg-cw-borderInner" />);
         break;
+      case "image": {
+        // Inline, in its position in the flow — never detached into a list.
+        const href = `/api/help/attachments/${b.id}`;
+        out.push(
+          <figure key={i} className="m-0 flex flex-col gap-1">
+            <a href={href} target="_blank" rel="noreferrer" className="inline-block max-w-[440px] self-start overflow-hidden rounded-[11px] border border-cw-border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={href} alt={b.caption || "image"} className="block max-h-[320px] max-w-full bg-[#eceef1] object-contain" loading="lazy" />
+            </a>
+            {b.caption && <figcaption className="text-[12.5px] italic text-cw-muted">{b.caption}</figcaption>}
+          </figure>,
+        );
+        break;
+      }
     }
   });
   flushAtts("atts-end");

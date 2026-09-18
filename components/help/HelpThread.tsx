@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import PortalShell from "@/components/portal/Shell";
 import BlockEditor, {
   AttachmentsPanel,
+  imageAttachmentIds,
+  linesUploading,
   newKey,
   paragraph,
   serializeLines,
@@ -182,8 +184,9 @@ export default function HelpThread({ reference }: { reference: string }) {
     const blocks = serializeLines(lines);
     for (const id of atts.attachedIds) blocks.push({ type: "attachment", id });
     if (!blocks.length) return;
+    if (linesUploading(lines)) return;
     const clientKey = newKey();
-    const item: OutboxItem = { clientKey, threadId: data.thread.id, blocks, attachmentIds: atts.attachedIds, queuedAt: new Date().toISOString() };
+    const item: OutboxItem = { clientKey, threadId: data.thread.id, blocks, attachmentIds: [...atts.attachedIds, ...imageAttachmentIds(lines)], queuedAt: new Date().toISOString() };
 
     setLines([paragraph()]);
     atts.reset();

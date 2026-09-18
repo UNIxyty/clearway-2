@@ -13,7 +13,9 @@ import BlockEditor, {
   AttachmentsPanel,
   ShortcutStrip,
   headingLine,
+  imageAttachmentIds,
   linesFromBlocks,
+  linesUploading,
   newKey,
   paragraph,
   serializeLines,
@@ -177,7 +179,7 @@ export default function HelpComposer() {
     };
   }, [screen, fromPage, serverCtx]);
 
-  const canSend = title.trim().length >= 3 && !sending && !atts.uploading;
+  const canSend = title.trim().length >= 3 && !sending && !atts.uploading && !linesUploading(lines);
 
   async function send() {
     if (!canSend) return;
@@ -193,7 +195,7 @@ export default function HelpComposer() {
         type,
         title: title.trim(),
         blocks,
-        attachmentIds: atts.attachedIds,
+        attachmentIds: [...atts.attachedIds, ...imageAttachmentIds(lines)],
         context: collectClientContext(screen || fromPage || undefined),
         linkedFrom: linkedFrom || undefined,
         clientKey: newKey(),

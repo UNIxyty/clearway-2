@@ -45,11 +45,15 @@ export type HelpBlock =
   | { type: "checklist"; items: Array<{ text: string; checked: boolean }> }
   | { type: "code"; text: string }
   | { type: "divider" }
-  | { type: "attachment"; id: string };
+  | { type: "attachment"; id: string }
+  // Inline image IN the flow (item 4): id = the displayed file (annotated
+  // version once drawn on), originalId = the untouched upload so an
+  // annotation can be redone from scratch rather than being destructive.
+  | { type: "image"; id: string; originalId?: string; caption?: string };
 
 export const HELP_BLOCK_TYPES = [
   "heading", "subheading", "paragraph", "quote", "bullet", "numbered",
-  "checklist", "code", "divider", "attachment",
+  "checklist", "code", "divider", "attachment", "image",
 ] as const;
 
 // Auto-collected context: six read-only fields, fixed order. `services` and

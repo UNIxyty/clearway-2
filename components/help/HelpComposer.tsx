@@ -27,6 +27,7 @@ import {
   OUT_OF_HOURS_PHONE,
   collectClientContext,
   helpApi,
+  utcTime,
 } from "@/components/help/helpApi";
 import { HELP_CONTEXT_ORDER, type HelpContext, type HelpThreadType } from "@/lib/help/shared";
 
@@ -60,30 +61,96 @@ export default function HelpComposer() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [guideResults, setGuideResults] = useState<Array<{ title: string; snippet: string; href: string }>>([]);
   const [asking, setAsking] = useState(type !== "question"); // question route: search first, editor after "ask"
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [restoredAt, setRestoredAt] = useState<string | null>(null);
   const restored = useRef(false);
+  const dirty = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Draft: restore once, save as you type.
+  // Drafts are SERVER-side (one per route): they survive another device and a
+  // cleared browser. Restore once on mount; a legacy localStorage draft is
+  // migrated up if the server has none.
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
-    try {
-      const raw = JSON.parse(localStorage.getItem(draftKey(type)) || "null");
-      if (raw?.title || raw?.blocks?.length) {
-        setTitle(raw.title || "");
-        if (raw.blocks?.length) setLines(linesFromBlocks(raw.blocks));
-        if (raw.screen) setScreen(raw.screen);
-      }
-    } catch { /* no draft */ }
+    (async () => {
+      try {
+        const res = await fetch(`/api/help/drafts?route=${type}`, { cache: "no-store" });
+        const d = res.ok ? (await res.json()).draft : null;
+        if (d && (d.title || d.blocks?.length)) {
+          setTitle(d.title || "");
+          if (d.blocks?.length) setLines(linesFromBlocks(d.blocks));
+          if (d.screen) setScreen(d.screen);
+          if (Array.isArray(d.attachments) && d.attachments.length) atts.hydrate(d.attachments);
+          setRestoredAt(d.savedAt || null);
+          setSavedAt(d.savedAt || null);
+          setSaveState("saved");
+          if (type === "question") setAsking(true);
+          return;
+        }
+        const raw = JSON.parse(localStorage.getItem(draftKey(type)) || "null");
+        if (raw?.title || raw?.blocks?.length) {
+          setTitle(raw.title || "");
+          if (raw.blocks?.length) setLines(linesFromBlocks(raw.blocks));
+          if (raw.screen) setScreen(raw.screen);
+          localStorage.removeItem(draftKey(type));
+          dirty.current = true; // push the migrated draft up on the next tick
+        }
+      } catch { /* no draft */ }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const persistDraft = async () => {
+    if (!dirty.current) return;
+    dirty.current = false;
+    setSaveState("saving");
+    try {
+      const res = await fetch("/api/help/drafts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          route: type,
+          title,
+          blocks: serializeLines(lines),
+          screen,
+          attachments: atts.attachedMeta,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSavedAt(d.savedAt || new Date().toISOString());
+        setSaveState("saved");
+      } else {
+        setSaveState("idle");
+        dirty.current = true;
+      }
+    } catch {
+      setSaveState("idle");
+      dirty.current = true; // retried on the next change/blur
+    }
+  };
+  const persistRef = useRef(persistDraft);
+  persistRef.current = persistDraft;
+
+  // Debounced continuous autosave (a few seconds after the last change)…
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(draftKey(type), JSON.stringify({ title, blocks: serializeLines(lines), screen, ts: Date.now() }));
-      } catch { /* full */ }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [title, lines, screen, type]);
+    if (!restored.current) return;
+    dirty.current = true;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => void persistRef.current(), 3000);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, lines, screen, atts.attachedIds.join(",")]);
+  // …and immediately when ops leaves (blur / tab hidden).
+  useEffect(() => {
+    const flush = () => void persistRef.current();
+    const onHidden = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("blur", flush);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => { window.removeEventListener("blur", flush); document.removeEventListener("visibilitychange", onHidden); };
+  }, []);
 
   useEffect(() => {
     fetch("/api/help/context", { cache: "no-store" }).then((r) => r.json()).then(setServerCtx).catch(() => {});
@@ -131,7 +198,9 @@ export default function HelpComposer() {
         linkedFrom: linkedFrom || undefined,
         clientKey: newKey(),
       });
+      dirty.current = false;
       try { localStorage.removeItem(draftKey(type)); } catch { /* fine */ }
+      fetch(`/api/help/drafts?route=${type}`, { method: "DELETE" }).catch(() => {});
       router.replace(`/help/${thread.reference}`);
     } catch (error) {
       setSendError(error instanceof Error ? error.message : "Failed to send");
@@ -140,7 +209,11 @@ export default function HelpComposer() {
   }
 
   function discard() {
+    const hasContent = title.trim() || serializeLines(lines).length > 0 || atts.attachedIds.length > 0;
+    if (hasContent && !window.confirm("Discard this draft? It is saved on the server and will be deleted.")) return;
+    dirty.current = false;
     try { localStorage.removeItem(draftKey(type)); } catch { /* fine */ }
+    fetch(`/api/help/drafts?route=${type}`, { method: "DELETE" }).catch(() => {});
     router.push("/help");
   }
 
@@ -181,6 +254,13 @@ export default function HelpComposer() {
           {type === "request" && (
             <div className="rounded-[11px] border border-cw-border bg-cw-page px-3.5 py-2.5 text-[12.5px] text-cw-muted">
               Honestly: suggestions are read weekly, not daily. No response-time promise.
+            </div>
+          )}
+          {restoredAt && (
+            <div className="flex items-center gap-2.5 rounded-[11px] border border-cw-border bg-cw-page px-3.5 py-2 text-[12.5px] text-cw-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-cw-primary" />
+              Draft restored — last saved {utcTime(restoredAt)}
+              <button onClick={() => setRestoredAt(null)} className="ml-auto cursor-pointer border-none bg-transparent text-[12px] text-cw-faint">Dismiss</button>
             </div>
           )}
           {sendError && (
@@ -275,7 +355,9 @@ export default function HelpComposer() {
                 )}
               </div>
 
-              <ShortcutStrip trailing="Saved as a draft as you type" />
+              <ShortcutStrip
+                trailing={saveState === "saving" ? "Saving…" : saveState === "saved" && savedAt ? `Saved ${utcTime(savedAt)}` : "Saved as a draft as you type"}
+              />
             </>
           )}
         </div>

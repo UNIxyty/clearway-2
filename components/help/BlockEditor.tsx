@@ -162,9 +162,25 @@ export function useAttachments() {
   }, []);
 
   const reset = useCallback(() => setItems([]), []);
+  /** Restore already-uploaded files from a saved draft (metadata only). */
+  const hydrate = useCallback((saved: Array<{ id: string; name: string; size: number; mime: string; isImage: boolean }>) => {
+    setItems(saved.filter((a) => a.id).map((a) => ({
+      localId: newKey(),
+      name: a.name,
+      size: a.size,
+      mime: a.mime,
+      isImage: a.isImage,
+      state: "attached" as const,
+      pct: 100,
+      id: a.id,
+    })));
+  }, []);
   const attachedIds = items.filter((a) => a.state === "attached" && a.id).map((a) => a.id!);
+  const attachedMeta = items
+    .filter((a) => a.state === "attached" && a.id)
+    .map((a) => ({ id: a.id!, name: a.name, size: a.size, mime: a.mime, isImage: a.isImage }));
   const uploading = items.some((a) => a.state === "uploading");
-  return { items, startUpload, retry, remove, reset, attachedIds, uploading };
+  return { items, startUpload, retry, remove, reset, hydrate, attachedIds, attachedMeta, uploading };
 }
 
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(0)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -233,9 +249,9 @@ export function AttachmentsPanel({
               return (
                 <div key={a.localId} className="w-[190px] flex-none overflow-hidden rounded-[11px] border" style={{ borderColor: uploading ? "#dbe6ff" : "#e6e7ea", background: uploading ? "#f2f7ff" : "#fbfbfc" }}>
                   <div className="relative flex h-[104px] items-center justify-center bg-[#eceef1]">
-                    {a.previewUrl ? (
+                    {a.previewUrl || a.id ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={a.previewUrl} alt={a.name} className="h-full w-full object-cover" style={{ opacity: uploading ? 0.6 : 1 }} />
+                      <img src={a.previewUrl || `/api/help/attachments/${a.id}`} alt={a.name} className="h-full w-full object-cover" style={{ opacity: uploading ? 0.6 : 1 }} />
                     ) : (
                       <span className="text-[11.5px] text-cw-faint">image</span>
                     )}

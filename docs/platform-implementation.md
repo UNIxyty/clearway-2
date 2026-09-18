@@ -149,3 +149,28 @@ new env vars in docs/help-centre-telegram-setup.md
   than a generated thumbnail file.
 - Typing indicators are not implemented (no realtime typing channel); read
   receipts derive from the other side's last-read stamp.
+
+### Help Centre fixes (Sep 2026)
+- **The developer is a role, not a name**: DEVELOPER_NAME = "Developer"; all
+  author labels, presence strings, events, notification copy and avatars (DEV)
+  are role-based. Zero occurrences of the personal name remain in the repo.
+- **Drafts** (`/api/help/drafts`): server-side, one per route per user, stored
+  on the portal's persistent /storage volume (`help-drafts/<user>/<route>.json`)
+  — survives devices and cleared browsers without a Supabase migration; the
+  trade-off vs a DB table is that drafts live outside DB backups, which is
+  acceptable for pre-send scratch content. Debounced 3s autosave + flush on
+  blur/tab-hide; blocks, route, Which-screen and uploaded-attachment refs all
+  round-trip; quiet restore notice + Saved HH:MMZ state; send deletes, discard
+  confirms; legacy localStorage drafts migrate up once.
+- **Inline images**: block type `{type:'image', id, originalId?, caption?}` —
+  `id` is the DISPLAYED file (the annotated composite once drawn on),
+  `originalId` the untouched upload so annotation is redoable, never
+  destructive. Placement: paste at cursor, /image at cursor, drop at position;
+  blocks move/caption/delete like any other. Annotator: pen/rect/arrow, four
+  colours, undo, discard-keeps-original; output is a flattened PNG uploaded as
+  a new attachment. Both surfaces render inline in position (BlockRenderer +
+  mini app via media token). Non-image attachments keep the chip treatment.
+- Saved replies self-seed on first read if the migration's seed block wasn't
+  run; developer-inbox layout normalised to the console's 36px/radius-9
+  controls with pane-owned scrolling (site footer suppressed via the new
+  PortalShell `footer={false}`).

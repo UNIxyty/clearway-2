@@ -26,6 +26,9 @@ const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
 import Icon from './icons';
 import ColoursCard from './ColoursCard';
+import { subscribeWallStream } from '../../services/wallStream';
+import useViewport from '../../hooks/useViewport';
+import { Stepper } from './mobile';
 import {
   Button,
   Card,
@@ -313,6 +316,8 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
 
 function DisplayScaleCard() {
   const { deviceId } = useContext(DeviceCtx);
+  const { width } = useViewport();
+  const mobileUI = width < 1024;
   const [scale, setScale] = useState(1.3);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -352,6 +357,20 @@ function DisplayScaleCard() {
         Larger scale also shows fewer hours per screen so labels keep fitting.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
+      {mobileUI ? (
+        <WindowRow
+          label="Display scale"
+          hint="global wall text/density scale"
+          min={0.1}
+          max={2}
+          step={0.05}
+          unit="×"
+          value={Number(scale)}
+          defaultValue={1.3}
+          loaded={loaded}
+          onChange={onChange}
+        />
+      ) : (
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <span style={{ fontSize: 12, color: t.faint }}>0.1×</span>
         <input
@@ -369,6 +388,7 @@ function DisplayScaleCard() {
           {Number(scale).toFixed(2)}×
         </span>
       </div>
+      )}
     </Card>
   );
 }
@@ -377,6 +397,8 @@ function DisplayScaleCard() {
 // ── Hour spacing card (time-axis zoom) ───────────────────────────────────────
 function HourSpacingCard() {
   const { deviceId } = useContext(DeviceCtx);
+  const { width } = useViewport();
+  const mobileUI = width < 1024;
   const [timeZoom, setTimeZoom] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
@@ -417,6 +439,20 @@ function HourSpacingCard() {
         higher spreads them out so tight schedules stay readable.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
+      {mobileUI ? (
+        <WindowRow
+          label="Hour spacing"
+          hint="distance between hour gridlines"
+          min={0.5}
+          max={2.5}
+          step={0.05}
+          unit="×"
+          value={Number(timeZoom)}
+          defaultValue={1}
+          loaded={loaded}
+          onChange={onChange}
+        />
+      ) : (
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <span style={{ fontSize: 12, color: t.faint }}>0.5×</span>
         <input
@@ -437,6 +473,7 @@ function HourSpacingCard() {
           Reset
         </Button>
       </div>
+      )}
     </Card>
   );
 }
@@ -663,7 +700,67 @@ function UpcomingTableCard() {
 }
 
 // One row of the visibility-window card: label + slider + value + reset.
+// <1024 (design C7): every slider pairs with a −/+ stepper — dragging is for
+// feel, the buttons are for the exact number. ≥1024 renders exactly as today.
 function WindowRow({ label, hint, min, max, step, unit, value, defaultValue, loaded, onChange }) {
+  const { width } = useViewport();
+  if (width < 1024) {
+    return (
+      <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: t.ink, flex: 1, minWidth: 0 }}>{label}</span>
+          <Stepper
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            disabled={!loaded}
+            onChange={onChange}
+            format={(v) => `${v}${unit}`}
+          />
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={!loaded}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ width: '100%', height: 28, accentColor: t.blue, margin: 0 }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ fontFamily: t.mono, fontSize: 10.5, color: t.faint }}>{min}{unit}</span>
+          <span style={{ fontSize: 11.5, color: t.faint, flex: 1, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {value === defaultValue ? hint : (
+              <button
+                type="button"
+                onClick={() => onChange(defaultValue)}
+                disabled={!loaded}
+                style={{
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  height: 36,
+                  padding: '0 12px',
+                  borderRadius: 9,
+                  border: `1px solid ${t.border}`,
+                  background: t.card,
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  color: t.body,
+                  cursor: 'pointer',
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </span>
+          <span style={{ fontFamily: t.mono, fontSize: 10.5, color: t.faint }}>{max}{unit}</span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
@@ -1299,6 +1396,70 @@ function WeatherCard() {
   );
 }
 
+// <1024 (C7): one group open at a time, everything else a 48px summary row
+// showing its current value.
+function MobileGroup({ title, summary, open, onToggle, note = false, children }) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          fontFamily: 'inherit',
+          width: '100%',
+          minHeight: 48,
+          background: t.card,
+          border: `1px solid ${t.border}`,
+          borderRadius: 13,
+          padding: '0 13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          marginBottom: 10,
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {title}
+        </span>
+        {summary && <span style={{ fontFamily: t.mono, fontSize: 13, color: t.muted, flex: 'none' }}>{summary}</span>}
+        <Icon name="chevron-down" size={15} color={t.faint} />
+      </button>
+    );
+  }
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          fontFamily: 'inherit',
+          width: '100%',
+          minHeight: 44,
+          background: 'transparent',
+          border: 'none',
+          padding: '0 13px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink, flex: 1 }}>{title}</span>
+        <Icon name="chevron-up" size={15} color={t.faint} />
+      </button>
+      {children}
+      {note && (
+        <div style={{ fontSize: 12.5, color: t.muted, lineHeight: 1.45, padding: '0 13px', marginTop: -12, marginBottom: 10 }}>
+          Changes apply to the wall as you move the slider.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
   const [devices, setDevices] = useState([]);
@@ -1318,6 +1479,138 @@ export default function SettingsPage() {
   // Sections: the page had grown into one endless scroll of cards — a
   // segmented switch groups them by what ops are actually trying to do.
   const [section, setSection] = useState('display');
+
+  // ── <1024 (C7): tab row + accordion groups with steppers ────────────────
+  const { width } = useViewport();
+  const isMobile = width < 1024;
+  const isPhone = width < 768;
+  // Phone: one group open at a time. Tablet portrait: two groups open (D2/E).
+  const [openGroups, setOpenGroups] = useState(() => new Set(width < 768 ? ['scale'] : ['scale', 'hour']));
+  const [summaryValues, setSummaryValues] = useState(null);
+
+  useEffect(() => {
+    if (!isMobile) return undefined;
+    const loadSummary = () =>
+      fetchDisplaySettings(selectedAccount)
+        .then((payload) => setSummaryValues(payload.settings || {}))
+        .catch(() => {});
+    loadSummary();
+    // config.changed fires on every save — keeps the collapsed summary rows
+    // showing the value the wall is actually using.
+    return subscribeWallStream('config.changed', loadSummary, { surface: 'console' });
+  }, [isMobile, selectedAccount]);
+
+  function toggleGroup(id) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (isPhone) {
+        next.clear();
+        next.add(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  const SECTION_OPTIONS = [
+    { value: 'display', label: 'Display & sizing' },
+    { value: 'colours', label: 'Colours' },
+    { value: 'wall', label: 'Wall content' },
+    { value: 'checks', label: 'NOTAM, alerts & WX' },
+  ];
+
+  if (isMobile) {
+    const x = (v, fallback) => `${Number(Number.isFinite(v) ? v : fallback).toFixed(2)}×`;
+    const group = (id, title, summary, node, note = false) => (
+      <MobileGroup key={`${id}-${selectedAccount ?? 'own'}`} title={title} summary={summary} note={note} open={openGroups.has(id)} onToggle={() => toggleGroup(id)}>
+        {node}
+      </MobileGroup>
+    );
+    return (
+      <div>
+        {isPhone ? (
+          <div style={{ display: 'flex', gap: 18, overflowX: 'auto', borderBottom: `1px solid ${t.border}`, margin: '0 0 14px' }}>
+            {SECTION_OPTIONS.map((option) => {
+              const on = option.value === section;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSection(option.value)}
+                  style={{
+                    fontFamily: 'inherit',
+                    border: 'none',
+                    background: 'transparent',
+                    padding: '12px 0 10px',
+                    borderBottom: `2px solid ${on ? t.ink : 'transparent'}`,
+                    fontSize: 13.5,
+                    fontWeight: on ? 700 : 500,
+                    color: on ? t.ink : t.muted,
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                    flex: 'none',
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ margin: '0 0 18px', display: 'inline-block' }}>
+            <Segmented value={section} onChange={setSection} options={SECTION_OPTIONS} />
+          </div>
+        )}
+
+        {section === 'display' && (
+          <>
+            <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+            <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+              <div key={selectedAccount ?? 'own'}>
+                {group('scale', 'Display scale', x(summaryValues?.scale, 1.3), <DisplayScaleCard />, true)}
+                {group('hour', 'Hour spacing', x(summaryValues?.timeZoom, 1), <HourSpacingCard />, true)}
+                {group('vertical', 'Vertical sizing', x(summaryValues?.rowZoom, 1), <VerticalSizingCard />, true)}
+                {group('panels', 'Overlay & sidebar size', x(summaryValues?.overlayScale, 1.3), <PanelScalesCard />, true)}
+                {group('table', 'Upcoming Flight Table', summaryValues?.upcomingTableEnabled ? 'On' : 'Off', <UpcomingTableCard />)}
+              </div>
+            </DeviceCtx.Provider>
+          </>
+        )}
+        {section === 'colours' && (
+          <>
+            <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+            <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+              <div key={selectedAccount ?? 'own'}>
+                <ColoursCard deviceId={selectedAccount} />
+              </div>
+            </DeviceCtx.Provider>
+          </>
+        )}
+        {section === 'wall' && (
+          <>
+            {group(
+              'window',
+              'Flight visibility window',
+              `${Number.isFinite(summaryValues?.upcomingHorizonHours) ? summaryValues.upcomingHorizonHours : 17}h`,
+              <VisibilityWindowCard />,
+              true
+            )}
+            {group('clocks', 'Wall clocks', '', <ClocksCard />)}
+          </>
+        )}
+        {section === 'checks' && (
+          <>
+            {group('digest', 'NOTAM digest', '', <NotamDigestCard />)}
+            {group('weather', 'Weather', '', <WeatherCard />)}
+            {group('filter', 'NOTAM / alert filter', '', <AlertFilterCard />)}
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

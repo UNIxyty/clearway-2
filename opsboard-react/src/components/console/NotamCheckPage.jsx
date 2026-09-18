@@ -8,8 +8,10 @@ import {
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
 import NotamText, { buildHighlightGroups } from '../NotamText';
+import useViewport from '../../hooks/useViewport';
+import { MOBILE } from './mobile';
 import Icon from './icons';
-import { Button, ErrorBanner, HelpBanner, PageHeader, t, useToast } from './ui';
+import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast } from './ui';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
 // applied to the functional page. Endpoints and SSE are unchanged
@@ -304,6 +306,299 @@ function SkeletonCards() {
   );
 }
 
+// ── Phone (<768) — design C4: one airport expanded at a time ─────────────────
+
+function stateChipOf(airport) {
+  if (airport.checked) {
+    return { label: 'CHECKED', h: 26, color: t.greenDeep, bg: t.greenTint, border: t.greenBorder };
+  }
+  if (!airport.error && airport.all.length === 0) {
+    return { label: 'NO DATA', h: 26, color: t.muted, bg: t.segment, border: t.border };
+  }
+  return {
+    label: 'UNCHECKED',
+    h: 36,
+    color: MOBILE.amberChipText,
+    bg: MOBILE.amberChipBg,
+    border: MOBILE.amberChipBorder,
+  };
+}
+
+function StateChip({ airport }) {
+  const c = stateChipOf(airport);
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: c.h,
+        padding: '0 10px',
+        borderRadius: 8,
+        background: c.bg,
+        color: c.color,
+        border: `1px solid ${c.border}`,
+        fontFamily: t.mono,
+        fontSize: 10.5,
+        fontWeight: 800,
+        letterSpacing: '0.05em',
+        flex: 'none',
+      }}
+    >
+      {c.label}
+    </span>
+  );
+}
+
+function airportSub(airport) {
+  if (airport.error) return { text: 'Fetch failed', color: t.redDeep };
+  if (airport.checked) return { text: `Checked ${zTime(airport.checked.at)} by ${airport.checked.by}`, color: t.faint };
+  if (airport.all.length === 0) return { text: 'No NOTAMs returned', color: t.faint };
+  return {
+    text: `${airport.all.length} NOTAM${airport.all.length === 1 ? '' : 's'} · ${airport.filtered.length} flagged`,
+    color: airport.filtered.length > 0 ? MOBILE.amberChipText : t.faint,
+  };
+}
+
+function PhoneNotamRecord({ notam, groups, muted = false }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: t.mono, fontSize: 12, fontWeight: 700, color: muted ? t.muted : t.ink }}>
+          {notam.number || '(no number)'}
+        </span>
+        {notam.matches?.[0] && (
+          <span
+            style={{
+              fontFamily: t.mono,
+              fontSize: 10,
+              fontWeight: 700,
+              color: notam.matches[0].color || t.muted,
+              background: tint(notam.matches[0].color),
+              borderRadius: 4,
+              padding: '1px 5px',
+              letterSpacing: '0.03em',
+            }}
+          >
+            {String(notam.matches[0].group || '').toUpperCase()}
+          </span>
+        )}
+      </div>
+      {/* mono floor: nothing read character by character below 11.5px */}
+      <div style={{ fontFamily: t.mono, fontSize: 11.5, lineHeight: 1.55, color: muted ? t.muted : t.body }}>
+        <NotamText text={notam.condition} groups={groups} />
+      </div>
+    </div>
+  );
+}
+
+function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onAck, ackBusy, onResync, resyncBusy, onReport }) {
+  const [showMore, setShowMore] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const checked = Boolean(airport.checked);
+  const sub = airportSub(airport);
+
+  if (!expanded) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onExpand}
+        onKeyDown={(e) => e.key === 'Enter' && onExpand()}
+        style={{
+          background: t.card,
+          border: `1px solid ${t.border}`,
+          borderRadius: 13,
+          padding: 13,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 11,
+          minHeight: 64,
+          boxSizing: 'border-box',
+          cursor: 'pointer',
+        }}
+      >
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, color: t.ink }}>{airport.icao}</span>
+            <span style={{ fontSize: 12, color: t.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {airport.name}
+            </span>
+          </div>
+          <span style={{ fontSize: 12.5, color: sub.color }}>{sub.text}</span>
+        </div>
+        <StateChip airport={airport} />
+      </div>
+    );
+  }
+
+  const list = showAll ? airport.all : airport.filtered;
+  const visible = showMore ? list : list.slice(0, 2);
+  const hiddenCount = list.length - visible.length;
+
+  return (
+    <div
+      style={{
+        background: t.card,
+        border: `1px solid ${checked ? t.greenBorder : airport.error ? t.redBorder : MOBILE.amberChipBorder}`,
+        borderRadius: 13,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onCollapse}
+        onKeyDown={(e) => e.key === 'Enter' && onCollapse()}
+        style={{ padding: 13, display: 'flex', alignItems: 'flex-start', gap: 11, borderBottom: `1px solid ${t.rowLine}`, cursor: 'pointer' }}
+      >
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+            <span style={{ fontFamily: t.mono, fontSize: 19, fontWeight: 700, color: t.ink }}>{airport.icao}</span>
+            <span style={{ fontSize: 12.5, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {airport.name}
+            </span>
+          </div>
+          <span style={{ fontSize: 12.5, fontWeight: airport.filtered.length > 0 && !checked ? 600 : 400, color: sub.color }}>{sub.text}</span>
+          {airport.flights?.length > 0 && (
+            <span style={{ fontSize: 11.5, color: t.faint }}>{airport.flights.join(' · ')}</span>
+          )}
+        </div>
+        <StateChip airport={airport} />
+      </div>
+
+      {airport.error ? (
+        /* C10: the error scoped to THIS card — source, code and time stay in
+           the message; the other airports remain actionable. */
+        <div style={{ padding: 13, display: 'flex', flexDirection: 'column', gap: 7, background: t.redTint }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                background: t.red,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 800,
+                color: '#fff',
+                flex: 'none',
+              }}
+            >
+              !
+            </span>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: t.redDeep }}>Could not load NOTAMs for {airport.icao}</span>
+          </div>
+          <div style={{ fontFamily: t.mono, fontSize: 11.5, lineHeight: 1.55, color: t.redDeep, overflowWrap: 'anywhere' }}>
+            {airport.error}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+            <Button variant="danger" spin={resyncBusy} disabled={resyncBusy} onClick={onResync} style={{ height: 40 }}>
+              {resyncBusy ? 'Retrying…' : 'Retry'}
+            </Button>
+            {onReport && (
+              <Button variant="secondary" onClick={onReport} style={{ height: 40, color: t.redDeep, borderColor: t.redBorder }}>
+                Report
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 9, background: checked ? t.card : t.amberWash }}>
+          {list.length === 0 && (
+            <span style={{ fontSize: 12.5, color: t.faint }}>
+              {airport.all.length === 0 ? 'No NOTAMs on file for this airport.' : 'No keyword-flagged NOTAMs for today. Full list available below.'}
+            </span>
+          )}
+          {visible.map((notam, index) => (
+            <div key={`${notam.number || index}`} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {index > 0 && <div style={{ height: 1, background: t.rowLine }} />}
+              <PhoneNotamRecord
+                notam={notam}
+                groups={groups}
+                muted={showAll && (notam.matches.length === 0 || !notam.inWindow || notam.status === 'expired')}
+              />
+            </div>
+          ))}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowMore(true)}
+              style={{
+                fontFamily: 'inherit',
+                border: 'none',
+                background: 'transparent',
+                textAlign: 'left',
+                padding: '6px 0',
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: t.blue,
+                cursor: 'pointer',
+              }}
+            >
+              Show {hiddenCount} more
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* CHECKED sits directly under the raw text — where reading ends. */}
+      <div style={{ padding: '12px 13px', borderTop: `1px solid ${t.rowLine}`, display: 'flex', gap: 10 }}>
+        <button
+          type="button"
+          disabled={Boolean(airport.error) || ackBusy}
+          onClick={onAck}
+          style={{
+            fontFamily: t.mono,
+            flex: 1,
+            height: 48,
+            borderRadius: 11,
+            border: 'none',
+            background: checked ? t.segment : t.green,
+            color: checked ? t.body : '#fff',
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            cursor: airport.error || ackBusy ? 'default' : 'pointer',
+            opacity: airport.error ? 0.5 : 1,
+          }}
+        >
+          {ackBusy ? <Spinner size={15} track="rgba(255,255,255,.4)" color="#fff" /> : null}
+          {checked ? 'Undo' : 'CHECKED'}
+        </button>
+        <button
+          type="button"
+          title={showAll ? 'Show flagged only' : `Show all NOTAMs (${airport.all.length})`}
+          onClick={() => {
+            setShowAll((v) => !v);
+            setShowMore(true);
+          }}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 11,
+            border: `1px solid ${t.border}`,
+            background: showAll ? t.blueTint : t.card,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: showAll ? t.blueDeep : t.muted,
+            cursor: 'pointer',
+            flex: 'none',
+          }}
+        >
+          <Icon name="external-link" size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function NotamCheckPage({ navigate }) {
   const [state, setState] = useState(null);
   const [groups, setGroups] = useState([]);
@@ -314,6 +609,11 @@ export default function NotamCheckPage({ navigate }) {
   const [resyncBusy, setResyncBusy] = useState('');
   const [error, setError] = useState('');
   const flash = useToast();
+  // C4 phone layout: one airport expanded at a time; null = auto (the first
+  // unchecked airport), '' = all collapsed.
+  const { width } = useViewport();
+  const isPhone = width < 768;
+  const [expandedIcao, setExpandedIcao] = useState(null);
 
   async function load() {
     try {
@@ -389,6 +689,7 @@ export default function NotamCheckPage({ navigate }) {
 
   return (
     <div>
+      {!isPhone && (
       <PageHeader
         title="NOTAM Check"
         desc={
@@ -400,7 +701,9 @@ export default function NotamCheckPage({ navigate }) {
         }
         descMax={640}
       />
+      )}
 
+      {!isPhone && (
       <HelpBanner
         title="How this check works"
         items={[
@@ -418,6 +721,7 @@ export default function NotamCheckPage({ navigate }) {
           },
         ]}
       />
+      )}
 
       {busy && (
         <div className="cw-fade">
@@ -506,7 +810,94 @@ export default function NotamCheckPage({ navigate }) {
         </div>
       )}
 
-      {!busy && state && state.day && airports.length > 0 && (
+      {/* ── Phone (C4): progress header, one airport expanded at a time ── */}
+      {!busy && state && state.day && airports.length > 0 && isPhone && (
+        <div className="cw-fade">
+          {error && <ErrorBanner>{error}</ErrorBanner>}
+          {state.lastRunError && <ErrorBanner>Last scheduled run failed: {state.lastRunError}</ErrorBanner>}
+          <div
+            style={{
+              background: t.card,
+              border: `1px solid ${t.border}`,
+              borderRadius: 13,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.ink }}>
+                {state.done} of {state.total} checked
+              </span>
+              <div style={{ height: 6, borderRadius: 3, background: t.rowLine, overflow: 'hidden' }}>
+                <span
+                  style={{
+                    display: 'block',
+                    width: `${state.total > 0 ? Math.round((state.done / state.total) * 100) : 0}%`,
+                    height: 6,
+                    background: t.green,
+                    transition: 'width .3s ease',
+                  }}
+                />
+              </div>
+            </div>
+            <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint, flex: 'none' }}>{zTime(state.ranAt)}</span>
+            <button
+              type="button"
+              title={running ? 'Running…' : 'Run check now'}
+              onClick={runNow}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 11,
+                border: `1px solid ${t.border}`,
+                background: t.card,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: t.muted,
+                cursor: 'pointer',
+                flex: 'none',
+              }}
+            >
+              {running ? <Spinner size={16} /> : <Icon name="refresh-cw" size={16} />}
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(() => {
+              const firstUnchecked = airports.find((a) => !a.checked)?.icao ?? '';
+              const openIcao = expandedIcao === null ? firstUnchecked : expandedIcao;
+              return airports.map((airport) => (
+                <PhoneAirportCard
+                  key={airport.icao}
+                  airport={airport}
+                  groups={groups}
+                  expanded={airport.icao === openIcao}
+                  onExpand={() => setExpandedIcao(airport.icao)}
+                  onCollapse={() => setExpandedIcao('')}
+                  onAck={() => ack(airport.icao)}
+                  ackBusy={ackBusy === airport.icao}
+                  onResync={() => resync(airport.icao)}
+                  resyncBusy={resyncBusy === airport.icao}
+                  onReport={navigate ? () => navigate({ surface: 'console', page: 'reports' }) : null}
+                />
+              ));
+            })()}
+          </div>
+          <div style={{ fontSize: 12.5, color: t.faint, marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {state.emailedTo && (
+              <span>Notification email sent to {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
+            )}
+            {state.emailError && (
+              <span style={{ color: t.redDeep, fontWeight: 600 }}>Email problem: {state.emailError}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!busy && state && state.day && airports.length > 0 && !isPhone && (
         <div className="cw-fade">
           {error && <ErrorBanner>{error}</ErrorBanner>}
           {state.lastRunError && <ErrorBanner>Last scheduled run failed: {state.lastRunError}</ErrorBanner>}

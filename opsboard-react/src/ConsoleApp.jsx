@@ -7,6 +7,8 @@ import {
   t,
   timeAgo,
   ToastProvider, initialsOf } from './components/console/ui';
+import { MOBILE } from './components/console/mobile';
+import useViewport from './hooks/useViewport';
 import AircraftPage from './components/console/AircraftPage';
 import NotamCheckPage from './components/console/NotamCheckPage';
 import FlightsPage from './components/console/FlightsPage';
@@ -222,7 +224,19 @@ function UserBadge({ user, collapsed }) {
  */
 export default function ConsoleApp({ page, navigate }) {
   const { user } = useAuth();
-  const [collapsed, setCollapsed] = useState(() => {
+  // Breakpoints (design section E, width only — the console ignores rotation):
+  //   <1024        drawer navigation + 56px top bar (C1/C2, D2)
+  //   1024–1279    desktop shape, rail DEFAULTS collapsed to 68px (D1)
+  //   ≥1280        today's behaviour, byte-identical (persisted preference)
+  const { width } = useViewport();
+  const isMobile = width < 1024;
+  const isTabletLandscape = width >= 1024 && width < 1280;
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // D1: at 1024–1279 the rail defaults to collapsed because expanding it
+  // would push the detail under 500px — still user-toggleable, but the
+  // session override never touches the persisted desktop preference.
+  const [tabletExpanded, setTabletExpanded] = useState(false);
+  const [collapsedPref, setCollapsedPref] = useState(() => {
     try {
       return localStorage.getItem('cw-console-collapsed') === '1';
     } catch {
@@ -354,8 +368,17 @@ export default function ConsoleApp({ page, navigate }) {
 
   const healthy = sync ? sync.healthy !== false : null;
 
+  // What the rail actually renders at: tablet landscape overrides the
+  // persisted preference (default collapsed), ≥1280 is exactly the pref —
+  // the desktop tree below keeps reading `collapsed` unchanged.
+  const collapsed = isTabletLandscape ? !tabletExpanded : collapsedPref;
+
   function toggleCollapsed() {
-    setCollapsed((v) => {
+    if (isTabletLandscape) {
+      setTabletExpanded((v) => !v);
+      return;
+    }
+    setCollapsedPref((v) => {
       const next = !v;
       try {
         localStorage.setItem('cw-console-collapsed', next ? '1' : '0');
@@ -364,6 +387,12 @@ export default function ConsoleApp({ page, navigate }) {
       }
       return next;
     });
+  }
+
+  // Drawer closes on navigation (C2).
+  function go(pageKey) {
+    setDrawerOpen(false);
+    navigate({ surface: 'console', page: pageKey });
   }
 
   function renderPage() {
@@ -390,6 +419,282 @@ export default function ConsoleApp({ page, navigate }) {
       default:
         return <FlightsPage />;
     }
+  }
+
+  // ── <1024: drawer navigation + 56px top bar (design C1/C2, D2) ──────────
+  if (isMobile) {
+    const activeNav = NAV.find((item) => item.key === page) || NAV[0];
+    const drawerRow = ({ key, label, icon, on = false, onClick, badge = null, badgeStyle = null }) => (
+      <button
+        key={key}
+        type="button"
+        className={on ? '' : 'cw-hover-surface'}
+        onClick={onClick}
+        style={{
+          fontFamily: 'inherit',
+          height: 44,
+          borderRadius: 10,
+          padding: '0 11px',
+          border: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          background: on ? '#fff' : 'transparent',
+          color: on ? t.ink : t.body,
+          fontSize: 14,
+          fontWeight: on ? 700 : 500,
+          textAlign: 'left',
+          flex: 'none',
+        }}
+      >
+        <Icon name={icon} size={17} color={on ? t.blue : t.muted} />
+        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        {badge && (
+          <span
+            style={{
+              fontFamily: t.mono,
+              fontSize: 10.5,
+              fontWeight: 700,
+              borderRadius: 8,
+              padding: '1px 6px',
+              ...badgeStyle,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+    return (
+      <ToastProvider>
+        <div className="cw-console" style={{ ...s.shell, background: t.subtle }}>
+          <ConsoleStyles />
+
+          {/* 56px top bar: 44px hamburger, page title + service context. */}
+          <div
+            style={{
+              flex: 'none',
+              height: 56,
+              background: t.card,
+              borderBottom: `1px solid ${t.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 8px 0 6px',
+              gap: 4,
+            }}
+          >
+            <button
+              type="button"
+              aria-label="Menu"
+              onClick={() => setDrawerOpen(true)}
+              style={{
+                fontFamily: 'inherit',
+                width: 44,
+                height: 44,
+                borderRadius: 11,
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                flex: 'none',
+              }}
+            >
+              <span style={{ width: 17, height: 2, borderRadius: 2, background: t.ink }} />
+              <span style={{ width: 17, height: 2, borderRadius: 2, background: t.ink }} />
+              <span style={{ width: 17, height: 2, borderRadius: 2, background: t.ink }} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: t.ink, letterSpacing: '-0.01em' }}>{activeNav.label}</span>
+              <span style={{ fontSize: 11.5, color: t.faint, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Digital Wall · Riga ops room
+              </span>
+            </div>
+            {/* Compact wall state — the desktop pill condensed to its dot. */}
+            <span
+              title={wallPill.label}
+              style={{
+                width: 44,
+                height: 44,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 'none',
+              }}
+            >
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  background: wallPill.dot,
+                  boxShadow: `0 0 0 4px ${wallPill.glow}`,
+                }}
+              />
+            </span>
+          </div>
+
+          {/* Content column (page + footer share the scroll). */}
+          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 14px', flex: 1, minWidth: 0 }}>
+              <div key={page} className="cw-fade">
+                {renderPage()}
+              </div>
+            </div>
+            <div style={s.footer}>
+              <span style={{ fontSize: 11.5, color: t.faint }}>Built by</span>
+              <BrandLogo
+                src={VERXYL_FOOTER_1X}
+                srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
+                alt="Verxyl"
+                width={125}
+                height={22}
+                fallback={<span style={s.footerBrand}>VERXYL</span>}
+              />
+            </div>
+          </div>
+
+          {/* ── Drawer + scrim (C2): 300px, same grey and same order as the
+                 desktop sidebar; closes on scrim tap and on navigation. ── */}
+          {drawerOpen && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 150, display: 'flex' }}>
+              <div
+                style={{
+                  width: 300,
+                  flex: 'none',
+                  background: t.surface,
+                  borderRight: `1px solid ${t.border}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '10px 10px 12px',
+                  overflowY: 'auto',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 10px' }}>
+                  <BrandLogo
+                    src={CLEARWAY_LOGO}
+                    alt="Clearway"
+                    height={26}
+                    fallback={<span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em' }}>clearway</span>}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Close menu"
+                    onClick={() => setDrawerOpen(false)}
+                    style={{
+                      fontFamily: 'inherit',
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: t.muted,
+                    }}
+                  >
+                    <Icon name="x" size={18} />
+                  </button>
+                </div>
+
+                {/* Back to the platform home — pinned top, as on desktop. */}
+                <button
+                  type="button"
+                  className="cw-hover-surface"
+                  onClick={() => window.location.assign(PORTAL_HOME)}
+                  style={{
+                    fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    minHeight: 44,
+                    background: '#fff',
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 10,
+                    padding: '9px 11px',
+                    cursor: 'pointer',
+                    marginBottom: 10,
+                    flex: 'none',
+                  }}
+                >
+                  <Icon name="arrow-left" size={15} color={t.faint} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.body }}>All services</span>
+                </button>
+
+                <div
+                  style={{
+                    fontFamily: t.mono,
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    letterSpacing: '0.11em',
+                    color: t.faint,
+                    padding: '8px 10px 6px',
+                  }}
+                >
+                  DIGITAL WALL
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {drawerRow({
+                    key: 'open-wall',
+                    label: 'Open wall',
+                    icon: 'external-link',
+                    onClick: () => {
+                      setDrawerOpen(false);
+                      window.open('/digital-wall/timeline/', '_blank');
+                    },
+                  })}
+                  {NAV.map((item) => {
+                    const badge = item.key === 'important' && needsReview > 0 ? String(needsReview) : null;
+                    const notamDot = item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
+                    return drawerRow({
+                      key: item.key,
+                      label: item.label,
+                      icon: item.icon,
+                      on: item.key === page,
+                      onClick: () => go(item.key),
+                      badge: badge || (notamDot ? (notamDot === 'CHECKED' ? '✓' : '!') : null),
+                      badgeStyle: badge
+                        ? { color: t.red, background: t.redTint }
+                        : notamDot === 'CHECKED'
+                          ? { color: t.greenDeep, background: t.greenTint }
+                          : { color: t.red, background: t.redTint },
+                    });
+                  })}
+                </div>
+                <div style={{ flex: 1, minHeight: 12 }} />
+                <div style={{ ...s.syncCard, marginBottom: 10, flex: 'none' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Sync status
+                    <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.border }} />
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
+                    {sync
+                      ? healthy
+                        ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
+                        : `Sync error · ${sync.lastError || 'see Operators page'}`
+                      : 'Checking sync status…'}
+                  </div>
+                </div>
+                {/* User badge pinned at the bottom — exactly the desktop badge. */}
+                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, flex: 'none' }}>
+                  <UserBadge user={user} collapsed={false} />
+                </div>
+              </div>
+              <div onClick={() => setDrawerOpen(false)} style={{ flex: 1, background: MOBILE.scrim }} />
+            </div>
+          )}
+        </div>
+      </ToastProvider>
+    );
   }
 
   return (

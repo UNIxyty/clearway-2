@@ -8,6 +8,7 @@ import {
   withAlpha,
 } from '../../theme/wallColors';
 import ColorPicker from './ColorPickerPopover';
+import useViewport from '../../hooks/useViewport';
 import Icon from './icons';
 import { Button, Card, ErrorBanner, LoadingState, SearchBox, Toggle, t, useToast } from './ui';
 
@@ -245,6 +246,10 @@ export default function ColoursCard({ deviceId }) {
   const [expanded, setExpanded] = useState(() => new Set([WALL_COLOR_GROUPS[0].id]));
   const timersRef = useRef({});
   const flash = useToast();
+  // C8 (<768): collapsed groups are 56px rows with a three-swatch preview;
+  // one group open at a time; the picker opens as a bottom sheet.
+  const { width } = useViewport();
+  const isPhone = width < 768;
 
   useEffect(() => {
     fetchDisplaySettings(deviceId)
@@ -377,7 +382,139 @@ export default function ColoursCard({ deviceId }) {
             </label>
           </div>
 
-          {WALL_COLOR_GROUPS.map((group) => {
+          {isPhone &&
+            WALL_COLOR_GROUPS.map((group) => {
+              const tokens = visibleTokens(group);
+              if (filtering && tokens.length === 0) return null;
+              const open = filtering || expanded.has(group.id);
+              const togglePhone = () =>
+                setExpanded((prev) => (prev.has(group.id) ? new Set() : new Set([group.id])));
+              return (
+                <div key={group.id} style={{ border: `1px solid ${t.borderInner}`, borderRadius: 13, marginBottom: 9, overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={togglePhone}
+                    style={{
+                      fontFamily: 'inherit',
+                      width: '100%',
+                      minHeight: 56,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '0 13px',
+                      border: 'none',
+                      background: open ? t.subtle : t.card,
+                      borderBottom: open ? `1px solid ${t.border}` : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: 13.5, fontWeight: 700, flex: 1, minWidth: 0 }}>{group.label}</span>
+                    {!open && (
+                      <span style={{ display: 'inline-flex', gap: 3 }}>
+                        {group.tokens.slice(0, 3).map((token) => (
+                          <span
+                            key={token.key}
+                            style={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: 4,
+                              background: resolved[token.key],
+                              border: '1px solid rgba(16,18,22,.12)',
+                              display: 'block',
+                            }}
+                          />
+                        ))}
+                      </span>
+                    )}
+                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: t.faint }}>
+                      {group.tokens.length}
+                    </span>
+                    <Icon name={open ? 'chevron-up' : 'chevron-down'} size={15} color={t.faint} />
+                  </button>
+                  {open &&
+                    tokens.map((token, index) => {
+                      const value = resolved[token.key];
+                      const overridden = overriddenKeys.includes(token.key);
+                      const draft = hexDrafts[token.key];
+                      return (
+                        <div
+                          key={token.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 11,
+                            minHeight: 56,
+                            padding: '8px 13px',
+                            borderBottom: index === tokens.length - 1 ? 'none' : `1px solid ${t.borderInner}`,
+                            background: overridden ? t.blueTint : 'transparent',
+                          }}
+                        >
+                          <ColorPicker
+                            value={value}
+                            onChange={(hex) => setColor(token.key, hex)}
+                            wallPalette={wallPalette}
+                            ariaLabel={`${token.label} colour`}
+                            sheet
+                            size={40}
+                          />
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {token.label}
+                            </span>
+                            <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: t.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {token.key}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flex: 'none' }}>
+                            <input
+                              value={draft ?? value}
+                              onChange={(e) => {
+                                const next = e.target.value.trim();
+                                setHexDrafts((prev) => ({ ...prev, [token.key]: next }));
+                                if (HEX_RE.test(next)) setColor(token.key, next.toLowerCase());
+                              }}
+                              onBlur={() => setHexDrafts((prev) => ({ ...prev, [token.key]: undefined }))}
+                              spellCheck={false}
+                              aria-label={`${token.label} hex value`}
+                              style={{
+                                fontFamily: "'IBM Plex Mono',monospace",
+                                fontSize: 12.5,
+                                padding: '5px 8px',
+                                borderRadius: 7,
+                                outline: 'none',
+                                border: `1.5px solid ${draft && !HEX_RE.test(draft) ? t.red : t.borderInner}`,
+                                background: draft && !HEX_RE.test(draft) ? t.redTint : '#fff',
+                                color: draft && !HEX_RE.test(draft) ? t.red : t.body,
+                                width: 88,
+                              }}
+                            />
+                            {overridden && (
+                              <button
+                                type="button"
+                                onClick={() => resetColor(token.key)}
+                                style={{
+                                  fontFamily: 'inherit',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  fontSize: 11.5,
+                                  fontWeight: 700,
+                                  color: t.blueDeep,
+                                  cursor: 'pointer',
+                                  padding: '2px 0',
+                                }}
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              );
+            })}
+          {!isPhone && WALL_COLOR_GROUPS.map((group) => {
             const tokens = visibleTokens(group);
             if (filtering && tokens.length === 0) return null;
             const open = filtering || expanded.has(group.id);

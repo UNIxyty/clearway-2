@@ -92,7 +92,7 @@ function Swatchlet({ hex, active, onPick, label }) {
  * valid hexes only (live while dragging). `wallPalette` = [{hex,label}] of
  * the currently-resolved wall tokens (deduped by the caller).
  */
-function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette }) {
+function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, sheet = false }) {
   const [hsv, setHsv] = useState(() => hexToHsv(value));
   const [hexDraft, setHexDraft] = useState(value);
   const [recents] = useState(loadRecents);
@@ -167,19 +167,39 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette }) {
       ref={boxRef}
       role="dialog"
       aria-label="Colour picker"
-      style={{
-        position: 'fixed',
-        left: pos.left,
-        top: pos.top,
-        width: pos.W,
-        zIndex: 2400,
-        background: '#fff',
-        border: '1px solid #e6e7ea',
-        borderRadius: 14,
-        boxShadow: '0 16px 44px rgba(16,18,22,.18)',
-        padding: 12,
-        fontFamily: 'inherit',
-      }}
+      style={
+        sheet
+          ? {
+              // <768 (design C8): the picker opens as a bottom sheet — same
+              // body, repositioned; the page scrim lives behind it.
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 2400,
+              background: '#fff',
+              borderTop: '1px solid #e6e7ea',
+              borderRadius: '22px 22px 0 0',
+              boxShadow: '0 -16px 44px rgba(16,18,22,.18)',
+              padding: '12px 16px 22px',
+              fontFamily: 'inherit',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+            }
+          : {
+              position: 'fixed',
+              left: pos.left,
+              top: pos.top,
+              width: pos.W,
+              zIndex: 2400,
+              background: '#fff',
+              border: '1px solid #e6e7ea',
+              borderRadius: 14,
+              boxShadow: '0 16px 44px rgba(16,18,22,.18)',
+              padding: 12,
+              fontFamily: 'inherit',
+            }
+      }
     >
       {/* saturation / value area */}
       <div
@@ -321,7 +341,7 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette }) {
  * Swatch trigger + popover. onChange fires with VALID hex only; onCommitted
  * fires when the popover closes (for pushing recents once per session).
  */
-export default function ColorPicker({ value, onChange, wallPalette, ariaLabel }) {
+export default function ColorPicker({ value, onChange, wallPalette, ariaLabel, sheet = false, size = null }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef(null);
   const openedValueRef = useRef(value);
@@ -344,9 +364,10 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel })
           setOpen((v) => !v);
         }}
         style={{
-          width: 34,
-          height: 26,
-          borderRadius: 7,
+          // `size` (C8 phone): a square 40px swatch; default is the desktop 34×26.
+          width: size || 34,
+          height: size || 26,
+          borderRadius: size ? 10 : 7,
           border: '1px solid rgba(16,18,22,.18)',
           boxShadow: 'inset 0 0 0 2px #fff',
           background: value,
@@ -355,6 +376,9 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel })
           flexShrink: 0,
         }}
       />
+      {open && sheet && (
+        <SheetScrim onClose={close} />
+      )}
       {open && btnRef.current && (
         <PickerPopover
           anchorRect={btnRef.current.getBoundingClientRect()}
@@ -362,8 +386,20 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel })
           onChange={onChange}
           onClose={close}
           wallPalette={wallPalette}
+          sheet={sheet}
         />
       )}
     </>
+  );
+}
+
+/** Scrim behind the sheet-mode picker (below the sheet's z-2400). */
+function SheetScrim({ onClose }) {
+  return createPortal(
+    <div
+      onMouseDown={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 2390, background: 'rgba(23,24,28,.42)' }}
+    />,
+    document.body
   );
 }

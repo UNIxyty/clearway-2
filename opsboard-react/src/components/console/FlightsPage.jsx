@@ -10,6 +10,8 @@ import {
 } from '../../services/timelineApi';
 import { FlightMarkers } from '../FlightPill';
 import { subscribeWallStream } from '../../services/wallStream';
+import useViewport from '../../hooks/useViewport';
+import { ChipRow, FilterChip, PushedPage, SkeletonCard } from './mobile';
 import Icon from './icons';
 import {
   Button,
@@ -18,6 +20,7 @@ import {
   ErrorBanner,
   HelpBanner,
   ImpMark,
+  limChip,
   LoadingState,
   PageHeader,
   PendingNote,
@@ -75,7 +78,7 @@ function isToday(iso) {
 // ── AIP / GEN send section (detail panel) ────────────────────────────────────
 // Real progress: the backend broadcasts aip-send.progress per job over SSE
 // (fetching → ready → emailing → sent/error); the UI renders those states.
-function SendSection({ flight }) {
+function SendSection({ flight, touch = false }) {
   const { user } = useAuth();
   const [dep, setDep] = useState(true);
   const [arr, setArr] = useState(false);
@@ -160,13 +163,14 @@ function SendSection({ flight }) {
   const pick = (on) => ({
     fontFamily: 'inherit',
     flex: 1,
-    fontSize: 13,
-    fontWeight: 600,
+    fontSize: touch ? 13.5 : 13,
+    fontWeight: touch && on ? 700 : 600,
     border: `1px solid ${on ? t.blue : t.borderInput}`,
     background: on ? t.blueTint : '#fff',
     color: on ? t.blueDeep : t.body,
-    padding: 9,
-    borderRadius: 9,
+    // touch: 42px document/airport picks (design C3 send-documents card)
+    padding: touch ? '11px 6px' : 9,
+    borderRadius: touch ? 10 : 9,
     cursor: 'pointer',
   });
 
@@ -440,6 +444,276 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
   );
 }
 
+// ── Mobile (<1024) pushed flight detail — design C3 ──────────────────────────
+// The desktop DetailPanel content, reflowed: wall-state banner first, the
+// route/time card, IMP/NOTAM/CAA collapsible rows, the send-documents card
+// (SendSection reused) and a fixed bottom action bar with the page's primary.
+
+function deltaMin(baseIso, actualIso) {
+  if (!baseIso || !actualIso) return 0;
+  const a = new Date(actualIso).getTime();
+  const b = new Date(baseIso).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.round((a - b) / 60000);
+}
+
+function DeltaTag({ minutes }) {
+  if (!minutes) return null;
+  return (
+    <span style={{ color: minutes > 0 ? t.amber : t.greenDeep }}>
+      {' '}
+      {minutes > 0 ? `+${minutes}` : `−${Math.abs(minutes)}`}
+    </span>
+  );
+}
+
+function TimePair({ label, value, bold = false, delta = 0 }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <span style={{ fontFamily: t.mono, fontSize: 10.5, color: t.faint }}>{label}</span>
+      <span style={{ fontFamily: t.mono, fontSize: 13, fontWeight: bold ? 700 : 400, color: bold ? t.ink : t.body }}>
+        {value}
+        <DeltaTag minutes={delta} />
+      </span>
+    </div>
+  );
+}
+
+function MobileRouteCard({ flight }) {
+  const depDelta = deltaMin(flight.startTimeUTC, flight.atd || flight.etd);
+  const arrDelta = deltaMin(flight.endTimeUTC, flight.ata || flight.eta);
+  const durMs = new Date(flight.endTimeUTC || 0) - new Date(flight.startTimeUTC || 0);
+  const dur = Number.isFinite(durMs) && durMs > 0 ? `${Math.floor(durMs / 3600000)}h ${Math.round((durMs % 3600000) / 60000)}m` : '';
+  return (
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 13, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontFamily: t.mono, fontSize: 21, fontWeight: 700, color: t.ink }}>{flight.adep?.icao ?? 'UNK'}</span>
+          <span style={{ fontSize: 12, color: t.faint }}>Departure</span>
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 6 }}>
+          <Icon name="arrow-right" size={15} color={t.blue} />
+          {dur && <span style={{ fontFamily: t.mono, fontSize: 11, color: t.faint }}>{dur}</span>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
+          <span style={{ fontFamily: t.mono, fontSize: 21, fontWeight: 700, color: t.ink }}>{flight.ades?.icao ?? 'UNK'}</span>
+          <span style={{ fontSize: 12, color: t.faint }}>Arrival</span>
+        </div>
+      </div>
+      <div style={{ height: 1, background: t.rowLine }} />
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <TimePair label="STD" value={hmZ(flight.startTimeUTC)} />
+          <TimePair
+            label={flight.atd ? 'ATD' : 'ETD'}
+            value={hmZ(flight.atd || flight.etd || flight.startTimeUTC)}
+            bold
+            delta={depDelta}
+          />
+        </div>
+        <div style={{ width: 1, background: t.rowLine }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <TimePair label="STA" value={hmZ(flight.endTimeUTC)} />
+          <TimePair
+            label={flight.ata ? 'ATA' : 'ETA'}
+            value={hmZ(flight.ata || flight.eta || flight.endTimeUTC)}
+            bold
+            delta={arrDelta}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollapseRow({ chip, title, last = false, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderBottom: last ? 'none' : `1px solid ${t.rowLine}` }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          fontFamily: 'inherit',
+          width: '100%',
+          minHeight: 44,
+          padding: '11px 13px',
+          border: 'none',
+          background: 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        {chip}
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: t.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {title}
+        </span>
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={15} color={t.faint} />
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+function MobileFlightDetail({
+  flight,
+  position,
+  total,
+  rangeWord,
+  onBack,
+  onPrev,
+  onNext,
+  onWall,
+  wallSince,
+  busy,
+  onToggleWall,
+}) {
+  const impEntries = (flight.limitations || []).filter((lim) => lim.type === 'IMP');
+  const otherLims = (flight.limitations || []).filter((lim) => lim.type !== 'IMP');
+  const arrow = (name, onClick, disabled) => (
+    <button
+      key={name}
+      type="button"
+      aria-label={name === 'chevron-up' ? 'Previous flight' : 'Next flight'}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        fontFamily: 'inherit',
+        width: 44,
+        height: 44,
+        borderRadius: 11,
+        border: 'none',
+        background: 'transparent',
+        cursor: disabled ? 'default' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: disabled ? t.ghost : t.muted,
+        flex: 'none',
+      }}
+    >
+      <Icon name={name} size={18} />
+    </button>
+  );
+  return (
+    <PushedPage
+      title={flight.flightNo}
+      titleMono
+      subtitle={position > 0 ? `${position} of ${total} · ${rangeWord}` : rangeWord}
+      onBack={onBack}
+      actions={
+        <>
+          {arrow('chevron-up', onPrev, position <= 1)}
+          {arrow('chevron-down', onNext, position === 0 || position >= total)}
+        </>
+      }
+      bottomBar={
+        <Button
+          variant={onWall ? 'dangerSoft' : 'primary'}
+          icon={onWall ? 'monitor-x' : 'monitor-up'}
+          spin={busy}
+          onClick={onToggleWall}
+          style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
+        >
+          {onWall ? 'Close on wall' : 'Show on wall'}
+        </Button>
+      }
+    >
+      {/* Wall state leads — it is the thing you came to change (C3). */}
+      <div
+        style={{
+          background: onWall ? t.greenTint : t.wash,
+          border: `1px solid ${onWall ? t.greenBorder : t.border}`,
+          borderRadius: 13,
+          padding: '12px 13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: onWall ? t.green : t.faint, flex: 'none' }} />
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: onWall ? t.greenDeep : t.muted, flex: 1 }}>
+          {onWall ? `On the wall${wallSince ? ` since ${wallSince}` : ''}` : 'Not on the wall'}
+        </span>
+        <button
+          type="button"
+          onClick={onToggleWall}
+          disabled={busy}
+          style={{
+            fontFamily: 'inherit',
+            display: 'inline-flex',
+            alignItems: 'center',
+            height: 34,
+            padding: '0 12px',
+            borderRadius: 9,
+            background: '#fff',
+            border: `1px solid ${onWall ? t.greenBorder : t.borderInput}`,
+            fontSize: 13,
+            fontWeight: 700,
+            color: onWall ? t.greenDeep : t.blueDeep,
+            cursor: busy ? 'default' : 'pointer',
+          }}
+        >
+          {busy ? <Spinner size={14} /> : onWall ? 'Close' : 'Show'}
+        </button>
+      </div>
+
+      <MobileRouteCard flight={flight} />
+
+      {(impEntries.length > 0 || otherLims.length > 0) && (
+        <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 13, overflow: 'hidden' }}>
+          {impEntries.length > 0 && (
+            <CollapseRow
+              chip={<ImpMark size={22} />}
+              title={impEntries.length === 1 ? impEntries[0].title : `${impEntries.length} important entries`}
+              last={otherLims.length === 0}
+            >
+              <ImpDetails flight={flight} impEntries={impEntries} />
+            </CollapseRow>
+          )}
+          {otherLims.map((lim, index) => (
+            <CollapseRow
+              key={`${lim.type}-${lim.id || index}`}
+              chip={
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    height: 22,
+                    padding: '0 7px',
+                    borderRadius: 5,
+                    fontFamily: t.mono,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: '0.05em',
+                    color: limChip(lim.type).c,
+                    background: limChip(lim.type).b,
+                  }}
+                >
+                  {lim.type}
+                </span>
+              }
+              title={lim.title || lim.type}
+              last={index === otherLims.length - 1}
+            >
+              <div style={{ padding: '0 13px 13px', fontSize: 13, lineHeight: 1.55, color: t.body, whiteSpace: 'pre-wrap' }}>
+                {lim.description || lim.title || '—'}
+              </div>
+            </CollapseRow>
+          ))}
+        </div>
+      )}
+
+      <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 13 }}>
+        <SendSection flight={flight} touch />
+      </div>
+    </PushedPage>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function FlightsPage() {
   const [aircraft, setAircraft] = useState([]);
@@ -455,6 +729,11 @@ export default function FlightsPage() {
   const [sort, setSort] = useState({ key: 'etd', dir: 1 });
   const flash = useToast();
   const loadedRef = useRef(false);
+  // Width-only breakpoints (the console ignores rotation — design E):
+  // <768 cards (C1), 768–1023 five-column rows (D2), ≥1024 unchanged.
+  const { width } = useViewport();
+  const isPhone = width < 768;
+  const isMobileView = width < 1024;
 
   async function load() {
     try {
@@ -557,6 +836,217 @@ export default function FlightsPage() {
 
   function sortHeader(key) {
     setSort((prev) => (prev.key === key ? { key, dir: -prev.dir } : { key, dir: 1 }));
+  }
+
+  // ── <1024: cards / five-column rows + pushed detail (C1, C3, D2) ─────────
+  if (isMobileView) {
+    const selIndex = selected ? rows.findIndex((f) => flightKey(f) === selectedKey) : -1;
+    const hasFilter = Boolean(search.trim() || operatorFilter || airportFilter);
+    const rangeWord = range === 'today' ? 'today' : 'all flights';
+
+    const stateBit = (flight) => {
+      const onWall = String(flight.flightNid) === overlayNid;
+      const status = onWall ? 'On wall' : deriveStatus(flight);
+      const st = STATUS_STYLE[status.replace(' (est.)', '')] || STATUS_STYLE.Scheduled;
+      return { onWall, status, st };
+    };
+
+    const filters = (
+      <ChipRow style={{ marginBottom: 10 }}>
+        <FilterChip on={range === 'today'} onClick={() => setRange('today')}>Today</FilterChip>
+        <FilterChip on={range === 'all'} onClick={() => setRange('all')}>All</FilterChip>
+        <Dropdown icon="sliders-horizontal" label="Operator" value={operatorFilter} options={operatorOptions} onChange={setOperatorFilter} style={{ flex: 'none' }} />
+        <Dropdown icon="map-pin" label="Airport" value={airportFilter} options={airportOptions} onChange={setAirportFilter} style={{ flex: 'none' }} />
+        {!isPhone && (
+          <span style={{ marginLeft: 'auto', flex: 'none' }}>
+            <Dropdown
+              icon="chevrons-up-down"
+              label="Sort"
+              value={sort.key}
+              options={[
+                { value: 'etd', label: 'Sort · ETD' },
+                { value: 'callsign', label: 'Sort · Callsign' },
+                { value: 'operator', label: 'Sort · Operator' },
+              ]}
+              onChange={(key) => setSort({ key, dir: 1 })}
+            />
+          </span>
+        )}
+      </ChipRow>
+    );
+
+    return (
+      <div>
+        <SearchBox
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search callsign, route, registration…"
+          style={{ marginBottom: 10, height: 44 }}
+        />
+        {filters}
+        <ErrorBanner>{error}</ErrorBanner>
+
+        {loading && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
+
+        {!loading && rows.length === 0 && (
+          <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 13, padding: '36px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.ink }}>No flights match</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: t.muted, marginTop: 6 }}>
+              Adjust the filters or switch to “All”.
+            </div>
+            {hasFilter && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearch('');
+                  setOperatorFilter('');
+                  setAirportFilter('');
+                }}
+                style={{ marginTop: 12, height: 40 }}
+              >
+                Clear filter
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!loading && isPhone && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {rows.map((flight) => {
+              const key = flightKey(flight);
+              const { status, st } = stateBit(flight);
+              return (
+                <div
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedKey(key)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedKey(key)}
+                  style={{
+                    background: t.card,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 13,
+                    padding: '12px 13px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                      <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, color: t.ink }}>{flight.flightNo}</span>
+                      <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint }}>{flight.registration}</span>
+                    </div>
+                    <span style={{ fontFamily: t.mono, fontSize: 14, fontWeight: 600, color: t.ink, flex: 'none' }}>
+                      {hmZ(flight.endTimeUTC)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    {/* operator truncates first — the codes never do */}
+                    <span style={{ fontSize: 12.5, color: t.muted, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {flight.operatorName || flight.oprId || '—'} · {flight.adep?.icao ?? 'UNK'} → {flight.ades?.icao ?? 'UNK'}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: st.c, display: 'block' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: st.c }}>{status}</span>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center', minHeight: 24 }}>
+                    {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr || flight.icaoType) ? (
+                      <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.15)} wrap variant="light" icaoType={flight.icaoType || null} />
+                    ) : (
+                      <span style={{ fontSize: 12, color: t.ghost }}>—</span>
+                    )}
+                    <span style={{ marginLeft: 'auto', fontFamily: t.mono, fontSize: 12, color: t.faint }}>
+                      ETD {hmZ(flight.etd || flight.startTimeUTC)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && !isPhone && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {rows.map((flight) => {
+              const key = flightKey(flight);
+              const { status, st } = stateBit(flight);
+              return (
+                <div
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedKey(key)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedKey(key)}
+                  style={{
+                    background: t.card,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    minHeight: 76,
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ width: 150, flex: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ fontFamily: t.mono, fontSize: 16, fontWeight: 700, color: t.ink }}>{flight.flightNo}</span>
+                    <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint }}>{flight.registration}</span>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                    <span style={{ fontSize: 13.5, color: t.body, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {flight.operatorName || flight.oprId || '—'} · {flight.adep?.icao ?? 'UNK'} → {flight.ades?.icao ?? 'UNK'}
+                    </span>
+                    <span style={{ display: 'inline-flex', minHeight: 22, alignItems: 'center' }}>
+                      {((flight.limitations || []).length > 0 || flight.wxDep || flight.wxArr || flight.icaoType) ? (
+                        <FlightMarkers flight={flight} sz={(v) => Math.round(v * 1.05)} variant="light" icaoType={flight.icaoType || null} />
+                      ) : (
+                        <span style={{ fontSize: 12, color: t.ghost }}>—</span>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ width: 120, flex: 'none', display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+                    <span style={{ fontFamily: t.mono, fontSize: 15, fontWeight: 600, color: t.ink }}>{hmZ(flight.endTimeUTC)}</span>
+                    <span style={{ fontFamily: t.mono, fontSize: 12, color: t.faint }}>ETD {hmZ(flight.etd || flight.startTimeUTC)}</span>
+                  </div>
+                  <div style={{ width: 130, flex: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.c, display: 'block', flex: 'none' }} />
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: st.c }}>{status}</span>
+                  </div>
+                  <Icon name="chevron-right" size={16} color={t.ghost} style={{ flexShrink: 0 }} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {selected && (
+          <MobileFlightDetail
+            flight={selected}
+            position={selIndex + 1}
+            total={rows.length}
+            rangeWord={rangeWord}
+            onBack={() => setSelectedKey('')}
+            onPrev={() => selIndex > 0 && setSelectedKey(flightKey(rows[selIndex - 1]))}
+            onNext={() => selIndex >= 0 && selIndex < rows.length - 1 && setSelectedKey(flightKey(rows[selIndex + 1]))}
+            onWall={String(selected.flightNid) === overlayNid}
+            wallSince={overlay.open && overlay.openedAt ? hmZ(overlay.openedAt) : ''}
+            busy={busyNid === String(selected.flightNid)}
+            onToggleWall={() => toggleWall(selected)}
+          />
+        )}
+      </div>
+    );
   }
 
   return (

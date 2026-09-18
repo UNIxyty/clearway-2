@@ -9,6 +9,8 @@ import {
   upsertCaa,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
+import useViewport from '../../hooks/useViewport';
+import { PushedPage } from './mobile';
 import Icon from './icons';
 import {
   Button,
@@ -123,6 +125,10 @@ export default function CaaPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const flash = useToast();
+  // <1024 (C6 pattern): full-width list, editor as a pushed page.
+  const { width } = useViewport();
+  const isMobileView = width < 1024;
+  const [formSnap, setFormSnap] = useState('');
 
   async function load() {
     setError('');
@@ -146,9 +152,18 @@ export default function CaaPage() {
   const selected = entries.find((entry) => entry.id === selectedId) || null;
 
   useEffect(() => {
-    if (selected) setForm(entryToForm(selected));
-    else if (selectedId === '__new__') setForm(structuredClone(NEW_FORM));
-    else setForm(null);
+    if (selected) {
+      const next = entryToForm(selected);
+      setForm(next);
+      setFormSnap(JSON.stringify(next));
+    } else if (selectedId === '__new__') {
+      const next = structuredClone(NEW_FORM);
+      setForm(next);
+      setFormSnap(JSON.stringify(next));
+    } else {
+      setForm(null);
+      setFormSnap('');
+    }
   }, [selectedId, selected]);
 
   const countryOptions = useMemo(
@@ -272,8 +287,51 @@ export default function CaaPage() {
     );
   }
 
+  const dirty = Boolean(form) && isMobileView && JSON.stringify(form) !== formSnap;
+  const isPhone = width < 768;
+
+  // Desktop: the editor column as-is. <1024: the same editor content inside
+  // a pushed page (C6) with a fixed save bar; the list takes the full width.
+  const EditorWrap = ({ children }) => {
+    if (!isMobileView) return <div style={{ flex: 1, minWidth: 0 }}>{children}</div>;
+    if (!form) return null;
+    return (
+      <PushedPage
+        title={form.id ? 'Edit CAA entry' : 'New authority'}
+        subtitle={dirty ? 'Unsaved changes' : form.country || form.authorityName || ''}
+        subtitleColor={dirty ? t.amber : undefined}
+        onBack={() => setSelectedId('')}
+        bottomBar={
+          <>
+            <Button
+              variant="primary"
+              disabled={saving || (!form.country.trim() && !form.authorityName.trim())}
+              spin={saving}
+              onClick={save}
+              style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
+            >
+              Save changes
+            </Button>
+            <Button
+              variant={form.reviewed ? 'soft' : 'successSoft'}
+              icon={form.reviewed ? undefined : 'check'}
+              disabled={saving}
+              onClick={() => setForm((prev) => ({ ...prev, reviewed: !prev.reviewed }))}
+              style={{ height: 48, borderRadius: 12, fontWeight: 700 }}
+            >
+              {form.reviewed ? 'Reviewed ✓' : 'Mark reviewed'}
+            </Button>
+          </>
+        }
+      >
+        {children}
+      </PushedPage>
+    );
+  };
+
   return (
     <div>
+      {!isMobileView ? (
       <PageHeader
         title="CAA details"
         desc="Civil Aviation Authority contact details and permit processes. Matching flights show a CAA marker on the wall and the authority's details in the flight overlay."
@@ -284,12 +342,22 @@ export default function CaaPage() {
           </Button>
         }
       />
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12.5, color: t.faint, flex: 1 }}>
+            {entries.length} authorit{entries.length === 1 ? 'y' : 'ies'}
+          </span>
+          <Button variant="primary" icon="plus" size="sm" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
+            Add CAA
+          </Button>
+        </div>
+      )}
 
       <ErrorBanner>{error}</ErrorBanner>
 
-      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', ...(isMobileView ? { flexDirection: 'column' } : {}) }}>
         {/* ── list ── */}
-        <div style={{ width: 'clamp(360px, 22vw, 470px)', flex: 'none' }}>
+        <div style={isMobileView ? { width: '100%' } : { width: 'clamp(360px, 22vw, 470px)', flex: 'none' }}>
           <SearchBox
             value={search}
             onChange={(e) => setSearch(e.target.value)}

@@ -13,6 +13,8 @@ import {
   upsertImportant,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
+import useViewport from '../../hooks/useViewport';
+import { PushedPage } from './mobile';
 import Icon from './icons';
 import {
   Button,
@@ -253,6 +255,11 @@ export default function ImportantPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const flash = useToast();
+  // <1024 (C6 pattern): full-width list, editor as a pushed page with a
+  // fixed save bar and an unsaved-changes header state.
+  const { width } = useViewport();
+  const isMobileView = width < 1024;
+  const [formSnap, setFormSnap] = useState('');
 
   async function load() {
     setError('');
@@ -289,9 +296,18 @@ export default function ImportantPage() {
   const selected = entries.find((entry) => entry.id === selectedId) || null;
 
   useEffect(() => {
-    if (selected) setForm(entryToForm(selected));
-    else if (selectedId === '__new__') setForm(structuredClone(NEW_FORM));
-    else setForm(null);
+    if (selected) {
+      const next = entryToForm(selected);
+      setForm(next);
+      setFormSnap(JSON.stringify(next));
+    } else if (selectedId === '__new__') {
+      const next = structuredClone(NEW_FORM);
+      setForm(next);
+      setFormSnap(JSON.stringify(next));
+    } else {
+      setForm(null);
+      setFormSnap('');
+    }
   }, [selectedId, selected]);
 
   async function save({ markReviewed = false } = {}) {
@@ -374,6 +390,313 @@ export default function ImportantPage() {
           onRemove={(v) => setForm((prev) => ({ ...prev, [field]: prev[field].filter((x) => x !== v) }))}
           suggest={suggest}
         />
+      </div>
+    );
+  }
+
+  // The list body (search + filter + entry cards) and the editor card are
+  // built once and placed by breakpoint: side-by-side ≥1024, list + pushed
+  // page below (C6). Desktop DOM is unchanged.
+  const listBody = (
+    <>
+      <SearchBox
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search important limitations…"
+        style={{ marginBottom: 10 }}
+      />
+      <label style={{ fontSize: 12.5, color: t.muted, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', marginBottom: 12 }}>
+        <input type="checkbox" checked={onlyUnreviewed} onChange={(e) => setOnlyUnreviewed(e.target.checked)} />
+        Needs review only {unreviewedCount > 0 && `(${unreviewedCount})`}
+      </label>
+      {loading && <LoadingState>Loading entries…</LoadingState>}
+      {!loading && visible.length === 0 && (
+        <EmptyState icon="star" title="No entries match">
+          {entries.length === 0 ? 'Import the ops bulletin or add an entry manually.' : 'Adjust the search or filter.'}
+        </EmptyState>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {visible.map((entry) => {
+          const isSel = entry.id === selectedId;
+          const active = entry.isActive !== false;
+          const expired = isExpired(entry);
+          const criteria = [
+            ...(entry.match?.countries || []),
+            ...(entry.match?.airportIcaos || []),
+            ...(entry.match?.operators || []),
+            ...(entry.match?.registrations || []),
+          ];
+          return (
+            <div
+              key={entry.id}
+              onClick={() => setSelectedId(entry.id)}
+              onKeyDown={(e) => e.key === 'Enter' && setSelectedId(entry.id)}
+              role="button"
+              tabIndex={0}
+              className={isSel ? '' : 'cw-hover-row'}
+              style={{
+                background: isSel ? '#f6faff' : '#fff',
+                border: `1px solid ${t.border}`,
+                borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
+                borderRadius: 12,
+                padding: '14px 16px',
+                cursor: 'pointer',
+                boxShadow: t.shadow,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: entry.reviewed ? t.greenDeep : t.amber, background: entry.reviewed ? t.greenTint : t.amberTint, padding: '3px 9px', borderRadius: 6 }}>
+                  {entry.reviewed ? 'Reviewed' : 'Needs review'}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? '#f1f2f4' : active ? t.greenTint : '#eef1f5', padding: '3px 9px', borderRadius: 6 }}>
+                  {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, marginBottom: 9 }}>{entry.title}</div>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {criteria.slice(0, 6).map((c) => (
+                  <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: 6 }}>
+                    {c}
+                  </span>
+                ))}
+                {criteria.length > 6 && <span style={{ fontSize: 11, color: t.faint }}>+{criteria.length - 6}</span>}
+                {criteria.length === 0 && <span style={{ fontSize: 11.5, color: t.faint }}>no criteria — matches nothing</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const editorCard = form && (
+    <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
+      <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <TextInput
+            placeholder="Entry title"
+            value={form.title}
+            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+            style={{ marginBottom: 8, fontWeight: 700, fontSize: 16 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              title="Click to flip the reviewed state (saved with the entry)"
+              onClick={() => setForm((prev) => ({ ...prev, reviewed: !prev.reviewed }))}
+              style={{
+                fontFamily: 'inherit',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                color: form.reviewed ? t.greenDeep : t.amber,
+                background: form.reviewed ? t.greenTint : t.amberTint,
+                border: 'none',
+                padding: '5px 11px',
+                borderRadius: 999,
+                cursor: 'pointer',
+              }}
+            >
+              <Icon name={form.reviewed ? 'user-check' : 'download-cloud'} size={14} />
+              {form.reviewed ? 'Human-reviewed' : 'Needs review'}
+            </button>
+            {selected && typeof selected.matchedFlightCount === 'number' && (
+              <span style={{ fontSize: 13, color: t.muted }}>
+                Affects <strong style={{ color: t.blueDeep }}>{selected.matchedFlightCount}</strong> of the board's flights
+              </span>
+            )}
+          </div>
+        </div>
+        {form.id && selected && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <Toggle
+              on={form.isActive}
+              onToggle={() => {
+                setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
+                toggleActive(selected, !form.isActive);
+              }}
+            />
+            <IconButton icon="trash-2" title="Delete entry" onClick={() => remove(selected)} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}` }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 8 }}>
+          BODY TEXT (VERBATIM FROM BULLETIN)
+        </div>
+        <TextArea
+          placeholder="Full text of the entry (kept verbatim — this is the operational wording)"
+          value={form.body}
+          onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+          style={{ minHeight: form.id ? 180 : 120 }}
+        />
+      </div>
+
+      <div style={{ padding: '18px 22px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 14 }}>
+          MATCH CRITERIA
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          {chipEditor('countries', 'Countries', async (q) =>
+            countries.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 10).map((c) => ({ value: c, label: c }))
+          )}
+          {chipEditor('airportIcaos', 'Airports (ICAO)', async (q) => {
+            const payload = await searchAirports(q, 10);
+            return (payload.airports || []).map((a) => ({ value: a.icao, label: `${a.icao}${a.name ? ` · ${a.name}` : ''}` }));
+          })}
+          {chipEditor('operators', 'Operators', async (q) =>
+            operatorSuggestions.filter((o) => o.toLowerCase().includes(q.toLowerCase())).slice(0, 10).map((o) => ({ value: o, label: o }))
+          )}
+          {chipEditor('registrations', 'Registrations')}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr' : '1fr 1fr', gap: 16 }}>
+          <div>
+            <FieldLabel>Direction</FieldLabel>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {DIRECTIONS.map((direction) => {
+                const on = form.direction === direction.value;
+                return (
+                  <button
+                    key={direction.value}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, direction: direction.value }))}
+                    style={{
+                      fontFamily: 'inherit',
+                      flex: 1,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      border: `1px solid ${on ? t.blue : t.borderInput}`,
+                      background: on ? t.blueTint : '#fff',
+                      color: on ? t.blueDeep : t.muted,
+                      padding: 9,
+                      borderRadius: 9,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {direction.label}
+                  </button>
+                );
+              })}
+            </div>
+            {form.direction === 'overfly' && (
+              <div style={{ fontSize: 12, color: t.faint, marginTop: 7 }}>
+                Overfly-scoped — matches no flights until route data exists.
+              </div>
+            )}
+          </div>
+          <div>
+            <FieldLabel>Valid window</FieldLabel>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="date"
+                value={form.validFrom}
+                onChange={(e) => setForm((prev) => ({ ...prev, validFrom: e.target.value }))}
+                style={{ flex: 1, border: `1px solid ${t.borderInput}`, borderRadius: 9, padding: '9px 11px', fontFamily: 'inherit', fontSize: 13, outline: 'none', color: t.body }}
+              />
+              <span style={{ color: t.faint }}>→</span>
+              <input
+                type="date"
+                value={form.validTo}
+                onChange={(e) => setForm((prev) => ({ ...prev, validTo: e.target.value }))}
+                style={{ flex: 1, border: `1px solid ${t.borderInput}`, borderRadius: 9, padding: '9px 11px', fontFamily: 'inherit', fontSize: 13, outline: 'none', color: t.body }}
+              />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr' : '1fr 1fr', gap: 16, marginTop: 16 }}>
+          <SegmentedRow
+            label="Flight type"
+            options={FLIGHT_TYPES}
+            value={form.appliesTo}
+            onChange={(v) => setForm((prev) => ({ ...prev, appliesTo: v }))}
+            hint="From Leon's isCommercial flag; flights with an unknown kind only match Any."
+          />
+          <SegmentedRow
+            label="Load"
+            options={LOADS}
+            value={form.load}
+            onChange={(v) => setForm((prev) => ({ ...prev, load: v }))}
+            hint="From Leon's isFerry flag (true = ferry/empty leg); unknown only matches All."
+          />
+        </div>
+        {!isMobileView && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={() => save()}>
+              Save changes
+            </Button>
+            {!form.reviewed && (
+              <Button variant="successSoft" size="lg" icon="check" disabled={saving} onClick={() => save({ markReviewed: true })}>
+                Mark reviewed
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {form.id && selected && (
+        <div style={{ padding: '18px 22px', borderTop: `1px solid ${t.borderInner}` }}>
+          <AttachmentsSection entry={selected} onChanged={load} setError={setError} />
+          <div style={{ marginTop: 16 }}>
+            <AuditFooter entry={selected} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── <1024: list full-width, editor as pushed page (C6 pattern) ───────────
+  if (isMobileView) {
+    const dirty = Boolean(form) && JSON.stringify(form) !== formSnap;
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12.5, color: t.faint, flex: 1 }}>
+            {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
+            {unreviewedCount > 0 ? ` · ${unreviewedCount} awaiting review` : ''}
+          </span>
+          <Button variant="primary" icon="plus" size="sm" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
+            New entry
+          </Button>
+        </div>
+        <ErrorBanner>{error}</ErrorBanner>
+        {listBody}
+        {form && (
+          <PushedPage
+            title={form.id ? 'Edit entry' : 'New entry'}
+            subtitle={dirty ? 'Unsaved changes' : form.id ? 'Important · IMP' : ''}
+            subtitleColor={dirty ? t.amber : undefined}
+            onBack={() => setSelectedId('')}
+            bottomBar={
+              <>
+                <Button
+                  variant="primary"
+                  disabled={saving || !form.title.trim()}
+                  spin={saving}
+                  onClick={() => save()}
+                  style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
+                >
+                  Save changes
+                </Button>
+                {!form.reviewed && (
+                  <Button
+                    variant="successSoft"
+                    icon="check"
+                    disabled={saving}
+                    onClick={() => save({ markReviewed: true })}
+                    style={{ height: 48, borderRadius: 12, fontWeight: 700 }}
+                  >
+                    Mark reviewed
+                  </Button>
+                )}
+              </>
+            }
+          >
+            {editorCard}
+          </PushedPage>
+        )}
       </div>
     );
   }

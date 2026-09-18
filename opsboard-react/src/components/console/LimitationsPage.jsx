@@ -9,6 +9,9 @@ import {
   upsertLimitation,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
+import useViewport from '../../hooks/useViewport';
+import { FixedActionBar, PushedPage } from './mobile';
+import Icon from './icons';
 import {
   Button,
   Card,
@@ -70,9 +73,9 @@ function windowText(item) {
   return bits.join(' ') || 'always';
 }
 
-function WallPreview({ title, desc, scope, permanent, window }) {
+function WallPreview({ title, desc, scope, permanent, window, mobile = false }) {
   return (
-    <div style={{ width: 'clamp(340px, 21vw, 440px)', flex: 'none', position: 'sticky', top: 0 }}>
+    <div style={mobile ? { width: '100%' } : { width: 'clamp(340px, 21vw, 440px)', flex: 'none', position: 'sticky', top: 0 }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
         WALL SIDEBAR PREVIEW
       </div>
@@ -116,6 +119,12 @@ export default function LimitationsPage() {
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
   const flash = useToast();
+  // <1024: C5 card list + C6 pushed edit page (E-table: console detail
+  // pushes everywhere below the 1024 list+detail breakpoint).
+  const { width } = useViewport();
+  const isMobileView = width < 1024;
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
+  const [initialSnap, setInitialSnap] = useState('');
 
   // Reconstruct the match-type selector from a saved limitation's targets.
   function matchTypeOf(match) {
@@ -129,9 +138,7 @@ export default function LimitationsPage() {
 
   function startEdit(item) {
     const match = item.match || {};
-    setEditingId(item.id);
-    setMatchType(matchTypeOf(match));
-    setForm({
+    const nextForm = {
       title: item.title || '',
       description: item.description || '',
       isPermanent: item.isPermanent === true,
@@ -140,7 +147,16 @@ export default function LimitationsPage() {
       flights: (match.flights || []).map((flt) => ({ nid: String(flt.nid ?? flt), label: flt.label || String(flt.nid ?? flt) })),
       airportIcaos: [...(match.airportIcaos || [])],
       countries: [...(match.countries || [])],
-    });
+    };
+    setEditingId(item.id);
+    setMatchType(matchTypeOf(match));
+    setForm(nextForm);
+    if (isMobileView) {
+      // C6: the record opens as a pushed page instead of scrolling to a form.
+      setInitialSnap(JSON.stringify(nextForm));
+      setMobileFormOpen(true);
+      return;
+    }
     // Bring the form into view for the edit.
     if (typeof window !== 'undefined') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
@@ -205,8 +221,10 @@ export default function LimitationsPage() {
       flash(editingId ? 'Limitation updated · wall sidebar refreshed' : 'Limitation saved · now on wall sidebar');
       setEditingId('');
       await load();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -239,6 +257,351 @@ export default function LimitationsPage() {
     } finally {
       setBusyId('');
     }
+  }
+
+  // ── <1024 (C5/C6): card list with the on-wall toggle kept on the row,
+  //     editing as a pushed page with a fixed save bar ─────────────────────
+  if (isMobileView) {
+    const dirty = mobileFormOpen && JSON.stringify(form) !== initialSnap;
+    const editingItem = editingId ? items.find((item) => item.id === editingId) : null;
+    const onWallCount = items.filter((item) => item.isActive !== false).length;
+
+    const openNew = () => {
+      setEditingId('');
+      setMatchType('airport');
+      setForm(EMPTY_FORM);
+      setInitialSnap(JSON.stringify(EMPTY_FORM));
+      setMobileFormOpen(true);
+    };
+    const closeForm = () => {
+      setMobileFormOpen(false);
+      cancelEdit();
+    };
+    const mobileSave = async () => {
+      const ok = await save({ preventDefault() {} });
+      if (ok) setMobileFormOpen(false);
+    };
+    const label = (text, extra) => (
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.body }}>{text}</span>
+        {extra}
+      </div>
+    );
+
+    return (
+      <div>
+        <div style={{ fontSize: 12.5, color: t.faint, margin: '2px 0 10px' }}>
+          {onWallCount} on the wall · {items.length} total
+        </div>
+        <ErrorBanner>{error}</ErrorBanner>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, paddingBottom: 92 }}>
+          {loading && <Card style={{ padding: 0 }}><LoadingState>Loading limitations…</LoadingState></Card>}
+          {!loading && items.length === 0 && (
+            <Card style={{ padding: 0 }}>
+              <EmptyState icon="alert-triangle" title="No limitations yet">
+                Write the first one below — it appears on the wall the moment it's saved.
+              </EmptyState>
+            </Card>
+          )}
+          {items.map((item) => {
+            const active = item.isActive !== false;
+            return (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => startEdit(item)}
+                onKeyDown={(e) => e.key === 'Enter' && startEdit(item)}
+                style={{
+                  background: t.card,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 13,
+                  padding: 13,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  cursor: 'pointer',
+                  opacity: active ? 1 : 0.65,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  {item.isPermanent && (
+                    <StatusPill color={t.amber} bg={t.amberTint} style={{ flex: 'none' }}>PERMANENT</StatusPill>
+                  )}
+                  <span style={{ fontSize: 14, fontWeight: 700, color: t.ink, flex: 1, lineHeight: 1.35, minWidth: 0 }}>
+                    {item.title}
+                  </span>
+                  {/* The one edit that happens more than once a shift stays
+                      on the row (C5). */}
+                  <span onClick={(e) => e.stopPropagation()} style={{ flex: 'none', display: 'inline-flex' }}>
+                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.55, color: t.muted }}>{item.description || '—'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {scopeParts(item).join(' · ') || 'matches nothing (no targets)'}
+                  </span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: t.faint, flex: 'none' }}>{windowText(item)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <FixedActionBar>
+          <Button variant="primary" onClick={openNew} style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}>
+            Publish a limitation
+          </Button>
+        </FixedActionBar>
+
+        {mobileFormOpen && (
+          <PushedPage
+            title={editingId ? 'Edit limitation' : 'New limitation'}
+            subtitle={dirty ? 'Unsaved changes' : editingId ? `editing ${editingId}` : ''}
+            subtitleColor={dirty ? t.amber : undefined}
+            onBack={closeForm}
+            headerRight={
+              <button
+                type="button"
+                onClick={closeForm}
+                style={{
+                  fontFamily: 'inherit',
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  color: t.muted,
+                  cursor: 'pointer',
+                  padding: '12px 14px',
+                }}
+              >
+                Cancel
+              </button>
+            }
+            bottomBar={
+              <>
+                <Button
+                  variant="primary"
+                  spin={saving}
+                  disabled={saving || !form.title.trim()}
+                  onClick={mobileSave}
+                  style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
+                >
+                  Save and publish
+                </Button>
+                {editingItem && !editingItem.isPermanent && (
+                  <button
+                    type="button"
+                    title="Delete limitation"
+                    disabled={busyId === editingItem.id}
+                    onClick={() => setConfirmDelete(editingItem)}
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 12,
+                      border: `1px solid ${t.redBorder}`,
+                      background: t.card,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: t.red,
+                      cursor: 'pointer',
+                      flex: 'none',
+                    }}
+                  >
+                    <Icon name="trash-2" size={17} />
+                  </button>
+                )}
+              </>
+            }
+            contentStyle={{ gap: 14 }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {label('Match type')}
+              <div style={{ display: 'flex', gap: 7 }}>
+                {MATCH_TYPES.map((mt) => {
+                  const on = matchType === mt.key;
+                  return (
+                    <button
+                      key={mt.key}
+                      type="button"
+                      title={mt.hint}
+                      onClick={() => setMatchType(mt.key)}
+                      style={{
+                        fontFamily: t.mono,
+                        flex: 1,
+                        height: 44,
+                        borderRadius: 10,
+                        border: on ? 'none' : `1px solid ${t.border}`,
+                        background: on ? t.ink : t.card,
+                        color: on ? '#fff' : t.muted,
+                        fontSize: 12,
+                        fontWeight: on ? 800 : 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {mt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {label('Title')}
+              <TextInput
+                placeholder="Short headline shown on the wall"
+                required
+                value={form.title}
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                style={{ height: 48, fontSize: 14.5, borderRadius: 11 }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {label(
+                'Wall text',
+                <span style={{ fontFamily: t.mono, fontSize: 11, color: t.faint }}>{form.description.length} chars</span>
+              )}
+              <TextArea
+                placeholder="Full instruction text — this appears in full on the wall"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                style={{ minHeight: 104, borderRadius: 11, fontSize: 14, lineHeight: 1.55 }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {label('Applies to')}
+              <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 11, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {showFlights && (
+                  <div>
+                    <div style={{ fontFamily: t.mono, fontSize: 10.5, fontWeight: 700, color: t.faint, marginBottom: 6 }}>FLIGHTS</div>
+                    <ChipInput
+                      values={form.flights.map((f) => f.label)}
+                      placeholder="Search callsign / registration / ICAO…"
+                      onAdd={() => {}}
+                      onSelect={(option) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          flights: prev.flights.some((f) => f.nid === option.value)
+                            ? prev.flights
+                            : [...prev.flights, { nid: option.value, label: option.label }],
+                        }))
+                      }
+                      onRemove={(labelText) => setForm((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.label !== labelText) }))}
+                      suggest={async (q) => {
+                        const flightRows = await searchFlights(q, 12);
+                        return flightRows.map((r) => ({ value: r.nid, label: r.label }));
+                      }}
+                    />
+                  </div>
+                )}
+                {showAirports && (
+                  <div>
+                    <div style={{ fontFamily: t.mono, fontSize: 10.5, fontWeight: 700, color: t.faint, marginBottom: 6 }}>AIRPORTS</div>
+                    <ChipInput
+                      values={form.airportIcaos}
+                      placeholder="+ Add"
+                      chipColor="#1d4ed8"
+                      chipBg={t.blueChip}
+                      onAdd={(v) => setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, v.toUpperCase()])] }))}
+                      onRemove={(v) => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((x) => x !== v) }))}
+                      suggest={async (q) => {
+                        const payload = await searchAirports(q, 12);
+                        return (payload.airports || []).map((a) => ({
+                          value: a.icao,
+                          label: `${a.icao}${a.name ? ` · ${a.name}` : ''}${a.country ? ` · ${a.country}` : ''}`,
+                        }));
+                      }}
+                    />
+                  </div>
+                )}
+                {showCountries && (
+                  <div>
+                    <div style={{ fontFamily: t.mono, fontSize: 10.5, fontWeight: 700, color: t.faint, marginBottom: 6 }}>COUNTRIES</div>
+                    <ChipInput
+                      values={form.countries}
+                      placeholder="+ Add"
+                      chipColor="#1d4ed8"
+                      chipBg={t.blueChip}
+                      onAdd={(v) => setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, v])] }))}
+                      onRemove={(v) => setForm((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== v) }))}
+                      suggest={async (q) =>
+                        countries
+                          .filter((c) => c.toLowerCase().includes(q.toLowerCase()))
+                          .slice(0, 12)
+                          .map((c) => ({ value: c, label: c }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                {label('Start date (optional)')}
+                <TextInput
+                  type="date"
+                  value={form.startDate}
+                  disabled={form.isPermanent}
+                  onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                  style={{ marginTop: 7, height: 48 }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                {label('End date (optional)')}
+                <TextInput
+                  type="date"
+                  value={form.endDate}
+                  disabled={form.isPermanent}
+                  onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                  style={{ marginTop: 7, height: 48 }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44 }}>
+              <Toggle
+                size="sm"
+                on={form.isPermanent}
+                onToggle={() => setForm((prev) => ({ ...prev, isPermanent: !prev.isPermanent }))}
+              />
+              <span style={{ fontSize: 13, fontWeight: 600, color: t.body }}>
+                Permanent <span style={{ color: t.faint, fontWeight: 400 }}>(always active, cannot be deleted)</span>
+              </span>
+            </div>
+
+            {/* The live wall preview stays — it is the only way to know the
+                text fits (C6). */}
+            <WallPreview
+              mobile
+              title={form.title}
+              desc={form.description}
+              scope={scopeText}
+              permanent={form.isPermanent}
+              window={windowText({ isPermanent: form.isPermanent, startDate: form.startDate, endDate: form.endDate })}
+            />
+          </PushedPage>
+        )}
+
+        <ConfirmDialog
+          open={Boolean(confirmDelete)}
+          title={`Delete limitation "${confirmDelete?.title ?? ''}"?`}
+          body="It disappears from the wall sidebar immediately. This cannot be undone."
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            const target = confirmDelete;
+            setConfirmDelete(null);
+            setMobileFormOpen(false);
+            cancelEdit();
+            await remove(target);
+          }}
+        />
+      </div>
+    );
   }
 
   return (

@@ -35,7 +35,7 @@ const TITLES: Record<HelpThreadType, { header: string; placeholder: string }> = 
   bug: { header: "Report a bug", placeholder: "Short summary — AIP PDF will not open for EVRA" },
   request: { header: "I have a suggestion", placeholder: "Short summary — what would you change?" },
   question: { header: "How do I…", placeholder: "Type your question — we search the guide as you type" },
-  chat: { header: `Chat with ${DEVELOPER_NAME}`, placeholder: "What do you want to ask him?" },
+  chat: { header: "Chat with the developer", placeholder: "What do you want to ask?" },
 };
 
 function draftKey(type: string) { return `help-draft:${type}`; }
@@ -174,7 +174,7 @@ export default function HelpComposer() {
           {urgent && (
             <div className="flex items-center gap-3 rounded-[11px] border border-[#f0c9ca] bg-[#fdf2f2] px-3.5 py-2.5 text-[12.5px] leading-normal text-[#8b3a3a]">
               <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-white text-[14px] font-extrabold text-cw-red">!</span>
-              Pings {DEVELOPER_NAME} in Telegram the moment you send. Under 25 minutes, 06:00–22:00Z. Outside those hours
+              Pings the developer in Telegram the moment you send. Under 25 minutes, 06:00–22:00Z. Outside those hours
               call <span className="pl-1 font-mono font-semibold">{OUT_OF_HOURS_PHONE}</span>.
             </div>
           )}

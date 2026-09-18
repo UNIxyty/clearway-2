@@ -223,5 +223,7 @@ export function developerAvailableNow(): boolean {
   return h >= 6 && h < 22;
 }
 
-export const DEVELOPER_NAME = "Mārtiņš";
+// The developer is a ROLE in this system, not a named individual — every
+// surface says "Developer" so nothing needs re-editing if the person changes.
+export const DEVELOPER_NAME = "Developer";
 export const OUT_OF_HOURS_PHONE = "+371 2 000 000";

@@ -25,7 +25,7 @@ const SCENARIOS: Array<{ type: string; glyph: string; title: string; sub: string
   { type: "bug", glyph: "⌗", title: "Something is broken", sub: "A bug report. We will ask which screen and what you expected." },
   { type: "request", glyph: "✎", title: "I have a suggestion", sub: "A change you would like. Filed for the next planning round." },
   { type: "question", glyph: "?", title: "How do I…", sub: "The guide answers most of these. We will search it first." },
-  { type: "chat", glyph: "⌯", title: `Chat with ${DEVELOPER_NAME}`, sub: "Live conversation. He is notified the moment you open it." },
+  { type: "chat", glyph: "⌯", title: "Chat with the developer", sub: "Live conversation. They are notified the moment you open it." },
 ];
 
 export default function HelpHome() {
@@ -56,7 +56,7 @@ export default function HelpHome() {
           <div className="flex flex-1 flex-col gap-1.5">
             <h1 className="m-0 text-[24px] font-extrabold tracking-[-0.02em] text-cw-ink">Help &amp; support</h1>
             <span className="text-[14px] text-cw-muted">
-              Reports go to {DEVELOPER_NAME}, who builds Clearway. He reads them between 06:00 and 22:00Z.
+              Reports go to the developer who builds Clearway. They are read between 06:00 and 22:00Z.
             </span>
           </div>
           <div className="flex flex-none items-center gap-[9px] rounded-[11px] border border-cw-border bg-cw-page px-[13px] py-[9px]">
@@ -83,7 +83,7 @@ export default function HelpHome() {
                   <span className="inline-flex h-5 items-center rounded-[5px] border border-[#f0c9ca] bg-[#fdf2f2] px-[7px] font-mono text-[9.5px] font-extrabold tracking-[0.07em] text-[#b42318]">URGENT</span>
                 </span>
                 <span className="text-[13.5px] leading-normal text-cw-muted">
-                  Pings {DEVELOPER_NAME} in Telegram the moment you send. Typically answered in under 25 minutes between
+                  Pings the developer in Telegram the moment you send. Typically answered in under 25 minutes between
                   06:00 and 22:00Z — outside those hours call {OUT_OF_HOURS_PHONE}.
                 </span>
               </span>
@@ -158,7 +158,7 @@ export default function HelpHome() {
                       : t.status === "impossible"
                         ? "Answered with a reason"
                         : t.status === "done"
-                          ? `Closed by ${DEVELOPER_NAME}`
+                          ? "Closed by the developer"
                           : t.preview}
                 </span>
               </Link>

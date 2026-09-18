@@ -83,15 +83,15 @@ function PresenceStrip({ thread, onNudge, onFileReport }: { thread: Thread; onNu
   const at = thread.presenceAt ? utcTime(thread.presenceAt) : "";
   const cfg = {
     not_notified: { bg: "#fbfbfc", border: "#e6e7ea", dot: "#9aa0a8", title: "Not notified yet",
-      sub: `Send your first message and ${DEVELOPER_NAME} gets a Telegram alert.`, tColor: "#17181c", sColor: "#6c7079", action: null as null | { label: string; onClick: () => void; primary?: boolean } },
+      sub: "Send your first message and the developer gets a Telegram alert.", tColor: "#17181c", sColor: "#6c7079", action: null as null | { label: string; onClick: () => void; primary?: boolean } },
     notified: { bg: "#fdf6ec", border: "#f3e0c4", dot: "#f59e0b", title: `${DEVELOPER_NAME} has been notified`,
-      sub: `Telegram alert delivered ${at}. He has not opened the chat yet.`, tColor: "#8a4b09", sColor: "#8a5a23", action: { label: "Nudge again", onClick: onNudge } },
+      sub: `Telegram alert delivered ${at}. The chat has not been opened yet.`, tColor: "#8a4b09", sColor: "#8a5a23", action: { label: "Nudge again", onClick: onNudge } },
     joining: { bg: "#f2f7ff", border: "#dbe6ff", dot: "#2563eb", title: `${DEVELOPER_NAME} is opening the chat`,
       sub: `Opened Telegram ${at}. Usually a few seconds.`, tColor: "#1d4ed8", sColor: "#3a5170", action: null },
     present: { bg: "#e7f6ec", border: "#c7ead2", dot: "#16a34a", title: `${DEVELOPER_NAME} is here`,
       sub: `Joined ${at}. Replies are live from now on.`, tColor: "#15803d", sColor: "#3f6b4f", action: null },
     no_answer: { bg: "#f5f6f7", border: "#e6e7ea", dot: "#9aa0a8", title: "No answer for five minutes",
-      sub: "He may be away from his phone. Filing this as a report keeps everything you wrote.", tColor: "#17181c", sColor: "#6c7079",
+      sub: "They may be away from their phone. Filing this as a report keeps everything you wrote.", tColor: "#17181c", sColor: "#6c7079",
       action: { label: "File as report", onClick: onFileReport, primary: true } },
     none: null,
   }[thread.presence];
@@ -329,11 +329,11 @@ export default function HelpThread({ reference }: { reference: string }) {
                   className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full font-mono text-[11.5px] font-bold"
                   style={isDev ? { background: "#17181c", color: "#fff" } : { background: "#e8effe", color: "#1d4ed8" }}
                 >
-                  {initialsOf(m.authorName || (isDev ? DEVELOPER_NAME : "You"))}
+                  {isDev ? "DEV" : initialsOf(m.authorName || "You")}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
                   <div className="flex items-baseline gap-[9px]">
-                    <span className="text-[13.5px] font-bold text-cw-ink">{mine ? "You" : m.authorName || (isDev ? DEVELOPER_NAME : "Ops")}</span>
+                    <span className="text-[13.5px] font-bold text-cw-ink">{mine ? "You" : isDev ? DEVELOPER_NAME : m.authorName || "Ops"}</span>
                     {isDev && (
                       <span className="inline-flex h-[18px] items-center rounded-[4px] bg-cw-sidebar px-1.5 text-[10px] font-bold tracking-[0.05em] text-cw-muted">DEVELOPER</span>
                     )}
@@ -363,7 +363,7 @@ export default function HelpThread({ reference }: { reference: string }) {
                 <span className="text-[13px] font-bold text-[#b42318]">Not delivered</span>
               </div>
               <span className="text-[12.5px] leading-normal text-[#8b3a3a]">
-                Sent {utcTime(item.queuedAt)}, refused by the server at {utcTime(item.lastTriedAt || item.queuedAt)}. {DEVELOPER_NAME} has not seen this.
+                Sent {utcTime(item.queuedAt)}, refused by the server at {utcTime(item.lastTriedAt || item.queuedAt)}. The developer has not seen this.
               </span>
               <div className="flex gap-2">
                 <button onClick={() => retryFailed(item)} className="inline-flex h-[34px] cursor-pointer items-center rounded-[8px] border-none bg-cw-red px-3 text-[12.5px] font-bold text-white">Send again</button>
@@ -411,9 +411,9 @@ export default function HelpThread({ reference }: { reference: string }) {
                   <span className="flex-1 text-[12.5px] text-cw-faint">
                     {isChat
                       ? thread.presence === "present"
-                        ? `This is a live chat. ${DEVELOPER_NAME} is here.`
-                        : `This is a live chat. ${DEVELOPER_NAME} sees it in Telegram.`
-                      : `This is a report, not a live chat. ${DEVELOPER_NAME} replies when he picks it up.`}
+                        ? "This is a live chat. The developer is here."
+                        : "This is a live chat. The developer sees it in Telegram."
+                      : "This is a report, not a live chat. The developer replies when they pick it up."}
                   </span>
                   {!isChat && (
                     <button
@@ -421,7 +421,7 @@ export default function HelpThread({ reference }: { reference: string }) {
                       className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-[9px] border border-[#c7ead2] bg-[#e7f6ec] px-3 text-[12.5px] font-bold text-[#15803d]"
                     >
                       <span className="h-[7px] w-[7px] rounded-full bg-cw-green" />
-                      Ask him to come live
+                      Ask the developer to come live
                     </button>
                   )}
                 </div>

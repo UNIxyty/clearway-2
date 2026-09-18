@@ -208,7 +208,7 @@ export default function TelegramSupportApp() {
     const onBack = () => {
       if (filterSheet || cannedSheet || statusSheet) { setFilterSheet(false); setCannedSheet(false); setStatusSheet(false); return; }
       if (viewRef.current.name === "join") {
-        tg.showAlert?.("He stays on “notified” — the console says you have not opened the chat yet.");
+        tg.showAlert?.("They stay on “notified” — the console says you have not opened the chat yet.");
         setView({ name: "inbox" });
         return;
       }
@@ -433,11 +433,11 @@ export default function TelegramSupportApp() {
           <button
             onClick={() => {
               void sendReply("I will be there in about five minutes.");
-              tg?.showAlert?.("Sent. He stays on “notified” until you join.");
+              tg?.showAlert?.("Sent. They stay on “notified” until you join.");
             }}
             style={{ height: 44, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
           >
-            Tell him you will be five minutes
+            Say you will be five minutes
           </button>
           <button
             onClick={() => {
@@ -450,7 +450,7 @@ export default function TelegramSupportApp() {
             Turn this into a report
           </button>
           <span style={{ fontSize: 12, lineHeight: 1.5, color: theme.hint, textAlign: "center" }}>
-            Often the context above is enough to answer without joining. Closing without choosing leaves him on “notified”, and he is told so.
+            Often the context above is enough to answer without joining. Closing without choosing leaves them on “notified”, and they are told so.
           </span>
         </div>
       </Screen>

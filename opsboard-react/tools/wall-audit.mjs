@@ -59,10 +59,28 @@ async function overlapAudit(page) {
       if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) === 0) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
-      const r = range.getBoundingClientRect();
+      // Per-LINE boxes: a wrapped inline range's union box would fake-
+      // intersect its neighbours.
+      for (const line of range.getClientRects()) {
+      let r = { left: line.left, top: line.top, right: line.right, bottom: line.bottom, width: line.width, height: line.height };
       if (r.width < 2 || r.height < 2) continue;
       if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+      // Clip against every scroll/overflow ancestor — text scrolled out of a
+      // container is invisible, not an overlap.
+      let clipped = false;
+      for (let anc = el; anc && anc !== document.body; anc = anc.parentElement) {
+        const acs = getComputedStyle(anc);
+        if (/(hidden|auto|scroll|clip)/.test(acs.overflow + acs.overflowX + acs.overflowY)) {
+          const ar = anc.getBoundingClientRect();
+          const left = Math.max(r.left, ar.left), top = Math.max(r.top, ar.top);
+          const right = Math.min(r.right, ar.right), bottom = Math.min(r.bottom, ar.bottom);
+          if (right - left < 2 || bottom - top < 2) { clipped = true; break; }
+          r = { left, top, right, bottom, width: right - left, height: bottom - top };
+        }
+      }
+      if (clipped) continue;
       rects.push({ text: text.slice(0, 40), left: r.left, top: r.top, right: r.right, bottom: r.bottom, el: el.tagName });
+      }
     }
     const overlaps = [];
     for (let i = 0; i < rects.length; i++) {
@@ -91,6 +109,10 @@ async function main() {
       hasTouch: view.width < 1024,
       reducedMotion: "reduce",
     });
+    // External webfonts load nondeterministically and shift antialiasing —
+    // block them so both sides of a byte-compare render with the same faces.
+    await context.route("**://fonts.googleapis.com/**", (route) => route.abort());
+    await context.route("**://fonts.gstatic.com/**", (route) => route.abort());
     await context.route("**/api/**", async (route) => {
       const url = new URL(route.request().url());
       const key = Object.keys(fixtures).find((k) => url.pathname.endsWith(k));
@@ -105,11 +127,19 @@ async function main() {
     });
     const page = await context.newPage();
     await page.clock.install({ time: FROZEN_NOW_MS });
+    // Freeze CSS animations/transitions at frame 0 — the MVT blink phase is
+    // otherwise nondeterministic between runs, defeating byte comparison.
+    await page.addInitScript(() => {
+      const style = document.createElement("style");
+      style.textContent = "*,*::before,*::after{animation-play-state:paused !important;animation-delay:0s !important;transition:none !important;caret-color:transparent !important}";
+      document.addEventListener("DOMContentLoaded", () => document.head.appendChild(style));
+    });
     await page.goto(`${BASE}${view.url}`, { waitUntil: "domcontentloaded" });
     // Let data render; clock is frozen so the paint settles deterministically.
     await page.clock.runFor(3000);
     await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(OUT, `${view.name}.png`), fullPage: false });
+    writeFileSync(path.join(OUT, `${view.name}.dom.html`), await page.content());
     const audit = await overlapAudit(page);
     report.push({ view: view.name, width: view.width, height: view.height, ...audit });
     console.log(`${view.name}: ${audit.textNodes} text nodes, ${audit.overlaps.length} overlaps`);

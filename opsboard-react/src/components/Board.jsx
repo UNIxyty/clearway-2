@@ -15,7 +15,7 @@ import {
 // existing wall states (hollow Estimated, hatched AOG) that still exist.
 // Swatch colours come from legendSwatchesFor(tokens): the shipped muted
 // variants of the pill-fill tokens until a state token is overridden.
-function makeLegend(leg) {
+export function makeLegend(leg) {
   return [
     { status: 'scheduled', label: 'Not departed', color: leg.scheduled },
     { status: 'airborne',  label: 'Airborne',     color: leg.airborne },
@@ -32,7 +32,7 @@ function makeLegend(leg) {
 // "above/average/below average / no forecast"; these labels reconcile that
 // wording with the real flight categories — a label-only change if they
 // insist on their exact words. Swatches from wxLegendSwatchesFor(tokens).
-function makeWxLegend(wx) {
+export function makeWxLegend(wx) {
   return [
     { label: 'VFR — good',        color: wx.VFR },
     { label: 'MVFR — marginal',   color: wx.MVFR },
@@ -154,7 +154,20 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null }) {
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null,
+  bodyContent = 'icao', bodyRight = null, belowText = null,
+  // ── Mobile/tablet additive props — every default reproduces today's
+  // ops-room wall EXACTLY (the ≥1920 render never passes any of these). ──
+  hideSidebar = false,          // skip the left legend/limitations panel
+  rowHeightPx = null,           // fixed aircraft-row height (grows for extra lanes)
+  viewportHoursOverride = null, // hours visible at once (2 phone / 3 tablet / 6 / 24)
+  maxMarkers = null,            // cap marker chips at N + "+N" (IMP > NTM > CAA > WX)
+  forceMarkerMode = null,       // e.g. 'dots' for the phone mini timeline
+  markersInside = false,        // dots inside the pill body (with forceMarkerMode='dots')
+  staleMode = false,            // stale feed: dashed neutral pills, now-line HIDDEN
+  onPillTap = null,             // tap → detail sheet (replaces the desktop info tab)
+  touchHitMinPx = null,         // pad each pill's hit area to ≥N px per axis
+}) {
   // Resolved wall colour tokens — every colour on the board derives from
   // these (chromeFor/legend*/aogStylesFor bridge the shipped odd shades).
   const wallColors = useWallColors();
@@ -199,8 +212,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // 2 = hour gridlines twice as far apart (fewer hours visible), 0.5 = twice
   // as many hours on screen. Everything downstream (pxPerHour, gridlines,
   // pills, labels, now-line) derives from these two numbers.
-  const VIEWPORT_HOURS = 10 / scale / timeZoom;
-  const BEFORE_NOW_HOURS = 3 / scale / timeZoom;
+  const VIEWPORT_HOURS = viewportHoursOverride ?? (10 / scale / timeZoom);
+  const BEFORE_NOW_HOURS = viewportHoursOverride != null ? viewportHoursOverride * 0.3 : 3 / scale / timeZoom;
   // ── Auto-fit (Item 2): measure the rows viewport, count rows/lanes, and
   // scale the four vertical knobs so EVERY aircraft row fits on screen.
   // The manual slider values stay authoritative when autoFitRows is off,
@@ -539,7 +552,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     limIndexMap[l.id] = i + 1;
   });
 
-  const showNow = true;
+  // Stale feed (design A5/B2): the now-line is HIDDEN rather than drawn at a
+  // time the data can no longer vouch for.
+  const showNow = !staleMode;
 
   return (
     <div style={s.outer}>
@@ -555,6 +570,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 
       {/* ── LEFT PANEL: STATUS LEGEND + LIMITATIONS (view-only, readable at
              distance: full text always visible, no click-to-expand) ── */}
+      {!hideSidebar && (
       <div style={s.leftPanel}>
         {/* Mockup order: date, WX agenda, timeline agenda, permanent lims */}
         <div style={s.sidebarDate}>
@@ -612,6 +628,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           ))}
         </div>
       </div>
+      )}
 
       {/* ── MAIN BOARD ── */}
       <div style={s.main}>
@@ -660,17 +677,59 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 });
                 const openFlight = openInfoId ? laneData.flights.find((fl) => fl.id === openInfoId) : null;
                 const INFO_TAB_H = 210;
-                const lanesHeight = Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
+                // Fixed row height (phone 60 / tablet 152) still GROWS when a
+                // row needs extra lanes — content is never clipped.
+                const lanesHeight = rowHeightPx != null
+                  ? Math.max(rowHeightPx, sz(6) + laneData.lanes * FLIGHT_LANE_STEP)
+                  : Math.max(FLIGHT_LANE_STEP + sz(24), sz(20) + laneData.lanes * FLIGHT_LANE_STEP);
                 // The row GROWS to hold the tab — in-place expansion never
                 // obscures other flights or rows.
                 const rowHeight = lanesHeight + (openFlight ? INFO_TAB_H + 10 : 0);
+                // Touch overlays (touchHitMinPx): per-lane free space before/
+                // after each pill's VISUAL span, so overlays can split gaps at
+                // the midpoint instead of stealing a neighbour's tap.
+                const touchGaps = new Map();
+                if (touchHitMinPx != null) {
+                  const visSpan = (fl) => {
+                    const sMs = toMs(fl.startUtcMs);
+                    const dce = Math.max(sMs, toMs(fl.delayedStartUtcMs, sMs));
+                    const sae = Math.max(dce, toMs(fl.scheduledEndUtcMs, dce));
+                    const ace = Math.max(sae, toMs(fl.endUtcMs, sae));
+                    return [
+                      clamp((sMs - windowStartMs) / windowDurationMs) * timelinePx,
+                      clamp((ace - windowStartMs) / windowDurationMs) * timelinePx,
+                    ];
+                  };
+                  const byLane = new Map();
+                  for (const fl of laneData.flights) {
+                    const lane = fl.__lane || 0;
+                    if (!byLane.has(lane)) byLane.set(lane, []);
+                    byLane.get(lane).push(fl);
+                  }
+                  for (const laneFlights of byLane.values()) {
+                    const spans = laneFlights
+                      .map((fl) => ({ fl, span: visSpan(fl) }))
+                      .sort((a, b) => a.span[0] - b.span[0]);
+                    for (let i = 0; i < spans.length; i += 1) {
+                      const prev = spans[i - 1];
+                      const next = spans[i + 1];
+                      touchGaps.set(spans[i].fl.id, {
+                        prevPx: prev ? Math.max(0, spans[i].span[0] - prev.span[1]) : null,
+                        nextPx: next ? Math.max(0, next.span[0] - spans[i].span[1]) : null,
+                      });
+                    }
+                  }
+                }
                 return (
                 <div key={ac.id || ac.reg} style={{ ...s.row, height: rowHeight, background: acIndex % 2 === 1 ? chrome.rowAlt : 'transparent' }}>
 
                   {/* AC label */}
                   <div style={s.acLabel}>
                     <span style={s.reg}>{ac.reg}</span>
-                    <span style={s.acType}>{ac.type}</span>
+                    {/* ≤64px rows (phone mini/landscape): the operator line
+                        cannot fit under the reg without colliding with the
+                        below-pill times — design A6 shows reg only there. */}
+                    {!(rowHeightPx && rowHeightPx <= 64) && <span style={s.acType}>{ac.type}</span>}
                   </div>
 
                   {/* Timeline track */}
@@ -741,13 +800,24 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         markerScale={effMarkerScale}
                         labelScale={effLabelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
-                        stickyLeftPx={AC_LABEL_W + 6}
+                        stickyLeftPx={AC_LABEL_W + (rowHeightPx ? 12 : 6)}
+                        bodyContent={bodyContent}
+                        bodyRight={bodyRight}
+                        belowText={belowText}
                         nowMs={nowMs}
                         viewportPx={visibleTimelineWidth}
                         mvtThresholdMin={mvtThresholdMin}
                         mvtFlashSeconds={mvtFlashSeconds}
                         infoOpen={fl.id === openInfoId}
-                        onToggleInfo={() => setOpenInfoId((prev) => (prev === fl.id ? null : fl.id))}
+                        onToggleInfo={onPillTap ? null : () => setOpenInfoId((prev) => (prev === fl.id ? null : fl.id))}
+                        forceMarkerMode={forceMarkerMode}
+                        markersInside={markersInside}
+                        maxMarkers={maxMarkers}
+                        stale={staleMode}
+                        onTap={onPillTap}
+                        touchHitMinPx={touchHitMinPx}
+                        touchGapPrevPx={touchGaps.get(fl.id)?.prevPx ?? null}
+                        touchGapNextPx={touchGaps.get(fl.id)?.nextPx ?? null}
                       />
                     ))}
                   </div>

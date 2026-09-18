@@ -204,6 +204,35 @@ function hmUtc(ms) {
  * per its flags): this component just renders what the flight carries.
  */
 /** The markers a flight carries, as data — shared by renderer and budgeter. */
+// Fixed severity order for capped marker rows (mobile/tablet views):
+// IMP > NTM > CAA > WX — the drop is predictable when a "+N" chip appears.
+const MARKER_ORDER = { IMP: 0, NTM: 1, CAA: 2, WXD: 3, WXA: 4 };
+
+/** markerListOf, re-sorted into the fixed IMP > NTM > CAA > WX order. */
+export function orderedMarkersOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}) {
+  return markerListOf(flight, { wx, colors })
+    .slice()
+    .sort((a, b) => (MARKER_ORDER[a.key] ?? 9) - (MARKER_ORDER[b.key] ?? 9));
+}
+
+/**
+ * MVT-overdue predicate, shared by the wall timeline (blink ring) and the
+ * phone/tablet lists (static red badge) — ONE definition, no drift. True when
+ * no T/O `thresholdMin` past the expected departure; reference is CTOT/ETD
+ * when set, else STD (that instant IS delayedStartUtcMs under mapFlight).
+ */
+export function mvtOverdueOf(flight, nowMs, thresholdMin = 15) {
+  const mvtRefMs = Number(flight.delayedStartUtcMs) || Number(flight.startUtcMs) || 0;
+  return (
+    (flight.depKind ?? 'STD') !== 'T/O' &&
+    !flight.atdHm &&
+    flight.status !== 'arrived' &&
+    !flight.isCnl &&
+    mvtRefMs > 0 &&
+    Number(nowMs) > mvtRefMs + thresholdMin * 60_000
+  );
+}
+
 export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}) {
   const chips = markerChipsFor(colors);
   const wxColors = wxCategoryColorsFor(colors);
@@ -291,11 +320,55 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
   );
 }
 
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null }) {
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null, max = null }) {
   const c = useWallColors();
   const chips = markerChipsFor(c);
   const lightChips = markerLightFor(c);
   const light = variant === 'light';
+  // Capped marker row (mobile/tablet, design B1): fixed IMP > NTM > CAA > WX
+  // order, at most `max` chips, everything else folded into one "+N" chip.
+  // New gated branch — desktop never passes `max`, so nothing changes there.
+  if (variant === 'wall' && max != null && mode !== 'dots' && mode !== 'count') {
+    const ordered = orderedMarkersOf(flight, { wx: true, colors: c });
+    if (ordered.length === 0) return null;
+    const shown = ordered.slice(0, max);
+    const hiddenCount = ordered.length - shown.length;
+    const chipBase = {
+      fontFamily: "'IBM Plex Mono',monospace",
+      fontSize: sz(9.5),
+      fontWeight: 800,
+      border: '1px solid',
+      borderRadius: 4,
+      padding: `1px ${sz(4)}px`,
+      lineHeight: `${sz(12)}px`,
+      letterSpacing: '.5px',
+      flexShrink: 0,
+    };
+    const chipStyleOf = (m) => {
+      if (m.key === 'IMP') return { color: chips.IMP.text, borderColor: chips.IMP.border, background: chips.IMP.bg };
+      if (m.key === 'CAA') return { color: chips.CAA.text, borderColor: chips.CAA.border, background: chips.CAA.bg };
+      if (m.key === 'WXD' || m.key === 'WXA') return { color: m.color, borderColor: withAlpha(m.color, 0.55), background: withAlpha(m.color, 0.16) };
+      return { color: chips.NTM.text, borderColor: chips.NTM.border, background: chips.NTM.bg };
+    };
+    const labelOf = (m) => (m.key === 'WXD' || m.key === 'WXA' ? 'WX' : m.key);
+    return (
+      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+        {shown.map((m, i) => (
+          <span key={`${m.key}-${i}`} title={m.label} style={{ ...chipBase, ...chipStyleOf(m) }}>
+            {labelOf(m)}
+          </span>
+        ))}
+        {hiddenCount > 0 && (
+          <span
+            title={ordered.slice(max).map((m) => m.label).join(' · ')}
+            style={{ ...chipBase, fontWeight: 800, color: c.textTimes, borderColor: PILL_SHIPPED.countBorder, background: 'transparent' }}
+          >
+            +{hiddenCount}
+          </span>
+        )}
+      </span>
+    );
+  }
   // Degraded wall modes (1B): icons drop chip text, dots collapse each
   // marker to a coloured dot, count folds everything into one +N chip.
   // Colour meaning survives at every level.
@@ -440,6 +513,21 @@ export default function FlightPill({
   mvtFlashSeconds = 1,
   infoOpen = false,
   onToggleInfo = null,
+  // ── Mobile/tablet additive props (defaults = today's wall, exactly) ──────
+  forceMarkerMode = null, // 'full' | 'icons' | 'dots' | 'count' — bypass width heuristics
+  markersInside = false,  // dots render INSIDE the pill body (phone mini timeline)
+  maxMarkers = null,      // cap the marker row at N + "+N", order IMP > NTM > CAA > WX
+  stale = false,          // feed stale: dashed outline, no state colour, no blink
+  onTap = null,           // tap anywhere on the pill (opens the detail sheet)
+  touchHitMinPx = null,   // transparent overlay padded to ≥N px per axis
+  touchGapPrevPx = null,  // free px before this pill in its lane (overlay split)
+  touchGapNextPx = null,  // free px after this pill in its lane (overlay split)
+  // Design A4/A6/B1: mini + reduced pills carry the CALLSIGN inside the body
+  // ('icao' = today's wall, untouched). 'callsign' = one row (fn + bodyRight),
+  // 'callsign-route' = two lines (fn+dots / route) for the 42px phone pill.
+  bodyContent = 'icao',
+  bodyRight = null,       // 'times' | 'duration' — right-hand text in callsign mode
+  belowText = null,       // null = today's auto | 'combined' | 'none'
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, depDeltaMin = 0, arrDeltaMin = 0, depKind = 'STD', arrKind = 'STA', depHm, arrHm, status } = flight;
   // Resolved wall colour tokens (per-account overrides over the shipped
@@ -477,29 +565,26 @@ export default function FlightPill({
   // The fill comes straight from the Leon-derived movement state — a delayed
   // AIRBORNE flight is blue (the leading dashed segment still shows the
   // delay); "delayed" (yellow) means delayed and not yet departed.
-  const theme = STATUS[status] || STATUS.scheduled;
+  // Stale feed (mobile/tablet, design A5/B2): the pill LOSES its state colour
+  // (a state chip claims freshness the data no longer has) and goes dashed.
+  // Neutral fill derives from the cancelled-state token — never a literal.
+  const staleTheme = { bg: withAlpha(c.stateCancelled, 0.45), text: c.textCancelled };
+  const theme = stale ? staleTheme : (STATUS[status] || STATUS.scheduled);
   // Estimated states (clock-derived, no flight-watch data) render HOLLOW:
   // outline + faint fill in the state's colour. Solid = confirmed by real
   // Leon data; hollow = presumed from the schedule. Drawn with an inset
   // ring (not a border) so geometry — and the overlap audit — is unchanged.
-  const hollow = flight.estimated === true && (status === 'airborne' || status === 'arrived');
+  const hollow = !stale && flight.estimated === true && (status === 'airborne' || status === 'arrived');
   // MVT flash (bug report 3 item 7): no T/O `mvtThresholdMin` past the
-  // expected departure — reference is CTOT/ETD when set (suppression rule),
-  // else STD; that instant IS delayedStartUtcMs under the current mapping.
-  // Only the CONTOUR blinks; stops the moment a T/O arrives.
-  const mvtRefMs = Number(flight.delayedStartUtcMs) || Number(flight.startUtcMs) || 0;
-  const mvtFlashing =
-    depKind !== 'T/O' &&
-    !flight.atdHm &&
-    status !== 'arrived' &&
-    !flight.isCnl &&
-    mvtRefMs > 0 &&
-    Number(nowMs) > mvtRefMs + mvtThresholdMin * 60_000;
+  // expected departure — see mvtOverdueOf (the ONE shared predicate).
+  // Only the CONTOUR blinks; stops the moment a T/O arrives. Suppressed on a
+  // stale feed (a blink claims a live judgement the data can't back).
+  const mvtFlashing = !stale && mvtOverdueOf(flight, nowMs, mvtThresholdMin);
   const hollowRing = Math.max(2, Math.round(2 * scale));
 
   // WX colour for an ICAO: dark tones on solid light fills, bright tones on
   // hollow pills (dark background shows through). null = default colour.
-  const wxIcaoColor = (cat) => (cat ? (hollow ? WX_BRIGHT[cat] : WX_DARK[cat]) ?? null : null);
+  const wxIcaoColor = (cat) => (stale || !cat ? null : (hollow ? WX_BRIGHT[cat] : WX_DARK[cat]) ?? null);
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -589,7 +674,10 @@ export default function FlightPill({
   // never dropped because a timing is missing, and vice versa.
   // Only two endpoint labels exist now (boundary labels are gone), so the
   // compact threshold is just "both endpoint labels can't clear each other".
-  const compactTimes = timelinePx > 0 && pillPx < labelW * 2.3;
+  // On TOUCH timelines (touchHitMinPx set — phone/tablet only) the combined
+  // single sticky label is ALWAYS used: at 2-3h windows pills scroll half-off
+  // screen constantly and the two anchored end labels would stack.
+  const compactTimes = touchHitMinPx != null || (timelinePx > 0 && pillPx < labelW * 2.3);
   // Bug report 4 item 6 (third report of "LI…"): the old gate reserved
   // icaoW*2 + sz(22) but the row actually needs the outer padding
   // (2×sz(9)), TWO 8px flex gaps, the 1px divider and the .5px/char
@@ -633,13 +721,21 @@ export default function FlightPill({
   const afterGapPx = Number.isFinite(neighborGapPx)
     ? neighborGapPx - pillPx - sz(10)
     : Number.POSITIVE_INFINITY;
-  const markerMode = (() => {
+  const markerMode = forceMarkerMode ?? (() => {
     if (markerRowWidthEstimate(flight, szm, 'full', [], { wx: false }) <= afterGapPx) return 'full';
     if (markerRowWidthEstimate(flight, szm, 'icons', [], { wx: false }) <= afterGapPx) return 'icons';
     if (markerRowWidthEstimate(flight, szm, 'dots', [], { wx: false }) <= afterGapPx) return 'dots';
     if (szm(26) <= afterGapPx) return 'count';
     return 'none';
   })();
+  // Phone mini timeline (design A4): markers collapse to 6px squares INSIDE
+  // the pill body (the after-pill row is suppressed), colours via the same
+  // marker/wx token bridges, capped at maxMarkers in IMP > NTM > CAA > WX
+  // order. Dots carry presence, the detail sheet carries the words.
+  const insideDots = markersInside && markerMode === 'dots'
+    ? orderedMarkersOf(flight, { wx: true, colors: c }).slice(0, maxMarkers ?? 3)
+    : null;
+  const markersAfterPill = markerMode !== 'none' && !insideDots;
 
   // Route below the pill (design 2A): when both ICAOs don't fully fit
   // INSIDE the pill, the pill stays clean and the route renders below with
@@ -650,7 +746,9 @@ export default function FlightPill({
   // Bug report 2 item 3: airport codes and timings are ALWAYS visible.
   // The lane assigner reserves each flight's below-text width, so the
   // combined route+times line always has room — no drop modes.
-  const belowMode = showFull ? 'anchored' : 'combined';
+  const durMin = Math.max(0, Math.round(((flight.endUtcMs ?? 0) - (flight.startUtcMs ?? 0)) / 60000));
+  const durText = `${Math.floor(durMin / 60)}h ${String(durMin % 60).padStart(2, '0')}m`;
+  const belowMode = belowText != null ? belowText : (showFull ? 'anchored' : 'combined');
   const belowBudget = budgetPx - sz(4); // still used by the compact-label fit check
 
 
@@ -711,6 +809,7 @@ export default function FlightPill({
               </span>
             );
           })}
+          {bodyContent === 'icao' && (
           <span
             style={{
               fontFamily: "'IBM Plex Mono',monospace",
@@ -724,10 +823,11 @@ export default function FlightPill({
           >
             {fn}
           </span>
+          )}
         </span>
-        {markerMode !== 'none' && (
+        {markersAfterPill && (
           <span style={{ position: 'absolute', left: '100%', marginLeft: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}>
-            <FlightMarkers flight={flight} sz={szm} mode={markerMode} />
+            <FlightMarkers flight={flight} sz={szm} mode={markerMode} max={maxMarkers} />
           </span>
         )}
 
@@ -748,9 +848,9 @@ export default function FlightPill({
         />
       )}
       <div
-        onClick={clickable ? onToggleInfo : undefined}
-        title={clickable ? 'Show limitations / NOTAM / WX / CAA for this flight' : undefined}
-        style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: `2px solid ${chrome.accent}`, outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}) }}
+        onClick={onTap ? () => onTap(flight) : clickable ? onToggleInfo : undefined}
+        title={onTap ? undefined : clickable ? 'Show limitations / NOTAM / WX / CAA for this flight' : undefined}
+        style={{ position: 'absolute', left: 0, right: 0, top: Math.max(0, Math.round((F.band - F.body) / 2)), height: F.body, borderRadius: 99, overflow: 'hidden', cursor: onTap || clickable ? 'pointer' : 'default', ...(infoOpen ? { outline: `2px solid ${chrome.accent}`, outlineOffset: 1 } : {}), ...(hollow ? { boxShadow: `inset 0 0 0 ${hollowRing}px ${theme.bg}` } : {}), ...(stale ? { outline: `1px dashed ${withAlpha(c.textOperator, 0.55)}`, outlineOffset: -1 } : {}) }}
       >
         <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', overflow: 'hidden' }}>
           {depDeltaMin > 0 && depCrossSectionF > 0 && (
@@ -790,6 +890,7 @@ export default function FlightPill({
             {/* Design 2A: ICAOs render inside ONLY when both fit completely;
                 a pill too narrow stays clean and the route moves below —
                 never a truncated "L…". */}
+            {bodyContent === 'icao' ? (
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
               {showFull && (
                 <>
@@ -799,6 +900,31 @@ export default function FlightPill({
                 </>
               )}
             </div>
+            ) : bodyContent === 'callsign-route' ? (
+            // A4: two lines inside the 42px pill — callsign (+dots handled
+            // beside), route beneath, both sticky-clamped by the flex parent.
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, flex: 1, overflow: 'hidden' }}>
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(10.5, F.icao - 2), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(9, F.icao - 5), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', overflow: 'hidden' }}>{dep}-{arr}</span>
+            </div>
+            ) : (
+            // A6/B1: callsign left, times or duration right.
+            <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(11, F.icao - 1), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
+              {pillPx >= 120 && (
+                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(9.5, F.icao - 4), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {bodyRight === 'duration' ? durText : `${depHm ?? etd}–${arrHm ?? eta}`}
+                </span>
+              )}
+            </div>
+            )}
+            {insideDots && insideDots.length > 0 && (
+              <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center', flexShrink: 0 }}>
+                {insideDots.map((m, i) => (
+                  <span key={`${m.key}-${i}`} title={m.label} style={{ width: 6, height: 6, borderRadius: 2, background: m.color, flexShrink: 0, display: 'block' }} />
+                ))}
+              </span>
+            )}
 
           </div>
 
@@ -817,6 +943,38 @@ export default function FlightPill({
           )}
         </div>
       </div>
+      {touchHitMinPx != null && onTap && (() => {
+        // Touch hit target (design B1 note): the pill keeps its computed
+        // width; a TRANSPARENT overlay pads the hit area to ≥touchHitMinPx
+        // per axis, extending symmetrically past the visual edge. Where two
+        // pills sit closer than the overlay needs, the gap is SPLIT at the
+        // midpoint (each neighbour may claim half) — the nearer edge wins
+        // and a short flight never becomes untappable.
+        const needX = Math.max(0, touchHitMinPx - pillPx);
+        const availL = touchGapPrevPx == null ? Number.POSITIVE_INFINITY : Math.max(0, touchGapPrevPx / 2);
+        const availR = touchGapNextPx == null ? Number.POSITIVE_INFINITY : Math.max(0, touchGapNextPx / 2);
+        let extendR = Math.min(needX / 2, availR);
+        let extendL = Math.min(needX - extendR, availL);
+        extendR = Math.min(needX - extendL, availR);
+        const needY = Math.max(0, touchHitMinPx - F.body);
+        const bodyTop = Math.max(0, Math.round((F.band - F.body) / 2));
+        const finite = (v) => (Number.isFinite(v) ? v : needX / 2);
+        return (
+          <div
+            onClick={() => onTap(flight)}
+            style={{
+              position: 'absolute',
+              left: -finite(extendL),
+              width: pillPx + finite(extendL) + finite(extendR),
+              top: bodyTop - needY / 2,
+              height: F.body + needY,
+              zIndex: 6,
+              cursor: 'pointer',
+              background: 'transparent',
+            }}
+          />
+        );
+      })()}
       </div>
 
       {belowMode === 'combined' || belowMode === 'route-only' ? (

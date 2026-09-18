@@ -13,6 +13,8 @@ import {
 import { subscribeWallStream } from './services/wallStream';
 import { WallColorsProvider } from './theme/WallColorsContext';
 import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/device';
+import useViewport from './hooks/useViewport';
+import ResponsiveWall from './components/mobile/ResponsiveWall';
 
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
@@ -99,6 +101,11 @@ export default function DisplayApp() {
   const [limitations, setLimitations] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
   const [notamSign, setNotamSign] = useState('NONE');
+  // Full NOTAM-check payload (per-airport checked state) — the phone's
+  // Attention tab reads it; the desktop wall keeps using only the sign.
+  const [notamState, setNotamState] = useState(null);
+  // Last successful timeline load — feeds the mobile staleness judgement.
+  const [dataUpdatedAt, setDataUpdatedAt] = useState(0);
   const [scale, setScale] = useState(1.3); // display scale (ops-room legibility)
   const [timeZoom, setTimeZoom] = useState(1); // hour-gridline spacing (time-axis zoom)
   const [rowZoom, setRowZoom] = useState(1); // vertical size (row spacing)
@@ -122,6 +129,11 @@ export default function DisplayApp() {
   const deviceIdRef = useRef(getDeviceId());
   const accountRef = useRef(''); // this screen's signed-in account (profile key)
   const debugViewport = DEBUG_VIEWPORT;
+  // Responsive dispatch (design sections A/B/E): the ops-room wall keeps
+  // today's rendering from 1920 up; anything narrower gets the phone/tablet
+  // views. Data fetching stays HERE either way, so the visibility window,
+  // per-account settings and SSE refresh are inherited unchanged.
+  const vp = useViewport();
 
   async function loadTimeline({ refresh = true } = {}) {
     if (loadingRef.current) return;
@@ -133,6 +145,7 @@ export default function DisplayApp() {
       setWindowEndUtc(result.windowEndUtc || '');
       setLimitations(result.limitations || []);
       setError('');
+      setDataUpdatedAt(Date.now());
     } catch (err) {
       // Keep showing the last good board; surface the problem quietly.
       setError(err instanceof Error ? err.message : String(err));
@@ -191,7 +204,7 @@ export default function DisplayApp() {
     loadTimeline({ refresh: false });
     loadClocks();
     loadSettings();
-    fetchNotamCheckToday().then((p) => setNotamSign(p.sign || 'NONE')).catch(() => {});
+    fetchNotamCheckToday().then((p) => { setNotamSign(p.sign || 'NONE'); setNotamState(p); }).catch(() => {});
     const id = setInterval(() => loadTimeline({ refresh: false }), POLL_MS);
     // Item 1: report this screen's real rendering environment (and again on
     // resize) so the console shows what the wall actually has to work with.
@@ -238,6 +251,8 @@ export default function DisplayApp() {
       subscribeWallStream('notam-check.changed', (event) => {
         setNotamSign(event.sign || 'NONE');
         loadTimeline({ refresh: false });
+        // Per-airport checked state for the mobile Attention tab.
+        fetchNotamCheckToday().then((p) => setNotamState(p)).catch(() => {});
       }),
       subscribeWallStream('config.changed', (event) => {
         if (!event.section || event.section === 'clocks') loadClocks();
@@ -258,6 +273,7 @@ export default function DisplayApp() {
 
   return (
     <WallColorsProvider colors={wallColorOverrides}>
+    {vp.isWallDesktop ? (
     <div style={s.shell}>
       {/* Clocks bar + wall sign scale with the SIDEBAR scale; the overlay
           with its own scale — the board scale moves neither (Item 2). */}
@@ -303,6 +319,28 @@ export default function DisplayApp() {
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
     </div>
+    ) : (
+    <ResponsiveWall
+      vp={vp}
+      aircraft={aircraft}
+      limitations={limitations}
+      windowStartUtc={windowStartUtc}
+      windowEndUtc={windowEndUtc}
+      clocks={clocks}
+      notamState={notamState}
+      mvtThresholdMin={mvtThresholdMin}
+      mvtFlashSeconds={mvtFlashSeconds}
+      loadedOnce={loadedOnce}
+      error={error}
+      dataUpdatedAt={dataUpdatedAt}
+      onReload={() => {
+        loadTimeline({ refresh: false });
+        loadClocks();
+        loadSettings();
+        fetchNotamCheckToday().then((p) => { setNotamSign(p.sign || 'NONE'); setNotamState(p); }).catch(() => {});
+      }}
+    />
+    )}
     </WallColorsProvider>
   );
 }

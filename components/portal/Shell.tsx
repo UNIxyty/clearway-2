@@ -112,6 +112,7 @@ export default function PortalShell({
   subtitle,
   headerRight,
   wide = true,
+  footer = true,
 }: {
   children: ReactNode;
   deepContext?: DeepContext | null;
@@ -120,6 +121,9 @@ export default function PortalShell({
   subtitle?: string;
   headerRight?: ReactNode;
   wide?: boolean;
+  /** Full-viewport pages (developer inbox) suppress the site footer so their
+      panes own the scroll instead of the page. */
+  footer?: boolean;
 }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
@@ -460,6 +464,7 @@ export default function PortalShell({
 
         <div className={clsx("min-h-0 flex-1", !wide && "mx-auto w-full max-w-[1100px]")}>{children}</div>
 
+        {footer && (
         <div className="flex items-center gap-3.5 border-t border-cw-border bg-white px-8 py-[18px]">
           <span className="flex-1 text-[12.5px] text-cw-faint">
             Data sourced from official AIP publications. For operational use only.
@@ -473,6 +478,7 @@ export default function PortalShell({
             className="h-[22px] w-auto opacity-85"
           />
         </div>
+        )}
       </div>
     </div>
   );

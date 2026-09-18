@@ -454,11 +454,26 @@ function mapSavedReply(r: Row): HelpSavedReply {
   };
 }
 
+const SEED_REPLIES: Array<{ text: string; sets_status: HelpStatus | null }> = [
+  { text: "Looking at it now.", sets_status: "under_process" },
+  { text: "Fixed — it will be live in the next deploy.", sets_status: "done" },
+  { text: "Can you send a screenshot of the console?", sets_status: null },
+  { text: "Which ICAO and what time (UTC) did it happen?", sets_status: null },
+  { text: "Not possible with the data we get from EAD — here is why:", sets_status: "impossible" },
+];
+
 export async function listSavedReplies(): Promise<HelpSavedReply[]> {
   const { data } = await service()
     .from("help_saved_replies").select("id,text,sets_status,use_count,created_at,updated_at")
     .order("use_count", { ascending: false }).limit(50);
-  return ((data || []) as Row[]).map(mapSavedReply);
+  if (data && data.length > 0) return (data as Row[]).map(mapSavedReply);
+  // Self-heal: the migration's seed block may not have been run — the five
+  // starters from the design appear on first read instead of never.
+  const { data: seeded } = await service()
+    .from("help_saved_replies")
+    .insert(SEED_REPLIES)
+    .select("id,text,sets_status,use_count,created_at,updated_at");
+  return ((seeded || []) as Row[]).map(mapSavedReply);
 }
 
 export async function upsertSavedReply(input: { id?: string; text: string; setsStatus?: HelpStatus | null }): Promise<HelpSavedReply> {

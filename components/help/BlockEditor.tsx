@@ -172,9 +172,13 @@ const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(0)} M
 export function AttachmentsPanel({
   atts,
   compact = false,
+  dropzone = true,
 }: {
   atts: ReturnType<typeof useAttachments>;
   compact?: boolean;
+  /** false = no permanent drop target; a 36px Attach button opens the picker
+      (drag/paste still work through the editor). Used by the inbox reply box. */
+  dropzone?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -266,6 +270,9 @@ export function AttachmentsPanel({
           })}
         </div>
       )}
+      {!dropzone ? (
+        atts.items.length === 0 ? null : null
+      ) : (
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -289,7 +296,34 @@ export function AttachmentsPanel({
         </span>
         <span className="rounded-[5px] border border-cw-border bg-white px-1.5 py-0.5 font-mono text-[12px] text-cw-body">⌘V</span>
       </div>
+      )}
     </div>
+  );
+}
+
+/** 36px attach trigger for dropzone-less panels (inbox reply box). */
+export function AttachButton({ atts }: { atts: ReturnType<typeof useAttachments> }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={ref}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          for (const f of Array.from(e.target.files || [])) atts.startUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        onClick={() => ref.current?.click()}
+        title="Attach a file"
+        className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white text-[15px] text-cw-body"
+      >
+        ⎘
+      </button>
+    </>
   );
 }
 

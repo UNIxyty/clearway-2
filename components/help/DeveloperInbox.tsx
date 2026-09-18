@@ -19,7 +19,7 @@ import {
   utcTime,
   type ThreadWithMeta,
 } from "@/components/help/helpApi";
-import { AttachmentsPanel, useAttachments } from "@/components/help/BlockEditor";
+import { AttachButton, AttachmentsPanel, useAttachments } from "@/components/help/BlockEditor";
 import {
   HELP_CONTEXT_ORDER,
   HELP_STATUSES,
@@ -269,8 +269,8 @@ export default function DeveloperInbox() {
   );
 
   return (
-    <PortalShell crumb="Developer" title="" wide>
-      <div className="flex h-[calc(100vh-58px)] overflow-hidden">
+    <PortalShell crumb="Developer" title="" wide footer={false}>
+      <div className="flex h-[calc(100dvh-54px)] overflow-hidden lg:h-dvh">
         {/* list pane */}
         <div className="flex w-[372px] flex-none flex-col border-r border-cw-border bg-white">
           <div className="flex flex-none flex-col gap-3 border-b border-cw-border px-[18px] pb-3 pt-4">
@@ -285,7 +285,7 @@ export default function DeveloperInbox() {
             <div className="flex gap-1.5">
               <button
                 onClick={() => setFilter("unread")}
-                className="inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-[8px] border-none px-[11px] text-[12.5px] font-semibold"
+                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[9px] border-none px-3 text-[13px] font-semibold"
                 style={filter === "unread" ? { background: "#17181c", color: "#fff" } : { background: "#f5f6f7", border: "1px solid #e6e7ea", color: "#3a3d44" }}
               >
                 Unread
@@ -297,7 +297,7 @@ export default function DeveloperInbox() {
               </button>
               <button
                 onClick={() => { setFilter("all"); setStatusFilter(null); setTypeFilter(null); }}
-                className="inline-flex h-[30px] cursor-pointer items-center rounded-[8px] px-[11px] text-[12.5px] font-semibold"
+                className="inline-flex h-9 cursor-pointer items-center rounded-[9px] px-3 text-[13px] font-semibold"
                 style={filter === "all" && !statusFilter && !typeFilter ? { background: "#17181c", color: "#fff", border: "none" } : { background: "#f5f6f7", border: "1px solid #e6e7ea", color: "#3a3d44" }}
               >
                 All
@@ -306,7 +306,7 @@ export default function DeveloperInbox() {
                 <div key={which} className="relative">
                   <button
                     onClick={() => setOpenDropdown(openDropdown === which ? null : which)}
-                    className="inline-flex h-[30px] cursor-pointer items-center gap-1 rounded-[8px] border border-cw-border bg-cw-sidebar px-[11px] text-[12.5px] text-cw-body"
+                    className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-[9px] border border-cw-border bg-cw-sidebar px-3 text-[13px] text-cw-body"
                   >
                     {which === "status" ? (statusFilter ? HELP_STATUS_META[statusFilter].label : "Status") : typeFilter ? HELP_TYPE_META[typeFilter as keyof typeof HELP_TYPE_META].label : "Type"} ▾
                   </button>
@@ -545,30 +545,21 @@ export default function DeveloperInbox() {
                     placeholder="Reply — plain text; ``` fences make a code block"
                     className="w-full resize-none border-none bg-transparent p-0 text-[13.5px] leading-[1.55] text-cw-ink outline-none placeholder:text-[#c3c7ce]"
                   />
-                  <AttachmentsPanel atts={atts} compact />
+                  <AttachmentsPanel atts={atts} compact dropzone={false} />
                   <div className="flex items-center gap-[9px]">
-                    <button onClick={wrapSelectionInCode} title="Wrap selection in a code block" className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-[8px] border border-cw-border bg-white font-mono text-[11px] font-bold text-cw-body">
+                    <AttachButton atts={atts} />
+                    <button onClick={wrapSelectionInCode} title="Wrap selection in a code block" className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white font-mono text-[12px] font-bold text-cw-body">
                       {"{ }"}
                     </button>
+                    <span className="relative">
                     <button
                       onClick={() => { setRepliesOpen((v) => !v); setReplyIndex(0); }}
-                      className="inline-flex h-[30px] cursor-pointer items-center gap-[7px] rounded-[8px] border border-[#dbe6ff] bg-[#f2f7ff] px-[11px] text-[12.5px] font-bold text-[#1d4ed8]"
+                      className="inline-flex h-9 cursor-pointer items-center gap-[7px] rounded-[9px] border border-[#dbe6ff] bg-[#f2f7ff] px-3 text-[13px] font-bold text-[#1d4ed8]"
                     >
                       ⚡ Saved replies
                     </button>
-                    <span className="ml-auto font-mono text-[10.5px] text-cw-faint">⌘⏎ to send</span>
-                    <button
-                      onClick={() => void send()}
-                      disabled={sending}
-                      className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-white"
-                    >
-                      {sending ? "Sending…" : "Send reply"}
-                    </button>
-                  </div>
-                </div>
-
-                {repliesOpen && (
-                  <div className="absolute bottom-full right-[22px] z-40 mb-2 w-[340px] overflow-hidden rounded-[13px] border border-cw-border bg-white shadow-[0_14px_36px_rgba(16,18,22,.16)]">
+                    {repliesOpen && (
+                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[360px] overflow-hidden rounded-[13px] border border-cw-border bg-white shadow-[0_14px_36px_rgba(16,18,22,.16)]">
                     <div className="flex items-center gap-2 border-b border-[#f1f2f4] px-[13px] py-2.5">
                       <span className="flex-1 text-[12.5px] font-bold text-cw-ink">Saved replies</span>
                       <input
@@ -582,7 +573,7 @@ export default function DeveloperInbox() {
                           if (e.key === "Escape") { e.preventDefault(); setRepliesOpen(false); }
                         }}
                         placeholder="type to filter"
-                        className="w-[110px] rounded-[6px] border border-cw-border bg-cw-page px-2 py-1 font-mono text-[10px] text-cw-body outline-none"
+                        className="h-8 w-[140px] rounded-[7px] border border-cw-border bg-cw-page px-2.5 text-[12px] text-cw-body outline-none"
                       />
                     </div>
                     <div className="flex flex-col gap-0.5 p-1.5">
@@ -625,6 +616,18 @@ export default function DeveloperInbox() {
                     </div>
                   </div>
                 )}
+                    </span>
+                    <span className="ml-auto font-mono text-[10.5px] text-cw-faint">⌘⏎ to send</span>
+                    <button
+                      onClick={() => void send()}
+                      disabled={sending}
+                      className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-white"
+                    >
+                      {sending ? "Sending…" : "Send reply"}
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </>
           )}

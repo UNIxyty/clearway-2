@@ -183,16 +183,21 @@ export type HelpStreamEvent = {
 };
 
 export function summarizeBlocks(blocks: HelpBlock[], max = 90): string {
-  for (const b of blocks) {
-    if ("text" in b && b.text && (b.type === "paragraph" || b.type === "heading" || b.type === "subheading" || b.type === "quote")) {
-      const t = b.text.replace(/\s+/g, " ").trim();
-      if (t) return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+  const clip = (t: string) => (t.length > max ? `${t.slice(0, max - 1)}…` : t);
+  // Prose first: a bug report's first block is its seeded "What happened"
+  // heading, which makes a useless list preview.
+  for (const pass of ["prose", "any"] as const) {
+    for (const b of blocks) {
+      if ("text" in b && b.text && (b.type === "paragraph" || b.type === "quote" || (pass === "any" && (b.type === "heading" || b.type === "subheading")))) {
+        const t = b.text.replace(/\s+/g, " ").trim();
+        if (t) return clip(t);
+      }
+      if (b.type === "bullet" || b.type === "numbered") {
+        const t = b.items.join(" · ").trim();
+        if (t) return clip(t);
+      }
+      if (pass === "any" && b.type === "code" && b.text.trim()) return "Code block";
     }
-    if (b.type === "bullet" || b.type === "numbered") {
-      const t = b.items.join(" · ").trim();
-      if (t) return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-    }
-    if (b.type === "code" && b.text.trim()) return "Code block";
   }
   return "Attachment";
 }

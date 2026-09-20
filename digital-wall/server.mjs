@@ -464,8 +464,9 @@ const mockAuthPayload = {
 // Read-only endpoints the wall DISPLAY needs to keep rendering (audit §8.1:
 // the ops-room wall must never go dark). All serve the server's OWN cached
 // data (Leon cache, JSON stores) — no auth decision, no role, no writes.
-// Consulted ONLY while auth is MISCONFIGURED (Supabase env missing without
-// the testing bypass); with auth configured these stay session-gated.
+// Consulted while auth is MISCONFIGURED (Supabase env missing without the
+// testing bypass), and as the scope of registered DEVICE tokens (bug 6
+// item 7) — a device can reach exactly these, GET/HEAD only, nothing else.
 const DISPLAY_READ_PATHS = new Set([
   "/api/stream",
   "/api/display/overlay",
@@ -478,6 +479,14 @@ const DISPLAY_READ_PATHS = new Set([
   "/api/timeline/sync-status",
   "/api/flights/data",
   "/api/limitations",
+  // The display's panels (bug 6 item 7 follow-up — a device-authed wall
+  // 401'd on these, so the info side tab showed "sign in" while flights
+  // rendered): flight info tab/overlay, Upcoming table, NOTAM day-check
+  // strip, presence pills. All GET, all server-cached, no user input.
+  "/api/flight-info",
+  "/api/upcoming/flights",
+  "/api/notam-check/today",
+  "/api/presence",
 ]);
 
 function isDisplayReadPath(pathname, method) {

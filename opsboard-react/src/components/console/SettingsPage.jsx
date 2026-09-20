@@ -443,7 +443,7 @@ function HourSpacingCard() {
         <WindowRow
           label="Hour spacing"
           hint="distance between hour gridlines"
-          min={0.5}
+          min={0.15}
           max={2.5}
           step={0.05}
           unit="×"
@@ -457,7 +457,7 @@ function HourSpacingCard() {
         <span style={{ fontSize: 12, color: t.faint }}>0.5×</span>
         <input
           type="range"
-          min="0.5"
+          min="0.15"
           max="2.5"
           step="0.05"
           value={timeZoom}

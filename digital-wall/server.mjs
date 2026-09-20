@@ -257,8 +257,13 @@ function sanitizeDisplaySettings(input = {}) {
   // Time-axis zoom: horizontal distance between hour gridlines. 1 = default;
   // 0.5 fits twice the hours on screen, 2.5 spreads them 2.5x wider.
   const timeZoom = input.timeZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.timeZoom : Number(input.timeZoom);
-  if (!Number.isFinite(timeZoom) || timeZoom < 0.5 || timeZoom > 2.5) {
-    throw new Error("timeZoom must be a number between 0.5 and 2.5.");
+  // Bug 6 item 5 (third compression report): floor lowered 0.5 -> 0.15.
+  // Verified legible at 0.15 x default scale on a 1920 wall: ~35 px/hour,
+  // rotated hour labels, ICAOs/times on the below-pill line via the
+  // neighbour-budget lane packing. Below ~0.12 the rotated ruler labels
+  // start touching, so 0.15 is the honest floor for uniform compression.
+  if (!Number.isFinite(timeZoom) || timeZoom < 0.15 || timeZoom > 2.5) {
+    throw new Error("timeZoom must be a number between 0.15 and 2.5.");
   }
   // Vertical size: lane/pill height multiplier. <1 thins the timeline so
   // more registrations fit on screen; text keeps the display scale.

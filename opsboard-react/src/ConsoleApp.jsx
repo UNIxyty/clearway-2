@@ -19,6 +19,7 @@ import ImportantPage from './components/console/ImportantPage';
 import LimitationsPage from './components/console/LimitationsPage';
 import OperatorsPage from './components/console/OperatorsPage';
 import SettingsPage from './components/console/SettingsPage';
+import DeviceApprovalPopup from './components/console/DeviceApprovalPopup';
 import {
   fetchImportant,
   fetchNotamCheckToday,
@@ -470,6 +471,7 @@ export default function ConsoleApp({ page, navigate }) {
       <ToastProvider>
         <div className="cw-console" style={{ ...s.shell, background: t.subtle }}>
           <ConsoleStyles />
+          <DeviceApprovalPopup />
 
           {/* 56px top bar: 44px hamburger, page title + service context. */}
           <div
@@ -701,6 +703,7 @@ export default function ConsoleApp({ page, navigate }) {
     <ToastProvider>
       <div className="cw-console" style={s.shell}>
         <ConsoleStyles />
+        <DeviceApprovalPopup />
 
         {/* ── Top bar ── */}
         <div style={s.topBar}>

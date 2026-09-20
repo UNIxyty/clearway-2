@@ -917,6 +917,27 @@ function PanelScalesCard() {
           persist({ mvtFlashSeconds: next }, `MVT flash ${next}s — wall updates in seconds`);
         }}
       />
+      {/* Bug report 6 item 2: static red outline on unconfirmed trips. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>Unconfirmed flight outline</div>
+          <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>
+            steady red ring around pills whose Leon trip is not CONFIRMED; colour tunable in Colours
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={unconfirmedOutline ? 'primary' : 'soft'}
+          disabled={!loaded}
+          onClick={() => {
+            const next = !unconfirmedOutline;
+            setUnconfirmedOutline(next);
+            persist({ unconfirmedOutline: next }, 'Unconfirmed outline ' + (next ? 'ON' : 'off'));
+          }}
+        >
+          {unconfirmedOutline ? 'Outline ON' : 'Outline off'}
+        </Button>
+      </div>
       <WindowRow
         label="Aircraft column"
         hint="the left registration column — shrink it to give the timeline more width"

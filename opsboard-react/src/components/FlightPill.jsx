@@ -843,7 +843,7 @@ export default function FlightPill({
           Distinct from the MVT ring by being steady; when MVT is flashing it
           takes precedence (one ring at a time — blink communicates urgency,
           the italics still say unconfirmed). Cancelled flights are excluded. */}
-      {showUnconfirmedRing && flight.isConfirmed === false && !mvtFlashing && !isCnl && !stale && (
+      {showUnconfirmedRing && flight.isConfirmed === false && !mvtFlashing && !flight.isCnl && status !== 'cancelled' && !stale && (
         <div
           style={{
             position: 'absolute',

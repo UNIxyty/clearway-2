@@ -477,9 +477,26 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     // frame is uncancellable and completes as ONE fast sweep.
     const RETURN_ANIMATION_MS = 600;
     const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+    // Bug report 6 item 3 (THIRD report of "stuck flights"): rAF is fully
+    // suspended while the window is hidden/occluded (a blanked kiosk screen,
+    // a backgrounded console tab). The old animation then never ran its first
+    // frame, `autoScrolling` stayed true FOREVER, and every future monitor
+    // tick bailed on it — the board never re-centred again until a refresh.
+    // Three guards: hidden windows snap instantly (nobody sees an animation),
+    // the monitor force-finishes any animation that has stalled past its
+    // duration, and regaining visibility snaps to now immediately.
+    let animStartedAt = 0;
+    const snapTo = (target) => {
+      autoScrolling = true; // suppress the scroll-echo → not user interaction
+      body.scrollLeft = target;
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => { autoScrolling = false; }, 150);
+    };
     const animateReturn = (target) => {
+      if (document.visibilityState === 'hidden') { snapTo(target); return; }
       const from = body.scrollLeft;
       const startedAt = performance.now();
+      animStartedAt = Date.now();
       autoScrolling = true;
       const step = (now) => {
         if (!autoScrolling) return; // user gesture aborted the return
@@ -509,7 +526,16 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     };
 
     const monitor = setInterval(() => {
-      if (autoScrolling) return;
+      if (autoScrolling) {
+        // Stall watchdog: an animation that outlived its duration (rAF was
+        // suspended mid-flight) finishes instantly instead of latching.
+        if (animStartedAt && Date.now() - animStartedAt > RETURN_ANIMATION_MS + 2000) {
+          animStartedAt = 0;
+          cancelAnimationFrame(animationFrame);
+          snapTo(nowScrollRef.current.target);
+        }
+        return;
+      }
       if (Date.now() - lastInteractionAt < AUTO_RETURN_TO_NOW_MS) return;
       const target = nowScrollRef.current.target;
       // 40px dead-band: minute-hand drift re-centres in one gentle nudge
@@ -517,6 +543,22 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       if (Math.abs(body.scrollLeft - target) < 40) return;
       animateReturn(target);
     }, 1000);
+
+    // Coming back to visible (tab refocus, screen unblanked): correct any
+    // drift accumulated while frames were suspended, immediately and without
+    // animation — the user is looking at a board that must be right NOW.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      animStartedAt = 0;
+      cancelAnimationFrame(animationFrame);
+      const target = nowScrollRef.current.target;
+      if (Math.abs(body.scrollLeft - target) >= 40 && Date.now() - lastInteractionAt >= AUTO_RETURN_TO_NOW_MS) {
+        snapTo(target);
+      } else {
+        autoScrolling = false; // clear any latch either way
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     for (const el of [body, header]) {
       el.addEventListener('wheel', onUserInput, { passive: true });
@@ -528,6 +570,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       clearInterval(monitor);
       cancelAnimationFrame(animationFrame);
       clearTimeout(settleTimer);
+      document.removeEventListener('visibilitychange', onVisible);
       for (const el of [body, header]) {
         el.removeEventListener('wheel', onUserInput);
         el.removeEventListener('touchstart', onUserInput);

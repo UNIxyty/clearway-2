@@ -799,6 +799,7 @@ function PanelScalesCard() {
   const [acColScale, setAcColScale] = useState(1);
   const [mvtThresholdMin, setMvtThresholdMin] = useState(15);
   const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1);
+  const [unconfirmedOutline, setUnconfirmedOutline] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
@@ -813,6 +814,7 @@ function PanelScalesCard() {
         if (Number.isFinite(payload.settings?.acColScale)) setAcColScale(payload.settings.acColScale);
         if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
         if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
+        setUnconfirmedOutline(payload.settings?.unconfirmedOutline !== false);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));

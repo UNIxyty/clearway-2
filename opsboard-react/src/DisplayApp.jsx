@@ -119,6 +119,7 @@ export default function DisplayApp() {
   const [autoFitRows, setAutoFitRows] = useState(false); // Item 2: fit all rows to the viewport
   const [mvtThresholdMin, setMvtThresholdMin] = useState(15); // MVT flash threshold
   const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1); // MVT blink period
+  const [unconfirmedOutline, setUnconfirmedOutline] = useState(true); // bug 6 item 2
   const [upcomingTable, setUpcomingTable] = useState({ enabled: false, side: 'right', scale: 1, widthPct: 30 });
   // Per-account wall colour overrides ({ tokenKey: "#rrggbb" }) — resolved
   // against the shipped defaults by WallColorsProvider. Arrives with the
@@ -175,6 +176,7 @@ export default function DisplayApp() {
       setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
       if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
+      setUnconfirmedOutline(payload.settings?.unconfirmedOutline !== false);
       setUpcomingTable({
         enabled: payload.settings?.upcomingTableEnabled === true,
         side: payload.settings?.upcomingTableSide === 'left' ? 'left' : 'right',
@@ -304,6 +306,7 @@ export default function DisplayApp() {
         acColScale={acColScale}
         mvtThresholdMin={mvtThresholdMin}
         mvtFlashSeconds={mvtFlashSeconds}
+        showUnconfirmedRing={unconfirmedOutline}
         autoFitRows={autoFitRows}
         onAutoFitComputed={(computedFit) => {
           // Read-only readout for console Settings; debounced by the fact
@@ -330,6 +333,7 @@ export default function DisplayApp() {
       notamState={notamState}
       mvtThresholdMin={mvtThresholdMin}
       mvtFlashSeconds={mvtFlashSeconds}
+      showUnconfirmedRing={unconfirmedOutline}
       loadedOnce={loadedOnce}
       error={error}
       dataUpdatedAt={dataUpdatedAt}

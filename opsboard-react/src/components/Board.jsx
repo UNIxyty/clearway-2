@@ -156,6 +156,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
 
 export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null,
   bodyContent = 'icao', bodyRight = null, belowText = null,
+  showUnconfirmedRing = true,
   // ── Mobile/tablet additive props — every default reproduces today's
   // ops-room wall EXACTLY (the ≥1920 render never passes any of these). ──
   hideSidebar = false,          // skip the left legend/limitations panel
@@ -801,6 +802,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         labelScale={effLabelScale}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                         stickyLeftPx={AC_LABEL_W + (rowHeightPx ? 12 : 6)}
+                        showUnconfirmedRing={showUnconfirmedRing}
                         bodyContent={bodyContent}
                         bodyRight={bodyRight}
                         belowText={belowText}

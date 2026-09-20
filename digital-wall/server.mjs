@@ -182,7 +182,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {} };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, unconfirmedOutline: true, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {} };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -313,6 +313,11 @@ function sanitizeDisplaySettings(input = {}) {
   if (!Number.isFinite(mvtFlashSeconds) || mvtFlashSeconds < 0.4 || mvtFlashSeconds > 4) {
     throw new Error("mvtFlashSeconds must be a number between 0.4 and 4.");
   }
+  // Bug report 6 item 2: static red outline on unconfirmed trips (Leon trip
+  // status not CONFIRMED). Per-account toggle, default on.
+  const unconfirmedOutline = input.unconfirmedOutline === undefined
+    ? DEFAULT_DISPLAY_SETTINGS.unconfirmedOutline
+    : input.unconfirmedOutline === true;
   // Upcoming Flight Table (bug report 3 item 10).
   const upcomingTableEnabled = input.upcomingTableEnabled === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingTableEnabled

@@ -518,6 +518,7 @@ export default function FlightPill({
   markersInside = false,  // dots render INSIDE the pill body (phone mini timeline)
   maxMarkers = null,      // cap the marker row at N + "+N", order IMP > NTM > CAA > WX
   stale = false,          // feed stale: dashed outline, no state colour, no blink
+  showUnconfirmedRing = true, // bug 6 item 2: static red ring on unconfirmed trips
   onTap = null,           // tap anywhere on the pill (opens the detail sheet)
   touchHitMinPx = null,   // transparent overlay padded to ≥N px per axis
   touchGapPrevPx = null,  // free px before this pill in its lane (overlay split)
@@ -837,6 +838,26 @@ export default function FlightPill({
           </span>
         )}
 
+      {/* Bug report 6 item 2: STATIC outline for unconfirmed trips (Leon trip
+          status !== CONFIRMED — the same predicate as the italic callsign).
+          Distinct from the MVT ring by being steady; when MVT is flashing it
+          takes precedence (one ring at a time — blink communicates urgency,
+          the italics still say unconfirmed). Cancelled flights are excluded. */}
+      {showUnconfirmedRing && flight.isConfirmed === false && !mvtFlashing && !isCnl && !stale && (
+        <div
+          style={{
+            position: 'absolute',
+            left: -2,
+            right: -2,
+            top: Math.max(0, Math.round((F.band - F.body) / 2)) - 2,
+            height: F.body + 4,
+            borderRadius: 99,
+            border: `2px solid ${c.unconfirmedRing}`,
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}
+        />
+      )}
       {mvtFlashing && (
         <div
           style={{

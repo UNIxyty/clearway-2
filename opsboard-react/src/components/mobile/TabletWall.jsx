@@ -170,6 +170,7 @@ export default function TabletWall({
             sidebarScale={1}
             acColScale={1}
             mvtThresholdMin={mvtThresholdMin}
+            showUnconfirmedRing={showUnconfirmedRing}
             mvtFlashSeconds={mvtFlashSeconds}
             hideSidebar
             rowHeightPx={152}

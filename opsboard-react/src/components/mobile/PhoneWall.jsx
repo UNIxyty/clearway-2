@@ -409,6 +409,7 @@ export default function PhoneWall({
             sidebarScale={1}
             acColScale={0.78}
             mvtThresholdMin={mvtThresholdMin}
+            showUnconfirmedRing={showUnconfirmedRing}
             mvtFlashSeconds={mvtFlashSeconds}
             hideSidebar
             rowHeightPx={60}

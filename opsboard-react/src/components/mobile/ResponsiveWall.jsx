@@ -27,6 +27,7 @@ export default function ResponsiveWall({
   clocks = [],
   notamState = null,
   mvtThresholdMin = 15,
+  showUnconfirmedRing = true,
   mvtFlashSeconds = 1,
   loadedOnce = false,
   error = '',
@@ -58,6 +59,7 @@ export default function ResponsiveWall({
     conn,
     nowMs,
     mvtThresholdMin,
+    showUnconfirmedRing,
     mvtFlashSeconds,
     onOpenFlight: openFlight,
     onRetry: onReload,
@@ -86,6 +88,7 @@ export default function ResponsiveWall({
           stale={conn.stale}
           nowMs={nowMs}
           mvtThresholdMin={mvtThresholdMin}
+          showUnconfirmedRing={showUnconfirmedRing}
           onClose={closeSheet}
         />
       )}
@@ -155,6 +158,7 @@ function LandscapePhoneWall({
           sidebarScale={1}
           acColScale={0.78}
           mvtThresholdMin={mvtThresholdMin}
+          showUnconfirmedRing={showUnconfirmedRing}
           mvtFlashSeconds={mvtFlashSeconds}
           hideSidebar
           rowHeightPx={52}

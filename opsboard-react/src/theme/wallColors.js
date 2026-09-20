@@ -61,6 +61,7 @@ export const WALL_COLOR_GROUPS = [
       { key: "limUnchecked", label: "Limitation circle (unchecked)", def: "#ff3b30", onBoard: true },
       { key: "limChecked", label: "Limitation circle (checked)", def: "#ff7d6e", onBoard: true },
       { key: "mvtRing", label: "MVT flash ring", def: "#ff5f5f", onBoard: true },
+      { key: "unconfirmedRing", label: "Unconfirmed outline", def: "#ff5f5f", onBoard: true },
     ],
   },
   {

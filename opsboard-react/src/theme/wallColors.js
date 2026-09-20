@@ -62,6 +62,8 @@ export const WALL_COLOR_GROUPS = [
       { key: "limChecked", label: "Limitation circle (checked)", def: "#ff7d6e", onBoard: true },
       { key: "mvtRing", label: "MVT flash ring", def: "#ff5f5f", onBoard: true },
       { key: "unconfirmedRing", label: "Unconfirmed outline", def: "#ff5f5f", onBoard: true },
+      { key: "clockUtc", label: "UTC clock time", def: "#6dc4ff", onBoard: true },
+      { key: "clockLocal", label: "Local clock time", def: "#f5c064", onBoard: true },
     ],
   },
   {
@@ -463,6 +465,8 @@ export function chromeFor(colors) {
     headerCity: tokenOr(colors, "sidebarText", SHIPPED_CHROME.headerCity),
     headerTime: tokenOr(colors, "sidebarText", SHIPPED_CHROME.headerTime),
     accent: SHIPPED_CHROME.accent,
+    clockUtc: tokenOr(colors, "clockUtc", SHIPPED_CHROME.accent),
+    clockLocal: tokenOr(colors, "clockLocal", "#f5c064"),
     tableText: colors.tableText,
     tableTitle: tokenOr(colors, "tableText", SHIPPED_CHROME.tableTitle),
     tableHeadText: tokenOr(colors, "tableText", SHIPPED_CHROME.tableHeadText),

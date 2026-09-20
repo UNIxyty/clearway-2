@@ -123,7 +123,7 @@ function ClocksCard() {
   }
 
   function addClock(zone) {
-    persist([...clocks, { label: label.trim() || cityFromZone(zone), timeZone: zone, home: clocks.length === 0 }]);
+    persist([...clocks, { label: label.trim() || cityFromZone(zone), timeZone: zone, local: clocks.length === 0 }]);
     setLabel('');
     setQuery('');
     setAdding(false);
@@ -148,7 +148,7 @@ function ClocksCard() {
         </Button>
       </div>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Drag to reorder. The home clock is highlighted on the wall.
+        Drag to reorder. UTC and the local clock are each highlighted on the wall (colours in the Colours tab).
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       {loading && <LoadingState>Loading clocks…</LoadingState>}
@@ -200,13 +200,13 @@ function ClocksCard() {
             <span style={{ fontFamily: t.mono, fontSize: 19, fontWeight: 600 }}>{zoneTime(clock.timeZone)}</span>
             <button
               type="button"
-              onClick={() => persist(clocks.map((c, i) => ({ ...c, home: i === index ? !c.home : false })))}
+              onClick={() => persist(clocks.map((c, i) => ({ ...c, local: i === index ? !(c.local || c.home) : false, home: undefined })))}
               style={{
                 fontFamily: 'inherit',
                 fontSize: 12,
                 fontWeight: 600,
-                color: clock.home ? t.greenDeep : t.faint,
-                background: clock.home ? t.greenTint : '#f1f2f4',
+                color: (clock.local || clock.home) ? t.greenDeep : t.faint,
+                background: (clock.local || clock.home) ? t.greenTint : '#f1f2f4',
                 border: 'none',
                 padding: '6px 12px',
                 borderRadius: 8,
@@ -217,7 +217,7 @@ function ClocksCard() {
               }}
             >
               <Icon name="home" size={13} />
-              {clock.home ? 'Home' : 'Set home'}
+              {(clock.local || clock.home) ? 'Local' : 'Set local'}
             </button>
             <IconButton icon="trash-2" title="Remove clock" onClick={() => persist(clocks.filter((_, i) => i !== index))} />
           </div>

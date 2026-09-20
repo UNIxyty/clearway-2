@@ -9,7 +9,7 @@ import { chromeFor } from '../theme/wallColors';
 // event. Falls back to a sensible default set until config loads.
 
 export const FALLBACK_CLOCKS = [
-  { label: 'Riga', timeZone: 'Europe/Riga', home: true },
+  { label: 'Riga', timeZone: 'Europe/Riga', local: true },
   { label: 'UTC', timeZone: 'UTC' },
 ];
 
@@ -61,7 +61,11 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
             style={{ ...s.cell, ...(i === list.length - 1 ? { borderRight: 'none' } : {}) }}
           >
             <span style={s.city}>{c.label}</span>
-            <span style={{ ...s.time, ...(c.home ? s.timeHome : {}) }}>{fmt(c.timeZone)}</span>
+            {/* Bug 6 item 4: UTC and the LOCAL clock each get their own
+                highlight (both are Colours-tab tokens). Local comes from a
+                flag on the clock entry — legacy `home` is honoured — so the
+                right clock stays highlighted if the station changes. */}
+            <span style={{ ...s.time, ...(c.timeZone === 'UTC' ? s.timeUtc : (c.local === true || c.home === true) ? s.timeLocal : {}) }}>{fmt(c.timeZone)}</span>
           </div>
         ))}
       </div>
@@ -86,7 +90,8 @@ function makeStyles(sz, chrome) {
   },
   city: { fontSize: sz(12), fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: chrome.headerCity, marginBottom: 5, whiteSpace: 'nowrap' },
   time: { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(42), fontWeight: 600, letterSpacing: '-1.5px', color: chrome.headerTime, lineHeight: 1 },
-  timeHome: { color: chrome.accent },
+  timeUtc: { color: chrome.clockUtc },
+  timeLocal: { color: chrome.clockLocal },
   rightSlot: { minWidth: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 },
 };
 }

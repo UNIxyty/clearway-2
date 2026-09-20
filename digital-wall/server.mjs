@@ -419,7 +419,10 @@ function sanitizeClocks(input) {
     if (!isValidTimeZone(timeZone)) {
       throw new Error(`Unknown IANA time zone: ${timeZone || "(empty)"}.`);
     }
-    return { label, timeZone, home: row?.home === true };
+    const local = row?.local === true || row?.home === true;
+    // `home` kept in the payload for any cached older bundle; `local` is the
+    // meaningful flag (bug 6 item 4 — the station-local clock highlight).
+    return { label, timeZone, local, home: local };
   });
 }
 

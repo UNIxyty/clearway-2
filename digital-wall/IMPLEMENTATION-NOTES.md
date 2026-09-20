@@ -1617,3 +1617,90 @@ opsboard-react/tools/{fixtures.mjs,wall-audit.mjs}: frozen 11:38Z fixtures
 covering every pill state, animation-frozen font-blocked byte-stable captures,
 clip-/line-aware text-overlap audit. Current results: desktop byte-identical;
 0 overlaps at 390×844, 844×390, 1024×768 (wall) and 390/768/1024 (console).
+
+## Bug report 6 (Sep 2026) — pill labels, unconfirmed ring, stuck board, clocks, compression, the zero, device registration
+
+First finding, before any item: **report 5's work never landed on main.**
+Git history jumps from the bug-report-4 commits straight to the platform/
+mobile work — no Nunito, no hour-spacing floor change, no stream watchdog,
+no keepalive fix exist anywhere in the repo. So for every "not fixed from
+last report" item (3, 5, 6) the honest answer to "was the earlier fix
+deployed?" is NO — there was nothing to deploy. Each such item below also
+states what the actual cause turned out to be.
+
+1. **Prefixes stripped from pill times** (d5408e4). `T/O`, `ETA`, `LDG`,
+   `CTOT`, `ETD` no longer render on the pill face — just times + signed
+   deltas (+ late amber / − early green). Information lost, per ops'
+   explicit request and stated in the summary: an ACTUAL (T/O 07:55) and an
+   ESTIMATE (ETD 07:55) are now indistinguishable on the pill face. The
+   kind survives on the data (depKind/arrKind) and in the info tab; one-line
+   change in FlightPill.jsx brings it back.
+2. **Static unconfirmed outline** (d81d8c0 + cf5a978 toggle + c6c5074 fix).
+   "Not confirmed" is defined as `flight.isConfirmed === false` — Leon's
+   trip status ≠ CONFIRMED (opportunity/option/quotation), same flag that
+   already italicises the callsign. Static 2px ring (no blinking, distinct
+   from MVT flash which takes precedence), suppressed for
+   cancelled/stale pills. Colour token `unconfirmedRing` in the Colours
+   tab; per-account setting `unconfirmedOutline` with a console toggle in
+   Overlay & sidebar size. c6c5074: the first cut referenced bare `isCnl`
+   (not in scope) — any unconfirmed flight blanked the whole wall; the
+   audit harness caught it pre-deploy.
+3. **Board stuck / not matching the clock, refresh fixes it** (04c4e12,
+   THIRD report). Earlier fix deployed? NO (report 5 never landed). Actual
+   cause: a RENDERING-side latch, not data. The board auto-scrolls to a
+   fixed now-marker with its own rAF ease; when the kiosk screen blanks or
+   the tab is occluded the browser suspends rAF — animateReturn set
+   `autoScrolling = true`, its first frame never fired, the flag latched,
+   and the idle monitor bailed forever after. Refresh "fixed" it only via
+   the initial centerNowInView. Fix (no blanket auto-refresh): snap
+   directly when `document.visibilityState === 'hidden'`; a visibilitychange
+   handler that cancels/snap-repairs on refocus; a stall watchdog that
+   snaps if the animation hasn't finished RETURN_ANIMATION_MS + 2s after
+   starting. Geometry itself always followed nowMs — only the scroll
+   position was stuck.
+4. **Local-clock colour** (259858e). Clock entries carry a `local: true`
+   flag (legacy `home` still honoured, Riga default migrated); UTC clock
+   coloured by new token `clockUtc`, local by `clockLocal`, both in the
+   Colours tab. Console clocks card relabelled Home → "Set local".
+5. **Horizontal compression** (e4ef5ca, THIRD report). Earlier fix
+   deployed? NO. New floor: hour-spacing 0.15× (was 0.5×) — ~46 h visible
+   at 1920 px, ~35 px/hour; verified legible in the harness (rotated ruler
+   labels, route/times intact via neighbour-budget lane packing). Below
+   ~0.12 the rotated ruler labels touch — that is the hard floor. The
+   further idea, a NON-LINEAR axis (full scale where flights are, dead
+   stretches compressed), is feasible — the axis is already a single
+   time→x function — but changes how the board reads (equal distance ≠
+   equal time); NOT implemented per instruction, awaiting ops' verdict.
+6. **Fonts and the zero** (32e6513, THIRD report). Earlier fix deployed?
+   NO — and the report-5 slash-zero claim never shipped either. What was
+   ACTUALLY rendering: IBM Plex Mono from the Google CDN (plain zero); on
+   the kiosk the CDN request evidently fails and the box falls back to its
+   system monospace — a dotted zero rasterised badly at the wall's low
+   pixel density. That fallback lottery was the "blurry dotted zero". Fix:
+   the stack ops asked for (`'Nunito', Roboto, Avenir, Helvetica, Arial'`)
+   with Nunito 400/600/700/800 SELF-HOSTED (no CDN anywhere in the path).
+   Nunito has no `zero` OpenType feature, so the zero glyph itself is
+   patched via fontTools (dot contour added inside the counter) →
+   public/fonts/Nunito-dotted-*.woff2. Verified `0 8 O 6 9` distinguishable
+   at 64/28/12/11.5/7 px and dotted zeros visible on the full board.
+7. **Device registration** (0f53b49). The logout root cause: the wall ran
+   on a PERSON's Supabase session — built to expire and be re-authed
+   interactively, which a kiosk can't do; both earlier "fixes" kept that
+   model. Now the display is a registered DEVICE: announce → pairing code
+   on a neutral waiting screen → approval prompt ON THE CONSOLE (Settings →
+   Devices, same code shown) → long-lived token delivered once (SHA-256
+   hash stored), scoped server-side to GET/HEAD on DISPLAY_READ_PATHS only
+   (the Phase-5 whitelist is the mechanism AND the safety net — a device
+   token cannot write or reach console endpoints). Pending requests expire
+   in 15 min; approve/revoke are audit-logged; revoke pushes device.revoked
+   and closes the device's SSE streams (stops in seconds), and the screen
+   returns to the waiting state. Settings resolve to the main-wall profile
+   (device identity carries ops@clearway.aero as its profile key only).
+   Environmental half in deploy/digital-wall/KIOSK.md: HTTPS domain (the
+   origin-keyed localStorage was a logout cause on its own if the kiosk URL
+   varied), persistent browser profile, DPMS/screensaver off, supervised
+   nightly browser restart.
+
+Overlap audit re-run after items 1/5/6: 0 real overlaps at 1920 (including
+timeZoom 0.15); the 5 reported pairs are the stacked clock label/time
+elements, which are by-design vertical stacks, not collisions.

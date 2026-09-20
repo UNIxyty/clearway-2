@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWallColors } from '../theme/WallColorsContext';
 import { chromeFor } from '../theme/wallColors';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Configurable world-clock bar (adapted from the digital-wall prototype's
 // WorldClockBar). Clock config comes from the backend
 // (GET /api/display/clocks) and is edited on the Console's Settings page;
@@ -89,7 +90,7 @@ function makeStyles(sz, chrome) {
     padding: '0 28px', borderRight: `1px solid ${chrome.gridLine}`,
   },
   city: { fontSize: sz(12), fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase', color: chrome.headerCity, marginBottom: 5, whiteSpace: 'nowrap' },
-  time: { fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(42), fontWeight: 600, letterSpacing: '-1.5px', color: chrome.headerTime, lineHeight: 1 },
+  time: { fontFamily: WALL_FONT, fontSize: sz(42), fontWeight: 600, letterSpacing: '-1.5px', color: chrome.headerTime, lineHeight: 1 },
   timeUtc: { color: chrome.clockUtc },
   timeLocal: { color: chrome.clockLocal },
   rightSlot: { minWidth: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 },

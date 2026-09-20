@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchFlightInfo, postFlightCheck } from '../services/timelineApi';
 import { WX_CATEGORY_COLORS } from './FlightPill';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Retractable info tab (bug report item 1): opens IN PLACE under a flight's
 // lanes — the aircraft row grows to hold it, so it never obscures other
 // flights — and shows the flight's actual IMP / NOTAM / WX / CAA content
@@ -192,7 +193,7 @@ function styles() {
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '8px 12px', borderBottom: '1px solid #232e45', background: '#182034',
     },
-    headTitle: { fontFamily: "'IBM Plex Mono',monospace", fontSize: 13, fontWeight: 700, color: '#e7ecf7' },
+    headTitle: { fontFamily: WALL_FONT, fontSize: 13, fontWeight: 700, color: '#e7ecf7' },
     closeBtn: {
       border: '1px solid #37426b', background: 'transparent', color: '#9fb0d6',
       borderRadius: 7, width: 24, height: 24, cursor: 'pointer', fontSize: 12, lineHeight: 1,

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchPresence } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Small per-user presence pills (initials + surfaces) shown on both the
 // Display ("who's watching") and the Console (your own connection state).
 // Driven by /api/presence + the presence.changed SSE broadcast.
@@ -62,7 +63,7 @@ const s = {
     flexShrink: 0,
   },
   initials: {
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: WALL_FONT,
     fontSize: 9,
     fontWeight: 700,
     color: '#b8d9ff',

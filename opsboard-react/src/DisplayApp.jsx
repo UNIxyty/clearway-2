@@ -16,6 +16,7 @@ import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/
 import useViewport from './hooks/useViewport';
 import ResponsiveWall from './components/mobile/ResponsiveWall';
 
+import { WALL_FONT } from './theme/wallFont';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -36,7 +37,7 @@ function ViewportDebug() {
     ['device id', getDeviceId()],
   ];
   return (
-    <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 9999, background: 'rgba(8,12,22,.92)', border: '1px solid rgba(120,150,220,.5)', borderRadius: 8, padding: '10px 14px', fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#cfe0ff', lineHeight: 1.7 }}>
+    <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 9999, background: 'rgba(8,12,22,.92)', border: '1px solid rgba(120,150,220,.5)', borderRadius: 8, padding: '10px 14px', fontFamily: WALL_FONT, fontSize: 12, color: '#cfe0ff', lineHeight: 1.7 }}>
       <div style={{ fontWeight: 700, marginBottom: 4, color: '#8fb3ff' }}>VIEWPORT DEBUG</div>
       {rows.map(([k, v]) => (
         <div key={k}><span style={{ color: '#7a8aab' }}>{k}: </span>{v}</div>
@@ -55,7 +56,7 @@ function NotamSign({ sign, scale = 1 }) {
       <style>{'@keyframes cwsignpulse{0%,100%{opacity:1}50%{opacity:.55}}'}</style>
       <div
         style={{
-          fontFamily: "'IBM Plex Mono',monospace",
+          fontFamily: WALL_FONT,
           fontSize: Math.round(14 * scale),
           fontWeight: 700,
           letterSpacing: '1px',
@@ -350,7 +351,7 @@ export default function DisplayApp() {
 }
 
 const s = {
-  shell: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  shell: { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: WALL_FONT },
   // Upcoming Flight Table sits beside the board; the board flexes to the rest.
   boardRow: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', overflow: 'hidden' },
   notice: {

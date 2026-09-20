@@ -3,6 +3,7 @@ import { fetchFlightInfo, fetchOverlay, importantAttachmentUrl } from '../servic
 import { subscribeWallStream } from '../services/wallStream';
 import { WX_CATEGORY_COLORS } from './FlightPill';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Remote-controlled flight-detail side overlay (Feature 5.2). A Console user
 // opens/closes it for everyone; the backend holds the authoritative state and
 // pushes display.command over SSE. On boot the current state is restored, so
@@ -260,7 +261,7 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
                         rel="noreferrer"
                         style={{
                           fontSize: 12,
-                          fontFamily: "'IBM Plex Mono',monospace",
+                          fontFamily: WALL_FONT,
                           color: '#8fb8ff',
                           border: '1px solid rgba(90,140,255,.4)',
                           borderRadius: 7,
@@ -303,7 +304,7 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
                       <span style={{ ...s.badge, color: '#5eead4', borderColor: 'rgba(47,158,143,.55)' }}>CAA</span>
                       <span style={s.entryTitle}>{caa.authorityName || caa.country}</span>
                       {caa.country && caa.authorityName && (
-                        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono',monospace", color: '#8b95a3' }}>
+                        <span style={{ fontSize: 12, fontFamily: WALL_FONT, color: '#8b95a3' }}>
                           {caa.country}
                         </span>
                       )}
@@ -321,8 +322,8 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
                     <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 14px', marginTop: 8 }}>
                       {rows.map(([k, v, mono]) => (
                         <Fragment key={k}>
-                          <span style={{ fontSize: 12, color: '#7a828d', fontFamily: "'IBM Plex Mono',monospace" }}>{k}</span>
-                          <span style={{ fontSize: 12.5, color: '#dfe3e9', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', ...(mono ? { fontFamily: "'IBM Plex Mono',monospace" } : {}) }}>{v}</span>
+                          <span style={{ fontSize: 12, color: '#7a828d', fontFamily: WALL_FONT }}>{k}</span>
+                          <span style={{ fontSize: 12.5, color: '#dfe3e9', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', ...(mono ? { fontFamily: WALL_FONT } : {}) }}>{v}</span>
                         </Fragment>
                       ))}
                     </div>
@@ -362,7 +363,7 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
 // overlay is readable from several metres at scale ≥ 1.3.
 function makeStyles(scale) {
   const sz = (v) => Math.round(v * scale);
-  const mono = "'IBM Plex Mono',monospace";
+  const mono = WALL_FONT;
   return {
     panel: {
       position: 'fixed',

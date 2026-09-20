@@ -1,3 +1,4 @@
+import { WALL_FONT } from '../../theme/wallFont';
 // Mobile/tablet-only CHROME hues that exist nowhere in the wall colour token
 // registry (theme/wallColors.js): the connection chips, the stale-feed
 // banner, the primary action blue, link blue and the attention badge. Each
@@ -33,4 +34,4 @@ export const MOBILE_CHROME = {
   onAccent: '#ffffff', // ink on the action blue / attention badge
 };
 
-export const MONO = "'IBM Plex Mono',monospace";
+export const MONO = WALL_FONT;

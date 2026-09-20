@@ -17,6 +17,7 @@ import {
   limStylesFor,
 } from '../theme/wallColors';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Static resolved defaults — for module-level exports and the shared
 // components when they render OUTSIDE the wall's WallColorsProvider (console
 // lists). Inside the provider every colour comes from useWallColors().
@@ -149,7 +150,7 @@ function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }
       <span
         title={`${icao} ${category} (CheckWX, ${isDep ? 'departure' : 'arrival'})`}
         style={{
-          fontFamily: "'IBM Plex Mono',monospace",
+          fontFamily: WALL_FONT,
           fontSize: sz(10),
           fontWeight: 700,
           letterSpacing: '.4px',
@@ -166,7 +167,7 @@ function WxMark({ category, icao, side, sz, variant = 'wall', iconOnly = false }
     <span
       title={`${icao} ${category} (CheckWX, ${isDep ? 'departure' : 'arrival'})`}
       style={{
-        fontFamily: "'IBM Plex Mono',monospace",
+        fontFamily: WALL_FONT,
         fontSize: sz(9.5),
         fontWeight: 700,
         border: '1px solid',
@@ -299,7 +300,7 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
     <span
       title={`ICAO type ${code} — ${ICAO_TYPE_MEANING[code] || 'Unknown'}`}
       style={{
-        fontFamily: "'IBM Plex Mono',monospace",
+        fontFamily: WALL_FONT,
         fontSize: font,
         fontWeight: 800,
         // Solid slate fill with dark ink: neutral (clearly not an alarm
@@ -334,7 +335,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
     const shown = ordered.slice(0, max);
     const hiddenCount = ordered.length - shown.length;
     const chipBase = {
-      fontFamily: "'IBM Plex Mono',monospace",
+      fontFamily: WALL_FONT,
       fontSize: sz(9.5),
       fontWeight: 800,
       border: '1px solid',
@@ -380,7 +381,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
         <span
           title={markers.map((m) => m.label).join(' · ')}
           style={{
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: WALL_FONT,
             fontSize: sz(9.5),
             fontWeight: 800,
             color: c.textTimes,
@@ -447,7 +448,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
         <span
           title="CAA authority details apply — contact block in the flight overlay"
           style={{
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: WALL_FONT,
             fontSize: sz(9.5),
             fontWeight: 800,
             border: `1px solid ${light ? lightChips.CAA.border : chips.CAA.border}`,
@@ -470,7 +471,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           key={type}
           title={type === 'NTM' ? 'NOTAM alert' : 'Weather alert'}
           style={{
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: WALL_FONT,
             fontSize: sz(9.5),
             fontWeight: 700,
             border: '1px solid',
@@ -762,7 +763,7 @@ export default function FlightPill({
   const timeStyle = {
     position: 'absolute',
     // (anchored mode overrides position to sticky — see below)
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: WALL_FONT,
     fontSize: F.times,
     fontWeight: 700,
     color: c.textTimes,
@@ -804,7 +805,7 @@ export default function FlightPill({
                   color: done ? lim.checkedText : lim.uncheckedText,
                   fontSize: Math.max(7, Math.round(limCircle * 0.62)),
                   fontWeight: 800,
-                  fontFamily: "'IBM Plex Mono',monospace",
+                  fontFamily: WALL_FONT,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -819,7 +820,7 @@ export default function FlightPill({
           {bodyContent === 'icao' && (
           <span
             style={{
-              fontFamily: "'IBM Plex Mono',monospace",
+              fontFamily: WALL_FONT,
               fontSize: F.id,
               color: idColor,
               fontStyle: idStyle,
@@ -931,15 +932,15 @@ export default function FlightPill({
             // A4: two lines inside the 42px pill — callsign (+dots handled
             // beside), route beneath, both sticky-clamped by the flex parent.
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, flex: 1, overflow: 'hidden' }}>
-              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(10.5, F.icao - 2), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
-              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(9, F.icao - 5), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', overflow: 'hidden' }}>{dep}-{arr}</span>
+              <span style={{ fontFamily: WALL_FONT, fontSize: Math.max(10.5, F.icao - 2), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
+              <span style={{ fontFamily: WALL_FONT, fontSize: Math.max(9, F.icao - 5), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', overflow: 'hidden' }}>{dep}-{arr}</span>
             </div>
             ) : (
             // A6/B1: callsign left, times or duration right.
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flex: 1, overflow: 'hidden', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(11, F.icao - 1), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
+              <span style={{ fontFamily: WALL_FONT, fontSize: Math.max(11, F.icao - 1), fontWeight: 700, fontStyle: idStyle, color: hollow ? theme.bg : theme.text, whiteSpace: 'nowrap', overflow: 'hidden' }}>{fn}</span>
               {pillPx >= 120 && (
-                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: Math.max(9.5, F.icao - 4), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <span style={{ fontFamily: WALL_FONT, fontSize: Math.max(9.5, F.icao - 4), color: hollow ? withAlpha(theme.bg, 0.8) : withAlpha(theme.text, 0.72), whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {bodyRight === 'duration' ? durText : `${depHm ?? etd}–${arrHm ?? eta}`}
                 </span>
               )}
@@ -1012,7 +1013,7 @@ export default function FlightPill({
           style={{
             height: F.timesRow,
             marginTop: sz(2),
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: WALL_FONT,
             fontSize: F.times,
             fontWeight: 700,
             color: c.textTimes,
@@ -1039,7 +1040,7 @@ export default function FlightPill({
           style={{
             height: F.timesRow,
             marginTop: sz(2),
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: WALL_FONT,
             fontSize: F.times,
             fontWeight: 700,
             color: c.textTimes,
@@ -1080,7 +1081,7 @@ export default function FlightPill({
 
 function icaoStyle(fontSize) {
   return {
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: WALL_FONT,
     fontSize,
     fontWeight: 700,
     letterSpacing: '.5px',

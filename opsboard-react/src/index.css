@@ -1,5 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
+/* Bug 6 item 6: the wall's dotted-zero Nunito — SELF-HOSTED (no CDN).
+   Relative ../fonts/ URLs resolve from the bundled assets/ dir to
+   {base}/fonts/ so the /digital-wall base path works unchanged. */
+@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {

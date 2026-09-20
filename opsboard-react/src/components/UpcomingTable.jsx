@@ -4,6 +4,7 @@ import { subscribeWallStream } from '../services/wallStream';
 import { useWallColors } from '../theme/WallColorsContext';
 import { chromeFor, leonChecklistColor, wxCategoryColorsFor } from '../theme/wallColors';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Upcoming Flight Table (bug report 3 item 10): a side panel listing every
 // flight from today 00:01 UTC onward — the wall's look-ahead beyond the
 // timeline window. Cell colours come straight from Leon checklists:
@@ -134,13 +135,13 @@ function styles(sz, chrome) {
       fontWeight: 800,
       letterSpacing: '.12em',
       color: chrome.tableTitle,
-      fontFamily: "'IBM Plex Mono',monospace",
+      fontFamily: WALL_FONT,
     },
     scroll: { flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto' },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-      fontFamily: "'IBM Plex Mono',monospace",
+      fontFamily: WALL_FONT,
       fontSize: sz(11),
     },
     th: {
@@ -171,6 +172,6 @@ function styles(sz, chrome) {
       borderRadius: '50%',
       verticalAlign: 'middle',
     },
-    empty: { padding: sz(12), fontSize: sz(11), color: chrome.sidebarMuted, fontFamily: "'IBM Plex Mono',monospace" },
+    empty: { padding: sz(12), fontSize: sz(11), color: chrome.sidebarMuted, fontFamily: WALL_FONT },
   };
 }

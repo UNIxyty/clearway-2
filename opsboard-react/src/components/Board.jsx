@@ -10,6 +10,7 @@ import {
   wxLegendSwatchesFor,
 } from '../theme/wallColors';
 
+import { WALL_FONT } from '../theme/wallFont';
 // Pill fill semantics (Leon-derived — see digital-wall/LEON-PILL-MAPPING.md).
 // Timeline agenda — the exact labels from the ops mockup, plus the two
 // existing wall states (hollow Estimated, hatched AOG) that still exist.
@@ -909,7 +910,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome
   legendSwatch: { width: szSide(24), height: szSide(11), borderRadius: 3, flexShrink: 0 },
   legendLabel: { fontSize: szSide(12.5), color: chrome.legendLabel, whiteSpace: 'nowrap' },
   sidebarDate: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: szSide(20), fontWeight: 700,
+    fontFamily: WALL_FONT, fontSize: szSide(20), fontWeight: 700,
     color: chrome.sidebarHeading, letterSpacing: '1px', padding: `${szSide(14)}px ${szSide(12)}px ${szSide(6)}px`,
   },
   limTitleRow: { display: 'flex', alignItems: 'center', gap: szSide(9), padding: `${szSide(3)}px 0` },
@@ -926,7 +927,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome
     border: '1px solid',
     background: chrome.ghost,
     fontSize: szSide(13), fontWeight: 700,
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: WALL_FONT,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   limTitle: {
@@ -948,7 +949,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome
   tick: {
     width: 72, flexShrink: 0, display: 'flex', alignItems: 'center', paddingLeft: 6,
     borderRight: `1px solid ${chrome.gridLine}`,
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(12), fontWeight: 700, color: chrome.tickText,
+    fontFamily: WALL_FONT, fontSize: sz(12), fontWeight: 700, color: chrome.tickText,
   },
 
   // NOW header marker
@@ -963,7 +964,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome
   // Airborne pill state. Drawn ABOVE the pills with a 1px dark edge each
   // side + slight transparency, so it stays visible crossing white bodies.
   nowTimeLabel: {
-    fontFamily: "'IBM Plex Mono',monospace", fontSize: sz(11.5), fontWeight: 700,
+    fontFamily: WALL_FONT, fontSize: sz(11.5), fontWeight: 700,
     color: chrome.nowBadgeText, letterSpacing: '.5px',
     background: chrome.nowBadgeBg, padding: '1px 5px', borderRadius: 3,
     border: `1px solid ${chrome.nowBadgeBorder}`,
@@ -1014,7 +1015,7 @@ function makeStyles(sz, szSide = sz, { AC_LABEL_W = sz(150), acFont = sz, chrome
     width: 16, height: 16, borderRadius: '50%',
     border: `1px solid ${chrome.amberBorder}`,
     color: chrome.amber, fontSize: 9, fontWeight: 700,
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: WALL_FONT,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     cursor: 'pointer', transition: 'background .15s',
   },

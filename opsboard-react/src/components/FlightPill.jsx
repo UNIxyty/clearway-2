@@ -642,10 +642,16 @@ export default function FlightPill({
   // (+late amber / −early green) so any difference — including EARLY — is
   // explicit, not just the yellow fill; the striped segment marks the same
   // difference on the pill itself.
-  const depPrefix = depKind === 'STD' ? '' : `${depKind} `;
-  const arrPrefix = arrKind === 'STA' ? '' : `${arrKind} `;
-  const startLabel = `${depPrefix}${depHm ?? etd}`;
-  const endLabel = `${arrPrefix}${arrHm ?? eta}`;
+  // Bug report 6 item 1: prefixes (T/O, ETA, LDG, CTOT, ETD) removed from the
+  // pill face at ops' request — just the times and the signed delta remain.
+  // NOTE this reverses reports 3-4: an actual (T/O 07:55) and an estimate
+  // (ETD 07:55) are now indistinguishable on the pill; the kind still exists
+  // on the data (depKind/arrKind) and in the info tab, so it can come back
+  // with a one-line change here if ops regret the trade.
+  const depPrefix = '';
+  const arrPrefix = '';
+  const startLabel = `${depHm ?? etd}`;
+  const endLabel = `${arrHm ?? eta}`;
   const deltaTag = (deltaMin) =>
     deltaMin === 0 ? null : (
       <span style={{ color: deltaMin > 0 ? c.textDeltaLate : c.textDeltaEarly, fontWeight: 800 }}>

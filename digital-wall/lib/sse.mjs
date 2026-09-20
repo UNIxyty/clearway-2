@@ -28,7 +28,7 @@ export class SseHub {
     if (typeof this.heartbeat.unref === "function") this.heartbeat.unref();
   }
 
-  addClient({ req, res, user, surface = "display" }) {
+  addClient({ req, res, user, surface = "display", deviceId = null }) {
     const id = this.nextClientId++;
     res.writeHead(200, {
       "content-type": "text/event-stream; charset=utf-8",
@@ -43,6 +43,7 @@ export class SseHub {
       res,
       user: user ?? null,
       surface: String(surface || "display"),
+      deviceId: deviceId || null,
       connectedAt: new Date().toISOString(),
     });
 
@@ -63,6 +64,22 @@ export class SseHub {
     this.broadcastPresence();
   }
 
+  // Revoking a display device must stop it NOW, not at its next poll: tell
+  // the display it lost its registration, then drop its streams.
+  closeDevice(deviceId) {
+    if (!deviceId) return;
+    const frame = eventFrame({ type: "device.revoked", deviceId });
+    for (const [id, client] of [...this.clients.entries()]) {
+      if (client.deviceId !== deviceId) continue;
+      try {
+        client.res.write(frame);
+      } catch {
+        /* stream already dead — removeClient below cleans up */
+      }
+      this.removeClient(id);
+    }
+  }
+
   broadcast(event) {
     const frame = eventFrame(event);
     for (const [id, client] of this.clients.entries()) {
@@ -77,6 +94,7 @@ export class SseHub {
   presenceUsers() {
     const byUser = new Map();
     for (const client of this.clients.values()) {
+      if (client.deviceId) continue; // registered displays are devices, not people
       const user = client.user;
       const key = user?.userId || "anonymous";
       if (!byUser.has(key)) {

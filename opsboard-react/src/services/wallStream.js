@@ -60,7 +60,19 @@ function ensureConnected(surface) {
   if (source && currentSurface === surface) return;
   if (source) source.close();
   currentSurface = surface;
-  source = new EventSource(buildApiUrl(`/api/stream?surface=${encodeURIComponent(surface)}`));
+  // Device-registered walls authenticate the stream with their device token.
+  // EventSource cannot send headers, so it rides as a query parameter; the
+  // server accepts it only on the read-only display whitelist.
+  let streamUrl = `/api/stream?surface=${encodeURIComponent(surface)}`;
+  if (surface !== 'console') {
+    try {
+      const token = window.localStorage.getItem('dw-device-token');
+      if (token) streamUrl += `&device_token=${encodeURIComponent(token)}`;
+    } catch {
+      /* storage-restricted context */
+    }
+  }
+  source = new EventSource(buildApiUrl(streamUrl));
   source.onopen = () => markHeard(false);
   source.onerror = () => {
     if (connState.status !== 'reconnecting') {
@@ -76,6 +88,17 @@ function ensureConnected(surface) {
       /* ignore malformed frames */
     }
   };
+}
+
+/**
+ * Force the next subscriber to open a FRESH connection. Needed when the
+ * device token changes (issued or revoked): EventSource reconnects with the
+ * URL it was created with, so a token baked into that URL goes stale.
+ */
+export function resetWallStream() {
+  if (source) source.close();
+  source = null;
+  currentSurface = '';
 }
 
 /**

@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  approveAuthDevice,
   fetchAlertRules,
+  fetchAuthDevices,
   fetchDigestConfig,
   fetchDisplayClocks,
   fetchDisplayDevices,
   fetchDisplaySettings,
+  revokeAuthDevice,
   renameDisplayDevice,
   refreshFlightWeather,
   reportDisplayEnv,
@@ -1419,6 +1422,150 @@ function WeatherCard() {
   );
 }
 
+/**
+ * Bug report 6 item 7 — registered display DEVICES (the logout fix). A wall
+ * screen with no user session announces itself and shows a short code; the
+ * matching request appears here, and approving it issues that screen a
+ * long-lived token scoped server-side to read-only wall data. Approve and
+ * revoke are audit-logged; revoking stops the screen within seconds.
+ */
+function DevicesCard() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [names, setNames] = useState({}); // deviceId -> draft name
+  const [busyId, setBusyId] = useState('');
+  const flash = useToast();
+
+  const load = () =>
+    fetchAuthDevices()
+      .then((payload) => {
+        setData(payload);
+        setError('');
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+
+  useEffect(() => {
+    load();
+    return subscribeWallStream('devices.changed', load, { surface: 'console' });
+  }, []);
+
+  const devices = data?.devices || [];
+  const pending = devices.filter((d) => d.status === 'pending');
+  const approved = devices.filter((d) => d.status === 'approved');
+  const revoked = devices.filter((d) => d.status === 'revoked');
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Devices</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
+        Screens approved here stay signed in on their own long-lived key — no user session to
+        expire overnight. The key only reads wall data; it cannot change anything. A new screen
+        shows a short code and appears below as a request; check the codes match before approving.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      {data == null && !error ? <LoadingState>Loading devices…</LoadingState> : null}
+
+      {pending.map((d) => (
+        <div
+          key={d.deviceId}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            flexWrap: 'wrap',
+            border: '1px solid #e8c56a',
+            background: '#fdf7e7',
+            borderRadius: 10,
+            padding: '12px 14px',
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: 6 }}>{d.code}</div>
+          <div style={{ fontSize: 12.5, color: t.muted, flex: 1, minWidth: 180 }}>
+            Screen <MonoChip>{d.deviceId}</MonoChip> is waiting to be approved
+            {d.createdAt ? ` · asked ${timeAgoShort(d.createdAt)}` : ''}
+          </div>
+          <TextInput
+            value={names[d.deviceId] ?? ''}
+            onChange={(e) => setNames((n) => ({ ...n, [d.deviceId]: e.target.value }))}
+            placeholder="Name this screen (e.g. Ops room wall)"
+            style={{ width: 220 }}
+          />
+          <Button
+            variant="primary"
+            disabled={busyId === d.deviceId}
+            onClick={async () => {
+              setBusyId(d.deviceId);
+              try {
+                await approveAuthDevice(d.deviceId, names[d.deviceId] || '');
+                flash('Device approved — the screen comes to life within a few seconds');
+                load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              }
+              setBusyId('');
+            }}
+          >
+            Approve
+          </Button>
+        </div>
+      ))}
+      {pending.length === 0 && data != null && (
+        <p style={{ fontSize: 12.5, color: t.faint, margin: '0 0 12px' }}>
+          No screens are waiting for approval right now.
+        </p>
+      )}
+
+      {approved.map((d) => (
+        <div
+          key={d.deviceId}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            borderTop: `1px solid ${t.border}`,
+            padding: '10px 2px',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 13.5, minWidth: 140 }}>{d.name || d.deviceId}</div>
+          <MonoChip>{d.deviceId}</MonoChip>
+          <span style={{ fontSize: 12, color: t.muted }}>
+            last seen {timeAgoShort(d.lastSeenAt)} · approved {timeAgoShort(d.approvedAt)}
+            {d.approvedBy ? ` by ${d.approvedBy}` : ''}
+          </span>
+          <span style={{ flex: 1 }} />
+          <Button
+            variant="soft"
+            disabled={busyId === d.deviceId}
+            onClick={async () => {
+              if (!window.confirm(`Revoke "${d.name || d.deviceId}"? The screen stops showing wall data immediately and has to be re-approved.`)) return;
+              setBusyId(d.deviceId);
+              try {
+                await revokeAuthDevice(d.deviceId);
+                flash('Device revoked — its screen has been disconnected');
+                load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              }
+              setBusyId('');
+            }}
+          >
+            Revoke
+          </Button>
+        </div>
+      ))}
+
+      {revoked.length > 0 && (
+        <p style={{ fontSize: 11.5, color: t.faint, margin: '10px 0 0' }}>
+          Revoked: {revoked.map((d) => d.name || d.deviceId).join(', ')} — a revoked screen asks
+          again on its own and reappears above as a new request.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 // <1024 (C7): one group open at a time, everything else a 48px summary row
 // showing its current value.
 function MobileGroup({ title, summary, open, onToggle, note = false, children }) {
@@ -1622,6 +1769,7 @@ export default function SettingsPage() {
               true
             )}
             {group('clocks', 'Wall clocks', '', <ClocksCard />)}
+            {group('devices', 'Devices', '', <DevicesCard />)}
           </>
         )}
         {section === 'checks' && (
@@ -1685,6 +1833,7 @@ export default function SettingsPage() {
         <>
           <VisibilityWindowCard />
           <ClocksCard />
+          <DevicesCard />
         </>
       )}
       {section === 'checks' && (

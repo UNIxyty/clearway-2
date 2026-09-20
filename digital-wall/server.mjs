@@ -6,6 +6,14 @@ import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
+import {
+  announceDevice,
+  approveDevice,
+  deviceState,
+  listDevices,
+  revokeDevice,
+  validateDeviceToken,
+} from "./lib/devices.mjs";
 import { JsonFileStore } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
 import { CaaStore } from "./lib/caa-store.mjs";
@@ -649,6 +657,30 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── Device registration (bug report 6 item 7) ───────────────────────
+    // These two endpoints are PUBLIC by design: an unregistered wall has no
+    // session and no token yet — announcing yourself and polling your own
+    // approval state is all they allow. Approval itself happens on the
+    // console (authenticated, below), and the payloads here leak nothing
+    // beyond the pairing code the display is already showing on screen.
+    if (pathname === "/api/device/announce" && req.method === "POST") {
+      const body = await readJsonBody(req);
+      try {
+        const out = await announceDevice(body.deviceId, { userAgent: req.headers["user-agent"] });
+        if (out.status === "pending") {
+          sseHub.broadcast({ type: "devices.changed", action: "announce" });
+        }
+        sendJson(res, { ok: true, ...out });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+    if (pathname === "/api/device/state" && req.method === "GET") {
+      sendJson(res, { ok: true, ...(await deviceState(String(url.searchParams.get("deviceId") || ""))) });
+      return;
+    }
+
     // ── Authentication gate ─────────────────────────────────────────────
     // Every /api/* endpoint requires a Supabase session (verified from the
     // portal's cookies through the shared gateway). When auth is disabled
@@ -660,9 +692,32 @@ const server = http.createServer(async (req, res) => {
     // DISPLAY alive during such a misconfiguration: the read-only display
     // endpoints in DISPLAY_READ_PATHS (server-cached data, no role/write
     // decisions) are still served, with requestUser = null.
+    //
+    // Registered DEVICES (item 7) authenticate with x-device-token (or
+    // ?device_token= — EventSource cannot set headers). A device identity is
+    // minted ONLY for GET/HEAD paths in DISPLAY_READ_PATHS: everything else
+    // sees requestUser = null and falls through to the 401. Devices carry no
+    // user permissions — settings resolution pins them to the main wall
+    // profile, and requestUser.device gates them out of console endpoints.
     let requestUser = null;
     if (pathname.startsWith("/api/")) {
       requestUser = await authenticateRequest(req);
+      if (!requestUser && isDisplayReadPath(pathname, req.method)) {
+        const deviceToken =
+          req.headers["x-device-token"] || url.searchParams.get("device_token") || null;
+        const device = deviceToken ? await validateDeviceToken(deviceToken) : null;
+        if (device) {
+          requestUser = {
+            userId: `device:${device.deviceId}`,
+            email: MAIN_WALL_ACCOUNT,
+            name: device.name || "Wall display",
+            initials: "TV",
+            role: "user",
+            device: true,
+            deviceId: device.deviceId,
+          };
+        }
+      }
       if (!requestUser && !(authMisconfigured() && isDisplayReadPath(pathname, req.method))) {
         sendJson(
           res,
@@ -693,7 +748,59 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/stream" && req.method === "GET") {
       const surface = url.searchParams.get("surface") === "console" ? "console" : "display";
-      sseHub.addClient({ req, res, user: requestUser, surface });
+      sseHub.addClient({
+        req,
+        res,
+        user: requestUser?.device ? null : requestUser,
+        surface,
+        deviceId: requestUser?.device ? requestUser.deviceId : null,
+      });
+      return;
+    }
+
+    // ── Device management (console Settings → Devices) ──────────────────
+    // Requires a real signed-in user; a device token never reaches here
+    // (devices only mint an identity for DISPLAY_READ_PATHS). Follows the
+    // console's convention — any authenticated portal user manages devices;
+    // the audit trail records exactly who approved or revoked what.
+    if (pathname === "/api/device/list" && req.method === "GET") {
+      if (!requestUser || requestUser.device) {
+        sendJson(res, { ok: false, error: "Sign-in required." }, 403);
+        return;
+      }
+      sendJson(res, { ok: true, ...(await listDevices()) });
+      return;
+    }
+    if (pathname === "/api/device/approve" && req.method === "POST") {
+      if (!requestUser || requestUser.device) {
+        sendJson(res, { ok: false, error: "Sign-in required." }, 403);
+        return;
+      }
+      const body = await readJsonBody(req);
+      try {
+        const device = await approveDevice(body.deviceId, body.name, requestUser.email);
+        sseHub.broadcast({ type: "devices.changed", action: "approve", deviceId: device.deviceId });
+        sendJson(res, { ok: true, device });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
+      return;
+    }
+    if (pathname === "/api/device/revoke" && req.method === "POST") {
+      if (!requestUser || requestUser.device) {
+        sendJson(res, { ok: false, error: "Sign-in required." }, 403);
+        return;
+      }
+      const body = await readJsonBody(req);
+      try {
+        const device = await revokeDevice(body.deviceId, requestUser.email);
+        // Kill the display's live streams first, then tell consoles.
+        sseHub.closeDevice(device.deviceId);
+        sseHub.broadcast({ type: "devices.changed", action: "revoke", deviceId: device.deviceId });
+        sendJson(res, { ok: true, device });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 400);
+      }
       return;
     }
 

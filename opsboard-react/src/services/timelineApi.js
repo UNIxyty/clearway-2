@@ -304,6 +304,37 @@ export async function renameDisplayDevice(deviceId, label) {
   return payload;
 }
 
+/**
+ * Bug report 6 item 7: device ACCESS management (distinct from the viewport
+ * registry above — these are the screens allowed to read wall data without
+ * a user session). Approve/revoke are audit-logged server-side.
+ */
+export async function fetchAuthDevices() {
+  return fetchJson('/api/device/list', 'Device list request failed');
+}
+
+export async function approveAuthDevice(deviceId, name) {
+  const response = await fetch(buildApiUrl('/api/device/approve'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId, name }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Approve failed');
+  return payload;
+}
+
+export async function revokeAuthDevice(deviceId) {
+  const response = await fetch(buildApiUrl('/api/device/revoke'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Revoke failed');
+  return payload;
+}
+
 export async function resetProfile(account) {
   const response = await fetch(buildApiUrl(`/api/display/settings/profile/${encodeURIComponent(account)}`), {
     method: 'DELETE',

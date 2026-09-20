@@ -10,7 +10,7 @@ export default function App() {
   const { route, navigate } = useRoute();
 
   return (
-    <AuthGate>
+    <AuthGate surface={route.surface}>
       {route.surface === 'console' ? (
         <ConsoleApp page={route.page} navigate={navigate} />
       ) : (

@@ -107,6 +107,10 @@ function weatherSyncBase(): string {
 function aipSyncBase(): string {
   return (process.env.AIP_SYNC_URL || "http://aip-sync:3002").replace(/\/+$/, "");
 }
+function agentBase(): string {
+  return (process.env.AGENT_INTERNAL_URL || "http://agent-service:5175").replace(/\/+$/, "");
+}
+
 function wallBase(): string {
   // docker-compose.yml: service `digital-wall-backend`, PORT 5174.
   return (process.env.DIGITAL_WALL_INTERNAL_URL || "http://digital-wall-backend:5174").replace(/\/+$/, "");
@@ -228,6 +232,26 @@ function makeWorkerHealthCheck(base: () => string, expectedService: string): () 
   };
 }
 
+async function checkAgentHealth(): Promise<Outcome> {
+  const r = await getJson(`${agentBase()}/api/health`);
+  const body = asRecord(r.json);
+  if (r.status !== 200 || body?.ok !== true || body.service !== "agent") {
+    return downBecause(`unexpected /api/health response (HTTP ${r.status}): ${snippet(r)}`);
+  }
+  // The agent answering is not the same as the agent being usable: with auth or
+  // the Supabase store misconfigured it fails closed and every request is
+  // denied. That is degraded, not down — and it is the state worth surfacing,
+  // because from outside it looks like "nobody has access" rather than a fault.
+  const broken = [
+    body.auth === "misconfigured" ? "auth" : null,
+    body.store === "misconfigured" ? "Supabase store" : null,
+  ].filter(Boolean);
+  if (broken.length > 0) {
+    return { state: "degraded", error: `agent is up but ${broken.join(" and ")} misconfigured — all requests fail closed` };
+  }
+  return OK;
+}
+
 async function checkWallHealth(): Promise<Outcome> {
   const r = await getJson(`${wallBase()}/api/health`);
   const body = asRecord(r.json);
@@ -312,6 +336,7 @@ const CHECK_DEFS: CheckDef[] = [
   { id: "weather-sync", label: "Weather sync worker (/health)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(weatherSyncBase, "weather-sync") },
   { id: "aip-sync", label: "AIP sync worker (/health)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(aipSyncBase, "aip-sync") },
   { id: "wall-health", label: "Digital Wall backend (/api/health)", intervalMs: 1 * MIN, run: checkWallHealth },
+  { id: "agent-health", label: "Dispatcher agent (/api/health)", intervalMs: 1 * MIN, run: checkAgentHealth },
   { id: "leon-feed", label: "Leon feed (wall sync-status)", intervalMs: 2 * MIN, run: checkLeonFeed },
   { id: "checkwx-freshness", label: "CheckWX cache freshness (weather/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("weather", "CheckWX weather") },
   { id: "crewbriefing-freshness", label: "CrewBriefing cache freshness (notam/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("notam", "CrewBriefing NOTAM") },

@@ -174,6 +174,27 @@ services:
     volumes:
       - ./deploy/digital-wall/nginx-gateway.conf:/etc/nginx/conf.d/default.conf:ro
 
+  agent-service:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: agent-service
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      PORT: 5175
+      NODE_ENV: production
+      # Part 1 pins every tier to one model; see agent/config/models.json.
+      # AGENT_ACTIVE_TIER=none hands routing back to the caller (Part 10).
+      BEDROCK_REGION: ${BEDROCK_REGION:-eu-north-1}
+    expose:
+      - "5175"
+    ports:
+      # Published on loopback only; cloudflared routes /agent/* here, matching
+      # how the wall gateway is reached on 8088.
+      - "127.0.0.1:8089:5175"
+
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped

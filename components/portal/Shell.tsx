@@ -36,6 +36,10 @@ function useIdentity() {
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("user");
   const [isDeveloper, setIsDeveloper] = useState(false);
+  // Agent availability is a runtime allowlist check, not a role. It starts
+  // false and only ever becomes true on an explicit yes, so a failed probe
+  // leaves the agent invisible rather than flashing an entry point.
+  const [hasAgent, setHasAgent] = useState(false);
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
@@ -56,6 +60,10 @@ function useIdentity() {
         setRole("user");
         setIsDeveloper(false);
       });
+    fetch("/api/agent/availability", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { available: false }))
+      .then((d) => setHasAgent(Boolean(d?.available)))
+      .catch(() => setHasAgent(false));
   }, []);
   const display = name || email || "Signed in";
   const initials =
@@ -66,7 +74,7 @@ function useIdentity() {
       .map((p) => p[0])
       .join("")
       .toUpperCase() || "??";
-  return { email, display, initials, role, isDeveloper };
+  return { email, display, initials, role, isDeveloper, hasAgent };
 }
 
 function NavButton({
@@ -127,7 +135,7 @@ export default function PortalShell({
 }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const { email, display, initials, role, isDeveloper } = useIdentity();
+  const { email, display, initials, role, isDeveloper, hasAgent } = useIdentity();
   // Persisted UI state is read in lazy initializers (typeof window guard for
   // SSR) so the sidebar renders its persisted collapsed/open state on the
   // FIRST client paint — no expand-flicker from a post-mount useEffect. The
@@ -208,7 +216,7 @@ export default function PortalShell({
       return next;
     });
 
-  const topics = useMemo(() => topicsForRole(role, isDeveloper), [role, isDeveloper]);
+  const topics = useMemo(() => topicsForRole(role, isDeveloper, hasAgent), [role, isDeveloper, hasAgent]);
 
   // Internal navigations go through startTransition so navPending drives the
   // slim top progress bar (Next 14 App Router has no router events; the

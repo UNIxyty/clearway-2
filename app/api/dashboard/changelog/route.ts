@@ -1,7 +1,10 @@
 // Dashboard changelog (platform redesign Phase 3, audit §6.3): a single
-// newest-first feed assembled from the six actor-stamped sources that exist
-// TODAY — no schema changes. Supabase: deleted_airports, bug_reports,
-// maintenance, email_logs (failed → ERROR), debug_run_failures (→ ERROR).
+// newest-first feed assembled from the actor-stamped sources that exist TODAY.
+// Supabase: deleted_airports, bug_reports, maintenance, email_logs (failed →
+// ERROR), debug_run_failures (→ ERROR), agent_audit_log (agent access changes,
+// the kill switch, and agent failures — agent CHAT traffic is deliberately
+// excluded: it is per-user content, not a platform change, and would drown
+// everything else).
 // Wall JSON stores (read via fs, absent files skipped silently in dev):
 // important.json, reports.json, webhook-log.json (failures → ERROR).
 // Session-authed like other portal routes; admin NOT required.
@@ -79,6 +82,51 @@ export async function GET(request: NextRequest) {
     // unreachable Supabase must not blank the whole changelog). ---
     if (service) {
       const tasks: Array<Promise<void>> = [];
+
+      // 0. Agent access administration and failures. Chat traffic is NOT
+      // surfaced here — the full per-request trail lives in agent_audit_log
+      // itself; this feed is for changes to the platform.
+      tasks.push(
+        (async () => {
+          const { data } = await service
+            .from("agent_audit_log")
+            .select("kind, user_email, actor_email, error, detail, created_at")
+            .in("kind", ["access.granted", "access.revoked", "killswitch.changed", "chat.error"])
+            .order("created_at", { ascending: false })
+            .limit(25);
+          for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+            const at = iso(row.created_at);
+            if (!at) continue;
+            const actor = row.actor_email ? String(row.actor_email) : null;
+            const subject = row.user_email ? String(row.user_email) : "a user";
+            const kind = String(row.kind);
+            if (kind === "access.granted") {
+              entries.push({ kind: "edit", source: "Agent", summary: `Agent access granted to ${subject}${byActor(actor)}`, actor, at });
+            } else if (kind === "access.revoked") {
+              entries.push({ kind: "edit", source: "Agent", summary: `Agent access revoked for ${subject}${byActor(actor)}`, actor, at });
+            } else if (kind === "killswitch.changed") {
+              const detail = (row.detail ?? {}) as Record<string, unknown>;
+              const on = detail.enabled === true;
+              const reason = detail.reason ? ` — ${String(detail.reason)}` : "";
+              entries.push({
+                kind: on ? "edit" : "error",
+                source: "Agent",
+                summary: `Agent ${on ? "enabled" : "DISABLED for everyone"}${byActor(actor)}${reason}`,
+                actor,
+                at,
+              });
+            } else if (kind === "chat.error") {
+              entries.push({
+                kind: "error",
+                source: "Agent",
+                summary: `Agent request failed: ${String(row.error ?? "unknown error").slice(0, 160)}`,
+                actor: row.user_email ? String(row.user_email) : null,
+                at,
+              });
+            }
+          }
+        })()
+      );
 
       // 1. Airports hidden / restored.
       tasks.push(

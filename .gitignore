@@ -39,6 +39,10 @@ __pycache__/
 *.pem
 .env
 .env*.local
+# Any env file, not just *.local — .env.test held live credentials and was
+# one `git add -A` away from being committed.
+.env.*
+!.env.example
 .vercel
 
 # debug

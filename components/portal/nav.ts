@@ -24,6 +24,10 @@ export type NavTopic = {
   // Developer is a FLAG, not a role tier (help-centre gate): admin does NOT
   // see developer topics. Gated by the same flag as the routes and API scope.
   developerOnly?: boolean;
+  // The agent is gated by a per-user ALLOWLIST resolved at runtime, not by any
+  // role. A user without a grant must see no trace of it — so this topic is
+  // omitted entirely rather than rendered disabled.
+  agentOnly?: boolean;
   href?: string; // topic itself navigates (Dashboard)
   items?: NavItem[];
 };
@@ -85,6 +89,16 @@ export const NAV_TOPICS: NavTopic[] = [
     ],
   },
   {
+    id: "agent",
+    label: "Assistant",
+    icon: "sparkles",
+    roles: ["admin", "user"], // roles don't matter here — agentOnly is the gate
+    agentOnly: true,
+    items: [
+      { id: "agent-chat", label: "Ask the assistant", icon: "message-square", href: "/agent" },
+    ],
+  },
+  {
     id: "developer",
     label: "Developer",
     icon: "terminal",
@@ -93,6 +107,7 @@ export const NAV_TOPICS: NavTopic[] = [
     items: [
       { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
+      { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
       { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
     ],
   },
@@ -126,6 +141,13 @@ export const ACCOUNT_MENU_IDS = ["acc-profile", "acc-notify", "acc-stats", "acc-
 
 export type Role = "admin" | "user" | "guest";
 
-export function topicsForRole(role: Role, isDeveloper = false): NavTopic[] {
-  return NAV_TOPICS.filter((t) => t.roles.includes(role) && (!t.developerOnly || isDeveloper));
+export function topicsForRole(role: Role, isDeveloper = false, hasAgent = false): NavTopic[] {
+  return NAV_TOPICS.filter(
+    (t) =>
+      t.roles.includes(role) &&
+      (!t.developerOnly || isDeveloper) &&
+      // hasAgent defaults to false, so the agent is absent until proven
+      // available — a failed probe never reveals it.
+      (!t.agentOnly || hasAgent)
+  );
 }

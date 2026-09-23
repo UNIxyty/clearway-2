@@ -883,6 +883,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/reports/config" && req.method === "GET") {
+      sendJson(res, {
+        ok: true,
+        categories: reportsStore.categories,
+        presets: reportsStore.presets,
+        mailerConfigured: mailerConfigured(),
+      });
+      return;
+    }
+
     if (pathname === "/api/reports/config" && req.method === "PUT") {
       const body = await readJsonBody(req);
       try {
@@ -939,6 +949,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (/^\/api\/reports\/[^/]+$/.test(pathname) && req.method === "GET") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const report = reportsStore.list().find((r) => r.id === id) ?? null;
+      if (!report) {
+        sendJson(res, { ok: false, error: "Report not found." }, 404);
+        return;
+      }
+      sendJson(res, { ok: true, report });
+      return;
+    }
+
     if (pathname.startsWith("/api/reports/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -986,6 +1007,19 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
       }
+      return;
+    }
+
+    // Read one flight's current-cycle acks (P4: the store was write-only over
+    // HTTP; readers had to decode the timeline payload).
+    if (pathname === "/api/flight-checks" && req.method === "GET") {
+      const oprId = String(url.searchParams.get("oprId") || "").trim();
+      const flightNid = String(url.searchParams.get("flightNid") || "").trim();
+      if (!oprId || !flightNid) {
+        sendJson(res, { ok: false, error: "oprId and flightNid are required." }, 400);
+        return;
+      }
+      sendJson(res, { ok: true, oprId, flightNid, checks: flightChecksStore.statusFor(`${oprId}:${flightNid}`) });
       return;
     }
 
@@ -1339,6 +1373,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname.startsWith("/api/display/devices/") && req.method === "DELETE") {
+      const deviceId = decodeURIComponent(pathname.split("/").pop());
+      const stored = await displayDevicesStore.read();
+      if (!stored.devices?.[deviceId]) {
+        sendJson(res, { ok: false, error: "Unknown device" }, 404);
+        return;
+      }
+      delete stored.devices[deviceId];
+      await displayDevicesStore.write(stored);
+      sendJson(res, { ok: true, deviceId });
+      return;
+    }
+
     if (pathname === "/api/display/clocks" && req.method === "GET") {
       const stored = await clocksStore.read();
       sendJson(res, { ok: true, clocks: stored.clocks ?? DEFAULT_CLOCKS });
@@ -1373,6 +1420,22 @@ const server = http.createServer(async (req, res) => {
       await timelineService.refreshNow().catch(() => {});
       sseHub.broadcast({ type: "roster.changed", action: "operator-upsert", oprId: operator.oprId });
       sendJson(res, { ok: true, operator });
+      return;
+    }
+
+    if (/^\/api\/operators\/[^/]+$/.test(pathname) && req.method === "GET") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      try {
+        const operators = await operatorsStore.listOperators({ includeInactive: true });
+        const operator = operators.find((o) => String(o.id) === id || String(o.oprId) === id) ?? null;
+        if (!operator) {
+          sendJson(res, { ok: false, error: "Operator not found." }, 404);
+          return;
+        }
+        sendJson(res, { ok: true, operator });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+      }
       return;
     }
 
@@ -1595,6 +1658,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (/^\/api\/caa\/[^/]+$/.test(pathname) && req.method === "GET") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const entry = caaStore.list({ includeInactive: true }).find((e) => e.id === id) ?? null;
+      if (!entry) {
+        sendJson(res, { ok: false, error: "CAA entry not found." }, 404);
+        return;
+      }
+      sendJson(res, { ok: true, entry });
+      return;
+    }
+
     if (pathname.startsWith("/api/caa/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -1788,6 +1862,17 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (/^\/api\/important\/[^/]+$/.test(pathname) && req.method === "GET") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const entry = importantStore.list({ includeInactive: true }).find((e) => e.id === id) ?? null;
+      if (!entry) {
+        sendJson(res, { ok: false, error: "IMP entry not found." }, 404);
+        return;
+      }
+      sendJson(res, { ok: true, entry });
+      return;
+    }
+
     if (pathname.startsWith("/api/important/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -1827,12 +1912,52 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname.startsWith("/api/timeline/limitations/") && req.method === "PATCH") {
-      const id = pathname.split("/").pop();
-      const body = await readJsonBody(req);
-      const limitation = await timelineService.setCustomLimitationActive(id, Boolean(body.isActive));
-      sseHub.broadcast({ type: "limitations.changed", action: "toggle", id });
+    if (/^\/api\/timeline\/limitations\/[^/]+$/.test(pathname) && req.method === "GET") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const limitation = timelineService.listCustomLimitations({ includeInactive: true }).find((l) => l.id === id) ?? null;
+      if (!limitation) {
+        sendJson(res, { ok: false, error: "Limitation not found." }, 404);
+        return;
+      }
       sendJson(res, { ok: true, limitation });
+      return;
+    }
+
+    if (pathname.startsWith("/api/timeline/limitations/") && req.method === "PATCH") {
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const body = await readJsonBody(req);
+      const keys = Object.keys(body ?? {});
+      try {
+        // Bare {isActive} keeps the cheap toggle path; anything else is a
+        // full-field partial update (P4 — previously only the toggle existed,
+        // so editing a title/date/match meant delete + re-create).
+        if (keys.length === 1 && keys[0] === "isActive") {
+          const limitation = await timelineService.setCustomLimitationActive(id, Boolean(body.isActive));
+          sseHub.broadcast({ type: "limitations.changed", action: "toggle", id });
+          sendJson(res, { ok: true, limitation });
+          return;
+        }
+        const existing = timelineService.listCustomLimitations({ includeInactive: true }).find((l) => l.id === id);
+        if (!existing) {
+          sendJson(res, { ok: false, error: "Limitation not found." }, 404);
+          return;
+        }
+        const merged = { ...existing, ...body, id };
+        if (!(body.match && typeof body.match === "object")) {
+          merged.match = {
+            ...existing.match,
+            ...(Array.isArray(body.flights) ? { flights: body.flights } : {}),
+            ...(Array.isArray(body.airportIcaos) ? { airportIcaos: body.airportIcaos } : {}),
+            ...(Array.isArray(body.countries) ? { countries: body.countries } : {}),
+          };
+        }
+        const limitation = await timelineService.upsertCustomLimitation(merged);
+        sseHub.broadcast({ type: "limitations.changed", action: "upsert", id });
+        sendJson(res, { ok: true, limitation });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        sendJson(res, { ok: false, error: message }, /not found/i.test(message) ? 404 : 400);
+      }
       return;
     }
 

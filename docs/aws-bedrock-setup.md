@@ -198,7 +198,7 @@ management, no logging config, no marketplace):
       ],
       "Resource": [
         "arn:aws:bedrock:eu-*::foundation-model/anthropic.*",
-        "arn:aws:bedrock:eu-*::foundation-model/amazon.nova-*",
+        "arn:aws:bedrock:eu-*::foundation-model/amazon.*",
         "arn:aws:bedrock:eu-*::foundation-model/cohere.*",
         "arn:aws:bedrock:eu-*:*:inference-profile/eu.*"
       ]
@@ -226,6 +226,9 @@ Notes:
   *"This operation requires permission for the `bedrock:InvokeModel` action."*). The two actions
   above therefore cover the smoke test's `ConverseCommand` and every streaming call the agent will
   make. An earlier revision of this policy listed all four; the extra two were inert.
+- `amazon.*` rather than `amazon.nova-*`: Titan embeddings
+  (`amazon.titan-embed-text-v2:0`) are the first-party alternative to Cohere and are otherwise
+  denied by the narrower pattern.
 - **The `eu-*` region wildcard is load-bearing, not laziness.** An `eu.` inference profile routes a
   request to whichever EU region has capacity, and IAM authorizes against the **destination**
   region's `foundation-model` ARN — not the region you called. Enumerating regions by hand fails

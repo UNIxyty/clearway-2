@@ -53,15 +53,22 @@ function failClosed(request: NextRequest, pathname: string) {
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
-  const isPublicAsset = /\.[^/]+$/.test(pathname);
+  // Cached PDFs under /files/* are NOT public assets even though they carry an
+  // extension: they need the normal session (audit §8.3 — any file URL used to
+  // be world-readable). The wall's server-side fetches carry the shared
+  // secret header instead (digital-wall/lib/portal-client.mjs) and are let
+  // through below, next to the /api bypass.
+  const isStoredFile = pathname.startsWith("/files/");
+  const isPublicAsset = !isStoredFile && /\.[^/]+$/.test(pathname);
 
   // Bypass auth checks on isolated test environments.
   if (disableAuthForTesting) {
     return NextResponse.next();
   }
 
-  // Internal server-to-server debug runner traffic can bypass user session auth.
-  if (pathname.startsWith("/api") && hasInternalDebugAccess(request)) {
+  // Internal server-to-server traffic (debug runner, the wall) can bypass
+  // user session auth on /api/* and on the shared PDF cache under /files/*.
+  if ((pathname.startsWith("/api") || isStoredFile) && hasInternalDebugAccess(request)) {
     return NextResponse.next();
   }
 

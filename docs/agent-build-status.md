@@ -23,7 +23,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 
 | Part | Status | Commits | Deployed | Notes |
 |---|---|---|---|---|
-| 0 — Prerequisites and the status file | Built, not deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` | No | P1 data is live in Supabase; code awaits `docker compose up -d --build`; P5 blocked on AWS credentials |
+| 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
 | 1 | Not started | — | No | Title filled in when its prompt arrives |
 | 2 | Not started | — | No | |
 | 3 | Not started | — | No | |
@@ -37,23 +37,51 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 
 ## Part 0 — Prerequisites and the status file
 
-**Status: Built, not deployed.** Every item below is on `main`; nothing has been rebuilt on the
-server because this machine has no working SSH key for `root@clearway-2` (both `~/.ssh/clearway-key`
-and `~/.ssh/id_ed25519` are refused — `Permission denied (publickey)`). Live check that proves it:
-`curl -sI https://clearway.verxyl.com/files/probe.pdf` still answers `400` from the file route
-(pre-P3 behaviour) instead of `307 /login`. Run the deploy command at the top, then flip the
-`Deployed` column here.
+**Status: Deployed** (2026-09-23 11:06Z). Server `root@clearway-2:~/clearway-2` reports
+`git rev-parse --short HEAD` = **`bd5019b`**, matching `origin/main`; `portal` and
+`digital-wall-backend` were rebuilt. Post-deploy verification against production below.
+
+**One caveat on the overview row:** P5 is marked deployed only in the sense that its doc and script
+are on the server. **No Bedrock call has ever succeeded** — see Decisions. Do not read Part 0's
+`Deployed` as "the agent can reach a model".
+
+### Post-deploy verification (production, 2026-09-23 11:06Z)
+
+| Check | Result |
+|---|---|
+| `GET /api/health` | `{"ok":true,"service":"portal"}` |
+| `GET /files/probe.pdf`, no session | **307** → `/login?next=/files/probe.pdf` (was 400 = bypass) |
+| `GET /files/probe.pdf`, wrong secret header | **307** → `/login` (header is genuinely checked, not merely present) |
+| `GET /api/bug-reports`, no session | 307 → `/login` |
+| `GET /digital-wall/api/health` | `{"ok":true,...,"leon":{"configured":true,"healthy":true}}` |
+| `GET /digital-wall/api/flight-checks?...`, no session | 401 with the wall's auth message — new P4 route is live behind the gate |
+| `/favicon.ico` | unchanged (no regression on real static assets) |
+
+**Still unverified — the one way P3 could break the wall:** that the wall's outgoing secret still
+matches the portal's. Externally untestable. Run on the server:
+
+```bash
+docker compose exec digital-wall-backend sh -c \
+  'curl -s -o /dev/null -w "%{http_code}\n" \
+   -H "x-debug-runner-secret: ${PORTAL_INTERNAL_SECRET:-$DEBUG_RUNNER_INTERNAL_SECRET}" \
+   "$PORTAL_BASE_URL/files/probe.pdf"'
+```
+
+**400** = the wall reaches the file route (invalid path, as expected) → PDFs work.
+**307** = the secrets differ → every cached-PDF fetch, NOTAM lookup and AIP send from the wall is
+broken; fix by making `PORTAL_INTERNAL_SECRET` (wall) equal `DEBUG_RUNNER_INTERNAL_SECRET` (portal).
+Opening a flight's AIP document on the wall is the equivalent manual check.
 
 ### What was built
 
 | Item | Commit | On `main` | Deployed |
 |---|---|---|---|
-| Status file created | `013e63f` | yes | no |
-| P1 — Airport and country coverage | `944e9b6` (+ data applied to Supabase directly) | yes | data live now; script on main |
-| P2 — `GET /api/bug-reports` scoped to caller, developers see all | `d538eaa` | yes | no |
-| P3 — `/files/*` behind session check, wall header path preserved | `ccc52bb` | yes | no |
-| P4 — Wall store CRUD completeness | `a35b30d` | yes | no |
-| P5 — AWS + Bedrock access | `72f5dc4` | yes (docs + smoke test) | blocked — see Decisions |
+| Status file created | `013e63f`, `bd5019b` | yes | yes |
+| P1 — Airport and country coverage | `944e9b6` (+ data applied to Supabase directly) | yes | yes — data was live on apply |
+| P2 — `GET /api/bug-reports` scoped to caller, developers see all | `d538eaa` | yes | yes — verified 307 unauth |
+| P3 — `/files/*` behind session check, wall header path preserved | `ccc52bb` | yes | yes — verified 307 + wrong-secret 307 |
+| P4 — Wall store CRUD completeness | `a35b30d` | yes | yes — verified route live behind 401 gate |
+| P5 — AWS + Bedrock access | `72f5dc4` | yes (docs + smoke test) | code shipped; **no successful invocation** — see Decisions |
 
 **P1 — coverage (Supabase `airports`, applied 2026-09-23 10:45Z via `scripts/airports-backfill-ourairports.mjs --apply`)**
 
@@ -149,9 +177,10 @@ model availability there is stated as "confirm with `--list`", not asserted.
    `docs/aws-bedrock-setup.md` §3, put its key in the server `.env` (and locally if you want me to run
    the test), then `node scripts/bedrock-smoke-test.mjs --list` and a plain run. Until then P5 is
    "documented, not confirmed".
-2. **Deploy access.** Either add this machine's `~/.ssh/id_ed25519.pub` to `root@clearway-2`, or run
-   the deploy command yourself after each part and tell me the server HEAD so I can mark rows
-   `Deployed`. Without one of these every part will stall at `Built, not deployed`.
+2. **Deploy access.** *(Part 0 resolved by you deploying manually and reporting HEAD `bd5019b`.)*
+   Still open for future parts: either add this machine's `~/.ssh/id_ed25519.pub` to
+   `root@clearway-2`, or keep deploying yourself and sending me the server HEAD. Without one of
+   these, each part stalls at `Built, not deployed` until you act.
 3. **Run `docs/supabase-airports-iata.sql`** in the Supabase SQL editor, then I run the IATA fill.
 4. **Existing-country backfill scope.** 1,548 rows were added to already-covered countries (US 842).
    If you'd rather the US stayed at its curated 67, revert with

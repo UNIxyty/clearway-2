@@ -136,9 +136,7 @@ management, no logging config, no marketplace):
       "Effect": "Allow",
       "Action": [
         "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream",
-        "bedrock:Converse",
-        "bedrock:ConverseStream"
+        "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
         "arn:aws:bedrock:eu-north-1::foundation-model/anthropic.*",
@@ -166,6 +164,13 @@ management, no logging config, no marketplace):
 ```
 
 Notes:
+- **There is no `bedrock:Converse` or `bedrock:ConverseStream` IAM action** — the IAM editor flags
+  them as unrecognized, correctly. The Converse and ConverseStream API operations are authorized by
+  `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` respectively
+  ([API reference](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html):
+  *"This operation requires permission for the `bedrock:InvokeModel` action."*). The two actions
+  above therefore cover the smoke test's `ConverseCommand` and every streaming call the agent will
+  make. An earlier revision of this policy listed all four; the extra two were inert.
 - An `eu.` inference profile fans out to several EU regions; the policy must allow the
   `foundation-model` ARN in **each** region the profile routes to (hence the extra EU rows) as well
   as the profile ARN itself. Trim the list to what `--list` reports for the profiles you use.

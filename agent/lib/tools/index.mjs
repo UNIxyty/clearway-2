@@ -8,5 +8,6 @@ import "./notam-weather.mjs";
 import "./operational.mjs";
 import "./fleet.mjs";
 import "./monitoring.mjs";
+import "./knowledge.mjs";
 
 export { allTools, executeTool, getTool, toolSpecsFor, toolNamesFor, roleSatisfies, PERMISSIONS } from "./framework.mjs";

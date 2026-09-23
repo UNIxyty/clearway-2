@@ -21,6 +21,11 @@ import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
 } from "./lib/conversations.mjs";
+import {
+  approveTier1Record, classifyDocument, extractText, indexDocument,
+  readDocumentFile, storeDocument,
+} from "./lib/knowledge/ingest.mjs";
+import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
 import { loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -134,6 +139,158 @@ const server = http.createServer(async (req, res) => {
         conversationId: String(body.conversationId || "direct-invoke"),
       });
       return sendJson(res, result, result.ok === false ? 200 : 200);
+    }
+
+    // ── Knowledge base (Part 4) ───────────────────────────────────────────
+    // Upload, classify, approve, index. Ingest PROPOSES a tier; a person
+    // confirms. Tier 1 has exactly one entry point and it demands an approver.
+    if (pathname === "/api/knowledge/documents" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const status = url.searchParams.get("status");
+      const filter = status ? `&status=eq.${encodeURIComponent(status)}` : "";
+      const rows = await knowledgeRest(`agent_documents?select=*${filter}&order=created_at.desc&limit=200`);
+      return sendJson(res, { ok: true, documents: rows ?? [] });
+    }
+
+    if (pathname === "/api/knowledge/documents" && req.method === "POST") {
+      // Uploading to the knowledge base is a DEVELOPER action while the agent
+      // is a build in progress — same reasoning as the allowlist.
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") {
+        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to upload documents." }, 403);
+      }
+      const body = await readJsonBody(req);
+      const filename = String(body.filename || "").trim();
+      const contentBase64 = String(body.contentBase64 || "");
+      if (!filename || !contentBase64) throw BadRequest("filename and contentBase64 are required.");
+      const buffer = Buffer.from(contentBase64, "base64");
+      if (buffer.length === 0) throw BadRequest("The file is empty.");
+
+      const document = await storeDocument({
+        filename, mime: body.mime ?? null, buffer,
+        metadata: {
+          title: body.title, source: body.source, version: body.version,
+          effectiveDate: body.effectiveDate, country: body.country, icao: body.icao, tags: body.tags,
+        },
+        user,
+      });
+
+      const text = extractText(buffer, body.mime ?? null, filename);
+      let proposal = null;
+      if (text) {
+        proposal = await classifyDocument({ title: document.title, source: document.source, sample: text });
+        await knowledgeRest(`agent_documents?id=eq.${document.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            proposed_tier: proposal.tier,
+            proposed_reason: proposal.reason,
+            // Never 'approved' here. A person decides.
+            status: "awaiting_approval",
+            updated_at: new Date().toISOString(),
+          }),
+        });
+      } else {
+        await knowledgeRest(`agent_documents?id=eq.${document.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "awaiting_approval", proposed_tier: "tier2", proposed_reason: "Text could not be extracted automatically; review before indexing.", updated_at: new Date().toISOString() }),
+        });
+      }
+
+      await audit({
+        kind: "knowledge.uploaded", userId: user.userId, userEmail: user.email,
+        toolName: "knowledge.upload", toolArgs: { filename, title: document.title },
+        confirmationStatus: "pending", success: true,
+        detail: { documentId: document.id, proposedTier: proposal?.tier ?? "tier2", confidence: proposal?.confidence ?? null },
+      });
+      return sendJson(res, { ok: true, document, proposal });
+    }
+
+    // Approve: the single path into Tier 1, and the point where a human is on
+    // the record. Tier 2 approval simply indexes.
+    if (/^\/api\/knowledge\/documents\/[^/]+\/approve$/.test(pathname) && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") {
+        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to approve documents." }, 403);
+      }
+      const id = pathname.split("/")[4];
+      const body = await readJsonBody(req);
+      const tier = body.tier === "tier1" ? "tier1" : "tier2";
+      const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+      const document = rows?.[0];
+      if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+
+      let indexed = { chunks: 0 };
+      let records = [];
+      if (tier === "tier1") {
+        // Tier 1 is a set of RECORDS the approver has read, not a whole file.
+        const supplied = Array.isArray(body.records) ? body.records : [];
+        if (supplied.length === 0) throw BadRequest("Tier 1 approval requires the records to approve, each with reference, title and exact text.");
+        for (const record of supplied) {
+          if (!record.text || !record.title || !record.reference) throw BadRequest("Each Tier 1 record needs reference, title and text.");
+          records.push(await approveTier1Record({
+            document, record,
+            approver: { userId: user.userId, email: user.email },
+          }));
+        }
+      } else {
+        const buffer = await readDocumentFile(document.storage_key);
+        const text = extractText(buffer, document.mime, document.filename);
+        if (!text) throw BadRequest("No text could be extracted, so this document cannot be indexed as reference material.");
+        indexed = await indexDocument(document, text);
+      }
+
+      await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          tier, status: "indexed",
+          approved_by: user.userId, approved_by_email: user.email,
+          approved_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }),
+      });
+      await audit({
+        kind: "knowledge.approved", userId: user.userId, userEmail: user.email,
+        actorId: user.userId, actorEmail: user.email,
+        toolName: "knowledge.approve", toolArgs: { documentId: id, tier },
+        confirmationStatus: "confirmed", success: true,
+        detail: { chunks: indexed.chunks, tier1Records: records.length },
+      });
+      return sendJson(res, { ok: true, tier, chunks: indexed.chunks, records });
+    }
+
+    if (/^\/api\/knowledge\/documents\/[^/]+\/reject$/.test(pathname) && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") {
+        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required." }, 403);
+      }
+      const id = pathname.split("/")[4];
+      const body = await readJsonBody(req);
+      await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "rejected", rejected_reason: String(body.reason || "").slice(0, 400), updated_at: new Date().toISOString() }),
+      });
+      await audit({
+        kind: "knowledge.rejected", userId: user.userId, userEmail: user.email,
+        actorId: user.userId, actorEmail: user.email,
+        toolName: "knowledge.reject", toolArgs: { documentId: id },
+        confirmationStatus: "rejected", success: true, detail: { reason: body.reason ?? null },
+      });
+      return sendJson(res, { ok: true, id });
+    }
+
+    // The original file, always retrievable. Behind the same gate as everything.
+    if (/^\/api\/knowledge\/documents\/[^/]+\/file$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const id = pathname.split("/")[4];
+      const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+      const document = rows?.[0];
+      if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      const buffer = await readDocumentFile(document.storage_key);
+      res.writeHead(200, {
+        "content-type": document.mime || "application/octet-stream",
+        "content-disposition": `attachment; filename="${document.filename}"`,
+        "cache-control": "private, max-age=300",
+      });
+      return res.end(buffer);
     }
 
     // ── Conversations: server-side history (the panel, the full page and a

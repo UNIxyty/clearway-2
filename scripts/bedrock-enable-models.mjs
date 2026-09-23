@@ -22,12 +22,22 @@
 // Note the id rule: agreements are made against the BASE model id
 // (anthropic.claude-opus-4-6-v1); inference uses the eu.* profile id.
 
+import { readFileSync, existsSync } from "node:fs";
 import {
   BedrockClient,
   ListFoundationModelsCommand,
   ListFoundationModelAgreementOffersCommand,
   CreateFoundationModelAgreementCommand,
 } from "@aws-sdk/client-bedrock";
+
+// Same .env handling as the smoke test: shell env always wins, so exported
+// admin credentials override the agent key in .env when you do have them.
+if (existsSync(".env")) {
+  for (const line of readFileSync(".env", "utf8").split("\n")) {
+    const m = /^((?:AWS|BEDROCK)_[A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (m && process.env[m[1]] === undefined && m[2].trim()) process.env[m[1]] = m[2].trim();
+  }
+}
 
 const DEFAULT_MODELS = [
   "anthropic.claude-opus-4-6-v1",

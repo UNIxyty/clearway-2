@@ -247,6 +247,49 @@ Notes:
 - Enable **Bedrock model invocation logging** to CloudWatch in the console (account-level setting,
   not part of this policy) — that is the audit trail for every model call.
 
+## 3b. One-time model activation (`ClearwayBedrockActivateTemp`)
+
+Bedrock models — **including Anthropic's** — are served through AWS Marketplace and activate on
+first use only for a caller holding Marketplace permissions. The runtime policy deliberately has
+none. Rather than minting admin access keys, attach this **temporary** policy to `clearway-agent`,
+run the activation once, then detach it.
+
+**IAM → Users → `clearway-agent` → Add permissions → Create inline policy → JSON**, name it
+`ClearwayBedrockActivateTemp`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AcceptModelAgreements",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:ListFoundationModelAgreementOffers",
+        "bedrock:CreateFoundationModelAgreement",
+        "bedrock:GetFoundationModelAvailability",
+        "aws-marketplace:ViewSubscriptions",
+        "aws-marketplace:Subscribe"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+Then:
+
+```bash
+cd ~/Clearway2/clearway-2
+node scripts/bedrock-enable-models.mjs --check     # reads .env, no admin key needed
+node scripts/bedrock-enable-models.mjs --apply
+```
+
+**Then delete `ClearwayBedrockActivateTemp`.** The agreements are permanent; the permission is not
+needed again. Leaving `aws-marketplace:Subscribe` attached to a key that runs unattended in a
+container would let that key buy AWS Marketplace subscriptions — which is the whole reason it is
+not in the standing policy.
+
 ## 4. Environment variables (server `.env`; values never committed)
 
 | Name | Purpose |

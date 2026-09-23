@@ -14,10 +14,16 @@
 // The chosen path is recorded on every retrieval, so an answer's ranking
 // provenance is never a guess.
 
-import { BedrockRuntimeClient, ConverseCommand, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { loadModelConfig, modelCandidates } from "../models.mjs";
+import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import { loadModelConfig } from "../models.mjs";
+// converseOnce already walks the tier's candidate list and falls through when a
+// model is unavailable to this account. Calling Bedrock directly here meant
+// taking only the first candidate — which is account-gated — so reranking
+// silently degraded to embedding order on every request.
+import { converseOnce } from "../bedrock.mjs";
 
 const TIMEOUT_MS = 30_000;
+let lastRerankModelId = null;
 
 let client = null;
 function runtime() {
@@ -61,16 +67,13 @@ async function llmRerank(query, candidates, topN) {
     `as a JSON array of integers and nothing else. Omit passages that do not help. ` +
     `Return at most ${topN}.`;
 
-  const modelId = modelCandidates("fast")[0];
-  const response = await runtime().send(
-    new ConverseCommand({
-      modelId,
-      messages: [{ role: "user", content: [{ text: prompt }] }],
-      inferenceConfig: { maxTokens: 256, temperature: 0 },
-    }),
-    { abortSignal: AbortSignal.timeout(TIMEOUT_MS) }
-  );
-  const text = (response.output?.message?.content ?? []).map((c) => c.text ?? "").join("");
+  const { text, modelId } = await converseOnce({
+    tier: "fast",
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 256,
+    temperature: 0,
+  });
+  lastRerankModelId = modelId;
   const match = /\[[\s\S]*?\]/.exec(text);
   if (!match) return candidates.slice(0, topN);
   let order;
@@ -108,7 +111,7 @@ export async function rerank(query, candidates, { topN = 8 } = {}) {
   }
   try {
     const results = await llmRerank(query, candidates, topN);
-    return { results, model: modelCandidates("fast")[0] ?? null, method: "llm-listwise" };
+    return { results, model: lastRerankModelId, method: "llm-listwise" };
   } catch (error) {
     process.stderr.write(`[rerank] LLM rerank failed, using embedding order: ${error.message}\n`);
     return { results: candidates.slice(0, topN), model: null, method: "embedding-order" };

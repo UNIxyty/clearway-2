@@ -8,20 +8,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
-import { loadModelConfig, modelCandidates } from "../models.mjs";
+import { converseOnce } from "../bedrock.mjs";
 import { embed, activeEmbeddingModel } from "./embeddings.mjs";
 import { rest } from "./retrieval.mjs";
 
 // Originals live on the mounted storage volume, never the root disk.
 const STORAGE_ROOT = process.env.STORAGE_ROOT || "/storage";
 const DOC_PREFIX = "agent-knowledge";
-
-let client = null;
-function runtime() {
-  if (!client) client = new BedrockRuntimeClient({ region: loadModelConfig().region });
-  return client;
-}
 
 export function documentPath(storageKey) {
   return path.resolve(STORAGE_ROOT, storageKey);
@@ -119,15 +112,12 @@ export async function classifyDocument({ title, source, sample }) {
     `Reply with JSON only: {"tier":"tier1"|"tier2","confidence":0-1,"reason":"one sentence"}`;
 
   try {
-    const response = await runtime().send(
-      new ConverseCommand({
-        modelId: modelCandidates("standard")[0],
-        messages: [{ role: "user", content: [{ text: prompt }] }],
-        inferenceConfig: { maxTokens: 300, temperature: 0 },
-      }),
-      { abortSignal: AbortSignal.timeout(40_000) }
-    );
-    const text = (response.output?.message?.content ?? []).map((c) => c.text ?? "").join("");
+    const { text } = await converseOnce({
+      tier: "standard",
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 300,
+      temperature: 0,
+    });
     const match = /\{[\s\S]*\}/.exec(text);
     if (!match) throw new Error("no JSON in classifier reply");
     const parsed = JSON.parse(match[0]);

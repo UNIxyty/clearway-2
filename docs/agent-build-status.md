@@ -25,7 +25,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 |---|---|---|---|---|
 | 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
 | 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
-| 2 | Not started | — | No | |
+| 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
 | 3 | Not started | — | No | |
 | 4 | Not started | — | No | |
 | 5 | Not started | — | No | |
@@ -385,7 +385,134 @@ contains that string.
    4.6 because Sonnet 5 is account-gated. If you would rather pin Opus 4.6 (proven working) as the
    standard model, that is a one-line change in `agent/config/models.json`.
 
-## Parts 2–10
+## Part 2 — Tool layer (read-only)
+
+**Status: Built, not deployed.** Three commits on `main`; needs
+`docker compose up -d --build agent-service`.
+
+### The framework (`b6c1720`, committed separately as asked)
+
+| File | What it does |
+|---|---|
+| `agent/lib/tools/schema.mjs` | JSON Schema subset validator. Ours on purpose: the same schema object is handed to Bedrock as the tool spec, so validation must be *the thing the model was told about*. Reports every problem at once; applies defaults. |
+| `agent/lib/tools/errors.mjs` | `NOT_FOUND` · `NO_PERMISSION` · `INVALID_INPUT` · `SERVICE_UNAVAILABLE` · `TIMEOUT` · `TOO_LARGE` · `INTERNAL`, mapped from upstream HTTP. |
+| `agent/lib/tools/http.mjs` | The only route to the platform. |
+| `agent/lib/tools/framework.mjs` | `defineTool` / `executeTool` / `toolSpecsFor`. |
+
+Each tool declares input schema, **output schema**, description, permission,
+timeout, and a result-size cap. `executeTool` validates in, runs under timeout,
+validates out, enforces size, and writes one audit row — success or failure.
+
+**Decisions worth knowing:**
+- **401 and 403 both map to `NO_PERMISSION`.** Distinguishing them would leak
+  whether a resource exists to someone who cannot see it.
+- **The output schema is enforced, not just the input.** A tool whose upstream
+  changed shape fails loudly rather than handing the model a plausible object
+  with a field quietly missing.
+- **Over-size results are a `TOO_LARGE` error, never a silent trim.** A
+  truncated operational record read as complete is worse than no record.
+- **`http.mjs` forwards the caller's own Cookie and bearer** — never a service
+  key, and never the wall's `x-debug-runner-secret`, which bypasses portal auth
+  and would let the agent read what its caller cannot. A 307 to `/login` is
+  reported as an auth failure rather than followed into an HTML page.
+- **Permission scoping happens before the model is told anything.** A tool the
+  caller cannot use is never offered. An offered-then-refused tool teaches the
+  model the capability exists, and it keeps trying and narrating it to the user.
+  `executeTool` re-checks anyway, so omission is not the only defence.
+
+### The tools (`2671f95`) — 20, all read-only
+
+| Tool | Permission | Wraps |
+|---|---|---|
+| `get_aip_document` | user | `/api/aip/resolve` |
+| `get_gen_document` | user | `/api/aip/gen/pdf/exists` (never triggers a download) |
+| `get_web_aip_link` | user | `/api/search` |
+| `get_aip_service_status` | user | `/api/country-service-status` |
+| `get_flight` | user | wall `/api/timeline/flights` |
+| `get_flight_state` | user | wall `/api/flight-info` + `/api/flight-checks` |
+| `search_flights` | user | wall `/api/timeline/flights` |
+| `get_wall_state` | user | timeline + sync-status + limitations + IMP + NOTAM check |
+| `get_notams` | user | `/api/notams?scraper=crewbriefing` |
+| `get_weather` | user | `/api/weather` |
+| `get_notam_check_status` | user | wall `/api/notam-check/today` |
+| `list_limitations` | user | wall `/api/timeline/limitations` |
+| `list_important` | user | wall `/api/important` |
+| `list_caa` | user | wall `/api/caa` |
+| `list_operators` | user | wall `/api/operators` |
+| `list_aircraft` | user | wall `/api/aircraft/schedule` + `/visibility` |
+| `get_webhook_states` | **admin** | wall `/api/webhooks` |
+| `get_webhook_history` | **admin** | wall `/api/webhooks/log` |
+| `list_reports` | **admin** | wall `/api/reports` |
+| `get_service_status` | user | `/api/service-checks` |
+
+Every one calls an **existing** endpoint. AIP source selection, the CrewBriefing
+NOTAM policy and the wall's timeline decoration are called, never reimplemented,
+so the agent cannot contradict the screen the dispatcher is looking at.
+
+**The verbatim rule is structural, not a promise.** For limitations, IMPORTANT
+and CAA: no `maxLength` on any text field; pagination caps **records**, never
+characters; an over-size page is an error so the model narrows its filter rather
+than silently receiving half a limitation. Each record carries `verbatim: true`,
+its `source` store, effective dates, and its full match criteria.
+
+**`list_operators` builds its result from an explicit field list, not a spread** —
+operator records carry Leon refresh tokens, and a future upstream change must not
+be able to leak a credential into a model's context.
+
+**Model loop.** `streamConversationWithTools` scopes the tool list per user,
+streams text, runs the tools the model selects (in parallel within a round),
+feeds results back, and **withholds tools on the final round** so the model
+answers from what it has instead of looping. `GET /api/tools` shows a caller
+their scoped catalogue; `POST /api/tools/invoke` runs one directly through the
+*same* `executeTool` path — a debugging surface, not a bypass.
+
+### Verified (`5bd4bcc`)
+
+Run against a local portal and wall with auth disabled, so real payloads were
+parsed (74 CAA records, 13 service checks).
+
+| As `user` | As `developer` |
+|---|---|
+| 14/14 checks | 13/13 checks, 1 skipped |
+
+Proven: every user tool registered and described · **admin tools neither offered
+nor invocable by a user** · admin tools offered to developer · unknown tool
+refused · bad ICAO, undeclared fields and missing required inputs all rejected ·
+live data returned · verbatim flags and match criteria present · tool calls
+**and failures** audited · tools refused once agent access is revoked.
+
+One check **skips** rather than passing: `/api/country-service-status` calls
+`requireAuthenticatedUser()` directly and does not honour
+`DISABLE_AUTH_FOR_TESTING` the way `/api/service-checks` does, so a mock caller
+cannot reach it. Adding a bypass to that route to green the check would widen
+production auth for a test — the wrong trade, so the harness reports the gap.
+
+### Deliberately deferred and why
+- **No write tools.** Part 3.
+- **`get_flight_state` returns matched limitations as the wall decorates them**,
+  rather than re-running matching. One matcher, one answer.
+- **Confirmation status is `not_required` on every tool** — true for read-only,
+  and the column is already there for Part 3.
+- **Rerank/embeddings tiers are unused** by the tool layer; document search is a
+  later part.
+
+### What the next part needs to know
+- `defineTool` is the only way to add a tool; `agent/lib/tools/index.mjs`
+  registers them, and everything reads the registry from there.
+- Write tools should declare `permission` honestly and set
+  `confirmationStatus` — the audit columns exist.
+- `user.agentRole` is resolved exactly as `lib/admin-auth.ts` does it.
+- Tools must keep using `portalGet` / `wallGet`: they are what carry the
+  caller's session rather than a service credential.
+
+### Decisions needed from you
+1. **Deploy** `agent-service` to pick up the tool layer.
+2. **`get_webhook_states`, `get_webhook_history` and `list_reports` are
+   admin-only** — my call, since they are console-operator surfaces. If ordinary
+   dispatchers should see console reports, say so and I will drop `list_reports`
+   to `user`.
+
+## Parts 3–10
 Not started. Each gets the same four sections as Part 0 when its prompt arrives.
 
 ## Deferred items (all parts)

@@ -27,7 +27,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
 | 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
-| 4 | Not started | — | No | |
+| 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` | No | Needs `docs/supabase-agent-knowledge.sql`; 3 AWS gaps listed below |
 | 5 | Not started | — | No | |
 | 6 | Not started | — | No | |
 | 7 | Not started | — | No | |
@@ -611,8 +611,127 @@ flight on screen. The things to judge are whether the answers are *useful*,
 whether **verbatim text is unmistakably distinct** from the agent's own words,
 and whether the sources are ones they trust.
 
-## Parts 4–10
-Not started, and Part 4 is gated on the Phase 1 approval above.
+## Part 4 — Knowledge base (two-tier RAG)
+
+**Status: Built, not deployed.** Needs `docs/supabase-agent-knowledge.sql` and
+three AWS changes (below).
+
+### The split, enforced structurally
+
+| | Tier 1 — verbatim | Tier 2 — semantic |
+|---|---|---|
+| Table | `agent_tier1_records` | `agent_documents` + `agent_chunks` |
+| Returned | word for word, `verbatim: true` | synthesised, always cited |
+| Entry | **a person approves, always** | approval then automatic indexing |
+
+Nothing reaches Tier 1 without a named human: `classifyDocument` only ever
+**proposes**, `approveTier1Record` is the single entry point and demands an
+approver, and `approved_by` is **not-nullable in the schema**, so the rule
+survives a future caller that forgets to pass one. A document that cannot be
+classified defaults to **tier 2** — the safe default is the one that does not
+put unreviewed text where it will be quoted as law.
+
+**Deliberately not indexed:** limitations, IMPORTANT entries and CAA records.
+They are structured records with match rules, already queried directly by Part
+2's tools, so the agent's answer is exactly what the wall shows. A vector copy
+would drift from the originals, and the drift would be invisible until it
+mattered.
+
+### Embeddings — measured, not assumed
+
+`scripts/agent-embedding-benchmark.mjs` runs both candidates over **Clearway's
+own operational text**: dispatcher-phrased questions against real CAA and
+limitation wording, with plausible distractors. A generic benchmark says nothing
+about how a model handles `CTOT`, `72HRS` or `AUTOLAND IS NOT PERMITTED`.
+
+| Model | dims | recall@1 | recall@3 | MRR | latency |
+|---|---|---|---|---|---|
+| **Cohere Embed v4** (chosen) | 1536 | **75%** | **100%** | **0.875** | ~70 ms/passage |
+| Titan Text Embeddings V2 | 1024 | — | — | — | **could not be measured** |
+
+**Chosen: Cohere Embed v4** — on the evidence available it retrieves the right
+passage in the top 3 every time, and it is the only one this account can reach.
+The comparison is **still open**: the runtime policy grants `amazon.nova-*` but
+not `amazon.titan-*`, so Titan is denied. One policy line re-opens it, and the
+benchmark re-runs unchanged.
+
+Both misses at rank 1 were competing *Riga* passages — which is precisely the
+case reranking exists for.
+
+### Reranking — and a bug the benchmark caught
+
+**Cohere Rerank is not offered in eu-north-1.** Moving one ranking call to a US
+region would take flight-operations text out of the EU, which is not a trade
+worth making for ranking. So the Cohere path is implemented and activates the
+moment `BEDROCK_RERANK_MODEL_ID` names an EU model; until then a **listwise LLM
+reranker** on the cheap tier does the cross-encoder job — the model sees the
+query and each candidate together, which a bi-encoder embedding structurally
+cannot. The method used is recorded on every retrieval, so ranking provenance is
+never guessed.
+
+Building the benchmark exposed that **rerank had never actually run**. It called
+Bedrock directly with `modelCandidates(tier)[0]` — Sonnet 5, gated in this
+account — and degraded to plain embedding order on every request, silently, by
+design. Both it and the ingest classifier now go through `converseOnce`, which
+already walks the candidate list. With it genuinely running, recall@1 on the
+contested queries went **2/3 → 3/3** (the taxiway question moved rank 2 → 1).
+
+### Grounding
+
+Bedrock Guardrails contextual grounding on every knowledge answer. **Failure
+posture matters more than the feature:** if the check cannot run — no guardrail,
+no permission, Bedrock unreachable — the answer comes back `verified: false`
+with a reason, and the retrieval log records it. Claiming a grounding check that
+did not happen would be worse than having none, because it is invisible.
+
+**Not yet exercised:** the account has no guardrail and the runtime policy has
+no `bedrock:ApplyGuardrail`. What it catches is therefore **not yet reportable** —
+see Decisions.
+
+### Reliability and the source contract
+
+Standard retrieval source object across both tiers: `source`, `documentId` /
+`recordId`, `title`, `version`, `effectiveDate`, `retrievalType`, `tier`,
+`verbatim`, `score`, `rerankScore`, plus `page`/`heading` for tier 2 and
+`approvedBy`/`approvedAt` for tier 1.
+
+`agent_retrievals` stores the ids and scores of everything retrieved — **not**
+the passage text, which would duplicate the corpus on every question — so which
+sources supported an answer can be reconstructed later. When nothing matches,
+`search_knowledge` returns `verified: false` with an explicit instruction to say
+the information could not be verified rather than answer from general knowledge,
+which the system prompt also forbids.
+
+### Storage
+Originals under `STORAGE_ROOT` (`/storage` → `/mnt/hdd-storage`), never the root
+volume, retrievable by name through `get_document`.
+
+### Also in these commits
+- **Rendering fixes** (`f8ffb3f`): the panel showed literal `**asterisks**`;
+  there is now a small renderer that builds React elements, never HTML, and only
+  makes same-origin paths clickable.
+- **The agent had no system prompt at all**, which is why it answered a NOTAM
+  check with "Great news ✅". `agent/config/system-prompt.md` sets the register,
+  forbids inventing operational information, and forbids paraphrasing a
+  limitation in place of the quoted text. It is a **file**, so changing how the
+  agent talks is an edit to prose and a reviewer can read exactly what shaped a
+  reply.
+- Running out of tool rounds ended turns mid-sentence; the loop now warns the
+  model on its last round so it closes with what it has.
+
+### Decisions needed from you
+1. **Run `docs/supabase-agent-knowledge.sql`** (enables pgvector).
+2. **Add `amazon.*` to `ClearwayAgentBedrockInvoke`** — still not applied. It
+   unblocks Titan and completes the embedding comparison.
+3. **Guardrails**: add `bedrock:ApplyGuardrail`, `bedrock:CreateGuardrail`,
+   `bedrock:ListGuardrails`, `bedrock:GetGuardrail` to the policy, then create a
+   guardrail with a contextual-grounding filter and set `BEDROCK_GUARDRAIL_ID`.
+   Until then every knowledge answer is honestly marked unverified.
+4. **Rerank**: accept the LLM reranker, or ask AWS about Cohere Rerank in an EU
+   region. My recommendation is to accept it — it measurably works.
+
+## Parts 5–10
+Not started.
 
 ## Deferred items (all parts)
 

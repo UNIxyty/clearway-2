@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
+import { Button, ConsoleStyles, ErrorBanner, EmptyState, TextInput, t } from "@/components/console-kit";
 
 type Turn = { role: "user" | "assistant"; content: string };
 
@@ -96,7 +97,7 @@ export default function AgentChat() {
   if (availability !== "yes") {
     return (
       <PortalShell crumb="" title="Not found" subtitle="">
-        <div className="mx-auto max-w-[620px] px-[30px] py-16 text-center text-[13px] text-cw-muted">
+        <div className="cw-kit" style={{ margin: "0 auto", maxWidth: 620, padding: "64px 32px", textAlign: "center", fontSize: 13.5, color: t.muted }}>
           {availability === "checking" ? "" : "This page does not exist."}
         </div>
       </PortalShell>
@@ -109,47 +110,55 @@ export default function AgentChat() {
       title="Ask the assistant"
       subtitle="Early access. It answers as you — it can only see what you can see."
     >
-      <div className="mx-auto flex h-full max-w-[760px] flex-col gap-3 px-[30px] py-6">
+      <ConsoleStyles />
+      <div className="cw-kit" style={{ margin: "0 auto", maxWidth: 780, padding: "24px 32px", display: "flex", flexDirection: "column", gap: 12, minHeight: "100%" }}>
         {turns.length === 0 && (
-          <div className="rounded-[13px] border border-cw-border bg-white p-6 text-center text-[13px] text-cw-muted">
-            Ask a question to get started.
-          </div>
+          <EmptyState title="Ask a question to get started">
+            The assistant answers as you — it can only see what you can see.
+          </EmptyState>
         )}
-        {turns.map((t, i) => (
+
+        {turns.map((turn, i) => (
           <div
             key={i}
-            className="rounded-[13px] border px-4 py-3 text-[13.5px] leading-[1.55] whitespace-pre-wrap"
-            style={
-              t.role === "user"
-                ? { borderColor: "#dbe6ff", background: "#f2f7ff", color: "#17181c" }
-                : { borderColor: "#e6e7ea", background: "#fff", color: "#17181c" }
-            }
+            style={{
+              alignSelf: turn.role === "user" ? "flex-end" : "flex-start",
+              maxWidth: "88%",
+              background: turn.role === "user" ? t.blueWash : t.card,
+              border: `1px solid ${turn.role === "user" ? t.blueBorder : t.border}`,
+              borderRadius: 13,
+              boxShadow: t.shadow,
+              padding: "12px 15px",
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: t.ink,
+              whiteSpace: "pre-wrap",
+            }}
           >
-            {t.content || (streaming && i === turns.length - 1 ? "…" : "")}
+            {turn.content || (streaming && i === turns.length - 1 ? (
+              <span style={{ display: "inline-flex", gap: 4, alignItems: "center", color: t.faint }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.faint, animation: "cwfade .9s ease-in-out infinite alternate" }} />
+                thinking
+              </span>
+            ) : "")}
           </div>
         ))}
-        {error && (
-          <div className="rounded-[13px] border border-[#f3c7c2] bg-[#fdf2f2] px-4 py-3 text-[13px] text-[#b42318]">
-            {error}
-          </div>
-        )}
+
+        {error && <ErrorBanner>{error}</ErrorBanner>}
         <div ref={endRef} />
-        <div className="sticky bottom-0 flex gap-2 bg-cw-bg py-2">
-          <input
+
+        <div style={{ position: "sticky", bottom: 0, display: "flex", gap: 10, paddingTop: 10, paddingBottom: 12, background: "linear-gradient(to bottom, rgba(251,251,252,0), #fbfbfc 22%)" }}>
+          <TextInput
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && void send()}
             disabled={streaming}
             placeholder="Ask about an airport, a NOTAM, a document…"
-            className="h-10 flex-1 rounded-[9px] border border-cw-border bg-white px-3 text-[13.5px] text-cw-ink outline-none disabled:opacity-60"
+            style={{ height: 44 }}
           />
-          <button
-            onClick={() => void send()}
-            disabled={streaming || !input.trim()}
-            className="h-10 cursor-pointer rounded-[9px] border-none bg-cw-primary px-4 text-[13px] font-bold text-white disabled:opacity-50"
-          >
-            {streaming ? "…" : "Send"}
-          </button>
+          <Button variant="primary" spin={streaming} disabled={streaming || !input.trim()} onClick={() => void send()} style={{ height: 44, flexShrink: 0 }}>
+            Send
+          </Button>
         </div>
       </div>
     </PortalShell>

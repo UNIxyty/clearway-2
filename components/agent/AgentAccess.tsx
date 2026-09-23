@@ -3,13 +3,23 @@
 // Agent access manager — who can use the dispatcher agent, and the one switch
 // that turns it off for everyone.
 //
-// Developer-only: the API returns 403 to anyone else, and the nav entry is
-// developer-gated. The list is deliberately honest about provenance — every row
-// shows when access was granted and by whom, because "who let this person in"
-// is the question that gets asked after something goes wrong.
+// Built entirely on components/console-kit (the Display Console design system,
+// wired to shared/design-tokens.json). No browser-default controls: the
+// revoke confirmation and the disable-reason prompt are real dialogs, the
+// "show revoked" control is the console Toggle, and every input, button and
+// banner is the kit's. In an ops tool a native confirm() is also the one piece
+// of UI a user cannot distinguish from a phishing prompt.
+//
+// Developer-only: the API returns 403 to anyone else. The list is deliberately
+// honest about provenance — every row shows when access was granted and by
+// whom, because "who let this person in" is what gets asked afterwards.
 
 import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
+import {
+  Button, Card, ConfirmDialog, ConsoleStyles, EmptyState, ErrorBanner, FieldLabel,
+  InfoBanner, LoadingRows, ReasonDialog, StatusPill, TextInput, Toggle, t,
+} from "@/components/console-kit";
 import type { AgentAccessRow, AgentKillSwitch } from "@/lib/agent/shared";
 
 function when(iso: string | null): string {
@@ -28,14 +38,12 @@ export default function AgentAccess() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
+  const [revoking, setRevoking] = useState<AgentAccessRow | null>(null);
+  const [disabling, setDisabling] = useState(false);
 
   const load = useCallback(async () => {
     const accessRes = await fetch(`/api/assistant/access?includeRevoked=${includeRevoked}`, { cache: "no-store" }).catch(() => null);
-    if (accessRes?.status === 403) {
-      setForbidden(true);
-      setRows([]);
-      return;
-    }
+    if (accessRes?.status === 403) { setForbidden(true); setRows([]); return; }
     const accessBody = await accessRes?.json().catch(() => null);
     setRows(accessBody?.access ?? []);
     const switchRes = await fetch("/api/assistant/kill-switch", { cache: "no-store" }).catch(() => null);
@@ -48,8 +56,7 @@ export default function AgentAccess() {
   async function grant() {
     const target = email.trim();
     if (!target || busy) return;
-    setBusy(true);
-    setError(null);
+    setBusy(true); setError(null);
     const res = await fetch("/api/assistant/access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,35 +69,24 @@ export default function AgentAccess() {
     void load();
   }
 
-  async function revoke(row: AgentAccessRow) {
-    if (busy) return;
-    // Revocation is immediate everywhere, including mid-conversation — say so
-    // rather than letting someone discover it by surprising a colleague.
-    if (!confirm(`Revoke agent access for ${row.userEmail || row.userId}?\n\nThis takes effect immediately, including in any conversation they have open right now.`)) return;
+  async function confirmRevoke() {
+    if (!revoking) return;
     setBusy(true);
-    await fetch(`/api/assistant/access?userId=${encodeURIComponent(row.userId)}`, { method: "DELETE" }).catch(() => {});
-    setBusy(false);
+    await fetch(`/api/assistant/access?userId=${encodeURIComponent(revoking.userId)}`, { method: "DELETE" }).catch(() => {});
+    setBusy(false); setRevoking(null);
     void load();
   }
 
-  async function toggleKillSwitch() {
-    if (!killSwitch || busy) return;
-    const turningOff = killSwitch.enabled;
-    let reason: string | null = null;
-    if (turningOff) {
-      reason = prompt("Disabling the agent for EVERYONE. Why? (recorded in the audit log)");
-      if (!reason || reason.trim().length < 3) return;
-    }
-    setBusy(true);
-    setError(null);
+  async function applyKillSwitch(enabled: boolean, reason: string) {
+    setBusy(true); setError(null);
     const res = await fetch("/api/assistant/kill-switch", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !killSwitch.enabled, reason: reason?.trim() || "Re-enabled" }),
+      body: JSON.stringify({ enabled, reason }),
     }).catch(() => null);
     const body = await res?.json().catch(() => null);
     if (!res?.ok) setError(body?.error || "Could not change the kill switch.");
-    setBusy(false);
+    setBusy(false); setDisabling(false);
     void load();
   }
 
@@ -102,91 +98,92 @@ export default function AgentAccess() {
       title="Agent access"
       subtitle="Who can use the dispatcher agent. Developer-managed — the agent is a build in progress."
     >
-      <div className="mx-auto flex max-w-[860px] flex-col gap-3 px-[30px] py-6">
-        {forbidden && (
-          <div className="rounded-[13px] border border-[#f3c7c2] bg-[#fdf2f2] p-4 text-[13px] text-[#b42318]">
-            Developer role required.
-          </div>
-        )}
+      <ConsoleStyles />
+      <div className="cw-kit" style={{ margin: "0 auto", maxWidth: 880, padding: "24px 32px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {forbidden && <ErrorBanner>Developer role required.</ErrorBanner>}
 
-        {/* Kill switch first: it overrides every row below it. */}
+        {/* The kill switch comes first: it overrides every grant below it. */}
         {killSwitch && (
-          <div
-            className="flex items-center gap-3 rounded-[13px] border p-4"
-            style={killSwitch.enabled ? { borderColor: "#cfe6d6", background: "#f3faf5" } : { borderColor: "#f3c7c2", background: "#fdf2f2" }}
-          >
-            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[9px] text-[15px]"
-              style={killSwitch.enabled ? { background: "#e7f6ec", color: "#15803d" } : { background: "#fbe3e0", color: "#b42318" }}>
+          <Card style={{ padding: 16, display: "flex", alignItems: "center", gap: 14, borderColor: killSwitch.enabled ? t.greenBorder : t.redBorder, background: killSwitch.enabled ? "#f6fbf8" : t.redTint }}>
+            <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: killSwitch.enabled ? t.greenTint : "#fbdcdc", color: killSwitch.enabled ? t.greenDeep : t.redDeep }}>
               {killSwitch.enabled ? "◉" : "⏻"}
             </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-[13.5px] font-bold text-cw-ink">
-                {killSwitch.enabled ? "Agent is enabled" : "Agent is DISABLED for everyone"}
-              </span>
-              <span className="text-[11.5px] text-cw-faint">
+            <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 800, color: t.ink }}>
+                  {killSwitch.enabled ? "Agent is enabled" : "Agent is disabled for everyone"}
+                </span>
+                <StatusPill
+                  color={killSwitch.enabled ? t.greenDeep : t.redDeep}
+                  bg={killSwitch.enabled ? t.greenTint : "#fbdcdc"}
+                  dot={killSwitch.enabled ? t.green : t.red}
+                >
+                  {killSwitch.enabled ? "LIVE" : "OFF"}
+                </StatusPill>
+              </div>
+              <span style={{ fontSize: 12.5, color: t.muted, lineHeight: 1.5 }}>
                 {killSwitch.reason ? `${killSwitch.reason} · ` : ""}
                 {killSwitch.updatedByEmail ? `${killSwitch.updatedByEmail} · ` : ""}
                 {when(killSwitch.updatedAt)}
               </span>
             </div>
-            <button
-              onClick={() => void toggleKillSwitch()}
+            <Button
+              variant={killSwitch.enabled ? "danger" : "primary"}
               disabled={busy}
-              className="h-9 cursor-pointer rounded-[9px] border-none px-3.5 text-[12.5px] font-bold text-white disabled:opacity-50"
-              style={{ background: killSwitch.enabled ? "#b42318" : "#15803d" }}
+              onClick={() => (killSwitch.enabled ? setDisabling(true) : void applyKillSwitch(true, "Re-enabled"))}
             >
               {killSwitch.enabled ? "Disable for everyone" : "Enable"}
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {!forbidden && (
-          <div className="flex flex-col gap-3 rounded-[13px] border border-[#dbe6ff] bg-[#f2f7ff] p-4">
-            <div className="flex gap-2">
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void grant()}
-                placeholder="work email of the person to grant access to"
-                className="h-9 flex-1 rounded-[9px] border border-cw-border bg-white px-3 text-[13.5px] text-cw-ink outline-none"
-              />
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="note (optional)"
-                className="h-9 w-[200px] rounded-[9px] border border-cw-border bg-white px-3 text-[13.5px] text-cw-ink outline-none"
-              />
-              <button
-                onClick={() => void grant()}
-                disabled={busy || !email.trim()}
-                className="h-9 cursor-pointer rounded-[9px] border-none bg-cw-primary px-3.5 text-[12.5px] font-bold text-white disabled:opacity-50"
-              >
-                {busy ? "Working…" : "Grant access"}
-              </button>
+          <Card style={{ padding: 16, background: t.blueWash, borderColor: t.blueBorder }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 260px", minWidth: 220 }}>
+                <FieldLabel>Work email</FieldLabel>
+                <TextInput
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void grant()}
+                  placeholder="person@clearway.aero"
+                />
+              </div>
+              <div style={{ flex: "1 1 200px", minWidth: 180 }}>
+                <FieldLabel extra={<span style={{ fontWeight: 500, color: t.faint }}>optional</span>}>Note</FieldLabel>
+                <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="why they need it" />
+              </div>
+              <Button variant="primary" spin={busy} disabled={busy || !email.trim()} onClick={() => void grant()} style={{ height: 42 }}>
+                Grant access
+              </Button>
             </div>
-            {error && <span className="text-[12px] text-[#b42318]">{error}</span>}
-          </div>
+          </Card>
         )}
 
-        <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-cw-muted">
-          <input type="checkbox" checked={includeRevoked} onChange={(e) => setIncludeRevoked(e.target.checked)} />
-          Show revoked grants
-        </label>
+        {error && <ErrorBanner>{error}</ErrorBanner>}
 
-        {rows === null && <div className="h-16 animate-pulse rounded-[13px] bg-white" />}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 2px 0" }}>
+          <Toggle size="sm" on={includeRevoked} onToggle={() => setIncludeRevoked((v) => !v)} label="Show revoked grants" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: t.body }}>Show revoked grants</span>
+          {active.length > 0 && (
+            <span style={{ marginLeft: "auto", fontSize: 12.5, color: t.faint }}>
+              {active.length} {active.length === 1 ? "person has" : "people have"} access
+            </span>
+          )}
+        </div>
+
+        {rows === null && <LoadingRows rows={2} />}
+
         {rows?.map((r) => (
-          <div
-            key={r.id}
-            className="flex items-center gap-3 rounded-[13px] border border-cw-border bg-white px-4 py-3"
-            style={r.revokedAt ? { opacity: 0.6 } : undefined}
-          >
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] text-[13px]"
-              style={r.revokedAt ? { background: "#f1f1f2", color: "#9aa0a8" } : { background: "#e7f6ec", color: "#15803d" }}>
+          <Card key={r.id} className="cw-hover-row" style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: 13, opacity: r.revokedAt ? 0.62 : 1 }}>
+            <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, background: r.revokedAt ? "#f1f1f2" : t.greenTint, color: r.revokedAt ? t.faint : t.greenDeep }}>
               {r.revokedAt ? "✕" : "✓"}
             </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-[13.5px] font-semibold text-cw-ink">{r.userEmail || r.userId}</span>
-              <span className="text-[11.5px] text-cw-faint">
+            <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.userEmail || r.userId}
+              </span>
+              <span style={{ fontSize: 12.5, color: t.muted, lineHeight: 1.5 }}>
                 granted {when(r.grantedAt)}
                 {r.grantedByEmail ? ` by ${r.grantedByEmail}` : ""}
                 {r.revokedAt ? ` · revoked ${when(r.revokedAt)}${r.revokedByEmail ? ` by ${r.revokedByEmail}` : ""}` : ""}
@@ -194,27 +191,48 @@ export default function AgentAccess() {
               </span>
             </div>
             {!r.revokedAt && (
-              <button
-                onClick={() => void revoke(r)}
-                disabled={busy}
-                className="cursor-pointer border-none bg-transparent text-[12.5px] font-semibold text-cw-faint hover:text-cw-red disabled:opacity-50"
-              >
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setRevoking(r)} style={{ color: t.muted }}>
                 Revoke
-              </button>
+              </Button>
             )}
-          </div>
+          </Card>
         ))}
+
         {rows !== null && rows.length === 0 && !forbidden && (
-          <div className="rounded-[13px] border border-cw-border bg-white p-6 text-center text-[13px] text-cw-muted">
-            Nobody has agent access yet. Until someone is granted access, the agent does not appear anywhere in the platform.
-          </div>
+          <EmptyState title="Nobody has agent access yet">
+            Until someone is granted access, the agent does not appear anywhere in the platform — no menu entry, no page.
+          </EmptyState>
         )}
-        {active.length > 0 && (
-          <span className="px-1 text-[11.5px] text-cw-faint">
-            {active.length} {active.length === 1 ? "person has" : "people have"} access. Revoking takes effect immediately, including mid-conversation.
-          </span>
+
+        {!forbidden && (
+          <InfoBanner>
+            Revoking takes effect immediately, including in a conversation someone already has open: the gate is
+            re-checked on every message. The kill switch overrides every grant above.
+          </InfoBanner>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(revoking)}
+        title="Revoke agent access?"
+        body={`${revoking?.userEmail || revoking?.userId || ""}\n\nThis takes effect immediately, including in any conversation they have open right now.`}
+        confirmLabel="Revoke access"
+        busy={busy}
+        onConfirm={() => void confirmRevoke()}
+        onCancel={() => setRevoking(null)}
+      />
+
+      <ReasonDialog
+        open={disabling}
+        title="Disable the agent for everyone?"
+        body="Every user loses the agent immediately, regardless of their grant."
+        label="Why are you disabling it?"
+        placeholder="e.g. wrong answers on NOTAM lookups — investigating"
+        confirmLabel="Disable agent"
+        busy={busy}
+        onConfirm={(reason) => void applyKillSwitch(false, reason)}
+        onCancel={() => setDisabling(false)}
+      />
     </PortalShell>
   );
 }

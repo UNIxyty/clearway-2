@@ -21,7 +21,7 @@ import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
 } from "./lib/conversations.mjs";
-import { loadModelConfig, resolveTier } from "./lib/models.mjs";
+import { loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
@@ -246,7 +246,9 @@ async function handleChat(req, res, user) {
   const contextLine = body.context?.label
     ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
     : null;
-  const system = [body.system ? String(body.system) : null, contextLine].filter(Boolean).join("\n\n") || undefined;
+  const system = [systemPrompt(), body.system ? String(body.system) : null, contextLine]
+    .filter(Boolean)
+    .join("\n\n") || undefined;
 
   let done = null;
   let answer = "";

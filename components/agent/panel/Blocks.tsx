@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import { C, FONT, SOURCE_TIERS, iconStyle } from "./tokens";
+import Markdown from "./Markdown";
 import type { SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 export function VerbatimFrame({ record }: { record: VerbatimRecord }) {
@@ -69,7 +70,9 @@ export function AgentsReading({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: C.faint }}>AGENT&apos;S READING</div>
-      <div style={{ fontSize: 14, lineHeight: 1.55, color: C.body, whiteSpace: "pre-wrap" }}>{children}</div>
+      <div style={{ fontSize: 14, lineHeight: 1.55, color: C.body }}>
+        {typeof children === "string" ? <Markdown text={children} /> : children}
+      </div>
     </>
   );
 }

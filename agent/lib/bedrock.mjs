@@ -275,6 +275,16 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
       });
     }
     conversation.push({ role: "user", content: toolResultBlocks });
+
+    // One round left: tell the model so, rather than letting it discover the
+    // cliff by having its next tool request silently ignored. Without this the
+    // turn ends mid-sentence, which a dispatcher reads as the agent breaking.
+    if (round === MAX_TOOL_ROUNDS - 1) {
+      conversation.push({
+        role: "user",
+        content: [{ text: "You have no tool calls left for this turn. Answer now with what you already have, and say plainly what you could not check." }],
+      });
+    }
   }
 }
 

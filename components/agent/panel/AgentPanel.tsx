@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { C, FONT, PANEL, iconStyle } from "./tokens";
 import { AgentsReading, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
+import Markdown from "./Markdown";
 import Composer from "./Composer";
 import type { AgentContext, AgentMessage, ConversationSummary, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
@@ -383,8 +384,8 @@ function MessageView({ message }: { message: AgentMessage }) {
       {message.content && (
         verbatim.length > 0
           ? <AgentsReading>{message.content}</AgentsReading>
-          : <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-              {message.content}
+          : <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+              <Markdown text={message.content} />
               {message.streaming && <span style={{ display: "inline-block", width: 7, height: 15, background: C.blue, marginLeft: 2, verticalAlign: -3, animation: "cwcaret 1s steps(1) infinite" }} />}
             </div>
       )}

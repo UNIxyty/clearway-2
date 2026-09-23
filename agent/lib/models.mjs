@@ -8,6 +8,24 @@ import path from "node:path";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = process.env.AGENT_MODELS_CONFIG || path.resolve(HERE, "..", "config", "models.json");
+const SYSTEM_PROMPT_PATH = process.env.AGENT_SYSTEM_PROMPT || path.resolve(HERE, "..", "config", "system-prompt.md");
+
+let cachedPrompt = null;
+
+/**
+ * The agent's standing instructions. In a FILE, not a string literal, so
+ * changing how the agent talks is an edit to prose rather than to code — and so
+ * the exact text that shaped a reply can be read by anyone reviewing it.
+ */
+export function systemPrompt() {
+  if (cachedPrompt !== null) return cachedPrompt;
+  try {
+    cachedPrompt = readFileSync(SYSTEM_PROMPT_PATH, "utf8").trim();
+  } catch {
+    cachedPrompt = "";
+  }
+  return cachedPrompt;
+}
 
 export const TIERS = ["router", "fast", "standard", "reasoning", "extraction", "embeddings", "rerank"];
 

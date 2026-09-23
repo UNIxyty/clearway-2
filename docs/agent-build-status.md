@@ -24,7 +24,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | Part | Status | Commits | Deployed | Notes |
 |---|---|---|---|---|
 | 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
-| 1 — Foundation and access control | Built, not deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` | Containers yes, **route no** | Schema live; verifier **10/10** incl. a real streamed Bedrock reply. Not reachable on the public origin — cloudflared rule for `/agent/.*` is not in effect |
+| 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
 | 2 | Not started | — | No | |
 | 3 | Not started | — | No | |
 | 4 | Not started | — | No | |
@@ -329,12 +329,33 @@ Also verified earlier, before the tables existed: no session → 401 on every no
 invalid bearer → 401; unknown route → 401 before routing, so route existence does not leak; missing
 tables → the agent denies everything and names the cause.
 
-### Not yet reachable in production
+### Verified in production (2026-09-23 17:32Z)
 
-The deployed service does **not** answer on `https://clearway.verxyl.com/agent/*` — that path still
-reaches the portal (307 to `/login`), which means the cloudflared ingress rule is not in effect.
-Until it is, the agent runs in the compose stack but nothing can reach it through the public origin.
-See the Decisions section.
+| Check | Result |
+|---|---|
+| `https://clearway.verxyl.com/agent/api/health` | ✅ 200, `service: "agent"`, store + auth configured |
+| Unauthenticated `/agent/api/*` | ✅ 401 **from the agent**, not a portal redirect |
+| Portal `/api/assistant/*` routes live | ✅ |
+| Grant through the real UI, audited with actor | ✅ `access.granted`, actor `dmitrijs.starkovs@icloud.com` |
+| Revoke through the real UI, audited with actor | ✅ `access.revoked`, 7s later |
+| Portal / wall / `/files/*` unaffected | ✅ |
+
+**Still unproven:** one real chat turn from a browser session. Nobody currently holds a grant (the
+production grant was revoked immediately after, evidently as a test), so the agent is invisible to
+everyone. Grant and send one message to close this out.
+
+### The `/agent/*` path collision (found on the deployed stack)
+
+cloudflared matches `path` as an **unanchored** regex, so the ingress rule `/agent/.*` also matched
+`/api/agent/access` — the agent container answered the portal's own admin routes with its 401, and
+the developer management UI could never have loaded. It looked healthy, because 401 is a plausible
+answer to an unauthenticated request.
+
+Fixed on both sides, since either alone leaves a trap: the portal's routes moved to
+`/api/assistant/*` (no portal path contains `/agent/` any more), and the example tunnel config now
+anchors both regexes (`^/agent/`, `^/digital-wall/`) with a comment saying why. **`/digital-wall/.*`
+has the identical latent bug on the live server** — it simply has not bitten because no portal route
+contains that string.
 
 ### Deliberately deferred and why
 - **Tools, confirmations, conversation history** — Parts 2+. The audit table already has the
@@ -355,11 +376,9 @@ See the Decisions section.
 
 ### Decisions needed from you
 1. ~~Run the SQL~~ — **done** 2026-09-23 16:04Z; verifier passes 10/10.
-2. **The cloudflared ingress rule is not in effect.** `/agent/api/health` returns 307 to `/login`,
-   i.e. the portal is answering. The rule must sit **above** the catch-all `service:
-   http://127.0.0.1:3000` entry (cloudflared takes the first match), and cloudflared must be
-   restarted after the edit. Check on the server: `docker ps | grep agent-service` (is it up?) and
-   `curl -s localhost:8089/api/health` (does the container answer directly?).
+2. ~~cloudflared ingress rule~~ — **done**; the agent answers on the public origin. Remaining
+   hardening: anchor `^/digital-wall/.*` on the live server too (same unanchored-regex bug, not yet
+   triggered).
 3. **Who gets the first grants?** Until someone is on the allowlist the agent is invisible to
    everyone, including you. I suggest granting only yourself initially.
 4. **Model choice.** All tiers currently run `eu.anthropic.claude-sonnet-5`, falling back to Sonnet

@@ -24,7 +24,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | Part | Status | Commits | Deployed | Notes |
 |---|---|---|---|---|
 | 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
-| 1 — Foundation and access control | Built, not deployed | `eb9e600` `547484a` `47ff09b` | No | Code on `main`. **Blocked on one SQL run** (`docs/supabase-agent-foundation.sql`) before the done-condition can be proven |
+| 1 — Foundation and access control | Built, not deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` | Containers yes, **route no** | Schema live; verifier **10/10** incl. a real streamed Bedrock reply. Not reachable on the public origin — cloudflared rule for `/agent/.*` is not in effect |
 | 2 | Not started | — | No | |
 | 3 | Not started | — | No | |
 | 4 | Not started | — | No | |
@@ -303,29 +303,38 @@ per-request trail stays in `agent_audit_log`.
 from outside, that state looks like "nobody has access" rather than a fault, and that is exactly the
 confusion worth surfacing.
 
-### Verified so far (local, without the tables)
+### Verified — the done-condition is met
+
+`docs/supabase-agent-foundation.sql` was run 2026-09-23 16:04Z. `scripts/agent-verify-part1.mjs`
+then passed **10/10** against the real Supabase tables and a real Bedrock call:
 
 | Check | Result |
 |---|---|
-| `/api/health` returns `service: "agent"` | ✅ |
-| Both `/api/health` and `/agent/api/health` answer | ✅ |
-| No session → 401 on every non-health route | ✅ |
-| Invalid bearer token → 401 | ✅ |
-| Unknown route → 401 before routing (does not leak route existence) | ✅ |
-| Missing tables → agent denies everything, naming the cause | ✅ (fail-closed) |
-| Tier interface: a `reasoning` request resolves to the pinned `standard` model | ✅ |
-| `docker compose config` valid; TypeScript clean | ✅ |
+| `/api/health` returns `service: "agent"`, store + auth configured | ✅ |
+| User NOT on the allowlist sees no agent (`not_on_allowlist`) | ✅ |
+| Chat refused without a grant → 403 | ✅ |
+| The refusal is audited (`chat.denied`) | ✅ |
+| Granted user sees the agent | ✅ |
+| Granted user gets a **streamed** model reply | ✅ returned `READY` |
+| Exchange audited with model id and token counts | ✅ `standard -> eu.anthropic.claude-sonnet-4-6`, 13/5 tokens |
+| Kill switch hides the agent from a **granted** user | ✅ `disabled_globally` |
+| Kill switch refuses chat for a **granted** user → 503 | ✅ |
+| Cleanup restored the baseline | ✅ |
 
-Docker is not running on this machine, so the image was not built here — it builds in CI-less
-fashion on the server at deploy time.
+Note the model: the tier resolved to the **fallback**, `eu.anthropic.claude-sonnet-4-6`, because
+Sonnet 5 is account-gated (Part 0). The fallback path is therefore proven in production conditions,
+not just in theory.
 
-### Not yet proven — needs the SQL run
+Also verified earlier, before the tables existed: no session → 401 on every non-health route;
+invalid bearer → 401; unknown route → 401 before routing, so route existence does not leak; missing
+tables → the agent denies everything and names the cause.
 
-`scripts/agent-verify-part1.mjs` exercises the exact done-condition and cleans up after itself:
-a granted user gets a streamed model reply that is audited with model id and token counts; a
-non-granted user is refused and the refusal is audited; the kill switch hides and refuses the agent
-for a *granted* user. Run the SQL, start the agent with `DISABLE_AUTH_FOR_TESTING=true`, then
-`node scripts/agent-verify-part1.mjs`.
+### Not yet reachable in production
+
+The deployed service does **not** answer on `https://clearway.verxyl.com/agent/*` — that path still
+reaches the portal (307 to `/login`), which means the cloudflared ingress rule is not in effect.
+Until it is, the agent runs in the compose stack but nothing can reach it through the public origin.
+See the Decisions section.
 
 ### Deliberately deferred and why
 - **Tools, confirmations, conversation history** — Parts 2+. The audit table already has the
@@ -345,9 +354,12 @@ for a *granted* user. Run the SQL, start the agent with `DISABLE_AUTH_FOR_TESTIN
   the wall's shared secret (Part 0 / P3) — use the **user's session**.
 
 ### Decisions needed from you
-1. **Run `docs/supabase-agent-foundation.sql`.** Nothing works until this exists.
-2. **Add the cloudflared ingress rule** on the server (see `deploy/digital-wall/cloudflared-config.example.yml`):
-   `/agent/.*` → `http://127.0.0.1:8089`, placed **before** the catch-all portal rule.
+1. ~~Run the SQL~~ — **done** 2026-09-23 16:04Z; verifier passes 10/10.
+2. **The cloudflared ingress rule is not in effect.** `/agent/api/health` returns 307 to `/login`,
+   i.e. the portal is answering. The rule must sit **above** the catch-all `service:
+   http://127.0.0.1:3000` entry (cloudflared takes the first match), and cloudflared must be
+   restarted after the edit. Check on the server: `docker ps | grep agent-service` (is it up?) and
+   `curl -s localhost:8089/api/health` (does the container answer directly?).
 3. **Who gets the first grants?** Until someone is on the allowlist the agent is invisible to
    everyone, including you. I suggest granting only yourself initially.
 4. **Model choice.** All tiers currently run `eu.anthropic.claude-sonnet-5`, falling back to Sonnet
@@ -369,7 +381,7 @@ Not started. Each gets the same four sections as Part 0 when its prompt arrives.
 | 0 | Titan embeddings (`amazon.*` in the runtime policy) | Policy edit not yet applied | Next AWS console visit |
 | 0 | Rotate the pasted `clearway-agent` access key | Secret was pasted in plaintext during setup | Before the agent runs unattended |
 | 1 | Run `docs/supabase-agent-foundation.sql` | No DDL access from this machine | Before Part 1 can be verified or deployed |
-| 1 | cloudflared ingress rule for `/agent/.*` | Server-side config; repo has the example only | With the Part 1 deploy |
+| 1 | cloudflared ingress rule for `/agent/.*` | **Still not in effect** — /agent/* reaches the portal, not the agent | Before anyone can use the agent |
 | 1 | Pickem healthcheck is broken (pre-existing) | `${p}` in `docker-compose.yml` is expanded by compose, not node, so the probe hits a portless URL — this is the audit's "unhealthy pickem false alarm" | Out of Part 1's scope; one-line fix whenever you want it |
 | 0 | Opus 5 / Sonnet 5 access | Account-gated by AWS ("contact AWS Sales") | Only if Opus 4.6 proves insufficient |
 | 0 | Cohere Rerank | Not offered in eu-north-1 | Use Haiku/Nova for reranking, or another region |

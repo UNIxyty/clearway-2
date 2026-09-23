@@ -1,0 +1,14 @@
+{
+  "name": "clearway-agent-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dispatcher agent service \u2014 acts as the signed-in user, backed by Amazon Bedrock.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --env-file=../.env server.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1138.0"
+  }
+}

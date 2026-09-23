@@ -24,7 +24,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | Part | Status | Commits | Deployed | Notes |
 |---|---|---|---|---|
 | 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
-| 1 | Not started | — | No | Title filled in when its prompt arrives |
+| 1 — Foundation and access control | Built, not deployed | `eb9e600` `547484a` `47ff09b` | No | Code on `main`. **Blocked on one SQL run** (`docs/supabase-agent-foundation.sql`) before the done-condition can be proven |
 | 2 | Not started | — | No | |
 | 3 | Not started | — | No | |
 | 4 | Not started | — | No | |
@@ -213,7 +213,148 @@ Still outstanding (none blocking):
    If you'd rather the US stayed at its curated 67, revert with
    `delete from airports where source='ourairports_backfill_2026-09' and country='United States of America'`.
 
-## Parts 1–10
+## Part 1 — Foundation and access control
+
+**Status: Built, not deployed.** All three commits are on `main`. Two things stand between this and
+`Deployed`, both requiring you:
+
+1. **Run `docs/supabase-agent-foundation.sql`** in the Supabase SQL editor. This machine reaches
+   Supabase over REST only (no DDL), as with every other migration in `docs/`. Until the tables
+   exist the agent **fails closed and denies everything** — which is correct behaviour, and is what
+   local testing currently shows.
+2. **Deploy**, and add the cloudflared ingress rule (below), which is a server-side config file this
+   repo only carries an example of.
+
+### What was built
+
+| Piece | Where | Commit |
+|---|---|---|
+| Schema: allowlist, kill switch, audit log | `docs/supabase-agent-foundation.sql` | `eb9e600` |
+| Agent service (auth, gate, Bedrock, audit) | `agent/` | `547484a` |
+| Developer-gated access + kill-switch APIs | `app/api/agent/*` | `547484a` |
+| Container, gateway route, health check, UI | `docker-compose.yml`, `lib/service-checker.ts`, `components/agent/*` | `47ff09b` |
+| End-to-end verifier | `scripts/agent-verify-part1.mjs` | `47ff09b` |
+
+**Language: Node**, not Python. The portal, the wall backend and all three sync workers are Node;
+Python exists here only for scrapers. The deciding factor was auth: `digital-wall/lib/auth.mjs`
+already implements Supabase session extraction including the `@supabase/ssr` chunked-cookie format,
+verified against `/auth/v1/user`. A Python service would mean a second, diverging implementation of
+a security-critical cookie parser. The Bedrock SDKs were also already installed from Part 0.
+
+**Service shape.** `agent/server.mjs`, plain node http with explicit path dispatch, deliberately
+shaped like `digital-wall/server.mjs` so the two backend services read the same way. Port 5175,
+container `agent-service`, published on loopback `8089`. Accepts both `/api/*` and `/agent/api/*` so
+it does not depend on whether a proxy strips the prefix.
+
+**Bedrock tiers are configuration, not code** (`agent/config/models.json`). All seven tiers are
+declared — router · fast · standard · reasoning · extraction · embeddings · rerank — with per-tier
+`BEDROCK_MODEL_<TIER>` env overrides. `activeTier: "standard"` pins **every** request to one model,
+so the routing interface exists but nothing is routed yet. The *requested* tier is still written to
+the audit log, so the usage data Part 10 needs to route on starts accumulating now. Setting
+`AGENT_ACTIVE_TIER=none` hands routing back to the caller.
+
+Each tier carries a `fallbackId`. This is not redundancy for its own sake: Part 0 established that
+**Opus 5 and Sonnet 5 are account-gated by AWS**, so `id` names the model this build targets and
+`fallbackId` is what actually works in account `039066033404` today. The client falls back **only**
+on `model_unavailable` — throttling and timeouts are surfaced instead, because silently retrying
+them on a different model would hide load problems and change which model answered without anyone
+knowing.
+
+**Three distinct, reportable error kinds** (`agent/lib/errors.mjs`): `model_unavailable` (503),
+`model_throttled` (429, retryable), `model_timeout` (504, retryable), mapped from AWS's generic
+exception names. Once a stream is open these arrive as an SSE `error` event carrying the code,
+since the HTTP status is already sent.
+
+**Auth — the agent acts as the user.** `agent/lib/auth.mjs` carries the caller's Supabase session
+and returns their access token alongside the user, so tool calls in later parts act *as them*
+against the portal's own APIs. There is no service account. It fails closed with **no display
+carve-out** — unlike the wall, which keeps read-only panels alive when auth is misconfigured,
+an agent that cannot identify its caller has nothing safe to serve.
+
+**Access control — two independent gates, both fail-closed, both re-checked on every turn:**
+- The **global kill switch** (`agent_settings`, one row). Unreadable reads as *disabled*.
+- The **allowlist** (`agent_access`). Managed by **developers**, not admins — `requireDeveloper`,
+  the same gate as the Help Centre developer inbox, and for the same reason: who gets early access
+  to a build in progress is a development decision.
+
+Re-checking on every turn is what makes **revocation immediate**, including inside an open
+conversation: the next message in that session is refused. Revocation is a *soft* close
+(`revoked_at`), so the history of who had access, when, and who granted it survives.
+
+**A user without access sees no trace.** `nav.ts` gained `agentOnly`, gated on a runtime probe that
+**defaults to false**, so a failed probe leaves the agent invisible rather than flashing an entry
+point. `/agent` renders a plain "this page does not exist" for anyone without a grant — not a
+disabled button, not an empty panel. `/api/agent/availability` answers a boolean to any signed-in
+user rather than 403-ing, precisely so the UI can render nothing.
+
+**Audit from the first commit.** `agent_audit_log` records user, timestamp, conversation id,
+requested and effective model tier, the concrete model id invoked, tool name/args/results (columns
+ready for Part 2), confirmation status, success/failure, latency and token counts. `audit()` never
+throws — a logging failure must not take the agent down — but writes to stderr when it fails.
+Access grants, revocations and kill-switch flips are logged too.
+
+**Into the dashboard changelog.** Agent access changes, kill-switch flips and agent *failures* now
+appear in `/api/dashboard/changelog`. Chat traffic is deliberately **excluded**: it is per-user
+content, not a platform change, and 25 rows of it would drown every other source. The full
+per-request trail stays in `agent_audit_log`.
+
+**Health check.** `agent-health` added to the service prover (now 14 checks). It reports
+**degraded**, not down, when the service answers but auth or the store is misconfigured — because
+from outside, that state looks like "nobody has access" rather than a fault, and that is exactly the
+confusion worth surfacing.
+
+### Verified so far (local, without the tables)
+
+| Check | Result |
+|---|---|
+| `/api/health` returns `service: "agent"` | ✅ |
+| Both `/api/health` and `/agent/api/health` answer | ✅ |
+| No session → 401 on every non-health route | ✅ |
+| Invalid bearer token → 401 | ✅ |
+| Unknown route → 401 before routing (does not leak route existence) | ✅ |
+| Missing tables → agent denies everything, naming the cause | ✅ (fail-closed) |
+| Tier interface: a `reasoning` request resolves to the pinned `standard` model | ✅ |
+| `docker compose config` valid; TypeScript clean | ✅ |
+
+Docker is not running on this machine, so the image was not built here — it builds in CI-less
+fashion on the server at deploy time.
+
+### Not yet proven — needs the SQL run
+
+`scripts/agent-verify-part1.mjs` exercises the exact done-condition and cleans up after itself:
+a granted user gets a streamed model reply that is audited with model id and token counts; a
+non-granted user is refused and the refusal is audited; the kill switch hides and refuses the agent
+for a *granted* user. Run the SQL, start the agent with `DISABLE_AUTH_FOR_TESTING=true`, then
+`node scripts/agent-verify-part1.mjs`.
+
+### Deliberately deferred and why
+- **Tools, confirmations, conversation history** — Parts 2+. The audit table already has the
+  columns so the schema does not change when they arrive.
+- **Real tier routing** — Part 10 by instruction. The interface is built; the routing is not.
+- **Reranking** — no Cohere Rerank in eu-north-1 (Part 0 finding). The tier is declared with a null
+  id so the gap is explicit rather than discovered later.
+- **The chat UI is minimal on purpose.** It proves session → gate → Bedrock → stream → audit. It is
+  not the final agent surface.
+
+### What the next part needs to know
+- `assertMayUseAgent(user)` is the single gate; call it at the top of any new agent route.
+- The caller's access token is on `user.accessToken` — tool calls must use it, not a service key.
+- Audit with `kind: "tool.<name>"` and the existing `tool_name` / `tool_args` / `tool_result` /
+  `confirmation_status` columns.
+- The agent reaches the portal at `PORTAL_BASE_URL`; `/files/*` needs either the user's session or
+  the wall's shared secret (Part 0 / P3) — use the **user's session**.
+
+### Decisions needed from you
+1. **Run `docs/supabase-agent-foundation.sql`.** Nothing works until this exists.
+2. **Add the cloudflared ingress rule** on the server (see `deploy/digital-wall/cloudflared-config.example.yml`):
+   `/agent/.*` → `http://127.0.0.1:8089`, placed **before** the catch-all portal rule.
+3. **Who gets the first grants?** Until someone is on the allowlist the agent is invisible to
+   everyone, including you. I suggest granting only yourself initially.
+4. **Model choice.** All tiers currently run `eu.anthropic.claude-sonnet-5`, falling back to Sonnet
+   4.6 because Sonnet 5 is account-gated. If you would rather pin Opus 4.6 (proven working) as the
+   standard model, that is a one-line change in `agent/config/models.json`.
+
+## Parts 2–10
 Not started. Each gets the same four sections as Part 0 when its prompt arrives.
 
 ## Deferred items (all parts)
@@ -227,6 +368,9 @@ Not started. Each gets the same four sections as Part 0 when its prompt arrives.
 | 0 | Opus 4.6 Marketplace agreement | Temp activation policy was removed before it succeeded | Re-run the enabler with the temp policy attached |
 | 0 | Titan embeddings (`amazon.*` in the runtime policy) | Policy edit not yet applied | Next AWS console visit |
 | 0 | Rotate the pasted `clearway-agent` access key | Secret was pasted in plaintext during setup | Before the agent runs unattended |
+| 1 | Run `docs/supabase-agent-foundation.sql` | No DDL access from this machine | Before Part 1 can be verified or deployed |
+| 1 | cloudflared ingress rule for `/agent/.*` | Server-side config; repo has the example only | With the Part 1 deploy |
+| 1 | Pickem healthcheck is broken (pre-existing) | `${p}` in `docker-compose.yml` is expanded by compose, not node, so the probe hits a portless URL — this is the audit's "unhealthy pickem false alarm" | Out of Part 1's scope; one-line fix whenever you want it |
 | 0 | Opus 5 / Sonnet 5 access | Account-gated by AWS ("contact AWS Sales") | Only if Opus 4.6 proves insufficient |
 | 0 | Cohere Rerank | Not offered in eu-north-1 | Use Haiku/Nova for reranking, or another region |
 | 0 | Remove duplicate `AWS_REGION` line in server `.env` | Needs server access | With the first deploy |

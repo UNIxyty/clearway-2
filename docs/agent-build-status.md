@@ -26,7 +26,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
 | 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
 | 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
-| 3 | Not started | — | No | |
+| 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
 | 4 | Not started | — | No | |
 | 5 | Not started | — | No | |
 | 6 | Not started | — | No | |
@@ -512,8 +512,107 @@ production auth for a test — the wrong trade, so the harness reports the gap.
    dispatchers should see console reports, say so and I will drop `list_reports`
    to `user`.
 
-## Parts 3–10
-Not started. Each gets the same four sections as Part 0 when its prompt arrives.
+## Part 3 — Chat interface (the side panel)
+
+**Status: Built, not deployed.** Four commits on `main`. Blocked on one SQL run
+(`docs/supabase-agent-conversations.sql`) and a rebuild of `portal` and
+`agent-service`.
+
+### Where the design came from
+
+Imported from Claude Design via the DesignSync tool: project
+`45ff380e-a9cf-4625-a2ef-10492c94df55`, file `Ops Agent Side Panel.dc.html`
+(78 KB) plus `support.js`. Its **artboard captions and DECISIONS block** — not
+just its pixels — are what the build follows.
+
+### Implemented, per the design's own decisions
+
+| Decision | Implementation |
+|---|---|
+| 420px default, drag 360–600, remembered per user | `PANEL` tokens + a left-edge handle; width in `localStorage` |
+| Page compresses when content keeps ≥900px, else overlays with a shadow and **no scrim**; always overlays at 1280 | Recomputed on resize; the panel is a flex sibling of `main`, so in-flow = compress, `position: fixed` = overlay |
+| ⌘J opens/closes anywhere, Esc closes, the thread stays | `useAgentPanel`; the thread is server-side so nothing is lost |
+| The sidebar never auto-collapses | Untouched — mounting as a sibling means all three sidebar states work unchanged |
+| The context chip follows navigation **until you send**, then pins and offers "Now on…" | `useAgentContext` reports the page; the panel pins on send |
+
+### The verbatim treatment
+
+The design calls this "the most important distinction in the interface", so it
+is built as structure rather than styling:
+
+- The **ink frame** (1.5px `#17181c` border, solid ink header, `VERBATIM ·
+  APPROVED TEXT`, mono reference line) is the heaviest object the panel can
+  draw, and nothing else in the panel is allowed to look like it.
+- The agent's own words sit **outside** it under `AGENT'S READING`, so the
+  boundary between what an authority wrote and what the agent inferred is a
+  visual fact, not a caption.
+- **"Copy exact"** puts the original on the clipboard — not the rendered text.
+- Only a record a **tool** marked `verbatim: true` can enter the frame. The
+  model cannot promote its own paraphrase into it.
+
+### Source attribution
+
+The design's three tiers — **company** `#6d28d9`, **internal** `#1d4ed8`,
+**web** `#b45309` — declared on each **tool**, not claimed by the model. A tool
+carries `sourceTier` and a `sourceLabel(input, result)`, and the reply's
+citations are computed from the calls that actually succeeded. A model cannot
+cite a source it was never given.
+
+### Also built
+- **Composer**: `@` mentions resolved through the agent's own `search_flights`
+  (so a mention can only name something that exists), **with the current
+  selection offered first**; `/` commands; attachments button; streaming and
+  **Stop · Esc**.
+- **States**: empty with context-specific suggestions, loading skeletons,
+  streaming caret, tool-failure note with the failing tool named, error, and
+  offline ("nothing that changes data is queued").
+- **Tool activity**: collapsible, `Used N tools`, expandable to the per-tool list.
+- **History**: server-side (`agent_conversations` / `agent_messages`), listed in
+  the panel.
+- **Expand to full page**: `/agent?c=<id>` **carries the conversation** — the
+  same component in `fullPage` mode.
+- **Entry point only for allowlisted users**: the panel, the nav item and ⌘J are
+  all gated on the same runtime probe. **⌘J is inert without a grant** — a
+  shortcut must not reveal a capability the user does not have.
+
+### Deliberately deferred and why
+- **Voice (C1/C2)** — the design docks a voice bar in the composer. Deferred:
+  it needs a speech backend decision that is not in this prompt, and the
+  composer is laid out to take it.
+- **Attachments upload** — the button is present; wiring it to the Help Centre's
+  attachment store is Part 4+ work, and nothing read-only needs it yet.
+- **A3/A4 (the agent changing the page behind it)** — those artboards show
+  *write* behaviour, which Phase 2 gates.
+- **Rich cards beyond the verbatim frame, sources and mono blocks** — flight
+  card and table renderers exist in the design; the panel currently renders the
+  agent's prose plus framed records. The tools already return the structured
+  data, so this is presentation work, not plumbing.
+
+### Verification
+`scripts/agent-verify-part3.mjs` proves: a turn answers with attributed
+sources; tool activity and sources survive into server-side history; a
+follow-up continues the same thread rather than forking; **another user's
+conversation is not readable** (404); and history is refused once access is
+revoked. **Not yet run** — needs the tables.
+
+---
+
+## PHASE 1 IS COMPLETE — awaiting approval
+
+Parts 0–3 deliver a **read-only** agent: 20 tools over the platform's existing
+APIs, acting as the signed-in user, behind a developer-managed allowlist and a
+global kill switch, fully audited, in the designed side panel.
+
+**No write capability exists, and none should be built until ops have used this
+and approved it.** Part 4 onwards should not start before that sign-off.
+
+What to show ops: open any console page, press ⌘J, and ask about the airport or
+flight on screen. The things to judge are whether the answers are *useful*,
+whether **verbatim text is unmistakably distinct** from the agent's own words,
+and whether the sources are ones they trust.
+
+## Parts 4–10
+Not started, and Part 4 is gated on the Phase 1 approval above.
 
 ## Deferred items (all parts)
 

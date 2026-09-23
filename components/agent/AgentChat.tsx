@@ -27,7 +27,7 @@ export default function AgentChat() {
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetch("/api/agent/availability", { cache: "no-store" })
+    fetch("/api/assistant/availability", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { available: false }))
       .then((d) => setAvailability(d?.available ? "yes" : "no"))
       .catch(() => setAvailability("no"));

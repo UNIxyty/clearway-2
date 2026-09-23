@@ -60,7 +60,7 @@ function useIdentity() {
         setRole("user");
         setIsDeveloper(false);
       });
-    fetch("/api/agent/availability", { cache: "no-store" })
+    fetch("/api/assistant/availability", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { available: false }))
       .then((d) => setHasAgent(Boolean(d?.available)))
       .catch(() => setHasAgent(false));

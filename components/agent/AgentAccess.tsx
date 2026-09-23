@@ -30,7 +30,7 @@ export default function AgentAccess() {
   const [forbidden, setForbidden] = useState(false);
 
   const load = useCallback(async () => {
-    const accessRes = await fetch(`/api/agent/access?includeRevoked=${includeRevoked}`, { cache: "no-store" }).catch(() => null);
+    const accessRes = await fetch(`/api/assistant/access?includeRevoked=${includeRevoked}`, { cache: "no-store" }).catch(() => null);
     if (accessRes?.status === 403) {
       setForbidden(true);
       setRows([]);
@@ -38,7 +38,7 @@ export default function AgentAccess() {
     }
     const accessBody = await accessRes?.json().catch(() => null);
     setRows(accessBody?.access ?? []);
-    const switchRes = await fetch("/api/agent/kill-switch", { cache: "no-store" }).catch(() => null);
+    const switchRes = await fetch("/api/assistant/kill-switch", { cache: "no-store" }).catch(() => null);
     const switchBody = await switchRes?.json().catch(() => null);
     setKillSwitch(switchBody?.killSwitch ?? null);
   }, [includeRevoked]);
@@ -50,7 +50,7 @@ export default function AgentAccess() {
     if (!target || busy) return;
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/agent/access", {
+    const res = await fetch("/api/assistant/access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: target, note: note.trim() || null }),
@@ -68,7 +68,7 @@ export default function AgentAccess() {
     // rather than letting someone discover it by surprising a colleague.
     if (!confirm(`Revoke agent access for ${row.userEmail || row.userId}?\n\nThis takes effect immediately, including in any conversation they have open right now.`)) return;
     setBusy(true);
-    await fetch(`/api/agent/access?userId=${encodeURIComponent(row.userId)}`, { method: "DELETE" }).catch(() => {});
+    await fetch(`/api/assistant/access?userId=${encodeURIComponent(row.userId)}`, { method: "DELETE" }).catch(() => {});
     setBusy(false);
     void load();
   }
@@ -83,7 +83,7 @@ export default function AgentAccess() {
     }
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/agent/kill-switch", {
+    const res = await fetch("/api/assistant/kill-switch", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: !killSwitch.enabled, reason: reason?.trim() || "Re-enabled" }),

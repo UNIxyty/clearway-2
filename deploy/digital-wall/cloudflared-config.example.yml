@@ -4,12 +4,16 @@ credentials-file: /etc/cloudflared/<YOUR_TUNNEL_ID>.json
 ingress:
   # Digital wall subpath (frontend + backend via gateway router)
   - hostname: clearway.verxyl.com
-    path: /digital-wall/.*
+    path: ^/digital-wall/.*
     service: http://127.0.0.1:8088
 
   # Dispatcher agent service (Part 1). Loopback-published container on 8089.
+  # ANCHOR THE REGEX. cloudflared matches `path` UNANCHORED, so a bare
+  # `/agent/.*` also matches `/api/agent/...` and silently steals portal routes.
+  # Order matters too: every rule must sit ABOVE the catch-all below, which has
+  # no `path` and therefore matches everything.
   - hostname: clearway.verxyl.com
-    path: /agent/.*
+    path: ^/agent/.*
     service: http://127.0.0.1:8089
 
   # Existing main app (adjust if your main app uses different local port)

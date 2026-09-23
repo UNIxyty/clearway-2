@@ -1,5 +1,11 @@
 // Agent allowlist — DEVELOPER-managed, not admin.
 //
+// NOTE ON THE PATH: these portal routes live under /api/assistant/, NOT
+// /api/agent/. `/agent/*` is a public prefix owned by the agent CONTAINER, and
+// cloudflared's `path` is an UNANCHORED regex — `/agent/.*` also matches
+// `/api/agent/access`, so routes named that way get silently hijacked by the
+// agent service and answer 401 instead of running. Do not move them back.
+//
 // Same reasoning as the Help Centre developer inbox: the agent is a build in
 // progress, and who gets early access to it is a development decision, not an
 // operations one. requireDeveloper enforces that; ADMIN_EMAILS confers admin

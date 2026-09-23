@@ -18,6 +18,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import MaskIcon from "@/components/portal/Icon";
 import ClientNavProgress from "@/components/portal/ClientNavProgress";
 import { topicsForRole, type Role } from "@/components/portal/nav";
+import AgentPanel, { useAgentPanel } from "@/components/agent/panel/AgentPanel";
+import { useAgentContext } from "@/components/agent/panel/useAgentContext";
 import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
 
 const COLLAPSE_KEY = "cw-shell-collapsed";
@@ -217,6 +219,11 @@ export default function PortalShell({
     });
 
   const topics = useMemo(() => topicsForRole(role, isDeveloper, hasAgent), [role, isDeveloper, hasAgent]);
+  const { open: agentOpenRaw, setOpen: setAgentOpen } = useAgentPanel();
+  // ⌘J is inert without a grant: the shortcut must not reveal a capability the
+  // user does not have.
+  const agentOpen = hasAgent && agentOpenRaw;
+  const agentContext = useAgentContext();
 
   // Internal navigations go through startTransition so navPending drives the
   // slim top progress bar (Next 14 App Router has no router events; the
@@ -417,6 +424,15 @@ export default function PortalShell({
   return (
     <div className="flex min-h-screen bg-cw-page font-sans text-cw-ink">
       <ClientNavProgress pending={navPending} />
+      {/* Panel animations, and the hover states its buttons borrow. */}
+      <style>{`
+        @keyframes cwcaret{0%,100%{opacity:1}50%{opacity:0}}
+        @keyframes cwpulse{0%,100%{opacity:.35}50%{opacity:1}}
+        @keyframes cwfadein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+        .cw-fade{animation:cwfadein .18s ease}
+        .cw-hover-surface:hover{background:#f5f6f7 !important}
+        @media (prefers-reduced-motion: reduce){.cw-fade{animation:none}}
+      `}</style>
       {/* desktop sidebar — pinned to the viewport (sticky + h-screen inside
           the min-h-screen flex row): head and user badge stay put, only the
           nav list scrolls internally, only the content column scrolls the
@@ -488,6 +504,12 @@ export default function PortalShell({
         </div>
         )}
       </div>
+      {/* The agent panel. Rendered only for allowlisted users — hasAgent is the
+          same runtime probe that gates the nav entry, so a user without a grant
+          gets no panel, no shortcut and no trace of it. */}
+      {hasAgent && (
+        <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} context={agentContext} />
+      )}
     </div>
   );
 }

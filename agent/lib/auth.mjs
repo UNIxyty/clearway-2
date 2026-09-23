@@ -106,6 +106,58 @@ export function extractAccessTokenFromCookies(cookieHeader) {
   return null;
 }
 
+function parseEmailList(raw) {
+  return String(raw || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+}
+
+function roleFromMetadata(appMeta = {}, userMeta = {}) {
+  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+  if (roleValue === "developer") return "developer";
+  if (roleValue === "admin") return "admin";
+  const rolesRaw = appMeta.roles || userMeta.roles;
+  const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
+  if (roles.includes("developer")) return "developer";
+  if (roles.includes("admin")) return "admin";
+  if (appMeta.is_developer === true || userMeta.is_developer === true) return "developer";
+  if (appMeta.is_admin === true || userMeta.is_admin === true) return "admin";
+  return "none";
+}
+
+/**
+ * The caller's platform role, resolved exactly as lib/admin-auth.ts does it —
+ * this decides which TOOLS the agent may offer, so the two must not disagree.
+ * Developer is a FLAG, not an admin tier: DEVELOPER_EMAILS and the explicit
+ * developer signals confer it; ADMIN_EMAILS confers admin and nothing more.
+ * Fails to "user" — the least privileged answer — on any lookup failure.
+ */
+async function resolveAgentRole(user) {
+  const email = user.email ? user.email.toLowerCase() : null;
+  if (email && parseEmailList(process.env.DEVELOPER_EMAILS).includes(email)) return "developer";
+
+  const metaRole = roleFromMetadata(user.appMetadata, user.userMetadata);
+  if (metaRole === "developer") return "developer";
+
+  let prefs = null;
+  try {
+    const url = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+    const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+    if (url && key) {
+      const response = await fetch(
+        `${url}/rest/v1/user_preferences?user_id=eq.${encodeURIComponent(user.userId)}&select=is_admin,is_developer&limit=1`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(6000) }
+      );
+      if (response.ok) prefs = (await response.json())?.[0] ?? null;
+    }
+  } catch {
+    /* fall through: absence of a flag is not a grant */
+  }
+  if (prefs?.is_developer) return "developer";
+  if (metaRole === "admin") return "admin";
+  if (email && parseEmailList(process.env.ADMIN_EMAILS).includes(email)) return "admin";
+  if (prefs?.is_admin) return "admin";
+  return "user";
+}
+
 function mapSupabaseUser(payload) {
   const meta = payload.user_metadata || {};
   const email = payload.email || null;
@@ -163,7 +215,15 @@ async function verifyAccessToken(token) {
  * portal's own APIs rather than with elevated credentials.
  */
 export async function authenticateRequest(req) {
-  if (authTestingBypass()) return { ...MOCK_USER, accessToken: null };
+  if (authTestingBypass()) {
+    return {
+      ...MOCK_USER,
+      accessToken: null,
+      cookieHeader: req.headers.cookie ?? null,
+      // Local rigs stand in for whatever role is being exercised.
+      agentRole: String(process.env.AGENT_TEST_ROLE || "developer"),
+    };
+  }
   if (!authConfigured()) return null;
 
   const authHeader = String(req.headers.authorization || "");
@@ -171,5 +231,13 @@ export async function authenticateRequest(req) {
   const token = bearer || extractAccessTokenFromCookies(req.headers.cookie);
   if (!token) return null;
   const user = await verifyAccessToken(token);
-  return user ? { ...user, accessToken: token } : null;
+  if (!user) return null;
+  return {
+    ...user,
+    accessToken: token,
+    // The caller's raw Cookie header, forwarded verbatim by the tool layer so
+    // upstream services authenticate THIS USER rather than the agent.
+    cookieHeader: req.headers.cookie ?? null,
+    agentRole: await resolveAgentRole(user),
+  };
 }

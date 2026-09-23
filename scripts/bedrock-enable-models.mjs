@@ -110,6 +110,12 @@ async function main() {
     try {
       offers = await client.send(new ListFoundationModelAgreementOffersCommand({ modelId }));
     } catch (error) {
+      // "Agreement not supported" is the SUCCESS case for first-party Amazon
+      // models: they are not Marketplace-served and need no subscription.
+      if (/Agreement not supported/i.test(error.message || "")) {
+        console.log(`${modelId.padEnd(46)} no agreement needed (first-party)`);
+        continue;
+      }
       console.log(`${modelId.padEnd(46)} offers unavailable: ${error.name} ${String(error.message).slice(0, 80)}`);
       failed += 1;
       continue;

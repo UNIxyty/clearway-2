@@ -81,7 +81,7 @@ Opening a flight's AIP document on the wall is the equivalent manual check.
 | P2 — `GET /api/bug-reports` scoped to caller, developers see all | `d538eaa` | yes | yes — verified 307 unauth |
 | P3 — `/files/*` behind session check, wall header path preserved | `ccc52bb` | yes | yes — verified 307 + wrong-secret 307 |
 | P4 — Wall store CRUD completeness | `a35b30d` | yes | yes — verified route live behind 401 gate |
-| P5 — AWS + Bedrock access | `72f5dc4` | yes (docs + smoke test) | code shipped; **no successful invocation** — see Decisions |
+| P5 — AWS + Bedrock access | `72f5dc4` `470eef5` `00df61b` `e5d484d` `69672f2` `8c27f7c` | yes | **Verified** — live Converse responses from eu-north-1 (Haiku 4.5, Nova Pro; earlier also Sonnet 4.6, Opus 4.6, Nova Lite) |
 
 **P1 — coverage (Supabase `airports`, applied 2026-09-23 10:45Z via `scripts/airports-backfill-ourairports.mjs --apply`)**
 
@@ -146,12 +146,38 @@ settings/clocks/devices, device auth, alert rules, NOTAM digest config, webhooks
 — list + read-one + create + edit + delete where the store has that operation. Read-only by
 design: alert findings, NOTAM check state, timeline cache, geo airports, webhook log.
 
-**P5** — `docs/aws-bedrock-setup.md` (region, model-access steps, invoke-only IAM policy JSON, env
-var table, client-library choice) and `scripts/bedrock-smoke-test.mjs` (`--list`, Converse, `--embed`,
-`--rerank`; prints which gate fails). `@aws-sdk/client-bedrock` + `client-bedrock-runtime` added.
-**Not confirmed working:** the only AWS key on this machine (`AKIA…YRFM`, same in `~/.aws` and
-`.env`) is rejected by AWS — `InvalidClientTokenId`. Region eu-north-1 is chosen and documented;
-model availability there is stated as "confirm with `--list`", not asserted.
+**P5 — VERIFIED.** Account `039066033404`, IAM user `clearway-agent`, region **eu-north-1**.
+Live `Converse` responses obtained from Bedrock: **Claude Haiku 4.5** and **Amazon Nova Pro**
+confirmed working at the time of writing; **Claude Sonnet 4.6, Claude Opus 4.6 and Nova Lite** each
+returned a live response earlier in the session. The dead `AKIA…YRFM` key was replaced.
+
+Shipped: `docs/aws-bedrock-setup.md` (region rationale, console walkthrough, IAM policy, env vars,
+client-library choice), `scripts/bedrock-smoke-test.mjs` (`--list`, Converse, `--embed`, `--rerank`;
+names the failing gate), `scripts/bedrock-enable-models.mjs` (one-time Marketplace agreement
+acceptance). SDKs `@aws-sdk/client-bedrock` + `client-bedrock-runtime`.
+
+Four things this cost a session to learn, all now documented:
+1. **The Bedrock "Model access" page is retired.** Models self-enable on first invocation — but only
+   for a caller holding AWS Marketplace permissions.
+2. **Anthropic models are Marketplace-served too**, not just Cohere. Both need an account-level
+   agreement, accepted once. The runtime policy holds no marketplace permissions by design, so
+   activation uses a temporary `ClearwayBedrockActivateTemp` inline policy that is removed after.
+3. **`eu.` inference profiles route across EU regions**, and IAM authorizes against the
+   *destination* region — our first call went Stockholm → Milan and was denied. Hence `eu-*` in the
+   resource ARNs. `global.` profiles must never be used: they route outside the EU.
+4. **Anthropic needs a one-time per-account use-case form**; its state flaps for ~15 minutes after
+   submission, during which working models transiently fail.
+
+Still outstanding (none blocking):
+- **Opus 4.6 agreement not accepted** — it alone kept returning AccessDenied while Sonnet/Haiku/
+  Cohere succeeded in the same run. Re-attach `ClearwayBedrockActivateTemp` and re-run
+  `node scripts/bedrock-enable-models.mjs --apply`.
+- **Sonnet 4.6 and Cohere Embed** show ACCEPTED agreements but were still propagating at last test.
+- **Titan embeddings blocked on the runtime policy** — it grants `amazon.nova-*`; needs `amazon.*`.
+- **Opus 5 / Sonnet 5 / Opus 4.8 / 4.7 are account-gated** ("contact AWS Sales"). Best available
+  model today is **Opus 4.6**; Haiku 4.5 is proven and is the natural cheap sub-task model.
+- **Cohere Rerank does not exist in eu-north-1.**
+- **The agent key was pasted in plaintext twice during setup and must be rotated.**
 
 ### Deliberately deferred and why
 - **IATA backfill** — needs DDL in Supabase (SQL editor); script and SQL are ready. Deferred until
@@ -173,10 +199,11 @@ model availability there is stated as "confirm with `--list`", not asserted.
   for Nova; InvokeModel for Cohere. Model ids come from `--list`, not from memory.
 
 ### Decisions needed from you
-1. **AWS credentials.** Create the `clearway-agent` IAM user with the policy in
-   `docs/aws-bedrock-setup.md` §3, put its key in the server `.env` (and locally if you want me to run
-   the test), then `node scripts/bedrock-smoke-test.mjs --list` and a plain run. Until then P5 is
-   "documented, not confirmed".
+1. **AWS — resolved for Part 0** (Bedrock invocation verified). Three follow-ups: rotate the
+   pasted agent key; accept the Opus 4.6 agreement; decide whether to pursue Opus 5 / Sonnet 5 with
+   AWS Sales or settle on Opus 4.6 as the agent's top model. My recommendation: **settle on Opus
+   4.6 + Haiku 4.5 now**, revisit Opus 5 later — model choice is a config value, not a design
+   dependency.
 2. **Deploy access.** *(Part 0 resolved by you deploying manually and reporting HEAD `bd5019b`.)*
    Still open for future parts: either add this machine's `~/.ssh/id_ed25519.pub` to
    `root@clearway-2`, or keep deploying yourself and sending me the server HEAD. Without one of
@@ -196,5 +223,10 @@ Not started. Each gets the same four sections as Part 0 when its prompt arrives.
 | 0 | IATA column + fill on `airports` | Needs DDL run in Supabase SQL editor | Part 0, after `docs/supabase-airports-iata.sql` is run |
 | 0 | Relabel Guernsey/Jersey/IOM/Luxembourg/Montenegro/Macau airports to their own country | Scraper routing keys on current labels | Whichever part builds the airport-lookup tool |
 | 0 | Wall-wide mutation audit log | Out of P4's scope; agent actions are audited in the agent service | Part that adds the wall tool layer |
-| 0 | Bedrock test invocation in eu-north-1 | AWS key invalid; no working credential on this machine | Part 0, as soon as a key exists |
+| 0 | ~~Bedrock test invocation~~ | **Done** — Haiku 4.5 + Nova Pro returned live responses | — |
+| 0 | Opus 4.6 Marketplace agreement | Temp activation policy was removed before it succeeded | Re-run the enabler with the temp policy attached |
+| 0 | Titan embeddings (`amazon.*` in the runtime policy) | Policy edit not yet applied | Next AWS console visit |
+| 0 | Rotate the pasted `clearway-agent` access key | Secret was pasted in plaintext during setup | Before the agent runs unattended |
+| 0 | Opus 5 / Sonnet 5 access | Account-gated by AWS ("contact AWS Sales") | Only if Opus 4.6 proves insufficient |
+| 0 | Cohere Rerank | Not offered in eu-north-1 | Use Haiku/Nova for reranking, or another region |
 | 0 | Remove duplicate `AWS_REGION` line in server `.env` | Needs server access | With the first deploy |

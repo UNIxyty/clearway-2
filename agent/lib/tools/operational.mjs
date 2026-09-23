@@ -28,6 +28,8 @@ defineTool({
   description:
     "Operational limitations currently configured on the ops wall — standing restrictions that apply to flights, airports or countries. Returns each limitation's full original text plus the criteria that decide which flights it matches. Use when asked what restrictions apply to a flight, airport or country.",
   permission: "user",
+  sourceTier: "company",
+  sourceLabel: (input, result) => `Company · ${result.source ?? "limitations"}${input.icao ? ` · ${input.icao}` : ""}`,
   maxResultBytes: 256 * 1024,
   input: {
     type: "object",
@@ -119,6 +121,8 @@ defineTool({
   description:
     "IMPORTANT entries (class IMP) on the ops wall — standing operational bulletins the dispatcher must know, such as seasonal openings, customs restrictions or permit rules. Returns each entry's full original text and its match criteria. Use when asked what a crew or dispatcher must be aware of for an airport or country.",
   permission: "user",
+  sourceTier: "company",
+  sourceLabel: (input, result) => `Company · ${result.source ?? "IMPORTANT"}${input.icao ? ` · ${input.icao}` : ""}`,
   maxResultBytes: 256 * 1024,
   input: {
     type: "object",
@@ -210,6 +214,8 @@ defineTool({
   description:
     "Civil aviation authority contact records: which authority to contact for a country, for what (overflight permits, landing permissions), how, and the validity or lead time. Returns each record's full original text. Use when asked who to contact or how long a permit takes.",
   permission: "user",
+  sourceTier: "company",
+  sourceLabel: (input, result) => `Company · ${result.source ?? "CAA"}${input.country ? ` · ${input.country}` : ""}`,
   maxResultBytes: 256 * 1024,
   input: {
     type: "object",

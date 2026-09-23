@@ -13,6 +13,8 @@ defineTool({
   description:
     "Find the official AD 2 aerodrome document (AIP) for one airport by ICAO code. Returns which national source serves it, whether a PDF is already cached, and a link to open it. Use this when asked about an airport's published aerodrome information, procedures, runways or contacts. It does NOT return the document text — it locates the document.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: (input, result) => `Internal · AIP ${result.source ?? ""} · ${input.icao}`,
   input: {
     type: "object",
     required: ["icao"],
@@ -55,6 +57,8 @@ defineTool({
   description:
     "Locate the country-level GEN 1.2 document (entry, transit and departure rules) that applies to an airport, by ICAO code. Use for questions about national requirements — permits, customs, overflight — rather than the airport itself.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: (input) => `Internal · GEN 1.2 · ${input.icao}`,
   input: {
     type: "object",
     required: ["icao"],
@@ -96,6 +100,8 @@ defineTool({
   description:
     "Get the public web AIP (eAIP) website link for the country that serves an airport, by ICAO code. Use when the user wants to browse the official source themselves rather than open a single document.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: (input) => `Internal · airports database · ${input.icao}`,
   input: {
     type: "object",
     required: ["icao"],
@@ -133,6 +139,8 @@ defineTool({
   description:
     "Per-country health of AIP document retrieval: which countries are working, in trouble, or not yet checked, with any operator note. Use when a document fails to load, or when asked whether a country's AIP is reliable right now. Omit `country` for the whole board.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · country service status",
   input: {
     type: "object",
     additionalProperties: false,

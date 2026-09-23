@@ -77,6 +77,8 @@ defineTool({
   description:
     "One flight's schedule details by flight id: route, times, aircraft, operator and status. Use when the user names a specific flight and wants its basic facts.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: (input) => `Internal · Leon via the wall · ${input.flight_id}`,
   input: { type: "object", required: ["flight_id"], additionalProperties: false, properties: { flight_id: FLIGHT_ID } },
   output: { type: "object", required: ["flight"], properties: { flight: FLIGHT_SUMMARY_SCHEMA } },
   async handler({ flight_id }, { user }) {
@@ -100,6 +102,8 @@ defineTool({
   description:
     "Everything the ops wall knows about one flight right now: its limitations and IMPORTANT matches, NOTAM and weather availability for both airports, and which per-flight checks the dispatcher has already ticked. Use before answering 'is this flight ready' or 'what applies to this flight'.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: (input) => `Internal · wall flight state · ${input.flight_id}`,
   timeoutMs: 45_000,
   maxResultBytes: 256 * 1024,
   input: { type: "object", required: ["flight_id"], additionalProperties: false, properties: { flight_id: FLIGHT_ID } },
@@ -161,6 +165,8 @@ defineTool({
   description:
     "Find flights on the ops wall by airport, registration, operator, callsign or time window. Use to answer 'which flights go to X', 'what is flying today', or to find a flight id before using the other flight tools.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · wall timeline",
   timeoutMs: 30_000,
   maxResultBytes: 256 * 1024,
   input: {
@@ -207,6 +213,8 @@ defineTool({
   description:
     "A snapshot of the ops wall as it stands: how many flights are shown, the Leon feed's health and last sync, how many limitations and IMPORTANT entries are active, and whether today's NOTAM check is done. Use for 'how are things looking' or to check the wall is healthy.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · ops wall",
   timeoutMs: 30_000,
   input: { type: "object", additionalProperties: false, properties: {} },
   output: {

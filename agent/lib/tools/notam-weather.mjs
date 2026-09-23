@@ -16,6 +16,8 @@ defineTool({
   description:
     "Current NOTAMs for one airport by ICAO code, from CrewBriefing. Returns the full NOTAM text of each notice. Use for questions about closures, works in progress, unserviceable equipment or temporary restrictions at an airport. Can be slow on a cache miss because it scrapes the source.",
   permission: "user",
+  sourceTier: "web",
+  sourceLabel: (input) => `Web · CrewBriefing NOTAMs · ${input.icao}`,
   // NOTAM retrieval is Playwright-backed on a cache miss; the portal's own
   // timeout is generous, so this one has to be too or it fails the slow path.
   timeoutMs: 60_000,
@@ -75,6 +77,8 @@ defineTool({
   description:
     "Current METAR and TAF for one airport by ICAO code. Use for questions about conditions, visibility, wind or forecast at an airport. Returns the coded reports as published.",
   permission: "user",
+  sourceTier: "web",
+  sourceLabel: (input) => `Web · METAR/TAF · ${input.icao}`,
   timeoutMs: 40_000,
   input: {
     type: "object",
@@ -115,6 +119,8 @@ defineTool({
   description:
     "State of the daily 10:00 Riga NOTAM check on the ops wall: which airports have been checked today, which are still outstanding, and who acknowledged them. This is the platform's safety timer — use it when asked whether today's NOTAM check is done.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · daily NOTAM check",
   input: {
     type: "object",
     additionalProperties: false,

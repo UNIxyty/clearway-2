@@ -18,6 +18,22 @@ import { audit } from "../store.mjs";
 /** Permission levels, least to most privileged. */
 export const PERMISSIONS = ["user", "admin", "developer"];
 
+/**
+ * Where a tool's facts come from. The panel colours source chips by this, and
+ * — the point — it is declared on the TOOL, so attribution is derived from
+ * what actually ran rather than from the model saying what it used. A model
+ * cannot invent a source tier it was never given.
+ *
+ *   company  — Clearway's own approved operational content (limitations, IMP, CAA)
+ *   internal — platform systems of record (Leon, the wall, the portal, AIP cache)
+ *   web      — anything fetched from outside the platform
+ */
+export const SOURCE_TIERS = {
+  company: { label: "Company", fg: "#6d28d9", bg: "#ede9fe", icon: "book-open" },
+  internal: { label: "Internal", fg: "#1d4ed8", bg: "#dbeafe", icon: "database" },
+  web: { label: "Web", fg: "#b45309", bg: "#fef3e2", icon: "globe" },
+};
+
 const registry = new Map();
 
 export function defineTool(spec) {
@@ -30,8 +46,10 @@ export function defineTool(spec) {
   const tool = {
     timeoutMs: 20_000,
     maxResultBytes: 128 * 1024,
+    sourceTier: "internal",
     ...spec,
   };
+  if (!SOURCE_TIERS[tool.sourceTier]) throw new Error(`Tool "${tool.name}" has unknown sourceTier ${tool.sourceTier}`);
   registry.set(tool.name, tool);
   return tool;
 }
@@ -177,6 +195,72 @@ export async function executeTool({ name, input, user, conversationId }) {
     await record(result, false, `OUTPUT_SCHEMA: ${message}`);
     return result;
   }
+}
+
+/**
+ * Source attributions for a set of tool calls, in the order they ran. Built
+ * from the tool REGISTRY plus each tool's own `sourceLabel`, so a reply's
+ * citations describe work that demonstrably happened.
+ */
+export function sourcesFromToolCalls(calls) {
+  const sources = [];
+  const seen = new Set();
+  for (const call of calls) {
+    const tool = getTool(call.name);
+    if (!tool || call.ok === false) continue;
+    let label;
+    try {
+      label = tool.sourceLabel ? tool.sourceLabel(call.input ?? {}, call.result ?? {}) : tool.name;
+    } catch {
+      label = tool.name;
+    }
+    const key = `${tool.sourceTier}:${label}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Spread the tier's presentation FIRST so the computed label wins — the
+    // tier also carries a `label` ("Company"), and letting it clobber the
+    // specific one would make every source chip read the same.
+    sources.push({
+      ...SOURCE_TIERS[tool.sourceTier],
+      n: sources.length + 1,
+      tier: tool.sourceTier,
+      tierLabel: SOURCE_TIERS[tool.sourceTier].label,
+      label: String(label),
+      tool: tool.name,
+    });
+  }
+  return sources;
+}
+
+/**
+ * Verbatim records a set of tool calls returned. The panel renders these in the
+ * ink frame. Only records a tool itself marked `verbatim: true` qualify — the
+ * model cannot promote its own paraphrase into that frame.
+ */
+export function verbatimFromToolCalls(calls) {
+  const out = [];
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    const tool = getTool(call.name);
+    if (!tool) continue;
+    for (const key of ["limitations", "entries", "reports", "notams"]) {
+      for (const record of call.result[key] ?? []) {
+        if (record?.verbatim !== true) continue;
+        out.push({
+          id: String(record.id ?? ""),
+          heading: String(record.title ?? record.country ?? record.id ?? ""),
+          text: String(record.description ?? record.body ?? record.functionText ?? record.title ?? ""),
+          source: call.result.source ?? tool.name,
+          effectiveFrom: record.effectiveFrom ?? null,
+          effectiveTo: record.effectiveTo ?? null,
+          approvedBy: record.reviewedBy ?? record.addedBy ?? null,
+          updatedAt: record.updatedAt ?? null,
+          tool: tool.name,
+        });
+      }
+    }
+  }
+  return out;
 }
 
 /** Shared schema fragments, so every tool spells these the same way. */

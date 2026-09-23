@@ -15,6 +15,8 @@ defineTool({
   description:
     "Registration state of the Leon webhooks per operator: which events are subscribed, whether registration succeeded, and the last failure if any. Use when flights are not updating and you need to know whether the live feed is wired up.",
   permission: "admin",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · Leon webhooks",
   input: { type: "object", additionalProperties: false, properties: { operatorId: { type: "string", maxLength: 40 } } },
   output: {
     type: "object",
@@ -66,6 +68,8 @@ defineTool({
   description:
     "Recent Leon webhook deliveries for one operator and event type, newest first, including failures and their reasons. Use to investigate why a specific flight did not update.",
   permission: "admin",
+  sourceTier: "internal",
+  sourceLabel: (input) => `Internal · webhook log · ${input.operator}`,
   input: {
     type: "object",
     required: ["operator"],
@@ -128,6 +132,8 @@ defineTool({
   description:
     "Console reports raised by operators — issues logged from the ops console, with status and category. Use when asked what has been reported or what is outstanding.",
   permission: "admin",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · console reports",
   maxResultBytes: 256 * 1024,
   input: {
     type: "object",
@@ -194,6 +200,8 @@ defineTool({
   description:
     "Health of every platform service the portal monitors — the portal itself, the AIP/NOTAM/weather paths, the sync workers, the ops wall, the Leon feed and cache freshness. Use when something seems broken, or when asked whether the platform is healthy.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · service checks",
   timeoutMs: 30_000,
   input: {
     type: "object",

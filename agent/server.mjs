@@ -16,6 +16,11 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
+import { sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import {
+  appendMessage, archiveConversation, createConversation, getConversation,
+  listConversations, listMessages, titleFrom,
+} from "./lib/conversations.mjs";
 import { loadModelConfig, resolveTier } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -131,6 +136,32 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, result, result.ok === false ? 200 : 200);
     }
 
+    // ── Conversations: server-side history (the panel, the full page and a
+    // reload on another machine all read the same thread). Every query is
+    // scoped to this user's id, so one dispatcher cannot load another's. ──
+    if (pathname === "/api/conversations" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, conversations: await listConversations(user.userId) });
+    }
+
+    if (/^\/api\/conversations\/[^/]+$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const thread = await listMessages(id, user.userId);
+      if (!thread) return sendJson(res, { ok: false, error: "not_found", message: "No such conversation." }, 404);
+      return sendJson(res, { ok: true, ...thread });
+    }
+
+    if (/^\/api\/conversations\/[^/]+$/.test(pathname) && req.method === "DELETE") {
+      await assertMayUseAgent(user);
+      const id = decodeURIComponent(pathname.split("/").pop());
+      if (!(await getConversation(id, user.userId))) {
+        return sendJson(res, { ok: false, error: "not_found", message: "No such conversation." }, 404);
+      }
+      await archiveConversation(id, user.userId);
+      return sendJson(res, { ok: true, id });
+    }
+
     return sendJson(res, { ok: false, error: "not_found", message: `No route for ${req.method} ${pathname}` }, 404);
   } catch (error) {
     return sendError(res, error);
@@ -139,7 +170,6 @@ const server = http.createServer(async (req, res) => {
 
 async function handleChat(req, res, user) {
   const body = await readJsonBody(req);
-  const conversationId = String(body.conversationId || randomUUID());
   const requestedTier = String(body.tier || "standard");
   const startedAt = Date.now();
 
@@ -151,7 +181,7 @@ async function handleChat(req, res, user) {
       kind: "chat.denied",
       userId: user.userId,
       userEmail: user.email,
-      conversationId,
+      conversationId: body.conversationId ?? null,
       modelTier: requestedTier,
       success: false,
       error: error instanceof AgentError ? error.code : String(error?.message || error),
@@ -159,10 +189,31 @@ async function handleChat(req, res, user) {
     throw error;
   }
 
-  const messages = Array.isArray(body.messages) ? body.messages : [];
-  if (messages.length === 0 || !messages.some((m) => String(m?.content || "").trim())) {
-    throw BadRequest("At least one message with content is required.");
+  const question = String(body.message ?? "").trim();
+  if (!question) throw BadRequest("A message is required.");
+
+  // Resolve or open the thread. History comes from the SERVER, so a reload or a
+  // move to the full page continues the same conversation rather than starting
+  // a parallel one that only this browser knows about.
+  let conversation = null;
+  if (body.conversationId) {
+    conversation = await getConversation(String(body.conversationId), user.userId);
+    if (!conversation) throw BadRequest("No such conversation.");
+  } else {
+    conversation = await createConversation({
+      userId: user.userId,
+      userEmail: user.email,
+      title: titleFrom(question),
+      context: body.context ?? null,
+    });
   }
+  if (!conversation) throw BadRequest("Could not open a conversation.");
+  const conversationId = conversation.id;
+
+  const priorThread = await listMessages(conversationId, user.userId);
+  const history = (priorThread?.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
+
+  await appendMessage({ conversationId, role: "user", content: question });
 
   const { requested, effective } = resolveTier(requestedTier);
   await audit({
@@ -172,11 +223,9 @@ async function handleChat(req, res, user) {
     conversationId,
     modelTier: requested,
     success: null,
-    detail: { effectiveTier: effective, messageCount: messages.length },
+    detail: { effectiveTier: effective, historyTurns: history.length, context: body.context ?? null },
   });
 
-  // Server-sent events: the wall's stream endpoint uses the same headers, and
-  // the gateway config for this path must not buffer.
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache, no-transform",
@@ -186,34 +235,73 @@ async function handleChat(req, res, user) {
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   send("start", {
     conversationId,
+    title: conversation.title,
     requestedTier: requested,
     effectiveTier: effective,
-    // What this caller's role actually unlocks — useful when a user asks why
-    // the agent will not do something.
     tools: toolNamesFor(user),
   });
 
+  // Context the user was looking at, given to the model as operator framing
+  // rather than mixed into their message — it is not something they typed.
+  const contextLine = body.context?.label
+    ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
+    : null;
+  const system = [body.system ? String(body.system) : null, contextLine].filter(Boolean).join("\n\n") || undefined;
+
   let done = null;
+  let answer = "";
+  const toolCalls = [];
   try {
     for await (const chunk of streamConversationWithTools({
       tier: requestedTier,
-      system: body.system ? String(body.system) : undefined,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      system,
+      messages: [...history, { role: "user", content: question }],
       user,
       conversationId,
     })) {
-      if (chunk.type === "delta") send("delta", { text: chunk.text });
-      else if (chunk.type === "tool") send("tool", { name: chunk.name, ok: chunk.ok, error: chunk.error });
-      else if (chunk.type === "done") done = chunk;
+      if (chunk.type === "delta") {
+        answer += chunk.text;
+        send("delta", { text: chunk.text });
+      } else if (chunk.type === "tool") {
+        toolCalls.push(chunk);
+        send("tool", { name: chunk.name, input: chunk.input, ok: chunk.ok, error: chunk.error });
+      } else if (chunk.type === "done") {
+        done = chunk;
+      }
     }
+
+    // Attribution and verbatim records are derived from the tools that ACTUALLY
+    // ran, not from anything the model claims. A model cannot cite a source it
+    // was never given, or promote its own paraphrase into the verbatim frame.
+    const sources = sourcesFromToolCalls(toolCalls);
+    const verbatim = verbatimFromToolCalls(toolCalls);
+    const toolActivity = toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null }));
+
+    await appendMessage({
+      conversationId,
+      role: "assistant",
+      content: answer,
+      blocks: verbatim.length > 0 ? { verbatim } : null,
+      sources,
+      toolActivity,
+      modelId: done?.modelId ?? null,
+      modelTier: requested,
+      inputTokens: done?.inputTokens ?? null,
+      outputTokens: done?.outputTokens ?? null,
+    });
+
     send("done", {
       conversationId,
       modelId: done?.modelId ?? null,
       stopReason: done?.stopReason ?? null,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
-      toolCalls: done?.toolCalls ?? [],
+      sources,
+      verbatim,
+      toolActivity,
+      latencyMs: Date.now() - startedAt,
     });
+
     await audit({
       kind: "chat.response",
       userId: user.userId,
@@ -226,13 +314,22 @@ async function handleChat(req, res, user) {
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
       confirmationStatus: "not_required",
-      detail: { effectiveTier: effective, stopReason: done?.stopReason ?? null, toolCalls: done?.toolCalls ?? [] },
+      detail: { effectiveTier: effective, stopReason: done?.stopReason ?? null, toolActivity, sourceCount: sources.length },
     });
   } catch (error) {
-    // The stream is already open, so the failure is delivered as an event with
-    // its distinct code rather than an HTTP status the client will never see.
     const code = error instanceof AgentError ? error.code : "model_error";
-    send("error", { error: code, message: String(error?.message || error), retryable: Boolean(error?.retryable) });
+    const message = String(error?.message || error);
+    send("error", { error: code, message, retryable: Boolean(error?.retryable) });
+    // The partial answer is kept: a dispatcher who read half a reply before it
+    // failed should find that half still there after a reload, with the error.
+    await appendMessage({
+      conversationId,
+      role: "assistant",
+      content: answer,
+      toolActivity: toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null })),
+      modelTier: requested,
+      error: `${code}: ${message.slice(0, 400)}`,
+    }).catch(() => {});
     await audit({
       kind: "chat.error",
       userId: user.userId,
@@ -240,7 +337,7 @@ async function handleChat(req, res, user) {
       conversationId,
       modelTier: requested,
       success: false,
-      error: `${code}: ${String(error?.message || error).slice(0, 500)}`,
+      error: `${code}: ${message.slice(0, 500)}`,
       latencyMs: Date.now() - startedAt,
       detail: { effectiveTier: effective },
     });

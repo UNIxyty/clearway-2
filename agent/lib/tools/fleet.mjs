@@ -13,6 +13,8 @@ defineTool({
   description:
     "Aircraft operators configured on the ops wall, with their Leon tenant id, whether they are active, and the health of their last schedule sync. Use when asked which operators exist, or why one operator's flights are missing.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · operators",
   input: {
     type: "object",
     additionalProperties: false,
@@ -67,6 +69,8 @@ defineTool({
   description:
     "Aircraft known to the ops wall, with registration, type, operator and whether they are hidden from the wall display. Use when asked what is in the fleet, or whether a specific registration is shown on the wall.",
   permission: "user",
+  sourceTier: "internal",
+  sourceLabel: () => "Internal · aircraft",
   input: {
     type: "object",
     additionalProperties: false,

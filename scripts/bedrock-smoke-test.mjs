@@ -80,9 +80,10 @@ async function converse() {
 }
 
 async function embed() {
-  const modelId = value("--model") || process.env.BEDROCK_EMBED_MODEL_ID || "cohere.embed-multilingual-v3";
+  const modelId = value("--model") || process.env.BEDROCK_EMBED_MODEL_ID || "eu.cohere.embed-v4:0";
   const res = await runtime.send(new InvokeModelCommand({
     modelId, contentType: "application/json", accept: "application/json",
+    // Embed v4 takes `texts` + `input_type`; v3 ids differ per region — see --list.
     body: JSON.stringify({ texts: ["Runway 18/36 closed for maintenance."], input_type: "search_document" }),
   }));
   const body = JSON.parse(Buffer.from(res.body).toString("utf8"));

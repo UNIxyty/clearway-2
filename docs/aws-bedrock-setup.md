@@ -12,6 +12,19 @@ Cohere Embed / Rerank). No secrets in this file or in git — keys live in the s
 - `scripts/bedrock-smoke-test.mjs` is the test invocation. It reports exactly which of the three
   gates fails: credentials → IAM policy → model-access grant.
 
+## Verified state (2026-09-23, account 039066033404)
+
+Credentials for `arn:aws:iam::039066033404:user/clearway-agent` work; `--list` in **eu-north-1**
+returns ACTIVE EU inference profiles for Claude Opus 5 / 4.8 / 4.7 / 4.6, Sonnet 5 / 4.6,
+Haiku 4.5, Amazon Nova (micro / lite / pro / 2-lite) and `eu.cohere.embed-v4:0`.
+
+Two findings:
+- **Cohere Rerank is not available in eu-north-1.** Only Cohere *Embed* v4 is offered. If reranking
+  is needed later, either use a region that carries `cohere.rerank-*` or rerank with a small Claude
+  or Nova model instead. Recorded as a deferred item.
+- **Cohere Embed here is `eu.cohere.embed-v4:0`**, not the `embed-multilingual-v3` id used elsewhere
+  in AWS docs. `BEDROCK_EMBED_MODEL_ID` must be set explicitly.
+
 ## 1. Region — eu-north-1 (Stockholm)
 
 Closest AWS region to Riga and inside the EU (data stays in the EU under the GDPR posture the
@@ -139,13 +152,10 @@ management, no logging config, no marketplace):
         "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": [
-        "arn:aws:bedrock:eu-north-1::foundation-model/anthropic.*",
-        "arn:aws:bedrock:eu-north-1::foundation-model/amazon.nova-*",
-        "arn:aws:bedrock:eu-north-1::foundation-model/cohere.*",
-        "arn:aws:bedrock:eu-central-1::foundation-model/anthropic.*",
-        "arn:aws:bedrock:eu-west-1::foundation-model/anthropic.*",
-        "arn:aws:bedrock:eu-west-3::foundation-model/anthropic.*",
-        "arn:aws:bedrock:eu-north-1:*:inference-profile/eu.*"
+        "arn:aws:bedrock:eu-*::foundation-model/anthropic.*",
+        "arn:aws:bedrock:eu-*::foundation-model/amazon.nova-*",
+        "arn:aws:bedrock:eu-*::foundation-model/cohere.*",
+        "arn:aws:bedrock:eu-*:*:inference-profile/eu.*"
       ]
     },
     {
@@ -171,9 +181,15 @@ Notes:
   *"This operation requires permission for the `bedrock:InvokeModel` action."*). The two actions
   above therefore cover the smoke test's `ConverseCommand` and every streaming call the agent will
   make. An earlier revision of this policy listed all four; the extra two were inert.
-- An `eu.` inference profile fans out to several EU regions; the policy must allow the
-  `foundation-model` ARN in **each** region the profile routes to (hence the extra EU rows) as well
-  as the profile ARN itself. Trim the list to what `--list` reports for the profiles you use.
+- **The `eu-*` region wildcard is load-bearing, not laziness.** An `eu.` inference profile routes a
+  request to whichever EU region has capacity, and IAM authorizes against the **destination**
+  region's `foundation-model` ARN — not the region you called. Enumerating regions by hand fails
+  the first time AWS routes somewhere you didn't list: our first live call from eu-north-1 was
+  routed to **eu-south-1 (Milan)** and denied. `eu-*` covers every current and future EU region
+  while still refusing `us-*` / `ap-*`, so data residency is preserved. Do **not** widen this to
+  `arn:aws:bedrock:*::` — that would silently allow US routing.
+- For the same reason, use only `eu.`-prefixed inference profiles. The `global.`-prefixed ones
+  (`global.anthropic.claude-opus-5` etc.) route worldwide and would take data out of the EU.
 - `DiscoverModels` is read-only and only exists so the smoke test can list; drop it for the
   production role if you prefer.
 - **Principal:** on the Docker host use an IAM **user** `clearway-agent` with this policy and an

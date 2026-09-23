@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
-import { listBugReportsForUser } from "@/lib/bug-reports-store";
+import { listBugReports, listBugReportsForUser } from "@/lib/bug-reports-store";
 import type { BugReportRow, BugReportStatus } from "@/lib/bug-reports-shared";
 import { buildHelpContext } from "@/lib/help/context";
 import { summarizeBlocks, type HelpStatus, type HelpThread } from "@/lib/help/shared";
-import { createThread, addMessage, listThreadsForUser } from "@/lib/help/store";
+import { createThread, addMessage, listAllThreads, listThreadsForUser } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { notifyTelegramNewThread } from "@/lib/help/telegram";
 
@@ -43,16 +43,19 @@ function threadAsLegacyRow(thread: HelpThread, description: string): BugReportRo
 }
 
 /**
- * The caller's OWN reports only. This previously returned every user's reports
- * to any authenticated session (platform-audit finding) — fixed here.
+ * The caller's OWN reports — except developers (the Help Centre developer
+ * flag, resolved server-side in requireAuthenticatedUser), who triage
+ * everyone's. This previously returned every user's reports to any
+ * authenticated session (platform-audit finding).
  */
 export async function GET() {
   const auth = await requireAuthenticatedUser();
   if ("error" in auth) return auth.error;
-  const [legacy, threads] = await Promise.all([
-    listBugReportsForUser(auth.user.id),
-    listThreadsForUser(auth.user.id),
-  ]);
+  const [legacy, threads] = await Promise.all(
+    auth.isDeveloper
+      ? [listBugReports({ limit: 200 }), listAllThreads(200)]
+      : [listBugReportsForUser(auth.user.id), listThreadsForUser(auth.user.id)]
+  );
   const fromThreads = threads
     .filter((t) => t.type === "bug")
     .map((t) => threadAsLegacyRow(t, t.title));

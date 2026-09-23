@@ -60,15 +60,37 @@ async function list() {
 }
 
 async function pickClaudeProfile() {
-  const profiles = await listProfiles();
-  const claude = profiles.filter((p) => p.status === "ACTIVE" && /anthropic\.claude/i.test(p.inferenceProfileId));
-  // Prefer a Sonnet-class profile for a cheap check; anything Claude otherwise.
-  return (claude.find((p) => /sonnet/i.test(p.inferenceProfileId)) ?? claude[0])?.inferenceProfileId ?? null;
+  const [profiles, models] = await Promise.all([
+    listProfiles(),
+    control.send(new ListFoundationModelsCommand({})),
+  ]);
+  // Skip LEGACY models: Bedrock refuses them for accounts that have not used
+  // them in 30 days, which looks like a broken setup but is not one.
+  const legacy = (models.modelSummaries ?? [])
+    .filter((m) => String(m.modelLifecycle?.status).toUpperCase() === "LEGACY")
+    .map((m) => m.modelId);
+  const candidates = profiles.filter((p) =>
+    p.status === "ACTIVE" &&
+    // eu.* only — global.* profiles route outside the EU (see the setup doc).
+    p.inferenceProfileId.startsWith("eu.") &&
+    /anthropic\.claude/i.test(p.inferenceProfileId) &&
+    !legacy.some((id) => p.inferenceProfileId.includes(id))
+  );
+  // Cheapest capable model first: this is a reachability check, not a benchmark.
+  for (const rx of [/haiku/i, /sonnet/i, /opus/i]) {
+    const hit = candidates.find((p) => rx.test(p.inferenceProfileId));
+    if (hit) return hit.inferenceProfileId;
+  }
+  return candidates[0]?.inferenceProfileId ?? null;
 }
+
+let attemptedModelId = null;
 
 async function converse() {
   const modelId = value("--model") || process.env.BEDROCK_MODEL_ID || (await pickClaudeProfile());
   if (!modelId) throw new Error("No Claude inference profile is ACTIVE in this region; pass --model <id>.");
+  attemptedModelId = modelId;
+  if (!value("--model") && !process.env.BEDROCK_MODEL_ID) console.error(`(auto-picked ${modelId})`);
   const t0 = Date.now();
   const res = await runtime.send(new ConverseCommand({
     modelId,
@@ -81,17 +103,25 @@ async function converse() {
 
 async function embed() {
   const modelId = value("--model") || process.env.BEDROCK_EMBED_MODEL_ID || "eu.cohere.embed-v4:0";
+  attemptedModelId = modelId;
   const res = await runtime.send(new InvokeModelCommand({
     modelId, contentType: "application/json", accept: "application/json",
     // Embed v4 takes `texts` + `input_type`; v3 ids differ per region — see --list.
     body: JSON.stringify({ texts: ["Runway 18/36 closed for maintenance."], input_type: "search_document" }),
   }));
   const body = JSON.parse(Buffer.from(res.body).toString("utf8"));
-  console.log(JSON.stringify({ ok: true, region, modelId, dimensions: body.embeddings?.[0]?.length ?? null }, null, 2));
+  // v3 returns embeddings[], v4 returns embeddings.float[]. A 200 with neither
+  // is a failure — do not report ok on a response with no vector in it.
+  const vector = Array.isArray(body.embeddings) ? body.embeddings[0] : body.embeddings?.float?.[0];
+  if (!Array.isArray(vector) || vector.length === 0) {
+    throw new Error(`No embedding vector in the response: ${JSON.stringify(body).slice(0, 300)}`);
+  }
+  console.log(JSON.stringify({ ok: true, region, modelId, dimensions: vector.length }, null, 2));
 }
 
 async function rerank() {
   const modelId = value("--model") || process.env.BEDROCK_RERANK_MODEL_ID || "cohere.rerank-v3-5:0";
+  attemptedModelId = modelId;
   const res = await runtime.send(new InvokeModelCommand({
     modelId, contentType: "application/json", accept: "application/json",
     body: JSON.stringify({
@@ -101,6 +131,9 @@ async function rerank() {
     }),
   }));
   const body = JSON.parse(Buffer.from(res.body).toString("utf8"));
+  if (!Array.isArray(body.results) || body.results.length === 0) {
+    throw new Error(`No rerank results in the response: ${JSON.stringify(body).slice(0, 300)}`);
+  }
   console.log(JSON.stringify({ ok: true, region, modelId, results: body.results }, null, 2));
 }
 
@@ -111,9 +144,15 @@ try {
   else await converse();
 } catch (error) {
   const name = error?.name || "Error";
-  console.error(JSON.stringify({ ok: false, region, error: name, message: error?.message }, null, 2));
+  console.error(JSON.stringify({ ok: false, region, modelId: attemptedModelId, error: name, message: error?.message }, null, 2));
   if (/UnrecognizedClient|InvalidSignature|InvalidClientTokenId|CredentialsProviderError|ExpiredToken/i.test(name + error?.message)) {
     console.error("→ AWS credentials are missing or invalid. Configure a key for the agent's IAM user/role first (docs/aws-bedrock-setup.md).");
+  } else if (/aws-marketplace/i.test(error?.message || "")) {
+    console.error("→ Third-party model (Cohere/Mistral/AI21). The ACCOUNT must complete the AWS Marketplace subscription via Bedrock → Model access, signed in as an admin. Granting the runtime user aws-marketplace:Subscribe is the wrong fix — it lets the agent's key buy subscriptions.");
+  } else if (/not available for this account/i.test(error?.message || "")) {
+    console.error("→ Model exists in the region but is not granted to this account. Bedrock → Model access → request it; some frontier models additionally require contacting AWS.");
+  } else if (/Legacy/i.test(error?.message || "")) {
+    console.error("→ Model is LEGACY and unused for 30+ days. Pick a current model from --list.");
   } else if (/AccessDenied/i.test(name + error?.message)) {
     console.error("→ Credentials work but the IAM policy or Bedrock model-access grant is missing (docs/aws-bedrock-setup.md §3–§4).");
   } else if (/ResourceNotFound|ValidationException/i.test(name + error?.message)) {

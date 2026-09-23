@@ -14,18 +14,38 @@ Cohere Embed / Rerank). No secrets in this file or in git — keys live in the s
 
 ## Verified state (2026-09-23, account 039066033404)
 
-Credentials for `arn:aws:iam::039066033404:user/clearway-agent` work; `--list` in **eu-north-1**
-returns ACTIVE EU inference profiles for Claude Opus 5 / 4.8 / 4.7 / 4.6, Sonnet 5 / 4.6,
-Haiku 4.5, Amazon Nova (micro / lite / pro / 2-lite) and `eu.cohere.embed-v4:0`.
+**Bedrock invocation from eu-north-1 is PROVEN working.** Credentials
+(`arn:aws:iam::039066033404:user/clearway-agent`), the IAM policy and EU cross-region routing were
+confirmed end to end by four successful `Converse` calls, each returning the requested token:
 
-Two findings:
-- **Cohere Rerank is not available in eu-north-1.** Only Cohere *Embed* v4 is offered. If reranking
-  is needed later, either use a region that carries `cohere.rerank-*` or rerank with a small Claude
-  or Nova model instead. Recorded as a deferred item.
-- **Cohere Embed here is `eu.cohere.embed-v4:0`**, not the `embed-multilingual-v3` id used elsewhere
-  in AWS docs. `BEDROCK_EMBED_MODEL_ID` must be set explicitly.
+| Model invoked | Result |
+|---|---|
+| `eu.anthropic.claude-haiku-4-5-20251001-v1:0` | ✅ returned `OK` |
+| `eu.anthropic.claude-sonnet-4-6` | ✅ returned `OK` |
+| `eu.anthropic.claude-opus-4-6-v1` | ✅ returned `OK` |
+| `eu.amazon.nova-lite-v1:0` | ✅ returned `OK.` |
 
-## 1. Region — eu-north-1 (Stockholm)
+That is the P5 acceptance criterion met. Four caveats remain, none of them blocking:
+
+1. **Opus 5, Sonnet 5, Opus 4.8 and Opus 4.7 are not granted to this account** —
+   *"is not available for this account … contact AWS Sales"*. They are visible in `--list` but
+   cannot be invoked. Request them in Bedrock → Model access; the newest frontier models sometimes
+   need an AWS Sales conversation. Until then the best available model here is **Opus 4.6**
+   (`eu.anthropic.claude-opus-4-6-v1`), with Sonnet 4.6 and Haiku 4.5 for cheaper sub-tasks.
+2. **The Anthropic use-case form gates everything and its state can flap.** Shortly after the four
+   successes, the same models began returning *"Model use case details have not been submitted for
+   this account … try again in 15 minutes"*. Editing model access in the console re-opens this
+   window. If previously-working models start failing this way, wait rather than debug.
+3. **Cohere needs an account-level AWS Marketplace subscription.** `eu.cohere.embed-v4:0` returns
+   *"not authorized to perform the required AWS Marketplace actions (aws-marketplace:ViewSubscriptions,
+   aws-marketplace:Subscribe)"*. **Do not add those actions to the agent's runtime policy** — that
+   would let the agent's key buy Marketplace subscriptions. Complete the subscription once, as an
+   admin, via Bedrock → Model access. Alternative that avoids the dependency entirely:
+   `amazon.titan-embed-text-v2:0` is ON_DEMAND in this region and is first-party.
+4. **Cohere Rerank is not available in eu-north-1 at all** (only Embed v4). If reranking is needed,
+   use another region for that one call or rerank with Haiku/Nova.
+
+## 1. Region — eu-north-1 (Stockholm)## 1. Region — eu-north-1 (Stockholm)
 
 Closest AWS region to Riga and inside the EU (data stays in the EU under the GDPR posture the
 platform already assumes for Supabase). Bedrock in eu-north-1 serves the Anthropic and Amazon

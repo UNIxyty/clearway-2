@@ -103,24 +103,49 @@ You now have `AWS_ACCESS_KEY_ID` (starts `AKIA…`) and `AWS_SECRET_ACCESS_KEY`.
 nobody puts it back into a `.env` later. If no user owns it, it was already deleted — that is why
 it returns `InvalidClientTokenId`.
 
-### 2f. Request Bedrock model access
+### 2f. Enable models — the Model access page no longer exists
 
-Still with the region picker on **eu-north-1**:
+AWS retired **Bedrock → Model access**. Serverless foundation models are now **enabled
+automatically across all commercial regions the first time they are invoked** in an account. There
+is no list of checkboxes to tick any more. Two exceptions remain, and both bit us:
 
-1. **Amazon Bedrock → Model access** (left sidebar, near the bottom under *Configure and learn*).
-2. **Modify model access** / **Enable specific models**.
-3. Tick: **Anthropic** → every Claude model listed; **Amazon** → Nova Micro, Nova Lite, Nova Pro;
-   **Cohere** → Embed Multilingual (and Embed 4 if offered), Rerank.
-4. Anthropic models require a short **use-case form** the first time — company name, website, and a
-   sentence on the use case. *"Internal flight-operations assistant for dispatchers: answers
-   questions about airport AIP documents, NOTAMs and weather for our own staff."* is accurate and
-   sufficient.
-5. **Submit.** Most grants flip to *Access granted* within minutes; Anthropic's can take longer.
-   The page shows per-model status — you do not need to wait on it to do anything else.
+**(a) Anthropic models need a one-time use-case form.** Until it is submitted, every Anthropic model
+returns:
 
-**If a model you need is not offered in eu-north-1 at all:** repeat 2f with the region picker on
-**Europe (Frankfurt) eu-central-1**, which carries broader Bedrock coverage and is still EU. Then
-set `BEDROCK_REGION=eu-central-1`. Do not reach for a US region — it moves the data out of the EU.
+> `ResourceNotFoundException: Model use case details have not been submitted for this account.
+> Fill out the Anthropic use case details form before using the model.`
+
+Submit it via **Bedrock → Model catalog → pick any Claude model → Open in playground → send a
+message**; the console prompts for the form (company, website, intended use). This wording is
+accurate and sufficient:
+
+> Internal flight-operations assistant for dispatchers: answers questions about airport AIP
+> documents, NOTAMs and weather for our own staff.
+
+It is **per account, not per model** — submit once and every Claude model unlocks. Allow ~15
+minutes to propagate; the error message says so explicitly. Expect flapping during that window: we
+saw four models invoke successfully and then start failing this check again minutes later.
+
+**(b) AWS Marketplace models (Cohere, Mistral, AI21) must be invoked once by a human with
+Marketplace permissions.** That first invocation performs the account-wide subscription; afterwards
+every user can call the model. Until then the agent's key gets:
+
+> `not authorized to perform the required AWS Marketplace actions
+> (aws-marketplace:ViewSubscriptions, aws-marketplace:Subscribe)`
+
+**Do this as an admin (or root) in the console playground — not by widening the agent's policy.**
+Adding `aws-marketplace:Subscribe` to `ClearwayAgentBedrockInvoke` would let the agent's runtime
+key buy Marketplace subscriptions, which is far outside "invoke models only". One human invocation
+in the playground is the correct, one-time fix.
+
+Cohere is optional here: **`amazon.titan-embed-text-v2:0`** is first-party, ON_DEMAND in
+eu-north-1, and needs no Marketplace subscription at all. Prefer it unless Cohere's quality is
+specifically wanted.
+
+**(c) Some frontier models are account-gated regardless.** Opus 5, Sonnet 5, Opus 4.8 and Opus 4.7
+return *"is not available for this account … contact AWS Sales"* even though `--list` shows them
+ACTIVE. This is a commercial gate, not a permissions bug. Either take it up with AWS Sales or use
+Opus 4.6, which works today.
 
 ### 2g. Give me the key, and I run the test
 

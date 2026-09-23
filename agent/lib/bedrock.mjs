@@ -4,6 +4,12 @@
 import { BedrockRuntimeClient, ConverseStreamCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { loadModelConfig, modelCandidates, resolveTier } from "./models.mjs";
 import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
+import { executeTool, toolSpecsFor } from "./tools/index.mjs";
+
+// A turn that keeps calling tools without producing an answer is a loop. The
+// cap is on ROUNDS of tool use, not individual calls, so a model that fans out
+// three lookups in one round is not punished for being efficient.
+const MAX_TOOL_ROUNDS = Number(process.env.AGENT_MAX_TOOL_ROUNDS || 6);
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_MODEL_TIMEOUT_MS || 120_000);
 
@@ -14,10 +20,12 @@ function runtime() {
 }
 
 function toBedrockMessages(messages) {
-  return messages.map((m) => ({
-    role: m.role === "assistant" ? "assistant" : "user",
-    content: [{ text: String(m.content ?? "") }],
-  }));
+  return messages.map((m) => {
+    // Messages already in Bedrock content-block form (tool use / tool results
+    // from an earlier round of THIS turn) pass through untouched.
+    if (Array.isArray(m.content)) return { role: m.role === "assistant" ? "assistant" : "user", content: m.content };
+    return { role: m.role === "assistant" ? "assistant" : "user", content: [{ text: String(m.content ?? "") }] };
+  });
 }
 
 function inferenceConfig(tierConfig, overrides = {}) {
@@ -133,4 +141,150 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
     }
   }
   throw lastUnavailable ?? ModelUnavailable("Every configured model for this tier is unavailable.");
+}
+
+
+/**
+ * A full agentic turn: stream, run any tools the model selects, feed the
+ * results back, repeat until it answers.
+ *
+ * Yields the same { type: "delta" } text chunks as streamConversation, plus
+ * { type: "tool", ... } events so the caller can show what is being looked up.
+ *
+ * Two invariants, both enforced here rather than trusted to the model:
+ *  - the tool list is scoped to THIS user (toolSpecsFor), so a tool the caller
+ *    cannot use is never offered;
+ *  - every tool result goes back through executeTool, which validates, audits
+ *    and returns the standard error vocabulary. The model never gets to run
+ *    anything the framework has not approved.
+ */
+export async function* streamConversationWithTools({ tier = "standard", system, messages, user, conversationId }) {
+  const { requested, effective, config } = resolveTier(tier);
+  const candidates = modelCandidates(tier);
+  if (candidates.length === 0) throw ModelUnavailable(`No model is configured for tier "${effective}".`);
+
+  const toolSpecs = toolSpecsFor(user);
+  const conversation = toBedrockMessages(messages);
+  let usedModelId = null;
+  let totalIn = 0;
+  let totalOut = 0;
+  const toolCalls = [];
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+    const lastRound = round === MAX_TOOL_ROUNDS;
+    let assistantBlocks = [];
+    let stopReason = null;
+
+    let lastUnavailable = null;
+    let streamed = false;
+    for (const modelId of candidates) {
+      try {
+        const response = await runtime().send(
+          new ConverseStreamCommand({
+            modelId,
+            ...(system ? { system: [{ text: system }] } : {}),
+            messages: conversation,
+            inferenceConfig: inferenceConfig(config, {}),
+            // On the final round the tools are withheld, which forces the model
+            // to answer from what it already has instead of asking for more.
+            ...(toolSpecs.length > 0 && !lastRound ? { toolConfig: { tools: toolSpecs } } : {}),
+          }),
+          { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
+        );
+
+        const blocks = new Map(); // index -> { type, text?, toolUse? }
+        for await (const event of response.stream ?? []) {
+          const idx = event.contentBlockStart?.contentBlockIndex ?? event.contentBlockDelta?.contentBlockIndex ?? 0;
+          if (event.contentBlockStart?.start?.toolUse) {
+            const { toolUseId, name } = event.contentBlockStart.start.toolUse;
+            blocks.set(idx, { type: "toolUse", toolUseId, name, inputJson: "" });
+          }
+          if (event.contentBlockDelta?.delta?.text) {
+            const chunk = event.contentBlockDelta.delta.text;
+            const existing = blocks.get(idx) ?? { type: "text", text: "" };
+            existing.text = (existing.text ?? "") + chunk;
+            blocks.set(idx, existing);
+            yield { type: "delta", text: chunk };
+          }
+          if (event.contentBlockDelta?.delta?.toolUse?.input != null) {
+            const existing = blocks.get(idx);
+            if (existing) existing.inputJson += event.contentBlockDelta.delta.toolUse.input;
+          }
+          if (event.messageStop?.stopReason) stopReason = event.messageStop.stopReason;
+          if (event.metadata?.usage) {
+            totalIn += event.metadata.usage.inputTokens ?? 0;
+            totalOut += event.metadata.usage.outputTokens ?? 0;
+          }
+        }
+
+        assistantBlocks = [...blocks.values()].map((b) =>
+          b.type === "toolUse"
+            ? { toolUse: { toolUseId: b.toolUseId, name: b.name, input: safeJson(b.inputJson) } }
+            : { text: b.text ?? "" }
+        ).filter((b) => (b.text != null ? b.text.length > 0 : true));
+
+        usedModelId = modelId;
+        streamed = true;
+        break;
+      } catch (error) {
+        const classified = classifyBedrockError(error);
+        if (classified.code === "model_unavailable" && modelId !== candidates[candidates.length - 1]) {
+          lastUnavailable = classified;
+          continue;
+        }
+        throw classified;
+      }
+    }
+    if (!streamed) throw lastUnavailable ?? ModelUnavailable("Every configured model for this tier is unavailable.");
+
+    const requestedTools = assistantBlocks.filter((b) => b.toolUse).map((b) => b.toolUse);
+    if (stopReason !== "tool_use" || requestedTools.length === 0) {
+      yield {
+        type: "done",
+        modelId: usedModelId,
+        requestedTier: requested,
+        effectiveTier: effective,
+        stopReason,
+        inputTokens: totalIn,
+        outputTokens: totalOut,
+        toolCalls,
+      };
+      return;
+    }
+
+    conversation.push({ role: "assistant", content: assistantBlocks });
+
+    // Tool calls in one round are independent, so they run together.
+    const results = await Promise.all(
+      requestedTools.map(async (call) => {
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId });
+        return { call, result };
+      })
+    );
+
+    const toolResultBlocks = [];
+    for (const { call, result } of results) {
+      toolCalls.push({ name: call.name, ok: result.ok !== false, error: result.ok === false ? result.error : null });
+      yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null };
+      toolResultBlocks.push({
+        toolResult: {
+          toolUseId: call.toolUseId,
+          content: [{ json: result }],
+          ...(result.ok === false ? { status: "error" } : {}),
+        },
+      });
+    }
+    conversation.push({ role: "user", content: toolResultBlocks });
+  }
+}
+
+function safeJson(raw) {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // A malformed tool input is the model's error to recover from; handing it
+    // to the framework produces a clean INVALID_INPUT it can read and retry.
+    return { __malformed: String(raw).slice(0, 500) };
+  }
 }

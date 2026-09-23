@@ -14,7 +14,8 @@ import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured } from "./lib/store.mjs";
-import { streamConversation } from "./lib/bedrock.mjs";
+import { streamConversationWithTools } from "./lib/bedrock.mjs";
+import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
 import { loadModelConfig, resolveTier } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -100,6 +101,36 @@ const server = http.createServer(async (req, res) => {
       return await handleChat(req, res, user);
     }
 
+    // The tool catalogue THIS caller can use. The same scoped list the model is
+    // given, so what a user sees here is exactly what the agent can do for them.
+    if (pathname === "/api/tools" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const specs = toolSpecsFor(user);
+      return sendJson(res, {
+        ok: true,
+        role: user.agentRole,
+        count: specs.length,
+        tools: specs.map(({ toolSpec }) => ({ name: toolSpec.name, description: toolSpec.description })),
+      });
+    }
+
+    // Direct tool invocation — the same path the model takes, for verification
+    // and debugging. It is NOT a bypass: it runs through executeTool, so the
+    // permission check, schema validation and audit all apply identically.
+    if (pathname === "/api/tools/invoke" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      const name = String(body.name || "").trim();
+      if (!name) throw BadRequest("A tool name is required.");
+      const result = await executeTool({
+        name,
+        input: body.input ?? {},
+        user,
+        conversationId: String(body.conversationId || "direct-invoke"),
+      });
+      return sendJson(res, result, result.ok === false ? 200 : 200);
+    }
+
     return sendJson(res, { ok: false, error: "not_found", message: `No route for ${req.method} ${pathname}` }, 404);
   } catch (error) {
     return sendError(res, error);
@@ -153,16 +184,26 @@ async function handleChat(req, res, user) {
     "x-accel-buffering": "no",
   });
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  send("start", { conversationId, requestedTier: requested, effectiveTier: effective });
+  send("start", {
+    conversationId,
+    requestedTier: requested,
+    effectiveTier: effective,
+    // What this caller's role actually unlocks — useful when a user asks why
+    // the agent will not do something.
+    tools: toolNamesFor(user),
+  });
 
   let done = null;
   try {
-    for await (const chunk of streamConversation({
+    for await (const chunk of streamConversationWithTools({
       tier: requestedTier,
       system: body.system ? String(body.system) : undefined,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      user,
+      conversationId,
     })) {
       if (chunk.type === "delta") send("delta", { text: chunk.text });
+      else if (chunk.type === "tool") send("tool", { name: chunk.name, ok: chunk.ok, error: chunk.error });
       else if (chunk.type === "done") done = chunk;
     }
     send("done", {
@@ -171,6 +212,7 @@ async function handleChat(req, res, user) {
       stopReason: done?.stopReason ?? null,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
+      toolCalls: done?.toolCalls ?? [],
     });
     await audit({
       kind: "chat.response",
@@ -184,7 +226,7 @@ async function handleChat(req, res, user) {
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
       confirmationStatus: "not_required",
-      detail: { effectiveTier: effective, stopReason: done?.stopReason ?? null },
+      detail: { effectiveTier: effective, stopReason: done?.stopReason ?? null, toolCalls: done?.toolCalls ?? [] },
     });
   } catch (error) {
     // The stream is already open, so the failure is delivered as an event with

@@ -1,0 +1,103 @@
+/* Ops Agent — motion register (design spec §14).
+   Every keyframe and transition the agent surfaces use lives here, named by
+   the §14 ID that specifies it, so a reviewer can check trigger, property,
+   duration and easing against one table. `prefers-reduced-motion` follows the
+   register's own column: decoration stops, PROGRESS keeps running (C2, C4). */
+
+:root {
+  --ag-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ag-ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* A6 — streaming caret, hard blink. */
+@keyframes ag-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.ag-caret { animation: ag-caret 1000ms steps(1) infinite; }
+
+/* A7 — running step icon, loading dots, minimised dot. */
+@keyframes ag-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.ag-pulse { animation: ag-pulse 1100ms ease-in-out infinite; }
+.ag-pulse-1000 { animation: ag-pulse 1000ms ease-in-out infinite; }
+.ag-pulse-1200 { animation: ag-pulse 1200ms ease-in-out infinite; }
+
+/* A8 — tool summary expand/collapse (spec default 160 ms). */
+.ag-expand { overflow: hidden; transition: height 160ms var(--ag-ease-out); }
+
+/* A10 / P6 / M1 / V8 / D1 — things that appear (spec defaults). */
+@keyframes ag-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ag-rise-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes ag-rise-in-8 { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ag-fade-150 { animation: ag-fade-in 150ms var(--ag-ease-out) both; }
+.ag-menu-in { animation: ag-rise-in 120ms var(--ag-ease-out) both; }
+.ag-dropzone-in { animation: ag-fade-in 120ms var(--ag-ease-out) both; }
+.ag-voicebar-in { animation: ag-rise-in-8 120ms var(--ag-ease-out) both; }
+@keyframes ag-sink-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px); } }
+.ag-voicebar-out { animation: ag-sink-out 120ms var(--ag-ease-in) both; }
+
+/* C1 — confirmation collapses into its record (spec default 200 ms). */
+.ag-record-in { animation: ag-fade-in 200ms var(--ag-ease-out) both; }
+
+/* C2 — hold-to-delete fill: PROGRESS, 2000 ms linear, keeps running under reduced motion. */
+.ag-hold-fill { transition: width 2000ms linear; }
+/* C3 — release before complete: back to 0 over 150 ms. */
+.ag-hold-release { transition: width 150ms var(--ag-ease-in); }
+
+/* V3 — processing line: 33 % bar sliding, 1400 ms loop, ease-in-out (design). */
+@keyframes ag-processing { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+.ag-processing { animation: ag-processing 1400ms ease-in-out infinite; }
+
+/* P1 — panel open/close (spec defaults 200 / 160 ms). */
+@keyframes ag-panel-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes ag-panel-out { from { transform: none; } to { transform: translateX(100%); } }
+.ag-panel-in { animation: ag-panel-in 200ms var(--ag-ease-out) both; }
+.ag-panel-out { animation: ag-panel-out 160ms var(--ag-ease-in) both; }
+.ag-push { transition: width 200ms var(--ag-ease-out); }
+
+/* P2 — expand to full page: page fades 1 → 0 while the panel widens, 200 ms. */
+.ag-expanding { transition: width 200ms var(--ag-ease-out); }
+.ag-page-fading { transition: opacity 200ms var(--ag-ease-out); opacity: 0; }
+
+/* P3 — minimised ring rotation (spec default 1000 ms loop). */
+@keyframes ag-spin { to { transform: rotate(360deg); } }
+.ag-spin { animation: ag-spin 1000ms linear infinite; }
+
+/* P7 / P9 — highlight fades out (400 ms). */
+.ag-highlight-fade { transition: background-color 400ms var(--ag-ease-in), box-shadow 400ms var(--ag-ease-in); }
+
+/* P10 / V5 — things that fade away (200 ms). */
+.ag-fade-out { animation: ag-sink-out 200ms var(--ag-ease-in) both; animation-name: ag-fade-out-only; }
+@keyframes ag-fade-out-only { to { opacity: 0; } }
+
+/* H1 — hover colour changes, 120 ms (spec default). */
+.ag-hover { transition: background-color 120ms var(--ag-ease-out), border-color 120ms var(--ag-ease-out), color 120ms var(--ag-ease-out); }
+
+/* T1 — toggle knob, 150 ms. */
+.ag-knob { transition: transform 150ms var(--ag-ease-out); }
+
+/* O6 — orb state colour change, 200 ms (spec default) — handled in canvas; the
+   surrounding label uses this. */
+.ag-state-colour { transition: color 200ms var(--ag-ease-out); }
+
+/* Focus ring for non-input controls (§4.27, spec default). */
+.ag-focus:focus-visible { outline: 2px solid var(--ag-primary); outline-offset: 2px; }
+
+/* Reduced motion (§14, last column). Decoration stops; progress does not. */
+@media (prefers-reduced-motion: reduce) {
+  .ag-caret { animation: none; opacity: 1; }
+  .ag-pulse, .ag-pulse-1000, .ag-pulse-1200 { animation: none; opacity: 1; }
+  .ag-expand { transition: none; }
+  .ag-fade-150, .ag-menu-in, .ag-dropzone-in, .ag-record-in { animation-duration: 1ms; }
+  .ag-voicebar-in, .ag-voicebar-out { animation-name: ag-fade-in; animation-duration: 1ms; }
+  .ag-processing { animation: none; transform: none; }
+  .ag-panel-in, .ag-panel-out { animation: none; }
+  .ag-push, .ag-expanding { transition: none; }
+  .ag-page-fading { transition: opacity 100ms linear; }
+  .ag-spin { animation: none; }
+  .ag-highlight-fade, .ag-hover, .ag-knob, .ag-state-colour { transition: none; }
+  /* C2 and C4 are progress, not decoration: the hold fill and countdown keep running. */
+}
+
+/* Hover looks (H1): primary → deep; secondary/ghost → hover surface. */
+.ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; }
+.ag-btn-secondary:not(:disabled):hover, .ag-btn-ghost:not(:disabled):hover, .ag-icon-button:not(:disabled):hover { background: var(--ag-hover) !important; }
+.ag-row-hover:hover { background: var(--ag-page); }
+.ag-card-hover:hover { border-color: var(--ag-primary-border) !important; background: var(--ag-suggest-hover) !important; cursor: pointer; }

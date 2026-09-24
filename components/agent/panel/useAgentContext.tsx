@@ -12,7 +12,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { AgentContext } from "./types";
 
 const PAGE_LABELS: Array<[RegExp, string, string]> = [
-  [/^\/dashboard/, "Dashboard", "layout-dashboard"],
   [/^\/aip\/service-status/, "Service status", "activity"],
   [/^\/aip$/, "Airport search", "search"],
   [/^\/admin\/users/, "Users", "users"],

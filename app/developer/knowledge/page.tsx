@@ -1,7 +1,6 @@
-import KnowledgeAdmin from "@/components/agent/KnowledgeAdmin";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
+// The knowledge base moved under Ops Agent (design spec §5, §10). Old links keep working.
 export default function KnowledgePage() {
-  return <KnowledgeAdmin />;
+  redirect("/agent/knowledge");
 }

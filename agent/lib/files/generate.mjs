@@ -124,7 +124,10 @@ export async function generatePdf({ filename, title, subtitle, blocks, footer })
     // when the container has no egress. The fallback stack is deliberate.
     await page.setContent(html, { waitUntil: "load", timeout: PDF_TIMEOUT_MS });
     const pdf = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
-    return persist({ filename: filename.endsWith(".pdf") ? filename : `${filename}.pdf`, buffer: Buffer.from(pdf), mime: "application/pdf" });
+    // `await` matters: a bare `return persist()` inside this try/finally rejects
+    // while `finally` is still awaiting browser.close(), with no handler attached
+    // — Node treats that as an unhandled rejection and exits the process.
+    return await persist({ filename: filename.endsWith(".pdf") ? filename : `${filename}.pdf`, buffer: Buffer.from(pdf), mime: "application/pdf" });
   } finally {
     await browser.close();
   }
@@ -141,7 +144,7 @@ export async function generateCsv({ filename, columns, rows }) {
   // BOM so Excel opens UTF-8 correctly — without it, ICAO names with diacritics
   // arrive mangled and people assume the data is wrong.
   const buffer = Buffer.from("﻿" + lines.join("\r\n"), "utf8");
-  return persist({ filename: filename.endsWith(".csv") ? filename : `${filename}.csv`, buffer, mime: "text/csv; charset=utf-8" });
+  return await persist({ filename: filename.endsWith(".csv") ? filename : `${filename}.csv`, buffer, mime: "text/csv; charset=utf-8" });
 }
 
 // ── XLSX ───────────────────────────────────────────────────────────────────
@@ -175,7 +178,7 @@ export async function generateXlsx({ filename, sheetName = "Sheet1", columns, ro
   };
 
   const buffer = zipStore(parts, zlib);
-  return persist({
+  return await persist({
     filename: filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`,
     buffer,
     mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -269,7 +272,7 @@ export async function generateDocx({ filename, title, blocks = [] }) {
     "_rels/.rels": `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
     "word/document.xml": `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body.join("")}</w:body></w:document>`,
   };
-  return persist({
+  return await persist({
     filename: filename.endsWith(".docx") ? filename : `${filename}.docx`,
     buffer: zipStore(parts, zlib),
     mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

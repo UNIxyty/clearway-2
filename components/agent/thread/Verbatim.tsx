@@ -41,10 +41,10 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
   }
 
   return (
-    <div data-verbatim-frame style={{ border: `1.5px solid ${C.ink}`, borderRadius: panel ? 10 : 12, background: "#fff", overflow: "hidden" }}>
-      <div style={{ background: C.ink, color: "#fff", padding: panel ? "7px 11px" : "9px 14px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "flex-start" : "center", gap: panel ? 1 : 10 }}>
+    <div data-verbatim-frame style={{ border: `1.5px solid ${C.ink}`, borderRadius: panel ? 10 : 12, background: C.surface, overflow: "hidden" }}>
+      <div style={{ background: C.ink, color: C.surface, padding: panel ? "7px 11px" : "9px 14px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "flex-start" : "center", gap: panel ? 1 : 10 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          {!panel && <Icon name="stamp" size={15} color="#fff" />}
+          {!panel && <Icon name="stamp" size={15} color={C.surface} />}
           <span style={panel ? TYPE.verbatimHeaderPanel : TYPE.verbatimHeader}>{notReadAloud ? `Verbatim · ${r.reference ?? r.id} · not read aloud` : "Verbatim · approved text"}</span>
         </span>
         {!panel && <span style={{ fontSize: 12, color: C.disabled }}>Reproduced exactly. Not summarised.</span>}
@@ -82,7 +82,7 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
 /** §3 rule 1: the clause could not be fetched — an error, never a fallback. */
 export function VerbatimUnavailable({ id, heading, message, panel }: { id: string; heading: string; message: string; panel: boolean }) {
   return (
-    <div role="alert" style={{ border: `1px solid ${C.dangerBorder}`, borderRadius: panel ? 10 : 12, background: "#fff", padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
+    <div role="alert" style={{ border: `1px solid ${C.dangerBorder}`, borderRadius: panel ? 10 : 12, background: C.surface, padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
       <span style={{ width: 30, height: 30, borderRadius: 8, background: C.dangerTint, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="stamp" size={16} color={C.dangerBadge} /></span>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Approved text unavailable</div>

@@ -21,6 +21,10 @@ import { topicsForRole, type Role } from "@/components/portal/nav";
 import AgentPanel, { useAgentPanel } from "@/components/agent/panel/AgentPanel";
 import { useAgentContext } from "@/components/agent/panel/useAgentContext";
 import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
+import { Keycap, RingMark } from "@/components/agent/ui/primitives";
+import AskAboutButton from "@/components/agent/ui/AskAboutButton";
+
+const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
 const COLLAPSE_KEY = "cw-shell-collapsed";
 const OPEN_TOPICS_KEY = "cw-shell-open-topics";
@@ -33,7 +37,7 @@ export type DeepContext = {
   items: Array<{ id: string; label: string; icon: string; href: string; active?: boolean }>;
 };
 
-function useIdentity() {
+export function useIdentity() {
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("user");
@@ -87,6 +91,8 @@ function NavButton({
   onClick,
   trailing,
   sub = false,
+  panelOpen = false,
+  dot = false,
 }: {
   icon: string;
   label: string;
@@ -95,21 +101,26 @@ function NavButton({
   onClick: () => void;
   trailing?: ReactNode;
   sub?: boolean;
+  /** Ops Agent row while the panel is open on another page (design spec §5). */
+  panelOpen?: boolean;
+  /** Rail: a 7px amber dot instead of the count badge (§5). */
+  dot?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={label}
       className={clsx(
-        "flex w-full cursor-pointer items-center gap-2.5 border-none text-left font-sans",
+        "relative flex w-full cursor-pointer items-center gap-2.5 border-none text-left font-sans",
         sub ? "rounded-[7px] px-[9px] py-1.5 text-[13px]" : "rounded-[9px] px-[9px] py-2 text-[13.5px]",
         !showLabel && "justify-center",
-        active ? "bg-cw-primaryTint font-bold text-cw-primaryDeep" : "bg-transparent font-medium text-cw-body hover:bg-cw-hover"
+        active ? "bg-cw-navActive font-bold text-cw-ink" : panelOpen ? "bg-cw-primaryTint font-semibold text-cw-primaryDeep" : "bg-transparent font-medium text-cw-body hover:bg-cw-hover"
       )}
     >
-      <MaskIcon name={icon} size={sub ? 15 : 17} color={active ? "#1d4ed8" : "#6c7079"} />
+      <MaskIcon name={icon} size={sub ? 15 : 17} color={active || panelOpen ? "#1d4ed8" : "#6c7079"} />
       {showLabel && <span className="min-w-0 flex-1 truncate">{label}</span>}
       {showLabel && trailing}
+      {!showLabel && dot && <span className="absolute right-1.5 top-1 h-[7px] w-[7px] rounded-full bg-cw-amber" />}
     </button>
   );
 }
@@ -220,6 +231,24 @@ export default function PortalShell({
 
   const topics = useMemo(() => topicsForRole(role, isDeveloper, hasAgent), [role, isDeveloper, hasAgent]);
   const { open: agentOpenRaw, setOpen: setAgentOpen } = useAgentPanel();
+  // Knowledge base badge (§5): documents awaiting approval, approvers only.
+  const [kbAwaiting, setKbAwaiting] = useState(0);
+  useEffect(() => {
+    if (!hasAgent || !isDeveloper) return;
+    fetch(`${AGENT_BASE}/api/knowledge/stats`, { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setKbAwaiting(Number(d?.stats?.awaiting ?? 0)))
+      .catch(() => {});
+  }, [hasAgent, isDeveloper]);
+  // "Open as side panel" from the full page (§7.2, ⌘⇧J) hands the thread over
+  // through sessionStorage so the panel opens on the console page with it.
+  const [agentOpenWith, setAgentOpenWith] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const id = sessionStorage.getItem("cw-agent-open-with");
+      if (id !== null) { sessionStorage.removeItem("cw-agent-open-with"); setAgentOpenWith(id || null); setAgentOpen(true); }
+    } catch { /* private mode */ }
+  }, [setAgentOpen, pathname]);
   // ⌘J is inert without a grant: the shortcut must not reveal a capability the
   // user does not have.
   const agentOpen = hasAgent && agentOpenRaw;
@@ -299,20 +328,29 @@ export default function PortalShell({
               />
             ))
           : topics.map((topic) => {
-              const open = openTopics.has(topic.id);
-              const anyChildActive = (topic.items ?? []).some((i) => !i.external && isActive(i.href));
+              const isAgentTopic = topic.id === "agent";
+              const onAgentPage = isAgentTopic && pathname.startsWith("/agent");
+              // Sub-items show while on an agent page (§5); elsewhere the topic folds like any other.
+              const open = openTopics.has(topic.id) || onAgentPage;
+              const items = (topic.items ?? []).filter((i) => (!i.adminOnly || role === "admin" || isDeveloper) && (!i.approverOnly || isDeveloper));
+              const anyChildActive = items.some((i) => !i.external && isActive(i.href));
               return (
                 <div key={topic.id} className="mb-0.5">
                   <NavButton
                     icon={topic.icon}
                     label={topic.label}
-                    active={topic.href ? isActive(topic.href) : !open && anyChildActive}
+                    active={topic.href ? isActive(topic.href) : isAgentTopic ? onAgentPage : !open && anyChildActive}
+                    panelOpen={isAgentTopic && agentOpen && !onAgentPage}
+                    dot={isAgentTopic && isDeveloper && kbAwaiting > 0}
                     showLabel={labels}
-                    onClick={() => (topic.href ? go(topic.href) : labels ? toggleTopic(topic.id) : toggleTopic(topic.id))}
+                    onClick={() => (topic.href ? go(topic.href) : isAgentTopic && !onAgentPage ? setAgentOpen(!agentOpen) : toggleTopic(topic.id))}
                     trailing={
-                      topic.items ? (
-                        <MaskIcon name={open ? "chevron-up" : "chevron-down"} size={14} color="#9aa0a8" />
-                      ) : undefined
+                      <>
+                        {topic.keycap && <Keycap color={isAgentTopic && agentOpen && !onAgentPage ? "#1d4ed8" : undefined}>{topic.keycap}</Keycap>}
+                        {topic.items && !isAgentTopic ? (
+                          <MaskIcon name={open ? "chevron-up" : "chevron-down"} size={14} color="#9aa0a8" />
+                        ) : null}
+                      </>
                     }
                   />
                   {topic.items && open && (
@@ -322,17 +360,20 @@ export default function PortalShell({
                         labels ? "ml-[13px] border-l border-cw-border pl-[9px]" : ""
                       )}
                     >
-                      {topic.items.map((item) => (
+                      {items.map((item) => (
                         <NavButton
                           key={item.id}
                           sub
                           icon={item.icon}
                           label={item.label}
-                          active={!item.external && isActive(item.href)}
+                          active={!item.external && (item.href === "/agent" ? pathname === "/agent" || pathname.startsWith("/agent/t/") : isActive(item.href))}
                           showLabel={labels}
+                          dot={item.badge === "kb-approvals" && isDeveloper && kbAwaiting > 0}
                           onClick={() => (item.id === "acc-signout" ? void signOut() : go(item.href, item.external))}
                           trailing={
-                            item.external ? (
+                            item.badge === "kb-approvals" && isDeveloper && kbAwaiting > 0 ? (
+                              <span className="rounded-[5px] bg-cw-amberTint px-1.5 py-px text-[11px] font-bold text-cw-amberDeep">{kbAwaiting}</span>
+                            ) : item.external ? (
                               <MaskIcon name="arrow-up-right" size={13} color="#9aa0a8" />
                             ) : item.deep ? (
                               <MaskIcon name="chevron-right" size={13} color="#9aa0a8" />
@@ -346,6 +387,21 @@ export default function PortalShell({
               );
             })}
       </div>
+
+      {/* Ops Agent in a deep context (§5): a pinned block at the bottom of the nav. */}
+      {deepContext && hasAgent && (
+        <div className="flex-none px-2.5 pb-3">
+          <button
+            onClick={() => setAgentOpen(!agentOpen)}
+            title="Ops Agent · ⌘J"
+            className={clsx("flex w-full cursor-pointer items-center gap-2 rounded-[9px] border-none bg-cw-primaryTint px-2.5 py-2 text-left font-sans text-[13px] font-semibold text-cw-primaryDeep", !labels && "justify-center")}
+          >
+            <RingMark size={14} color="#1d4ed8" dot={5} />
+            {labels && <span className="min-w-0 flex-1 truncate">Ops Agent</span>}
+            {labels && <Keycap>⌘J</Keycap>}
+          </button>
+        </div>
+      )}
 
       {/* Help & support — pinned in the sidebar FOOTER above the user badge,
           never in the main list and never a floating button (a FAB would sit
@@ -438,6 +494,7 @@ export default function PortalShell({
           nav list scrolls internally, only the content column scrolls the
           page. Holds in expanded, 68px rail and deep-context modes. */}
       <div
+        data-cw-sidebar
         className={clsx(
           "sticky top-0 hidden h-screen flex-none flex-col border-r border-cw-border bg-cw-sidebar transition-[width] duration-150 lg:flex",
           collapsed ? "w-[68px]" : "w-[248px]"
@@ -482,7 +539,12 @@ export default function PortalShell({
               <h1 className="m-0 text-[25px] font-extrabold tracking-[-0.02em]">{title}</h1>
               {subtitle && <p className="m-0 mt-[5px] max-w-[720px] text-sm leading-normal text-cw-muted">{subtitle}</p>}
             </div>
-            {headerRight && <div className="flex flex-none items-center gap-2">{headerRight}</div>}
+            {(headerRight || (hasAgent && agentContext && !agentOpen)) && (
+              <div className="flex flex-none items-center gap-2">
+                {hasAgent && agentContext && !agentOpen && <AskAboutButton label={agentContext.label} />}
+                {headerRight}
+              </div>
+            )}
           </div>
         )}
 
@@ -508,7 +570,7 @@ export default function PortalShell({
           same runtime probe that gates the nav entry, so a user without a grant
           gets no panel, no shortcut and no trace of it. */}
       {hasAgent && (
-        <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} context={agentContext} />
+        <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
       )}
     </div>
   );

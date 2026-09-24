@@ -70,7 +70,7 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
               {s.href && <Icon name="arrow-up-right" size={12} color={C.faint} />}
             </>
           );
-          const style = { display: "inline-flex", alignItems: "center", gap: 7, background: hot === s.n ? (t?.bg ?? C.primaryTint) : "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: single ? "5px 9px" : "5px 9px 5px 5px", fontSize: 12.5, color: C.body, textDecoration: "none", transition: "background-color 120ms" } as const;
+          const style = { display: "inline-flex", alignItems: "center", gap: 7, background: hot === s.n ? (t?.bg ?? C.primaryTint) : C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: single ? "5px 9px" : "5px 9px 5px 5px", fontSize: 12.5, color: C.body, textDecoration: "none", transition: "background-color 120ms" } as const;
           return s.href
             ? <a key={s.n} href={s.href} target={s.tier === "web" ? "_blank" : undefined} rel="noopener noreferrer" style={style} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>{inner}</a>
             : <span key={s.n} style={style} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>{inner}</span>;

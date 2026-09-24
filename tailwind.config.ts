@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tokens from "./shared/design-tokens.json";
 
 export default {
   darkMode: "class",
@@ -33,6 +34,11 @@ export default {
           amber: "#f59e0b",
           red: "#e5484d",
           hover: "#eceef0",
+          // Ops Agent sidebar states (design spec §5) — read from the shared file.
+          navActive: tokens.color.navActive,
+          borderControl: tokens.color.borderControl,
+          amberTint: tokens.color.amberTint,
+          amberDeep: tokens.color.amberDeep,
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

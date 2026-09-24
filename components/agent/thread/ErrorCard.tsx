@@ -35,7 +35,7 @@ export function ErrorCard({
 }) {
   const k = KINDS[kind];
   return (
-    <div role="alert" style={{ background: kind === "offline" ? C.page : "#fff", border: `1px solid ${k.border}`, borderRadius: 12, padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
+    <div role="alert" style={{ background: kind === "offline" ? C.page : C.surface, border: `1px solid ${k.border}`, borderRadius: 12, padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
       <IconTile icon={k.icon} fg={k.fg} bg={k.tint} size={panel ? 26 : 30} iconSize={panel ? 14 : 16} />
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: panel ? 12 : 14, fontWeight: 700, color: panel ? k.fg : C.ink }}>{title}</div>

@@ -38,6 +38,13 @@ import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
+
+// One tool's stray rejection must not take the whole service down (found on
+// the verification rig: an unwritable STORAGE_ROOT killed the process). Log it;
+// the request that owned it has already been answered or will time out.
+process.on("unhandledRejection", (reason) => {
+  process.stderr.write(`[agent] unhandled rejection: ${reason?.stack || reason}\n`);
+});
 const SERVICE = "agent";
 const MAX_BODY_BYTES = 256 * 1024;
 // Org capability switches, refreshed every 30 s and updated in place on a PATCH.

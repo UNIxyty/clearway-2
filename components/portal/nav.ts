@@ -14,6 +14,11 @@ export type NavItem = {
   href: string;
   external?: boolean; // full navigation / new-tab (cross-app)
   deep?: "wall" | "debug" | "pickem"; // enters a deep context
+  // Sub-item gates (agent topic): admins-only and approvers-only rows. The
+  // page behind each still enforces its own permission; this only hides.
+  adminOnly?: boolean;
+  approverOnly?: boolean;
+  badge?: "kb-approvals"; // count of documents awaiting approval (approvers only)
 };
 
 export type NavTopic = {
@@ -30,6 +35,7 @@ export type NavTopic = {
   agentOnly?: boolean;
   href?: string; // topic itself navigates (Dashboard)
   items?: NavItem[];
+  keycap?: string; // shortcut shown at the right of the topic row (Ops Agent ⌘J)
 };
 
 export const NAV_TOPICS: NavTopic[] = [
@@ -64,6 +70,22 @@ export const NAV_TOPICS: NavTopic[] = [
     ],
   },
   {
+    // Ops Agent (design spec §5): between Digital Wall and Reports & Issues.
+    id: "agent",
+    label: "Ops Agent",
+    icon: "circle-dot",
+    roles: ["admin", "user"], // roles don't matter here — agentOnly is the gate
+    agentOnly: true,
+    keycap: "⌘J",
+    items: [
+      { id: "agent-chat", label: "Chat", icon: "message-square", href: "/agent" },
+      { id: "agent-history", label: "History", icon: "history", href: "/agent/history" },
+      { id: "agent-knowledge", label: "Knowledge base", icon: "library", href: "/agent/knowledge", badge: "kb-approvals" },
+      { id: "agent-activity", label: "Activity log", icon: "scroll-text", href: "/agent/activity" },
+      { id: "agent-settings", label: "Settings", icon: "settings-2", href: "/agent/settings", adminOnly: true },
+    ],
+  },
+  {
     id: "reports",
     label: "Reports & Issues",
     icon: "flag",
@@ -89,16 +111,6 @@ export const NAV_TOPICS: NavTopic[] = [
     ],
   },
   {
-    id: "agent",
-    label: "Assistant",
-    icon: "sparkles",
-    roles: ["admin", "user"], // roles don't matter here — agentOnly is the gate
-    agentOnly: true,
-    items: [
-      { id: "agent-chat", label: "Ask the assistant", icon: "message-square", href: "/agent" },
-    ],
-  },
-  {
     id: "developer",
     label: "Developer",
     icon: "terminal",
@@ -108,7 +120,6 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
       { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
-      { id: "dev-knowledge", label: "Agent knowledge", icon: "book-open", href: "/developer/knowledge" },
       { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
     ],
   },

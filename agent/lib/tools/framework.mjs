@@ -176,11 +176,33 @@ function byteSize(value) {
  * output on success, or { ok: false, error: <CODE>, message } on failure.
  */
 /** One line describing what a write will do, for the confirmation card. Built from the tool, never the model. */
+const CHANGE_COPY = {
+  create_limitation: (i) => `Add limitation “${i.title ?? ""}”`,
+  update_limitation: (i, t) => `Update limitation ${t ?? i.id ?? ""}`,
+  delete_limitation: (i, t) => `Remove limitation ${t ?? i.id ?? ""}`,
+  restore_limitation: (i, t) => `Restore limitation ${t ?? i.id ?? ""}`,
+  purge_deleted_limitation: (i, t) => `Permanently delete limitation ${t ?? i.id ?? ""}`,
+  create_important: (i) => `Add important notice “${i.title ?? ""}”`,
+  update_important: (i, t) => `Update important notice ${t ?? i.id ?? ""}`,
+  delete_important: (i, t) => `Remove important notice ${t ?? i.id ?? ""}`,
+  restore_important: (i, t) => `Restore important notice ${t ?? i.id ?? ""}`,
+  create_report: (i) => `File report “${i.title ?? ""}”`,
+  update_report: (i, t) => `Update report ${t ?? i.id ?? ""}`,
+  delete_report: (i, t) => `Remove report ${t ?? i.id ?? ""}`,
+  set_operator_active: (i, t) => `${i.isActive === false ? "Disable" : "Enable"} operator ${t ?? i.operatorId ?? ""}`,
+  set_aircraft_visible: (i, t) => `${i.visible === false ? "Hide" : "Show"} aircraft ${t ?? i.registration ?? ""} on the wall`,
+  update_display_settings: () => "Change the wall display settings",
+  undo_action: (i, t) => `Undo ${t ?? `action ${String(i.actionId ?? "").slice(0, 8)}`}`,
+  send_email: (i) => `Send an email to ${Array.isArray(i.to) ? i.to.join(", ") : i.to ?? ""}`,
+  email_document: (i) => `Email a document to ${Array.isArray(i.to) ? i.to.join(", ") : i.to ?? ""}`,
+};
 async function describeChange(tool, input, user) {
   if (tool.describeChange) { try { return await tool.describeChange(input, { user }); } catch { /* fall through */ } }
   const label = tool.readback ? await tool.readback(input, { user }).catch(() => null) : null;
   const target = label ?? input.id ?? input.title ?? input.registration ?? input.operatorId ?? null;
-  return { what: tool.sourceLabel ? tool.sourceLabel(input, {}).replace(/^Internal · /, "") : tool.name, target };
+  const copy = CHANGE_COPY[tool.name];
+  const what = copy ? copy(input, label) : tool.sourceLabel ? tool.sourceLabel(input, {}).replace(/^Internal · /, "") : tool.name;
+  return { what: String(what).replace(/\s+/g, " ").trim(), target };
 }
 
 export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui" }) {

@@ -1,5 +1,5 @@
 {
-  "$comment": "THE shared Clearway design-token source (platform redesign Phase 1). Consumed by BOTH builds — the portal (tailwind.config.ts + lib/tokens.ts) and the console (opsboard-react ui.jsx t object). Edit here, never per-app. Values are the Clearway Platform design's.",
+  "$comment": "THE shared Clearway design-token source (platform redesign Phase 1). Consumed by BOTH builds \u2014 the portal (tailwind.config.ts + lib/tokens.ts) and the console (opsboard-react ui.jsx t object). Edit here, never per-app. Values are the Clearway Platform design's.",
   "color": {
     "page": "#fbfbfc",
     "card": "#ffffff",
@@ -55,7 +55,18 @@
     "stop": "#c2703b",
     "stopTint": "#fdf1e8",
     "stopBorder": "#f4d4b8",
-    "stopSquare": "#e0894f"
+    "stopSquare": "#e0894f",
+    "rowExpanded": "#f6faff",
+    "rowRecord": "#fbfdff",
+    "amberWash": "#fffaf0",
+    "greenWash": "#f0faf3",
+    "redWash": "#fdf3f3",
+    "toggleOff": "#cfd3d8",
+    "navSubBorder": "#dcdee2",
+    "suggestHover": "#f7faff",
+    "redWashSoft": "#fffafa",
+    "amberWashSoft": "#fffcf6",
+    "highlight": "#fef3c7"
   },
   "radius": {
     "card": 13,

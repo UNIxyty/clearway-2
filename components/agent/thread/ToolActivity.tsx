@@ -17,7 +17,7 @@ const args = (a: Record<string, unknown> | null | undefined) => { if (!a) return
 export function LiveSteps({ steps, panel = false }: { steps: Step[]; panel?: boolean }) {
   if (steps.length === 0) return null;
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, padding: "6px 0" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: "6px 0" }}>
       {steps.map((s, i) => {
         const state = s.state ?? (s.ok === false && s.error ? "done" : "done");
         const running = state === "running", queued = state === "queued", cancelled = state === "cancelled";
@@ -62,7 +62,7 @@ export function ToolSummary({ steps, elapsedMs, panel = false, defaultOpen = fal
   const headColor = failed ? C.warnDot : C.okDot;
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
       <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="ag-row-hover ag-focus"
         style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: panel ? "8px 12px" : "10px 14px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}>
         <Icon name={headIcon} size={oneLine ? 14 : 15} color={headColor} />

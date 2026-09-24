@@ -26,7 +26,7 @@ export function RingMark({ size = 18, color = C.ink, border = 2, dot }: { size?:
 /** Keycap inside a button (§4.27): mono 11 at 70–75 % opacity. */
 export function Keycap({ children, standalone = false, color }: { children: ReactNode; standalone?: boolean; color?: string }) {
   if (standalone) {
-    return <span style={{ ...mono({ fontSize: 10.5, fontWeight: 600 }), color: color ?? C.muted, background: "#fff", border: `1px solid ${C.borderControl}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1.4 }}>{children}</span>;
+    return <span style={{ ...mono({ fontSize: 10.5, fontWeight: 600 }), color: color ?? C.muted, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 5, padding: "1px 5px", lineHeight: 1.4 }}>{children}</span>;
   }
   return <span style={{ ...mono({ fontSize: 11 }), opacity: 0.72, marginLeft: 6 }}>{children}</span>;
 }
@@ -46,12 +46,12 @@ export const Button = forwardRef<HTMLButtonElement, { variant?: Variant; size?: 
 }, ref) {
   const base: CSSProperties = { fontFamily: "inherit", fontWeight: 600, border: "1px solid transparent", cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, lineHeight: 1.2, whiteSpace: "nowrap", ...SIZES[size] };
   const look: Record<Variant, CSSProperties> = {
-    primary: { background: C.primary, color: "#fff" },
-    secondary: { background: "#fff", color: C.ink, borderColor: C.borderControl, padding: `calc(${SIZES[size].padding?.toString().split(" ")[0]} - 1px) ${SIZES[size].padding?.toString().split(" ")[1]}` },
+    primary: { background: C.primary, color: C.surface },
+    secondary: { background: C.surface, color: C.ink, borderColor: C.borderControl, padding: `calc(${SIZES[size].padding?.toString().split(" ")[0]} - 1px) ${SIZES[size].padding?.toString().split(" ")[1]}` },
     ghost: { background: "transparent", color: C.body },
-    destructive: { background: disabled ? C.dangerDisabled : C.dangerBadge, color: "#fff" },
+    destructive: { background: disabled ? C.dangerDisabled : C.dangerBadge, color: C.surface },
   };
-  const iconColor = variant === "primary" || variant === "destructive" ? "#fff" : C.body;
+  const iconColor = variant === "primary" || variant === "destructive" ? C.surface : C.body;
   return (
     <button
       ref={ref}
@@ -117,8 +117,8 @@ export function IconTile({ icon, fg, bg, size = 30, iconSize = 16, radius = 8 }:
 export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: (next: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className="ag-focus"
-      style={{ width: 44, height: 26, borderRadius: 999, border: "none", padding: 3, background: on ? C.okDot : "#cfd3d8", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, flex: "none", display: "flex" }}>
-      <span className="ag-knob" style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transform: on ? "translateX(18px)" : "translateX(0)" }} />
+      style={{ width: 44, height: 26, borderRadius: 999, border: "none", padding: 3, background: on ? C.okDot : C.toggleOff, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, flex: "none", display: "flex" }}>
+      <span className="ag-knob" style={{ width: 20, height: 20, borderRadius: "50%", background: C.surface, boxShadow: "0 1px 3px rgba(0,0,0,.2)", transform: on ? "translateX(18px)" : "translateX(0)" }} />
     </button>
   );
 }

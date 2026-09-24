@@ -18,7 +18,10 @@ import { AGENT_BASE, type PendingConfirmation, type ConfirmationStatus } from ".
 type Outcome = { status: ConfirmationStatus; at: string; result?: Record<string, unknown> | null; error?: string | null };
 
 /** Live status by token: on mount (a reload) and after any action. */
-async function fetchStatus(token: string) {
+/** The target is repeated only when the one-line description does not already name it. */
+const targetShown = (c: PendingConfirmation) => Boolean(c.target) && !String(c.what ?? "").includes(String(c.target));
+
+export async function fetchStatus(token: string) {
   const r = await fetch(`${AGENT_BASE}/api/confirmations/${token}`, { credentials: "same-origin", cache: "no-store" });
   const b = await r.json().catch(() => null);
   return r.ok && b?.ok ? b.confirmation : null;
@@ -123,9 +126,9 @@ export function ConfirmationCard({
 
   if (c.level === "low") {
     return (
-      <div role="group" aria-label="Confirm change" style={{ background: "#fff", border: `1px solid ${C.borderControl}`, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div role="group" aria-label="Confirm change" style={{ background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Icon name="sliders-horizontal" size={15} color={C.muted} />
-        <span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{c.what ?? c.toolName}{c.target ? <> · <span style={mono()}>{c.target}</span></> : null}</span>
+        <span style={{ fontSize: 13.5, flex: 1, minWidth: 0 }}>{c.what ?? c.toolName}{targetShown(c) ? <> · <span style={mono()}>{c.target}</span></> : null}</span>
         {error && <span style={{ fontSize: 12, color: C.danger }}>{error}</span>}
         <Button variant="primary" size="sm" onClick={() => void confirm()} disabled={busy} spinning={busy} keycap="⏎">Apply</Button>
         <Button ref={cancelRef as never} variant="ghost" size="sm" onClick={() => void cancel()} disabled={busy}>Cancel</Button>
@@ -138,11 +141,11 @@ export function ConfirmationCard({
   const isEmail = /^(send_email|email_document)$/.test(c.toolName);
   const title = isEmail ? "Confirm before I send" : c.what ? `Confirm: ${c.what}` : "Confirm this change";
   return (
-    <div role="group" aria-label={title} style={{ background: "#fff", border: `1.5px solid ${C.primary}`, borderRadius: 14, boxShadow: SHADOW.pending, overflow: "hidden" }}>
-      <div style={{ background: C.primaryTint3, borderBottom: `1px solid ${C.primaryLine}`, padding: panel ? "10px 12px" : "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+    <div role="group" aria-label={title} style={{ background: C.surface, border: `1.5px solid ${C.primary}`, borderRadius: 14, boxShadow: SHADOW.pending, overflow: "hidden" }}>
+      <div style={{ background: C.primaryTint3, borderBottom: `1px solid ${C.primaryLine}`, padding: panel ? "10px 12px" : "12px 16px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: panel ? "4px 10px" : 10 }}>
         <Icon name="shield-alert" size={16} color={C.primaryHover} />
-        <span style={{ fontSize: 14, fontWeight: 700, color: C.primaryHover, flex: 1 }}>{title}</span>
-        <span style={{ fontSize: panel ? 11.5 : 12, color: C.primaryOnTint, whiteSpace: "nowrap" }}>{previewedOnPage ? "previewed on the page ←" : isEmail ? "Nothing is sent until you confirm" : "Nothing changes until you confirm"}{c.expiresAt ? <> · expires <span style={mono()}>{hmZ(c.expiresAt)}</span></> : null}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: C.primaryHover, flex: "1 1 220px", minWidth: 0 }}>{title}</span>
+        <span style={{ fontSize: panel ? 11.5 : 12, color: C.primaryOnTint, whiteSpace: "nowrap", marginLeft: panel ? 26 : 0 }}>{previewedOnPage ? "previewed on the page ←" : isEmail ? "Nothing is sent until you confirm" : "Nothing changes until you confirm"}{c.expiresAt ? <> · expires <span style={mono()}>{hmZ(c.expiresAt)}</span></> : null}</span>
       </div>
       <div style={{ padding: panel ? "12px" : "14px 16px", display: "grid", gridTemplateColumns: panel ? "78px minmax(0,1fr)" : "90px minmax(0,1fr)", rowGap: 9, columnGap: 14, fontSize: panel ? 13 : 13.5 }}>
         {rows(c).map(([k, v]) => (<><span key={`${k}-k`} style={{ color: C.muted }}>{k}</span><span key={`${k}-v`} style={{ minWidth: 0, overflowWrap: "anywhere" }}>{v}</span></>))}
@@ -166,10 +169,10 @@ function DestructiveBar({ confirmation: c, busy, error, mmss, onHoldComplete, on
   const release = () => { if (timer.current) { window.clearTimeout(timer.current); timer.current = null; } setHolding(false); setFill(0); };
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
   return (
-    <div role="group" aria-label="Destructive change — hold to confirm" style={{ background: "#fff", border: `1.5px solid ${C.dangerBadge}`, borderRadius: 10, overflow: "hidden", position: "sticky", bottom: 8, zIndex: 3 }}>
+    <div role="group" aria-label="Destructive change — hold to confirm" style={{ background: C.surface, border: `1.5px solid ${C.dangerBadge}`, borderRadius: 10, overflow: "hidden", position: "sticky", bottom: 8, zIndex: 3 }}>
       <div style={{ background: C.dangerTint, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
         <Icon name="trash-2" size={14} color={C.dangerBadge} />
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.danger, flex: 1 }}>{c.what ?? c.toolName}{c.target ? <> <span style={mono()}>{c.target}</span></> : null} — can&apos;t be undone</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.danger, flex: 1 }}>{c.what ?? c.toolName}{targetShown(c) ? <> <span style={mono()}>{c.target}</span></> : null} — can&apos;t be undone</span>
         <span style={{ ...mono({ fontSize: 11 }), color: C.danger }}>{mmss} left</span>
       </div>
       <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -179,9 +182,9 @@ function DestructiveBar({ confirmation: c, busy, error, mmss, onHoldComplete, on
           <button type="button" className="ag-focus" aria-label="Hold to delete — hold for 2 seconds" disabled={busy}
             onPointerDown={start} onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
             onKeyDown={(e) => { if (e.key === " " && !e.repeat) { e.preventDefault(); start(); } }} onKeyUp={(e) => { if (e.key === " ") { e.preventDefault(); release(); } }}
-            style={{ position: "relative", overflow: "hidden", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "#fff", background: busy ? C.dangerDisabled : C.dangerBadge, border: "none", padding: "8px 14px", borderRadius: 8, cursor: busy ? "not-allowed" : "pointer", userSelect: "none", touchAction: "none" }}>
+            style={{ position: "relative", overflow: "hidden", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: C.surface, background: busy ? C.dangerDisabled : C.dangerBadge, border: "none", padding: "8px 14px", borderRadius: 8, cursor: busy ? "not-allowed" : "pointer", userSelect: "none", touchAction: "none" }}>
             <span className={holding ? "ag-hold-fill" : "ag-hold-release"} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${fill}%`, background: "rgba(0,0,0,.18)", pointerEvents: "none" }} />
-            <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6 }}>{busy ? <Spinner color="#fff" /> : null}{busy ? "" : holding ? "Keep holding…" : "Hold to delete"}</span>
+            <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6 }}>{busy ? <Spinner color={C.surface} /> : null}{busy ? "" : holding ? "Keep holding…" : "Hold to delete"}</span>
           </button>
           <span style={{ flex: 1 }} />
           <Button ref={cancelRef as never} variant="secondary" size={panel ? "sm" : "md"} onClick={onKeep} disabled={busy}>Keep it</Button>
@@ -197,10 +200,10 @@ export function ConfirmationRecord({ confirmation: c, outcome, panel = false }: 
   const ref = (outcome.result?.actionId ?? outcome.result?.id ?? outcome.result?.resendId ?? null) as string | null;
   if (outcome.status === "applied") {
     return (
-      <div className="ag-record-in" style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, padding: panel ? "10px 12px" : "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="ag-record-in" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, padding: panel ? "10px 12px" : "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name={isEmail ? "mail-check" : "shield-check"} size={panel ? 15 : 16} color={C.okDot} />
-          <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{isEmail ? `Sent${c.target ? ` to ${c.target}` : ""}` : `${c.what ?? "Change"}${c.target ? ` · ${c.target}` : ""} — applied`}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{isEmail ? `Sent${c.target ? ` to ${c.target}` : ""}` : `${c.what ?? "Change"}${targetShown(c) ? ` · ${c.target}` : ""} — applied`}</span>
           <span style={{ fontSize: 12.5, color: C.muted, whiteSpace: "nowrap" }}>Confirmed by you · <span style={mono()}>{hmsZ(outcome.at)}</span>{ref ? <> · <span style={mono()}>{String(ref).slice(0, 12)}</span></> : null}</span>
         </div>
         {outcome.result?.warning ? <div style={{ fontSize: 12.5, color: C.warn }}>{String(outcome.result.warning)}</div> : null}
@@ -239,10 +242,10 @@ export function ConfirmationModal({ confirmation: c, onSettled }: { confirmation
   async function cancel() { await fetch(`${AGENT_BASE}/api/confirmations/${c.token}/cancel`, { method: "POST", credentials: "same-origin" }).catch(() => {}); onSettled({ status: "cancelled", at: new Date().toISOString() }); }
   return (
     <div role="dialog" aria-modal aria-label={c.what ?? "Confirm"} style={{ position: "fixed", inset: 0, zIndex: 70, background: destructive ? "rgba(23,24,28,.45)" : "rgba(23,24,28,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: destructive ? 420 : 340, background: "#fff", borderRadius: destructive ? 16 : 14, boxShadow: destructive ? SHADOW.modal : SHADOW.modalLight, overflow: "hidden" }}>
+      <div style={{ width: destructive ? 420 : 340, background: C.surface, borderRadius: destructive ? 16 : 14, boxShadow: destructive ? SHADOW.modal : SHADOW.modalLight, overflow: "hidden" }}>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
           {destructive && <span style={{ width: 36, height: 36, borderRadius: 10, background: C.dangerTint, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="trash-2" size={18} color={C.dangerBadge} /></span>}
-          <div style={{ fontSize: destructive ? 16 : 14, fontWeight: destructive ? 800 : 700 }}>{c.what ?? c.toolName}{c.target ? <> <span style={mono()}>{c.target}</span></> : null}{destructive ? " permanently?" : "?"}</div>
+          <div style={{ fontSize: destructive ? 16 : 14, fontWeight: destructive ? 800 : 700 }}>{c.what ?? c.toolName}{targetShown(c) ? <> <span style={mono()}>{c.target}</span></> : null}{destructive ? " permanently?" : "?"}</div>
           <div style={{ fontSize: 13, color: C.muted }}>The agent asked on your behalf. Nothing changes until you decide here.</div>
           {destructive && (
             <input ref={firstRef as never} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={`Type ${c.target ?? "the ID"} to confirm`} aria-label="Type the ID to confirm"

@@ -26,6 +26,7 @@ export const C = {
   ok: c.greenDeep, okTint: c.greenTint, okBorder: c.greenBorder, okDot: c.green,
   neutral: c.slate, neutralTint: c.greyTint, info: c.sky, infoTint: c.skyTint,
   stop: c.stop, stopTint: c.stopTint, stopBorder: c.stopBorder, stopSquare: c.stopSquare,
+  rowExpanded: c.rowExpanded, rowRecord: c.rowRecord, warnWash: c.amberWash, okWash: c.greenWash, dangerWash: c.redWash, toggleOff: c.toggleOff, navSubBorder: c.navSubBorder, suggestHover: c.suggestHover, dangerWashSoft: c.redWashSoft, warnWashSoft: c.amberWashSoft, highlight: c.highlight,
 } as const;
 
 /** Source tiers — §3 rule 5: fixed, never themed, never swapped. */

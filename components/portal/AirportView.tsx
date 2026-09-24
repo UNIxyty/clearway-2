@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, RefreshCwIcon, XIcon, GlobeIcon, Download, MapPinIcon, CloudSunIcon, ScrollTextIcon } from "lucide-react";
 import GenPopover from "@/components/portal/GenPopover";
+import AskAboutButton from "@/components/agent/ui/AskAboutButton";
 import { PButton, PCard, PMono, PSectionTitle } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
@@ -2163,7 +2164,7 @@ export default function AirportView({ icao }: { icao: string }) {
                             </PMono>
                           )}
                         </div>
-                        <div className="h-[240px]">
+                        <div className="isolate h-[240px]">
                           {viewingAirport.lat != null && viewingAirport.lon != null ? (
                             <AirportMap
                               lat={viewingAirport.lat}
@@ -2709,6 +2710,8 @@ export default function AirportView({ icao }: { icao: string }) {
                         <FileWarningIcon className="size-4 shrink-0" />
                         Report a problem
                       </button>
+                      {/* Ops Agent entry for this record (design spec §6.1); renders only for allowlisted users. */}
+                      <AskAboutButton label={viewingAirport.icao} gate />
                     </div>
                   )}
                 </div>

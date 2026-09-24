@@ -127,7 +127,7 @@ export async function permissionsMatrix() {
   const rows = await listAccess({ includeRevoked: false });
   return rows.map((r) => {
     const role = String(r.note ?? "").match(/role:(\w+)/)?.[1] ?? null;
-    return { userId: r.user_id, email: r.user_email, name: r.user_email, read: "yes", wall: "ask", email: "ask", approveKb: role === "developer" ? "yes" : "unknown" };
+    return { userId: r.user_id, email: r.user_email, name: r.user_email, read: "yes", wall: "ask", sendEmail: "ask", approveKb: role === "developer" ? "yes" : "no" };
   });
 }
 

@@ -13,7 +13,7 @@ export default function AgentStyles() {
   mounted = true;
   const vars = {
     "--ag-primary": C.primary, "--ag-primary-hover": C.primaryHover, "--ag-primary-border": C.primaryBorder,
-    "--ag-hover": C.hover, "--ag-page": C.page, "--ag-suggest-hover": "#f7faff",
+    "--ag-hover": C.hover, "--ag-page": C.page, "--ag-suggest-hover": C.suggestHover,
   } as Record<string, string>;
   // #f7faff is the suggested-question hover wash (§4.22); it is the only value
   // the shared file has no name for and is set here so it stays in one place.

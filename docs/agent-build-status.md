@@ -29,7 +29,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
 | 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
 | 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
-| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` `d5e71fe` | No | Verifier **16/16** with Tavily live. Tracking still awaiting your decision |
+| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` `d5e71fe` `6d4bbf0` | No | Verifier **16/16** with Tavily live. Flight tracking deferred to end of series |
 | 7 | Not started | — | No | |
 | 8 | Not started | — | No | |
 | 9 | Not started | — | No | |
@@ -929,8 +929,11 @@ instead switches provider with no code change.
 ### Decisions needed from you
 1. **Deploy** `agent-service` — the memory table and the Tavily key are already
    in place.
-2. **Flight tracking: do you want it at all?** The only capability here with a
-   recurring cost, and the wall's Leon feed already covers planned times. See
+2. ~~Flight tracking~~ — **deferred to the end of the series by your decision**
+   (2026-09-24). The tool stays declared and returns `available: false`, telling
+   the model to fall back to the wall's schedule rather than estimate a
+   position, so nothing depends on it. Enabling it later is configuration plus a
+   provider adapter, not a rebuild. Options in
    `docs/agent-flight-tracking-decision.md`.
 3. **Aviation domain list** — ~25 authority domains today. If dispatchers trust
    a source I have not listed (a handling agent, a NOTAM aggregator), say so and
@@ -950,6 +953,7 @@ Not started.
 | 0 | Opus 4.6 Marketplace agreement | Temp activation policy was removed before it succeeded | Re-run the enabler with the temp policy attached |
 | 0 | Titan embeddings (`amazon.*` in the runtime policy) | Policy edit not yet applied | Next AWS console visit |
 | 0 | Rotate the pasted `clearway-agent` access key | Secret was pasted in plaintext during setup | Before the agent runs unattended |
+| 6 | Flight tracking provider | Deferred by decision 2026-09-24 — recurring cost, and the wall already covers planned times | End of the series |
 | 1 | Run `docs/supabase-agent-foundation.sql` | No DDL access from this machine | Before Part 1 can be verified or deployed |
 | 1 | cloudflared ingress rule for `/agent/.*` | **Still not in effect** — /agent/* reaches the portal, not the agent | Before anyone can use the agent |
 | 1 | Pickem healthcheck is broken (pre-existing) | `${p}` in `docker-compose.yml` is expanded by compose, not node, so the probe hits a portless URL — this is the audit's "unhealthy pickem false alarm" | Out of Part 1's scope; one-line fix whenever you want it |

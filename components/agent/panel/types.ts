@@ -1,6 +1,6 @@
 export type SourceRef = {
   n: number;
-  tier: "company" | "internal" | "web";
+  tier: "company" | "internal" | "web" | "memory";
   tierLabel?: string;
   label: string;
   tool: string;

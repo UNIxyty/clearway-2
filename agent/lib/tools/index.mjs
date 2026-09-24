@@ -10,5 +10,7 @@ import "./fleet.mjs";
 import "./monitoring.mjs";
 import "./knowledge.mjs";
 import "./files-email.mjs";
+import "./memory.mjs";
+import "./web.mjs";
 
 export { allTools, executeTool, getTool, toolSpecsFor, toolNamesFor, roleSatisfies, PERMISSIONS } from "./framework.mjs";

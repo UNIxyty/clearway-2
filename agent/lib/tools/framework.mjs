@@ -32,6 +32,11 @@ export const SOURCE_TIERS = {
   company: { label: "Company", fg: "#6d28d9", bg: "#ede9fe", icon: "book-open" },
   internal: { label: "Internal", fg: "#1d4ed8", bg: "#dbeafe", icon: "database" },
   web: { label: "Web", fg: "#b45309", bg: "#fef3e2", icon: "globe" },
+  // Something a user asked the agent to remember. Deliberately its own tier:
+  // a remembered note is not approved knowledge, and colouring it as "Company"
+  // would let a dispatcher's aside sit beside a Tier 1 limitation looking
+  // equally authoritative.
+  memory: { label: "Remembered", fg: "#0e7490", bg: "#cffafe", icon: "bookmark" },
 };
 
 const registry = new Map();

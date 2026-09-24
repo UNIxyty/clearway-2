@@ -29,7 +29,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
 | 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
 | 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
-| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` | No | Needs `docs/supabase-agent-memory.sql`; web search needs a key; tracking needs **your decision** |
+| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` `d5e71fe` | No | Verifier **16/16** with Tavily live. Tracking still awaiting your decision |
 | 7 | Not started | — | No | |
 | 8 | Not started | — | No | |
 | 9 | Not started | — | No | |
@@ -907,13 +907,34 @@ for **planned** times. Tracking adds only "where is it right now", which is a
 per-question lookup rather than a feed — so request-priced plans fit better than
 data-feed plans, and it may not be worth a subscription at all.
 
+### Verified — 16/16 (`scripts/agent-verify-part6.mjs`)
+
+Memory: a note is stored and normalised · recalled by what it relates to ·
+another user's **private** note is not visible · a **shared** note is, marked
+not-mine · you cannot forget someone else's · you can forget your own.
+
+Web search: **Tavily live**, aviation filter working — a query on runway
+contamination returned only `easa.europa.eu` and `skybrary.aero`, every result
+marked `authoritative: false` with its domain and fetch time.
+
+Provenance: four tiers, four distinct colours, and a mixed answer attributes all
+four separately.
+
+Flight tracking: declared, returns `available: false`, tells the model to fall
+back to the wall's schedule rather than estimate a position.
+
+**Chosen: Tavily** (`TAVILY_API_KEY`). Brave remains implemented; setting its key
+instead switches provider with no code change.
+
 ### Decisions needed from you
-1. **Run `docs/supabase-agent-memory.sql`**, then deploy.
-2. **Web search provider** — Brave (free tier ~2k queries/month) or Tavily.
-   Set `BRAVE_SEARCH_API_KEY` or `TAVILY_API_KEY`. Until then the agent says it
-   cannot search, which is safe but limits Part 6 to memory only.
-3. **Flight tracking: do you want it at all?** It is the only capability here
-   with a recurring cost. See the decision doc.
+1. **Deploy** `agent-service` — the memory table and the Tavily key are already
+   in place.
+2. **Flight tracking: do you want it at all?** The only capability here with a
+   recurring cost, and the wall's Leon feed already covers planned times. See
+   `docs/agent-flight-tracking-decision.md`.
+3. **Aviation domain list** — ~25 authority domains today. If dispatchers trust
+   a source I have not listed (a handling agent, a NOTAM aggregator), say so and
+   I will add it; the list is in `agent/lib/tools/web.mjs`.
 
 ## Parts 7–10
 Not started.

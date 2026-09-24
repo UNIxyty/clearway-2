@@ -110,7 +110,11 @@ async function main() {
   // ── The system prompt carries the rule ─────────────────────────────────
   const prompt = readFileSync("agent/config/system-prompt.md", "utf8");
   check("the system prompt states the provenance rule", /Where every fact came from/i.test(prompt) && /Prefer internal data/i.test(prompt));
-  check("the prompt forbids treating web content as approved guidance", /never\*\* approved operational guidance/i.test(prompt));
+  // Whitespace-tolerant: the phrase wraps across lines in the markdown, and a
+  // line-sensitive regex here reported a prompt problem that did not exist.
+  const flat = prompt.replace(/\s+/g, " ");
+  check("the prompt forbids treating web content as approved guidance",
+    /never\*\* approved operational guidance/i.test(flat) && /external and \*\*unverified\*\*/i.test(flat));
 
   await sb(`agent_memories?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
   await sb(`agent_memories?user_id=eq.${OTHER_USER_ID}`, { method: "DELETE" });

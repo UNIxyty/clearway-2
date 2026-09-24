@@ -30,7 +30,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
 | 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
 | 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` `d5e71fe` `6d4bbf0` | No | Verifier **16/16** with Tavily live. Flight tracking deferred to end of series |
-| 7 | Not started | — | No | |
+| 7 — Write tools (low risk) | Built, not deployed | `a688929` `6df80da` | No | Needs `docs/supabase-agent-actions.sql`. Authorised by owner, **not** an ops sign-off |
 | 8 | Not started | — | No | |
 | 9 | Not started | — | No | |
 | 10 | Not started | — | No | |
@@ -942,7 +942,69 @@ instead switches provider with no code change.
    a source I have not listed (a handling agent, a NOTAM aggregator), say so and
    I will add it; the list is in `agent/lib/tools/web.mjs`.
 
-## Parts 7–10
+## Part 7 — Write tools (low risk)
+
+**Status: Built, not deployed.** Needs `docs/supabase-agent-actions.sql`.
+
+**Authorisation:** Part 7 was started on **2026-09-24 on the owner's decision**,
+without an ops sign-off on Phase 1. Recorded here because the status file is the
+record of what happened, and that is a different fact from "ops approved".
+
+### Scope — reversible only
+Display settings · limitations (create/edit) · IMPORTANT entries · reports ·
+operator enable/disable · aircraft show/hide.
+
+Everything here can be put back exactly as it was. **No delete, no send to a
+crew, no safety acknowledgement** — those are not reachable from any tool the
+agent has, and the verifier asserts that no such tool is offered.
+
+### Three rules, in one place
+They live in `agent/lib/actions.mjs`, not in each tool: a rule repeated in seven
+places is a rule that will be missed in the eighth.
+
+1. **Every agent-written record is marked AI-authored** — `Ops Agent (AI) for
+   <person>`. Both halves matter: "AI" so nobody mistakes it for a colleague's
+   judgement, and the name so a human is always accountable. An unattributed AI
+   edit is the thing an ops department cannot accept.
+2. **Every write stores the COMPLETE before and after state**, not a diff. An
+   undo restores a known state rather than computing an inverse — a derivation
+   can be wrong in ways nobody notices until the wall is wrong.
+3. **An undo is a NEW action** referencing the original. The original is marked
+   undone, never edited or deleted.
+
+### No confirmation screens
+The brief is explicit, and the reasoning is worth keeping: **a confirmation
+habit trains people to click through the confirmations that matter.** The safety
+is not a dialog — it is that the backend re-checks permission on every call,
+every write goes through the wall's own API **carrying the caller's session** so
+the agent cannot write what its caller could not, the record shows as
+AI-authored on the wall, and it can be undone.
+
+The system prompt says to ask when an instruction is **ambiguous** ("make the
+rows bigger" needs a number) and explicitly not as a ritual.
+
+### What the dispatcher sees
+Changes appear in their own block **above** the reply, not folded into the
+tool-activity disclosure — nobody should have to expand something to discover
+the wall was modified. Each carries an `AI` chip and "ask to undo any of these".
+The block is built from tool **results** carrying an action id, so a change is
+shown because a write returned one, never because the model said so.
+
+### Undo
+`list_recent_actions` + `undo_action` make "undo the limitation you added
+earlier" work from the logs, without the user knowing an id. Ownership is in the
+query: one dispatcher cannot undo another's change even with a valid id. A
+**failed** undo is recorded too — "we tried to put it back and could not" is
+exactly what someone needs to find later.
+
+### Decisions needed from you
+1. **Run `docs/supabase-agent-actions.sql`**, then deploy `agent-service` and
+   `portal`. I will run the Part 7 verifier once the table exists.
+2. **Worth doing before dispatchers use this:** show ops the read-only agent.
+   The Phase 1 demo is still outstanding and this part now lets the agent change
+   what they see on the wall.
+
+## Parts 8–10
 Not started.
 
 ## Deferred items (all parts)

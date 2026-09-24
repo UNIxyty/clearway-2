@@ -144,7 +144,7 @@ confirm button, wall-console row) reads the organisation's binds. Stored in the 
 row `keybinds` (no DDL). Verified in the browser: recorded ⌃⇧K, it opened the panel on the dashboard and on
 the wall console while ⌘J no longer did; per-platform recorded Ctrl+Alt+K for Windows; reset to defaults.
 
-## 8d. Second round of fixes after use (commit `__B3_COMMIT__`)
+## 8d. Second round of fixes after use (commit `9969cb8`)
 
 - **`@` shows every type** — flights (today's wall window), airports (the portal's own search), operators,
   aircraft, limitations and documents, grouped under type headers; recents for each with an empty query.

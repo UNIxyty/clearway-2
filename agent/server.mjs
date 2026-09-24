@@ -777,6 +777,7 @@ async function handleChat(req, res, user) {
     send("done", {
       conversationId,
       modelId: done?.modelId ?? null,
+      modelTier: effective ?? requested ?? null,
       stopReason: done?.stopReason ?? null,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,

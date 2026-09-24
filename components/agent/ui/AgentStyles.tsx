@@ -7,10 +7,11 @@
 import "./agent.css";
 import { C } from "./tokens";
 
-let mounted = false;
+// Rendered by every agent surface. It used to render once per module load,
+// which meant the FIRST page's <style> was removed on navigation and later
+// pages had no variables — primary buttons then hovered to a transparent
+// `var(--ag-primary-hover)` and "disappeared". Duplicate <style> tags are harmless.
 export default function AgentStyles() {
-  if (typeof document !== "undefined" && mounted) return null;
-  mounted = true;
   const vars = {
     "--ag-primary": C.primary, "--ag-primary-hover": C.primaryHover, "--ag-primary-border": C.primaryBorder,
     "--ag-hover": C.hover, "--ag-page": C.page, "--ag-suggest-hover": C.suggestHover,

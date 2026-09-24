@@ -10,10 +10,11 @@
 // a black chip with argument slots; on send it becomes the sentence it stands
 // for and goes through the same pipeline as anything typed.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Icon, IconButton, Keycap } from "../ui/primitives";
 import Orb from "../ui/Orb";
+import { useKeybinds } from "../ui/keybinds";
 import { AGENT_BASE, type AgentContext } from "../types";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
@@ -69,25 +70,46 @@ const invoke = async (name: string, input: Record<string, unknown>) => { try { c
 
 async function resolveMentions(q: string, type: MentionType | "all", context: AgentContext | null): Promise<Mention[]> {
   const out: Mention[] = [];
-  const query = q.trim();
+  const query = q.trim(); const ql = query.toLowerCase();
   // The current selection first, then what is visible on the page (§4.19 panel ordering).
   if (!query) {
     for (const s of context?.selected ?? []) out.push({ type: s.kind, id: s.id, primary: s.label, secondary: "selected", tag: "SELECTED" });
     for (const v of (context?.visible ?? []).slice(0, 6)) if (!out.some((m) => m.id === v.id)) out.push({ type: v.kind, id: v.id, primary: v.label, secondary: v.sub ?? "on this page", tag: "VISIBLE" });
   }
   const want = (t: MentionType) => type === "all" || type === t;
+  const per = type === "all" ? (query ? 4 : 3) : 12;
+  const hit = (...fields: Array<string | null | undefined>) => !query || fields.some((f) => String(f ?? "").toLowerCase().includes(ql));
   const jobs: Promise<void>[] = [];
-  if (!query && want("limitation")) jobs.push(invoke("list_limitations", { limit: 5 }).then((b) => { for (const l of b?.limitations ?? []) if (!out.some((m) => m.id === l.id)) out.push({ type: "limitation", id: l.id, primary: l.id, secondary: l.title }); }));
-  if (want("flight") && query.length >= 2) jobs.push(invoke("search_flights", { callsign: query, limit: 6 }).then((b) => { for (const f of b?.flights ?? []) out.push({ type: "flight", id: f.flightId, primary: f.callsign || f.flightNid, secondary: `${f.departureIcao ?? "?"} → ${f.arrivalIcao ?? "?"}` }); }));
-  if (want("airport") && /^[A-Za-z]{2,4}$/.test(query)) jobs.push(invoke("get_web_aip_link", { icao: query.toUpperCase().padEnd(4, "").slice(0, 4) }).then((b) => { if (b?.found) out.push({ type: "airport", id: b.icao, primary: b.icao, secondary: b.country ?? "airport" }); }));
-  if (want("limitation") && query.length >= 2) jobs.push(invoke("list_limitations", { query, limit: 5 }).then((b) => { for (const l of b?.limitations ?? []) out.push({ type: "limitation", id: l.id, primary: l.id, secondary: l.title }); }));
-  if (want("aircraft") && query.length >= 2) jobs.push(invoke("list_aircraft", { query, limit: 5 }).then((b) => { for (const a of b?.aircraft ?? []) out.push({ type: "aircraft", id: a.registration ?? a.id, primary: a.registration ?? a.id, secondary: a.type ?? a.operatorId ?? "" }); }));
-  if (want("operator") && query.length >= 2) jobs.push(invoke("list_operators", {}).then((b) => { for (const o of (b?.operators ?? []).filter((o: { id?: string; name?: string }) => `${o.id ?? ""} ${o.name ?? ""}`.toLowerCase().includes(query.toLowerCase())).slice(0, 5)) out.push({ type: "operator", id: o.id, primary: o.id, secondary: o.name ?? "" }); }));
-  if (want("document") && query.length >= 2) jobs.push(invoke("search_knowledge", { query }).then((b) => { for (const d of [...(b?.verbatim ?? []), ...(b?.reference ?? [])].slice(0, 4)) out.push({ type: "document", id: d.documentId ?? d.recordId ?? d.reference ?? d.title, primary: d.reference ?? d.title ?? "Document", secondary: d.source ?? "" }); }));
+  // Flights: today's wall window; a query matches callsign, registration or route.
+  if (want("flight")) jobs.push(invoke("search_flights", query.length >= 2 ? { callsign: query.toUpperCase(), limit: 12 } : { limit: 12 }).then((b) => {
+    const list = (b?.flights ?? []).filter((f: Record<string, string | null>) => hit(f.callsign, f.registration, f.departureIcao, f.arrivalIcao));
+    for (const f of list.slice(0, per)) out.push({ type: "flight", id: f.flightId, primary: f.callsign || f.registration || f.flightId, secondary: `${f.departureIcao ?? "?"} → ${f.arrivalIcao ?? "?"}${f.registration ? ` · ${f.registration}` : ""}` });
+  }));
+  // Airports: the portal's own airport search (ICAO, IATA or name); same session.
+  if (want("airport") && query.length >= 2) jobs.push(fetch(`/api/search?q=${encodeURIComponent(query)}`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).then((b) => {
+    for (const a of (b?.results ?? []).slice(0, per)) out.push({ type: "airport", id: String(a.icao).toUpperCase(), primary: String(a.icao).toUpperCase(), secondary: [a.name, a.country].filter(Boolean).join(" · ") || "airport" });
+  }).catch(() => {}));
+  if (want("limitation")) jobs.push(invoke("list_limitations", query.length >= 2 ? { query, limit: per } : { limit: per }).then((b) => { for (const l of (b?.limitations ?? []).slice(0, per)) if (!out.some((m) => m.id === l.id)) out.push({ type: "limitation", id: l.id, primary: l.id, secondary: l.title }); }));
+  if (want("aircraft")) jobs.push(invoke("list_aircraft", {}).then((b) => {
+    const list = (b?.aircraft ?? []).filter((a: Record<string, string | null>) => hit(a.registration, a.type, a.operatorId));
+    for (const a of list.slice(0, per)) out.push({ type: "aircraft", id: a.registration ?? a.id, primary: a.registration ?? a.id, secondary: [a.type, a.operatorId].filter(Boolean).join(" · ") || "aircraft" });
+  }));
+  if (want("operator")) jobs.push(invoke("list_operators", {}).then((b) => {
+    const list = (b?.operators ?? []).filter((o: { id?: string; name?: string; operatorId?: string }) => hit(o.id, o.name, o.operatorId));
+    for (const o of list.slice(0, per)) out.push({ type: "operator", id: String(o.operatorId ?? o.id), primary: o.name ?? String(o.id), secondary: o.operatorId ? `Leon ${o.operatorId}` : "operator" });
+  }));
+  // Documents: the knowledge base list (title match), plus semantic hits for a real question.
+  if (want("document")) jobs.push(fetch(`${AGENT_BASE}/api/knowledge/documents`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).then((b) => {
+    const docs = (b?.documents ?? []).filter((d: Record<string, string | null>) => (d.status === "indexed" || d.status === "approved") && hit(d.title, d.filename, d.icao, d.source));
+    for (const d of docs.slice(0, per)) out.push({ type: "document", id: d.id as string, primary: (d.title ?? d.filename) as string, secondary: d.tier === "tier1" ? "authoritative · quoted exactly" : "reference" });
+  }).catch(() => {}));
+  if (want("document") && query.length >= 3) jobs.push(invoke("search_knowledge", { query }).then((b) => { for (const d of [...(b?.verbatim ?? []), ...(b?.reference ?? [])].slice(0, 3)) { const id = d.documentId ?? d.recordId ?? d.reference; if (id && !out.some((m) => m.id === id)) out.push({ type: "document", id, primary: d.title ?? d.reference ?? id, secondary: d.tier === "tier1" ? "authoritative · quoted exactly" : "reference" }); } }));
   await Promise.all(jobs);
-  // De-dupe, cap.
+  // De-dupe; keep the page's items first, then group by type in tab order.
   const seen = new Set<string>();
-  return out.filter((m) => { const k = `${m.type}:${m.id}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
+  const uniq = out.filter((m) => { const k = `${m.type}:${m.id}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const rank = (m: Mention) => (m.tag ? -1 : TYPES.indexOf(m.type));
+  return uniq.sort((a, b) => rank(a) - rank(b)).slice(0, type === "all" ? 24 : 12);
 }
 
 function Highlight({ text, prefix }: { text: string; prefix: string }) {
@@ -124,6 +146,7 @@ export default function Composer({
   placeholderOverride?: string;
 }) {
   const [value, setValue] = useState("");
+  const kb = useKeybinds();
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [query, setQuery] = useState("");
@@ -258,20 +281,21 @@ export default function Composer({
             </div>
             <div style={{ padding: "6px 6px 2px", maxHeight: 280, overflowY: "auto" }}>
               {!query && mentions.some((m) => m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "4px 10px" }}>ON THIS PAGE</div>}
-              {!query && mentions.some((m) => !m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "4px 10px" }}>RECENT</div>}
+
               {mentions.length === 0 && (
                 <div style={{ padding: "10px 10px 8px", fontSize: 13, color: C.muted }}>
                   {searching ? "Searching…" : query.length < 2 ? "Type a callsign, ICAO, registration, limitation ID or document name…" : `No ${mentionType === "all" ? "matches" : `${mentionType}s`} for “${query}”`}
                 </div>
               )}
-              {mentions.map((m, i) => (
-                <button key={`${m.type}:${m.id}`} type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickMention(m)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 8px" : "8px 10px", borderRadius: 8, border: "none", background: i === highlight || m.tag === "SELECTED" ? C.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", marginTop: m.tag === "VISIBLE" && mentions[i - 1]?.tag === "SELECTED" ? 6 : 0 }}>
+              {mentions.map((m, i) => (<Fragment key={`${m.type}:${m.id}`}>
+                {mentionType === "all" && !m.tag && (i === 0 || mentions[i - 1].type !== m.type || mentions[i - 1].tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "6px 10px 2px" }}>{m.type.toUpperCase()}S</div>}
+                <button type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickMention(m)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 8px" : "8px 10px", borderRadius: 8, border: "none", background: i === highlight || m.tag === "SELECTED" ? C.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", marginTop: m.tag === "VISIBLE" && mentions[i - 1]?.tag === "SELECTED" ? 6 : 0 }}>
                   <span style={{ width: panel ? 24 : 26, height: panel ? 24 : 26, borderRadius: 7, background: TYPE_LOOK[m.type].bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name={TYPE_LOOK[m.type].icon} size={14} color={TYPE_LOOK[m.type].fg} /></span>
                   <span style={m.type === "limitation" ? { fontSize: 13.5, fontWeight: 600 } : mono({ fontSize: 13.5, fontWeight: 600 })}><Highlight text={m.primary} prefix={query} /></span>
                   <span style={{ fontSize: 13, color: C.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.secondary}</span>
                   <span style={{ fontSize: m.tag ? 10.5 : 11.5, fontWeight: m.tag ? 700 : 400, color: m.tag === "SELECTED" ? C.primaryHover : C.faint }}>{m.tag ?? `@${m.type}`}</span>
                 </button>
-              ))}
+              </Fragment>))}
             </div>
             <div style={{ display: "flex", gap: 14, padding: "8px 16px", borderTop: `1px solid ${C.divider}`, background: C.page, fontSize: 12, color: C.faint }}><span>↑↓ move</span><span>⏎ insert</span><span>Tab next type</span><span>Esc close</span><span style={{ flex: 1 }} /><span>Flights search Leon live</span></div>
           </div>
@@ -321,7 +345,7 @@ export default function Composer({
             <IconButton icon="at-sign" title="Mention" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}@`); inputRef.current?.focus(); }} disabled={Boolean(locked)} />
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />
             <span style={{ flex: 1 }} />
-            <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <>hold <span style={mono()}>⌥ Space</span></> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span>hold <span style={mono()}>⌥ Space</span> to talk</span></>}</span>
+            <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <>hold <span style={mono()}>{kb.label("voice")}</span></> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span>hold <span style={mono()}>{kb.label("voice")}</span> to talk</span></>}</span>
             {voiceEnabled && (
               <button type="button" title="Hold to talk" aria-label="Hold to talk" onClick={onVoice} className="ag-hover ag-focus" style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
                 <Orb size={22} state="idle" title="Voice" />

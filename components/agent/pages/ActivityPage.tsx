@@ -11,6 +11,7 @@ import { Dropdown, EmptyState, LoadingRows } from "@/components/console-kit";
 import { C, TIER, mono } from "../ui/tokens";
 import { Button, Tag, hmsZ } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
+import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 
 type Row = { id: number; at: string; who: string; kind: "READ" | "WRITE" | "SEND" | "FILE"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
@@ -59,7 +60,7 @@ export default function ActivityPage() {
           </div>
           <Dropdown value={person} onChange={setPerson} options={[{ value: "", label: "Person: anyone" }, ...people.map((p) => ({ value: p, label: p }))]} />
           <Dropdown value={tool} onChange={setTool} options={[{ value: "", label: "Tool: any" }, ...tools.map((t) => ({ value: t, label: t }))]} />
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), height: 38, border: `1px solid ${C.borderControl}`, borderRadius: 10, padding: "0 12px", background: C.surface, color: C.ink }} />
+          <DateField value={date} onChange={setDate} placeholder="Date: any" />
         </div>
         {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
         {rows === null && <LoadingRows rows={6} />}

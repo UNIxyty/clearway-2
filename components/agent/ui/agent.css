@@ -99,5 +99,6 @@
 /* Hover looks (H1): primary → deep; secondary/ghost → hover surface. */
 .ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; }
 .ag-btn-secondary:not(:disabled):hover, .ag-btn-ghost:not(:disabled):hover, .ag-icon-button:not(:disabled):hover { background: var(--ag-hover) !important; }
+.ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; color: #fff; }
 .ag-row-hover:hover { background: var(--ag-page); }
 .ag-card-hover:hover { border-color: var(--ag-primary-border) !important; background: var(--ag-suggest-hover) !important; cursor: pointer; }

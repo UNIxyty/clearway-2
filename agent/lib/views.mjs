@@ -132,8 +132,9 @@ export const KEYBIND_ACTIONS = [
   { key: "open", label: "Open or close the panel", description: "Anywhere in the console and on the wall console." },
   { key: "expand", label: "Expand to the full page · back to the panel", description: "Carries the thread with it." },
   { key: "confirm", label: "Confirm a standard change", description: "Only while a confirmation card is showing. Destructive changes have no keyboard confirm." },
+  { key: "voice", label: "Push to talk (hold)", description: "Hold to speak, release to send. Shown in the composer; voice itself is not wired yet." },
 ];
-export const KEYBIND_DEFAULTS = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter" };
+export const KEYBIND_DEFAULTS = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Space" };
 const BIND_RE = /^((Mod|Meta|Ctrl|Alt|Shift)\+)+(Enter|Space|Escape|[A-Z0-9]|F[1-9]|F1[0-2]|Arrow(Up|Down|Left|Right)|[\[\]\\;',./`=-])$/;
 export function normalizeKeybinds(input) {
   const out = { perPlatform: Boolean(input?.perPlatform), shared: {}, mac: {}, windows: {} };

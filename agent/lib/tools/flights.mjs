@@ -255,3 +255,58 @@ defineTool({
     };
   },
 });
+
+
+// ── The wall overlay: the console's "Show / Close on wall" as tools ───────────
+// Standard confirmation (framework CONFIRM_LEVELS). The wall records who
+// opened it from the requester's own session, as the console does.
+defineTool({
+  name: "show_flight_on_wall",
+  permission: "user",
+  description:
+    "Show one flight on the wall display (opens the wall overlay for it). Only one flight is live at a time; showing another replaces it. Use when the user asks to put, open or show a flight on the wall.",
+  sourceLabel: (i) => `Internal · wall overlay · ${i.flight_id}`,
+  input: {
+    type: "object",
+    additionalProperties: false,
+    required: ["flight_id"],
+    properties: { flight_id: FLIGHT_ID },
+  },
+  output: {
+    type: "object",
+    required: ["ok", "flightId"],
+    properties: { ok: { type: "boolean" }, flightId: { type: "string" }, callsign: { type: ["string", "null"] }, openedAt: { type: ["string", "null"] }, replaced: { type: ["string", "null"], description: "The flight that was on the wall before, if any." } },
+  },
+  readback: async ({ flight_id }, { user }) => {
+    const { oprId, flightNid } = splitFlightId(flight_id);
+    const rows = await loadTimeline(user).catch(() => []);
+    const hit = rows.find(({ flight, aircraft }) => String(flight?.nid ?? flight?.flightNid) === flightNid && (!oprId || String(aircraft?.oprId ?? flight?.oprId ?? "") === oprId));
+    if (!hit) return flight_id;
+    const f = summariseFlight(hit.flight, hit.aircraft);
+    return `${f.callsign ?? f.registration ?? flight_id} ${f.departureIcao ?? "?"} → ${f.arrivalIcao ?? "?"}`;
+  },
+  async handler({ flight_id }, { user }) {
+    const { oprId, flightNid } = splitFlightId(flight_id);
+    const before = await wallGet("/api/display/overlay", user, { timeoutMs: 15_000 }).catch(() => null);
+    const res = await wallGet("/api/display/overlay", user, { method: "POST", timeoutMs: 20_000, body: { action: "open", flightNid, ...(oprId ? { oprId } : {}) } });
+    if (!res?.ok) throw NotFound(res?.error || `No flight ${flight_id} on the wall timeline.`);
+    const rows = await loadTimeline(user).catch(() => []);
+    const hit = rows.find(({ flight }) => String(flight?.nid ?? flight?.flightNid) === flightNid);
+    const callsign = hit ? summariseFlight(hit.flight, hit.aircraft).callsign : null;
+    return { ok: true, flightId: flight_id, callsign, openedAt: res.overlay?.openedAt ?? null, replaced: before?.overlay?.open && String(before.overlay.flightNid) !== flightNid ? String(before.overlay.flightNid) : null };
+  },
+});
+
+defineTool({
+  name: "close_flight_on_wall",
+  permission: "user",
+  description: "Close whatever flight is currently shown on the wall display (the wall returns to its idle view).",
+  sourceLabel: () => "Internal · wall overlay",
+  input: { type: "object", additionalProperties: false, properties: {} },
+  output: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" }, wasOpen: { type: "boolean" } } },
+  async handler(_input, { user }) {
+    const before = await wallGet("/api/display/overlay", user, { timeoutMs: 15_000 }).catch(() => null);
+    const res = await wallGet("/api/display/overlay", user, { method: "POST", timeoutMs: 20_000, body: { action: "close" } });
+    return { ok: Boolean(res?.ok), wasOpen: Boolean(before?.overlay?.open) };
+  },
+});

@@ -117,6 +117,10 @@ export type AgentMessage = {
   blocks?: MessageBlocks | null;
   sources?: SourceRef[];
   toolActivity?: ToolActivity[];
+  modelId?: string | null;
+  modelTier?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
   error?: string | null;
   createdAt?: string;
   /** Client-only */

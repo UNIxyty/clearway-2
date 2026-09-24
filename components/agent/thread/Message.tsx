@@ -84,6 +84,7 @@ export function AgentReply({
         {!panel && (
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}><span style={{ fontSize: 13.5, fontWeight: 700 }}>Ops Agent</span><span style={{ ...mono({ fontSize: 11 }), color: C.faint }} suppressHydrationWarning>{hmZ(m.createdAt)}</span></div>
         )}
+        {!m.streaming && (m.modelId || m.modelTier) && <ModelLine m={m} panel={panel} />}
 
         {live ? <LiveSteps steps={steps} panel={panel} /> : steps.length > 0 && <ToolSummary steps={steps} elapsedMs={m.latencyMs ?? null} panel={panel} defaultOpen={false} />}
 
@@ -122,4 +123,12 @@ export function AgentReply({
       </div>
     </div>
   );
+}
+
+/** Which model answered — under every reply, mono, faint: `claude-sonnet-4-5 · standard · 1.2k in · 340 out · 4.1 s`. */
+function ModelLine({ m, panel }: { m: AgentMessage; panel: boolean }) {
+  const short = String(m.modelId ?? "").replace(/^([a-z]{2}\.)?(anthropic|amazon|meta|mistral)\./, "").replace(/-v\d+(:\d+)?$/, "").replace(/-\d{8}$/, "");
+  const k = (n: number | null | undefined) => (n == null ? null : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+  const parts = [short || null, m.modelTier ?? null, m.inputTokens != null ? `${k(m.inputTokens)} in` : null, m.outputTokens != null ? `${k(m.outputTokens)} out` : null, m.latencyMs != null ? `${(m.latencyMs / 1000).toFixed(1)} s` : null].filter(Boolean);
+  return <div title="Model that produced this reply" style={{ ...mono({ fontSize: panel ? 10.5 : 11 }), color: C.faint, order: 99 }}>{parts.join(" · ")}</div>;
 }

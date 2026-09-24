@@ -64,9 +64,13 @@ defineTool({
       notams: raw.slice(0, limit).map((n) => ({
         id: n?.id ?? n?.number ?? null,
         // Verbatim: a NOTAM is a regulatory notice, never reworded by a tool.
-        text: String(n?.text ?? n?.message ?? n?.raw ?? (typeof n === "string" ? n : "")),
-        from: n?.from ?? n?.startTime ?? null,
-        to: n?.to ?? n?.endTime ?? null,
+        // The portal's cache stores the notice text as `condition` (NotamItem);
+        // older shapes used text/message/raw.
+        text: String(n?.condition ?? n?.text ?? n?.message ?? n?.raw ?? (typeof n === "string" ? n : "")),
+        class: n?.class ?? null,
+        location: n?.location ?? null,
+        from: n?.from ?? n?.startTime ?? n?.startDateUtc ?? null,
+        to: n?.to ?? n?.endTime ?? n?.endDateUtc ?? null,
       })),
     };
   },

@@ -123,6 +123,8 @@ export function useThread({ context, initialConversationId = null, initials = nu
         sources: (d.sources as AgentMessage["sources"]) ?? [],
         toolActivity: ((d.toolActivity as ToolActivity[] | undefined) ?? tools).map((t) => ({ ...t, state: "done" })),
         latencyMs: (d.latencyMs as number | undefined) ?? null,
+        modelId: (d.modelId as string | undefined) ?? null, modelTier: (d.modelTier as string | undefined) ?? null,
+        inputTokens: (d.inputTokens as number | undefined) ?? null, outputTokens: (d.outputTokens as number | undefined) ?? null,
         blocks: {
           verbatim: (d.verbatim as never) ?? [], flights: (d.flights as never) ?? [], actions: (d.actions as never) ?? [], mono: (d.mono as never) ?? [],
           documents: (d.documents as never) ?? [], files: (d.files as never) ?? [], airports: (d.airports as never) ?? [], tables: (d.tables as never) ?? [], confirmations,

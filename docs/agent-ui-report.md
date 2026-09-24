@@ -144,6 +144,30 @@ confirm button, wall-console row) reads the organisation's binds. Stored in the 
 row `keybinds` (no DDL). Verified in the browser: recorded ⌃⇧K, it opened the panel on the dashboard and on
 the wall console while ⌘J no longer did; per-platform recorded Ctrl+Alt+K for Windows; reset to defaults.
 
+## 8d. Second round of fixes after use (commit `__B3_COMMIT__`)
+
+- **`@` shows every type** — flights (today's wall window), airports (the portal's own search), operators,
+  aircraft, limitations and documents, grouped under type headers; recents for each with an empty query.
+  On the rig only limitations/documents have data (the sandbox wall has no operators or flights).
+- **NOTAMs were empty** because the tool read `text` while the portal's cache stores the notice in
+  `condition`; fixed, and every airport's NOTAMs now render as one mono box, each notice headed by its
+  number, class and validity, separated by `—` (§4.14). The stale caches (May) are a NOTAM-sync issue on
+  the portal side, not the agent.
+- **Native controls gone**: a console-style `DateField` (month grid, Today, Clear) replaces the browser
+  date inputs in the Activity log and the Knowledge upload.
+- **Upload button vanished on hover**: `AgentStyles` rendered its `:root` variables once per page load;
+  after in-app navigation the variables were gone and the primary button hovered to a transparent
+  `var(--ag-primary-hover)`. Fixed (renders on every surface).
+- **Voice shortcut** added to the editable set (hold ⌥ Space by default) and shown in the composer hint.
+- **Flights on the wall**: new tools `show_flight_on_wall` / `close_flight_on_wall` (standard confirmation;
+  the wall records who opened it). The confirmation flow was verified on the rig; the open itself needs
+  a real flight on the wall, which the sandbox lacks.
+- **Model under each reply**: `claude-sonnet-4-6 · standard · 2.9k in · 654 out · 11.8 s` (model id,
+  routed tier, tokens, latency) on the full page and in the panel; persisted, so history shows it too.
+- Not reproduced: the Knowledge base `internal_error` (no error in the agent log since the last restart)
+  and "can't read important/CAA" — the audit shows `list_important` succeeding with 63 rows. Both need
+  the exact time and question to chase.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

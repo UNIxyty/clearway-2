@@ -9,12 +9,12 @@
 import { useEffect, useState } from "react";
 import { AGENT_BASE } from "../types";
 
-export type BindAction = "open" | "expand" | "confirm";
+export type BindAction = "open" | "expand" | "confirm" | "voice";
 export type BindSet = Record<BindAction, string>;
 export type KeybindConfig = { perPlatform: boolean; shared: BindSet; mac: BindSet; windows: BindSet };
 export type Platform = "mac" | "windows";
 
-export const BIND_DEFAULTS: BindSet = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter" };
+export const BIND_DEFAULTS: BindSet = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Space" };
 export const DEFAULT_CONFIG: KeybindConfig = { perPlatform: false, shared: { ...BIND_DEFAULTS }, mac: { ...BIND_DEFAULTS }, windows: { ...BIND_DEFAULTS } };
 const CACHE_KEY = "cw-agent-keybinds";
 const EVENT = "cw-agent-keybinds";
@@ -27,7 +27,7 @@ export function platform(): Platform {
 
 /** The set that applies to this machine. */
 export function activeSet(config: KeybindConfig, os: Platform = platform()): BindSet {
-  return config.perPlatform ? config[os] : config.shared;
+  return { ...BIND_DEFAULTS, ...(config.perPlatform ? config[os] : config.shared) };
 }
 
 type Parsed = { mod: boolean; meta: boolean; ctrl: boolean; alt: boolean; shift: boolean; key: string };
@@ -69,7 +69,7 @@ export function bindFromEvent(e: KeyboardEvent, style: "mod" | "literal", os: Pl
 export function label(bind: string, os: Platform = platform()): string {
   const b = parseBind(bind);
   const keyName = b.key === "Enter" ? (os === "mac" ? "⏎" : "Enter") : b.key === "Space" ? (os === "mac" ? "Space" : "Space") : b.key === "Escape" ? "Esc" : b.key;
-  if (os === "mac") return `${b.ctrl ? "⌃" : ""}${b.alt ? "⌥" : ""}${b.shift ? "⇧" : ""}${b.mod || b.meta ? "⌘" : ""}${keyName}`;
+  if (os === "mac") return `${b.ctrl ? "⌃" : ""}${b.alt ? "⌥" : ""}${b.shift ? "⇧" : ""}${b.mod || b.meta ? "⌘" : ""}${b.key === "Space" ? " " : ""}${keyName}`;
   const parts: string[] = [];
   if (b.mod || b.ctrl) parts.push("Ctrl"); if (b.meta) parts.push("Win"); if (b.alt) parts.push("Alt"); if (b.shift) parts.push("Shift");
   return [...parts, keyName].join("+");

@@ -60,6 +60,7 @@ export const CONFIRM_LEVELS = {
   set_aircraft_visible: "low",
   create_limitation: "standard", update_limitation: "standard", create_important: "standard", create_report: "standard",
   set_operator_active: "standard",
+  show_flight_on_wall: "standard", close_flight_on_wall: "standard",
   delete_limitation: "standard", restore_limitation: "standard",
   delete_important: "standard", restore_important: "standard", delete_report: "standard", restore_report: "standard",
   undo_action: "standard",
@@ -191,6 +192,8 @@ const CHANGE_COPY = {
   delete_report: (i, t) => `Remove report ${t ?? i.id ?? ""}`,
   set_operator_active: (i, t) => `${i.isActive === false ? "Disable" : "Enable"} operator ${t ?? i.operatorId ?? ""}`,
   set_aircraft_visible: (i, t) => `${i.visible === false ? "Hide" : "Show"} aircraft ${t ?? i.registration ?? ""} on the wall`,
+  show_flight_on_wall: (i, t) => `Show ${t ?? i.flightId ?? "the flight"} on the wall`,
+  close_flight_on_wall: () => "Close the flight on the wall",
   update_display_settings: () => "Change the wall display settings",
   undo_action: (i, t) => `Undo ${t ?? `action ${String(i.actionId ?? "").slice(0, 8)}`}`,
   send_email: (i) => `Send an email to ${Array.isArray(i.to) ? i.to.join(", ") : i.to ?? ""}`,
@@ -520,6 +523,8 @@ export function actionsFromToolCalls(calls) {
     update_display_settings: (r) => `Changed display settings (${(r.changed ?? []).join(", ")})`,
     set_operator_active: (r) => `${r.isActive ? "Enabled" : "Disabled"} operator ${r.operatorId}`,
     set_aircraft_visible: (r) => `${r.visible ? "Showed" : "Hid"} aircraft ${r.registration}`,
+    show_flight_on_wall: (r) => `Opened ${r.callsign ?? r.flightId ?? "a flight"} on the wall`,
+    close_flight_on_wall: () => "Closed the flight on the wall",
     undo_action: (r) => `Undid: ${r.what ?? "an earlier change"}`,
   };
   const out = [];
@@ -569,8 +574,11 @@ export function monoFromToolCalls(calls) {
     }
     if (call.name === "get_notams") {
       const icao = String(r.icao ?? "").toUpperCase();
-      const items = (r.notams ?? []).map((n) => String(n?.text ?? "")).filter(Boolean);
-      if (items.length) out.push({ id: `notams-${icao}`, title: `NOTAM ${icao} · ${items.length}`, text: items.join("\n\n"), tool: call.name });
+      const items = (r.notams ?? []).filter((n) => String(n?.text ?? "").trim()).map((n) => {
+        const head = [n.id, n.class ? `class ${n.class}` : null, n.from || n.to ? `${String(n.from ?? "").slice(0, 16) || "?"} → ${String(n.to ?? "").slice(0, 16) || "PERM"}` : null].filter(Boolean).join(" · ");
+        return `${head ? `${head}\n` : ""}${String(n.text).trim()}`;
+      });
+      if (items.length) out.push({ id: `notams-${icao}`, title: `NOTAM ${icao} · ${items.length}`, text: items.join("\n—\n"), tool: call.name });
     }
   }
   return out.slice(0, 6);

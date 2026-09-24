@@ -12,6 +12,7 @@ import { EmptyState, FieldLabel, LoadingRows, TextArea, TextInput } from "@/comp
 import { C, mono } from "../ui/tokens";
 import { Button, Icon, IconButton, IconTile, Tag, hmZ, kb } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
+import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 
 type Doc = {
@@ -279,7 +280,7 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
         <div><FieldLabel>Title</FieldLabel><TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Ground Handling Manual" /></div>
         <div><FieldLabel>Source</FieldLabel><TextInput value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. airBaltic OM-A" /></div>
         <div><FieldLabel>Version</FieldLabel><TextInput value={version} onChange={(e) => setVersion(e.target.value)} placeholder="optional" /></div>
-        <div><FieldLabel>Effective date</FieldLabel><TextInput type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} /></div>
+        <div><FieldLabel>Effective date</FieldLabel><DateField value={effectiveDate} onChange={setEffectiveDate} placeholder="Optional" label="Effective date" /></div>
         <div><FieldLabel>Country</FieldLabel><TextInput value={country} onChange={(e) => setCountry(e.target.value)} placeholder="optional" /></div>
         <div><FieldLabel>ICAO</FieldLabel><TextInput mono value={icao} onChange={(e) => setIcao(e.target.value.toUpperCase())} placeholder="optional" maxLength={4} /></div>
       </div>

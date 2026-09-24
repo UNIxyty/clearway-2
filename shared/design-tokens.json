@@ -27,19 +27,149 @@
     "grey": "#9aa0a8",
     "greyTint": "#eef1f5",
     "hoverSurface": "#eceef0",
-    "scrim": "rgba(23,24,28,.42)"
+    "scrim": "rgba(23,24,28,.42)",
+    "textDisabled": "#b9bdc5",
+    "borderControl": "#d6d8dc",
+    "dividerRow": "#f2f3f5",
+    "navActive": "#e9ebee",
+    "hover": "#f0f1f3",
+    "bubbleUser": "#eef0f3",
+    "disabledFill": "#c9cdd3",
+    "primaryTint3": "#f2f7ff",
+    "primaryLine": "#dbe6ff",
+    "primaryBorder": "#b9d0ff",
+    "primaryOnTint": "#3a5170",
+    "sendEmpty": "#b9c8ea",
+    "primaryFocus": "rgba(37,99,235,.10)",
+    "primaryHalo": "rgba(37,99,235,.08)",
+    "amberBorder": "#f6ddb0",
+    "amberStrong": "#92400e",
+    "amberStrongTint": "#fef7e6",
+    "redTintSoft": "#fdecec",
+    "redBorder": "#f7cfd0",
+    "dangerDisabled": "#f2a3a5",
+    "greenBorder": "#c7ead2",
+    "slate": "#475569",
+    "sky": "#0369a1",
+    "skyTint": "#e0f2fe",
+    "stop": "#c2703b",
+    "stopTint": "#fdf1e8",
+    "stopBorder": "#f4d4b8",
+    "stopSquare": "#e0894f"
   },
-  "radius": { "card": 13, "control": 9, "chip": 999, "menu": 11 },
-  "spacing": { "pagePadX": 32, "pagePadY": 24, "cardPad": 18 },
+  "radius": {
+    "card": 13,
+    "control": 9,
+    "chip": 999,
+    "menu": 11,
+    "xs": 4,
+    "sm": 6,
+    "md": 8,
+    "lg": 10,
+    "cardLg": 14,
+    "composer": 16,
+    "overlay": 22
+  },
+  "spacing": {
+    "pagePadX": 32,
+    "pagePadY": 24,
+    "cardPad": 18
+  },
   "font": {
     "sans": "'Public Sans', system-ui, sans-serif",
     "mono": "'IBM Plex Mono', monospace"
   },
-  "sidebar": { "width": 248, "railWidth": 68 },
+  "sidebar": {
+    "width": 248,
+    "railWidth": 68
+  },
   "stateChip": {
-    "operational": { "fg": "#15803d", "bg": "#e7f6ec", "dot": "#16a34a" },
-    "degraded": { "fg": "#b45309", "bg": "#fef3e2", "dot": "#f59e0b" },
-    "down": { "fg": "#b91c1c", "bg": "#fee2e2", "dot": "#e5484d" },
-    "unknown": { "fg": "#475569", "bg": "#eef1f5", "dot": "#9aa0a8" }
+    "operational": {
+      "fg": "#15803d",
+      "bg": "#e7f6ec",
+      "dot": "#16a34a"
+    },
+    "degraded": {
+      "fg": "#b45309",
+      "bg": "#fef3e2",
+      "dot": "#f59e0b"
+    },
+    "down": {
+      "fg": "#b91c1c",
+      "bg": "#fee2e2",
+      "dot": "#e5484d"
+    },
+    "unknown": {
+      "fg": "#475569",
+      "bg": "#eef1f5",
+      "dot": "#9aa0a8"
+    }
+  },
+  "tier": {
+    "internal": {
+      "fg": "#1d4ed8",
+      "bg": "#dbeafe",
+      "underline": "#93b4f5",
+      "strip": "#2563eb"
+    },
+    "company": {
+      "fg": "#6d28d9",
+      "bg": "#ede9fe",
+      "underline": "#c4b5fd",
+      "strip": "#7c3aed"
+    },
+    "web": {
+      "fg": "#b45309",
+      "bg": "#fef3e2",
+      "underline": "#f3c77e",
+      "claimBg": "#fffaf0",
+      "strip": "#d97706"
+    }
+  },
+  "voice": {
+    "uncertainUnderline": "#d97706",
+    "uncertainBg": "#fef7e6"
+  },
+  "wall": {
+    "bg": "#0f1420",
+    "row": "#161d2c",
+    "voicebarBg": "rgba(23,27,38,.96)",
+    "voicebarBorder": "#3a4560",
+    "accent": "#6ea0ff",
+    "text": "#e8ecf4",
+    "textMuted": "#8c97ad",
+    "uncertain": "#f5c77a",
+    "emailFooter": "#0a1330"
+  },
+  "shadow": {
+    "frame": "0 1px 2px rgba(16,18,22,.04), 0 24px 60px rgba(16,18,22,.08)",
+    "composer": "0 1px 2px rgba(16,18,22,.04), 0 8px 24px rgba(16,18,22,.05)",
+    "menu": "0 12px 34px rgba(16,18,22,.12)",
+    "menuPanel": "0 12px 30px rgba(16,18,22,.14)",
+    "voicebar": "0 8px 24px rgba(16,18,22,.12)",
+    "voicebarPage": "0 10px 30px rgba(16,18,22,.16)",
+    "overlay": "0 24px 70px rgba(16,18,22,.3)",
+    "modal": "0 24px 60px rgba(16,18,22,.35)",
+    "modalLight": "0 16px 40px rgba(16,18,22,.2)",
+    "panelOverlay": "-18px 0 40px rgba(16,18,22,.10)",
+    "panelMinimised": "-4px 4px 14px rgba(16,18,22,.1)",
+    "focus": "0 0 0 3px rgba(37,99,235,.1)",
+    "pending": "0 0 0 4px rgba(37,99,235,.08)"
+  },
+  "motion": {
+    "easeOut": "cubic-bezier(0.2, 0, 0, 1)",
+    "easeIn": "cubic-bezier(0.4, 0, 1, 1)",
+    "easeInOut": "ease-in-out",
+    "fast": 120,
+    "base": 200,
+    "hover": 120
+  },
+  "agentPanel": {
+    "width": 420,
+    "minWidth": 360,
+    "maxWidth": 600,
+    "headerHeight": 60,
+    "pushMinContent": 900,
+    "overlayBelow": 1280
   }
 }

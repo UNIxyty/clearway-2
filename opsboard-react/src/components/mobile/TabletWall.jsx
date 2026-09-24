@@ -35,6 +35,7 @@ export default function TabletWall({
   conn,
   nowMs,
   mvtThresholdMin = 15,
+  showUnconfirmedRing = true,
   mvtFlashSeconds = 1,
   onOpenFlight,
   onRetry,

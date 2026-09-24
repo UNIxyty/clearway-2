@@ -28,6 +28,7 @@ export default function PhoneWall({
   nowMs,
   notamState,
   mvtThresholdMin = 15,
+  showUnconfirmedRing = true,
   mvtFlashSeconds = 1,
   loadedOnce = false,
   onOpenFlight,

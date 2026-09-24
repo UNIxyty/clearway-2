@@ -112,6 +112,7 @@ function LandscapePhoneWall({
   conn,
   nowMs,
   mvtThresholdMin,
+  showUnconfirmedRing = true,
   mvtFlashSeconds,
   onOpenFlight,
   onRetry,

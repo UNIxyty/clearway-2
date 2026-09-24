@@ -52,6 +52,13 @@ defineTool({
   sourceTier: "internal",
   sourceLabel: (input) => `Internal · limitation deleted · ${input.id}`,
   timeoutMs: 30_000,
+  // By voice this is read back before it runs. The readback names the record
+  // rather than the id, because "LIM-MUFQ632C" spoken aloud confirms nothing.
+  destructive: true,
+  readback: async (input, { user }) => {
+    const found = await wallGet(`/api/timeline/limitations/${encodeURIComponent(input.id)}`, user, { timeoutMs: 10_000 }).catch(() => null);
+    return found?.limitation?.title ?? null;
+  },
   input: {
     type: "object",
     required: ["id"],
@@ -194,6 +201,11 @@ defineTool({
   sourceTier: "internal",
   sourceLabel: (input) => `Internal · purge requested · ${input.id}`,
   timeoutMs: 30_000,
+  destructive: true,
+  readback: async (input, { user }) => {
+    const bin = await wallGet("/api/timeline/limitations?deleted=true", user, { timeoutMs: 10_000 }).catch(() => null);
+    return (bin?.limitations ?? []).find((r) => r?.id === input.id)?.title ?? null;
+  },
   input: {
     type: "object",
     required: ["id"],

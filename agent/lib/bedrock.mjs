@@ -158,7 +158,7 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
  *    and returns the standard error vocabulary. The model never gets to run
  *    anything the framework has not approved.
  */
-export async function* streamConversationWithTools({ tier = "standard", system, messages, user, conversationId }) {
+export async function* streamConversationWithTools({ tier = "standard", system, messages, user, conversationId, inputMode = "text" }) {
   const { requested, effective, config } = resolveTier(tier);
   const candidates = modelCandidates(tier);
   if (candidates.length === 0) throw ModelUnavailable(`No model is configured for tier "${effective}".`);
@@ -257,7 +257,7 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
     // Tool calls in one round are independent, so they run together.
     const results = await Promise.all(
       requestedTools.map(async (call) => {
-        const result = await executeTool({ name: call.name, input: call.input, user, conversationId });
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode });
         return { call, result };
       })
     );

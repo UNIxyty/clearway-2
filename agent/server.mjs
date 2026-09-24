@@ -30,6 +30,7 @@ import { readGeneratedFile } from "./lib/files/store.mjs";
 import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
+import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
@@ -140,6 +141,7 @@ const server = http.createServer(async (req, res) => {
         input: body.input ?? {},
         user,
         conversationId: String(body.conversationId || "direct-invoke"),
+        inputMode: body.inputMode === "voice" ? "voice" : "text",
       });
       return sendJson(res, result, result.ok === false ? 200 : 200);
     }
@@ -468,7 +470,13 @@ async function handleChat(req, res, user) {
   const contextLine = body.context?.label
     ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
     : null;
-  const system = [systemPrompt(), currentTimeLine(), body.system ? String(body.system) : null, contextLine, memory.text]
+  // Voice is a different risk profile, not a different agent. It is carried as
+  // an explicit field rather than sniffed, because every rule that keys on it
+  // must key on the same fact the caller asserted.
+  const inputMode = body.inputMode === "voice" ? "voice" : "text";
+  const voiceLanguage = inputMode === "voice" ? normaliseLanguage(body.voice?.language) : null;
+
+  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -482,6 +490,7 @@ async function handleChat(req, res, user) {
       messages: [...history, { role: "user", content: question }],
       user,
       conversationId,
+      inputMode,
     })) {
       if (chunk.type === "delta") {
         answer += chunk.text;

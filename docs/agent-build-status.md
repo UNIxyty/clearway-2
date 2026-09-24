@@ -1124,7 +1124,94 @@ shipping quietly.
 3. **Recycle-bin retention** is currently the newest 200 deleted limitations,
    with no time limit. Say if ops wants a shorter window.
 
-## Parts 9–10
+## Part 9 — Voice
+
+**Status: Groundwork on `main`. NOT built, NOT deployed — blocked on two things
+only you can provide.** See "What is blocked" below.
+
+### Blocked, and why I did not build around it
+1. **No `ELEVENLABS_API_KEY`.** Nothing can call Scribe or TTS.
+2. **No recorded dispatcher audio.** The brief makes this a gate: *"If keyterm
+   prompting doesn't meaningfully improve ICAO recognition on real audio, say so
+   before building on it."* Keyterm prompting is the stated reason for choosing
+   Scribe, so the whole STT design rests on a number nobody has measured yet.
+
+   I did **not** synthesise the audio to produce a number. TTS speech is clean,
+   native-accented and quiet; the question is whether keyterms rescue ICAO codes
+   from *accented, second-language, noisy ops-room* audio. A benchmark on
+   synthetic speech would answer a different question and would read as though
+   the gate had been cleared.
+
+### Built, because it does not depend on either
+- **`scripts/agent-voice-benchmark.mjs`** — runs every recording through Scribe
+  twice, cold and keyterm-primed, and reports the difference. The headline is
+  **critical-token recall**: of the ICAO codes, registrations and aviation codes
+  actually spoken, how many came back intact. Scored separately from word error
+  rate on purpose — a sentence can be 95% correct and still send a dispatcher to
+  the wrong airport, and WER averages exactly that away. It prints a verdict and
+  refuses to run without a key or recordings.
+- **`docs/voice-benchmark/queries.json`** — 20 queries to record: 7 English,
+  6 Russian, 7 code-switched (Russian grammar, English aviation vocabulary),
+  38 critical tokens. Swap the ICAO codes and registrations for ones this
+  operation actually flies before recording.
+- **`agent/lib/voice/keyterms.mjs`** — the keyterm corpus: registrations and
+  operator prefixes from the wall's fleet, ICAO codes from the airports table,
+  plus a fixed aviation vocabulary. Scoped to the caller's own session, so the
+  list cannot become a way to learn which registrations exist beyond their
+  access. Deliberately narrow: airport *names* and ordinary English are excluded,
+  because a bloated list dilutes the terms that matter.
+- **`agent/lib/voice/language.mjs`** — the reply-language rules, carried as an
+  explicit field from the STT result and never inferred. "Проверь NOTAM по EVRA"
+  is four English tokens in a Russian sentence; a model asked to detect language
+  from that text will sometimes answer a Russian speaker in English. Three rules,
+  and the last two matter more than the first: codes and aviation vocabulary stay
+  in Latin script (a transliterated ICAO code cannot be typed into any system the
+  dispatcher uses), and **the verbatim tier is never translated** — a translated
+  restriction is a paraphrase wearing the authority of a quotation.
+- **The voice exception to the no-confirmation rule**, enforced in the tool
+  framework and tested end to end.
+
+### Voice-initiated destructive actions — and the answer to your question
+The brief asks whether spoken confirmation is acceptable in a noisy ops room, or
+whether those always need an on-screen confirm.
+
+**Answer: readback-and-confirm is enough for reversible destructive actions;
+irreversible ones require the screen.** The reasoning is the failure mode, not
+the medium. What makes voice risky is that the agent may act on a sentence
+nobody said — a misheard ICAO code or record name. A readback closes exactly
+that gap, because the dispatcher hears the record *named back to them* before
+anything happens, and a wrong record is obvious at that moment. What a readback
+does not close is the room: a second voice, a radio, or a colleague's "yeah"
+picked up as agreement. For a reversible action that residual risk is bounded —
+the change is soft, attributed, in the changelog and undoable in seconds. For an
+irreversible one it is not bounded at all, so purging keeps its own on-screen
+confirmation and a voice token cannot substitute for it.
+
+Enforced in `executeTool`, keyed on `inputMode` from the request rather than
+anything the model says, so it cannot be prompted away. A destructive tool
+called by voice returns a readback instruction naming **the record's title, not
+its id** — "LIM-MUFQ632C" spoken aloud confirms nothing. Verified: voice delete
+reads back and does not execute; a forged token is refused; the real token
+executes; typed input is unchanged; a voice *read* needs no readback.
+
+### Still to build, once unblocked
+Live Scribe streaming and TTS; the compact voice bar and Siri-style overlay with
+their six states; the keybind; "show it or say it" for answers that cannot be
+spoken (tables, documents, raw METAR); microphone permission and unavailable
+states.
+
+**I do not have the voice designs.** Part 4's panel came from a Claude Design
+import; nothing equivalent exists here, and I am not going to invent a visual
+language for a surface you have already designed.
+
+### Decisions needed from you
+1. **`ELEVENLABS_API_KEY`** in `.env` on the server and locally.
+2. **Record the 20 queries** — real dispatchers, in the room they work in.
+   Then I run the benchmark and report the number before building on keyterms.
+3. **The voice designs** — share them the way the console designs came through,
+   or tell me to design the bar and overlay from the existing console kit.
+
+## Part 10
 Not started.
 
 ## Deferred items (all parts)

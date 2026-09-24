@@ -1,0 +1,28 @@
+{
+  "note": "Twenty queries for the Scribe keyterm benchmark (PROMPT 9). Record each one as WAV or MP3 named <id>.wav in this directory. Record REAL dispatchers in the ROOM THEY WORK IN, not a quiet office and not synthesised speech: the whole question is whether keyterm prompting rescues ICAO codes from accented, second-language, noisy audio, and clean studio audio cannot answer it. Swap the ICAO codes, registrations and operator prefixes below for ones this operation actually flies before recording — a benchmark on airports nobody uses measures nothing.",
+  "criticalTokenKinds": "ICAO codes, aircraft registrations and callsigns. These are scored separately from the rest of the sentence because they are the tokens where a mistake produces a confident wrong answer rather than a visible failure.",
+  "queries": [
+    { "id": "en-01", "lang": "en", "text": "What's the METAR for EVRA right now?", "critical": ["EVRA", "METAR"] },
+    { "id": "en-02", "lang": "en", "text": "Any NOTAMs affecting the runway at EYVI today?", "critical": ["EYVI", "NOTAM"] },
+    { "id": "en-03", "lang": "en", "text": "Show me the limitations for EETN and ULLI.", "critical": ["EETN", "ULLI"] },
+    { "id": "en-04", "lang": "en", "text": "Does YL-ABC have a PPR requirement at EPWA?", "critical": ["YL-ABC", "PPR", "EPWA"] },
+    { "id": "en-05", "lang": "en", "text": "What's the CTOT for the EDDF departure?", "critical": ["CTOT", "EDDF"] },
+    { "id": "en-06", "lang": "en", "text": "Is LVP in force at EGLL?", "critical": ["LVP", "EGLL"] },
+    { "id": "en-07", "lang": "en", "text": "Give me the TAF for LFPG and EHAM.", "critical": ["TAF", "LFPG", "EHAM"] },
+
+    { "id": "ru-01", "lang": "ru", "text": "Какая погода в EVRA сейчас?", "critical": ["EVRA"] },
+    { "id": "ru-02", "lang": "ru", "text": "Есть ли ограничения по EETN на сегодня?", "critical": ["EETN"] },
+    { "id": "ru-03", "lang": "ru", "text": "Покажи рейсы на завтра.", "critical": [] },
+    { "id": "ru-04", "lang": "ru", "text": "Что с полосой в ULLI?", "critical": ["ULLI"] },
+    { "id": "ru-05", "lang": "ru", "text": "Когда вылет борта YL-ABC?", "critical": ["YL-ABC"] },
+    { "id": "ru-06", "lang": "ru", "text": "Нужно ли разрешение на посадку в EPWA?", "critical": ["EPWA"] },
+
+    { "id": "cs-01", "lang": "ru", "text": "Проверь NOTAM по EVRA на сегодня.", "critical": ["NOTAM", "EVRA"] },
+    { "id": "cs-02", "lang": "ru", "text": "Какой METAR в EYVI?", "critical": ["METAR", "EYVI"] },
+    { "id": "cs-03", "lang": "ru", "text": "У нас есть CTOT на рейс в EDDF?", "critical": ["CTOT", "EDDF"] },
+    { "id": "cs-04", "lang": "ru", "text": "Борт YL-ABC, нужен PPR в EPWA?", "critical": ["YL-ABC", "PPR", "EPWA"] },
+    { "id": "cs-05", "lang": "ru", "text": "Посмотри SNOWTAM по EETN и ULLI.", "critical": ["SNOWTAM", "EETN", "ULLI"] },
+    { "id": "cs-06", "lang": "ru", "text": "Какой RVR сейчас в EVRA, и есть ли LVP?", "critical": ["RVR", "EVRA", "LVP"] },
+    { "id": "cs-07", "lang": "ru", "text": "Добавь limitation: TWY B закрыт в EVRA до 1800 Zulu.", "critical": ["TWY", "EVRA"] }
+  ]
+}

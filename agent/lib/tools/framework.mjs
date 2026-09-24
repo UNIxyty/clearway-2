@@ -14,6 +14,7 @@
 import { validate, SchemaError } from "./schema.mjs";
 import { ToolError, InvalidInput, Timeout } from "./errors.mjs";
 import { audit } from "../store.mjs";
+import { requireConfirmation, consumeConfirmation } from "../confirm.mjs";
 
 /** Permission levels, least to most privileged. */
 export const PERMISSIONS = ["user", "admin", "developer"];
@@ -55,6 +56,18 @@ export function defineTool(spec) {
     ...spec,
   };
   if (!SOURCE_TIERS[tool.sourceTier]) throw new Error(`Tool "${tool.name}" has unknown sourceTier ${tool.sourceTier}`);
+  // A destructive tool always accepts a voice readback token, injected here so
+  // no tool author can forget it and so the key is spelled the same everywhere.
+  // Typed input ignores it entirely.
+  if (tool.destructive) {
+    tool.input.properties = {
+      ...tool.input.properties,
+      voiceConfirmationToken: {
+        type: "string", maxLength: 64,
+        description: "Only ever a token returned by a previous refused call. Never invent one.",
+      },
+    };
+  }
   registry.set(tool.name, tool);
   return tool;
 }
@@ -111,7 +124,7 @@ function byteSize(value) {
  * model can read, and an audit row. The returned shape is the tool's declared
  * output on success, or { ok: false, error: <CODE>, message } on failure.
  */
-export async function executeTool({ name, input, user, conversationId }) {
+export async function executeTool({ name, input, user, conversationId, inputMode = "text" }) {
   const startedAt = Date.now();
   const tool = getTool(name);
 
@@ -156,6 +169,42 @@ export async function executeTool({ name, input, user, conversationId }) {
     const result = { ok: false, error: "INVALID_INPUT", message };
     await record(result, false, `INVALID_INPUT: ${message}`);
     return result;
+  }
+
+  // ── Voice is the exception to the no-confirmation rule ──────────────────
+  //
+  // Parts 7 and 8 drop confirmation for authorized reversible actions, and that
+  // is right for typed input: the dispatcher has SEEN exactly what they asked
+  // for. Voice has not got that. A noisy ops room, second-language speakers and
+  // an STT model that can mishear one ICAO code for another mean the agent may
+  // be about to act on a sentence nobody actually said. So a destructive action
+  // arriving by voice is read back first and executed on the second call.
+  //
+  // Enforced HERE rather than in each tool, and keyed on inputMode from the
+  // request rather than anything the model says, so it cannot be prompted away.
+  if (inputMode === "voice" && tool.destructive) {
+    const token = validInput.voiceConfirmationToken;
+    if (!consumeConfirmation({ user, toolName: `voice:${name}`, targetId: validInput.id ?? null, token })) {
+      const what = tool.readback ? await tool.readback(validInput, { user }).catch(() => null) : null;
+      const issued = requireConfirmation({
+        user, toolName: `voice:${name}`, targetId: validInput.id ?? null,
+        targetLabel: what,
+        why: "This was asked by voice, and a misheard word here changes which record is affected.",
+      });
+      const result = {
+        ok: true,
+        executed: false,
+        readbackRequired: true,
+        voiceConfirmationToken: issued.confirmationToken,
+        what,
+        message:
+          `NOT DONE YET. Read back exactly what will happen — ${what ? `"${what}"` : `${name} on ${validInput.id ?? "this record"}`} ` +
+          "— and ask the dispatcher to confirm out loud. Only if they confirm, call this tool again with the same " +
+          "arguments plus voiceConfirmationToken. If you are not certain you heard the record correctly, say so and ask again.",
+      };
+      await record(result, true, null);
+      return result;
+    }
   }
 
   let output;

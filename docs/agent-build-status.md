@@ -1026,7 +1026,105 @@ exactly what someone needs to find later.
    The Phase 1 demo is still outstanding and this part now lets the agent change
    what they see on the wall.
 
-## Parts 8–10
+## Part 8 — Write tools (sensitive)
+
+**Status: Built, on `main`, NOT deployed.** No new SQL. Verifier **30/30**
+(`scripts/agent-verify-part8.mjs`); Part 7 re-run 19/19 and Part 4 18/18 after
+the shared-store changes.
+
+### Deletion is soft, everywhere
+`deleteCustomLimitation` moves the record to a recycle bin rather than
+destroying it, so a restore puts back **the record itself — same id, same
+fields** — instead of a reconstruction from a snapshot. Anything still
+referencing that id still points at the right thing; a re-creation would look
+identical on the wall and be a different record.
+
+The bin is a **separate array**, not a `deleted` flag. `customLimitations` is
+read directly in several flight-matching paths, and a flag would have to be
+honoured in every one of them — the one that got missed would put a deleted
+restriction back on the wall. Moving the record cannot be forgotten.
+
+**Permanent limitations are refused in the store**, not in the tool, so the rule
+holds for the console, the agent, and whoever adds the next caller. The verifier
+checks both paths: the agent is refused, and so is a direct API call.
+
+### How long a wrong deletion is visibly wrong for
+Measured against the local rig, 10 samples, alternating delete and restore:
+
+| | |
+|---|---|
+| Broadcast reaches a connected wall | **median 5.4 ms, worst 6.8 ms** |
+| Wall then refetches and repaints | one local API call |
+| **Connected wall, end to end** | **well under a second** |
+| **Wall whose SSE has dropped** | **up to 60 s** (`POLL_MS` in `DisplayApp.jsx`) |
+
+Restore broadcasts on the same channel as delete, so a record comes back in the
+same time it took to disappear. The 60-second figure is the honest worst case
+and is a property of the wall's existing polling fallback, not of this part.
+
+### Confirmation, and why almost nothing gets one
+Reversible work executes directly. The brief's reasoning is the right one: a
+confirmation habit trains people to click through the confirmations that matter.
+
+The one irreversible path — purging the bin — asks first, and **the token is
+issued by this backend, never by the model**. A tool that asked the model to set
+`confirmed: true` once the user agrees would be a permission the model grants
+itself, and a model that misreads a reply would grant it wrongly. So the first
+call executes nothing and returns a token; the destructive path runs only on a
+second call carrying a token this process issued, for this user, this tool and
+this exact target, within ten minutes. The model can relay a token; it cannot
+invent one. The verifier proves the negative: a fabricated token is refused and
+the record survives.
+
+Two details that only showed up under test:
+- An **outstanding token is reused, not replaced.** Minting a fresh one on every
+  ask meant a single bad attempt silently invalidated the token the user was
+  about to confirm with, and their "yes" then failed for no visible reason. The
+  expiry is not extended, so repeating the question cannot hold the window open.
+- A token is **single use and target-scoped**, so one agreement cannot authorise
+  a second destruction.
+
+### Surfacing changes where the team looks
+Every agent write now appears in the **existing dashboard changelog**, marked
+agent-made and attributed to the person who asked, with deletions, restores,
+purges and undos each worded distinctly. Irreversible and failed actions render
+as errors rather than edits.
+
+This is the part that makes undo worth having. The person who asked sees the
+change in their conversation; **the rest of ops does not**, and a wrong change
+nobody notices is one nobody undoes.
+
+One trap worth recording: the changelog filters out pending confirmations with
+`error.is.null,error.neq.awaiting_confirmation`. A bare `.neq()` would have
+hidden **every successful action**, because SQL's `error <> 'x'` is NULL, not
+true, when `error` is null.
+
+### Recommendation on a digest — yes, but event-driven
+A scheduled daily digest is the wrong shape here. With today's volume most days
+would say "no agent changes", and a message that is usually empty trains people
+to ignore it — the same habituation this brief rejects for confirmation dialogs.
+
+**Recommended instead:** send on the existing NOTAM-check cadence, and only when
+there is something to say — an irreversible action, a failed write, or a change
+still un-undone after some hours. A digest that only arrives when something
+happened cannot be tuned out. **Not built** — it needs your call on the channel
+and the threshold.
+
+### Out of scope, and verified as such
+No tool writes **flight operational status** — that writes to Leon and affects
+real operations. No send-to-crew and no safety acknowledgement. The verifier
+asserts all three by name, so adding one later trips a test rather than
+shipping quietly.
+
+### Decisions needed from you
+1. **Deploy `agent-service`, `digital-wall-backend` and `portal`** — the store,
+   the tools and the changelog are three services and all three changed.
+2. **The digest**: event-driven on the NOTAM-check cadence, or leave the
+   changelog as the only surface for now?
+3. **Recycle-bin retention** is currently the newest 200 deleted limitations,
+   with no time limit. Say if ops wants a shorter window.
+
+## Parts 9–10
 Not started.
 
 ## Deferred items (all parts)

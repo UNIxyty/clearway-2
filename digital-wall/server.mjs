@@ -1593,6 +1593,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/timeline/limitations" && req.method === "GET") {
+      // ?deleted=true lists the recycle bin instead of the wall. A query
+      // param rather than a /deleted path segment, which the GET-by-id route
+      // below would match first and 404 on.
+      if (url.searchParams.get("deleted") === "true") {
+        sendJson(res, { ok: true, limitations: timelineService.listDeletedLimitations() });
+        return;
+      }
       const includeInactive = url.searchParams.get("includeInactive") === "true";
       const withMatches = url.searchParams.get("withMatches") === "true";
       const limitations = timelineService.listCustomLimitations({ includeInactive });
@@ -1923,6 +1930,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (/^\/api\/timeline\/limitations\/[^/]+\/restore$/.test(pathname) && req.method === "POST") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const limitation = await timelineService.restoreCustomLimitation(id, { actor: actorName });
+        // Same broadcast the delete sends, so the wall puts it back in the
+        // same seconds it took to disappear.
+        sseHub.broadcast({ type: "limitations.changed", action: "restore", id });
+        sendJson(res, { ok: true, limitation });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+      }
+      return;
+    }
+
+    if (/^\/api\/timeline\/limitations\/[^/]+\/purge$/.test(pathname) && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const purged = await timelineService.purgeDeletedLimitation(id);
+        sendJson(res, { ok: true, id, limitation: purged });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+      }
+      return;
+    }
+
     if (pathname.startsWith("/api/timeline/limitations/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -1963,8 +1995,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname.startsWith("/api/timeline/limitations/") && req.method === "DELETE") {
       const id = decodeURIComponent(pathname.split("/").pop());
+      let deleted = null;
       try {
-        await timelineService.deleteCustomLimitation(id);
+        deleted = await timelineService.deleteCustomLimitation(id, { actor: actorName });
       } catch (error) {
         // Permanent-guard refusals and unknown ids are client errors with a
         // readable message, not 500s.
@@ -1973,7 +2006,9 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       sseHub.broadcast({ type: "limitations.changed", action: "delete", id });
-      sendJson(res, { ok: true, id });
+      // The complete record goes back to the caller: it is the before-state a
+      // restore is built from, and the caller must not have to reconstruct it.
+      sendJson(res, { ok: true, id, limitation: deleted });
       return;
     }
 

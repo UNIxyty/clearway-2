@@ -149,7 +149,20 @@ defineTool({
 
 /** Put the recorded before-state back. */
 async function restore(action, user) {
-  const { target_kind: kind, target_id: id, before_state: before } = action;
+  const { target_kind: kind, target_id: id, before_state: before, after_state: after } = action;
+
+  // A deletion is undone by restoring the soft-deleted record, never by
+  // creating a new one from the snapshot: restore brings back the SAME id, so
+  // anything still pointing at that record points at the right thing. A
+  // re-creation would look identical on the wall and be a different record.
+  if (before !== null && after === null) {
+    if (kind === "limitation") {
+      return void (await wallGet(`/api/timeline/limitations/${encodeURIComponent(id)}/restore`, user, {
+        method: "POST", body: {}, timeoutMs: 25_000,
+      }));
+    }
+    throw InvalidInput(`No restore is implemented for a deleted ${kind}.`);
+  }
 
   // A creation is undone by removing the record.
   if (before === null) {

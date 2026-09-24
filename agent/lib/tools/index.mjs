@@ -13,6 +13,7 @@ import "./files-email.mjs";
 import "./memory.mjs";
 import "./web.mjs";
 import "./write.mjs";
+import "./destructive.mjs";
 import "./undo.mjs";
 
 export { allTools, executeTool, getTool, toolSpecsFor, toolNamesFor, roleSatisfies, PERMISSIONS } from "./framework.mjs";

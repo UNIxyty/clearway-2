@@ -146,7 +146,16 @@ defineTool({
     const existing = await wallGet(`/api/timeline/limitations/${encodeURIComponent(input.id)}`, user, { timeoutMs: 20_000 })
       .catch(() => null);
     const before = existing?.limitation;
-    if (!before) throw NotFound(`No limitation ${input.id} on the wall.`);
+    // Say WHICH id is wrong and how to get the right one. The failure this
+    // guards against is a model holding an action id (a uuid) and passing it
+    // where a limitation id belongs; "not found" alone sends it round again.
+    if (!before) {
+      throw NotFound(
+        `No limitation ${input.id} on the wall. Limitation ids look like LIM-XXXXXXXX — if you are holding an ` +
+        `action id (a uuid from list_recent_actions), that is a different thing. Call list_limitations to find ` +
+        `the record, or list_deleted_limitations if it may have been deleted.`,
+      );
+    }
 
     const patch = { ...(input.title !== undefined ? { title: input.title } : {}) };
     if (input.description !== undefined) patch.description = input.description;

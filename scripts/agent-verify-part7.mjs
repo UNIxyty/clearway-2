@@ -126,11 +126,14 @@ async function main() {
   const forged = await invoke("undo_action", { actionId: "00000000-0000-4000-8000-00000000dead" });
   check("an action id that is not yours cannot be undone", forged.ok === false && forged.error === "NOT_FOUND");
 
-  // ── No destructive capability is reachable ──────────────────────────────
+  // ── Still out of reach ──────────────────────────────────────────────────
+  // Deletion arrived in Part 8 and is REVERSIBLE (soft delete + restore), so
+  // it is no longer asserted against here. Sending to a crew and acknowledging
+  // a safety check remain unreachable: neither can be taken back.
   const tools = await (await fetch(`${BASE}/api/tools`)).json();
   const names = (tools.tools ?? []).map((t) => t.name);
-  check("no delete/send/acknowledge tool is offered",
-    !names.some((n) => /^delete_|_delete$|acknowledge|^send_notam|dispatch/.test(n)),
+  check("no send-to-crew or safety-acknowledgement tool is offered",
+    !names.some((n) => /acknowledge|^send_notam|dispatch|crew/.test(n)),
     `${names.length} tools offered`);
 
   await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });

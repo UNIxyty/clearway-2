@@ -128,6 +128,63 @@ export async function GET(request: NextRequest) {
         })()
       );
 
+      // 0b. Agent WRITES — every record the agent created, changed, deleted,
+      // restored or purged, marked as agent-made and attributed to the person
+      // who asked for it.
+      //
+      // This is the part that makes undo worth having. The person who asked
+      // sees the change in their conversation; the rest of ops does not, and a
+      // wrong change nobody notices is one nobody undoes. Surfacing it here
+      // puts it where the team already looks. Chat traffic stays excluded
+      // above — a question is not a change — but a write is exactly a change.
+      tasks.push(
+        (async () => {
+          const { data } = await service
+            .from("agent_actions")
+            // Columns must match docs/supabase-agent-actions.sql exactly: a
+            // select naming a column that does not exist fails the whole
+            // query, and this source is fail-safe, so it would vanish from the
+            // feed silently rather than complain.
+            .select("tool_name, target_kind, target_label, target_id, kind, success, reversible, undone_at, error, user_email, created_at")
+            // A confirmation that was asked for and never given is not a
+            // change; listing it as one would be a false alarm. Written as an
+            // explicit null branch because `error` is nullable and SQL's
+            // `error <> 'x'` is NULL, not true, for a null error — a bare neq
+            // here would have hidden every SUCCESSFUL action instead.
+            .or("error.is.null,error.neq.awaiting_confirmation")
+            .order("created_at", { ascending: false })
+            .limit(30);
+          for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+            const at = iso(row.created_at);
+            if (!at) continue;
+            const asker = row.user_email ? String(row.user_email) : null;
+            const label = row.target_label ? `"${String(row.target_label)}"` : String(row.target_id ?? "a record");
+            const noun = String(row.target_kind ?? "record").replace(/_/g, " ");
+            const tool = String(row.tool_name ?? "");
+
+            let verb = "changed";
+            if (String(row.kind) === "undo") verb = "undid a change to";
+            else if (tool.startsWith("create_")) verb = "added";
+            else if (tool.startsWith("delete_")) verb = "deleted";
+            else if (tool.startsWith("restore_")) verb = "restored";
+            else if (tool.startsWith("purge_")) verb = "PERMANENTLY destroyed";
+
+            const failed = row.success === false;
+            const undone = row.undone_at ? " (since undone)" : "";
+            const irreversible = row.reversible === false && !failed ? " — this one cannot be undone" : "";
+            entries.push({
+              kind: failed || row.reversible === false ? "error" : "edit",
+              source: "Agent — changes",
+              summary: failed
+                ? `Agent FAILED to ${verb} ${noun} ${label}${byActor(asker)}`
+                : `Agent ${verb} ${noun} ${label}${byActor(asker)}${undone}${irreversible}`,
+              actor: asker,
+              at,
+            });
+          }
+        })(),
+      );
+
       // 1. Airports hidden / restored.
       tasks.push(
         (async () => {

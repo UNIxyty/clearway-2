@@ -764,6 +764,12 @@ export class LeonTimelineService {
     this.limitations = [];
     this.rawLimitations = [];
     this.customLimitations = [];
+    // Soft-deleted limitations. Kept in a SEPARATE array rather than flagged
+    // in place, because customLimitations is read directly in several flight-
+    // matching paths; a flag would have to be honoured in every one of them
+    // and the one that got missed would put a deleted restriction back on the
+    // wall. Moving the record cannot be forgotten.
+    this.deletedLimitations = [];
     this.airportDirectoryByIcao = new Map();
     this.countryOptions = [];
     this.hasLiveLeonData = false;
@@ -966,6 +972,9 @@ export class LeonTimelineService {
       if (Array.isArray(payload.customLimitations)) {
         this.customLimitations = payload.customLimitations.map(migrateCustomLimitation);
       }
+      if (Array.isArray(payload.deletedLimitations)) {
+        this.deletedLimitations = payload.deletedLimitations.map(migrateCustomLimitation);
+      }
       console.log(
         `[leon-sync] cache version ${payload.version ?? 1} != ${FLIGHT_CACHE_VERSION} — discarding ${payload.flights.length} cached flight(s), forcing a full re-sync`
       );
@@ -1018,6 +1027,9 @@ export class LeonTimelineService {
     if (Array.isArray(payload.customLimitations)) {
       this.customLimitations = payload.customLimitations.map(migrateCustomLimitation);
     }
+    if (Array.isArray(payload.deletedLimitations)) {
+      this.deletedLimitations = payload.deletedLimitations.map(migrateCustomLimitation);
+    }
 
     if (droppedStatusless > 0) {
       console.log(`[leon-sync] cache load: dropped ${droppedStatusless} flight(s) without a trip status`);
@@ -1048,6 +1060,7 @@ export class LeonTimelineService {
       limitations: this.limitations,
       rawLimitations: this.rawLimitations,
       customLimitations: this.customLimitations,
+      deletedLimitations: this.deletedLimitations,
     };
     await fs.mkdir(path.dirname(this.cacheFilePath), { recursive: true });
     await fs.writeFile(this.cacheFilePath, JSON.stringify(payload), "utf-8");
@@ -2633,7 +2646,15 @@ export class LeonTimelineService {
     return this.customLimitations[index];
   }
 
-  async deleteCustomLimitation(id) {
+  /**
+   * Soft delete: the record leaves the wall but is not destroyed.
+   *
+   * The complete record is kept exactly as it was, so a restore puts back a
+   * known state rather than one reconstructed from a diff. Permanent
+   * limitations are refused here, in the store, so the rule holds for every
+   * caller — console, agent, or anything added later.
+   */
+  async deleteCustomLimitation(id, { actor = null } = {}) {
     const existing = this.customLimitations.find((item) => item.id === id);
     if (!existing) {
       throw new Error("Limitation not found.");
@@ -2642,6 +2663,53 @@ export class LeonTimelineService {
       throw new Error("This limitation is permanent and cannot be deleted — deactivate it instead.");
     }
     this.customLimitations = this.customLimitations.filter((item) => item.id !== id);
+    this.deletedLimitations = [
+      { ...existing, deletedAt: new Date().toISOString(), deletedBy: actor ?? null },
+      // Newest first, and bounded: the bin is a restore path, not an archive.
+      ...this.deletedLimitations.filter((item) => item.id !== id),
+    ].slice(0, 200);
     await this.persistLocalCache();
+    return existing;
+  }
+
+  /** Put a soft-deleted limitation back, exactly as it was. */
+  async restoreCustomLimitation(id, { actor = null } = {}) {
+    const deleted = this.deletedLimitations.find((item) => item.id === id);
+    if (!deleted) {
+      throw new Error("No deleted limitation with that id — it may have been restored already.");
+    }
+    if (this.customLimitations.some((item) => item.id === id)) {
+      throw new Error("That limitation is already on the wall.");
+    }
+    // deletedAt/deletedBy are bin bookkeeping, not part of the record.
+    const { deletedAt: _deletedAt, deletedBy: _deletedBy, ...restored } = deleted;
+    restored.updatedAt = new Date().toISOString();
+    restored.updatedBy = actor ?? restored.updatedBy ?? null;
+    this.customLimitations.push(restored);
+    this.deletedLimitations = this.deletedLimitations.filter((item) => item.id !== id);
+    await this.persistLocalCache();
+    return restored;
+  }
+
+  /**
+   * Destroy a soft-deleted limitation outright. Irreversible by definition —
+   * this is the operation the recycle bin exists to make rare. Only a record
+   * already in the bin can be purged, so nothing live can be destroyed in one
+   * step.
+   */
+  async purgeDeletedLimitation(id) {
+    const existing = this.deletedLimitations.find((item) => item.id === id);
+    if (!existing) {
+      throw new Error("Nothing deleted with that id — only a deleted limitation can be purged.");
+    }
+    this.deletedLimitations = this.deletedLimitations.filter((item) => item.id !== id);
+    await this.persistLocalCache();
+    return existing;
+  }
+
+  listDeletedLimitations() {
+    return this.deletedLimitations
+      .slice()
+      .sort((a, b) => String(b.deletedAt || "").localeCompare(String(a.deletedAt || "")));
   }
 }

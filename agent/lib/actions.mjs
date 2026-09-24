@@ -70,6 +70,9 @@ export async function recordAction({
   kind = "write", undoesActionId = null,
   reversible = true, irreversibleReason = null,
   success = true, error = null,
+  // pending | confirmed | rejected | not_required. Reversible work is
+  // not_required by design, so the exceptions are the ones worth seeing.
+  confirmationStatus = "not_required",
 }) {
   const row = {
     user_id: user.userId,
@@ -106,7 +109,7 @@ export async function recordAction({
     toolResult: { actionId, targetKind, targetId },
     // Reversible writes are executed directly — the brief is explicit that
     // authorized reversible actions do not get a confirmation screen.
-    confirmationStatus: "not_required",
+    confirmationStatus,
     success, error,
     detail: { targetLabel, reversible, undoesActionId },
   });

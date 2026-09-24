@@ -149,14 +149,24 @@ export async function searchKnowledge(query, { icao = null, country = null, limi
   };
 }
 
-/** Persist what supported an answer, so it can be reconstructed later. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Persist what supported an answer, so it can be reconstructed later.
+ *
+ * `conversation_id` is a uuid column, but a tool can be invoked outside any
+ * conversation (the direct-invoke path passes a label). A non-uuid is coerced
+ * to null rather than failing the insert — losing the conversation link is
+ * acceptable, losing the whole retrieval record is not.
+ */
 export async function logRetrieval({ conversationId, userId, query, result, grounding }) {
+  const conversationUuid = UUID.test(String(conversationId ?? "")) ? conversationId : null;
   try {
     await rest("agent_retrievals", {
       method: "POST",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify([{
-        conversation_id: conversationId ?? null,
+        conversation_id: conversationUuid,
         user_id: userId ?? null,
         query,
         tier: result.tier1.length > 0 ? (result.tier2.length > 0 ? "both" : "tier1") : "tier2",

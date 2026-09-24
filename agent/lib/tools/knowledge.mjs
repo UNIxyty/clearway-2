@@ -88,17 +88,39 @@ defineTool({
       throw ServiceUnavailable(`The knowledge base could not be searched: ${result.failures.join("; ")}`);
     }
 
+    // Two different questions, which the first version conflated:
+    //   "did retrieval find anything?"  (the floor, generous — context helps)
+    //   "is any of it good enough to answer from?"  (this bar, stricter)
+    //
+    // Measured on our own text: genuine matches score 0.35-0.65, while noise
+    // that still clears the floor — "parking fee at O'Hare" catching a
+    // ground-handling SOP on the word "parking brake" — sits at 0.267. A weak
+    // hit is worth showing the model as context; it is NOT worth letting the
+    // model treat as an answer, so `verified` reflects the best score rather
+    // than mere non-emptiness.
+    //
+    // Calibrated on a small sample. Re-tune from agent_retrievals once a real
+    // corpus exists; the scores are logged for exactly that.
+    const CONFIDENT = Number(process.env.AGENT_MIN_CONFIDENT_SIMILARITY || 0.32);
+    const best = Math.max(0, ...[...result.tier1, ...result.tier2].map((s) => s.score ?? 0));
+
     const found = result.tier1.length + result.tier2.length;
-    if (found === 0) {
+    if (found === 0 || best < CONFIDENT) {
       // An explicit "nothing found" so the model says so rather than filling
       // the gap from its own background knowledge.
       await logRetrieval({ conversationId, userId: user.userId, query, result, grounding: null });
       return {
         query,
+        // Weak hits are still returned, clearly marked unverified, rather than
+        // hidden: the model can say "the closest thing we hold is X, which does
+        // not answer this", which is more useful than a bare "nothing found".
         verbatim: [],
-        reference: [],
+        reference: found === 0 ? [] : result.tier2.slice(0, 2),
         verified: false,
-        note: "Nothing in the knowledge base matched this question. Say that it could not be verified — do not answer from general knowledge.",
+        note:
+          found === 0
+            ? "Nothing in the knowledge base matched this question. Say that it could not be verified — do not answer from general knowledge."
+            : `Nothing matched closely enough to rely on (best similarity ${best.toFixed(2)}, below ${CONFIDENT}). Say the information could not be verified. Do not answer from general knowledge, and do not present the passages below as if they answered the question.`,
         embeddingModel: result.embeddingModel,
         rerankMethod: result.rerankMethod,
       };

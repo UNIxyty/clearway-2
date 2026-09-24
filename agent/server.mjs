@@ -26,7 +26,7 @@ import {
   readDocumentFile, storeDocument,
 } from "./lib/knowledge/ingest.mjs";
 import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
-import { readGeneratedFile } from "./lib/files/store.mjs";
+import { readGeneratedFile, sweepGeneratedFiles } from "./lib/files/store.mjs";
 import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
@@ -618,6 +618,12 @@ async function handleChat(req, res, user) {
     res.end();
   }
 }
+
+// Retention runs at startup and then daily. Deliberately not on a request
+// path: a sweep that could slow a dispatcher's question is a sweep that gets
+// disabled.
+sweepGeneratedFiles().catch(() => {});
+setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 
 server.listen(PORT, () => {
   const models = loadModelConfig();

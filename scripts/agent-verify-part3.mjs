@@ -99,7 +99,29 @@ async function main() {
 
   // 4. Verbatim records only ever come from a tool that marked them so.
   const verbatim = done.verbatim ?? [];
-  check("verbatim records carry their source and id when present", verbatim.every((v) => v.source && v.tool), verbatim.length ? `${verbatim.length} records` : "none quoted this turn (acceptable)");
+  check("verbatim records carry their source and id when present", verbatim.every((v) => v.source && v.tool), verbatim.length ? `${verbatim.length} records` : "none quoted this turn");
+
+  // 4b. And they DO arrive. The previous check accepted "none quoted", which
+  // hid a bug for the whole build: the streaming loop never carried the tool
+  // result to the server, so the ink frame had never rendered in a live chat.
+  // This one is deterministic: a record is created, asked for by name, and
+  // must come back in the frame with its text byte-for-byte.
+  const WALL = (process.env.DIGITAL_WALL_INTERNAL_URL || "http://127.0.0.1:5199").replace(/\/+$/, "");
+  const wall = (path, init = {}) => fetch(`${WALL}${path}`, { headers: { "Content-Type": "application/json" }, ...init }).then((r) => r.json()).catch(() => null);
+  const STORED = "PART3-VERIFY verbatim: TWY B closed at EVRA. PPR required via Apron 3. Contact TWR before taxi.";
+  const made = await wall("/api/timeline/limitations", { method: "POST", body: JSON.stringify({ title: "PART3-VERIFY · quote me", description: STORED, match: { airportIcaos: ["EVRA"], countries: [], flights: [] } }) });
+  const limId = made?.limitation?.id ?? null;
+  if (limId) {
+    const quoted = await ask('Quote the limitation titled "PART3-VERIFY · quote me" exactly.', null, null);
+    const qDone = quoted.done?.[0] ?? {};
+    const frame = (qDone.verbatim ?? []).find((v) => v.id === limId);
+    check("a quoted limitation arrives as a verbatim frame, not only as prose", Boolean(frame), `${(qDone.verbatim ?? []).length} frame(s); tools: ${(qDone.toolActivity ?? []).map((t) => t.name).join(",")}`);
+    check("the frame carries the stored text byte-for-byte", frame?.text === STORED);
+    await wall(`/api/timeline/limitations/${limId}`, { method: "DELETE" });
+    await wall(`/api/timeline/limitations/${limId}/purge`, { method: "DELETE" });
+  } else {
+    check("a quoted limitation arrives as a verbatim frame, not only as prose", false, "could not create a record on the wall rig");
+  }
 
   // 5. Another user's conversation is not readable.
   const foreign = await sb("agent_conversations", {

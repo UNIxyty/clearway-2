@@ -197,6 +197,12 @@ services:
       # Published on loopback only; cloudflared routes /agent/* here, matching
       # how the wall gateway is reached on 8088.
       - "127.0.0.1:8089:5175"
+    volumes:
+      # Generated files AND uploaded knowledge originals. This was the one
+      # service without a volume, so every rebuild deleted both while the
+      # database rows kept pointing at them (audit 2026-09, S3). On the SSD
+      # cache like the other services, never the container's root filesystem.
+      - /mnt/ssd-cache/agent:/storage
 
   n8n:
     image: n8nio/n8n:latest

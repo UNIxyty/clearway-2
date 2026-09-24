@@ -52,7 +52,9 @@ async function main() {
   await sb("agent_settings?id=eq.global", { method: "PATCH", body: JSON.stringify({ enabled: true, reason: "part8 verify" }) });
   await sb(`agent_access?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
   await sb("agent_access", { method: "POST", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify([{ user_id: MOCK_USER_ID, user_email: "part8@clearway.local" }]) });
-  await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
+  // agent_actions rows are never deleted -- the table is guarded by a trigger
+  // (docs/supabase-agent-hardening.sql). The rig's rows are identifiable by
+  // the mock user id and harmless.
 
   // ── Deletion is reversible, and executes without a confirmation step ────
   const a = (await makeLimitation("PART8-VERIFY · deletion is reversible"))?.limitation;
@@ -174,7 +176,9 @@ async function main() {
     await wall(`/api/timeline/limitations/${id}`, { method: "DELETE" }).catch(() => {});
     await wall(`/api/timeline/limitations/${id}/purge`, { method: "DELETE" }).catch(() => {});
   }
-  await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
+  // agent_actions rows are never deleted -- the table is guarded by a trigger
+  // (docs/supabase-agent-hardening.sql). The rig's rows are identifiable by
+  // the mock user id and harmless.
   await sb(`agent_access?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
 
   const failed = results.filter((r) => !r.passed);

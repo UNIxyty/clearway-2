@@ -45,7 +45,9 @@ async function main() {
   await sb("agent_settings?id=eq.global", { method: "PATCH", body: JSON.stringify({ enabled: true, reason: "part7 verify" }) });
   await sb(`agent_access?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
   await sb("agent_access", { method: "POST", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify([{ user_id: MOCK_USER_ID, user_email: "part7@clearway.local" }]) });
-  await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
+  // agent_actions rows are never deleted -- the table is guarded by a trigger
+  // (docs/supabase-agent-hardening.sql). The rig's rows are identifiable by
+  // the mock user id and harmless.
 
   // ── Create, with no confirmation step ──────────────────────────────────
   const created = await invoke("create_limitation", {
@@ -136,7 +138,9 @@ async function main() {
     !names.some((n) => /acknowledge|^send_notam|dispatch|crew/.test(n)),
     `${names.length} tools offered`);
 
-  await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
+  // agent_actions rows are never deleted -- the table is guarded by a trigger
+  // (docs/supabase-agent-hardening.sql). The rig's rows are identifiable by
+  // the mock user id and harmless.
   await sb(`agent_access?user_id=eq.${MOCK_USER_ID}`, { method: "DELETE" });
 
   const failed = results.filter((r) => !r.passed);

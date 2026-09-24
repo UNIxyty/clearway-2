@@ -276,7 +276,14 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
     const toolResultBlocks = [];
     for (const { call, result } of results) {
       toolCalls.push({ name: call.name, ok: result.ok !== false, error: result.ok === false ? result.error : null });
-      yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null };
+      // The RESULT rides on this chunk. The server builds the verbatim frame,
+      // flight cards and the changed-on-the-wall block from tool results, and
+      // without it every one of those came back empty in live chat -- the
+      // audit found the ink frame had never rendered for a real turn. Sources
+      // survived only because sourceLabel tolerates a missing result. The
+      // server keeps the result to itself; the SSE event still carries only
+      // name/input/ok/error.
+      yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result };
       toolResultBlocks.push({
         toolResult: {
           toolUseId: call.toolUseId,

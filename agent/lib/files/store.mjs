@@ -1,6 +1,7 @@
 // Record and retrieve generated files.
 
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
+import path from "node:path";
 import { generatedPath } from "./generate.mjs";
 
 const REST_TIMEOUT_MS = 10_000;
@@ -52,4 +53,41 @@ export async function readGeneratedFile(id, user) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Retention. Generated files are briefings and exports, not records: the
+ * record of what was generated (who, when, from what) stays in
+ * agent_generated_files with the file's hash, and the bytes go after
+ * AGENT_FILE_RETENTION_DAYS (default 30). Without this they accumulated until
+ * a container rebuild wiped them all at once -- which is the worst of both:
+ * unbounded growth, then sudden loss with the rows still pointing at nothing.
+ *
+ * The row is kept and marked, never deleted, so a later "where is my briefing"
+ * gets "expired on <date>" rather than "never existed".
+ */
+export async function sweepGeneratedFiles({ now = Date.now() } = {}) {
+  const days = Number(process.env.AGENT_FILE_RETENTION_DAYS || 30);
+  if (!Number.isFinite(days) || days <= 0) return { swept: 0, skipped: "retention disabled" };
+  const cutoff = new Date(now - days * 86_400_000).toISOString();
+  let rows;
+  try {
+    rows = await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(cutoff)}&expired_at=is.null&select=id,storage_key&limit=500`);
+  } catch (error) {
+    process.stderr.write(`[agent-files] retention sweep could not list files: ${error.message}\n`);
+    return { swept: 0, error: error.message };
+  }
+  let swept = 0;
+  for (const row of rows ?? []) {
+    const target = generatedPath(row.storage_key);
+    try {
+      await rm(path.dirname(target), { recursive: true, force: true });
+      await rest(`agent_generated_files?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ expired_at: new Date(now).toISOString() }) });
+      swept += 1;
+    } catch (error) {
+      process.stderr.write(`[agent-files] could not expire ${row.id}: ${error.message}\n`);
+    }
+  }
+  if (swept) process.stdout.write(`[agent-files] retention: expired ${swept} generated file(s) older than ${days} days\n`);
+  return { swept };
 }

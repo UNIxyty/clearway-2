@@ -23,17 +23,18 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 
 | Part | Status | Commits | Deployed | Notes |
 |---|---|---|---|---|
-| 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** — server HEAD `bd5019b`, 2026-09-23 11:06Z | P1–P4 live and verified against production. P5 is documentation only: no Bedrock invocation has succeeded (AWS key invalid) |
-| 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
-| 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
-| 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
-| 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
-| 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
-| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` `d5e71fe` `6d4bbf0` | No | Verifier **16/16** with Tavily live. Flight tracking deferred to end of series |
-| 7 — Write tools (low risk) | Built, not deployed | `a688929` `6df80da` | No | Needs `docs/supabase-agent-actions.sql`. Authorised by owner, **not** an ops sign-off |
-| 8 | Not started | — | No | |
-| 9 | Not started | — | No | |
-| 10 | Not started | — | No | |
+| 0 — Prerequisites and the status file | Deployed | `013e63f` `944e9b6` `d538eaa` `ccc52bb` `a35b30d` `72f5dc4` `bd5019b` | **Yes** | P1–P4 live; Bedrock smoke test passes (Haiku 4.5). Key rotation still open |
+| 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** | Agent live at `/agent/*`; allowlist + kill switch verified server-side by the 2026-09 audit |
+| 2 — Tool layer (read-only) | Deployed | `b6c1720` `2671f95` `5bd4bcc` | **Yes** | 20 read tools; verifier 13/13 + 1 skip (portal route in the rig) |
+| 3 — Chat interface (side panel) | Deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` `120ed62` `f8ffb3f` | **Yes** | **Verbatim frame had never rendered live until `b0b0071`** (audit S7). Cards, attachments and `/` commands landed in `70c4dd1`. Verifier 16/16 |
+| 4 — Knowledge base (two-tier RAG) | Deployed | `24d6e02` `49a4ca2` `5ccb175` `0f0dda6` `af155c2` `0497fb4` | **Yes** | Verifier 18/18; guardrail 6/6. Approval UI at `/developer/knowledge` since `70c4dd1` |
+| 5 — File generation and email | Deployed | `c592ba0` `fd22803` `81e4ab9` `f12ff7b` | **Yes** | Verifier 14/14 + 1 skip (real delivery needs `--send`). Retention + real volume in `b0b0071` |
+| 6 — Web search, tracking, memory | Deployed | `1d2acc5` `d5e71fe` `6d4bbf0` `caaf0b9` | **Yes** | Verifier 16/16. Flight tracking is an honest stub — provider deferred by owner |
+| 7 — Write tools (low risk) | Deployed | `a688929` `6df80da` `65a7e76` `4cf656d` `22b515f` | **Yes** | Verifier 19/19. Authorised by owner, not an ops sign-off |
+| 8 — Write tools (sensitive) | Deployed | `6656c8b` `12aa46b` | **Yes** | Verifier 43/43 after `70c4dd1` (recycle bins for IMPORTANT and reports too). Append-only audit needs `docs/supabase-agent-hardening.sql` |
+| 9 — Voice | Groundwork only | `4a1fde9` | Backend only | Language field, keyterms, readback gate built and tested. **No STT/TTS, no interface.** Gated on the 20 recordings |
+| 10 — Multi-model routing | Deployed | `25d6bf1` | **Yes** | Routing live; caching measured 75.7%. Benchmark is stochastic (78–87% correct entry, 0 writes on the cheap tier both runs) |
+| Post-audit fixes (2026-09-24) | Built, not deployed | `4cddc71` `b0b0071` `70c4dd1` | No | See "After the audit" below. Needs `docs/supabase-agent-hardening.sql` and a deploy of `agent-service`, `digital-wall-backend`, `portal` |
 
 ## Part 0 — Prerequisites and the status file
 
@@ -1211,6 +1212,31 @@ language for a surface you have already designed.
 3. **The voice designs** — share them the way the console designs came through,
    or tell me to design the bar and overlay from the existing console kit.
 
+## After the audit (2026-09-24) — `docs/agent-audit-2026-09.md`
+
+The audit found the build far more complete than the owner believed (~three-quarters; every
+container current with `main`) and two things that mattered more than any feature:
+
+1. **A confident false negative.** A title normalised by the model (the `·` dropped) hit a
+   whole-string substring filter, got zero rows, and the agent said the limitation *"may already
+   have been deleted"* while it was on the wall. **Fixed in `4cddc71`**: token matching, closest
+   matches on zero rows, a system-prompt rule that zero rows is not "does not exist", three
+   regression checks with a `·` in the title.
+2. **The verbatim frame had never rendered in a live chat.** The streaming loop yielded tool calls
+   without their result; every block builder returned empty; the Part 3 verifier accepted "none
+   quoted this turn". **Fixed in `b0b0071`**, with a deterministic verifier check. The same commit
+   gives `agent-service` a real volume (`/mnt/ssd-cache/agent:/storage` — it was the one container
+   without one, so every rebuild deleted uploaded originals), generated-file retention, and the SQL
+   that makes the audit log append-only in the database.
+
+`70c4dd1` then closed the functional debt the audit listed: recycle bins for IMPORTANT entries and
+reports (only limitations had one), the missing reply cards (mono blocks, document, file, airport),
+real attachments, `/` commands that dispatch, and the knowledge-base approval page that meant Tier 1
+could only be fed by script.
+
+**Still open after this:** the AWS key rotation (IAM console), running the hardening SQL, the
+deploy of the three commits, the voice interface (gated on recordings), and the escalation trigger.
+
 ## Part 10 — Multi-model routing
 
 **Status: Built, on `main`, NOT deployed.** No new SQL. Routing benchmark
@@ -1364,10 +1390,9 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 0 | ~~Bedrock test invocation~~ | **Done** — Haiku 4.5 + Nova Pro returned live responses | — |
 | 0 | Opus 4.6 Marketplace agreement | Temp activation policy was removed before it succeeded | Re-run the enabler with the temp policy attached |
 | 0 | Titan embeddings (`amazon.*` in the runtime policy) | Policy edit not yet applied | Next AWS console visit |
-| 0 | Rotate the pasted `clearway-agent` access key | Secret was pasted in plaintext during setup | Before the agent runs unattended |
+| 0 | Rotate the pasted `clearway-agent` access key | Pasted in plaintext during setup; the CSV export in ~/Downloads was deleted 2026-09-24 | **Still open** — needs the IAM console |
+| 8 | Run `docs/supabase-agent-hardening.sql` | DDL — Supabase SQL editor only | Makes `agent_audit_log` append-only and adds `expired_at` for retention |
 | 6 | Flight tracking provider | Deferred by decision 2026-09-24 — recurring cost, and the wall already covers planned times | End of the series |
-| 1 | Run `docs/supabase-agent-foundation.sql` | No DDL access from this machine | Before Part 1 can be verified or deployed |
-| 1 | cloudflared ingress rule for `/agent/.*` | **Still not in effect** — /agent/* reaches the portal, not the agent | Before anyone can use the agent |
 | 1 | Pickem healthcheck is broken (pre-existing) | `${p}` in `docker-compose.yml` is expanded by compose, not node, so the probe hits a portless URL — this is the audit's "unhealthy pickem false alarm" | Out of Part 1's scope; one-line fix whenever you want it |
 | 0 | Opus 5 / Sonnet 5 access | Account-gated by AWS ("contact AWS Sales") | Only if Opus 4.6 proves insufficient |
 | 0 | Cohere Rerank | Not offered in eu-north-1 | Use Haiku/Nova for reranking, or another region |

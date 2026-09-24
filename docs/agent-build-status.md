@@ -29,7 +29,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
 | 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
 | 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
-| 6 | Not started | — | No | |
+| 6 — Web search, tracking, memory | Built, not deployed | `1d2acc5` | No | Needs `docs/supabase-agent-memory.sql`; web search needs a key; tracking needs **your decision** |
 | 7 | Not started | — | No | |
 | 8 | Not started | — | No | |
 | 9 | Not started | — | No | |
@@ -851,7 +851,71 @@ the refusal from it or not at all.
    `AGENT_EMAIL_INTERNAL_DOMAINS` if colleagues use other domains, or they will
    all be treated as external and need confirmation every time.
 
-## Parts 6–10
+## Part 6 — Web search, flight tracking, memory
+
+**Status: Built, not deployed.** Needs `docs/supabase-agent-memory.sql`, and two
+decisions from you (below).
+
+### Provenance — the point of the part
+Four source tiers now, each with its own colour, declared on the **tool** so
+attribution describes work that actually happened:
+
+| Tier | Colour | Means |
+|---|---|---|
+| **Company** | violet | Clearway's approved operational content. Quoted, never restated. |
+| **Internal** | blue | The platform's systems of record. Authoritative for our operations. |
+| **Web** | amber | External and **unverified**. Never approved guidance, whatever the site. |
+| **Remembered** | teal | A note a user asked the agent to keep. Their recollection, not a rule. |
+
+`Remembered` is deliberately **not** folded into Company. A note saying "EPWA
+handling is slow before 0600" is a useful recollection; colouring it like an
+approved limitation would let an aside sit beside a Tier 1 rule looking equally
+authoritative.
+
+The system prompt gained a section of its own naming all four and requiring the
+wording to match the chips — including **"prefer internal data, and say that you
+did"**, and that a disagreement between sources is resolved in favour of
+company/internal *and said out loud*.
+
+### Memory
+`remember` · `recall` · `forget`. **Scoped per user in the query**, not filtered
+afterwards — another dispatcher's note never reaches the process unless it was
+explicitly shared. Sharing is a deliberate act, attributed. Forgetting is
+restricted to your own notes even when a shared one is visible.
+
+### Web search
+Aviation-filtered **by default** across ~25 authority domains (EUROCONTROL,
+EASA, ICAO, FAA, the European ANSPs). A dispatcher asking about Heathrow slot
+rules wants those, not a forum thread. `unfiltered: true` widens it, as a
+visible decision the model must make rather than a silent default.
+
+Every result set carries `authoritative: false`, and each result its domain and
+fetch time. **Provider-agnostic** — Brave and Tavily are both implemented; set
+either key and it works with no code change. With no key it raises
+`SERVICE_UNAVAILABLE` telling the model to say it could not search rather than
+answer from memory.
+
+### Flight tracking — awaiting your decision
+`get_flight_tracking(callsign)` is **declared but returns `available: false`**,
+with an instruction to fall back to the wall's own schedule rather than estimate
+a position. The brief says to confirm plan and cost first, and picking a paid
+aviation-data subscription on someone's behalf is not a technical decision.
+Options and the questions are in `docs/agent-flight-tracking-decision.md`.
+
+Worth noting the scope is narrow: the wall's Leon feed is already authoritative
+for **planned** times. Tracking adds only "where is it right now", which is a
+per-question lookup rather than a feed — so request-priced plans fit better than
+data-feed plans, and it may not be worth a subscription at all.
+
+### Decisions needed from you
+1. **Run `docs/supabase-agent-memory.sql`**, then deploy.
+2. **Web search provider** — Brave (free tier ~2k queries/month) or Tavily.
+   Set `BRAVE_SEARCH_API_KEY` or `TAVILY_API_KEY`. Until then the agent says it
+   cannot search, which is safe but limits Part 6 to memory only.
+3. **Flight tracking: do you want it at all?** It is the only capability here
+   with a recurring cost. See the decision doc.
+
+## Parts 7–10
 Not started.
 
 ## Deferred items (all parts)

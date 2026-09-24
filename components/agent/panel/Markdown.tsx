@@ -61,11 +61,55 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
   return out;
 }
 
+/**
+ * A pipe table. Models reach for these constantly, and rendered as raw text at
+ * 400px they are unreadable — which is exactly what a dispatcher saw. At panel
+ * width the table becomes STACKED ROWS (label/value pairs per record) rather
+ * than a squeezed grid, matching the design's "stacked rows" treatment.
+ */
+function Table({ rows, keyPrefix }: { rows: string[][]; keyPrefix: string }) {
+  const [head, ...body] = rows;
+  if (!head || body.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {body.map((cells, r) => (
+        <div key={`${keyPrefix}-r${r}`} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+          {head.map((label, c) => (
+            <div
+              key={c}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(88px, 38%) 1fr",
+                gap: 10,
+                padding: "6px 10px",
+                borderTop: c === 0 ? "none" : `1px solid ${C.rowLine}`,
+                fontSize: 12.5,
+                lineHeight: 1.45,
+              }}
+            >
+              <span style={{ color: C.faint, fontWeight: 600 }}>{label}</span>
+              <span style={{ color: C.ink, minWidth: 0, overflowWrap: "anywhere" }}>
+                {inline(cells[c] ?? "", `${keyPrefix}-${r}-${c}`)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const isTableRow = (line: string) => /^\s*\|.*\|\s*$/.test(line);
+const isTableDivider = (line: string) => /^\s*\|[\s:|-]+\|\s*$/.test(line);
+const splitRow = (line: string) =>
+  line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+
 export default function Markdown({ text }: { text: string }) {
   const lines = String(text ?? "").split("\n");
   const nodes: ReactNode[] = [];
   let list: string[] | null = null;
   let ordered = false;
+  let table: string[][] | null = null;
 
   const flushList = (key: string) => {
     if (!list) return;
@@ -78,8 +122,23 @@ export default function Markdown({ text }: { text: string }) {
     list = null;
   };
 
+  const flushTable = (key: string) => {
+    if (!table) return;
+    nodes.push(<Table key={key} rows={table} keyPrefix={key} />);
+    table = null;
+  };
+
   lines.forEach((raw, index) => {
     const line = raw.replace(/\s+$/, "");
+
+    if (isTableRow(line)) {
+      flushList(`l${index}`);
+      if (isTableDivider(line)) return; // the |---|---| separator carries no data
+      table ??= [];
+      table.push(splitRow(line));
+      return;
+    }
+    flushTable(`t${index}`);
     const bullet = /^\s*[-*•]\s+(.*)$/.exec(line);
     const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
     const heading = /^#{1,4}\s+(.*)$/.exec(line);
@@ -102,6 +161,7 @@ export default function Markdown({ text }: { text: string }) {
     nodes.push(<p key={index} style={{ margin: 0 }}>{inline(line, `p${index}`)}</p>);
   });
   flushList("l-end");
+  flushTable("t-end");
 
   return <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{nodes}</div>;
 }

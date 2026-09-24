@@ -17,10 +17,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { C, FONT, PANEL, iconStyle } from "./tokens";
-import { AgentsReading, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
+import { AgentsReading, FlightCard, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
 import Markdown from "./Markdown";
 import Composer from "./Composer";
-import type { AgentContext, AgentMessage, ConversationSummary, SourceRef, ToolActivity, VerbatimRecord } from "./types";
+import type { AgentContext, AgentMessage, ConversationSummary, FlightCardData, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -90,7 +90,9 @@ export default function AgentPanel({
   useEffect(() => {
     const on = () => setOffline(false);
     const off = () => setOffline(true);
-    setOffline(typeof navigator !== "undefined" && !navigator.onLine);
+    // Read INSIDE the effect, never during render: the server has no navigator,
+    // so touching it in render is a hydration mismatch (React #418).
+    setOffline(!navigator.onLine);
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
@@ -165,6 +167,7 @@ export default function AgentPanel({
     const tools: ToolActivity[] = [];
     let sources: SourceRef[] = [];
     let verbatim: VerbatimRecord[] = [];
+    let flights: FlightCardData[] = [];
 
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
@@ -206,6 +209,7 @@ export default function AgentPanel({
           } else if (event === "done") {
             sources = payload.sources ?? [];
             verbatim = payload.verbatim ?? [];
+            flights = payload.flights ?? [];
           } else if (event === "error") {
             throw new Error(payload.message || payload.error);
           }
@@ -217,7 +221,7 @@ export default function AgentPanel({
         content: answer,
         sources,
         toolActivity: tools,
-        blocks: verbatim.length ? { verbatim } : null,
+        blocks: verbatim.length || flights.length ? { verbatim, flights } : null,
         streaming: false,
       }));
     } catch (e) {
@@ -328,6 +332,18 @@ export default function AgentPanel({
   );
 }
 
+/**
+ * Dates are formatted with the VIEWER's locale and timezone, which the server
+ * does not share — rendering one during SSR guarantees a hydration mismatch.
+ * Marked suppressHydrationWarning at the call site because the difference is
+ * expected and correct, not a bug to paper over.
+ */
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 function replaceStreaming(list: AgentMessage[], patch: Partial<AgentMessage>): AgentMessage[] {
   const next = [...list];
   for (let i = next.length - 1; i >= 0; i -= 1) {
@@ -371,11 +387,14 @@ function MessageView({ message }: { message: AgentMessage }) {
     );
   }
   const verbatim = message.blocks?.verbatim ?? [];
+  const flights = message.blocks?.flights ?? [];
   const failed = (message.toolActivity ?? []).filter((a) => !a.ok);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <ToolActivityRow activity={message.toolActivity ?? []} />
       {failed.length > 0 && <ToolFailureNote activity={message.toolActivity ?? []} />}
+
+      {flights.map((f) => <FlightCard key={f.flightId} flight={f} />)}
 
       {/* Quoted operational text FIRST and framed, then the agent's own words
           under their own label — the boundary is structural, not a caption. */}
@@ -472,7 +491,9 @@ function History({ conversations, onOpen }: { conversations: ConversationSummary
           style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start", textAlign: "left", border: "none", background: "transparent", borderRadius: 9, padding: "8px 9px", cursor: "pointer", fontFamily: "inherit" }}
         >
           <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{c.title}</span>
-          <span style={{ fontSize: 11.5, color: C.faint }}>{new Date(c.lastMessageAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
+          <span style={{ fontSize: 11.5, color: C.faint }} suppressHydrationWarning>
+            {formatWhen(c.lastMessageAt)}
+          </span>
         </button>
       ))}
     </div>

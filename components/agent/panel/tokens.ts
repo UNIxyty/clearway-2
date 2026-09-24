@@ -64,15 +64,22 @@ export const SOURCE_TIERS: Record<string, { label: string; fg: string; bg: strin
   web: { label: "Web", fg: "#b45309", bg: "#fef3e2", icon: "globe" },
 };
 
-/** Lucide icon as a CSS mask, exactly as the design references them. */
+/**
+ * Lucide icon as a CSS mask. The design references unpkg, but icons are served
+ * from /icons/ like the rest of the portal: an ops tool should not fetch its
+ * interface from a third-party CDN on every render — that is a dependency on
+ * someone else's uptime for a screen people work from, and it leaks which
+ * pages are open to whoever runs the CDN.
+ */
 export function iconStyle(name: string, size = 16, color: string = C.muted): import("react").CSSProperties {
+  const mask = `url(/icons/${name}.svg) center/contain no-repeat`;
   return {
     width: size,
     height: size,
     display: "inline-block",
     flex: "none",
     background: color,
-    mask: `url(https://unpkg.com/lucide-static@0.454.0/icons/${name}.svg) center/contain no-repeat`,
-    WebkitMask: `url(https://unpkg.com/lucide-static@0.454.0/icons/${name}.svg) center/contain no-repeat`,
+    mask,
+    WebkitMask: mask,
   };
 }

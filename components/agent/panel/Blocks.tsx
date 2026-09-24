@@ -10,17 +10,24 @@
 // frame under "AGENT'S READING", so the boundary between what the authority
 // wrote and what the agent inferred is a visual fact, not a caption.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { C, FONT, SOURCE_TIERS, iconStyle } from "./tokens";
 import Markdown from "./Markdown";
-import type { SourceRef, ToolActivity, VerbatimRecord } from "./types";
+import type { FlightCardData, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 export function VerbatimFrame({ record }: { record: VerbatimRecord }) {
   const [copied, setCopied] = useState(false);
   const validity = [record.effectiveFrom, record.effectiveTo].filter(Boolean).join(" – ");
-  const approved = [record.approvedBy, record.updatedAt ? new Date(record.updatedAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : null]
-    .filter(Boolean)
-    .join(" · ");
+  // Locale/timezone-dependent, so it must not decide the server-rendered HTML.
+  const [approvedDate, setApprovedDate] = useState<string | null>(null);
+  useEffect(() => {
+    if (!record.updatedAt) return;
+    const d = new Date(record.updatedAt);
+    if (!Number.isNaN(d.getTime())) {
+      setApprovedDate(d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }));
+    }
+  }, [record.updatedAt]);
+  const approved = [record.approvedBy, approvedDate].filter(Boolean).join(" · ");
 
   async function copyExact() {
     try {
@@ -94,6 +101,57 @@ export function Sources({ sources }: { sources: SourceRef[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Flight card, from the design's A1 artboard. Route, times and the chips that
+ * say what applies. Built from a tool result, so nothing here is the model's
+ * account of a flight — it is the wall's.
+ */
+export function FlightCard({ flight }: { flight: FlightCardData }) {
+  const time = (iso: string | null) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    // Zulu, always — a dispatcher reads Z, and a local-time conversion here
+    // would also differ between server and client.
+    return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}Z`;
+  };
+  const chips: Array<{ label: string; fg: string; bg: string }> = [];
+  if (flight.limitationCount) chips.push({ label: `${flight.limitationCount} limitation${flight.limitationCount > 1 ? "s" : ""}`, fg: "#b45309", bg: "#fef3e2" });
+  if (flight.importantCount) chips.push({ label: `${flight.importantCount} IMP`, fg: "#b45309", bg: "#fef3e2" });
+  if (flight.status) chips.push({ label: String(flight.status), fg: "#475569", bg: "#eef1f5" });
+
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.rowLine}` }}>
+        <span style={{ fontFamily: FONT.mono, fontSize: 15, fontWeight: 600 }}>{flight.callsign ?? flight.flightId}</span>
+        <span style={{ fontSize: 12, color: C.muted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {[flight.operatorId, flight.registration].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "10px 12px", fontFamily: FONT.mono }}>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>{flight.departureIcao ?? "—"}</div>
+          <div style={{ fontSize: 11.5, color: C.body }}>{time(flight.scheduledDeparture) ?? "no time"}</div>
+        </div>
+        <span style={iconStyle("arrow-right", 14, C.faint)} />
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>{flight.arrivalIcao ?? "—"}</div>
+          <div style={{ fontSize: 11.5, color: C.body }}>{time(flight.scheduledArrival) ?? "no time"}</div>
+        </div>
+      </div>
+      {chips.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 12px", background: C.page, borderTop: `1px solid ${C.rowLine}` }}>
+          {chips.map((c) => (
+            <span key={c.label} style={{ fontSize: 11, fontWeight: 700, color: c.fg, background: c.bg, padding: "2px 7px", borderRadius: 5 }}>
+              {c.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

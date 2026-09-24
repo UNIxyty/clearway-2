@@ -16,7 +16,7 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
-import { sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import { flightCardsFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
@@ -434,13 +434,14 @@ async function handleChat(req, res, user) {
     // was never given, or promote its own paraphrase into the verbatim frame.
     const sources = sourcesFromToolCalls(toolCalls);
     const verbatim = verbatimFromToolCalls(toolCalls);
+    const flights = flightCardsFromToolCalls(toolCalls);
     const toolActivity = toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null }));
 
     await appendMessage({
       conversationId,
       role: "assistant",
       content: answer,
-      blocks: verbatim.length > 0 ? { verbatim } : null,
+      blocks: verbatim.length > 0 || flights.length > 0 ? { ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}) } : null,
       sources,
       toolActivity,
       modelId: done?.modelId ?? null,
@@ -457,6 +458,7 @@ async function handleChat(req, res, user) {
       outputTokens: done?.outputTokens ?? null,
       sources,
       verbatim,
+      flights,
       toolActivity,
       latencyMs: Date.now() - startedAt,
     });

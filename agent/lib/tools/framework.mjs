@@ -263,6 +263,52 @@ export function verbatimFromToolCalls(calls) {
   return out;
 }
 
+/**
+ * Flight cards for the panel, built from the flight tools' results. Same rule
+ * as sources and verbatim records: the card describes what a tool returned, so
+ * the model cannot render a flight that was never looked up, or change a time
+ * on the way past.
+ */
+export function flightCardsFromToolCalls(calls) {
+  const cards = [];
+  const seen = new Set();
+  const push = (flight, extra = {}) => {
+    if (!flight?.flightId || seen.has(flight.flightId)) return;
+    seen.add(flight.flightId);
+    cards.push({
+      flightId: flight.flightId,
+      callsign: flight.callsign ?? flight.flightNid ?? null,
+      registration: flight.registration ?? null,
+      operatorId: flight.operatorId ?? null,
+      departureIcao: flight.departureIcao ?? null,
+      arrivalIcao: flight.arrivalIcao ?? null,
+      scheduledDeparture: flight.scheduledDeparture ?? null,
+      scheduledArrival: flight.scheduledArrival ?? null,
+      status: flight.status ?? null,
+      ...extra,
+    });
+  };
+
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    if (call.name === "get_flight") push(call.result.flight);
+    if (call.name === "get_flight_state") {
+      push(call.result.flight, {
+        limitationCount: (call.result.limitations ?? []).length,
+        importantCount: (call.result.important ?? []).length,
+        departure: call.result.departure ?? null,
+        arrival: call.result.arrival ?? null,
+      });
+    }
+    // A search can return many; only render cards when it is a short list, so
+    // the panel does not turn a fleet-wide query into fifty cards.
+    if (call.name === "search_flights" && (call.result.flights ?? []).length <= 3) {
+      for (const f of call.result.flights ?? []) push(f);
+    }
+  }
+  return cards;
+}
+
 /** Shared schema fragments, so every tool spells these the same way. */
 export const S = {
   icao: { type: "string", pattern: "^[A-Za-z0-9]{4}$", description: "4-character ICAO code, e.g. EVRA." },

@@ -23,11 +23,25 @@ export type VerbatimRecord = {
 
 export type ToolActivity = { name: string; ok: boolean; error: string | null };
 
+export type FlightCardData = {
+  flightId: string;
+  callsign: string | null;
+  registration: string | null;
+  operatorId: string | null;
+  departureIcao: string | null;
+  arrivalIcao: string | null;
+  scheduledDeparture: string | null;
+  scheduledArrival: string | null;
+  status: string | null;
+  limitationCount?: number;
+  importantCount?: number;
+};
+
 export type AgentMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  blocks?: { verbatim?: VerbatimRecord[] } | null;
+  blocks?: { verbatim?: VerbatimRecord[]; flights?: FlightCardData[] } | null;
   sources?: SourceRef[];
   toolActivity?: ToolActivity[];
   error?: string | null;

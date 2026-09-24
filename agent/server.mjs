@@ -31,6 +31,7 @@ import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
+import { routeTurn } from "./lib/router.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
@@ -381,7 +382,9 @@ const server = http.createServer(async (req, res) => {
 
 async function handleChat(req, res, user) {
   const body = await readJsonBody(req);
-  const requestedTier = String(body.tier || "standard");
+  // Only for the denial audit below, which happens before routing: a request
+  // refused at the gate never reaches a model, so it has no routed tier.
+  const requestedTier = String(body.tier || "unrouted");
   const startedAt = Date.now();
 
   // The gate runs on every turn — that is what makes a revocation bite mid-session.
@@ -426,7 +429,16 @@ async function handleChat(req, res, user) {
 
   await appendMessage({ conversationId, role: "user", content: question });
 
-  const { requested, effective } = resolveTier(requestedTier);
+  // ── Routing ─────────────────────────────────────────────────────────────
+  // The caller may pin a tier; otherwise the router classifies. The router
+  // NEVER answers — it returns a tier and a reason, both of which are audited,
+  // because "which model answered" is not reviewable without "and why".
+  const pinnedTier = body.tier ? String(body.tier) : null;
+  const route = pinnedTier
+    ? { tier: pinnedTier, reason: "pinned by caller", source: "pinned", routerLatencyMs: 0, routerModelId: null }
+    : await routeTurn({ question, hasHistory: history.length > 0 });
+
+  const { requested, effective } = resolveTier(route.tier);
 
   // The user's notes are fetched HERE, every turn, rather than relying on the
   // model to call recall — which it will not do in a fresh conversation, and
@@ -485,7 +497,7 @@ async function handleChat(req, res, user) {
   const toolCalls = [];
   try {
     for await (const chunk of streamConversationWithTools({
-      tier: requestedTier,
+      tier: route.tier,
       system,
       messages: [...history, { role: "user", content: question }],
       user,
@@ -533,6 +545,10 @@ async function handleChat(req, res, user) {
       stopReason: done?.stopReason ?? null,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
+      // Surfaced to the client as well as the audit log: without these the
+      // caching saving is invisible to anything measuring from outside.
+      cacheReadTokens: done?.cacheReadTokens ?? 0,
+      cacheWriteTokens: done?.cacheWriteTokens ?? 0,
       sources,
       verbatim,
       flights,
@@ -553,7 +569,25 @@ async function handleChat(req, res, user) {
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
       confirmationStatus: "not_required",
-      detail: { effectiveTier: effective, stopReason: done?.stopReason ?? null, toolActivity, sourceCount: sources.length },
+      detail: {
+        effectiveTier: effective,
+        stopReason: done?.stopReason ?? null,
+        toolActivity,
+        sourceCount: sources.length,
+        // The routing decision, stored so a cost or quality regression can be
+        // traced to the choice that caused it rather than guessed at.
+        route: {
+          tier: route.tier,
+          source: route.source,
+          reason: route.reason,
+          routerModelId: route.routerModelId,
+          routerLatencyMs: route.routerLatencyMs,
+        },
+        // Cache hits are billed differently from fresh input; counted apart so
+        // the saving is visible in the log used to prove it.
+        cacheReadTokens: done?.cacheReadTokens ?? 0,
+        cacheWriteTokens: done?.cacheWriteTokens ?? 0,
+      },
     });
   } catch (error) {
     const code = error instanceof AgentError ? error.code : "model_error";

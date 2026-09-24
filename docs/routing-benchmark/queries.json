@@ -1,0 +1,646 @@
+{
+  "note": "Reference set for routing regression (PROMPT 10). expectTier is a HUMAN LABEL -- the tier this system should pick -- and is the thing to argue with if a result looks wrong. expectTools lists the tools a correct answer would plausibly use; scoring is recall-based, because there is usually more than one defensible route to the same answer.",
+  "tierPolicy": "fast = one lookup, obvious source. standard = ordinary dispatcher work. reasoning = conflicting sources, multi-step planning, or a decision someone is held to. When torn, the more capable tier wins.",
+  "queries": [
+    {
+      "id": "s01",
+      "category": "simple",
+      "text": "What's the METAR for EVRA?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_weather"
+      ]
+    },
+    {
+      "id": "s02",
+      "category": "simple",
+      "text": "Is the digital wall up?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_service_status"
+      ]
+    },
+    {
+      "id": "s03",
+      "category": "simple",
+      "text": "Show me today's flights.",
+      "expectTier": "fast",
+      "expectTools": [
+        "search_flights"
+      ]
+    },
+    {
+      "id": "s04",
+      "category": "simple",
+      "text": "List the current limitations.",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_limitations"
+      ]
+    },
+    {
+      "id": "s05",
+      "category": "simple",
+      "text": "What time is it in UTC?",
+      "expectTier": "fast",
+      "expectTools": []
+    },
+    {
+      "id": "s06",
+      "category": "simple",
+      "text": "Show the IMPORTANT entries on the wall.",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_important"
+      ]
+    },
+    {
+      "id": "s07",
+      "category": "simple",
+      "text": "What's the wall showing right now?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_wall_state"
+      ]
+    },
+    {
+      "id": "s08",
+      "category": "simple",
+      "text": "Give me the TAF for EYVI.",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_weather"
+      ]
+    },
+    {
+      "id": "s09",
+      "category": "simple",
+      "text": "Which operators are active?",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_operators"
+      ]
+    },
+    {
+      "id": "s10",
+      "category": "simple",
+      "text": "What can you do?",
+      "expectTier": "fast",
+      "expectTools": []
+    },
+    {
+      "id": "a01",
+      "category": "aip",
+      "text": "Pull the AD 2 page for EVRA.",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "a02",
+      "category": "aip",
+      "text": "What are the runway dimensions at EYVI?",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "a03",
+      "category": "aip",
+      "text": "Does EETN have any noise restrictions in its AIP?",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "a04",
+      "category": "aip",
+      "text": "Compare the approach minima at EVRA and EYVI.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "a05",
+      "category": "aip",
+      "text": "Is the AIP service reachable?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_aip_service_status"
+      ]
+    },
+    {
+      "id": "a06",
+      "category": "aip",
+      "text": "Find the fuel availability section for ULLI.",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "n01",
+      "category": "notam",
+      "text": "Any NOTAMs for EVRA today?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_notams"
+      ]
+    },
+    {
+      "id": "n02",
+      "category": "notam",
+      "text": "Are there runway closures at EYVI this week?",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_notams"
+      ]
+    },
+    {
+      "id": "n03",
+      "category": "notam",
+      "text": "Has the NOTAM check run today?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_notam_check_status"
+      ]
+    },
+    {
+      "id": "n04",
+      "category": "notam",
+      "text": "Do any NOTAMs affect our flights tomorrow?",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_notams",
+        "search_flights"
+      ]
+    },
+    {
+      "id": "n05",
+      "category": "notam",
+      "text": "Is LVP likely at EVRA tonight given the forecast?",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_weather"
+      ]
+    },
+    {
+      "id": "n06",
+      "category": "notam",
+      "text": "What's the weather at our destinations today?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_flights",
+        "get_weather"
+      ]
+    },
+    {
+      "id": "f01",
+      "category": "flights",
+      "text": "Where is YL-ABC right now?",
+      "expectTier": "fast",
+      "expectTools": [
+        "get_flight_state"
+      ]
+    },
+    {
+      "id": "f02",
+      "category": "flights",
+      "text": "Show me the flight to EDDF tomorrow.",
+      "expectTier": "fast",
+      "expectTools": [
+        "search_flights"
+      ]
+    },
+    {
+      "id": "f03",
+      "category": "flights",
+      "text": "What's the status of our first departure?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_flights",
+        "get_flight"
+      ]
+    },
+    {
+      "id": "f04",
+      "category": "flights",
+      "text": "Which flights are unconfirmed?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_flights"
+      ]
+    },
+    {
+      "id": "f05",
+      "category": "flights",
+      "text": "Is anything delayed today?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_flights",
+        "get_flight"
+      ]
+    },
+    {
+      "id": "f06",
+      "category": "flights",
+      "text": "Plan which aircraft should cover tomorrow's schedule if YL-ABC goes AOG.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "search_flights"
+      ]
+    },
+    {
+      "id": "k01",
+      "category": "knowledge",
+      "text": "What does our company manual say about de-icing?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_knowledge"
+      ]
+    },
+    {
+      "id": "k02",
+      "category": "knowledge",
+      "text": "Find the curfew rules for our European destinations.",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_knowledge"
+      ]
+    },
+    {
+      "id": "k03",
+      "category": "knowledge",
+      "text": "What's our policy on crew duty extensions?",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_knowledge"
+      ]
+    },
+    {
+      "id": "k04",
+      "category": "knowledge",
+      "text": "Does the manual conflict with the AIP on PPR at EPWA?",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "search_knowledge",
+        "get_aip_document"
+      ]
+    },
+    {
+      "id": "w01",
+      "category": "web",
+      "text": "Has anything been announced about EVRA runway works?",
+      "expectTier": "standard",
+      "expectTools": [
+        "web_search"
+      ]
+    },
+    {
+      "id": "w02",
+      "category": "web",
+      "text": "Any recent news on European ATC strikes?",
+      "expectTier": "standard",
+      "expectTools": [
+        "web_search"
+      ]
+    },
+    {
+      "id": "w03",
+      "category": "web",
+      "text": "Find the current slot coordination contact for EPWA.",
+      "expectTier": "standard",
+      "expectTools": [
+        "web_search"
+      ]
+    },
+    {
+      "id": "g01",
+      "category": "files",
+      "text": "Make me a PDF of today's limitations.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_limitations",
+        "generate_file"
+      ]
+    },
+    {
+      "id": "g02",
+      "category": "files",
+      "text": "Export the flight list to Excel.",
+      "expectTier": "standard",
+      "expectTools": [
+        "search_flights",
+        "generate_file"
+      ]
+    },
+    {
+      "id": "g03",
+      "category": "files",
+      "text": "Put together a crew briefing document for tomorrow's EDDF flight.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "search_flights",
+        "generate_file"
+      ]
+    },
+    {
+      "id": "e01",
+      "category": "email",
+      "text": "Email me today's limitations as a PDF.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_limitations",
+        "generate_file",
+        "email_document"
+      ]
+    },
+    {
+      "id": "e02",
+      "category": "email",
+      "text": "Send the ops team a summary of this week's NOTAM changes.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_notams",
+        "send_email"
+      ]
+    },
+    {
+      "id": "r01",
+      "category": "read",
+      "text": "What did I ask you to remember?",
+      "expectTier": "fast",
+      "expectTools": [
+        "recall"
+      ]
+    },
+    {
+      "id": "r02",
+      "category": "read",
+      "text": "Show the CAA contacts we have on file.",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_caa"
+      ]
+    },
+    {
+      "id": "r03",
+      "category": "read",
+      "text": "What changes have you made recently?",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_recent_actions"
+      ]
+    },
+    {
+      "id": "r04",
+      "category": "read",
+      "text": "Which limitations were deleted?",
+      "expectTier": "fast",
+      "expectTools": [
+        "list_deleted_limitations"
+      ]
+    },
+    {
+      "id": "r05",
+      "category": "read",
+      "text": "Is the agent's knowledge base up to date?",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_service_status"
+      ]
+    },
+    {
+      "id": "x01",
+      "category": "write",
+      "text": "Add a limitation: TWY B closed at EVRA today until 1800Z.",
+      "expectTier": "standard",
+      "expectTools": [
+        "create_limitation"
+      ]
+    },
+    {
+      "id": "x02",
+      "category": "write",
+      "text": "Change that limitation to end at 2000Z instead.",
+      "expectTier": "standard",
+      "expectTools": [
+        "update_limitation"
+      ]
+    },
+    {
+      "id": "x03",
+      "category": "write",
+      "text": "Deactivate the EVRA taxiway limitation.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_limitations",
+        "update_limitation"
+      ]
+    },
+    {
+      "id": "x04",
+      "category": "write",
+      "text": "Remember that I prefer times in local, not UTC.",
+      "expectTier": "fast",
+      "expectTools": [
+        "remember"
+      ]
+    },
+    {
+      "id": "x05",
+      "category": "write",
+      "text": "Add an IMPORTANT entry about the new fuel supplier at EYVI.",
+      "expectTier": "standard",
+      "expectTools": [
+        "create_important"
+      ]
+    },
+    {
+      "id": "x06",
+      "category": "write",
+      "text": "Hide YL-ABC from the wall.",
+      "expectTier": "standard",
+      "expectTools": [
+        "set_aircraft_visible"
+      ]
+    },
+    {
+      "id": "x07",
+      "category": "write",
+      "text": "Add limitations for every airport affected by tomorrow's strike.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "web_search",
+        "create_limitation"
+      ]
+    },
+    {
+      "id": "d01",
+      "category": "destructive",
+      "text": "Delete the EVRA taxiway limitation.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_limitations",
+        "delete_limitation"
+      ]
+    },
+    {
+      "id": "d02",
+      "category": "destructive",
+      "text": "Undo that.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_recent_actions",
+        "undo_action"
+      ]
+    },
+    {
+      "id": "d03",
+      "category": "destructive",
+      "text": "Restore the limitation you deleted earlier.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_deleted_limitations",
+        "restore_limitation"
+      ]
+    },
+    {
+      "id": "d04",
+      "category": "destructive",
+      "text": "Undo the limitation you added this morning.",
+      "expectTier": "standard",
+      "expectTools": [
+        "list_recent_actions",
+        "undo_action"
+      ]
+    },
+    {
+      "id": "d05",
+      "category": "destructive",
+      "text": "Permanently destroy the deleted test limitation.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "list_deleted_limitations",
+        "purge_deleted_limitation"
+      ]
+    },
+    {
+      "id": "c01",
+      "category": "complex",
+      "text": "Check the weather and NOTAMs for every destination today and tell me what to worry about.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "search_flights",
+        "get_weather",
+        "get_notams"
+      ]
+    },
+    {
+      "id": "c02",
+      "category": "complex",
+      "text": "Our EDDF flight is delayed two hours — what does that break?",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_flight",
+        "search_flights",
+        "get_notams"
+      ]
+    },
+    {
+      "id": "c03",
+      "category": "complex",
+      "text": "Build tomorrow's briefing: flights, weather, NOTAMs and any limitations that apply, as a PDF, and email it to me.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "search_flights",
+        "get_weather",
+        "get_notams",
+        "list_limitations",
+        "generate_file",
+        "email_document"
+      ]
+    },
+    {
+      "id": "c04",
+      "category": "complex",
+      "text": "Is there anything today that a dispatcher would miss if they only looked at the wall?",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_wall_state",
+        "get_notams",
+        "list_limitations"
+      ]
+    },
+    {
+      "id": "c05",
+      "category": "complex",
+      "text": "Reconcile what the AIP says about EVRA opening hours with what our manual says, and tell me which to trust.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "get_aip_document",
+        "search_knowledge"
+      ]
+    },
+    {
+      "id": "c06",
+      "category": "complex",
+      "text": "Summarise everything that changed on the wall since yesterday and who changed it.",
+      "expectTier": "reasoning",
+      "expectTools": [
+        "list_recent_actions",
+        "get_wall_state"
+      ]
+    },
+    {
+      "id": "z01",
+      "category": "edge",
+      "text": "Do it.",
+      "expectTier": "standard",
+      "expectTools": []
+    },
+    {
+      "id": "z02",
+      "category": "edge",
+      "text": "Change the flight status of YL-ABC to airborne.",
+      "expectTier": "standard",
+      "expectTools": []
+    },
+    {
+      "id": "z03",
+      "category": "edge",
+      "text": "Delete everything.",
+      "expectTier": "reasoning",
+      "expectTools": []
+    },
+    {
+      "id": "z04",
+      "category": "edge",
+      "text": "Кто сегодня летит в EDDF?",
+      "expectTier": "fast",
+      "expectTools": [
+        "search_flights"
+      ]
+    },
+    {
+      "id": "z05",
+      "category": "edge",
+      "text": "Проверь NOTAM по EVRA и скажи, есть ли проблемы.",
+      "expectTier": "standard",
+      "expectTools": [
+        "get_notams"
+      ]
+    },
+    {
+      "id": "z06",
+      "category": "edge",
+      "text": "What's the CTOT?",
+      "expectTier": "standard",
+      "expectTools": []
+    }
+  ]
+}

@@ -1211,8 +1211,148 @@ language for a surface you have already designed.
 3. **The voice designs** — share them the way the console designs came through,
    or tell me to design the bar and overlay from the existing console kit.
 
-## Part 10
-Not started.
+## Part 10 — Multi-model routing
+
+**Status: Built, on `main`, NOT deployed.** No new SQL. Routing benchmark
+87% correct entry with **0 writes on the cheap tier**; Parts 4/7/8 re-run
+18/18, 19/19, 30/30.
+
+### Step 1 — what is actually happening
+From `agent_audit_log`, 2026-09-23 to 2026-09-24, separating real traffic from
+my own verifier rig (`local@clearway.aero`, 328 rows, discarded):
+
+| | Real dispatcher traffic |
+|---|---|
+| Chat requests | **39** (one user, two days) |
+| Answered turns | 38 |
+| Tool calls | 77 — **1.97 per request** |
+| Input tokens/turn | median **17,980**, p90 33,271, max 58,474 |
+| Output tokens/turn | median **188**, p90 707 |
+| **Input share of spend** | **91.9%** |
+| Cost | $2.51 total, **$0.066/turn** |
+| Answer latency | p50 5,354 ms, p90 14,389 ms, max 36,403 ms |
+| Tools used | 25 distinct, of 43 offered |
+
+**Say the quiet part first: 39 requests from one person over two days is not
+usage data.** The brief put this part last because routing without data is
+guesswork, and the data is still thin. What it does support is one structural
+finding that does not depend on volume: **input is 92% of spend, at roughly
+96 input tokens for every output token.** Almost none of that is the question —
+it is the system prompt and 43 tool definitions, resent on every turn and again
+on every tool round within a turn. That is a property of the architecture, not
+of the sample size.
+
+### Step 2 — the benchmark
+`docs/routing-benchmark/queries.json`: **69 labelled requests** across simple,
+AIP, NOTAM/weather, flights, knowledge, web, files, email, read, write,
+destructive, complex and deliberately ambiguous. `expectTier` is a human label —
+the thing to argue with if a result looks wrong.
+
+`scripts/agent-routing-benchmark.mjs` scores it. The headline is **not** exact
+match. It is **under-routing**: how often a request was handed to a model weaker
+than it needed. An over-route costs cents; an under-route costs a right answer
+and does it silently, because the reply still reads fluently.
+
+### The first result said DO NOT SHIP, and it was right
+The obvious design — let the router pick fast, standard or reasoning — measured:
+
+- **23 of 69 under-routed (33%)**, including `"Delete everything"` → fast and
+  `"Change the flight status of YL-ABC"` → fast.
+- **42.9% MORE expensive** than the flat-Sonnet baseline it was meant to beat.
+
+The cost result is arithmetic, not bad luck. At a median 18,000-token input the
+tier price is dominated by input, and Opus is **5.0x** Sonnet while Haiku saves
+73%. So **one reasoning route costs what seven fast routes save.** A classifier
+free to reach for Opus erases the saving by being generous.
+
+Two changes followed, both from that measurement:
+
+1. **The router picks `fast` or `standard` only.** Reasoning is reached by
+   escalation, never by classification — which is what the brief said, and the
+   economics agree.
+2. **A deterministic floor under the classifier.** Anything whose wording
+   changes, deletes, sends or generates cannot enter on the cheap tier,
+   whatever the classifier thinks. A model wrong 33% of the time in the
+   dangerous direction cannot be the only thing between a destructive request
+   and the weakest model.
+
+### After
+| | |
+|---|---|
+| Correct entry tier | **60/69 — 87.0%** |
+| Over-routed | 6 (8.7%) — a trivial question paid standard prices |
+| **Under-routed** | **3 (4.3%)** |
+| **Writes/deletes on the cheap tier** | **0** |
+| Modelled cost on this set | $3.92 → $3.17, **19.1% cheaper** |
+
+All three under-routes are **read-only**: *"What are the runway dimensions at
+EYVI?"*, *"Which flights are unconfirmed?"*, *"What's the CTOT?"*. The first two
+are arguably single lookups and my labels are the questionable part; I left them
+labelled as they are rather than relax a test after seeing the score. The third
+is a genuine miss — it is ambiguous and should have been standard, and the floor
+does not catch it because it contains no change verb.
+
+### Prompt caching — the real win, measured on live turns
+| | |
+|---|---|
+| Fresh input over a 4-turn conversation | 4,221 tokens |
+| Cache reads | **49,039 tokens** |
+| Cache writes | 1,661 tokens |
+| **Cost saving** | **75.7%** |
+
+Four times the size of the routing saving, with no judgement about which model a
+question deserves and therefore no quality risk. The cache point is placed after
+the system prompt and after the tool definitions, so the prefix is cached and
+re-read on every tool round — which is where production's 18,000-token median
+actually comes from.
+
+**This nearly shipped looking broken.** The first measurement read zero cache
+hits. Caching was working the whole time; the SSE `done` payload simply did not
+forward `cacheReadTokens`, so the saving was invisible from outside. Worth
+recording because the failure mode is general: an optimisation you cannot
+measure is one you will eventually turn off by accident.
+
+Caching is skipped for non-Anthropic models by allowlist, not denylist — a model
+that turns out not to support it then costs nothing extra rather than erroring
+on first use. A cost optimisation must never be able to take the agent down.
+
+### Escalation
+`escalate()` refuses any downgrade, in the function rather than by convention,
+because "escalation is one-way" holds until one call site passes a lower tier by
+accident and a silent downgrade is invisible in the output.
+
+**No automatic trigger is enabled.** There is no evidence for what should fire
+it, and at 5x Sonnet a wrong trigger is expensive. A caller may still pin
+`tier: "reasoning"` explicitly, and that is audited like any other route.
+
+### Second opinion — not justified
+The brief asks whether an OpenAI cross-check on high-stakes questions is worth
+it. **No, not now**, for three reasons:
+
+1. **It doubles cost on exactly the expensive turns** — the ones already routed
+   to the most capable model.
+2. **Agreement is not correctness.** Two models trained on overlapping data
+   agree confidently on the same wrong answer often enough that agreement would
+   be read as verification when it is not. That is worse than one answer the
+   dispatcher knows to check.
+3. **The disagreement path is undefined.** If the two differ, what does the
+   dispatcher see? Without an answer to that, the second call buys a number
+   nobody can act on.
+
+**Revisit when** there is a class of question where a wrong answer is expensive
+AND the disagreement has a defined handling — for instance, refusing to answer
+and escalating to a human. The mechanism is cheap to add then.
+
+### Rollback
+`"activeTier": "standard"` in `agent/config/models.json` pins every turn to one
+model again. Config, not code — no rebuild of logic, just a restart.
+
+### Decisions needed from you
+1. **Deploy `agent-service`.** Caching and routing are both live in code and
+   inert until then.
+2. **Re-run the benchmark after a fortnight of real traffic.** 39 requests
+   labelled by me is a starting point, not a verdict. The labels should come
+   from what dispatchers actually ask.
 
 ## Deferred items (all parts)
 

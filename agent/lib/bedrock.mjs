@@ -168,6 +168,8 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
   let usedModelId = null;
   let totalIn = 0;
   let totalOut = 0;
+  let cacheRead = 0;
+  let cacheWrite = 0;
   const toolCalls = [];
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
@@ -182,12 +184,14 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
         const response = await runtime().send(
           new ConverseStreamCommand({
             modelId,
-            ...(system ? { system: [{ text: system }] } : {}),
+            ...(system ? { system: withCachePoint([{ text: system }], modelId) } : {}),
             messages: conversation,
             inferenceConfig: inferenceConfig(config, {}),
             // On the final round the tools are withheld, which forces the model
             // to answer from what it already has instead of asking for more.
-            ...(toolSpecs.length > 0 && !lastRound ? { toolConfig: { tools: toolSpecs } } : {}),
+            ...(toolSpecs.length > 0 && !lastRound
+              ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId) } }
+              : {}),
           }),
           { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
         );
@@ -214,6 +218,11 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
           if (event.metadata?.usage) {
             totalIn += event.metadata.usage.inputTokens ?? 0;
             totalOut += event.metadata.usage.outputTokens ?? 0;
+            // Cache hits are billed differently from fresh input, so they are
+            // counted separately. Folding them into inputTokens would make the
+            // saving invisible in exactly the log used to prove it.
+            cacheRead += event.metadata.usage.cacheReadInputTokens ?? 0;
+            cacheWrite += event.metadata.usage.cacheWriteInputTokens ?? 0;
           }
         }
 
@@ -247,6 +256,8 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
         stopReason,
         inputTokens: totalIn,
         outputTokens: totalOut,
+        cacheReadTokens: cacheRead,
+        cacheWriteTokens: cacheWrite,
         toolCalls,
       };
       return;
@@ -286,6 +297,39 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
       });
     }
   }
+}
+
+/**
+ * Mark the end of a block Bedrock may cache.
+ *
+ * Measured on this deployment's own audit log: input is 92% of spend, at a
+ * median 18,000 input tokens against 188 output. Almost none of that is the
+ * dispatcher's question — it is the system prompt and 43 tool definitions,
+ * resent verbatim on every turn and on every tool round within a turn. Caching
+ * that prefix is the largest single reduction available, and unlike routing it
+ * needs no judgement about which model a question deserves.
+ *
+ * The cache point goes LAST, so everything before it is the cached prefix.
+ * Ordering matters: anything appended after it is fresh input, which is why the
+ * turn's messages are deliberately not cached — they change every turn, and a
+ * cache point there would invalidate itself.
+ *
+ * Silently skipped for models that do not support it. A model that rejects the
+ * block would fail the whole turn, and a cost optimisation must never be able
+ * to take the agent down.
+ */
+function withCachePoint(blocks, modelId) {
+  return supportsPromptCache(modelId) ? [...blocks, { cachePoint: { type: "default" } }] : blocks;
+}
+
+/**
+ * Anthropic models on Bedrock support prompt caching; Nova's support differs by
+ * model and the router's prompt is far too small to be worth caching anyway.
+ * An allowlist rather than a denylist: a new model that turns out not to
+ * support it then costs nothing extra instead of erroring on first use.
+ */
+function supportsPromptCache(modelId) {
+  return /anthropic\.claude/.test(String(modelId ?? ""));
 }
 
 function safeJson(raw) {

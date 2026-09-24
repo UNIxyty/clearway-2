@@ -1,11 +1,12 @@
 {
   "_comment": [
     "Model tiers for the dispatcher agent. CONFIG, NOT CODE: swapping a model is a settings change plus a container restart, never an edit to the calling code.",
-    "Part 1 deliberately runs ONE model behind the whole interface: every tier resolves through `activeTier` below, pinned to `standard`. The per-tier ids are declared so the routing seam exists and the swap is a one-line change, but real tier routing is Part 10 — it needs usage data, and routing chosen before that data exists is guesswork.",
+    "Part 10 turned routing ON: `activeTier` is null, so each turn runs on the tier the router chose. Set it back to \"standard\" to pin everything to one model again — that is the rollback, and it needs no code change.",
+    "The router picks fast or standard ONLY. Reasoning is reached by escalation, never by classification: at this deployment's measured median of ~18,000 input tokens a turn, Opus costs 5x Sonnet, so one reasoning route erases the saving from seven fast routes. Measured on the 69-query reference set, letting the classifier reach for reasoning made routing 43% MORE expensive than the flat Sonnet baseline it was meant to beat.",
     "`id` is the Bedrock inference-profile id actually invoked. Use eu.* only: global.* profiles route outside the EU. Any id can be overridden per tier with BEDROCK_MODEL_<TIER> (e.g. BEDROCK_MODEL_STANDARD).",
     "Availability (verified 2026-09-23, account 039066033404, eu-north-1): Opus 5 / Sonnet 5 / Opus 4.8 / 4.7 are account-gated by AWS. `id` names the model this build TARGETS; `fallbackId` is proven to work in this account today and is used when the primary is unavailable."
   ],
-  "activeTier": "standard",
+  "activeTier": null,
   "region": "eu-north-1",
   "tiers": {
     "router":     { "id": "eu.amazon.nova-micro-v1:0",                    "fallbackId": "eu.amazon.nova-lite-v1:0",            "maxTokens": 512,   "purpose": "Cheap intent classification. Part 10." },

@@ -597,14 +597,17 @@ revoked. **Not yet run** — needs the tables.
 
 ---
 
-## PHASE 1 IS COMPLETE — awaiting approval
+## PHASE 1 — complete; Part 7 authorised WITHOUT an ops sign-off
 
 Parts 0–3 deliver a **read-only** agent: 20 tools over the platform's existing
 APIs, acting as the signed-in user, behind a developer-managed allowlist and a
 global kill switch, fully audited, in the designed side panel.
 
-**No write capability exists, and none should be built until ops have used this
-and approved it.** Part 4 onwards should not start before that sign-off.
+**Part 7 (write tools) was authorised on 2026-09-24 by Dmitrijs, on his own
+judgement — ops have NOT formally reviewed the read-only agent.** Recorded
+plainly because the status file is the record of what happened, and "the owner
+decided to proceed" is a different fact from "ops approved". The demo below is
+still worth doing before dispatchers rely on write actions.
 
 What to show ops: open any console page, press ⌘J, and ask about the airport or
 flight on screen. The things to judge are whether the answers are *useful*,

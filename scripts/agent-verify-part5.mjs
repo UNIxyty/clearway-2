@@ -21,6 +21,10 @@ const args = process.argv.slice(2);
 const value = (f, d) => (args.indexOf(f) === -1 ? d : args[args.indexOf(f) + 1] ?? d);
 const BASE = value("--base", process.env.AGENT_BASE_URL || "http://127.0.0.1:5175").replace(/\/+$/, "");
 const REALLY_SEND = args.includes("--send");
+// An explicit address, because the mock user's is not a real mailbox. Passing
+// one is itself the human confirmation the external gate demands — which is why
+// it is a flag a person types, not a default the script picks.
+const SEND_TO = value("--to", null);
 const MOCK_USER_ID = "00000000-0000-4000-8000-000000000001";
 const SB = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
 const KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
@@ -110,7 +114,20 @@ async function main() {
   if (!REALLY_SEND) {
     skip("a real email is delivered", "pass --send to deliver to the signed-in user");
   } else {
-    const sent = await invoke("send_email", { subject: "Clearway agent · Part 5 verification", blocks, attachmentIds: [pdf.file.id] });
+    const sent = await invoke("send_email", {
+      subject: "Clearway Ops Agent · template check",
+      ...(SEND_TO ? { to: [SEND_TO], confirmed: true } : {}),
+      blocks: [
+        { type: "heading", text: "Ops Agent email template" },
+        { type: "paragraph", text: "This is the agent's email template, sent from the real send path with a generated PDF attached. Everything below is a block the agent can compose with." },
+        { type: "table", rows: [["Flight", "BTI472 · EVRA → EGLL"], ["Aircraft", "YL-ABC · A220-300"], ["CTOT", "11:52Z"]] },
+        { type: "mono", title: "EGLL TAF · RAW", text: "TAF EGLL 230459Z 2306/2412 24012KT 9999 BKN014\n  TEMPO 2309/2315 24016G28KT 6000 -SHRA BKN009" },
+        { type: "verbatim", reference: "LIM-0412 rev 3", text: "When the reported crosswind component exceeds 20 kt, AUTOLAND IS NOT PERMITTED. The approach shall be flown manually by the Commander.", by: "Approved 02 Sep 2026 by N. Ozola, Ops Quality. Reproduced exactly." },
+        { type: "section", title: "AGENT'S READING", text: "Gust crosswind on 27L is about 21 kt during the TEMPO, above the 20 kt threshold. Plan a manual approach." },
+        { type: "callout", title: "This is a test.", text: "Sent by the Part 5 verifier — no action needed." },
+      ],
+      attachmentIds: [pdf.file.id],
+    });
     check("an email with an attachment is delivered", sent.sent === true, sent.sent ? `Resend id ${sent.messageId}` : sent.error);
     const sendLog = await sb(`agent_email_log?user_id=eq.${MOCK_USER_ID}&select=status,provider_id,provider_error,attachments,recipients&order=created_at.desc&limit=1`);
     check("the send is logged with the provider response",

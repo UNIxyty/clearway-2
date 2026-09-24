@@ -20,6 +20,23 @@ import { audit } from "../store.mjs";
 const REST_TIMEOUT_MS = 10_000;
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // Resend's practical ceiling
 
+/**
+ * The agent sends under its OWN identity, not the Digital Wall's. A recipient
+ * should be able to tell at a glance that a machine composed the mail on a
+ * colleague's behalf, and a distinct address means agent mail can be filtered,
+ * traced and — if it ever misbehaves — suppressed without touching the wall's
+ * alerting.
+ *
+ * The domain must be one Resend has verified (verxyl.com today). Sending from
+ * an unverified domain is rejected by the provider, so this is not a free
+ * choice of address.
+ */
+function agentFrom() {
+  return String(process.env.AGENT_EMAIL_FROM || "").trim() || "Clearway AI Agent <agent@verxyl.com>";
+}
+
+export { agentFrom };
+
 function supabaseUrl() { return String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, ""); }
 function serviceKey() { return String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim(); }
 
@@ -157,6 +174,7 @@ export async function sendAgentEmail({ to, prepared, attachments = [], user, con
 
   const result = await deliver({
     to: recipients,
+    from: agentFrom(),
     subject: prepared.subject,
     html: prepared.html,
     attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })),

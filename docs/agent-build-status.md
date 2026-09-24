@@ -28,7 +28,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
 | 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
-| 5 | Not started | — | No | |
+| 5 — File generation and email | Built, not deployed | `c592ba0` `fd22803` | No | Verifier **14/14**; needs a deploy (bigger image — chromium) |
 | 6 | Not started | — | No | |
 | 7 | Not started | — | No | |
 | 8 | Not started | — | No | |
@@ -779,7 +779,79 @@ rejects the unsupported one (0.00) → retrievals are logged with their sources.
 4. **Re-tune the confidence bar** (0.32) from `agent_retrievals` once a real
    corpus exists. It is calibrated on a handful of sentences today.
 
-## Parts 5–10
+## Part 5 — File generation and email
+
+**Status: Built, not deployed.** Verifier **14/14** (1 skipped: real delivery is
+opt-in). `docs/supabase-agent-files-email.sql` applied.
+
+### File generation
+Reuses the platform's established route — HTML + print CSS through
+`chromium.pdf()`, the same as `scripts/generate-airport-sheets.mjs`. No new PDF
+library: the team already styles these with CSS they know, print CSS handles
+page breaks properly, and a second engine would render documents that look
+unlike the sheets people already recognise. XLSX and DOCX are written directly
+as OOXML rather than adding a spreadsheet dependency for one sheet of strings.
+
+All four formats confirmed as real files by `file(1)`: *PDF document, 2 pages*,
+*Microsoft Excel 2007+*, *Microsoft Word 2007+*. Output lands under
+`STORAGE_ROOT`, never the root volume, and every generation is logged with
+requester, type, timing and what went into it.
+
+**The image is now `mcr.microsoft.com/playwright:v1.59.1-noble`**, not
+`node:22-alpine` — chromium needs system libraries. Larger image, slower first
+build; the alternative was drifting from what the airport-sheet generator is
+tested against.
+
+### Email
+**Reuses `digital-wall/lib/mailer.mjs`** rather than writing a second send path:
+one place to rotate the Resend key, one set of failure behaviour, one thing to
+check when mail stops arriving. The agent image builds from the repo root and
+copies that module — the same arrangement `digital-wall-frontend` already uses
+to share `shared/`.
+
+Template implements the Claude Design source (`Ops Agent Email.dc.html`):
+header, requester line ("Sent by the Clearway Ops Agent at the request of…"),
+the block vocabulary — paragraph, titled section, label/value table, mono block,
+**VERBATIM frame**, callout, attachment list, sources, CTA — and the dark
+footer. A plain-text alternative is generated too; a mail with no text part
+scores as spam.
+
+**Images: the design's URLs would have been the third incident.** It specifies
+`/brand/clearway-white.svg` and `/brand/verxyl-white.png`; both **404** on this
+domain. The existing transactional templates serve logos from Supabase public
+storage and those resolve, so the template uses them. The verifier fetches every
+URL in the rendered mail and fails if any is unreachable, and a non-https asset
+base throws at render time rather than shipping silently.
+
+**External recipients require confirmation, enforced in the backend** — the
+classification is recomputed from the addresses actually being sent to, so a
+model cannot satisfy it by leaving someone off a list.
+
+**Failures are loud.** The provider's own error is returned to the caller and
+stored in `agent_email_log.provider_error`. Blocked attempts are logged too:
+"who tried to mail outside the company" is its own question.
+
+### A bug worth recording
+Both tools refused unconfirmed external sends with their own early return —
+`email_document` deliberately, so it does not fetch a 3 MB PDF for a send about
+to be blocked. But the early return skipped the logging, so **a blocked attempt
+left no trace**, which defeats the point of requiring confirmation.
+`refuseUnconfirmedExternal` now owns the check *and* the record; both tools get
+the refusal from it or not at all.
+
+### Tools added
+`generate_file` (pdf/docx/xlsx/csv) · `email_document` (AIP/GEN by ICAO) ·
+`send_email` (blocks + generated attachments). 25 tools total.
+
+### Decisions needed from you
+1. **Deploy** — note the larger image.
+2. **Run a real delivery test**: `node scripts/agent-verify-part5.mjs --send`
+   delivers to the signed-in user so you can see the template in a client.
+3. **Internal domains**: currently the requester's own email domain. Set
+   `AGENT_EMAIL_INTERNAL_DOMAINS` if colleagues use other domains, or they will
+   all be treated as external and need confirmation every time.
+
+## Parts 6–10
 Not started.
 
 ## Deferred items (all parts)

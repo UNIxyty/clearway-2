@@ -130,6 +130,8 @@ defineTool({
     if (input.countries !== undefined) patch.countries = input.countries;
     if (Object.keys(patch).length === 0) throw InvalidInput("Nothing to change — give at least one field.");
 
+    // markAiAuthored sets updatedBy AND aiAuthored; the wall merges the patch
+    // over the existing record, so both survive an edit.
     const result = await wallGet(`/api/timeline/limitations/${encodeURIComponent(input.id)}`, user, {
       method: "PATCH", body: markAiAuthored(patch, user, { field: "updatedBy" }), timeoutMs: 25_000,
     });

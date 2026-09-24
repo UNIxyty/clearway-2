@@ -2589,13 +2589,28 @@ export class LeonTimelineService {
         countries: toUniqueSorted((matchInput.countries || []).map(normalizeCountry)),
       },
       isActive: input.isActive !== false,
+      // Authorship, carried the same way the IMPORTANT store carries it. The
+      // ops agent stamps these so a dispatcher reading the wall can tell a
+      // person did not write the entry; without persisting them the marker
+      // existed only in an audit log nobody has open.
+      addedBy: input.addedBy ?? null,
+      updatedBy: input.updatedBy ?? null,
+      aiAuthored: input.aiAuthored === true,
       createdAt: now,
       updatedAt: now,
     };
 
     const index = this.customLimitations.findIndex((item) => item.id === id);
     if (index >= 0) {
-      next.createdAt = this.customLimitations[index].createdAt || now;
+      const existing = this.customLimitations[index];
+      next.createdAt = existing.createdAt || now;
+      // Who CREATED it never changes on an edit — otherwise an agent edit of a
+      // human's limitation would silently reattribute the original to the agent.
+      next.addedBy = existing.addedBy ?? input.addedBy ?? null;
+      next.updatedBy = input.updatedBy ?? existing.updatedBy ?? null;
+      // Once agent-touched, stays flagged: a later human edit that cleared the
+      // flag would hide that an agent had a hand in it.
+      next.aiAuthored = existing.aiAuthored === true || input.aiAuthored === true;
       this.customLimitations[index] = next;
     } else {
       this.customLimitations.push(next);

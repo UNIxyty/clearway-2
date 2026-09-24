@@ -72,10 +72,13 @@ dark palette, both in the token file).
   mention chips, short-answer card, cap editing, phonetic spelling, per-user voice preference.
 - Voice bar over the wall (A67) — decision, see §8.
 
-**Cross-app (neither)**
-- Change-behind-the-panel ghost row / wall preview / banner (A42, B9) and the B2 wall-console empty state:
-  the wall console is a separate Vite SPA (`/digital-wall/console/*`); the panel cannot run inside it
-  without a page↔panel contract, which the prompt forbids inventing.
+**Cross-app**
+- The panel now runs on the wall console too (follow-up, commit `be5e852`): ⌘J / Ctrl+J opens the portal's
+  `/agent/panel` in a 420 px dock beside the console content, with a pinned `Ops Agent ⌘J` sidebar row,
+  context that follows the page, minimise, expand to the full page and the hand-back. The contract is four
+  same-origin `postMessage` types (documented in `opsboard-react/src/hooks/useAgentDock.jsx`).
+- Still blocked: the change-behind-the-panel ghost row / wall preview / applied-row highlight / banner
+  (A42, B9) — the console pages would have to react to an agent write.
 
 ## 5. Spec defaults used
 
@@ -117,6 +120,18 @@ greeting are computed in UTC; toggle knob 150 ms ease-out.
 1. **Voice bar over the wall** — not built; the frame is the wall display (see §7). Your call.
 2. **§16.2 missing states** — built where the spec gives a pattern (listed in §5); the rest are in §4 as
    blocked with the reason.
+
+## 8b. Follow-up fixes after first use (commit `be5e852`)
+
+- **Every `/agent/*` page 404'd in production** (`No route for GET /history`): the tunnel routes
+  `^/agent/.*` to the agent service, which also captures the portal's pages. The agent now passes
+  non-API `/agent/*` requests through to the portal. The proper fix is one line on the server —
+  `/etc/cloudflared/config.yml`: `path: ^/agent/.*` → `path: ^/agent/api/.*`, then
+  `systemctl restart cloudflared` — which I was not permitted to apply; the pass-through makes it
+  unnecessary for correctness but the ingress should still be narrowed.
+- **`@` did nothing** with an empty query: the picker only rendered when it had rows. It now always opens
+  with its type tabs, a hint, `Searching…`, `No matches`, and recent limitations while the query is empty.
+- **⌘J on the wall console** — built (above).
 
 ## 9. Also found on the rig (backend)
 

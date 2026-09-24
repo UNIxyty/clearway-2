@@ -58,7 +58,7 @@ pattern in the spec to follow.
 | A39 | Confirmation — low-risk inline 5a (`Apply ⏎`) | 4.15 A | pending · applied · cancelled | C1 | `small`: generic server confirmations | ✅ |
 | A40 | Confirmation — standard card (header expires, body grid, footer ⌘⏎) | 4.15 B | pending · loading · applied · cancelled · expired · partial | C1 | `small` | ✅ |
 | A41 | Confirmation — multi-change block | 4.15 B | — | C1 | `small` | present (only single-change prompts arose on the rig) |
-| A42 | Confirmation — change behind panel (`previewed on the page ←`) | 4.15 B, 6.8 | — | P6 | page↔panel contract (`small` for Limitations page) | blocked (wall console is a separate app — no page↔panel contract) |
+| A42 | Confirmation — change behind panel (`previewed on the page ←`) | 4.15 B, 6.8 | — | P6 | page↔panel contract (`small` for Limitations page) | blocked (needs the console pages to preview an agent write — cross-app) |
 | A43 | Confirmation — destructive pinned bar, hold 2 s, countdown, `Keep it` | 4.15 C | pending · holding · released · expired | C2, C3, C4 | `small` | ✅ |
 | A44 | Confirmation — records Applied / Sent / Cancelled / Expired / Partial / Applied (panel) | 4.15 D | 6 | C1 | have (action rows) | ✅ applied / cancelled / partial; expired tested by the rules script |
 | A45 | Confirmation — modal 5b destructive (type ID) and low | 4.15 E | — | — | `small` | present (built; not exercised in the browser run) |
@@ -79,7 +79,7 @@ pattern in the spec to follow.
 | A60 | Context chip — loading `Reading Flights · KLJ7226…` | 4.21 | — | P4 | have | present (built; not exercised in the browser run) |
 | A61 | Context chip — "Now on…" switch | 4.21 | — | — | have | present (built; not exercised in the browser run) |
 | A62 | Suggested questions — full page 4 cards | 4.22 | hover | H1 | live counts `small` (wall state) | ✅ |
-| A63 | Suggested questions — panel B1/B2/B3 sets | 4.22, 6.6 | — | H1 | `small` | ✅ B1 (EVRA) and B3 (no context); B2 blocked (wall console is external) |
+| A63 | Suggested questions — panel B1/B2/B3 sets | 4.22, 6.6 | — | H1 | `small` | ✅ B1 (EVRA), B2 (console, NOTAM Check) and B3 (no context) |
 | A64 | Compact voice bar — invoked/listening/uncertain/processing/error | 4.23 | 5 + 3 error rows | V1–V6, V8 | STT — `blocked:backend` (no ElevenLabs Scribe wiring) | blocked:backend |
 | A65 | Voice bar — placement, drag/snap, selected-row context pill | 4.23 | — | — | as A64 | blocked:backend |
 | A66 | Voice bar — short-answer card 8 s, `Open in panel ⌘J` | 4.23 | — | V7 | as A64 | blocked:backend |
@@ -98,12 +98,12 @@ pattern in the spec to follow.
 | B1 | Sidebar entry — expanded item + keycap; active / panel-open / inactive | 5 | 3 | H1 | have (`hasAgent`) | ✅ |
 | B2 | Sidebar entry — sub-items Chat/History/Knowledge base (badge)/Activity log/Settings | 5 | — | — | badge count `small` | ✅ |
 | B3 | Sidebar entry — rail (dot badge) and deep-context pinned block | 5 | — | — | have | ✅ rail; deep-context pinned block built (portal deep contexts not visited in the run) |
-| B4 | Panel — open/close triggers (⌘J, item, `Ask about …` page button, Esc, x) | 6.1 | — | P1 | have | ✅ ⌘J, sidebar item, Ask about…, ×; Esc built |
+| B4 | Panel — open/close triggers (⌘J, item, `Ask about …` page button, Esc, x) | 6.1 | — | P1 | have | ✅ ⌘J, sidebar item, Ask about…, ×; Esc built — on the portal AND the wall console (iframe dock) |
 | B5 | Panel — push vs overlay rule (≥900 content; 1280 always overlay) | 6.2 | — | P1 | have | ✅ push at 1440 |
 | B6 | Panel — layout (chip, thread, composer) | 6.4 | — | — | have | ✅ |
-| B7 | Panel — empty states B1 (airport) / B2 (wall console) / B3 (no context + recents) | 6.6 | 3 | — | `small` (live counts, recents `have`) | ✅ B1/B3; B2 blocked (wall console external) |
+| B7 | Panel — empty states B1 (airport) / B2 (wall console) / B3 (no context + recents) | 6.6 | 3 | — | `small` (live counts, recents `have`) | ✅ B1 (EVRA), B2 (wall console: NOTAM Check via the console dock), B3 (no context) |
 | B8 | Panel — replies at width (all card variants) | 6.7 | — | — | have | ✅ verbatim/confirmation/error/tool cards at 420; data cards present (no rig data) |
-| B9 | Panel — change behind the panel: ghost row, wall preview, applied row highlight, banner, Revert… | 6.8 | pending · applied · cancelled | P6, P7, P8 | page contract `small` (Limitations page) | blocked (cross-app contract with the wall console SPA) |
+| B9 | Panel — change behind the panel: ghost row, wall preview, applied row highlight, banner, Revert… | 6.8 | pending · applied · cancelled | P6, P7, P8 | page contract `small` (Limitations page) | partial — the panel now runs on the console (iframe dock, ⌘J, context follows the page); the ghost row / wall preview / applied-row highlight / banner need the console pages to react to agent writes (cross-app) |
 | B10 | Panel — voice docked in composer | 6.9 | — | — | as A64 | blocked:backend |
 | B11 | Panel — History view (groups ABOUT/TODAY/YESTERDAY, search, footer) | 6.10 | list · empty · loading (empty/loading `blocked:design`) | — | have | ✅ |
 | B12 | Panel — loading / streaming / error / offline | 6.11 | 4 | A7 | have | ✅ |
@@ -246,10 +246,10 @@ pattern in the spec to follow.
 
 | Status | Rows |
 |---|---|
-| ✅ built and seen working in the browser (production build) | 89 |
+| ✅ built and seen working in the browser (production build) | 91 |
 | present — built to the spec, not exercised by the browser run | 61 |
-| partial | 7 |
-| blocked (backend / design / cross-app) | 39 |
+| partial | 8 |
+| blocked (backend / design / cross-app) | 37 |
 | missing | 1 |
 
 `present` rows are code-complete against the spec and typechecked, but the rig could not reach the data

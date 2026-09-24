@@ -1389,6 +1389,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 2 — view endpoints (activity, settings, usage, knowledge, history, suggestions, attachments) | d826741 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 3a — primitives and the safety-carrying thread components | 340f7b4 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 3b — panel, full page, History, Activity log, Settings, Knowledge base, nav, shell wiring | 18bd218 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
+| 5 — follow-up: /agent pages behind the tunnel, @ picker states, ⌘J on the wall console | be5e852 | yes | yes — 2026-09-24 23:22Z (portal build HvulmkGIRkAqNT4C_FjqF; agent-service + digital-wall-frontend rebuilt) |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

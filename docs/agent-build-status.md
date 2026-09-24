@@ -1389,7 +1389,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 2 — view endpoints (activity, settings, usage, knowledge, history, suggestions, attachments) | d826741 | yes | __DEPLOYED__ |
 | 3a — primitives and the safety-carrying thread components | 340f7b4 | yes | __DEPLOYED__ |
 | 3b — panel, full page, History, Activity log, Settings, Knowledge base, nav, shell wiring | 18bd218 | yes | __DEPLOYED__ |
-| 4 — manifest statuses + report | __DOC_COMMIT__ | yes | __DEPLOYED__ |
+| 4 — manifest statuses + report | e456898 | yes | __DEPLOYED__ |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):
 39 screenshots; console clean apart from the rig's own 401s. §3 rules verifier 15/15 on the final code.

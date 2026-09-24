@@ -39,6 +39,7 @@ export function collectViewportEnv() {
     screenWidth: window.screen?.width ?? null,
     screenHeight: window.screen?.height ?? null,
     visualViewportScale: window.visualViewport?.scale ?? null,
+    finePointer: typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: fine)').matches : null,
     zoomOuterRatio,
     rootFontSize,
     userAgent: navigator.userAgent.slice(0, 160),

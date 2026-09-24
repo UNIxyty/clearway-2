@@ -268,13 +268,16 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
     // Tool calls in one round are independent, so they run together.
     const results = await Promise.all(
       requestedTools.map(async (call) => {
-        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode });
-        return { call, result };
+        const startedAt = Date.now();
+        // origin: "model" -- a confirmation token in a model tool call is refused
+        // by executeTool; only the console's confirm endpoint may spend one.
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model" });
+        return { call, result, startedAt, durationMs: Date.now() - startedAt };
       })
     );
 
     const toolResultBlocks = [];
-    for (const { call, result } of results) {
+    for (const { call, result, startedAt, durationMs } of results) {
       toolCalls.push({ name: call.name, ok: result.ok !== false, error: result.ok === false ? result.error : null });
       // The RESULT rides on this chunk. The server builds the verbatim frame,
       // flight cards and the changed-on-the-wall block from tool results, and
@@ -283,7 +286,7 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
       // survived only because sourceLabel tolerates a missing result. The
       // server keeps the result to itself; the SSE event still carries only
       // name/input/ok/error.
-      yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result };
+      yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result, startedAt, durationMs };
       toolResultBlocks.push({
         toolResult: {
           toolUseId: call.toolUseId,

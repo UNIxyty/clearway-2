@@ -14,7 +14,7 @@
 import { validate, SchemaError } from "./schema.mjs";
 import { ToolError, InvalidInput, Timeout } from "./errors.mjs";
 import { audit } from "../store.mjs";
-import { requireConfirmation, consumeConfirmation } from "../confirm.mjs";
+import { requireConfirmation, consumeConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
 
 /** Permission levels, least to most privileged. */
 export const PERMISSIONS = ["user", "admin", "developer"];
@@ -42,6 +42,37 @@ export const SOURCE_TIERS = {
 
 const registry = new Map();
 
+/**
+ * Which writes need which confirmation (design spec §4.15). Kept HERE, in one
+ * table, rather than as a flag on each tool: the level is a product decision
+ * about risk, and a table can be read in one glance and argued with.
+ *
+ *   low         — reversible display setting; inline "Apply ⏎"
+ *   standard    — a data change or an email; the card with ⌘⏎
+ *   destructive — cannot be undone; hold-to-confirm, no keyboard confirm
+ *
+ * Every tool listed here executes only through a server-verified confirmation
+ * (§3 rule 6). A write tool NOT listed here is a defect, and the framework
+ * treats it as standard rather than letting it run unconfirmed.
+ */
+export const CONFIRM_LEVELS = {
+  update_display_settings: "low",
+  set_aircraft_visible: "low",
+  create_limitation: "standard", update_limitation: "standard", create_important: "standard", create_report: "standard",
+  set_operator_active: "standard",
+  delete_limitation: "standard", restore_limitation: "standard",
+  delete_important: "standard", restore_important: "standard", delete_report: "standard", restore_report: "standard",
+  undo_action: "standard",
+  send_email: "standard", email_document: "standard",
+  purge_deleted_limitation: "destructive",
+};
+const WRITE_HINT = /^(create_|update_|delete_|restore_|purge_|set_|send_|email_|undo_|remember$|forget$)/;
+export function confirmLevelFor(tool) {
+  if (CONFIRM_LEVELS[tool.name]) return CONFIRM_LEVELS[tool.name];
+  if (tool.name === "remember" || tool.name === "forget") return null; // the user's own notes, not operational data
+  return WRITE_HINT.test(tool.name) ? "standard" : null;
+}
+
 export function defineTool(spec) {
   const required = ["name", "description", "permission", "input", "output", "handler"];
   for (const key of required) {
@@ -66,6 +97,16 @@ export function defineTool(spec) {
         type: "string", maxLength: 64,
         description: "Only ever a token returned by a previous refused call. Never invent one.",
       },
+    };
+  }
+  // Every confirmable write accepts the UI's confirmation token. The MODEL
+  // must never send one -- a token inside a model tool call is refused by
+  // executeTool -- but the schema has to admit it so the UI's confirm request
+  // validates like any other call.
+  if (confirmLevelFor(tool)) {
+    tool.input.properties = {
+      ...tool.input.properties,
+      confirmationToken: { type: "string", maxLength: 64, description: "Set only by the console after the user confirms. Never set this yourself." },
     };
   }
   registry.set(tool.name, tool);
@@ -124,7 +165,15 @@ function byteSize(value) {
  * model can read, and an audit row. The returned shape is the tool's declared
  * output on success, or { ok: false, error: <CODE>, message } on failure.
  */
-export async function executeTool({ name, input, user, conversationId, inputMode = "text" }) {
+/** One line describing what a write will do, for the confirmation card. Built from the tool, never the model. */
+async function describeChange(tool, input, user) {
+  if (tool.describeChange) { try { return await tool.describeChange(input, { user }); } catch { /* fall through */ } }
+  const label = tool.readback ? await tool.readback(input, { user }).catch(() => null) : null;
+  const target = label ?? input.id ?? input.title ?? input.registration ?? input.operatorId ?? null;
+  return { what: tool.sourceLabel ? tool.sourceLabel(input, {}).replace(/^Internal · /, "") : tool.name, target };
+}
+
+export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui" }) {
   const startedAt = Date.now();
   const tool = getTool(name);
 
@@ -171,6 +220,45 @@ export async function executeTool({ name, input, user, conversationId, inputMode
     return result;
   }
 
+  // ── Confirmation: server-verified, blocking, idempotent (§3 rule 6) ───────
+  //
+  // A write executes only on a call that carries a token this process issued
+  // for this user, this tool and these exact arguments, and only when that
+  // call comes from the UI. The model can ask for the change; it cannot
+  // confirm it. That single rule is also why a spoken "yes" does nothing.
+  const level = confirmLevelFor(tool);
+  let confirmationEntry = null;
+  if (level) {
+    const { confirmationToken, ...bare } = validInput;
+    if (origin !== "ui" && confirmationToken) {
+      const result = { ok: false, error: "NO_PERMISSION", message: "A confirmation token can only be supplied by the console after the user confirms. Ask the user; do not confirm on their behalf." };
+      await record(result, false, "CONFIRMATION_FROM_MODEL");
+      return result;
+    }
+    if (!confirmationToken || origin !== "ui") {
+      const change = await describeChange(tool, bare, user);
+      const issued = issueConfirmation({ user, toolName: name, input: bare, level, summary: change, targetId: bare.id ?? null, targetLabel: change.target ?? null, conversationId });
+      const result = {
+        ok: true, executed: false, confirmationRequired: true, level,
+        confirmationToken: issued.token, expiresAt: issued.expiresAt, what: change.what, target: change.target,
+        message: `NOT DONE YET. The console is showing the dispatcher a confirmation for: ${change.what}${change.target ? ` — ${change.target}` : ""}. Nothing changes until they confirm it there. Do not ask them to confirm in words, and do not call this tool again with a token.`,
+      };
+      await audit({ kind: "tool.call", userId: user.userId, userEmail: user.email, conversationId, toolName: name, toolArgs: bare, toolResult: { confirmationRequired: true, level, token: issued.token }, confirmationStatus: "pending", success: true, latencyMs: Date.now() - startedAt, detail: { permission: tool.permission, role: user.agentRole, level } });
+      return result;
+    }
+    const begun = beginConfirmation({ token: confirmationToken, user, toolName: name, input: bare });
+    if (begun.error) {
+      const why = { unknown: "That confirmation is not one of yours, or this service restarted since it was issued.", mismatch: "The confirmation does not match this action's arguments.", cancelled: "That confirmation was cancelled.", expired: "That confirmation expired — the wall may have changed since. Ask again." }[begun.error];
+      const result = { ok: false, error: "CONFIRMATION_INVALID", reason: begun.error, message: why };
+      await record(result, false, `CONFIRMATION_${begun.error.toUpperCase()}`);
+      return result;
+    }
+    if (begun.replay) return begun.entry.result;                 // idempotent: same token, same answer
+    if (begun.inFlight) return await begun.entry.executing;     // a racing second click waits for the first
+    confirmationEntry = begun.entry;
+    validInput = bare;
+  }
+
   // ── Voice is the exception to the no-confirmation rule ──────────────────
   //
   // Parts 7 and 8 drop confirmation for authorized reversible actions, and that
@@ -208,15 +296,29 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   }
 
   let output;
+  const execute = async () => {
+    try {
+      return await Promise.race([
+        tool.handler(validInput, { user, conversationId }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(Timeout(`${name} timed out after ${Math.round(tool.timeoutMs / 1000)}s.`)), tool.timeoutMs)
+        ),
+      ]);
+    } catch (error) {
+      const toolError = error instanceof ToolError ? error : new ToolError("INTERNAL", String(error?.message || error));
+      throw toolError;
+    }
+  };
   try {
-    output = await Promise.race([
-      tool.handler(validInput, { user, conversationId }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(Timeout(`${name} timed out after ${Math.round(tool.timeoutMs / 1000)}s.`)), tool.timeoutMs)
-      ),
-    ]);
-  } catch (error) {
-    const toolError = error instanceof ToolError ? error : new ToolError("INTERNAL", String(error?.message || error));
+    if (confirmationEntry) {
+      // Racing confirms share this one promise; see beginConfirmation.
+      confirmationEntry.executing = execute();
+      output = await confirmationEntry.executing;
+    } else {
+      output = await execute();
+    }
+  } catch (toolError) {
+    if (confirmationEntry) failConfirmation(confirmationEntry);
     const result = toolError.toResult();
     await record(result, false, `${toolError.code}: ${toolError.message}`);
     return result;
@@ -240,8 +342,12 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   // object with a field quietly missing.
   try {
     const validated = validate(output, tool.output, `${name} result`);
-    const result = { ok: true, ...validated };
-    await record(result, true, null);
+    const result = { ok: true, ...validated, ...(confirmationEntry ? { confirmedAt: new Date().toISOString(), confirmationToken: confirmationEntry.token } : {}) };
+    if (confirmationEntry) settleConfirmation(confirmationEntry, result);
+    await audit({ kind: "tool.call", userId: user?.userId ?? null, userEmail: user?.email ?? null, conversationId, toolName: name, toolArgs: validInput ?? null,
+      toolResult: byteSize(result) > 32 * 1024 ? { truncatedForAudit: true, bytes: byteSize(result) } : result,
+      confirmationStatus: confirmationEntry ? "confirmed" : "not_required", success: true, error: null, latencyMs: Date.now() - startedAt,
+      detail: { permission: tool?.permission ?? null, role: user?.agentRole ?? null, ...(confirmationEntry ? { level, confirmedToken: confirmationEntry.token } : {}) } });
     return result;
   } catch (error) {
     const message = error instanceof SchemaError ? error.errors.join("; ") : String(error?.message || error);

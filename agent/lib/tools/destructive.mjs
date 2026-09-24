@@ -24,7 +24,6 @@ import { defineTool, S } from "./framework.mjs";
 import { wallGet } from "./http.mjs";
 import { InvalidInput, NotFound } from "./errors.mjs";
 import { recordAction } from "../actions.mjs";
-import { requireConfirmation, consumeConfirmation } from "../confirm.mjs";
 
 const UNDO_NOTE =
   "The complete previous record is snapshotted first, so this can be undone with undo_action, or the record restored by id.";
@@ -212,10 +211,6 @@ defineTool({
     additionalProperties: false,
     properties: {
       id: { type: "string", minLength: 1, maxLength: 64 },
-      confirmationToken: {
-        type: "string", maxLength: 64,
-        description: "Only ever a token returned by a previous call to this tool. Never invent one.",
-      },
     },
   },
   output: {
@@ -235,24 +230,9 @@ defineTool({
     const target = (payload?.limitations ?? []).find((row) => row?.id === input.id);
     if (!target) throw NotFound(`Nothing deleted with id ${input.id}. Only a deleted record can be purged.`);
 
-    if (!consumeConfirmation({ user, toolName: "purge_deleted_limitation", targetId: input.id, token: input.confirmationToken })) {
-      // Asking is itself worth a trail: it shows what was proposed even when
-      // the user said no, and a refusal is not visible anywhere else.
-      await recordAction({
-        user, conversationId, toolName: "purge_deleted_limitation", args: { id: input.id },
-        targetKind: "limitation", targetId: input.id, targetLabel: target.title,
-        beforeState: target, afterState: null,
-        kind: "write", reversible: false,
-        irreversibleReason: "A purge destroys the record outright; there is nothing left to restore.",
-        success: false, error: "awaiting_confirmation",
-        confirmationStatus: "pending",
-      });
-      return requireConfirmation({
-        user, toolName: "purge_deleted_limitation", targetId: input.id, targetLabel: target.title,
-        why: `"${target.title}" would be destroyed outright and could not be restored by you, by me, or by an administrator.`,
-      });
-    }
-
+    // Confirmation is the framework's (destructive level: hold-to-confirm in
+    // the console, server-verified, single-use). By the time this runs the
+    // person has held the button; there is no second ceremony here.
     await wallGet(`/api/timeline/limitations/${encodeURIComponent(input.id)}/purge`, user, { method: "DELETE", timeoutMs: 25_000 });
 
     const actionId = await recordAction({
@@ -263,7 +243,6 @@ defineTool({
       beforeState: target, afterState: null,
       reversible: false,
       irreversibleReason: "Purged from the recycle bin — the record no longer exists anywhere.",
-      confirmationStatus: "confirmed",
     });
     return {
       executed: true, confirmationRequired: false, confirmationToken: null, actionId,

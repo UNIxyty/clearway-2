@@ -33,8 +33,17 @@ async function sb(path, init = {}) {
   if (!res.ok) throw new Error(`${path} -> ${res.status}: ${text.slice(0, 200)}`);
   return text ? JSON.parse(text) : null;
 }
-const invoke = (name, input = {}) =>
+const invokeRaw = (name, input = {}) =>
   fetch(`${BASE}/api/tools/invoke`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, input }) }).then((r) => r.json());
+// Writes now stop at a server-verified confirmation (design spec §3 rule 6).
+// The verifier plays the console: when a call comes back confirmationRequired
+// it confirms through the endpoint, exactly as a click would.
+const invoke = async (name, input = {}) => {
+  const first = await invokeRaw(name, input);
+  if (first?.confirmationRequired !== true) return first;
+  const confirmed = await fetch(`${BASE}/api/confirmations/${first.confirmationToken}/confirm`, { method: "POST" }).then((r) => r.json());
+  return confirmed.result ?? confirmed;
+};
 const wall = (path, init = {}) =>
   fetch(`${process.env.DIGITAL_WALL_INTERNAL_URL || "http://127.0.0.1:5199"}${path}`, {
     headers: { "Content-Type": "application/json" }, ...init,

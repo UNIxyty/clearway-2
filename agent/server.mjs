@@ -32,6 +32,8 @@ import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { routeTurn } from "./lib/router.mjs";
+import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
+import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
@@ -72,6 +74,8 @@ function sanitiseAttachments(raw) {
   }
   return out;
 }
+
+import { wallGet as wallGetForServer } from "./lib/tools/http.mjs";
 
 async function readJsonBody(req) {
   const chunks = [];
@@ -156,14 +160,69 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const name = String(body.name || "").trim();
       if (!name) throw BadRequest("A tool name is required.");
+      // A confirmation is spent ONLY through /api/confirmations/:token/confirm,
+      // which runs the arguments that were shown. A token inside a tool call
+      // -- from the model, from a script, from anywhere -- is refused here.
+      if (body.input && typeof body.input === "object" && "confirmationToken" in body.input) {
+        return sendJson(res, { ok: false, error: "NO_PERMISSION", message: "Confirm through /api/confirmations/{token}/confirm. A tool call cannot carry a confirmation." }, 403);
+      }
       const result = await executeTool({
         name,
         input: body.input ?? {},
         user,
         conversationId: String(body.conversationId || "direct-invoke"),
         inputMode: body.inputMode === "voice" ? "voice" : "text",
+        // The console is the only caller that may spend a confirmation token.
+        // A voice-originated call is never "ui" in that sense (§3 rule 9).
+        origin: body.inputMode === "voice" ? "voice" : "ui",
       });
       return sendJson(res, result, result.ok === false ? 200 : 200);
+    }
+
+    // ── Confirmations (§3 rules 6–9) ─────────────────────────────────────────
+    // The console shows the prompt; these three calls are the only way a
+    // pending write proceeds, is declined, or is read back after a reload.
+    const confirmMatch = /^\/api\/confirmations\/([0-9a-f-]{36})(?:\/(confirm|cancel))?$/.exec(pathname);
+    if (confirmMatch) {
+      await assertMayUseAgent(user);
+      const [, token, verb] = confirmMatch;
+      const entry = getConfirmation(token, user);
+      if (!entry) return sendJson(res, { ok: false, error: "not_found", message: "No such confirmation for you. It may have expired, or the service restarted since it was issued." }, 404);
+      if (req.method === "GET" && !verb) return sendJson(res, { ok: true, confirmation: publicView(entry) });
+      if (req.method === "POST" && verb === "cancel") {
+        const cancelled = cancelConfirmation(token, user);
+        await audit({ kind: "tool.call", userId: user.userId, userEmail: user.email, conversationId: entry.conversationId, toolName: entry.toolName, toolArgs: entry.input, toolResult: { declined: true }, confirmationStatus: "rejected", success: true, detail: { level: entry.level, token } });
+        return sendJson(res, { ok: true, confirmation: publicView(cancelled ?? entry) });
+      }
+      if (req.method === "POST" && verb === "confirm") {
+        // The exact stored arguments are what run -- never anything from this
+        // request's body -- so a confirmation cannot be steered after it was shown.
+        const result = await executeTool({ name: entry.toolName, input: { ...entry.input, confirmationToken: token }, user, conversationId: entry.conversationId ?? "confirmation", origin: "ui" });
+        return sendJson(res, { ok: result.ok !== false, result, confirmation: publicView(getConfirmation(token, user) ?? entry) });
+      }
+      return sendJson(res, { ok: false, error: "method_not_allowed" }, 405);
+    }
+
+    // ── Verbatim by ID (§3 rule 1) ────────────────────────────────────────────
+    // The ink frame renders THIS, fetched by id, never the model's text. If it
+    // cannot be fetched the frame shows an error.
+    const verbatimMatch = /^\/api\/verbatim\/(limitation|important|caa|tier1)\/([^/]+)$/.exec(pathname);
+    if (verbatimMatch && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const [, kind, rawId] = verbatimMatch;
+      const id = decodeURIComponent(rawId);
+      const notFound = () => sendJson(res, { ok: false, error: "not_found", message: `No ${kind} record ${id} could be fetched.` }, 404);
+      if (kind === "tier1") {
+        const rows = await knowledgeRest2(`agent_tier1_records?id=eq.${encodeURIComponent(id)}&retired_at=is.null&select=*&limit=1`).catch(() => null);
+        const r = rows?.[0];
+        if (!r || !r.approved_at) return notFound();
+        return sendJson(res, { ok: true, record: { kind, id: r.id, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
+      }
+      const path = kind === "limitation" ? `/api/timeline/limitations/${encodeURIComponent(id)}` : kind === "important" ? `/api/important/${encodeURIComponent(id)}` : `/api/caa/${encodeURIComponent(id)}`;
+      const payload = await wallGetForServer(path, user).catch(() => null);
+      const r = payload?.limitation ?? payload?.entry ?? payload?.record ?? null;
+      if (!r) return notFound();
+      return sendJson(res, { ok: true, record: { kind, id: String(r.id ?? id), reference: null, heading: String(r.title ?? r.authorityName ?? r.country ?? ""), text: String(r.description ?? r.body ?? r.functionText ?? r.title ?? ""), source: kind === "limitation" ? "digital-wall limitations store" : kind === "important" ? "digital-wall IMPORTANT store" : "digital-wall CAA store", version: null, effectiveFrom: r.startDate ?? r.effectiveFrom ?? null, effectiveTo: r.endDate ?? r.effectiveTo ?? null, approvedBy: r.reviewedBy ?? r.addedBy ?? null, approvedAt: r.reviewedAt ?? r.addedAt ?? null, updatedAt: r.updatedAt ?? null, page: null } });
     }
 
     // ── Generated files: download what the agent produced ─────────────────
@@ -544,7 +603,7 @@ async function handleChat(req, res, user) {
         send("delta", { text: chunk.text });
       } else if (chunk.type === "tool") {
         toolCalls.push(chunk);
-        send("tool", { name: chunk.name, input: chunk.input, ok: chunk.ok, error: chunk.error });
+        send("tool", { name: chunk.name, input: chunk.input, ok: chunk.ok, error: chunk.error, startedAt: chunk.startedAt ? new Date(chunk.startedAt).toISOString() : null, durationMs: chunk.durationMs ?? null, confirmationRequired: chunk.result?.confirmationRequired === true });
       } else if (chunk.type === "done") {
         done = chunk;
       }
@@ -561,16 +620,30 @@ async function handleChat(req, res, user) {
     const documents = documentsFromToolCalls(toolCalls);
     const files = filesFromToolCalls(toolCalls);
     const airports = airportsFromToolCalls(toolCalls);
-    const toolActivity = toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null }));
+    // Pending confirmations the model's calls raised: the console renders the
+    // prompt from THIS, and it is persisted so a reload shows it again (with
+    // its live status looked up by token).
+    const confirmations = toolCalls
+      .filter((c) => c.result?.confirmationRequired === true && c.result?.confirmationToken)
+      .map((c) => ({ token: c.result.confirmationToken, level: c.result.level, toolName: c.name, input: c.input, what: c.result.what ?? null, target: c.result.target ?? null, expiresAt: c.result.expiresAt ?? null }));
+    const toolActivity = toolCalls.map((c) => ({
+      name: c.name, ok: c.ok, error: c.error ?? null,
+      startedAt: c.startedAt ? new Date(c.startedAt).toISOString() : null, durationMs: c.durationMs ?? null,
+      args: c.input ?? null,
+      // A one-line result the step list can show; never the whole payload.
+      summary: c.result?.message ?? (typeof c.result?.count === "number" ? `${c.result.count} result${c.result.count === 1 ? "" : "s"}` : c.result?.file?.filename ?? (c.result?.confirmationRequired ? "awaiting confirmation" : (c.ok ? "ok" : String(c.error ?? "failed")))),
+      write: Boolean(c.result?.actionId || c.result?.confirmationRequired),
+    }));
 
     await appendMessage({
       conversationId,
       role: "assistant",
       content: answer,
-      blocks: verbatim.length || flights.length || actions.length || mono.length || documents.length || files.length || airports.length
+      blocks: verbatim.length || flights.length || actions.length || mono.length || documents.length || files.length || airports.length || confirmations.length
         ? {
             ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}),
             ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
+            ...(confirmations.length ? { confirmations } : {}),
           }
         : null,
       sources,
@@ -599,6 +672,7 @@ async function handleChat(req, res, user) {
       documents,
       files,
       airports,
+      confirmations,
       toolActivity,
       latencyMs: Date.now() - startedAt,
     });

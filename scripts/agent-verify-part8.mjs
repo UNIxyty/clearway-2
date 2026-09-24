@@ -37,8 +37,17 @@ async function sb(path, init = {}) {
   if (!res.ok) throw new Error(`${path} -> ${res.status}: ${text.slice(0, 200)}`);
   return text ? JSON.parse(text) : null;
 }
-const invoke = (name, input = {}) =>
+const invokeRaw = (name, input = {}) =>
   fetch(`${BASE}/api/tools/invoke`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, input }) }).then((r) => r.json());
+// Writes now stop at a server-verified confirmation (design spec §3 rule 6).
+// The verifier plays the console: when a call comes back confirmationRequired
+// it confirms through the endpoint, exactly as a click would.
+const invoke = async (name, input = {}) => {
+  const first = await invokeRaw(name, input);
+  if (first?.confirmationRequired !== true) return first;
+  const confirmed = await fetch(`${BASE}/api/confirmations/${first.confirmationToken}/confirm`, { method: "POST" }).then((r) => r.json());
+  return confirmed.result ?? confirmed;
+};
 const wall = (path, init = {}) =>
   fetch(`${WALL}${path}`, { headers: { "Content-Type": "application/json" }, ...init }).then((r) => r.json()).catch(() => null);
 
@@ -112,20 +121,23 @@ async function main() {
   const c = (await makeLimitation("PART8-VERIFY · purge target"))?.limitation;
   await invoke("delete_limitation", { id: c.id });
 
-  const ask = await invoke("purge_deleted_limitation", { id: c.id });
+  const ask = await invokeRaw("purge_deleted_limitation", { id: c.id });
   check("purging asks first — the irreversible path is NOT executed on the first call",
     ask.ok === true && ask.confirmationRequired === true && ask.executed === false);
   check("the confirmation token is issued by the backend", typeof ask.confirmationToken === "string" && ask.confirmationToken.length >= 16);
   check("nothing was destroyed while awaiting confirmation", await inBin(c.id));
-  const pendingRows = await sb(`agent_actions?user_id=eq.${MOCK_USER_ID}&error=eq.awaiting_confirmation&select=id,reversible,target_id`);
+  const pendingRows = await sb(`agent_audit_log?user_id=eq.${MOCK_USER_ID}&tool_name=eq.purge_deleted_limitation&confirmation_status=eq.pending&select=id,tool_args,detail&order=created_at.desc&limit=5`);
   check("the request for confirmation is itself recorded",
-    (pendingRows ?? []).some((r) => r.target_id === c.id && r.reversible === false));
+    (pendingRows ?? []).some((r) => r.tool_args?.id === c.id && r.detail?.level === "destructive"));
 
-  const forged = await invoke("purge_deleted_limitation", { id: c.id, confirmationToken: "00000000-0000-4000-8000-00000000fake" });
+  const forged = await fetch(`${BASE}/api/confirmations/00000000-0000-4000-8000-00000000fa11/confirm`, { method: "POST" }).then((r) => r.json());
   check("a token the model invented is refused",
-    forged.confirmationRequired === true && forged.executed === false && (await inBin(c.id)));
+    forged.ok === false && (await inBin(c.id)), forged.message ?? forged.error);
+  const modelSide = await invokeRaw("purge_deleted_limitation", { id: c.id, confirmationToken: ask.confirmationToken });
+  check("the model cannot spend a token by passing it in a tool call", modelSide.executed !== true && (await inBin(c.id)), modelSide.error ?? modelSide.message);
 
-  const purge = await invoke("purge_deleted_limitation", { id: c.id, confirmationToken: ask.confirmationToken });
+  const purged = await fetch(`${BASE}/api/confirmations/${ask.confirmationToken}/confirm`, { method: "POST" }).then((r) => r.json());
+  const purge = purged.result ?? purged;
   check("a real token purges the record", purge.ok === true && purge.executed === true, purge.message);
   check("the record is genuinely gone — not on the wall, not restorable",
     !(await onWall(c.id)) && !(await inBin(c.id)));
@@ -143,9 +155,9 @@ async function main() {
   // A single confirmation must not authorise a second destruction.
   const d = (await makeLimitation("PART8-VERIFY · token reuse"))?.limitation;
   await invoke("delete_limitation", { id: d.id });
-  const reused = await invoke("purge_deleted_limitation", { id: d.id, confirmationToken: ask.confirmationToken });
-  check("a spent token cannot be reused on another record",
-    reused.executed === false && (await inBin(d.id)));
+  const reused = await fetch(`${BASE}/api/confirmations/${ask.confirmationToken}/confirm`, { method: "POST" }).then((r) => r.json());
+  check("a spent token replays its own result and cannot touch another record",
+    (reused.result?.confirmationToken === ask.confirmationToken || reused.ok === false) && (await inBin(d.id)));
 
   // ── A normalised title must still find the record (audit finding S1) ────
   // The model drops punctuation and reorders words; the tool must not turn

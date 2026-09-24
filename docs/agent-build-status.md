@@ -27,7 +27,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 1 — Foundation and access control | Deployed | `eb9e600` `547484a` `47ff09b` `0bbf416` `93d5761` `d6620b1` | **Yes** — 2026-09-23 17:32Z | Agent live at `/agent/*`; verifier 10/10 locally; grant+revoke proven in production. Outstanding: one real chat turn from a browser session |
 | 2 — Tool layer (read-only) | Built, not deployed | `b6c1720` `2671f95` `5bd4bcc` | No | 20 read tools + framework. Verifier 14/14 as user, 13/13 as developer |
 | 3 — Chat interface (side panel) | Built, not deployed | `235fdef` `6fa43be` `1d164e6` `4251eda` | No | **Phase 1 milestone.** Blocked on `docs/supabase-agent-conversations.sql` |
-| 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` | No | Needs `docs/supabase-agent-knowledge.sql`; 3 AWS gaps listed below |
+| 4 — Knowledge base (two-tier RAG) | Built, not deployed | `24d6e02` `49a4ca2` `f8ffb3f` `5ccb175` `0f0dda6` `bf955e9` `eaf4d06` | No | Schema + guardrail live; **verifier 18/18**. Needs a deploy |
 | 5 | Not started | — | No | |
 | 6 | Not started | — | No | |
 | 7 | Not started | — | No | |
@@ -649,11 +649,19 @@ about how a model handles `CTOT`, `72HRS` or `AUTOLAND IS NOT PERMITTED`.
 | **Cohere Embed v4** (chosen) | 1536 | **75%** | **100%** | **0.875** | ~70 ms/passage |
 | Titan Text Embeddings V2 | 1024 | — | — | — | **could not be measured** |
 
-**Chosen: Cohere Embed v4** — on the evidence available it retrieves the right
-passage in the top 3 every time, and it is the only one this account can reach.
-The comparison is **still open**: the runtime policy grants `amazon.nova-*` but
-not `amazon.titan-*`, so Titan is denied. One policy line re-opens it, and the
-benchmark re-runs unchanged.
+**Both measured** once the `amazon.*` policy line landed:
+
+| Model | dims | recall@1 | recall@3 | MRR | latency |
+|---|---|---|---|---|---|
+| Cohere Embed v4 (**in use**) | 1536 | 75% | 100% | 0.875 | **75 ms**/passage |
+| Titan Text Embeddings V2 | 1024 | **88%** | 100% | **0.938** | 424 ms/passage |
+
+**Titan retrieves better; Cohere is ~5× faster** because it batches 96 inputs
+per call while Titan takes one at a time. The deciding argument is that
+**recall@3 is 100% for both** and the reranker sees the top ~24 candidates — so
+the right passage reaches the model either way, and the quality gap largely
+closes while the throughput gap does not. Switching is one env var
+(`AGENT_EMBEDDING_MODEL=titan-v2`) plus a 1024-dim column.
 
 Both misses at rank 1 were competing *Riga* passages — which is precisely the
 case reranking exists for.
@@ -684,9 +692,22 @@ no permission, Bedrock unreachable — the answer comes back `verified: false`
 with a reason, and the retrieval log records it. Claiming a grounding check that
 did not happen would be worse than having none, because it is invisible.
 
-**Not yet exercised:** the account has no guardrail and the runtime policy has
-no `bedrock:ApplyGuardrail`. What it catches is therefore **not yet reportable** —
-see Decisions.
+**Measured — 6/6** via `scripts/agent-guardrail-test.mjs` against the live
+guardrail (`gmcg7r…`, thresholds 0.70/0.70):
+
+| Case | Grounding | Relevance | Result |
+|---|---|---|---|
+| Correct answer (AWS ref) | 1.00 | 1.00 | passed |
+| "Capital of Japan is London" | **0.02** | 0.49 | caught |
+| "Capital of UK is London" (true but off-question) | 0.99 | **0.64** | caught |
+| Real ops answer | 0.79 | 0.97 | passed |
+| Invented holdover time appended to a correct answer | **0.01** | 0.50 | caught |
+| **Invented crosswind limit — 15 kt where the rule says 20 kt** | **0.02** | **1.00** | caught |
+
+The last row is the one that matters. Relevance scored a **perfect 1.00** — it
+is a fluent, on-topic answer — and only the grounding score caught it. A single
+wrong number in otherwise plausible operational text is exactly what a
+dispatcher would act on without hesitating.
 
 ### Reliability and the source contract
 
@@ -719,16 +740,44 @@ volume, retrievable by name through `get_document`.
 - Running out of tool rounds ended turns mid-sentence; the loop now warns the
   model on its last round so it closes with what it has.
 
+### Verification — 18/18 (`scripts/agent-verify-part4.mjs`)
+
+Upload → classification **proposes** tier 2 → waits for a human with no tier
+applied → Tier 1 refused without explicit records → approval indexes → a Tier 1
+record is created **with a named approver** → the rule is retrieved as
+`tier1-verbatim`, **byte-for-byte identical** to what was approved, carrying
+source, version and effective date → a procedure question retrieves cited
+reference material → reranking runs → an unsupported question is marked
+unverified and never verbatim → grounding passes the supported answer (0.99) and
+rejects the unsupported one (0.00) → retrievals are logged with their sources.
+
+### Five real bugs this testing found
+
+1. **`create or replace function` created an OVERLOAD, not a replacement.**
+   Adding `min_similarity` changed the signature, so the 4-arg originals
+   survived and PostgREST refused every call (`PGRST203`). Retrieval returned
+   nothing, which read as an empty corpus rather than a broken migration.
+2. **`.catch(() => [])` made a hard RPC failure and an empty corpus the same
+   value** — which is why (1) was invisible. Failures now surface, and
+   `search_knowledge` raises `SERVICE_UNAVAILABLE` rather than reporting
+   "nothing matched": telling the model nothing matched when retrieval *broke*
+   invites it to answer from its own knowledge.
+3. **Chunks were gated on the document's tier**, so approving any Tier 1 record
+   out of a document silently removed all of its Tier 2 content from retrieval.
+4. **No similarity floor**, so "the refuelling procedure for an An-225 at
+   Vostok Station" returned an unrelated **LLBG curfew rule as authoritative
+   verbatim text** — precisely the failure this design exists to prevent.
+5. **`conversation_id` is a uuid but direct invocation passes a label**, so
+   every retrieval outside a conversation failed to log, invisibly.
+
 ### Decisions needed from you
-1. **Run `docs/supabase-agent-knowledge.sql`** (enables pgvector).
-2. **Add `amazon.*` to `ClearwayAgentBedrockInvoke`** — still not applied. It
-   unblocks Titan and completes the embedding comparison.
-3. **Guardrails**: add `bedrock:ApplyGuardrail`, `bedrock:CreateGuardrail`,
-   `bedrock:ListGuardrails`, `bedrock:GetGuardrail` to the policy, then create a
-   guardrail with a contextual-grounding filter and set `BEDROCK_GUARDRAIL_ID`.
-   Until then every knowledge answer is honestly marked unverified.
-4. **Rerank**: accept the LLM reranker, or ask AWS about Cohere Rerank in an EU
-   region. My recommendation is to accept it — it measurably works.
+1. **Deploy** — everything else is done.
+2. **Embedding model**: stay on Cohere (throughput) or switch to Titan (better
+   raw recall). My recommendation is to stay, for the reason in the table above.
+3. **Rerank**: accept the LLM reranker, or ask AWS about Cohere Rerank in an EU
+   region. Recommendation: accept it — it measurably recovers the misses.
+4. **Re-tune the confidence bar** (0.32) from `agent_retrievals` once a real
+   corpus exists. It is calibrated on a handful of sentences today.
 
 ## Parts 5–10
 Not started.

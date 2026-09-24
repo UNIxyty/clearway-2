@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { C, FONT, SOURCE_TIERS, iconStyle } from "./tokens";
 import Markdown from "./Markdown";
-import type { FlightCardData, SourceRef, ToolActivity, VerbatimRecord } from "./types";
+import type { FlightCardData, PerformedAction, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 export function VerbatimFrame({ record }: { record: VerbatimRecord }) {
   const [copied, setCopied] = useState(false);
@@ -191,6 +191,36 @@ export function MonoBlock({ title, text }: { title: string; text: string }) {
       >
         {text}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the agent CHANGED, as opposed to what it looked up. Shown expanded and
+ * above the reply, not folded into the tool-activity row: a dispatcher must not
+ * have to open a disclosure to discover that the wall was modified.
+ */
+export function ActionsPerformed({ actions }: { actions: PerformedAction[] }) {
+  if (!actions || actions.length === 0) return null;
+  return (
+    <div style={{ border: `1px solid ${C.blueBorder}`, background: C.blueTint, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.blueDeep }}>
+        <span style={iconStyle("square-pen", 12, C.blueDeep)} />
+        CHANGED ON THE WALL
+      </div>
+      {actions.map((a) => (
+        <div key={a.actionId} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, lineHeight: 1.45, color: C.ink }}>
+          <span style={{ flex: 1 }}>{a.what}</span>
+          {/* The marker staff see on the record itself, echoed here so the
+              attribution is visible at the moment of the change too. */}
+          <span style={{ flex: "none", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em", color: C.blueDeep, background: "#dbeafe", borderRadius: 4, padding: "2px 6px" }}>
+            AI
+          </span>
+        </div>
+      ))}
+      <span style={{ fontSize: 11.5, color: C.muted }}>
+        Marked as AI-authored. Ask to undo any of these.
+      </span>
     </div>
   );
 }

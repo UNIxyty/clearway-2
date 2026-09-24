@@ -16,7 +16,7 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
-import { flightCardsFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import { actionsFromToolCalls, flightCardsFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
@@ -500,13 +500,16 @@ async function handleChat(req, res, user) {
     const sources = sourcesFromToolCalls(toolCalls);
     const verbatim = verbatimFromToolCalls(toolCalls);
     const flights = flightCardsFromToolCalls(toolCalls);
+    const actions = actionsFromToolCalls(toolCalls);
     const toolActivity = toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null }));
 
     await appendMessage({
       conversationId,
       role: "assistant",
       content: answer,
-      blocks: verbatim.length > 0 || flights.length > 0 ? { ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}) } : null,
+      blocks: verbatim.length || flights.length || actions.length
+        ? { ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}) }
+        : null,
       sources,
       toolActivity,
       modelId: done?.modelId ?? null,
@@ -524,6 +527,7 @@ async function handleChat(req, res, user) {
       sources,
       verbatim,
       flights,
+      actions,
       toolActivity,
       latencyMs: Date.now() - startedAt,
     });

@@ -17,10 +17,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { C, FONT, PANEL, iconStyle } from "./tokens";
-import { AgentsReading, FlightCard, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
+import { ActionsPerformed, AgentsReading, FlightCard, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
 import Markdown from "./Markdown";
 import Composer from "./Composer";
-import type { AgentContext, AgentMessage, ConversationSummary, FlightCardData, SourceRef, ToolActivity, VerbatimRecord } from "./types";
+import type { AgentContext, AgentMessage, ConversationSummary, FlightCardData, PerformedAction, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -168,6 +168,7 @@ export default function AgentPanel({
     let sources: SourceRef[] = [];
     let verbatim: VerbatimRecord[] = [];
     let flights: FlightCardData[] = [];
+    let actions: PerformedAction[] = [];
 
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
@@ -210,6 +211,7 @@ export default function AgentPanel({
             sources = payload.sources ?? [];
             verbatim = payload.verbatim ?? [];
             flights = payload.flights ?? [];
+            actions = payload.actions ?? [];
           } else if (event === "error") {
             throw new Error(payload.message || payload.error);
           }
@@ -221,7 +223,7 @@ export default function AgentPanel({
         content: answer,
         sources,
         toolActivity: tools,
-        blocks: verbatim.length || flights.length ? { verbatim, flights } : null,
+        blocks: verbatim.length || flights.length || actions.length ? { verbatim, flights, actions } : null,
         streaming: false,
       }));
     } catch (e) {
@@ -388,11 +390,16 @@ function MessageView({ message }: { message: AgentMessage }) {
   }
   const verbatim = message.blocks?.verbatim ?? [];
   const flights = message.blocks?.flights ?? [];
+  const actions = message.blocks?.actions ?? [];
   const failed = (message.toolActivity ?? []).filter((a) => !a.ok);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <ToolActivityRow activity={message.toolActivity ?? []} />
       {failed.length > 0 && <ToolFailureNote activity={message.toolActivity ?? []} />}
+
+      {/* What CHANGED comes before what was found: a dispatcher must see that
+          the wall was modified without opening anything. */}
+      <ActionsPerformed actions={actions} />
 
       {flights.map((f) => <FlightCard key={f.flightId} flight={f} />)}
 

@@ -37,11 +37,18 @@ export type FlightCardData = {
   importantCount?: number;
 };
 
+export type PerformedAction = {
+  actionId: string;
+  what: string;
+  targetKind: string;
+  target: string | null;
+};
+
 export type AgentMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  blocks?: { verbatim?: VerbatimRecord[]; flights?: FlightCardData[] } | null;
+  blocks?: { verbatim?: VerbatimRecord[]; flights?: FlightCardData[]; actions?: PerformedAction[] } | null;
   sources?: SourceRef[];
   toolActivity?: ToolActivity[];
   error?: string | null;

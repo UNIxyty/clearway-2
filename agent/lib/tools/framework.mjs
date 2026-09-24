@@ -314,6 +314,39 @@ export function flightCardsFromToolCalls(calls) {
   return cards;
 }
 
+/**
+ * Changes the agent actually made this turn, for the panel to show above the
+ * reply. Derived from tool RESULTS — a change appears here because a write
+ * returned an action id, never because the model said it did something.
+ */
+export function actionsFromToolCalls(calls) {
+  const WRITE_TOOLS = {
+    create_limitation: (r) => `Added limitation "${r.title ?? r.id}"`,
+    update_limitation: (r) => `Changed limitation ${r.id}`,
+    create_important: (r) => `Added IMPORTANT entry ${r.id}`,
+    create_report: (r) => `Raised report ${r.id}`,
+    update_display_settings: (r) => `Changed display settings (${(r.changed ?? []).join(", ")})`,
+    set_operator_active: (r) => `${r.isActive ? "Enabled" : "Disabled"} operator ${r.operatorId}`,
+    set_aircraft_visible: (r) => `${r.visible ? "Showed" : "Hid"} aircraft ${r.registration}`,
+    undo_action: (r) => `Undid: ${r.what ?? "an earlier change"}`,
+  };
+  const out = [];
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    const describe = WRITE_TOOLS[call.name];
+    if (!describe) continue;
+    const id = call.result.actionId ?? call.result.undoActionId;
+    if (!id) continue;
+    out.push({
+      actionId: String(id),
+      what: describe(call.result),
+      targetKind: call.name.replace(/^(create|update|set)_/, "").replace(/_active|_visible$/, ""),
+      target: call.result.id ?? call.result.registration ?? call.result.operatorId ?? null,
+    });
+  }
+  return out;
+}
+
 /** Shared schema fragments, so every tool spells these the same way. */
 export const S = {
   icao: { type: "string", pattern: "^[A-Za-z0-9]{4}$", description: "4-character ICAO code, e.g. EVRA." },

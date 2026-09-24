@@ -14,7 +14,7 @@ import { defineTool, S } from "./framework.mjs";
 import { portalGet } from "./http.mjs";
 import { InvalidInput, NotFound, ServiceUnavailable } from "./errors.mjs";
 import { generateCsv, generateDocx, generatePdf, generateXlsx } from "../files/generate.mjs";
-import { classifyRecipients, prepareEmail, sendAgentEmail, validateRecipients } from "../email/send.mjs";
+import { classifyRecipients, prepareEmail, refuseUnconfirmedExternal, sendAgentEmail, validateRecipients } from "../email/send.mjs";
 import { recordGeneratedFile, readGeneratedFile } from "../files/store.mjs";
 
 const BLOCK_SCHEMA = {
@@ -139,14 +139,13 @@ defineTool({
     const { external } = classifyRecipients(recipients, user);
 
     // Refuse BEFORE fetching: no point downloading a 3 MB PDF for a send that
-    // is about to be blocked, and the user gets the question immediately.
-    if (external.length > 0 && confirmed !== true) {
-      return {
-        sent: false, needsConfirmation: true, external, recipients,
-        messageId: null, filename: null,
-        error: `${external.join(", ")} ${external.length === 1 ? "is" : "are"} outside your organisation. Ask the user to confirm before sending.`,
-      };
-    }
+    // is about to be blocked. The refusal comes from send.mjs so it is logged
+    // exactly like every other blocked attempt.
+    const refusal = await refuseUnconfirmedExternal({
+      recipients, user, conversationId, confirmed,
+      subject: `${code} · ${document === "gen" ? "GEN 1.2" : "AIP AD 2"}`,
+    });
+    if (refusal) return { ...refusal, filename: null };
 
     // Resolve and fetch through the portal AS THE USER — the same routes the
     // AIP page uses, so the agent cannot email a document its caller could not
@@ -234,12 +233,8 @@ defineTool({
   async handler({ subject, to, blocks, attachmentIds = [], confirmed }, { user, conversationId }) {
     const recipients = validateRecipients(to?.length ? to : [user.email]);
     const { external } = classifyRecipients(recipients, user);
-    if (external.length > 0 && confirmed !== true) {
-      return {
-        sent: false, needsConfirmation: true, external, recipients, messageId: null,
-        error: `${external.join(", ")} ${external.length === 1 ? "is" : "are"} outside your organisation. Ask the user to confirm before sending.`,
-      };
-    }
+    const refusal = await refuseUnconfirmedExternal({ recipients, user, conversationId, subject, confirmed });
+    if (refusal) return refusal;
 
     const attachments = [];
     for (const id of attachmentIds) {

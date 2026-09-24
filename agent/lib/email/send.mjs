@@ -58,6 +58,27 @@ export function classifyRecipients(recipients, user) {
   return { internal, external, internalDomains: [...internalDomains] };
 }
 
+/**
+ * The external-recipient gate, in ONE place.
+ *
+ * Both tools need to refuse early — email_document so it does not download a
+ * 3 MB PDF for a send that is about to be blocked — and the first version let
+ * them return early on their own, which silently skipped the log. A blocked
+ * attempt that leaves no trace defeats the point of requiring confirmation, so
+ * the check and the record now travel together and callers get the refusal
+ * from here or not at all.
+ *
+ * Returns null when the send may proceed.
+ */
+export async function refuseUnconfirmedExternal({ recipients, user, conversationId, subject, confirmed }) {
+  const { external, internal } = classifyRecipients(recipients, user);
+  if (external.length === 0 || confirmed === true) return null;
+
+  const error = `${external.join(", ")} ${external.length === 1 ? "is" : "are"} outside your organisation. Ask the user to confirm before sending.`;
+  await logSend({ user, conversationId, recipients, subject, attachments: [], status: "blocked", error, external });
+  return { sent: false, needsConfirmation: true, external, internal, recipients, messageId: null, error };
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function validateRecipients(recipients) {

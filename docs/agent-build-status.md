@@ -1380,6 +1380,25 @@ model again. Config, not code — no rebuild of logic, just a restart.
    labelled by me is a starting point, not a verdict. The labels should come
    from what dispatchers actually ask.
 
+## Ops Agent UI — full implementation (design spec → portal)
+
+| Stage | Commit | On main | Deployed |
+|---|---|---|---|
+| 0 — spec, manifest, tokens, icons | c80eef0 | yes | __DEPLOYED__ |
+| 1 — server-verified confirmations (§3) | 7f560a3 | yes | __DEPLOYED__ |
+| 2 — view endpoints (activity, settings, usage, knowledge, history, suggestions, attachments) | d826741 | yes | __DEPLOYED__ |
+| 3a — primitives and the safety-carrying thread components | 340f7b4 | yes | __DEPLOYED__ |
+| 3b — panel, full page, History, Activity log, Settings, Knowledge base, nav, shell wiring | 18bd218 | yes | __DEPLOYED__ |
+| 4 — manifest statuses + report | __DOC_COMMIT__ | yes | __DEPLOYED__ |
+
+Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):
+39 screenshots; console clean apart from the rig's own 401s. §3 rules verifier 15/15 on the final code.
+Report: `docs/agent-ui-report.md`. Manifest: `docs/agent-ui-manifest.md` (89 ✅ · 61 present · 7 partial ·
+39 blocked · 1 untouched).
+
+Two things for you: the voice-bar-over-the-wall decision (report §8) and the rows blocked on voice
+(no STT/TTS wired — the recordings decision).
+
 ## Deferred items (all parts)
 
 | Part | Item | Why deferred | Where it should land |

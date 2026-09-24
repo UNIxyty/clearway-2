@@ -1,0 +1,132 @@
+# Ops Agent UI — build report
+
+Build of `docs/agent-design-spec.md` into the portal, 2026-09-24/25. Manifest: `docs/agent-ui-manifest.md`.
+Verification: Playwright against the **production build** (`next build` → standalone server) with the
+agent service in its local test mode; screenshots for every state listed below were taken on that build.
+
+## 1. What fraction of the manifest is built
+
+| Status | Rows (of 197) |
+|---|---|
+| ✅ built and seen working in the browser | 89 |
+| present — built to the spec, typechecked, not exercised by the rig | 61 |
+| partial | 7 |
+| blocked (backend 30 · design 6 · cross-app 3) | 39 |
+| missing (C7 email dark mode — outside this build) | 1 |
+
+So 157 of 197 rows are built (89 of them seen working), 39 are explicitly blocked, 1 is untouched.
+The §3 rules verifier ran again on the final agent code: **15/15**.
+
+Every row is either ✅ (seen working in a browser on the production build), `present` (built to the spec,
+typechecked, but the rig could not exercise it — see the manifest note), or explicitly `blocked` with the
+reason. The email-template rows (C1–C7) were not part of this build and keep their Part 8 status.
+
+## 2. §3 rules — each one tested
+
+| Rule | Test | Evidence |
+|---|---|---|
+| 1 Verbatim from the stored clause by ID; error on failure; never model text | `scripts/agent-verify-ui-rules.mjs` (byte-for-byte compare against the wall store; 404 → error) + browser | 15/15; ink frame fetched by id in the panel and on the full page (`06-panel-verbatim`, `28-generated-file`) |
+| 2 Ink frame used by exactly one thing | grep of `background: C.ink` | VerbatimFrame header only; the `/` command chip is the spec's permitted exception; the KB `AUTHORITATIVE` tag and `Approve as authoritative` button are drawn black in §10 |
+| 3 Only authoritative tier in the frame | `/api/verbatim/(limitation|important|caa|tier1)/:id` serves stored records only | rules script |
+| 4 Every factual reply carries attribution | source strip / `NO SOURCE · AGENT'S REASONING` eyebrow | `03-panel-read-reply`, `29-email-confirmation` (2 SOURCES) |
+| 5 Tier colours fixed | `TIER` read from `shared/design-tokens.json`, never themed | tokens.ts |
+| 6 Server-verified, blocking, not optimistic, double-fire safe | rules script: 3 parallel confirms + a retry → one action id; UI disables on first activation | 15/15; `04`/`05` |
+| 7 Composer locked while pending | browser | `04-panel-confirmation` (“Confirm or cancel the change above to continue”); after reload the lock is re-checked with the server |
+| 8 Expiry at 5 min, not reusable | rules script with `AGENT_CONFIRM_TTL_MS=1500`; countdown in the card | 15/15; `expires 22:37Z` in the header, `4:56 left` on the destructive bar |
+| 9 Voice never confirms | rules script: a typed/spoken “yes” changes nothing; voice-origin tokens refused | 15/15 |
+| 10 Verbatim never read aloud | no TTS exists; the frame carries the `not read aloud` label when it does | blocked:backend |
+| 11 Offline never queues writes | browser: offline card queues the question only; the thread's `send` returns before any write | `20-panel-offline` |
+| 12 Every tool call as the requester | rules script: `origin` other than `ui` cannot carry a token; audit rows carry the requester | 15/15 |
+| 13 Never on the wall display | the wall console SPA contains no agent code; the portal shell renders the panel only for allowlisted users | grep |
+| 14 Mono for codes | `mono()` on ids, times, ICAO, callsigns, arguments | screenshots |
+
+## 3. Token mapping (§2 → `shared/design-tokens.json`)
+
+Reused as-is: `page, card, sidebar, border, borderInner, text, textBody, textMuted, textFaint, primary,
+primaryDeep, primaryTint, primaryWash, green, greenDeep, greenTint, amber, amberDeep, amberTint, red,
+redDeep, greyTint, font.sans, font.mono, radius.*`.
+
+Added (new names only, values from §2): `textDisabled, borderControl, dividerRow, navActive, hover,
+bubbleUser, disabledFill, primaryTint3, primaryLine, primaryBorder, primaryOnTint, sendEmpty, primaryFocus,
+primaryHalo, amberBorder, amberStrong, amberStrongTint, redTintSoft, redBorder, dangerDisabled, greenBorder,
+slate, sky, skyTint, stop, stopTint, stopBorder, stopSquare, rowExpanded, rowRecord, amberWash, greenWash,
+redWash, toggleOff, navSubBorder, suggestHover, redWashSoft, amberWashSoft, highlight`; groups `tier`,
+`voice`, `wall`, `shadow`, `motion`, `agentPanel`; radius extras.
+
+`components/agent/ui/tokens.ts` maps the spec's names (`ink, body, muted, faint, warn, danger, ok…`) onto
+those keys; `tailwind.config.ts` now reads the four sidebar keys from the same file. No hex literal is
+inlined in `components/agent/**` (the only hex strings left are the mock-user email and the wall's own
+dark palette, both in the token file).
+
+## 4. Blocked rows
+
+**Needs backend**
+- Voice end to end (A3, A6, A64–A66, A68, A69, B10, B21, D2, D4, D7, D17–D28, E4–E9, E26, F10): no STT/TTS is
+  wired (`ELEVENLABS_API_KEY` is present but unused; 0 recordings). The composer's voice button is not
+  rendered rather than stubbed. The §8.2/8.3 cards are not built because there is nothing to proceed to.
+- Per-claim citation spans (A16, D39 half): the model does not emit claim offsets.
+- Stale/cached document marking: the document tools do not report cache age.
+
+**Needs design**
+- Command palette 1c (B20, E3), ⌘D (E27), edit/retry on a user message (A8 half), hover card for sent
+  mention chips, short-answer card, cap editing, phonetic spelling, per-user voice preference.
+- Voice bar over the wall (A67) — decision, see §8.
+
+**Cross-app (neither)**
+- Change-behind-the-panel ghost row / wall preview / banner (A42, B9) and the B2 wall-console empty state:
+  the wall console is a separate Vite SPA (`/digital-wall/console/*`); the panel cannot run inside it
+  without a page↔panel contract, which the prompt forbids inventing.
+
+## 5. Spec defaults used
+
+Tool summary collapsed after completion; stopped row keeps the partial reply; focus moves to Cancel when a
+prompt appears; the confirm button shows a spinner while the server verifies; read rows in the Activity log
+expand with `CONFIRMATION = Not required`; filter menus use the console `Dropdown`; paging is `Load more`;
+History/Knowledge empty-loading-no-results use console `EmptyState`/`LoadingRows`; the Knowledge upload is
+the existing console form; the rejection note is a textarea in the approval panel; the deep-context block
+opens the panel; `Dashboard` carries no context (the greeting empty state applies); times of day for the
+greeting are computed in UTC; toggle knob 150 ms ease-out.
+
+## 6. Deviations from the design
+
+- “Ask about {record}” sits in the airport page's own action row (that page draws its own header), not
+  the shell header.
+- The confirmation title is an imperative built by the backend from the tool input (`Add limitation “…”`),
+  not the tool's source label; the target row is omitted when the title already names it.
+- The Knowledge base lives under Ops Agent; `/developer/knowledge` redirects there.
+- Settings' “who can do what” shows the allowlist (email as name) — the portal has no display-name
+  directory the agent can read.
+- The generated-file preview pane uses the browser's PDF viewer; headless Chromium shows its plugin
+  fallback (real Chrome renders page 1).
+
+## 7. What is wrong in the spec or the design
+
+- §16.2 conflict 3 — the frame is the **wall display** (it uses the wall's dark timeline palette, and the
+  console pages are light), so per round 3 nothing was built. Confirm or say it is a dark console view.
+- §12 says the write switch cannot disable confirmation; Parts 7/8 decided *no* confirmation for
+  standard wall writes. This build follows the spec: every write tool asks (levels low/standard/
+  destructive from the backend table). The Part 7/8 verifiers were updated to confirm through the endpoint.
+- §13.2 `From agent@clearway.aero` — the actual sender is `agent@verxyl.com` (Resend domain).
+- §11 `SEND` reuses the Company violet (kept as drawn; consider a different colour).
+- §10's “✓ matches page 2 of the PDF” cannot be produced honestly — the footer says which file the clause
+  was extracted from instead.
+- §4.7's claim underlines need model support the backend does not have; the strip and chips are built.
+
+## 8. Step 4 decisions
+
+1. **Voice bar over the wall** — not built; the frame is the wall display (see §7). Your call.
+2. **§16.2 missing states** — built where the spec gives a pattern (listed in §5); the rest are in §4 as
+   blocked with the reason.
+
+## 9. Also found on the rig (backend)
+
+- After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn
+  (“Two things pending in the console”). The UI did the right thing — a fresh card, nothing sent until
+  clicked — but my verification script's generic “confirm” click hit that card, so one test email went to
+  `ui-verify@example.com` from the rig. Worth a system-prompt rule: a cancelled action is not re-proposed.
+
+- A generate_file write failure killed the whole agent process (`return persist()` inside a `try/finally`
+  that awaits `browser.close()` → unhandled rejection → exit). Fixed with `return await`, plus a
+  process-level `unhandledRejection` log so one tool can never take the service down.
+- `agent_generated_files.expired_at` is still missing in Supabase (`docs/supabase-agent-hardening.sql`
+  has not been run) — the retention sweep logs the 400 at every start.

@@ -134,6 +134,15 @@ create table if not exists public.agent_retrievals (
 create index if not exists idx_agent_retrievals_conv on public.agent_retrievals (conversation_id, created_at desc);
 
 -- ── Similarity search functions (RPC — PostgREST cannot express <=>) ──────
+--
+-- Drop the earlier 4-argument signatures FIRST. `create or replace function`
+-- only replaces a function with the SAME signature — adding `min_similarity`
+-- created an OVERLOAD instead, and PostgREST then refuses the call outright
+-- (PGRST203, "could not choose the best candidate function"). Retrieval
+-- returned nothing at all, which read like an empty corpus rather than a
+-- broken migration.
+drop function if exists public.agent_match_chunks(extensions.vector, integer, text, text);
+drop function if exists public.agent_match_tier1(extensions.vector, integer, text, text);
 -- NOTE (revised): chunks are NOT gated on the document's `tier`. A document can
 -- legitimately yield both — approved Tier 1 records AND Tier 2 reference
 -- chunks — and the first version excluded a document's chunks the moment any

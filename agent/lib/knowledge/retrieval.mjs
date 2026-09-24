@@ -104,12 +104,26 @@ export async function searchKnowledge(query, { icao = null, country = null, limi
   const wantTier1 = tier === "both" || tier === "tier1";
   const wantTier2 = tier === "both" || tier === "tier2";
 
+  // A swallowed RPC error here is indistinguishable from an empty corpus, which
+  // is exactly how a broken migration hid for a whole test run. Failures are
+  // surfaced on stderr and the tier is reported as errored, not as empty.
+  const failures = [];
+  const safeRpc = async (fn, args) => {
+    try {
+      return await rpc(fn, args);
+    } catch (error) {
+      failures.push(`${fn}: ${error.message}`);
+      process.stderr.write(`[retrieval] ${fn} FAILED: ${error.message}\n`);
+      return [];
+    }
+  };
+
   const [tier1Rows, tier2Rows] = await Promise.all([
     wantTier1
-      ? rpc("agent_match_tier1", { query_embedding: vector, match_count: Math.min(limit, 10), filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER1 }).catch(() => [])
+      ? safeRpc("agent_match_tier1", { query_embedding: vector, match_count: Math.min(limit, 10), filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER1 })
       : Promise.resolve([]),
     wantTier2
-      ? rpc("agent_match_chunks", { query_embedding: vector, match_count: 24, filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER2 }).catch(() => [])
+      ? safeRpc("agent_match_chunks", { query_embedding: vector, match_count: 24, filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER2 })
       : Promise.resolve([]),
   ]);
 
@@ -131,6 +145,7 @@ export async function searchKnowledge(query, { icao = null, country = null, limi
     rerankModel: reranked.model,
     rerankMethod: reranked.method,
     candidateCount: candidates.length,
+    failures,
   };
 }
 

@@ -81,6 +81,13 @@ defineTool({
       throw ServiceUnavailable(`The knowledge base could not be searched: ${error.message}`);
     }
 
+    // A failed search is not the same fact as an empty one, and telling the
+    // model "nothing matched" when retrieval broke invites it to answer from
+    // its own knowledge — the precise thing this tier exists to prevent.
+    if ((result.failures ?? []).length > 0 && result.tier1.length + result.tier2.length === 0) {
+      throw ServiceUnavailable(`The knowledge base could not be searched: ${result.failures.join("; ")}`);
+    }
+
     const found = result.tier1.length + result.tier2.length;
     if (found === 0) {
       // An explicit "nothing found" so the model says so rather than filling

@@ -13,10 +13,10 @@ import http from "node:http";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
-import { audit, storeConfigured } from "./lib/store.mjs";
+import { audit, storeConfigured, agentEnabled } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
-import { actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import { setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
@@ -33,12 +33,15 @@ import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./l
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
+import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
 const SERVICE = "agent";
 const MAX_BODY_BYTES = 256 * 1024;
+// Org capability switches, refreshed every 30 s and updated in place on a PATCH.
+let capsNow = {};
 
 function sendJson(res, payload, status = 200, extraHeaders = {}) {
   const body = JSON.stringify(payload);
@@ -76,6 +79,13 @@ function sanitiseAttachments(raw) {
 }
 
 import { wallGet as wallGetForServer } from "./lib/tools/http.mjs";
+
+/** Raw bytes for an upload, bounded. Anything past the cap ends the request. */
+async function readRawBody(req, maxBytes) {
+  const chunks = []; let size = 0;
+  for await (const chunk of req) { size += chunk.length; if (size > maxBytes) throw BadRequest("The file is over the 25 MB limit."); chunks.push(chunk); }
+  return Buffer.concat(chunks);
+}
 
 async function readJsonBody(req) {
   const chunks = [];
@@ -177,6 +187,81 @@ const server = http.createServer(async (req, res) => {
         origin: body.inputMode === "voice" ? "voice" : "ui",
       });
       return sendJson(res, result, result.ok === false ? 200 : 200);
+    }
+
+    // ── Supporting views (design spec §9–§12) ─────────────────────────────────
+    if (pathname === "/api/activity" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const filter = url.searchParams.get("filter") ?? "all";
+      const data = await listActivity(user, { filter, person: url.searchParams.get("person"), tool: url.searchParams.get("tool"), date: url.searchParams.get("date"), limit: url.searchParams.get("limit"), before: url.searchParams.get("before") });
+      if (url.searchParams.get("format") === "csv") {
+        res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="agent-activity-${new Date().toISOString().slice(0, 10)}.csv"` });
+        return res.end(activityCsv(data.rows));
+      }
+      return sendJson(res, { ok: true, ...data, scope: user.agentRole === "user" ? "mine" : "all" });
+    }
+    if (/^\/api\/activity\/[0-9]+\/request$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const conversationId = url.searchParams.get("conversation"); const at = url.searchParams.get("at");
+      return sendJson(res, { ok: true, request: await requestBehind(conversationId, at ?? new Date().toISOString(), user) });
+    }
+    if (pathname === "/api/settings" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const [caps, enabled] = await Promise.all([capabilities(), agentEnabled()]);
+      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
+    }
+    if (pathname === "/api/settings" && req.method === "PATCH") {
+      await assertMayUseAgent(user);
+      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      const body = await readJsonBody(req);
+      const values = await setCapability(String(body.key), body.enabled === true, user);
+      capsNow = values; // in place: the switch must bite on the next call, not in 30 s
+      await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { capability: body.key, enabled: body.enabled === true } });
+      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: values[c.key] })) });
+    }
+    if (pathname === "/api/settings/permissions" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden" }, 403);
+      return sendJson(res, { ok: true, people: await permissionsMatrix() });
+    }
+    if (pathname === "/api/usage" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden" }, 403);
+      return sendJson(res, { ok: true, usage: await usageThisMonth() });
+    }
+    if (pathname === "/api/knowledge/stats" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, stats: await knowledgeStats() });
+    }
+    if (/^\/api\/knowledge\/documents\/[^/]+\/clauses$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required." }, 403);
+      const proposal = await proposedClauses(pathname.split("/")[4]);
+      if (!proposal) return sendJson(res, { ok: false, error: "not_found" }, 404);
+      return sendJson(res, { ok: true, ...proposal });
+    }
+    if (pathname === "/api/suggestions" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      let context = null; try { context = url.searchParams.get("context") ? JSON.parse(url.searchParams.get("context")) : null; } catch { context = null; }
+      return sendJson(res, { ok: true, ...(await suggestions(user, context)) });
+    }
+    if (pathname === "/api/history" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const filter = String(url.searchParams.get("filter") ?? "").split(",").filter(Boolean);
+      return sendJson(res, { ok: true, ...(await searchConversations(user, { q: url.searchParams.get("q") ?? "", filter })) });
+    }
+    if (pathname === "/api/attachments" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const name = decodeURIComponent(url.searchParams.get("name") ?? "");
+      if (!name) throw BadRequest("A file name is required (?name=).");
+      const buffer = await readRawBody(req, 25 * 1024 * 1024 + 1024);
+      try {
+        const meta = await storeAttachment({ name, buffer, mime: req.headers["content-type"] ?? null, user });
+        await audit({ kind: "attachment.uploaded", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { id: meta.id, name: meta.name, bytes: meta.bytes, hasText: meta.hasText } });
+        return sendJson(res, { ok: true, attachment: meta });
+      } catch (error) {
+        return sendJson(res, { ok: false, error: "rejected", message: String(error?.message ?? error) }, 400);
+      }
     }
 
     // ── Confirmations (§3 rules 6–9) ─────────────────────────────────────────
@@ -491,7 +576,12 @@ async function handleChat(req, res, user) {
 
   // must not have it come back as authoritative.
 
-  const attachments = sanitiseAttachments(body.attachments);
+  const uploaded = [];
+  for (const id of Array.isArray(body.attachmentIds) ? body.attachmentIds.slice(0, 3) : []) {
+    const a = await loadAttachment(id, user);
+    if (a) uploaded.push({ name: a.name, text: a.text ?? `(${a.mime ?? "file"}, ${Math.round(a.bytes / 1024)} KB — no text could be extracted from this format)`, chars: a.chars ?? 0, id: a.id });
+  }
+  const attachments = [...sanitiseAttachments(body.attachments), ...uploaded].slice(0, 3);
   if (!question) throw BadRequest("A message is required.");
 
   // Resolve or open the thread. History comes from the SERVER, so a reload or a
@@ -743,6 +833,12 @@ async function handleChat(req, res, user) {
 // Retention runs at startup and then daily. Deliberately not on a request
 // path: a sweep that could slow a dispatcher's question is a sweep that gets
 // disabled.
+// Org capability switches: read every 30 s (cached in views.mjs); the gate
+// reads the cache synchronously so tool listing stays cheap.
+const refreshCaps = () => capabilities().then((v) => { capsNow = v; }).catch(() => {});
+refreshCaps(); setInterval(refreshCaps, 30_000).unref();
+setCapabilityGate(() => capsNow);
+
 sweepGeneratedFiles().catch(() => {});
 setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 

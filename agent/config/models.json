@@ -9,12 +9,75 @@
   "activeTier": null,
   "region": "eu-north-1",
   "tiers": {
-    "router":     { "id": "eu.amazon.nova-micro-v1:0",                    "fallbackId": "eu.amazon.nova-lite-v1:0",            "maxTokens": 512,   "purpose": "Cheap intent classification. Part 10." },
-    "fast":       { "id": "eu.anthropic.claude-haiku-4-5-20251001-v1:0",  "fallbackId": "eu.anthropic.claude-haiku-4-5-20251001-v1:0", "maxTokens": 4096, "purpose": "Short, low-stakes turns and sub-tasks." },
-    "standard":   { "id": "eu.anthropic.claude-sonnet-5",                 "fallbackId": "eu.anthropic.claude-sonnet-4-6",      "maxTokens": 8192,  "purpose": "The default for everything in Part 1." },
-    "reasoning":  { "id": "eu.anthropic.claude-opus-5",                   "fallbackId": "eu.anthropic.claude-opus-4-6-v1",     "maxTokens": 16384, "purpose": "Multi-step planning and confirmation-worthy decisions." },
-    "extraction": { "id": "eu.anthropic.claude-sonnet-5",                 "fallbackId": "eu.anthropic.claude-sonnet-4-6",      "maxTokens": 8192,  "purpose": "Vision: reading AIP PDF pages and charts." },
-    "embeddings": { "id": "eu.cohere.embed-v4:0",                         "fallbackId": "amazon.titan-embed-text-v2:0",        "maxTokens": null,  "purpose": "Document search over AIP text." },
-    "rerank":     { "id": null,                                           "fallbackId": null,                                  "maxTokens": null,  "purpose": "Not available in eu-north-1; see docs/aws-bedrock-setup.md." }
+    "router": {
+      "id": "eu.amazon.nova-micro-v1:0",
+      "fallbackId": "eu.amazon.nova-lite-v1:0",
+      "maxTokens": 512,
+      "purpose": "Cheap intent classification. Part 10."
+    },
+    "fast": {
+      "id": "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "fallbackId": "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "maxTokens": 4096,
+      "purpose": "Short, low-stakes turns and sub-tasks."
+    },
+    "standard": {
+      "id": "eu.anthropic.claude-sonnet-5",
+      "fallbackId": "eu.anthropic.claude-sonnet-4-6",
+      "maxTokens": 8192,
+      "purpose": "The default for everything in Part 1."
+    },
+    "reasoning": {
+      "id": "eu.anthropic.claude-opus-5",
+      "fallbackId": "eu.anthropic.claude-opus-4-6-v1",
+      "maxTokens": 16384,
+      "purpose": "Multi-step planning and confirmation-worthy decisions."
+    },
+    "extraction": {
+      "id": "eu.anthropic.claude-sonnet-5",
+      "fallbackId": "eu.anthropic.claude-sonnet-4-6",
+      "maxTokens": 8192,
+      "purpose": "Vision: reading AIP PDF pages and charts."
+    },
+    "embeddings": {
+      "id": "eu.cohere.embed-v4:0",
+      "fallbackId": "amazon.titan-embed-text-v2:0",
+      "maxTokens": null,
+      "purpose": "Document search over AIP text."
+    },
+    "rerank": {
+      "id": null,
+      "fallbackId": null,
+      "maxTokens": null,
+      "purpose": "Not available in eu-north-1; see docs/aws-bedrock-setup.md."
+    }
+  },
+  "pricing": {
+    "_comment": "USD per million tokens, Bedrock eu rates; used for the Settings usage card only. Matched by substring of the model id.",
+    "nova-micro": {
+      "input": 0.035,
+      "output": 0.14,
+      "cacheRead": 0.0035
+    },
+    "haiku": {
+      "input": 0.8,
+      "output": 4.0,
+      "cacheRead": 0.08
+    },
+    "sonnet": {
+      "input": 3.0,
+      "output": 15.0,
+      "cacheRead": 0.3
+    },
+    "opus": {
+      "input": 15.0,
+      "output": 75.0,
+      "cacheRead": 1.5
+    },
+    "default": {
+      "input": 3.0,
+      "output": 15.0,
+      "cacheRead": 0.3
+    }
   }
 }

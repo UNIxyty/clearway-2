@@ -140,9 +140,19 @@ export function roleSatisfies(role, permission) {
  * That matters beyond tidiness — an offered-then-refused tool teaches the model
  * the capability exists, and it will keep trying and narrating it to the user.
  */
+/** Org capability switches (Settings §12): a tool the organisation switched off is withheld from everyone. */
+let capabilityGate = () => ({});
+export function setCapabilityGate(fn) { capabilityGate = fn; }
+export function toolAllowedByCapabilities(tool, caps) {
+  if (caps.web_search === false && tool.sourceTier === "web") return false;
+  if (caps.send_email === false && /^(send_email|email_document)$/.test(tool.name)) return false;
+  if (caps.write_actions === false && confirmLevelFor(tool)) return false;
+  return true;
+}
 export function toolSpecsFor(user) {
+  const caps = capabilityGate();
   return allTools()
-    .filter((tool) => roleSatisfies(user.agentRole, tool.permission))
+    .filter((tool) => roleSatisfies(user.agentRole, tool.permission) && toolAllowedByCapabilities(tool, caps))
     .map((tool) => ({
       toolSpec: {
         name: tool.name,
@@ -207,6 +217,11 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   if (!roleSatisfies(user.agentRole, tool.permission)) {
     const result = { ok: false, error: "NO_PERMISSION", message: `Your account cannot use ${name}.` };
     await record(result, false, "NO_PERMISSION");
+    return result;
+  }
+  if (!toolAllowedByCapabilities(tool, capabilityGate())) {
+    const result = { ok: false, error: "NO_PERMISSION", message: `${name} is switched off for the organisation in Agent settings.` };
+    await record(result, false, "CAPABILITY_OFF");
     return result;
   }
 

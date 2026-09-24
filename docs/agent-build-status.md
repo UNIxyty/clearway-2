@@ -944,7 +944,11 @@ instead switches provider with no code change.
 
 ## Part 7 — Write tools (low risk)
 
-**Status: Built, not deployed.** Needs `docs/supabase-agent-actions.sql`.
+**Status: Built, on `main`, NOT deployed.** SQL run by Dmitrijs on 2026-09-24.
+Verifier **19/19** (`scripts/agent-verify-part7.mjs`); Part 4 re-run 18/18 after
+the wall change below, no regression. Commits `a688929` (schema), `6df80da`
+(tools), `65a7e76` (status + verifier), `4cf656d` (wall authorship fix).
+Deployed: **no** — `agent-service` and `portal` still need a deploy.
 
 **Authorisation:** Part 7 was started on **2026-09-24 on the owner's decision**,
 without an ops sign-off on Phase 1. Recorded here because the status file is the
@@ -966,6 +970,22 @@ places is a rule that will be missed in the eighth.
    <person>`. Both halves matter: "AI" so nobody mistakes it for a colleague's
    judgement, and the name so a human is always accountable. An unattributed AI
    edit is the thing an ops department cannot accept.
+
+   The first verifier run caught this rule failing in the one place it mattered
+   most. The agent stamped the fields correctly, but the wall's
+   `upsertCustomLimitation` rebuilt every record from a fixed field list and
+   dropped them on the way to disk — so the mark existed only in the audit log,
+   and a limitation the agent wrote was indistinguishable from a dispatcher's on
+   the wall itself. Fixed in `4cf656d`: limitations now carry authorship the way
+   the IMPORTANT store already did. Two follow-on rules there, both about not
+   letting an edit launder authorship: who **created** a record never changes on
+   an edit, so an agent edit of a dispatcher's limitation cannot reattribute the
+   original; and once agent-touched a record stays flagged, so a later human
+   edit cannot quietly clear the mark.
+
+   Worth stating plainly: a marking rule is only real if the store at the end of
+   the chain keeps the field. The audit log is not a substitute — nobody reading
+   the wall has it open.
 2. **Every write stores the COMPLETE before and after state**, not a diff. An
    undo restores a known state rather than computing an inverse — a derivation
    can be wrong in ways nobody notices until the wall is wrong.
@@ -998,8 +1018,10 @@ query: one dispatcher cannot undo another's change even with a valid id. A
 exactly what someone needs to find later.
 
 ### Decisions needed from you
-1. **Run `docs/supabase-agent-actions.sql`**, then deploy `agent-service` and
-   `portal`. I will run the Part 7 verifier once the table exists.
+1. **Deploy `agent-service` and `portal`.** The SQL is run and the verifier is
+   19/19 locally; nothing of Part 7 is live until the deploy. The wall
+   (`digital-wall`) also changed in `4cf656d` and needs to go out with them —
+   deploying the agent without it puts the AI mark back in the audit log only.
 2. **Worth doing before dispatchers use this:** show ops the read-only agent.
    The Phase 1 demo is still outstanding and this part now lets the agent change
    what they see on the wall.

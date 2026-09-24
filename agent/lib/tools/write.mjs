@@ -22,6 +22,26 @@ import { markAiAuthored, recordAction } from "../actions.mjs";
 
 const AI_NOTE = "Records the agent creates or edits are marked as AI-authored, so staff can see at a glance that a person did not write them.";
 
+// Does the record actually appear on the wall?
+//
+// The wall's view is narrower than the console's: active AND inside its date
+// window. A limitation dated outside that window is accepted, is listed on the
+// Limitations page, and never appears on the wall — which reads to a dispatcher
+// exactly like the write having failed. So ask the wall's own view rather than
+// re-deriving its window rule here, where it would drift out of step.
+//
+// null means the check itself did not answer; the caller must not turn that
+// into a claim either way.
+async function showsOnWall(id, user) {
+  const view = await wallGet("/api/timeline/limitations?includeInactive=false", user, { timeoutMs: 15_000 })
+    .catch(() => null);
+  if (!Array.isArray(view?.limitations)) return null;
+  return view.limitations.some((row) => row?.id === id);
+}
+
+const WALL_VISIBILITY_NOTE =
+  "false means the record was saved and is on the Limitations page, but does NOT appear on the wall — normally because its dates are outside the wall's window. Say so plainly and offer to correct the dates; do not report the change as done and visible.";
+
 // ── Limitations ────────────────────────────────────────────────────────────
 
 defineTool({
@@ -55,6 +75,7 @@ defineTool({
       id: { type: ["string", "null"] },
       title: { type: ["string", "null"] },
       aiAuthored: { type: "boolean" },
+      visibleOnWall: { type: ["boolean", "null"], description: WALL_VISIBILITY_NOTE },
     },
   },
   async handler(input, { user, conversationId }) {
@@ -81,7 +102,10 @@ defineTool({
       // A creation has no before state; the undo is a delete.
       beforeState: null, afterState: created,
     });
-    return { created: true, actionId, id: created.id, title: created.title, aiAuthored: true };
+    return {
+      created: true, actionId, id: created.id, title: created.title, aiAuthored: true,
+      visibleOnWall: await showsOnWall(created.id, user),
+    };
   },
 });
 
@@ -111,7 +135,10 @@ defineTool({
   output: {
     type: "object",
     required: ["updated", "actionId"],
-    properties: { updated: { type: "boolean" }, actionId: { type: ["string", "null"] }, id: { type: "string" }, aiAuthored: { type: "boolean" } },
+    properties: {
+      updated: { type: "boolean" }, actionId: { type: ["string", "null"] }, id: { type: "string" }, aiAuthored: { type: "boolean" },
+      visibleOnWall: { type: ["boolean", "null"], description: WALL_VISIBILITY_NOTE },
+    },
   },
   async handler(input, { user, conversationId }) {
     // Read the complete BEFORE state first. Without it there is nothing to
@@ -142,7 +169,7 @@ defineTool({
       targetKind: "limitation", targetId: input.id, targetLabel: before.title,
       beforeState: before, afterState: after,
     });
-    return { updated: true, actionId, id: input.id, aiAuthored: true };
+    return { updated: true, actionId, id: input.id, aiAuthored: true, visibleOnWall: await showsOnWall(input.id, user) };
   },
 });
 

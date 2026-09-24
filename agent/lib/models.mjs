@@ -27,6 +27,26 @@ export function systemPrompt() {
   return cachedPrompt;
 }
 
+/**
+ * The current UTC instant, rebuilt on every turn — deliberately NOT part of the
+ * cached prompt file.
+ *
+ * Without it the model dates things from its training data, and the failure is
+ * silent rather than loud: a limitation written with a past date is accepted by
+ * the wall, listed in the console, and filtered out of the wall's own view, so
+ * it looks to the dispatcher as though the write simply did not happen.
+ * Everything in ops is Z, so this is stated in UTC and says so.
+ */
+export function currentTimeLine(now = new Date()) {
+  const iso = now.toISOString();
+  const weekday = now.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  return [
+    `Current date and time: ${weekday} ${iso.slice(0, 10)}, ${iso.slice(11, 16).replace(":", "")}Z.`,
+    'Ops runs on UTC — read "today", "tonight", "tomorrow" and "now" as UTC unless the dispatcher says otherwise.',
+    "Never infer the date from anything else; dates you invent land on records that quietly do not show.",
+  ].join(" ");
+}
+
 export const TIERS = ["router", "fast", "standard", "reasoning", "extraction", "embeddings", "rerank"];
 
 let cached = null;

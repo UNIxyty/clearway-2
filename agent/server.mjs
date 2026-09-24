@@ -29,7 +29,7 @@ import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
 import { readGeneratedFile } from "./lib/files/store.mjs";
 import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
-import { loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
+import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
@@ -468,7 +468,7 @@ async function handleChat(req, res, user) {
   const contextLine = body.context?.label
     ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
     : null;
-  const system = [systemPrompt(), body.system ? String(body.system) : null, contextLine, memory.text]
+  const system = [systemPrompt(), currentTimeLine(), body.system ? String(body.system) : null, contextLine, memory.text]
     .filter(Boolean)
     .join("\n\n") || undefined;
 

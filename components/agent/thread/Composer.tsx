@@ -77,6 +77,7 @@ async function resolveMentions(q: string, type: MentionType | "all", context: Ag
   }
   const want = (t: MentionType) => type === "all" || type === t;
   const jobs: Promise<void>[] = [];
+  if (!query && want("limitation")) jobs.push(invoke("list_limitations", { limit: 5 }).then((b) => { for (const l of b?.limitations ?? []) if (!out.some((m) => m.id === l.id)) out.push({ type: "limitation", id: l.id, primary: l.id, secondary: l.title }); }));
   if (want("flight") && query.length >= 2) jobs.push(invoke("search_flights", { callsign: query, limit: 6 }).then((b) => { for (const f of b?.flights ?? []) out.push({ type: "flight", id: f.flightId, primary: f.callsign || f.flightNid, secondary: `${f.departureIcao ?? "?"} → ${f.arrivalIcao ?? "?"}` }); }));
   if (want("airport") && /^[A-Za-z]{2,4}$/.test(query)) jobs.push(invoke("get_web_aip_link", { icao: query.toUpperCase().padEnd(4, "").slice(0, 4) }).then((b) => { if (b?.found) out.push({ type: "airport", id: b.icao, primary: b.icao, secondary: b.country ?? "airport" }); }));
   if (want("limitation") && query.length >= 2) jobs.push(invoke("list_limitations", { query, limit: 5 }).then((b) => { for (const l of b?.limitations ?? []) out.push({ type: "limitation", id: l.id, primary: l.id, secondary: l.title }); }));
@@ -127,6 +128,7 @@ export default function Composer({
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [query, setQuery] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
+  const [searching, setSearching] = useState(false);
   const [mentionType, setMentionType] = useState<MentionType | "all">("all");
   const [highlight, setHighlight] = useState(0);
   const [inserted, setInserted] = useState<Mention[]>([]);
@@ -152,8 +154,8 @@ export default function Composer({
   }, [value, command]);
   useEffect(() => {
     if (menu !== "mention") return;
-    let alive = true;
-    resolveMentions(query, mentionType, context).then((m) => { if (alive) setMentions(m); });
+    let alive = true; setSearching(true);
+    resolveMentions(query, mentionType, context).then((m) => { if (alive) { setMentions(m); setSearching(false); } });
     return () => { alive = false; };
   }, [menu, query, mentionType, context]);
 
@@ -249,13 +251,19 @@ export default function Composer({
             <span style={{ fontSize: 12.5, color: C.primaryOnTint }}>PDF, images, CSV, XLSX, TXT · up to 25 MB each · the whole thread is the drop target</span>
           </div>
         )}
-        {menu === "mention" && mentions.length > 0 && (
+        {menu === "mention" && (
           <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: panel ? 12 : 14, boxShadow: panel ? SHADOW.menuPanel : SHADOW.menu, zIndex: 20, overflow: "hidden" }}>
             <div style={{ display: "flex", gap: 4, padding: "8px 8px 0", borderBottom: `1px solid ${C.divider}`, overflowX: "auto" }}>
               {(["all", ...TYPES] as const).map((t) => <button key={t} type="button" onClick={() => setMentionType(t)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: mentionType === t ? 700 : 500, color: mentionType === t ? C.ink : C.muted, background: "transparent", border: "none", borderBottom: `2px solid ${mentionType === t ? C.ink : "transparent"}`, padding: "6px 9px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{t === "all" ? "All" : `@${t}`}</button>)}
             </div>
             <div style={{ padding: "6px 6px 2px", maxHeight: 280, overflowY: "auto" }}>
               {!query && mentions.some((m) => m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "4px 10px" }}>ON THIS PAGE</div>}
+              {!query && mentions.some((m) => !m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "4px 10px" }}>RECENT</div>}
+              {mentions.length === 0 && (
+                <div style={{ padding: "10px 10px 8px", fontSize: 13, color: C.muted }}>
+                  {searching ? "Searching…" : query.length < 2 ? "Type a callsign, ICAO, registration, limitation ID or document name…" : `No ${mentionType === "all" ? "matches" : `${mentionType}s`} for “${query}”`}
+                </div>
+              )}
               {mentions.map((m, i) => (
                 <button key={`${m.type}:${m.id}`} type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickMention(m)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 8px" : "8px 10px", borderRadius: 8, border: "none", background: i === highlight || m.tag === "SELECTED" ? C.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", marginTop: m.tag === "VISIBLE" && mentions[i - 1]?.tag === "SELECTED" ? 6 : 0 }}>
                   <span style={{ width: panel ? 24 : 26, height: panel ? 24 : 26, borderRadius: 7, background: TYPE_LOOK[m.type].bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name={TYPE_LOOK[m.type].icon} size={14} color={TYPE_LOOK[m.type].fg} /></span>

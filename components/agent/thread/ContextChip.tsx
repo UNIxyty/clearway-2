@@ -87,7 +87,7 @@ export function suggestionsFor(context: AgentContext | null, live: Live | null, 
       ],
     };
   }
-  if (context?.kind === "notam-check" || context?.kind === "wall") {
+  if (context?.kind === "notam-check") {
     const n = live?.notamOutstanding;
     return {
       headline: n != null ? `${n} airport${n === 1 ? "" : "s"} still need${n === 1 ? "s" : ""} checking today.` : "NOTAM Check.",

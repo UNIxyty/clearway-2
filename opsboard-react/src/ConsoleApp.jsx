@@ -20,6 +20,8 @@ import LimitationsPage from './components/console/LimitationsPage';
 import OperatorsPage from './components/console/OperatorsPage';
 import SettingsPage from './components/console/SettingsPage';
 import DeviceApprovalPopup from './components/console/DeviceApprovalPopup';
+import { AgentNavRow } from './components/console/AgentDock';
+import { useAgentDock } from './hooks/useAgentDock';
 import {
   fetchImportant,
   fetchNotamCheckToday,
@@ -225,6 +227,8 @@ function UserBadge({ user, collapsed }) {
  */
 export default function ConsoleApp({ page, navigate }) {
   const { user } = useAuth();
+  // Ops Agent side panel (⌘J) — hosted from the portal, see AgentDock.
+  const agent = useAgentDock({ page, label: NAV.find((n) => n.key === page)?.label });
   // Breakpoints (design section E, width only — the console ignores rotation):
   //   <1024        drawer navigation + 56px top bar (C1/C2, D2)
   //   1024–1279    desktop shape, rail DEFAULTS collapsed to 68px (D1)
@@ -891,6 +895,7 @@ export default function ConsoleApp({ page, navigate }) {
                 </div>
               </div>
             )}
+            {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} />}
             <UserBadge user={user} collapsed={collapsed} />
             <button
               type="button"
@@ -904,6 +909,8 @@ export default function ConsoleApp({ page, navigate }) {
             </button>
           </div>
 
+          {/* ── Ops Agent dock (right of the content: order 9) ── */}
+          {agent.dock}
           {/* ── Content ── */}
           <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
             {/* Full-bleed content: no max-width column — pages flex to the

@@ -118,9 +118,26 @@ function normalizePath(pathname) {
   return pathname;
 }
 
+// The tunnel routes `^/agent/.*` here, which also captures the portal's own
+// pages under /agent/* (History, Activity log, …). Until the ingress is
+// narrowed to `^/agent/api/.*` (deploy/digital-wall/cloudflared-config.example.yml),
+// anything that is not an API call is passed through to the portal unchanged —
+// same cookies, same path — so those pages render instead of a 404 from here.
+const PORTAL_ORIGIN = String(process.env.PORTAL_BASE_URL || "http://portal:3000").replace(/\/+$/, "");
+function passToPortal(req, res) {
+  const target = new URL(req.url, PORTAL_ORIGIN);
+  const upstream = http.request(
+    { protocol: target.protocol, hostname: target.hostname, port: target.port || 80, path: target.pathname + target.search, method: req.method, headers: { ...req.headers, host: target.host } },
+    (r) => { res.writeHead(r.statusCode || 502, r.headers); r.pipe(res); }
+  );
+  upstream.on("error", () => { if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "portal_unreachable" })); });
+  req.pipe(upstream);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = normalizePath(url.pathname);
+  if (!pathname.startsWith("/api/") && pathname !== "/api") return passToPortal(req, res);
 
   try {
     // ── Health: the only unauthenticated route. Shaped like the wall's and the

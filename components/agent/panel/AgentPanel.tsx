@@ -35,7 +35,7 @@ export function useAgentPanel() {
 
 type Minimised = { state: "working"; step: number; of: number } | { state: "needs-you"; count: number } | { state: "done" } | null;
 
-export default function AgentPanel({ open, onClose, context, initials = null, initialConversationId = null, onWidthChange }: { open: boolean; onClose: () => void; context: AgentContext | null; initials?: string | null; initialConversationId?: string | null; onWidthChange?: (px: number) => void }) {
+export default function AgentPanel({ open, onClose, context, initials = null, initialConversationId = null, onWidthChange, embedded = false }: { open: boolean; onClose: () => void; context: AgentContext | null; initials?: string | null; initialConversationId?: string | null; onWidthChange?: (px: number) => void; /** Hosted in another app's iframe (wall console): fills the frame, talks to the host by postMessage. */ embedded?: boolean }) {
   const router = useRouter();
   const [width, setWidth] = useState<number>(PANEL.width);
   const [overlay, setOverlay] = useState(false);
@@ -62,9 +62,12 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   useEffect(() => { onWidthChange?.(open && !minimised ? width : 0); }, [width, open, minimised, onWidthChange]);
   // Push vs overlay (§6.2).
   useEffect(() => {
+    if (embedded) { setOverlay(false); return; }
     const decide = () => { const vw = window.innerWidth; const sidebar = document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248; setOverlay(vw <= PANEL.overlayBelow || vw - sidebar - width < PANEL.pushMinContent); };
     decide(); window.addEventListener("resize", decide); return () => window.removeEventListener("resize", decide);
-  }, [width]);
+  }, [width, embedded]);
+  const tellHost = useCallback((msg: Record<string, unknown>) => { if (embedded && window.parent !== window) window.parent.postMessage(msg, window.location.origin); }, [embedded]);
+  useEffect(() => { tellHost({ type: "cw-agent-minimised", on: Boolean(minimised) }); }, [minimised, tellHost]);
   useEffect(() => {
     const move = (e: MouseEvent) => { if (!dragRef.current) return; setWidth(Math.min(PANEL.maxWidth, Math.max(PANEL.minWidth, dragRef.current.startWidth + (dragRef.current.startX - e.clientX)))); };
     const up = () => { if (!dragRef.current) return; dragRef.current = null; try { localStorage.setItem("cw-agent-panel-width", String(width)); } catch { /* private mode */ } };
@@ -111,10 +114,11 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   useEffect(() => () => { if (doneTimer.current) window.clearTimeout(doneTimer.current); }, []);
 
   function expand() {
+    const url = t.conversationId ? `/agent/t/${encodeURIComponent(t.conversationId)}?from=${encodeURIComponent(context?.label ?? "")}` : "/agent";
+    if (embedded) { tellHost({ type: "cw-agent-expand", url }); return; }
     setExpanding(true);
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const go = () => router.push(t.conversationId ? `/agent/t/${encodeURIComponent(t.conversationId)}?from=${encodeURIComponent(context?.label ?? "")}` : "/agent");
-    setTimeout(go, reduced ? 100 : 200);
+    setTimeout(() => router.push(url), reduced ? 100 : 200);
   }
 
   if (!open) return null;
@@ -123,7 +127,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
     const amber = minimised.state === "needs-you";
     return (
       <button type="button" onClick={() => setMinimised(null)} title="Reopen the agent · ⌘J" aria-label="Reopen the agent"
-        style={{ position: "fixed", right: 0, top: 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
+        style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
         {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${C.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? C.warn : C.ink} />}
         <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 600, color: amber ? C.warn : minimised.state === "done" ? C.ink : C.primaryHover }}>
           {minimised.state === "working" ? `Working · ${minimised.step} of ${minimised.of}` : amber ? `Confirm ${minimised.count} change${minimised.count > 1 ? "s" : ""}` : "Reply ready"}
@@ -142,13 +146,13 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
         role="complementary" aria-label="Ops Agent"
         className={`${closing ? "ag-panel-out" : "ag-panel-in"} ${expanding ? "ag-expanding" : ""}`}
         style={{
-          width: expanding ? "100vw" : width, flex: "none", background: C.surface, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column",
+          width: embedded ? "100%" : expanding ? "100vw" : width, flex: "none", background: C.surface, borderLeft: embedded ? "none" : `1px solid ${C.border}`, display: "flex", flexDirection: "column",
           position: overlay || expanding ? "fixed" : "relative", ...(overlay || expanding ? { top: 0, right: 0, bottom: 0, zIndex: 60, boxShadow: SHADOW.panelOverlay } : { height: "100vh", position: "sticky", top: 0, zIndex: 40 }),
           fontFamily: "inherit", color: C.ink,
         }}
       >
-        <div onMouseDown={(e) => { dragRef.current = { startX: e.clientX, startWidth: width }; e.preventDefault(); }} title="Drag to resize" role="separator" aria-orientation="vertical"
-          style={{ position: "absolute", left: -3, top: "50%", width: 6, height: 44, marginTop: -22, borderRadius: 3, background: C.borderControl, cursor: "ew-resize", zIndex: 2 }} />
+        {!embedded && <div onMouseDown={(e) => { dragRef.current = { startX: e.clientX, startWidth: width }; e.preventDefault(); }} title="Drag to resize" role="separator" aria-orientation="vertical"
+          style={{ position: "absolute", left: -3, top: "50%", width: 6, height: 44, marginTop: -22, borderRadius: 3, background: C.borderControl, cursor: "ew-resize", zIndex: 2 }} />}
 
         {/* Header 60 */}
         <div style={{ height: PANEL.headerHeight, flex: "none", display: "flex", alignItems: "center", gap: 6, padding: "0 10px 0 16px", borderBottom: `1px solid ${C.divider}` }}>

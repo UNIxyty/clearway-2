@@ -45,7 +45,12 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   useEffect(() => { const el = threadRef.current; if (el) el.scrollTop = el.scrollHeight; }, [t.messages.length]);
   // ⌘⇧J from the full page moves the thread into the panel over the last console page.
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); toPanel(); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }); // eslint-disable-line react-hooks/exhaustive-deps
-  const toPanel = () => { try { sessionStorage.setItem("cw-agent-open-with", t.conversationId ?? ""); } catch { /* private mode */ } router.push(document.referrer && new URL(document.referrer).origin === location.origin && !/\/agent/.test(document.referrer) ? document.referrer : "/dashboard"); };
+  const toPanel = () => {
+    try { sessionStorage.setItem("cw-agent-open-with", t.conversationId ?? ""); } catch { /* private mode */ }
+    const back = document.referrer && new URL(document.referrer).origin === location.origin && !/\/agent/.test(document.referrer) ? document.referrer : "/dashboard";
+    // The wall console is a separate app: a full navigation, never a router push.
+    if (/\/digital-wall\//.test(back)) window.location.assign(back); else router.push(back);
+  };
 
   if (availability !== "yes") {
     return <PortalShell crumb="" title="Not found" subtitle=""><div style={{ padding: 32, fontSize: 14, color: C.muted }}>{availability === "checking" ? "" : "This page does not exist."}</div></PortalShell>;

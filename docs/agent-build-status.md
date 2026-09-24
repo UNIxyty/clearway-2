@@ -1391,7 +1391,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 3b — panel, full page, History, Activity log, Settings, Knowledge base, nav, shell wiring | 18bd218 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 5 — follow-up: /agent pages behind the tunnel, @ picker states, ⌘J on the wall console | be5e852 | yes | yes — 2026-09-24 23:22Z (portal build HvulmkGIRkAqNT4C_FjqF; agent-service + digital-wall-frontend rebuilt) |
 | 6 — editable keyboard shortcuts (shared or per-platform) in Agent settings | ec74070 | yes | yes — 2026-09-24 23:18Z (portal build wtGwgo9IUOOBwtW4rm9n9; agent-service + digital-wall-frontend rebuilt) |
-| 7 — @ picker all types, NOTAM text/boxes, DateField, hover fix, voice bind, show/close flight on wall, model line | 9969cb8 | yes | __DEPLOYED4__ |
+| 7 — @ picker all types, NOTAM text/boxes, DateField, hover fix, voice bind, show/close flight on wall, model line | 9969cb8 | yes | yes — 2026-09-24 23:48Z (portal build yrzZaEQeWyxjo4BP1wb9x; agent-service rebuilt) |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

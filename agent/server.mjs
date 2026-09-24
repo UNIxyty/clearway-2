@@ -28,6 +28,7 @@ import {
 import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
 import { readGeneratedFile } from "./lib/files/store.mjs";
 import { listSends, prepareEmail } from "./lib/email/send.mjs";
+import { memoryContext } from "./lib/memory-context.mjs";
 import { loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -424,6 +425,14 @@ async function handleChat(req, res, user) {
   await appendMessage({ conversationId, role: "user", content: question });
 
   const { requested, effective } = resolveTier(requestedTier);
+
+  // The user's notes are fetched HERE, every turn, rather than relying on the
+  // model to call recall — which it will not do in a fresh conversation, and
+  // which made "remember this" appear to work only in the chat where it was
+  // said. Resolved before the audit row so that row can name what was in front
+  // of the model.
+  const memory = await memoryContext({ user, context: body.context });
+
   await audit({
     kind: "chat.request",
     userId: user.userId,
@@ -431,7 +440,12 @@ async function handleChat(req, res, user) {
     conversationId,
     modelTier: requested,
     success: null,
-    detail: { effectiveTier: effective, historyTurns: history.length, context: body.context ?? null },
+    detail: {
+      effectiveTier: effective, historyTurns: history.length, context: body.context ?? null,
+      // Which notes were in front of the model, so a surprising answer can be
+      // traced back to a remembered note rather than guessed at.
+      memoriesInContext: memory.memories.map((m) => m.id),
+    },
   });
 
   res.writeHead(200, {
@@ -454,7 +468,7 @@ async function handleChat(req, res, user) {
   const contextLine = body.context?.label
     ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
     : null;
-  const system = [systemPrompt(), body.system ? String(body.system) : null, contextLine]
+  const system = [systemPrompt(), body.system ? String(body.system) : null, contextLine, memory.text]
     .filter(Boolean)
     .join("\n\n") || undefined;
 

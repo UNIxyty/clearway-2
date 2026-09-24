@@ -189,8 +189,7 @@ management, no logging config, no marketplace):
 {
   "Version": "2012-10-17",
   "Statement": [
-    {
-      "Sid": "InvokeModels",
+    "Sid": "InvokeModels",
       "Effect": "Allow",
       "Action": [
         "bedrock:InvokeModel",
@@ -204,6 +203,13 @@ management, no logging config, no marketplace):
       ]
     },
     {
+      "Sid": "ApplyGuardrails",
+      "Effect": "Allow",
+      "Action": "bedrock:ApplyGuardrail",
+      "Resource": "arn:aws:bedrock:eu-*:*:guardrail/*"
+    },
+    {
+      {
       "Sid": "DiscoverModels",
       "Effect": "Allow",
       "Action": [
@@ -226,6 +232,11 @@ Notes:
   *"This operation requires permission for the `bedrock:InvokeModel` action."*). The two actions
   above therefore cover the smoke test's `ConverseCommand` and every streaming call the agent will
   make. An earlier revision of this policy listed all four; the extra two were inert.
+- **Guardrails: `ApplyGuardrail` only.** The agent's runtime key can *use* a
+  guardrail but not create, change or delete one — `CreateGuardrail` on an
+  unattended key would let the agent weaken its own safety check. Create the
+  guardrail once in the console as an admin, then put its id in
+  `BEDROCK_GUARDRAIL_ID`.
 - `amazon.*` rather than `amazon.nova-*`: Titan embeddings
   (`amazon.titan-embed-text-v2:0`) are the first-party alternative to Cohere and are otherwise
   denied by the narrower pattern.

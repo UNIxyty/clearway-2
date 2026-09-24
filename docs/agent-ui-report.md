@@ -133,6 +133,17 @@ greeting are computed in UTC; toggle knob 150 ms ease-out.
   with its type tabs, a hint, `Searching…`, `No matches`, and recent limitations while the query is empty.
 - **⌘J on the wall console** — built (above).
 
+## 8c. Editable shortcuts (commit `ec74070`)
+
+Agent settings gained a **Keyboard shortcuts** card: the three chords that do something today — open/close
+the panel (`Mod+J`), expand ↔ side panel (`Mod+Shift+J`), confirm a standard change (`Mod+Enter`) — each
+recorded by clicking and pressing keys, saved immediately, admins only, logged. A switch chooses one
+shared set (`Mod` = ⌘ on a Mac, Ctrl on Windows) or separate Mac / Windows sets. Esc stays fixed; a bare
+key without a modifier is refused. Every keycap in the product (sidebar, Ask about…, panel titles,
+confirm button, wall-console row) reads the organisation's binds. Stored in the existing `agent_settings`
+row `keybinds` (no DDL). Verified in the browser: recorded ⌃⇧K, it opened the panel on the dashboard and on
+the wall console while ⌘J no longer did; per-platform recorded Ctrl+Alt+K for Windows; reset to defaults.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

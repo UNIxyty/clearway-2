@@ -192,8 +192,8 @@ pattern in the spec to follow.
 
 | # | Key | Where | Action | Status |
 |---|---|---|---|---|
-| E1 | ⌘J / Ctrl+J | anywhere | Toggle panel | ✅ |
-| E2 | ⌘⇧J | panel open | Expand to full page | ✅ |
+| E1 | ⌘J / Ctrl+J | anywhere | Toggle panel | ✅ editable in Agent settings (default Mod+J: ⌘J / Ctrl+J) |
+| E2 | ⌘⇧J | panel open | Expand to full page | ✅ editable (default Mod+Shift+J) |
 | E3 | ⌘K | anywhere | Command palette (1c only) | blocked:design (decision open) |
 | E4 | hold ⌥ Space | anywhere | Compact voice bar | blocked:backend |
 | E5 | double-tap ⌥ Space | anywhere | Overlay | blocked:backend |
@@ -208,7 +208,7 @@ pattern in the spec to follow.
 | E14 | ⏎ | composer | Send | ✅ |
 | E15 | ⇧⏎ | composer | New line | present (built; not exercised in the browser run) |
 | E16 | ⏎ | low-risk inline | Apply | present (built; not exercised in the browser run) |
-| E17 | ⌘⏎ | standard confirmation | Confirm | present (built; not exercised in the browser run) |
+| E17 | ⌘⏎ | standard confirmation | Confirm | ✅ editable (default Mod+Enter); seen as the confirm keycap |
 | E18 | (none) | destructive | Hold 2 s; Space on focused button *(spec default)* | ✅ (destructive has no keyboard confirm by construction) |
 | E19 | @ | composer | Mention picker | ✅ |
 | E20 | / | composer, line start / after space | Command menu | ✅ |
@@ -246,8 +246,8 @@ pattern in the spec to follow.
 
 | Status | Rows |
 |---|---|
-| ✅ built and seen working in the browser (production build) | 91 |
-| present — built to the spec, not exercised by the browser run | 61 |
+| ✅ built and seen working in the browser (production build) | 92 |
+| present — built to the spec, not exercised by the browser run | 60 |
 | partial | 8 |
 | blocked (backend / design / cross-app) | 37 |
 | missing | 1 |

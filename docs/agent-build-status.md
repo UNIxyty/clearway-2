@@ -1390,6 +1390,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 3a — primitives and the safety-carrying thread components | 340f7b4 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 3b — panel, full page, History, Activity log, Settings, Knowledge base, nav, shell wiring | 18bd218 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 5 — follow-up: /agent pages behind the tunnel, @ picker states, ⌘J on the wall console | be5e852 | yes | yes — 2026-09-24 23:22Z (portal build HvulmkGIRkAqNT4C_FjqF; agent-service + digital-wall-frontend rebuilt) |
+| 6 — editable keyboard shortcuts (shared or per-platform) in Agent settings | ec74070 | yes | __DEPLOYED3__ |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

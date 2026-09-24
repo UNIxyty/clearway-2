@@ -156,11 +156,12 @@ async function restore(action, user) {
   // anything still pointing at that record points at the right thing. A
   // re-creation would look identical on the wall and be a different record.
   if (before !== null && after === null) {
-    if (kind === "limitation") {
-      return void (await wallGet(`/api/timeline/limitations/${encodeURIComponent(id)}/restore`, user, {
-        method: "POST", body: {}, timeoutMs: 25_000,
-      }));
-    }
+    const restorePath = {
+      limitation: `/api/timeline/limitations/${encodeURIComponent(id)}/restore`,
+      important: `/api/important/${encodeURIComponent(id)}/restore`,
+      report: `/api/reports/${encodeURIComponent(id)}/restore`,
+    }[kind];
+    if (restorePath) return void (await wallGet(restorePath, user, { method: "POST", body: {}, timeoutMs: 25_000 }));
     throw InvalidInput(`No restore is implemented for a deleted ${kind}.`);
   }
 

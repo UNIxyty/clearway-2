@@ -108,6 +108,7 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
       { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
+      { id: "dev-knowledge", label: "Agent knowledge", icon: "book-open", href: "/developer/knowledge" },
       { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
     ],
   },

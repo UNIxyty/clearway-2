@@ -272,3 +272,108 @@ defineTool({
     };
   },
 });
+
+
+// ── IMPORTANT entries and reports: the same shape, the same rules ──────────
+//
+// Until now only limitations had a recycle bin; deleting an IMPORTANT bulletin
+// or a report destroyed it outright, and undoing a creation did the same. The
+// wall now keeps both whole, so a restore brings back the same record. No
+// purge tools for these two -- the bins are bounded, and one irreversible path
+// (limitations) is enough to keep the confirmation ceremony rare.
+
+function defineSoftDelete({ kind, noun, listPath, itemPath, resultKey, listKey, toolNames }) {
+  const [delName, listName, restoreName] = toolNames;
+
+  async function snapshot(id, user) {
+    const existing = await wallGet(itemPath(id), user, { timeoutMs: 20_000 }).catch(() => null);
+    const before = existing?.[resultKey];
+    if (!before) {
+      throw NotFound(`No ${noun} ${id} on the wall. Call ${kind === "important" ? "list_important" : "list_reports"} to find the id, or ${listName} if it may have been deleted.`);
+    }
+    return before;
+  }
+
+  defineTool({
+    name: delName,
+    description: `Remove ${noun === "IMPORTANT entry" ? "an" : "a"} ${noun} from the ops wall. The record is kept and can be restored with ${restoreName} — nothing is destroyed. Executes directly when the instruction is clear. ${UNDO_NOTE}`,
+    permission: kind === "report" ? "admin" : "user",
+    sourceTier: "internal",
+    sourceLabel: (input) => `Internal · ${noun} deleted · ${input.id}`,
+    timeoutMs: 30_000,
+    destructive: true,
+    readback: async (input, { user }) => (await wallGet(itemPath(input.id), user, { timeoutMs: 10_000 }).catch(() => null))?.[resultKey]?.title ?? null,
+    input: { type: "object", required: ["id"], additionalProperties: false, properties: { id: { type: "string", minLength: 1, maxLength: 64 } } },
+    output: {
+      type: "object", required: ["deleted", "actionId"],
+      properties: { deleted: { type: "boolean" }, actionId: { type: ["string", "null"] }, id: { type: "string" }, title: { type: ["string", "null"] }, undoable: { type: "boolean" }, warning: { type: ["string", "null"] } },
+    },
+    async handler(input, { user, conversationId }) {
+      const before = await snapshot(input.id, user);
+      await wallGet(itemPath(input.id), user, { method: "DELETE", timeoutMs: 25_000 });
+      const actionId = await recordAction({
+        user, conversationId, toolName: delName, args: input,
+        targetKind: kind, targetId: input.id, targetLabel: before.title,
+        beforeState: before, afterState: null,
+      });
+      return {
+        deleted: true, actionId, id: input.id, title: before.title ?? null, undoable: actionId !== null,
+        warning: actionId === null ? `The deletion succeeded but could NOT be recorded, so I cannot undo it for you. The record is still in the wall's recycle bin — point the user at ${restoreName} with this id.` : null,
+      };
+    },
+  });
+
+  defineTool({
+    name: listName,
+    description: `List ${noun}s that were deleted and can still be restored, newest first. Use this to find the id when someone asks to bring one back.`,
+    permission: kind === "report" ? "admin" : "user",
+    sourceTier: "internal",
+    sourceLabel: (input, result) => `Internal · ${result.count ?? 0} restorable ${noun}(s)`,
+    timeoutMs: 20_000,
+    input: { type: "object", additionalProperties: false, properties: { limit: S.limit(20, 10) } },
+    output: {
+      type: "object", required: ["count", "items"],
+      properties: { count: { type: "integer" }, items: { type: "array", items: { type: "object", properties: { id: { type: "string" }, title: { type: ["string", "null"] }, deletedAt: { type: ["string", "null"] }, deletedBy: { type: ["string", "null"] } } } } },
+    },
+    async handler({ limit }, { user }) {
+      const payload = await wallGet(`${listPath}?deleted=true`, user, { timeoutMs: 15_000 });
+      const rows = Array.isArray(payload?.[listKey]) ? payload[listKey] : [];
+      return { count: rows.length, items: rows.slice(0, limit ?? 20).map((r) => ({ id: r.id, title: r.title ?? null, deletedAt: r.deletedAt ?? null, deletedBy: r.deletedBy ?? null })) };
+    },
+  });
+
+  defineTool({
+    name: restoreName,
+    description: `Put a deleted ${noun} back on the wall, exactly as it was, with the same id. Use ${listName} to find the id.`,
+    permission: kind === "report" ? "admin" : "user",
+    sourceTier: "internal",
+    sourceLabel: (input) => `Internal · ${noun} restored · ${input.id}`,
+    timeoutMs: 30_000,
+    input: { type: "object", required: ["id"], additionalProperties: false, properties: { id: { type: "string", minLength: 1, maxLength: 64 } } },
+    output: { type: "object", required: ["restored", "actionId"], properties: { restored: { type: "boolean" }, actionId: { type: ["string", "null"] }, id: { type: "string" }, title: { type: ["string", "null"] } } },
+    async handler(input, { user, conversationId }) {
+      const result = await wallGet(`${itemPath(input.id)}/restore`, user, { method: "POST", body: {}, timeoutMs: 25_000 });
+      const restored = result?.[resultKey];
+      if (!restored?.id) throw NotFound(`Nothing deleted with id ${input.id} — it may have been restored already.`);
+      const actionId = await recordAction({
+        user, conversationId, toolName: restoreName, args: input,
+        targetKind: kind, targetId: input.id, targetLabel: restored.title,
+        beforeState: null, afterState: restored,
+      });
+      return { restored: true, actionId, id: input.id, title: restored.title ?? null };
+    },
+  });
+}
+
+defineSoftDelete({
+  kind: "important", noun: "IMPORTANT entry",
+  listPath: "/api/important", itemPath: (id) => `/api/important/${encodeURIComponent(id)}`,
+  resultKey: "entry", listKey: "entries",
+  toolNames: ["delete_important", "list_deleted_important", "restore_important"],
+});
+defineSoftDelete({
+  kind: "report", noun: "report",
+  listPath: "/api/reports", itemPath: (id) => `/api/reports/${encodeURIComponent(id)}`,
+  resultKey: "report", listKey: "reports",
+  toolNames: ["delete_report", "list_deleted_reports", "restore_report"],
+});

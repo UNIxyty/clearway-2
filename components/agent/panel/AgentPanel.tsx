@@ -17,10 +17,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { C, FONT, PANEL, iconStyle } from "./tokens";
-import { ActionsPerformed, AgentsReading, FlightCard, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
+import { ActionsPerformed, AgentsReading, AirportCard, DocumentCard, FileCard, FlightCard, MonoBlock, Sources, ToolActivityRow, ToolFailureNote, VerbatimFrame } from "./Blocks";
 import Markdown from "./Markdown";
 import Composer from "./Composer";
-import type { AgentContext, AgentMessage, ConversationSummary, FlightCardData, PerformedAction, SourceRef, ToolActivity, VerbatimRecord } from "./types";
+import type { AgentContext, AgentMessage, AirportData, Attachment, ConversationSummary, DocumentData, FileData, FlightCardData, MonoData, PerformedAction, SourceRef, ToolActivity, VerbatimRecord } from "./types";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -152,12 +152,15 @@ export default function AgentPanel({
     setError(null);
   }
 
-  async function send(text: string) {
+  async function send(text: string, attachments: Attachment[] = []) {
     setError(null);
     if (offline) return; // queued state is shown; nothing that changes data is queued
     const pinned = pinnedContext ?? context;
     setPinnedContext(pinned);
-    setMessages((m) => [...m, { id: `local-${Date.now()}`, role: "user", content: text }, { id: "streaming", role: "assistant", content: "", streaming: true }]);
+    const shown = attachments.length
+      ? `${text}\n\n${attachments.map((a) => `[Attached: ${a.name} · ${a.chars.toLocaleString()} chars]`).join("\n")}`
+      : text;
+    setMessages((m) => [...m, { id: `local-${Date.now()}`, role: "user", content: shown }, { id: "streaming", role: "assistant", content: "", streaming: true }]);
     setStreaming(true);
     setActivity(null);
 
@@ -169,6 +172,10 @@ export default function AgentPanel({
     let verbatim: VerbatimRecord[] = [];
     let flights: FlightCardData[] = [];
     let actions: PerformedAction[] = [];
+    let mono: MonoData[] = [];
+    let documents: DocumentData[] = [];
+    let files: FileData[] = [];
+    let airports: AirportData[] = [];
 
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
@@ -176,7 +183,7 @@ export default function AgentPanel({
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ message: text, conversationId, context: pinned }),
+        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(attachments.length ? { attachments } : {}) }),
       });
       if (!response.ok || !response.body) {
         const b = await response.json().catch(() => null);
@@ -212,6 +219,10 @@ export default function AgentPanel({
             verbatim = payload.verbatim ?? [];
             flights = payload.flights ?? [];
             actions = payload.actions ?? [];
+            mono = payload.mono ?? [];
+            documents = payload.documents ?? [];
+            files = payload.files ?? [];
+            airports = payload.airports ?? [];
           } else if (event === "error") {
             throw new Error(payload.message || payload.error);
           }
@@ -223,7 +234,9 @@ export default function AgentPanel({
         content: answer,
         sources,
         toolActivity: tools,
-        blocks: verbatim.length || flights.length || actions.length ? { verbatim, flights, actions } : null,
+        blocks: verbatim.length || flights.length || actions.length || mono.length || documents.length || files.length || airports.length
+          ? { verbatim, flights, actions, mono, documents, files, airports }
+          : null,
         streaming: false,
       }));
     } catch (e) {
@@ -391,6 +404,10 @@ function MessageView({ message }: { message: AgentMessage }) {
   const verbatim = message.blocks?.verbatim ?? [];
   const flights = message.blocks?.flights ?? [];
   const actions = message.blocks?.actions ?? [];
+  const mono = message.blocks?.mono ?? [];
+  const documents = message.blocks?.documents ?? [];
+  const files = message.blocks?.files ?? [];
+  const airports = message.blocks?.airports ?? [];
   const failed = (message.toolActivity ?? []).filter((a) => !a.ok);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -401,6 +418,7 @@ function MessageView({ message }: { message: AgentMessage }) {
           the wall was modified without opening anything. */}
       <ActionsPerformed actions={actions} />
 
+      {airports.map((a) => <AirportCard key={a.icao} airport={a} />)}
       {flights.map((f) => <FlightCard key={f.flightId} flight={f} />)}
 
       {/* Quoted operational text FIRST and framed, then the agent's own words
@@ -415,6 +433,12 @@ function MessageView({ message }: { message: AgentMessage }) {
               {message.streaming && <span style={{ display: "inline-block", width: 7, height: 15, background: C.blue, marginLeft: 2, verticalAlign: -3, animation: "cwcaret 1s steps(1) infinite" }} />}
             </div>
       )}
+
+      {/* Raw coded text after the reading, not before: the dispatcher reads the
+          agent's summary, then checks it against the report itself. */}
+      {mono.map((m) => <MonoBlock key={m.id} title={m.title} text={m.text} />)}
+      {documents.map((d) => <DocumentCard key={`${d.kind}-${d.href ?? d.documentId ?? d.title}`} doc={d} />)}
+      {files.map((f) => <FileCard key={f.id} file={f} />)}
 
       {message.streaming && !message.content && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

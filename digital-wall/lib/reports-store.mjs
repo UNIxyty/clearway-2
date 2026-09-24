@@ -48,6 +48,9 @@ export class ReportsStore {
   constructor() {
     this.store = new JsonFileStore("reports.json", { reports: [], categories: DEFAULT_CATEGORIES, presets: [] });
     this.reports = [];
+    // Soft-deleted reports, kept apart from the live list for the same reason
+    // as the Important store: no read path can forget to filter them out.
+    this.deleted = [];
     this.categories = [...DEFAULT_CATEGORIES];
     this.presets = [];
     this.loaded = false;
@@ -56,6 +59,7 @@ export class ReportsStore {
   async load() {
     const payload = await this.store.read();
     this.reports = Array.isArray(payload.reports) ? payload.reports : [];
+    this.deleted = Array.isArray(payload.deleted) ? payload.deleted : [];
     this.categories = Array.isArray(payload.categories) && payload.categories.length > 0
       ? payload.categories.map(text).filter(Boolean)
       : [...DEFAULT_CATEGORIES];
@@ -68,6 +72,7 @@ export class ReportsStore {
   async persist() {
     await this.store.write({
       reports: this.reports,
+      deleted: this.deleted,
       categories: this.categories,
       presets: this.presets,
       updatedAt: new Date().toISOString(),
@@ -112,11 +117,42 @@ export class ReportsStore {
     return this.upsert({ ...existing, ...patchInput, id }, actor);
   }
 
-  async remove(id) {
+  /** Soft delete: kept whole for a restore. */
+  async remove(id, { actor = null } = {}) {
     const index = this.reports.findIndex((r) => r.id === id);
     if (index < 0) throw new Error("Report not found.");
-    this.reports.splice(index, 1);
+    const [existing] = this.reports.splice(index, 1);
+    this.deleted = [
+      { ...existing, deletedAt: new Date().toISOString(), deletedBy: actor ?? null },
+      ...this.deleted.filter((r) => r.id !== id),
+    ].slice(0, 200);
     await this.persist();
+    return existing;
+  }
+
+  async restore(id, { actor = null } = {}) {
+    const deleted = this.deleted.find((r) => r.id === id);
+    if (!deleted) throw new Error("No deleted report with that id — it may have been restored already.");
+    if (this.reports.some((r) => r.id === id)) throw new Error("That report already exists.");
+    const { deletedAt: _a, deletedBy: _b, ...restored } = deleted;
+    restored.updatedAt = new Date().toISOString();
+    restored.updatedBy = actor ?? restored.updatedBy ?? null;
+    this.reports.push(restored);
+    this.deleted = this.deleted.filter((r) => r.id !== id);
+    await this.persist();
+    return restored;
+  }
+
+  async purge(id) {
+    const existing = this.deleted.find((r) => r.id === id);
+    if (!existing) throw new Error("Nothing deleted with that id — only a deleted report can be purged.");
+    this.deleted = this.deleted.filter((r) => r.id !== id);
+    await this.persist();
+    return existing;
+  }
+
+  listDeleted() {
+    return this.deleted.slice().sort((a, b) => String(b.deletedAt || "").localeCompare(String(a.deletedAt || "")));
   }
 
   async recordSend(id, { to, by, resendId }) {

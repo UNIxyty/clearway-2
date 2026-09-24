@@ -119,11 +119,16 @@ export class ImportantStore {
   constructor() {
     this.store = new JsonFileStore("important.json", { entries: [] });
     this.entries = [];
+    // Soft-deleted entries. A separate list, not a flag: every read path over
+    // this.entries stays exactly as it was, and a deleted bulletin cannot
+    // reappear on the wall because one of them forgot to check.
+    this.deleted = [];
     this.loaded = false;
   }
 
   async load() {
     const payload = await this.store.read();
+    this.deleted = Array.isArray(payload.deleted) ? payload.deleted : [];
     // Item 8 migration: older entries get null audit fields (addedAt
     // backfilled from createdAt) and an empty attachments list.
     this.entries = (Array.isArray(payload.entries) ? payload.entries : []).map((entry) => ({
@@ -139,7 +144,7 @@ export class ImportantStore {
   }
 
   async persist() {
-    await this.store.write({ entries: this.entries, updatedAt: new Date().toISOString() });
+    await this.store.write({ entries: this.entries, deleted: this.deleted, updatedAt: new Date().toISOString() });
   }
 
   list({ includeInactive = true } = {}) {
@@ -226,11 +231,44 @@ export class ImportantStore {
     return attachment ? { entry, attachment } : null;
   }
 
-  async remove(id) {
-    const before = this.entries.length;
+  /** Soft delete: the entry leaves the wall but is kept whole for a restore. */
+  async remove(id, { actor = null } = {}) {
+    const existing = this.entries.find((e) => e.id === id);
+    if (!existing) throw new Error("Important entry not found.");
     this.entries = this.entries.filter((e) => e.id !== id);
-    if (this.entries.length === before) throw new Error("Important entry not found.");
+    this.deleted = [
+      { ...existing, deletedAt: new Date().toISOString(), deletedBy: actor ?? null },
+      ...this.deleted.filter((e) => e.id !== id),
+    ].slice(0, 200);
     await this.persist();
+    return existing;
+  }
+
+  /** Put a soft-deleted entry back, same id, same fields. */
+  async restore(id, { actor = null } = {}) {
+    const deleted = this.deleted.find((e) => e.id === id);
+    if (!deleted) throw new Error("No deleted Important entry with that id — it may have been restored already.");
+    if (this.entries.some((e) => e.id === id)) throw new Error("That Important entry is already on the wall.");
+    const { deletedAt: _a, deletedBy: _b, ...restored } = deleted;
+    restored.updatedAt = new Date().toISOString();
+    restored.updatedBy = actor ?? restored.updatedBy ?? null;
+    this.entries.push(restored);
+    this.deleted = this.deleted.filter((e) => e.id !== id);
+    await this.persist();
+    return restored;
+  }
+
+  /** Destroy a soft-deleted entry outright. Only a deleted entry can be purged. */
+  async purge(id) {
+    const existing = this.deleted.find((e) => e.id === id);
+    if (!existing) throw new Error("Nothing deleted with that id — only a deleted Important entry can be purged.");
+    this.deleted = this.deleted.filter((e) => e.id !== id);
+    await this.persist();
+    return existing;
+  }
+
+  listDeleted() {
+    return this.deleted.slice().sort((a, b) => String(b.deletedAt || "").localeCompare(String(a.deletedAt || "")));
   }
 
   async setActive(id, isActive) {

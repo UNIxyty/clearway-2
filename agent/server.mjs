@@ -16,7 +16,7 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
-import { actionsFromToolCalls, flightCardsFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import { actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
@@ -52,6 +52,25 @@ function sendError(res, error) {
   if (error instanceof AgentError) return sendJson(res, error.toJSON(), error.status);
   process.stderr.write(`[agent] unhandled: ${error?.stack || error}\n`);
   return sendJson(res, { ok: false, error: "internal_error", message: "Unexpected server error." }, 500);
+}
+
+/**
+ * Bound what an attachment may be: a few small TEXT files. The chat body is
+ * capped at 256 KB anyway; this keeps one attachment from being the whole
+ * context window and refuses anything that is not plain text.
+ */
+function sanitiseAttachments(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const item of raw.slice(0, 3)) {
+    const name = String(item?.name ?? "").replace(/[^\w.\- ()]/g, "_").slice(0, 120).trim();
+    const text = String(item?.text ?? "");
+    if (!name || !text.trim()) continue;
+    if (/[\u0000-\u0008\u000E-\u001F]/.test(text.slice(0, 4000))) continue; // binary pasted as text
+    const clipped = text.slice(0, 60_000);
+    out.push({ name, text: clipped, chars: text.length, truncated: text.length > clipped.length });
+  }
+  return out;
 }
 
 async function readJsonBody(req) {
@@ -404,6 +423,16 @@ async function handleChat(req, res, user) {
   }
 
   const question = String(body.message ?? "").trim();
+
+  // Attachments are TEXT the user pasted in from a file, given to the model as
+
+  // context for this turn only. They are not indexed, not a knowledge source,
+
+  // and labelled as unverified -- a dispatcher attaching a colleague's email
+
+  // must not have it come back as authoritative.
+
+  const attachments = sanitiseAttachments(body.attachments);
   if (!question) throw BadRequest("A message is required.");
 
   // Resolve or open the thread. History comes from the SERVER, so a reload or a
@@ -427,7 +456,10 @@ async function handleChat(req, res, user) {
   const priorThread = await listMessages(conversationId, user.userId);
   const history = (priorThread?.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
 
-  await appendMessage({ conversationId, role: "user", content: question });
+  await appendMessage({
+    conversationId, role: "user",
+    content: attachments.length ? `${question}\n\n${attachments.map((a) => `[Attached: ${a.name} · ${a.chars.toLocaleString("en-GB")} chars]`).join("\n")}` : question,
+  });
 
   // ── Routing ─────────────────────────────────────────────────────────────
   // The caller may pin a tier; otherwise the router classifies. The router
@@ -488,7 +520,10 @@ async function handleChat(req, res, user) {
   const inputMode = body.inputMode === "voice" ? "voice" : "text";
   const voiceLanguage = inputMode === "voice" ? normaliseLanguage(body.voice?.language) : null;
 
-  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text]
+  const attachmentBlock = attachments.length
+    ? attachments.map((a) => `ATTACHED BY THE USER — "${a.name}" (${a.chars} characters). Unverified: use it as context for this question only, never as an operational source, and say it came from the attachment when you rely on it.\n---\n${a.text}\n---`).join("\n\n")
+    : null;
+  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentBlock]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -522,14 +557,21 @@ async function handleChat(req, res, user) {
     const verbatim = verbatimFromToolCalls(toolCalls);
     const flights = flightCardsFromToolCalls(toolCalls);
     const actions = actionsFromToolCalls(toolCalls);
+    const mono = monoFromToolCalls(toolCalls);
+    const documents = documentsFromToolCalls(toolCalls);
+    const files = filesFromToolCalls(toolCalls);
+    const airports = airportsFromToolCalls(toolCalls);
     const toolActivity = toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null }));
 
     await appendMessage({
       conversationId,
       role: "assistant",
       content: answer,
-      blocks: verbatim.length || flights.length || actions.length
-        ? { ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}) }
+      blocks: verbatim.length || flights.length || actions.length || mono.length || documents.length || files.length || airports.length
+        ? {
+            ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}),
+            ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
+          }
         : null,
       sources,
       toolActivity,
@@ -553,6 +595,10 @@ async function handleChat(req, res, user) {
       verbatim,
       flights,
       actions,
+      mono,
+      documents,
+      files,
+      airports,
       toolActivity,
       latencyMs: Date.now() - startedAt,
     });
@@ -587,6 +633,7 @@ async function handleChat(req, res, user) {
         // the saving is visible in the log used to prove it.
         cacheReadTokens: done?.cacheReadTokens ?? 0,
         cacheWriteTokens: done?.cacheWriteTokens ?? 0,
+        attachments: attachments.map((a) => ({ name: a.name, chars: a.chars })),
       },
     });
   } catch (error) {

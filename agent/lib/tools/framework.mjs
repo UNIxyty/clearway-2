@@ -403,3 +403,104 @@ export const S = {
   limit: (max = 100, dflt = 50) => ({ type: "integer", minimum: 1, maximum: max, default: dflt }),
   nullableString: { type: ["string", "null"] },
 };
+
+
+// ── Reply cards, all built from tool RESULTS ─────────────────────────────────
+//
+// Nothing below is the model's account of anything. A card appears because a
+// tool returned the data, never because the reply mentioned it. That is the
+// same rule as the verbatim frame and the flight card, and it is what lets a
+// dispatcher trust a card at a glance.
+
+/** Raw coded text a dispatcher reads as-is: METAR/TAF and NOTAMs, untouched. */
+export function monoFromToolCalls(calls) {
+  const out = [];
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    const r = call.result;
+    if (call.name === "get_weather") {
+      const icao = String(r.icao ?? "").toUpperCase();
+      if (r.metar) out.push({ id: `metar-${icao}`, title: `METAR ${icao}`, text: String(r.metar), tool: call.name });
+      if (r.taf) out.push({ id: `taf-${icao}`, title: `TAF ${icao}`, text: String(r.taf), tool: call.name });
+      if (!r.metar && !r.taf && r.weather) out.push({ id: `wx-${icao}`, title: `WEATHER ${icao}`, text: String(r.weather), tool: call.name });
+    }
+    if (call.name === "get_notams") {
+      const icao = String(r.icao ?? "").toUpperCase();
+      const items = (r.notams ?? []).map((n) => String(n?.text ?? "")).filter(Boolean);
+      if (items.length) out.push({ id: `notams-${icao}`, title: `NOTAM ${icao} · ${items.length}`, text: items.join("\n\n"), tool: call.name });
+    }
+  }
+  return out.slice(0, 6);
+}
+
+/** Documents the reply rests on: located AIP pages and knowledge-base sources. */
+export function documentsFromToolCalls(calls) {
+  const out = [];
+  const seen = new Set();
+  const push = (d) => {
+    const key = d.href ?? d.documentId ?? d.title;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(d);
+  };
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    const r = call.result;
+    if (call.name === "get_aip_document") {
+      push({ kind: "aip", title: `AD 2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: r.note ?? null, documentId: null, tool: call.name });
+    }
+    if (call.name === "get_gen_document" && r.available) {
+      push({ kind: "gen", title: `GEN 1.2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: null, documentId: null, tool: call.name });
+    }
+    if (call.name === "search_knowledge") {
+      for (const ref of r.reference ?? []) {
+        push({
+          kind: "knowledge",
+          title: ref.title ?? ref.reference ?? "Document",
+          subtitle: [ref.source, ref.version, ref.page != null ? `p.${ref.page}` : null].filter(Boolean).join(" · ") || null,
+          href: null,
+          cached: true, note: ref.heading ?? null, documentId: ref.documentId ?? null, tool: call.name,
+        });
+      }
+    }
+  }
+  return out.slice(0, 6);
+}
+
+/** Files the agent generated this turn, with the path the panel downloads from. */
+export function filesFromToolCalls(calls) {
+  const out = [];
+  for (const call of calls) {
+    if (call.ok === false || !call.result?.file?.id) continue;
+    const f = call.result.file;
+    out.push({ id: f.id, filename: f.filename, mime: f.mime ?? null, bytes: f.bytes ?? null, downloadPath: f.downloadPath ?? `/agent/api/files/${f.id}`, tool: call.name });
+  }
+  return out;
+}
+
+/**
+ * An airport summary, assembled only from what tools returned for that ICAO.
+ * It earns a card only when at least two facets are known, so a single METAR
+ * stays a mono block rather than becoming a card that is mostly blank.
+ */
+export function airportsFromToolCalls(calls) {
+  const byIcao = new Map();
+  const get = (icao) => {
+    const k = String(icao ?? "").toUpperCase();
+    if (!/^[A-Z]{4}$/.test(k)) return null;
+    if (!byIcao.has(k)) byIcao.set(k, { icao: k, country: null, aipUrl: null, aipCached: null, metar: null, notamCount: null, limitationCount: null });
+    return byIcao.get(k);
+  };
+  for (const call of calls) {
+    if (call.ok === false || !call.result) continue;
+    const r = call.result;
+    if (call.name === "get_web_aip_link") { const a = get(r.icao); if (a) { a.country = r.country ?? a.country; a.aipUrl = r.url ?? a.aipUrl; } }
+    if (call.name === "get_aip_document") { const a = get(r.icao); if (a) { a.aipCached = Boolean(r.cached); a.aipUrl = a.aipUrl ?? r.documentPath ?? null; } }
+    if (call.name === "get_weather") { const a = get(r.icao); if (a && r.metar) a.metar = String(r.metar); }
+    if (call.name === "get_notams") { const a = get(r.icao); if (a) a.notamCount = Number(r.count ?? (r.notams ?? []).length); }
+    if (call.name === "list_limitations" && call.input?.icao) { const a = get(call.input.icao); if (a) a.limitationCount = Number(r.count ?? 0); }
+  }
+  return [...byIcao.values()]
+    .filter((a) => [a.country, a.aipUrl, a.metar, a.notamCount, a.limitationCount].filter((v) => v != null).length >= 2)
+    .slice(0, 3);
+}

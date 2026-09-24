@@ -10,20 +10,48 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { C, FONT, iconStyle } from "./tokens";
-import type { AgentContext } from "./types";
+import type { AgentContext, Attachment } from "./types";
 
 export type Mention = { id: string; label: string; sub: string; icon: string; tag?: string; selected?: boolean };
 
-const COMMANDS: Array<{ cmd: string; hint: string }> = [
-  { cmd: "/aip", hint: "Find an airport's AD 2 document" },
-  { cmd: "/gen", hint: "Country GEN 1.2 entry rules" },
-  { cmd: "/notams", hint: "Current NOTAMs for an airport" },
-  { cmd: "/weather", hint: "METAR and TAF" },
-  { cmd: "/limitations", hint: "Limitations in force" },
-  { cmd: "/important", hint: "IMPORTANT bulletins" },
-  { cmd: "/caa", hint: "CAA contacts for a country" },
-  { cmd: "/status", hint: "Platform service health" },
+/**
+ * Slash commands are short-hands for questions, not a second control plane:
+ * "/notams EVRA" becomes the sentence a dispatcher would have typed, and goes
+ * through exactly the same pipeline, permissions and audit as that sentence.
+ * A command that needs an airport takes it from the argument, then from the
+ * current context, and otherwise says so instead of sending something vague.
+ */
+const COMMANDS: Array<{ cmd: string; hint: string; needs: "icao" | "country" | null; ask: (arg: string) => string }> = [
+  { cmd: "/aip", hint: "Find an airport's AD 2 document", needs: "icao", ask: (a) => `Find the AD 2 document for ${a}.` },
+  { cmd: "/gen", hint: "Country GEN 1.2 entry rules", needs: "icao", ask: (a) => `What are the GEN 1.2 entry requirements for the country of ${a}?` },
+  { cmd: "/notams", hint: "Current NOTAMs for an airport", needs: "icao", ask: (a) => `What NOTAMs are current at ${a}?` },
+  { cmd: "/weather", hint: "METAR and TAF", needs: "icao", ask: (a) => `Give me the METAR and TAF for ${a}.` },
+  { cmd: "/limitations", hint: "Limitations in force", needs: null, ask: (a) => (a ? `What limitations are in force at ${a}?` : "What limitations are in force right now?") },
+  { cmd: "/important", hint: "IMPORTANT bulletins", needs: null, ask: () => "Show the IMPORTANT bulletins in force." },
+  { cmd: "/caa", hint: "CAA contacts for a country", needs: "country", ask: (a) => `What CAA contacts do we have for ${a}?` },
+  { cmd: "/status", hint: "Platform service health", needs: null, ask: () => "Is the platform healthy?" },
 ];
+
+const ATTACH_ACCEPT = ".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json";
+const ATTACH_MAX_FILES = 3;
+const ATTACH_MAX_BYTES = 200 * 1024;
+
+/** Turn "/notams EVRA" into the question it stands for; null when it is not a command. */
+function expandCommand(value: string, context: AgentContext | null): { text: string } | { error: string } | null {
+  const m = /^\/(\w+)\s*([\s\S]*)$/.exec(value.trim());
+  if (!m) return null;
+  const command = COMMANDS.find((c) => c.cmd === `/${m[1].toLowerCase()}`);
+  if (!command) return null;
+  let arg = m[2].trim();
+  if (command.needs === "icao") {
+    if (!arg && context?.icao) arg = context.icao;
+    if (!/^[A-Za-z]{4}$/.test(arg)) return { error: `${command.cmd} needs an ICAO code — for example ${command.cmd} EVRA` };
+    arg = arg.toUpperCase();
+  }
+  if (command.needs === "country" && !arg) return { error: `${command.cmd} needs a country — for example ${command.cmd} Egypt` };
+  if (command.cmd === "/limitations" && !arg && context?.icao) arg = context.icao;
+  return { text: command.ask(arg) };
+}
 
 export default function Composer({
   agentBase, context, streaming, disabled, onSend, onStop,
@@ -32,14 +60,37 @@ export default function Composer({
   context: AgentContext | null;
   streaming: boolean;
   disabled?: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments: Attachment[]) => void;
   onStop: () => void;
 }) {
   const [value, setValue] = useState("");
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [mentions, setMentions] = useState<Mention[]>([]);
   const [query, setQuery] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [hint, setHint] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Files are read HERE, in the browser, as text. Nothing is uploaded or
+  // indexed; the text travels with this one question and is labelled as
+  // unverified on the way. PDFs are refused honestly rather than silently
+  // dropped: the platform's PDF text extraction is a separate pipeline.
+  async function addFiles(list: FileList | null) {
+    if (!list) return;
+    const next = [...attachments];
+    for (const file of Array.from(list)) {
+      if (next.length >= ATTACH_MAX_FILES) { setHint(`Up to ${ATTACH_MAX_FILES} attachments per question.`); break; }
+      const isText = /\.(txt|md|csv|json)$/i.test(file.name) || file.type.startsWith("text/") || file.type === "application/json";
+      if (!isText) { setHint(`${file.name}: only text files (.txt, .md, .csv, .json) can be attached here. PDFs go through the knowledge base.`); continue; }
+      if (file.size > ATTACH_MAX_BYTES) { setHint(`${file.name} is over ${ATTACH_MAX_BYTES / 1024} KB.`); continue; }
+      const text = await file.text();
+      if (!text.trim()) continue;
+      next.push({ name: file.name, text, chars: text.length });
+    }
+    setAttachments(next.slice(0, ATTACH_MAX_FILES));
+    if (fileRef.current) fileRef.current.value = "";
+  }
 
   const placeholder = context?.label ? `Ask about ${context.icao ?? context.label}…` : "Ask, @ a flight or airport, / for an action…";
 
@@ -90,11 +141,17 @@ export default function Composer({
   }, [value, resolveMentions]);
 
   function submit() {
-    const text = value.trim();
-    if (!text || streaming || disabled) return;
+    const raw = value.trim();
+    if ((!raw && attachments.length === 0) || streaming || disabled) return;
+    const expanded = raw ? expandCommand(raw, context) : null;
+    if (expanded && "error" in expanded) { setHint(expanded.error); return; }
+    const text = expanded ? expanded.text : (raw || "Please read the attached file and tell me what matters in it.");
     setValue("");
     setMenu("none");
-    onSend(text);
+    setHint(null);
+    const sending = attachments;
+    setAttachments([]);
+    onSend(text, sending);
   }
 
   function pick(insert: string) {
@@ -133,6 +190,24 @@ export default function Composer({
         </MenuSurface>
       )}
 
+      {hint && (
+        <div style={{ fontSize: 12, color: C.amber, padding: "0 4px 6px" }}>{hint}</div>
+      )}
+      {attachments.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 2px 8px" }}>
+          {attachments.map((a) => (
+            <span key={a.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: C.body, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 6px 3px 9px" }}>
+              <span style={iconStyle("paperclip", 11, C.muted)} />
+              {a.name}
+              <span style={{ color: C.faint, fontWeight: 500 }}>{a.chars.toLocaleString()} chars</span>
+              <button onClick={() => setAttachments((list) => list.filter((x) => x.name !== a.name))} title="Remove" style={{ width: 16, height: 16, borderRadius: "50%", border: "none", background: C.border, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+                <span style={iconStyle("x", 8, C.body)} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept={ATTACH_ACCEPT} multiple style={{ display: "none" }} onChange={(e) => void addFiles(e.target.files)} />
       <div style={{ border: `1px solid ${C.borderInput}`, borderRadius: 14, background: "#fff" }}>
         <textarea
           ref={inputRef}
@@ -157,7 +232,11 @@ export default function Composer({
             <button
               key={icon}
               title={icon === "paperclip" ? "Attach" : icon === "at-sign" ? "Mention a flight or airport" : "Commands"}
-              onClick={() => { if (icon !== "paperclip") setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}${icon === "at-sign" ? "@" : "/"}`); inputRef.current?.focus(); }}
+              onClick={() => {
+                if (icon === "paperclip") { fileRef.current?.click(); return; }
+                setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}${icon === "at-sign" ? "@" : "/"}`);
+                inputRef.current?.focus();
+              }}
               style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "transparent", borderRadius: 8, cursor: "pointer" }}
             >
               <span style={iconStyle(icon, 15, C.muted)} />
@@ -179,7 +258,7 @@ export default function Composer({
           ) : (
             <button
               onClick={submit}
-              disabled={!value.trim() || disabled}
+              disabled={(!value.trim() && attachments.length === 0) || disabled}
               title="Send"
               style={{
                 width: 32, height: 32, borderRadius: 9, border: "none",

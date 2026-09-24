@@ -737,6 +737,13 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Who is acting — used for the added-by / confirmed-by / deleted-by audit
+    // trail. Resolved once, here, because the reports handlers above the
+    // Important ones also stamp it now; a `const` further down would be in its
+    // temporal dead zone for them. Falls back to the mock user when auth is
+    // disabled locally.
+    const actorName = requestUser ? (requestUser.name || requestUser.email || null) : (MOCK_USER.name ?? null);
+
     if (pathname.startsWith("/api/auth/")) {
       if (authEnabled()) {
         sendJson(res, {
@@ -856,6 +863,10 @@ const server = http.createServer(async (req, res) => {
 
     // ── Console Reports (bug report item 13) ──
     if (pathname === "/api/reports" && req.method === "GET") {
+      if (url.searchParams.get("deleted") === "true") {
+        sendJson(res, { ok: true, reports: reportsStore.listDeleted() });
+        return;
+      }
       const reports = reportsStore.list({
         status: url.searchParams.get("status") || "",
         category: url.searchParams.get("category") || "",
@@ -960,6 +971,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (/^\/api\/reports\/[^/]+\/restore$/.test(pathname) && req.method === "POST") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const report = await reportsStore.restore(id, { actor: actorName });
+        sseHub.broadcast({ type: "reports.changed", action: "restore", id });
+        sendJson(res, { ok: true, report });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+      }
+      return;
+    }
+
+    if (/^\/api\/reports\/[^/]+\/purge$/.test(pathname) && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const report = await reportsStore.purge(id);
+        sendJson(res, { ok: true, id, report });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+      }
+      return;
+    }
+
     if (pathname.startsWith("/api/reports/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -976,9 +1010,9 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith("/api/reports/") && req.method === "DELETE") {
       const id = decodeURIComponent(pathname.split("/").pop());
       try {
-        await reportsStore.remove(id);
+        const report = await reportsStore.remove(id, { actor: actorName });
         sseHub.broadcast({ type: "reports.changed", action: "delete", id });
-        sendJson(res, { ok: true });
+        sendJson(res, { ok: true, id, report });
       } catch (error) {
         sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
       }
@@ -1765,6 +1799,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/important" && req.method === "GET") {
+      if (url.searchParams.get("deleted") === "true") {
+        sendJson(res, { ok: true, entries: importantStore.listDeleted() });
+        return;
+      }
       const includeInactive = url.searchParams.get("includeInactive") !== "false";
       const withMatches = url.searchParams.get("withMatches") === "true";
       let entries = importantStore.list({ includeInactive });
@@ -1779,10 +1817,6 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, { ok: true, entries });
       return;
     }
-
-    // Who is acting — used for the added-by / confirmed-by audit trail
-    // (Item 8). Falls back to the mock user when auth is disabled locally.
-    const actorName = requestUser ? (requestUser.name || requestUser.email || null) : (MOCK_USER.name ?? null);
 
     if (pathname === "/api/important" && req.method === "POST") {
       const body = await readJsonBody(req);
@@ -1880,6 +1914,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (/^\/api\/important\/[^/]+\/restore$/.test(pathname) && req.method === "POST") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const entry = await importantStore.restore(id, { actor: actorName });
+        sseHub.broadcast({ type: "important.changed", action: "restore", id });
+        sendJson(res, { ok: true, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
+      }
+      return;
+    }
+
+    if (/^\/api\/important\/[^/]+\/purge$/.test(pathname) && req.method === "DELETE") {
+      const id = decodeURIComponent(pathname.split("/").slice(-2)[0]);
+      try {
+        const entry = await importantStore.purge(id);
+        sendJson(res, { ok: true, id, entry });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error.message }, 404);
+      }
+      return;
+    }
+
     if (pathname.startsWith("/api/important/") && req.method === "PATCH") {
       const id = decodeURIComponent(pathname.split("/").pop());
       const body = await readJsonBody(req);
@@ -1902,9 +1959,11 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith("/api/important/") && req.method === "DELETE") {
       const id = pathname.split("/").pop();
       try {
-        await importantStore.remove(id);
+        const entry = await importantStore.remove(id, { actor: actorName });
         sseHub.broadcast({ type: "important.changed", action: "delete", id });
-        sendJson(res, { ok: true, id });
+        // The whole record comes back: it is the before-state a restore is
+        // built from, and the caller should not have to reconstruct it.
+        sendJson(res, { ok: true, id, entry });
       } catch (error) {
         sendJson(res, { ok: false, error: error.message }, 404);
       }

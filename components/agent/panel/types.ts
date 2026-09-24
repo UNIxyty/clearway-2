@@ -44,11 +44,42 @@ export type PerformedAction = {
   target: string | null;
 };
 
+export type MonoData = { id: string; title: string; text: string; tool: string };
+
+export type DocumentData = {
+  kind: "aip" | "gen" | "knowledge";
+  title: string;
+  subtitle: string | null;
+  href: string | null;
+  cached: boolean;
+  note: string | null;
+  documentId: string | null;
+  tool: string;
+};
+
+export type FileData = { id: string; filename: string; mime: string | null; bytes: number | null; downloadPath: string; tool: string };
+
+export type AirportData = {
+  icao: string;
+  country: string | null;
+  aipUrl: string | null;
+  aipCached: boolean | null;
+  metar: string | null;
+  notamCount: number | null;
+  limitationCount: number | null;
+};
+
+/** A text file the user attached to a question. Read client-side; never uploaded as a document. */
+export type Attachment = { name: string; text: string; chars: number };
+
 export type AgentMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  blocks?: { verbatim?: VerbatimRecord[]; flights?: FlightCardData[]; actions?: PerformedAction[] } | null;
+  blocks?: {
+    verbatim?: VerbatimRecord[]; flights?: FlightCardData[]; actions?: PerformedAction[];
+    mono?: MonoData[]; documents?: DocumentData[]; files?: FileData[]; airports?: AirportData[];
+  } | null;
   sources?: SourceRef[];
   toolActivity?: ToolActivity[];
   error?: string | null;

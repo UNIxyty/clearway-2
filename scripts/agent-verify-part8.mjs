@@ -163,6 +163,28 @@ async function main() {
   await wall(`/api/timeline/limitations/${dotted.id}`, { method: "DELETE" }).catch(() => {});
   await wall(`/api/timeline/limitations/${dotted.id}/purge`, { method: "DELETE" }).catch(() => {});
 
+  // ── IMPORTANT entries and reports get the same recycle bin ──────────────
+  for (const [kind, create, del, list, restore] of [
+    ["important", "create_important", "delete_important", "list_deleted_important", "restore_important"],
+    ["report", "create_report", "delete_report", "list_deleted_reports", "restore_report"],
+  ]) {
+    const made = await invoke(create, { title: `PART8-VERIFY · ${kind} soft delete` });
+    if (!made.ok || !made.id) { check(`a ${kind} can be created for the soft-delete test`, false, made.message); continue; }
+    const gone = await invoke(del, { id: made.id });
+    check(`a ${kind} is soft-deleted directly, with a before-state`, gone.ok === true && gone.deleted === true && Boolean(gone.actionId), gone.message ?? gone.id);
+    const [row] = gone.actionId ? await sb(`agent_actions?id=eq.${gone.actionId}&select=before_state,after_state`) : [null];
+    check(`the ${kind} deletion stored the whole record and no after-state`, row?.before_state?.title === `PART8-VERIFY · ${kind} soft delete` && row?.after_state === null);
+    const listed = await invoke(list, {});
+    check(`the deleted ${kind} is findable for restore`, listed.ok === true && (listed.items ?? []).some((r) => r.id === made.id), `${listed.count} restorable`);
+    const undone = await invoke("undo_action", { actionId: gone.actionId });
+    check(`undoing the ${kind} deletion restores the SAME id`, undone.ok === true && undone.undone === true, undone.what ?? undone.message);
+    const again = await invoke(del, { id: made.id });
+    const back = await invoke(restore, { id: made.id });
+    check(`a deleted ${kind} can be restored directly by id`, again.ok === true && back.ok === true && back.restored === true, back.title ?? back.message);
+    // leave the rig tidy: soft-delete the record (its bin entry is harmless)
+    await invoke(del, { id: made.id });
+  }
+
   // ── Still out of reach ──────────────────────────────────────────────────
   const tools = await (await fetch(`${BASE}/api/tools`)).json();
   const names = (tools.tools ?? []).map((t) => t.name);

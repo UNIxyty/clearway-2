@@ -1,14 +1,23 @@
 # Agent service image. Mirrors the wall's container shape (node + app dir), but
 # installs production deps only and runs the real entry point rather than a dev
 # server — this one is on the request path for signed-in users.
-FROM node:22-alpine
+# Playwright's chromium is needed for PDF generation (the platform's
+# established HTML->PDF route). The Playwright base image ships the browser and
+# its system libraries; alpine + a manual chromium install drifts from what
+# scripts/generate-airport-sheets.mjs is tested against.
+FROM mcr.microsoft.com/playwright:v1.59.1-noble
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY agent/package*.json ./
 RUN npm install --omit=dev
 
-COPY . .
+COPY agent/ ./
+
+# The platform's single Resend client, not a copy of one. Kept at the path the
+# agent imports it from (../../digital-wall/lib/mailer.mjs) so the module reads
+# the same in the image as in the repo.
+COPY digital-wall/lib/mailer.mjs /digital-wall/lib/mailer.mjs
 
 EXPOSE 5175
 

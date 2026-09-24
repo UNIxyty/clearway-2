@@ -176,8 +176,11 @@ services:
 
   agent-service:
     build:
-      context: ./agent
-      dockerfile: Dockerfile
+      # Root context so the image can COPY digital-wall/lib/mailer.mjs — the
+      # platform's ONE Resend send path — alongside the agent. Same arrangement
+      # as digital-wall-frontend, which uses a root context to share shared/.
+      context: .
+      dockerfile: agent/Dockerfile
     container_name: agent-service
     restart: unless-stopped
     env_file:

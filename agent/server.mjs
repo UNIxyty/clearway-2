@@ -26,6 +26,8 @@ import {
   readDocumentFile, storeDocument,
 } from "./lib/knowledge/ingest.mjs";
 import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
+import { readGeneratedFile } from "./lib/files/store.mjs";
+import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -139,6 +141,55 @@ const server = http.createServer(async (req, res) => {
         conversationId: String(body.conversationId || "direct-invoke"),
       });
       return sendJson(res, result, result.ok === false ? 200 : 200);
+    }
+
+    // ── Generated files: download what the agent produced ─────────────────
+    // Ownership is enforced in readGeneratedFile's query, so an id alone is not
+    // enough to fetch another dispatcher's briefing.
+    if (/^\/api\/files\/[^/]+$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const found = await readGeneratedFile(id, user);
+      if (!found) return sendJson(res, { ok: false, error: "not_found", message: "No such file." }, 404);
+      res.writeHead(200, {
+        "content-type": found.mime || "application/octet-stream",
+        "content-disposition": `attachment; filename="${found.filename}"`,
+        "cache-control": "private, max-age=300",
+      });
+      return res.end(found.buffer);
+    }
+
+    // ── Email: prepare → preview → send ───────────────────────────────────
+    // Preview renders the EXACT html that would be sent, so what a user
+    // approves is what leaves the building rather than a second render.
+    if (pathname === "/api/email/preview" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      if (!body.subject || !Array.isArray(body.blocks)) throw BadRequest("subject and blocks are required.");
+      const prepared = prepareEmail({
+        subject: String(body.subject), tag: body.tag, blocks: body.blocks,
+        attachments: body.attachments ?? [], user, conversationId: body.conversationId,
+      });
+      const { classifyRecipients } = await import("./lib/email/send.mjs");
+      const recipients = Array.isArray(body.to) && body.to.length ? body.to : [user.email];
+      const { internal, external } = classifyRecipients(recipients, user);
+      return sendJson(res, {
+        ok: true,
+        subject: prepared.subject,
+        html: prepared.html,
+        text: prepared.text,
+        reference: prepared.reference,
+        recipients, internal, external,
+        // The panel uses this to demand a confirmation before offering Send.
+        needsConfirmation: external.length > 0,
+      });
+    }
+
+    if (pathname === "/api/email/log" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      // A user sees their own sends; developers see everything, for triage.
+      const sends = await listSends(user.agentRole === "developer" ? {} : { userId: user.userId });
+      return sendJson(res, { ok: true, sends });
     }
 
     // ── Knowledge base (Part 4) ───────────────────────────────────────────

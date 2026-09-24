@@ -61,7 +61,10 @@ async function chat(message) {
   const res = await fetch(`${BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "user", content: message }] }),
+    // Part 3 changed the request shape to a single `message` plus an optional
+    // conversationId; this verifier is kept on the current API deliberately, so
+    // a future shape change fails HERE rather than silently in production.
+    body: JSON.stringify({ message }),
   });
   if (!res.ok || !res.body) return { status: res.status, events: [], text: "", body: await res.json().catch(() => null) };
   const raw = await res.text();
@@ -106,7 +109,10 @@ async function main() {
   const streamed = reply.events.includes("delta") && reply.events.includes("done");
   check("granted user gets a STREAMED model reply", streamed && reply.text.trim().length > 0, `${reply.text.trim().slice(0, 60)}`);
 
-  const logged = await sb(`agent_audit_log?user_id=eq.${MOCK_USER_ID}&kind=eq.chat.response&select=model_id,model_tier,input_tokens,output_tokens&order=created_at.desc&limit=1`);
+  // Scoped to the last minute: an older row from a previous run would make this
+  // check pass without the turn above having worked at all.
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const logged = await sb(`agent_audit_log?user_id=eq.${MOCK_USER_ID}&kind=eq.chat.response&created_at=gte.${since}&select=model_id,model_tier,input_tokens,output_tokens&order=created_at.desc&limit=1`);
   const row = logged?.[0];
   check("the exchange is audited with model and tokens", Boolean(row?.model_id), row ? `${row.model_tier} -> ${row.model_id}, ${row.input_tokens}/${row.output_tokens} tokens` : "no row");
 

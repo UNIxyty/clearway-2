@@ -134,11 +134,21 @@ create table if not exists public.agent_retrievals (
 create index if not exists idx_agent_retrievals_conv on public.agent_retrievals (conversation_id, created_at desc);
 
 -- ── Similarity search functions (RPC — PostgREST cannot express <=>) ──────
+-- NOTE (revised): chunks are NOT gated on the document's `tier`. A document can
+-- legitimately yield both — approved Tier 1 records AND Tier 2 reference
+-- chunks — and the first version excluded a document's chunks the moment any
+-- Tier 1 record was approved from it, silently emptying half the corpus.
+-- A row in agent_chunks IS tier 2, by definition.
+--
+-- `min_similarity` exists because a vector search always returns its nearest
+-- neighbours, however poor. Without a floor, an unrelated question surfaces the
+-- least-unrelated passage, and the agent presents it as a source.
 create or replace function public.agent_match_chunks(
   query_embedding extensions.vector(1536),
   match_count integer default 20,
   filter_icao text default null,
-  filter_country text default null
+  filter_country text default null,
+  min_similarity double precision default 0.25
 )
 returns table (
   chunk_id uuid, document_id uuid, ordinal integer, text text, page integer, heading text,
@@ -151,19 +161,24 @@ language sql stable as $$
     from public.agent_chunks c
     join public.agent_documents d on d.id = c.document_id
    where c.embedding is not null
-     and d.status = 'indexed'
-     and d.tier = 'tier2'
+     and d.status in ('indexed', 'approved')
      and (filter_icao is null or d.icao is null or d.icao = filter_icao)
      and (filter_country is null or d.country is null or d.country = filter_country)
+     and (1 - (c.embedding <=> query_embedding)) >= min_similarity
    order by c.embedding <=> query_embedding
    limit match_count;
 $$;
 
+-- `min_similarity` is higher here than for tier 2 ON PURPOSE. A weak tier-2 hit
+-- is a slightly off-topic paragraph; a weak tier-1 hit is an unrelated
+-- operational RULE presented as authoritative, which is the single most
+-- dangerous thing this system can do.
 create or replace function public.agent_match_tier1(
   query_embedding extensions.vector(1536),
   match_count integer default 10,
   filter_icao text default null,
-  filter_country text default null
+  filter_country text default null,
+  min_similarity double precision default 0.40
 )
 returns table (
   record_id uuid, reference text, title text, text text, source_document text,
@@ -180,6 +195,7 @@ language sql stable as $$
      and (r.expires_date is null or r.expires_date >= current_date)
      and (filter_icao is null or r.icao is null or r.icao = filter_icao)
      and (filter_country is null or r.country is null or r.country = filter_country)
+     and (1 - (r.embedding <=> query_embedding)) >= min_similarity
    order by r.embedding <=> query_embedding
    limit match_count;
 $$;

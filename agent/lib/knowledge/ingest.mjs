@@ -28,8 +28,18 @@ export async function storeDocument({ filename, mime, buffer, metadata, user }) 
   const storageKey = `${DOC_PREFIX}/${id}/${safeName}`;
   const target = documentPath(storageKey);
 
-  await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, buffer);
+  try {
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, buffer);
+  } catch (error) {
+    // A missing STORAGE_ROOT is a deployment problem, and "Unexpected server
+    // error" sends whoever hits it looking in the wrong place entirely.
+    throw new Error(
+      `Could not write the document to ${target}: ${error.code ?? error.message}. ` +
+      `STORAGE_ROOT is "${STORAGE_ROOT}" — it must exist and be writable ` +
+      `(/mnt/hdd-storage on the server, mounted as /storage in the container).`
+    );
+  }
 
   const rows = await rest("agent_documents", {
     method: "POST",

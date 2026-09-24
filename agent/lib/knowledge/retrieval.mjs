@@ -16,6 +16,13 @@ import { rerank } from "./rerank.mjs";
 
 const REST_TIMEOUT_MS = 20_000;
 
+// Similarity floors. Tier 1's is higher deliberately: a weak tier-2 hit is an
+// off-topic paragraph, a weak tier-1 hit is an unrelated RULE presented as
+// authoritative. Enforced in the RPC and again here, so an older deployed
+// function cannot quietly reintroduce unfiltered neighbours.
+const MIN_SIMILARITY_TIER1 = Number(process.env.AGENT_MIN_SIMILARITY_TIER1 || 0.40);
+const MIN_SIMILARITY_TIER2 = Number(process.env.AGENT_MIN_SIMILARITY_TIER2 || 0.25);
+
 function url() { return String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, ""); }
 function key() { return String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim(); }
 export function knowledgeConfigured() { return Boolean(url() && key()); }
@@ -99,15 +106,15 @@ export async function searchKnowledge(query, { icao = null, country = null, limi
 
   const [tier1Rows, tier2Rows] = await Promise.all([
     wantTier1
-      ? rpc("agent_match_tier1", { query_embedding: vector, match_count: Math.min(limit, 10), filter_icao: icao, filter_country: country }).catch(() => [])
+      ? rpc("agent_match_tier1", { query_embedding: vector, match_count: Math.min(limit, 10), filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER1 }).catch(() => [])
       : Promise.resolve([]),
     wantTier2
-      ? rpc("agent_match_chunks", { query_embedding: vector, match_count: 24, filter_icao: icao, filter_country: country }).catch(() => [])
+      ? rpc("agent_match_chunks", { query_embedding: vector, match_count: 24, filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER2 }).catch(() => [])
       : Promise.resolve([]),
   ]);
 
-  const tier1 = (tier1Rows ?? []).map(tier1Source);
-  const candidates = (tier2Rows ?? []).map(tier2Source);
+  const tier1 = (tier1Rows ?? []).map(tier1Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER1);
+  const candidates = (tier2Rows ?? []).map(tier2Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER2);
 
   // Rerank tier 2 only — see the note above.
   const reranked = candidates.length > 0

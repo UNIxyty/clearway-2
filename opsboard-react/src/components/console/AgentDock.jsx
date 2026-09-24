@@ -1,11 +1,11 @@
 import { t } from './ui';
 
 /** Pinned "Ops Agent ⌘J" row for the deep-context sidebar (§5). */
-export function AgentNavRow({ collapsed, open, onClick }) {
+export function AgentNavRow({ collapsed, open, onClick, keycap = '⌘J' }) {
   return (
     <button
       type="button"
-      title="Ops Agent · ⌘J"
+      title={`Ops Agent · ${keycap}`}
       onClick={onClick}
       style={{
         fontFamily: 'inherit', width: '100%', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
@@ -17,7 +17,7 @@ export function AgentNavRow({ collapsed, open, onClick }) {
         <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1d4ed8' }} />
       </span>
       {!collapsed && <span style={{ flex: 1, textAlign: 'left' }}>{open ? 'Ops Agent · open' : 'Ops Agent'}</span>}
-      {!collapsed && <span style={{ fontFamily: t.mono, fontSize: 10.5, fontWeight: 600, color: '#1d4ed8', background: '#fff', border: '1px solid #b9d0ff', borderRadius: 5, padding: '1px 5px' }}>⌘J</span>}
+      {!collapsed && <span style={{ fontFamily: t.mono, fontSize: 10.5, fontWeight: 600, color: '#1d4ed8', background: '#fff', border: '1px solid #b9d0ff', borderRadius: 5, padding: '1px 5px' }}>{keycap}</span>}
     </button>
   );
 }

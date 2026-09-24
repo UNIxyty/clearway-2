@@ -9,13 +9,15 @@
 import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import { LoadingRows } from "@/components/console-kit";
-import { C, mono } from "../ui/tokens";
-import { Eyebrow, Toggle } from "../ui/primitives";
+import { C, SHADOW, mono } from "../ui/tokens";
+import { Button, Eyebrow, Keycap, Toggle } from "../ui/primitives";
+import { BIND_DEFAULTS, DEFAULT_CONFIG, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE } from "../types";
 
 type Capability = { key: string; label: string; description: string; enabled: boolean };
 type Person = { userId: string; email: string; name: string; read: string; wall: string; sendEmail: string; approveKb: string };
+type BindActionRow = { key: BindAction; label: string; description: string };
 type Usage = { month: string; spendEur: number; capEur: number; replies: number; toolCalls: number; heaviest: { email: string; eur: number } | null; model: string | null; voice: boolean };
 
 const AVATAR = [C.primary, C.ok, C.warn, C.neutral, C.info, C.danger];
@@ -27,6 +29,9 @@ export default function SettingsPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [people, setPeople] = useState<Person[] | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [binds, setBinds] = useState<KeybindConfig | null>(null);
+  const [bindActions, setBindActions] = useState<BindActionRow[]>([]);
+  const [bindError, setBindError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
@@ -36,7 +41,7 @@ export default function SettingsPage() {
     const [s, p, u] = await Promise.all([get("/api/settings"), get("/api/settings/permissions"), get("/api/usage")]);
     if (s.status === 401 || s.status === 403) { setForbidden(true); return; }
     if (!s.body?.ok) { setError(s.body?.message || "Could not load settings."); return; }
-    setCaps(s.body.capabilities); setCanEdit(Boolean(s.body.canEdit));
+    setCaps(s.body.capabilities); setCanEdit(Boolean(s.body.canEdit)); if (s.body.keybinds) setBinds(s.body.keybinds); if (s.body.keybindActions) setBindActions(s.body.keybindActions);
     if (p.status === 403 || u.status === 403) setForbidden(true);
     setPeople(p.body?.ok ? p.body.people : []); setUsage(u.body?.ok ? u.body.usage : null);
   }, []);
@@ -52,6 +57,13 @@ export default function SettingsPage() {
     setSaving(null);
   }
 
+  async function saveBinds(next: KeybindConfig) {
+    if (!canEdit) return;
+    const prev = binds; setBinds(next); setBindError(null);
+    const r = await fetch(`${AGENT_BASE}/api/settings`, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keybinds: next }) }).then((x) => x.json()).catch(() => null);
+    if (!r?.ok) { setBinds(prev); setBindError(r?.message || "That shortcut could not be saved."); } else { setBinds(r.keybinds); publishKeybinds(r.keybinds); }
+  }
+
   const pct = usage ? Math.min(100, Math.round((usage.spendEur / Math.max(usage.capEur, 0.01)) * 100)) : 0;
   const cell = (v: string) => (v === "yes" ? <span style={{ color: C.okDot }}>✓</span> : v === "ask" ? <span style={{ color: C.primaryHover }}>ask</span> : <span style={{ color: C.disabledFill }}>—</span>);
 
@@ -63,7 +75,7 @@ export default function SettingsPage() {
         {forbidden && !caps && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13.5, color: C.muted }}>Admins only. Ask an administrator if you need a capability changed.</div>}
 
         {/* Capabilities */}
-        <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }} aria-label="Capabilities">
+        <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", gridColumn: "1 / 2" }} aria-label="Capabilities">
           <div style={{ padding: "14px 18px 8px" }}><Eyebrow>Capabilities</Eyebrow></div>
           {caps === null && !forbidden && <div style={{ padding: "0 18px 14px" }}><LoadingRows rows={5} /></div>}
           {caps?.map((cap) => (
@@ -78,7 +90,36 @@ export default function SettingsPage() {
           {caps && !canEdit && <div style={{ padding: "10px 18px 14px", fontSize: 12.5, color: C.faint, borderTop: `1px solid ${C.dividerRow}` }}>Read-only: only admins can change these.</div>}
         </section>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {/* Keyboard shortcuts (§15, editable) */}
+        <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", gridColumn: "1 / 2" }} aria-label="Keyboard shortcuts">
+          <div style={{ padding: "14px 18px 8px", display: "flex", alignItems: "center", gap: 10 }}><Eyebrow>Keyboard shortcuts</Eyebrow><span style={{ flex: 1 }} />{binds && canEdit && <Button variant="ghost" size="xs" onClick={() => void saveBinds({ ...binds, shared: { ...BIND_DEFAULTS }, mac: { ...BIND_DEFAULTS }, windows: { ...BIND_DEFAULTS } })}>Reset to defaults</Button>}</div>
+          {binds === null && !forbidden && <div style={{ padding: "0 18px 14px" }}><LoadingRows rows={3} /></div>}
+          {binds && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 18px", borderTop: `1px solid ${C.dividerRow}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Separate shortcuts for Mac and Windows</div>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.muted }}>Off: one set for everyone — ⌘ on a Mac stands in for Ctrl on Windows. On: each platform has its own keys.</div>
+                </div>
+                <Toggle on={binds.perPlatform} disabled={!canEdit} label="Separate shortcuts for Mac and Windows" onChange={(on) => void saveBinds({ ...binds, perPlatform: on })} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: binds.perPlatform ? "minmax(0,1fr) 150px 150px" : "minmax(0,1fr) 170px", padding: "8px 18px", background: C.page, borderTop: `1px solid ${C.dividerRow}`, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: C.faint }}>
+                <span>ACTION</span>{binds.perPlatform ? <><span>MAC</span><span>WINDOWS</span></> : <span>SHORTCUT</span>}
+              </div>
+              {(bindActions.length ? bindActions : (Object.keys(BIND_DEFAULTS) as BindAction[]).map((k) => ({ key: k, label: k, description: "" }))).map((a) => (
+                <div key={a.key} style={{ display: "grid", gridTemplateColumns: binds.perPlatform ? "minmax(0,1fr) 150px 150px" : "minmax(0,1fr) 170px", alignItems: "center", gap: 10, padding: "12px 18px", borderTop: `1px solid ${C.dividerRow}` }}>
+                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600 }}>{a.label}</div><div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.muted }}>{a.description}</div></div>
+                  {binds.perPlatform
+                    ? <><BindRecorder value={binds.mac[a.key]} os="mac" style="literal" disabled={!canEdit} onChange={(v) => void saveBinds({ ...binds, mac: { ...binds.mac, [a.key]: v } })} /><BindRecorder value={binds.windows[a.key]} os="windows" style="literal" disabled={!canEdit} onChange={(v) => void saveBinds({ ...binds, windows: { ...binds.windows, [a.key]: v } })} /></>
+                    : <BindRecorder value={binds.shared[a.key]} os={platform()} style="mod" disabled={!canEdit} onChange={(v) => void saveBinds({ ...binds, shared: { ...binds.shared, [a.key]: v } })} />}
+                </div>
+              ))}
+              <div style={{ padding: "10px 18px 14px", fontSize: 12.5, color: C.faint, borderTop: `1px solid ${C.dividerRow}` }}>Esc always cancels or closes and cannot be changed. A shortcut needs a modifier key.{bindError ? <span role="alert" style={{ color: C.danger }}> {bindError}</span> : null}</div>
+            </>
+          )}
+        </section>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, gridColumn: "2 / 3", gridRow: "1 / span 3" }}>
           {/* Who can do what */}
           <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }} aria-label="Who can do what">
             <div style={{ padding: "14px 18px 8px" }}><Eyebrow>Who can do what</Eyebrow></div>
@@ -120,5 +161,18 @@ export default function SettingsPage() {
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+/** Click, press the keys, done. The label shows the chord for the platform it is for. */
+function BindRecorder({ value, os, style, disabled, onChange }: { value: string; os: Platform; style: "mod" | "literal"; disabled?: boolean; onChange: (bind: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  return (
+    <button type="button" disabled={disabled} aria-label={`Change shortcut (${os})`} title={disabled ? "Admins only" : "Click, then press the new shortcut"}
+      onClick={() => setRecording(true)} onBlur={() => setRecording(false)}
+      onKeyDown={(e) => { if (!recording) return; e.preventDefault(); if (e.key === "Escape") { setRecording(false); return; } const next = bindFromEvent(e.nativeEvent, style, os); if (next) { onChange(next); setRecording(false); } }}
+      className="ag-focus" style={{ fontFamily: "inherit", height: 34, borderRadius: 8, border: `1px solid ${recording ? C.primary : C.borderControl}`, background: recording ? C.primaryTint : C.surface, color: C.ink, cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 10px", fontSize: 12.5, opacity: disabled ? 0.6 : 1, boxShadow: recording ? SHADOW.focus : "none" }}>
+      {recording ? <span style={{ color: C.primaryHover, fontWeight: 600 }}>Press keys…</span> : <Keycap standalone>{bindLabel(value, os)}</Keycap>}
+    </button>
   );
 }

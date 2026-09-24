@@ -895,7 +895,7 @@ export default function ConsoleApp({ page, navigate }) {
                 </div>
               </div>
             )}
-            {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} />}
+            {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} keycap={agent.keycap} />}
             <UserBadge user={user} collapsed={collapsed} />
             <button
               type="button"

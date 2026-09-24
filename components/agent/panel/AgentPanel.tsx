@@ -21,15 +21,18 @@ import { AgentReply, UserBubble } from "../thread/Message";
 import { OfflineCard } from "../thread/ErrorCard";
 import { useThread } from "../useThread";
 import type { AgentContext, ConversationSummary } from "../types";
+import { matches as matchesBind, useKeybinds } from "../ui/keybinds";
 
 export function useAgentPanel() {
   const [open, setOpen] = useState(false);
+  const kb = useKeybinds();
+  const openBind = kb.binds.open, os = kb.os;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); setOpen((v) => !v); } };
+    const onKey = (e: KeyboardEvent) => { if (matchesBind(e, openBind, os)) { e.preventDefault(); setOpen((v) => !v); } };
     const onAsk = () => setOpen(true);
     window.addEventListener("keydown", onKey); window.addEventListener("cw-agent-open", onAsk);
     return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("cw-agent-open", onAsk); };
-  }, []);
+  }, [openBind, os]);
   return { open, setOpen };
 }
 
@@ -52,6 +55,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   const doneTimer = useRef<number | null>(null);
 
   const t = useThread({ context, initialConversationId, initials });
+  const kb = useKeybinds();
   const activeContext = t.pinnedContext ?? context;
   const contextMoved = Boolean(t.pinnedContext && context && context.label !== t.pinnedContext.label);
   const live = useLiveSuggestions(activeContext);
@@ -95,10 +99,10 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !t.streaming && !t.pendingConfirmation && view === "thread" && document.activeElement?.tagName !== "INPUT" && !(document.activeElement as HTMLTextAreaElement)?.value) close();
       if (e.key === "Escape" && view === "history") setView("thread");
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); expand(); }
+      if (kb.matches(e, "expand")) { e.preventDefault(); expand(); }
     };
     window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey);
-  }, [open, t.streaming, t.pendingConfirmation, view, close]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, t.streaming, t.pendingConfirmation, view, close, kb.binds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll while streaming unless the user scrolled up (spec default).
   useEffect(() => { const el = bodyRef.current; if (!el || userScrolledUp.current) return; el.scrollTop = el.scrollHeight; }, [t.messages, t.activity]);
@@ -126,7 +130,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   if (minimised) {
     const amber = minimised.state === "needs-you";
     return (
-      <button type="button" onClick={() => setMinimised(null)} title="Reopen the agent · ⌘J" aria-label="Reopen the agent"
+      <button type="button" onClick={() => setMinimised(null)} title={`Reopen the agent · ${kb.label("open")}`} aria-label="Reopen the agent"
         style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
         {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${C.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? C.warn : C.ink} />}
         <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 600, color: amber ? C.warn : minimised.state === "done" ? C.ink : C.primaryHover }}>
@@ -163,7 +167,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
           )}
           <IconButton icon="history" title="History" onClick={() => { setView((v) => (v === "history" ? "thread" : "history")); if (!t.conversations) void t.loadHistory(); }} />
           <IconButton icon="square-pen" title="New thread" onClick={() => { t.newThread(); setView("thread"); }} />
-          <IconButton icon="maximize-2" title="Open full page · ⌘⇧J" onClick={expand} />
+          <IconButton icon="maximize-2" title={`Open full page · ${kb.label("expand")}`} onClick={expand} />
           <IconButton icon="minus" title="Minimise" onClick={() => setMinimised(t.pendingConfirmation ? { state: "needs-you", count: 1 } : t.streaming ? { state: "working", step: 0, of: 1 } : { state: "done" })} />
           <IconButton icon="x" title="Close · Esc" onClick={close} disabled={t.streaming} />
         </div>

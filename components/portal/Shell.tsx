@@ -23,6 +23,7 @@ import { useAgentContext } from "@/components/agent/panel/useAgentContext";
 import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
 import { Keycap, RingMark } from "@/components/agent/ui/primitives";
 import AskAboutButton from "@/components/agent/ui/AskAboutButton";
+import { useKeybinds } from "@/components/agent/ui/keybinds";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -231,6 +232,7 @@ export default function PortalShell({
 
   const topics = useMemo(() => topicsForRole(role, isDeveloper, hasAgent), [role, isDeveloper, hasAgent]);
   const { open: agentOpenRaw, setOpen: setAgentOpen } = useAgentPanel();
+  const kb = useKeybinds();
   // Knowledge base badge (§5): documents awaiting approval, approvers only.
   const [kbAwaiting, setKbAwaiting] = useState(0);
   useEffect(() => {
@@ -346,7 +348,7 @@ export default function PortalShell({
                     onClick={() => (topic.href ? go(topic.href) : isAgentTopic && !onAgentPage ? setAgentOpen(!agentOpen) : toggleTopic(topic.id))}
                     trailing={
                       <>
-                        {topic.keycap && <Keycap color={isAgentTopic && agentOpen && !onAgentPage ? "#1d4ed8" : undefined}>{topic.keycap}</Keycap>}
+                        {topic.keycap && <Keycap color={isAgentTopic && agentOpen && !onAgentPage ? "#1d4ed8" : undefined}>{isAgentTopic ? kb.label("open") : topic.keycap}</Keycap>}
                         {topic.items && !isAgentTopic ? (
                           <MaskIcon name={open ? "chevron-up" : "chevron-down"} size={14} color="#9aa0a8" />
                         ) : null}
@@ -393,12 +395,12 @@ export default function PortalShell({
         <div className="flex-none px-2.5 pb-3">
           <button
             onClick={() => setAgentOpen(!agentOpen)}
-            title="Ops Agent · ⌘J"
+            title={`Ops Agent · ${kb.label("open")}`}
             className={clsx("flex w-full cursor-pointer items-center gap-2 rounded-[9px] border-none bg-cw-primaryTint px-2.5 py-2 text-left font-sans text-[13px] font-semibold text-cw-primaryDeep", !labels && "justify-center")}
           >
             <RingMark size={14} color="#1d4ed8" dot={5} />
             {labels && <span className="min-w-0 flex-1 truncate">Ops Agent</span>}
-            {labels && <Keycap>⌘J</Keycap>}
+            {labels && <Keycap>{kb.label("open")}</Keycap>}
           </button>
         </div>
       )}

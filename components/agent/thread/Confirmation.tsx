@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Button, Icon, Keycap, Spinner, hmZ, hmsZ } from "../ui/primitives";
 import { AGENT_BASE, type PendingConfirmation, type ConfirmationStatus } from "../types";
+import { useKeybinds } from "../ui/keybinds";
 
 type Outcome = { status: ConfirmationStatus; at: string; result?: Record<string, unknown> | null; error?: string | null };
 
@@ -65,6 +66,7 @@ export function ConfirmationCard({
   const cancelRef = useRef<HTMLButtonElement | null>(null);
   const firedRef = useRef(false);
   const { expired, mmss } = useCountdown(c.expiresAt);
+  const kb = useKeybinds();
 
   // Focus moves to Cancel when a prompt appears (spec default): a stray Enter must not confirm.
   useEffect(() => { if (!outcome) cancelRef.current?.focus(); }, [outcome]);
@@ -115,12 +117,12 @@ export function ConfirmationCard({
     if (outcome) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); void cancel(); return; }
-      if (c.level === "standard" && (e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void confirm(); }
+      if (c.level === "standard" && kb.matches(e, "confirm")) { e.preventDefault(); void confirm(); }
       if (c.level === "low" && e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.shiftKey && (document.activeElement === cancelRef.current || document.activeElement === document.body)) { e.preventDefault(); void confirm(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [outcome, c.level]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [outcome, c.level, kb.binds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (outcome) return <ConfirmationRecord confirmation={c} outcome={outcome} panel={panel} />;
 
@@ -152,7 +154,7 @@ export function ConfirmationCard({
       </div>
       {error && <div role="alert" style={{ padding: "0 16px 10px", fontSize: 12.5, color: C.danger }}>{error}</div>}
       <div style={{ padding: panel ? "10px 12px" : "12px 16px", borderTop: `1px solid ${C.divider}`, background: C.page, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <Button variant="primary" size={panel ? "sm" : "lg"} onClick={() => void confirm()} disabled={busy} spinning={busy} keycap="⌘⏎">{isEmail ? "Confirm and send" : c.what && /^(add|creat)/i.test(c.what) ? "Create" : "Confirm"}</Button>
+        <Button variant="primary" size={panel ? "sm" : "lg"} onClick={() => void confirm()} disabled={busy} spinning={busy} keycap={kb.label("confirm")}>{isEmail ? "Confirm and send" : c.what && /^(add|creat)/i.test(c.what) ? "Create" : "Confirm"}</Button>
         <span style={{ flex: 1 }} />
         <Button ref={cancelRef as never} variant="ghost" size={panel ? "sm" : "md"} onClick={() => void cancel()} disabled={busy} keycap="Esc">Cancel</Button>
       </div>

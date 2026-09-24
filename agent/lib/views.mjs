@@ -122,6 +122,49 @@ export async function setCapability(key, enabled, user) {
   capCache = { at: 0, values: null };
   return capabilities({ reload: true });
 }
+// ── Keyboard shortcuts (§15, made editable) ──────────────────────────────────
+// Organisation-wide, admins only. Stored in the existing agent_settings row
+// `keybinds`: `enabled` = separate Mac/Windows sets, `reason` = the JSON.
+// (A jsonb column would be cleaner; that is DDL the operator has to run.)
+// A bind is "Mod+Shift+K": Mod means ⌘ on Mac and Ctrl on Windows; Meta/Ctrl
+// are literal and only make sense in the per-platform sets. Esc is not editable.
+export const KEYBIND_ACTIONS = [
+  { key: "open", label: "Open or close the panel", description: "Anywhere in the console and on the wall console." },
+  { key: "expand", label: "Expand to the full page · back to the panel", description: "Carries the thread with it." },
+  { key: "confirm", label: "Confirm a standard change", description: "Only while a confirmation card is showing. Destructive changes have no keyboard confirm." },
+];
+export const KEYBIND_DEFAULTS = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter" };
+const BIND_RE = /^((Mod|Meta|Ctrl|Alt|Shift)\+)+(Enter|Space|Escape|[A-Z0-9]|F[1-9]|F1[0-2]|Arrow(Up|Down|Left|Right)|[\[\]\\;',./`=-])$/;
+export function normalizeKeybinds(input) {
+  const out = { perPlatform: Boolean(input?.perPlatform), shared: {}, mac: {}, windows: {} };
+  for (const set of ["shared", "mac", "windows"]) {
+    for (const a of KEYBIND_ACTIONS) {
+      const raw = String(input?.[set]?.[a.key] ?? KEYBIND_DEFAULTS[a.key]).trim();
+      if (!BIND_RE.test(raw)) throw new Error(`Invalid shortcut for ${a.key}: ${raw}`);
+      out[set][a.key] = raw;
+    }
+    const seen = new Set();
+    for (const a of KEYBIND_ACTIONS) { if (seen.has(out[set][a.key])) throw new Error(`Two actions share ${out[set][a.key]}.`); seen.add(out[set][a.key]); }
+  }
+  return out;
+}
+let bindCache = { at: 0, values: null };
+export async function keybinds({ reload = false } = {}) {
+  if (!reload && bindCache.values && Date.now() - bindCache.at < 30_000) return bindCache.values;
+  const row = (await rest("agent_settings?id=eq.keybinds&select=enabled,reason").catch(() => []))?.[0];
+  let values;
+  try { values = normalizeKeybinds(row ? { perPlatform: row.enabled === true, ...JSON.parse(row.reason || "{}") } : null); } catch { values = normalizeKeybinds(null); }
+  bindCache = { at: Date.now(), values };
+  return values;
+}
+export async function setKeybinds(input, user) {
+  const values = normalizeKeybinds(input);
+  const { perPlatform, ...sets } = values;
+  await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: "keybinds", enabled: perPlatform, reason: JSON.stringify(sets), updated_at: new Date().toISOString(), updated_by: user.userId, updated_by_email: user.email ?? null }]) });
+  bindCache = { at: 0, values: null };
+  return values;
+}
+
 /** Who can do what -- from the allowlist and each person's role, read-only here. */
 export async function permissionsMatrix() {
   const rows = await listAccess({ includeRevoked: false });

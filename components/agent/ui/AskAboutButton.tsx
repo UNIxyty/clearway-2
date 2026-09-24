@@ -7,20 +7,22 @@
 import { useEffect, useState } from "react";
 import { C } from "./tokens";
 import { Keycap, RingMark } from "./primitives";
+import { useKeybinds } from "./keybinds";
 
 export default function AskAboutButton({ label, style = {}, gate = false }: { label: string; style?: React.CSSProperties; /** true when the parent has not already checked agent availability */ gate?: boolean }) {
   const [available, setAvailable] = useState(!gate);
+  const kb = useKeybinds();
   useEffect(() => {
     if (!gate) return;
     fetch("/api/assistant/availability", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => setAvailable(Boolean(d?.available))).catch(() => setAvailable(false));
   }, [gate]);
   if (!available) return null;
   return (
-    <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("cw-agent-open"))} title="Ask the Ops Agent about this · ⌘J" className="ag-hover ag-focus"
+    <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("cw-agent-open"))} title={`Ask the Ops Agent about this · ${kb.label("open")}`} className="ag-hover ag-focus"
       style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.borderControl}`, background: C.surface, color: C.ink, fontFamily: "inherit", fontSize: 13.5, fontWeight: 600, cursor: "pointer", ...style }}>
       <RingMark size={14} color={C.primaryHover} dot={5} />
       <span>Ask about {label}</span>
-      <Keycap>⌘J</Keycap>
+      <Keycap>{kb.label("open")}</Keycap>
     </button>
   );
 }

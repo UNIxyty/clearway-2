@@ -19,6 +19,7 @@ import { AgentReply, UserBubble } from "../thread/Message";
 import { OfflineCard } from "../thread/ErrorCard";
 import { useThread } from "../useThread";
 import { AGENT_BASE, type AgentContext } from "../types";
+import { useKeybinds } from "../ui/keybinds";
 
 function useAvailability() {
   const [state, setState] = useState<"checking" | "yes" | "no">("checking");
@@ -38,13 +39,14 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   const threadRef = useRef<HTMLDivElement | null>(null);
   const context: AgentContext | null = useMemo(() => (from ? { kind: "page", label: from } : null), [from]);
   const t = useThread({ context, initialConversationId: conversationId, initials });
+  const kb = useKeybinds();
   const live = useLiveSuggestions(null);
   const empty = useMemo(() => suggestionsFor(null, live, true), [live]);
 
   useEffect(() => { fetch(`${AGENT_BASE}/api/settings`, { credentials: "same-origin", cache: "no-store" }).then((r) => r.json()).then((b) => { if (b?.ok) setSettings({ web: Boolean(b.capabilities?.find((c: { key: string; enabled: boolean }) => c.key === "web_search")?.enabled) }); }).catch(() => {}); }, []);
   useEffect(() => { const el = threadRef.current; if (el) el.scrollTop = el.scrollHeight; }, [t.messages.length]);
   // ⌘⇧J from the full page moves the thread into the panel over the last console page.
-  useEffect(() => { const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); toPanel(); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const onKey = (e: KeyboardEvent) => { if (kb.matches(e, "expand")) { e.preventDefault(); toPanel(); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }); // eslint-disable-line react-hooks/exhaustive-deps
   const toPanel = () => {
     try { sessionStorage.setItem("cw-agent-open-with", t.conversationId ?? ""); } catch { /* private mode */ }
     const back = document.referrer && new URL(document.referrer).origin === location.origin && !/\/agent/.test(document.referrer) ? document.referrer : "/dashboard";
@@ -73,7 +75,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
           {settings?.web && <HeaderPill icon="globe" iconColor={C.warn}>Web search on</HeaderPill>}
           <HeaderPill icon="shield-check">Changes: ask first</HeaderPill>
           <span style={{ width: 1, height: 24, background: C.border }} />
-          <IconButton icon="panel-right" title="Open as side panel · ⌘⇧J" size={36} bordered onClick={toPanel} />
+          <IconButton icon="panel-right" title={`Open as side panel · ${kb.label("expand")}`} size={36} bordered onClick={toPanel} />
           <Button variant="primary" size="md" icon="plus" onClick={() => { t.newThread(); router.push("/agent"); }}>New chat</Button>
         </div>
 

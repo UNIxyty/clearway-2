@@ -12,6 +12,7 @@ import { C, FONT, mono } from "../ui/tokens";
 import { Button, Icon, Tag, dayTimeZ } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE, type ConversationSummary } from "../types";
+import { useKeybinds } from "../ui/keybinds";
 
 const FILTERS = [["mine", "Mine"], ["changes", "With changes"], ["files", "With files"], ["voice", "Voice"]] as const;
 
@@ -21,6 +22,7 @@ export default function HistoryPage() {
   const [rows, setRows] = useState<ConversationSummary[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const kb = useKeybinds();
 
   useEffect(() => {
     let alive = true; setRows(null);
@@ -55,7 +57,7 @@ export default function HistoryPage() {
         </div>
         {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
         {rows === null && <LoadingRows rows={4} />}
-        {rows !== null && rows.length === 0 && (q ? <EmptyState title="No threads match">Try a callsign, an ICAO code, or a word from the conversation.</EmptyState> : <EmptyState title="No conversations yet">Open the panel with ⌘J on any console page, or start a new chat.</EmptyState>)}
+        {rows !== null && rows.length === 0 && (q ? <EmptyState title="No threads match">Try a callsign, an ICAO code, or a word from the conversation.</EmptyState> : <EmptyState title="No conversations yet">Open the panel with {kb.label("open")} on any console page, or start a new chat.</EmptyState>)}
         {grouped.length > 0 && (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             {grouped.map(([label, list]) => (

@@ -33,7 +33,7 @@ import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./l
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
-import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment } from "./lib/views.mjs";
+import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
 
@@ -231,13 +231,19 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === "/api/settings" && req.method === "GET") {
       await assertMayUseAgent(user);
-      const [caps, enabled] = await Promise.all([capabilities(), agentEnabled()]);
-      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
+      const [caps, enabled, binds] = await Promise.all([capabilities(), agentEnabled(), keybinds()]);
+      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), keybinds: binds, keybindActions: KEYBIND_ACTIONS, keybindDefaults: KEYBIND_DEFAULTS, killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
     }
     if (pathname === "/api/settings" && req.method === "PATCH") {
       await assertMayUseAgent(user);
       if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
       const body = await readJsonBody(req);
+      if (body.keybinds && typeof body.keybinds === "object") {
+        let binds;
+        try { binds = await setKeybinds(body.keybinds, user); } catch (e) { throw BadRequest(e.message); }
+        await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { keybinds: binds } });
+        return sendJson(res, { ok: true, keybinds: binds });
+      }
       const values = await setCapability(String(body.key), body.enabled === true, user);
       capsNow = values; // in place: the switch must bite on the next call, not in 30 s
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { capability: body.key, enabled: body.enabled === true } });

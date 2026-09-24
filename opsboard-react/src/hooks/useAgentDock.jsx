@@ -16,6 +16,23 @@ import { t } from '../components/console/ui';
 // portal uses gates the shortcut, the sidebar row and the dock itself.
 
 const PANEL_WIDTH = 420;
+
+// Shortcut binds — same grammar as components/agent/ui/keybinds.ts: "Mod+Shift+J",
+// Mod = ⌘ on a Mac, Ctrl elsewhere. Kept tiny here rather than imported across apps.
+const DEFAULT_BINDS = { open: 'Mod+J', expand: 'Mod+Shift+J', confirm: 'Mod+Enter' };
+const IS_MAC = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(`${navigator.platform} ${navigator.userAgent}`);
+function activeBinds(config) { return config.perPlatform ? (IS_MAC ? config.mac : config.windows) : config.shared; }
+function parseBind(bind) { const parts = String(bind).split('+'); const key = parts.pop(); return { mod: parts.includes('Mod'), meta: parts.includes('Meta'), ctrl: parts.includes('Ctrl'), alt: parts.includes('Alt'), shift: parts.includes('Shift'), key }; }
+function matchesBind(e, bind) {
+  const b = parseBind(bind); const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const wantMeta = b.meta || (b.mod && IS_MAC), wantCtrl = b.ctrl || (b.mod && !IS_MAC);
+  return e.metaKey === wantMeta && e.ctrlKey === wantCtrl && e.altKey === b.alt && e.shiftKey === b.shift && key === b.key;
+}
+function labelBind(bind) {
+  const b = parseBind(bind); const key = b.key === 'Enter' ? (IS_MAC ? '⏎' : 'Enter') : b.key;
+  if (IS_MAC) return `${b.ctrl ? '⌃' : ''}${b.alt ? '⌥' : ''}${b.shift ? '⇧' : ''}${b.mod || b.meta ? '⌘' : ''}${key}`;
+  return [b.mod || b.ctrl ? 'Ctrl' : null, b.meta ? 'Win' : null, b.alt ? 'Alt' : null, b.shift ? 'Shift' : null, key].filter(Boolean).join('+');
+}
 const TAB_WIDTH = 44;
 
 function consoleContext(page, label) {
@@ -25,6 +42,7 @@ function consoleContext(page, label) {
 
 export function useAgentDock({ page, label }) {
   const [available, setAvailable] = useState(false);
+  const [binds, setBinds] = useState(DEFAULT_BINDS);
   // "Open as side panel" from the full page hands the thread over through
   // sessionStorage (same tab, same origin), exactly as the portal shell does.
   const [openWith] = useState(() => {
@@ -42,17 +60,22 @@ export function useAgentDock({ page, label }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setAvailable(Boolean(d?.available)); })
       .catch(() => { if (alive) setAvailable(false); });
+    // The organisation's shortcuts (Agent settings), resolved for this machine.
+    fetch('/agent/api/settings', { cache: 'no-store', credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.keybinds) setBinds(activeBinds(d.keybinds)); })
+      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
   useEffect(() => {
     if (!available) return undefined;
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'j') { e.preventDefault(); setOpen((v) => !v); setMinimised(false); }
+      if (matchesBind(e, binds.open)) { e.preventDefault(); setOpen((v) => !v); setMinimised(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [available]);
+  }, [available, binds]);
 
   useEffect(() => {
     const onMessage = (e) => {
@@ -91,6 +114,6 @@ export function useAgentDock({ page, label }) {
   ) : null;
 
   const toggle = useCallback(() => { setOpen((v) => !v); setMinimised(false); }, []);
-  return { available, open, toggle, dock };
+  return { available, open, toggle, dock, keycap: labelBind(binds.open) };
 }
 

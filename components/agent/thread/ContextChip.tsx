@@ -99,6 +99,17 @@ export function suggestionsFor(context: AgentContext | null, live: Live | null, 
       ],
     };
   }
+  if (context?.kind === "wall" || context?.kind === "limitations" || context?.kind === "page") {
+    return {
+      headline: `What do you need to know about ${context.label}?`,
+      sub: "The agent read the page before you asked. Start there, or ask anything else.",
+      items: [
+        { kind: "This page", color: C.primaryHover, question: `What should I know about ${context.label} right now?` },
+        { kind: "Company knowledge · quoted exactly", color: TIER.company.fg, question: "What limitations apply at our airports today? Quote them exactly." },
+        { kind: "Wall · asks first", color: C.okDot, question: "Add a limitation and show it on the wall." },
+      ],
+    };
+  }
   if (context?.kind === "flight") {
     return {
       headline: `What do you need to know about ${context.label}?`,

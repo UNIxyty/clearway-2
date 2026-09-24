@@ -8,7 +8,7 @@
 // hook only reports the truth of the current page.
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AgentContext } from "./types";
 
 const PAGE_LABELS: Array<[RegExp, string, string]> = [
@@ -26,6 +26,11 @@ const PAGE_LABELS: Array<[RegExp, string, string]> = [
 export function useAgentContext(): AgentContext | null {
   const pathname = usePathname();
   const params = useSearchParams();
+  // The query string is only read AFTER mount. During SSR it is not knowable,
+  // and letting it decide the first render is what makes the server and client
+  // trees disagree. The chip appearing a frame late is the correct trade.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return useMemo(() => {
     if (!pathname) return null;
@@ -37,7 +42,7 @@ export function useAgentContext(): AgentContext | null {
       return { kind: "airport", label: icao, icao, icon: "map-pin" };
     }
 
-    const icaoParam = params?.get("icao");
+    const icaoParam = mounted ? params?.get("icao") : null;
     if (icaoParam && /^[A-Za-z0-9]{4}$/.test(icaoParam)) {
       const icao = icaoParam.toUpperCase();
       return { kind: "airport", label: icao, icao, icon: "map-pin" };
@@ -47,5 +52,5 @@ export function useAgentContext(): AgentContext | null {
       if (pattern.test(pathname)) return { kind: "page", label, icon };
     }
     return null;
-  }, [pathname, params]);
+  }, [pathname, params, mounted]);
 }

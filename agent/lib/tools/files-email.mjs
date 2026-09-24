@@ -30,6 +30,36 @@ const BLOCK_SCHEMA = {
   },
 };
 
+/**
+ * What each block type actually needs. The schema can say "a block has an
+ * optional text field"; it cannot say "a heading without text is meaningless".
+ * Checking here turns a crash deep in rendering into an INVALID_INPUT the model
+ * can read and correct on its next turn.
+ */
+const BLOCK_REQUIREMENTS = {
+  heading: ["text"],
+  paragraph: ["text"],
+  note: ["text"],
+  section: ["title", "text"],
+  mono: ["text"],
+  verbatim: ["text"],
+  callout: ["text"],
+  table: ["rows"],
+};
+
+function assertBlocks(blocks) {
+  blocks.forEach((b, i) => {
+    const needed = BLOCK_REQUIREMENTS[b.type] ?? [];
+    const missing = needed.filter((f) => b[f] === undefined || b[f] === null || b[f] === "");
+    if (missing.length) {
+      throw InvalidInput(`blocks[${i}] of type "${b.type}" needs ${missing.join(" and ")}.`);
+    }
+    if (b.type === "table" && !Array.isArray(b.rows)) {
+      throw InvalidInput(`blocks[${i}] table rows must be an array of [label, value] pairs.`);
+    }
+  });
+}
+
 const FILE_RESULT = {
   type: "object",
   properties: {
@@ -77,6 +107,7 @@ defineTool({
     if ((format === "pdf" || format === "docx")) {
       if (blocks.length === 0) throw InvalidInput(`${format} needs at least one block.`);
       if (!input.title) throw InvalidInput(`${format} needs a title.`);
+      assertBlocks(blocks);
     }
 
     let file;
@@ -231,6 +262,7 @@ defineTool({
     },
   },
   async handler({ subject, to, blocks, attachmentIds = [], confirmed }, { user, conversationId }) {
+    assertBlocks(blocks);
     const recipients = validateRecipients(to?.length ? to : [user.email]);
     const { external } = classifyRecipients(recipients, user);
     const refusal = await refuseUnconfirmedExternal({ recipients, user, conversationId, subject, confirmed });

@@ -5,6 +5,12 @@
 # established HTML->PDF route). The Playwright base image ships the browser and
 # its system libraries; alpine + a manual chromium install drifts from what
 # scripts/generate-airport-sheets.mjs is tested against.
+#
+# THIS TAG AND THE playwright VERSION IN agent/package.json MUST MATCH EXACTLY.
+# The package is pinned without a caret for that reason: "^1.59.1" resolved to
+# 1.63.0 at build time, which then looked for browsers this image does not have
+# ("Executable doesn't exist at /ms-playwright/chromium_headless_shell-1243").
+# Bumping one without the other breaks PDF generation and nothing else.
 FROM mcr.microsoft.com/playwright:v1.59.1-noble
 
 WORKDIR /app

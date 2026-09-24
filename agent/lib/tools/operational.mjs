@@ -18,10 +18,63 @@ import { wallGet } from "./http.mjs";
 
 const RECORD_LIMIT = S.limit(200, 100);
 
+/**
+ * Free-text matching, token by token.
+ *
+ * This used to be a whole-string substring test, and the audit caught what
+ * that does: the model asked for "AUDIT2 TWY B closed EVRA" — the stored title
+ * was "AUDIT2 · TWY B closed EVRA" — got zero rows, and told the dispatcher the
+ * limitation "may already have been deleted" while it sat on the wall. A model
+ * normalises titles: it drops punctuation, reorders words, translates one of
+ * them. Matching must survive that, so the query is split into tokens and
+ * every token must appear somewhere in the record, in any order, ignoring
+ * case and punctuation.
+ */
+function normalise(text) {
+  return String(text ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+function tokensOf(text) {
+  return normalise(text).split(" ").filter(Boolean);
+}
 function matchesQuery(haystack, needle) {
   if (!needle) return true;
-  return haystack.toLowerCase().includes(needle.toLowerCase());
+  const hay = ` ${normalise(haystack)} `;
+  const toks = tokensOf(needle);
+  return toks.length === 0 || toks.every((t) => hay.includes(t));
 }
+
+/**
+ * When a query matches nothing, hand back what it NEARLY matched.
+ *
+ * A zero-row answer is the dangerous one: the model reads "no rows" as "does
+ * not exist" and says so with confidence. Returning the closest records — with
+ * which tokens hit and which missed — turns "it may have been deleted" into
+ * "did you mean this one?", which is the truthful reply.
+ */
+function closestMatches(rows, textOf, needle, n = 5) {
+  const toks = tokensOf(needle);
+  if (toks.length === 0) return [];
+  return rows
+    .map((r) => {
+      const hay = ` ${normalise(textOf(r))} `;
+      const matched = toks.filter((t) => hay.includes(t));
+      return { row: r, matched, score: matched.length / toks.length };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n)
+    .map((x) => ({
+      id: String(x.row.id ?? ""),
+      title: String(x.row.title ?? x.row.authorityName ?? x.row.country ?? ""),
+      matchedTokens: x.matched,
+      missedTokens: toks.filter((t) => !x.matched.includes(t)),
+    }));
+}
+
+const NO_MATCH_NOTE =
+  "No record matched every word of the query. This does NOT mean the record does not exist or was deleted — " +
+  "the wording may differ. closestMatches lists the nearest records; if one is what the user meant, use its id. " +
+  "Otherwise list without a query, or check list_deleted_limitations, before telling the user anything is missing.";
 
 defineTool({
   name: "list_limitations",
@@ -35,7 +88,7 @@ defineTool({
     type: "object",
     additionalProperties: false,
     properties: {
-      query: { type: "string", maxLength: 120, description: "Free text filter over title and body." },
+      query: { type: "string", maxLength: 120, description: "Free-text filter: every word must appear somewhere in the title or text, any order, case and punctuation ignored. Prefer ONE distinctive word over a whole title." },
       icao: { ...S.icao, description: "Only limitations whose match criteria include this airport." },
       country: { type: "string", maxLength: 60 },
       includeInactive: { type: "boolean", default: false },
@@ -48,6 +101,12 @@ defineTool({
     properties: {
       count: { type: "integer" },
       truncated: { type: "boolean" },
+      closestMatches: {
+        type: "array",
+        description: "Only when a query matched nothing: the nearest records and which words hit or missed.",
+        items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, matchedTokens: { type: "array", items: { type: "string" } }, missedTokens: { type: "array", items: { type: "string" } } } },
+      },
+      note: { type: ["string", "null"] },
       source: { type: "string" },
       limitations: {
         type: "array",
@@ -80,6 +139,7 @@ defineTool({
   async handler({ query, icao, country, includeInactive, limit }, { user }) {
     const data = await wallGet(`/api/timeline/limitations?includeInactive=${includeInactive ? "true" : "false"}`, user, { timeoutMs: 20_000 });
     let rows = Array.isArray(data?.limitations) ? data.limitations : [];
+    const unfiltered = rows;
 
     if (icao) {
       const code = String(icao).toUpperCase();
@@ -92,8 +152,11 @@ defineTool({
       rows = rows.filter((r) => matchesQuery(`${r.title ?? ""} ${r.description ?? ""}`, query));
     }
 
+    const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.title ?? ""} ${r.description ?? ""}`, query) : [];
     return {
       count: rows.length,
+      closestMatches: nearest,
+      note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
       truncated: rows.length > limit,
       source: "digital-wall limitations store",
       limitations: rows.slice(0, limit).map((r) => ({
@@ -128,7 +191,7 @@ defineTool({
     type: "object",
     additionalProperties: false,
     properties: {
-      query: { type: "string", maxLength: 120 },
+      query: { type: "string", maxLength: 120, description: "Free-text filter: every word must appear somewhere in the title or body, any order, case and punctuation ignored. Prefer ONE distinctive word over a whole title." },
       icao: S.icao,
       country: { type: "string", maxLength: 60 },
       includeInactive: { type: "boolean", default: false },
@@ -141,6 +204,12 @@ defineTool({
     properties: {
       count: { type: "integer" },
       truncated: { type: "boolean" },
+      closestMatches: {
+        type: "array",
+        description: "Only when a query matched nothing: the nearest records and which words hit or missed.",
+        items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, matchedTokens: { type: "array", items: { type: "string" } }, missedTokens: { type: "array", items: { type: "string" } } } },
+      },
+      note: { type: ["string", "null"] },
       source: { type: "string" },
       entries: {
         type: "array",
@@ -174,6 +243,7 @@ defineTool({
   async handler({ query, icao, country, includeInactive, limit }, { user }) {
     const data = await wallGet(`/api/important?includeInactive=${includeInactive ? "true" : "false"}`, user, { timeoutMs: 20_000 });
     let rows = Array.isArray(data?.entries) ? data.entries : [];
+    const unfiltered = rows;
 
     if (icao) {
       const code = String(icao).toUpperCase();
@@ -184,8 +254,11 @@ defineTool({
     }
     if (query) rows = rows.filter((r) => matchesQuery(`${r.title ?? ""} ${r.body ?? ""}`, query));
 
+    const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.title ?? ""} ${r.body ?? ""}`, query) : [];
     return {
       count: rows.length,
+      closestMatches: nearest,
+      note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
       truncated: rows.length > limit,
       source: "digital-wall IMPORTANT store",
       entries: rows.slice(0, limit).map((r) => ({
@@ -221,7 +294,7 @@ defineTool({
     type: "object",
     additionalProperties: false,
     properties: {
-      query: { type: "string", maxLength: 120, description: "Free text over country, authority and function." },
+      query: { type: "string", maxLength: 120, description: "Free-text filter over country, authority and function: every word must appear, any order, case and punctuation ignored." },
       country: { type: "string", maxLength: 60 },
       includeInactive: { type: "boolean", default: false },
       limit: RECORD_LIMIT,
@@ -233,6 +306,12 @@ defineTool({
     properties: {
       count: { type: "integer" },
       truncated: { type: "boolean" },
+      closestMatches: {
+        type: "array",
+        description: "Only when a query matched nothing: the nearest records and which words hit or missed.",
+        items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, matchedTokens: { type: "array", items: { type: "string" } }, missedTokens: { type: "array", items: { type: "string" } } } },
+      },
+      note: { type: ["string", "null"] },
       source: { type: "string" },
       entries: {
         type: "array",
@@ -261,11 +340,15 @@ defineTool({
   async handler({ query, country, includeInactive, limit }, { user }) {
     const data = await wallGet(`/api/caa?includeInactive=${includeInactive ? "true" : "false"}`, user, { timeoutMs: 20_000 });
     let rows = Array.isArray(data?.entries) ? data.entries : [];
+    const unfiltered = rows;
     if (country) rows = rows.filter((r) => matchesQuery(String(r.country ?? ""), country));
     if (query) rows = rows.filter((r) => matchesQuery(`${r.country ?? ""} ${r.authorityName ?? ""} ${r.functionText ?? ""} ${r.remarks ?? ""}`, query));
 
+    const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.country ?? ""} ${r.authorityName ?? ""} ${r.functionText ?? ""} ${r.remarks ?? ""}`, query) : [];
     return {
       count: rows.length,
+      closestMatches: nearest,
+      note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
       truncated: rows.length > limit,
       source: "digital-wall CAA store",
       entries: rows.slice(0, limit).map((r) => ({

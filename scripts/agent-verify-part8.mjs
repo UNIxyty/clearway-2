@@ -145,6 +145,22 @@ async function main() {
   check("a spent token cannot be reused on another record",
     reused.executed === false && (await inBin(d.id)));
 
+  // ── A normalised title must still find the record (audit finding S1) ────
+  // The model drops punctuation and reorders words; the tool must not turn
+  // that into "the limitation does not exist".
+  const dotted = (await makeLimitation("AUDIT · TWY B closed EVRA"))?.limitation;
+  const loose = await invoke("list_limitations", { query: "AUDIT TWY B closed EVRA" });
+  check("a query without the title's punctuation still finds the record",
+    loose.ok === true && (loose.limitations ?? []).some((r) => r.id === dotted.id), `count=${loose.count}`);
+  const reordered = await invoke("list_limitations", { query: "evra closed twy" });
+  check("word order and case do not matter", (reordered.limitations ?? []).some((r) => r.id === dotted.id));
+  const miss = await invoke("list_limitations", { query: "AUDIT TWY Z closed EVRA" });
+  check("a near-miss returns closest matches instead of a bare zero",
+    miss.count === 0 && (miss.closestMatches ?? []).some((m) => m.id === dotted.id) && typeof miss.note === "string",
+    `nearest=${miss.closestMatches?.[0]?.title} missed=${miss.closestMatches?.[0]?.missedTokens}`);
+  await wall(`/api/timeline/limitations/${dotted.id}`, { method: "DELETE" }).catch(() => {});
+  await wall(`/api/timeline/limitations/${dotted.id}/purge`, { method: "DELETE" }).catch(() => {});
+
   // ── Still out of reach ──────────────────────────────────────────────────
   const tools = await (await fetch(`${BASE}/api/tools`)).json();
   const names = (tools.tools ?? []).map((t) => t.name);

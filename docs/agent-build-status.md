@@ -34,7 +34,7 @@ on the server matches the hash recorded here, and `docker ps` shows the rebuilt 
 | 8 — Write tools (sensitive) | Deployed | `6656c8b` `12aa46b` | **Yes** | Verifier 43/43 after `70c4dd1` (recycle bins for IMPORTANT and reports too). Append-only audit needs `docs/supabase-agent-hardening.sql` |
 | 9 — Voice | Groundwork only | `4a1fde9` | Backend only | Language field, keyterms, readback gate built and tested. **No STT/TTS, no interface.** Gated on the 20 recordings |
 | 10 — Multi-model routing | Deployed | `25d6bf1` | **Yes** | Routing live; caching measured 75.7%. Benchmark is stochastic (78–87% correct entry, 0 writes on the cheap tier both runs) |
-| Post-audit fixes (2026-09-24) | Built, not deployed | `4cddc71` `b0b0071` `70c4dd1` | No | See "After the audit" below. Needs `docs/supabase-agent-hardening.sql` and a deploy of `agent-service`, `digital-wall-backend`, `portal` |
+| Post-audit fixes (2026-09-24) | Deployed | `4cddc71` `b0b0071` `70c4dd1` `6a5c0dd` | **Yes** — 2026-09-24 20:48Z, `agent-service` + `digital-wall-backend` + `portal` rebuilt from `6a5c0dd`; `/mnt/ssd-cache/agent` mounted | Still needs `docs/supabase-agent-hardening.sql` run in Supabase (retention + append-only are inert until then) |
 
 ## Part 0 — Prerequisites and the status file
 

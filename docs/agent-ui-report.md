@@ -237,7 +237,7 @@ next improvement.
 Verified: API round trip 0.96 s on a spoken sample; in the browser with a fake microphone: bar states,
 transcript sent with the mic mark, reply, Esc discard. Rules verifier 15/15.
 
-## 8j. Shortcuts on a Mac keyboard (commit `__K_COMMIT__`)
+## 8j. Shortcuts on a Mac keyboard (commit `f87d947`)
 
 ⌥ Space never fired and the recorder "sat on Press keys": macOS delivers ⌥ Space as a non-breaking
 space (`key = "\u00a0"`) and ⌥+letter as a symbol (⌥J → ∆), so matching on `key` fails for every Alt

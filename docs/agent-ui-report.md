@@ -168,6 +168,23 @@ the wall console while ⌘J no longer did; per-platform recorded Ctrl+Alt+K for 
   and "can't read important/CAA" — the audit shows `list_important` succeeding with 63 rows. Both need
   the exact time and question to chase.
 
+## 8e. Three-way routing (commit `__RT_COMMIT__`)
+
+Operator decision 2026-09-25: the cheap router (Nova Micro) reads every request and picks **fast**
+(Haiku 4.5), **standard** (Sonnet) or **reasoning** (Opus) by task. Rules kept: the router never
+answers; the deterministic floor still keeps anything that can change data off the cheap tier;
+escalation stays one-way. New: a **High-knowledge model** switch in Agent settings (on) — off returns the
+router to fast/standard exactly as Part 10 left it. "Reasoning" is defined tightly in the classifier
+(multi-source briefings, conflicting rules, many-record changes, argued safety/legality questions, or an
+explicit ask to think hard). Every reply now says which tier answered and why (`· by router` /
+`· floor` / `· pinned`).
+
+Measured on the 69-query reference set: p50 router latency 336 ms (was ~1.1 s); modelled cost 13.8%
+below flat Sonnet on that mix; the three reasoning-labelled reference queries route to reasoning; one
+genuine under-route (`runway dimensions at EYVI` → fast), the classifier's known noise. Browser check:
+"METAR for EVRA" → `claude-haiku-4-5 · fast · by router`; a reconcile-all-limitations question →
+`claude-opus-4-6 · reasoning · by router`.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

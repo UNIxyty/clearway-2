@@ -129,6 +129,6 @@ export function AgentReply({
 function ModelLine({ m, panel }: { m: AgentMessage; panel: boolean }) {
   const short = String(m.modelId ?? "").replace(/^([a-z]{2}\.)?(anthropic|amazon|meta|mistral)\./, "").replace(/-v\d+(:\d+)?$/, "").replace(/-\d{8}$/, "");
   const k = (n: number | null | undefined) => (n == null ? null : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
-  const parts = [short || null, m.modelTier ?? null, m.inputTokens != null ? `${k(m.inputTokens)} in` : null, m.outputTokens != null ? `${k(m.outputTokens)} out` : null, m.latencyMs != null ? `${(m.latencyMs / 1000).toFixed(1)} s` : null].filter(Boolean);
+  const parts = [short || null, m.modelTier ? `${m.modelTier}${m.routeSource === "router" ? " · by router" : m.routeSource === "floor" ? " · floor" : m.routeSource === "pinned" ? " · pinned" : ""}` : null, m.inputTokens != null ? `${k(m.inputTokens)} in` : null, m.outputTokens != null ? `${k(m.outputTokens)} out` : null, m.latencyMs != null ? `${(m.latencyMs / 1000).toFixed(1)} s` : null].filter(Boolean);
   return <div title="Model that produced this reply" style={{ ...mono({ fontSize: panel ? 10.5 : 11 }), color: C.faint, order: 99 }}>{parts.join(" · ")}</div>;
 }

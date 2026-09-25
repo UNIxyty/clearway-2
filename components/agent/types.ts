@@ -119,6 +119,7 @@ export type AgentMessage = {
   toolActivity?: ToolActivity[];
   modelId?: string | null;
   modelTier?: string | null;
+  routeSource?: string | null;
   inputTokens?: number | null;
   outputTokens?: number | null;
   error?: string | null;

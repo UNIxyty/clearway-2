@@ -105,6 +105,7 @@ export const CAPABILITIES = [
   { key: "write_actions", label: "Write actions", description: "Wall, NOTAM Check, limitations. Always asks first; this switch only removes the ability.", default: true },
   { key: "send_email", label: "Send email", description: "Through Resend, signed with the requester's name. Always asks first.", default: true },
   { key: "auto_approve_reference", label: "Auto-approve reference uploads", description: "Authoritative uploads always need an approver regardless.", default: false },
+  { key: "reasoning_routing", label: "High-knowledge model", description: "The router may send heavy tasks (multi-source briefings, conflicting rules, multi-record changes) to the reasoning model. Off: fast and standard only.", default: true },
 ];
 let capCache = { at: 0, values: null };
 export async function capabilities({ reload = false } = {}) {

@@ -647,7 +647,7 @@ async function handleChat(req, res, user) {
   const pinnedTier = body.tier ? String(body.tier) : null;
   const route = pinnedTier
     ? { tier: pinnedTier, reason: "pinned by caller", source: "pinned", routerLatencyMs: 0, routerModelId: null }
-    : await routeTurn({ question, hasHistory: history.length > 0 });
+    : await routeTurn({ question, hasHistory: history.length > 0, allowReasoning: capsNow.reasoning_routing !== false });
 
   const { requested, effective } = resolveTier(route.tier);
 
@@ -778,6 +778,8 @@ async function handleChat(req, res, user) {
       conversationId,
       modelId: done?.modelId ?? null,
       modelTier: effective ?? requested ?? null,
+      routeSource: route.source ?? null,
+      routeReason: route.reason ?? null,
       stopReason: done?.stopReason ?? null,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,

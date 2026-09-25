@@ -14,6 +14,12 @@
 //     escalation costs money. A wrong downgrade costs a right answer, and does
 //     it invisibly.
 //
+// Three tiers since 2026-09-25 (operator decision): the router reads every
+// request and picks fast, standard or reasoning by task. The deterministic
+// floor still applies — anything that can change data never runs on fast — and
+// the reasoning tier can be switched off in Agent settings ("High-knowledge
+// model"), which puts the router back to fast/standard.
+//
 // Failure is not a stall: if the router is unavailable, slow or incoherent, the
 // turn runs on `standard`. Falling back to the default is the safe direction —
 // falling back to `fast` would let an outage quietly degrade every answer.
@@ -24,21 +30,34 @@ export const TIERS_BY_COST = ["fast", "standard", "reasoning"];
 
 const CLASSIFIER = `You classify a flight dispatcher's request for a routing system. You never answer the request.
 
-Reply with ONE word, nothing else: fast, or standard.
+Reply with ONE word, nothing else: fast, standard, or reasoning.
 
 fast — ONLY a single factual lookup with one obvious source and no judgement:
        "what's the METAR for EVRA", "show today's flights", "is the wall up",
        "list the limitations", "where is YL-ABC".
 
-standard — EVERYTHING ELSE. In particular, standard whenever the request:
-       - changes, adds, deletes, restores or undoes anything
+standard — the normal case. Standard whenever the request:
+       - changes, adds, deletes, restores or undoes ONE thing
        - is vague, incomplete, or you are not sure what it refers to
-       - needs more than one source, or comparison between sources
+       - needs two sources, or a simple comparison between them
        - asks what something MEANS or what to worry about, not just what it says
-       - involves documents, manuals, AIP text, briefings or files
+       - involves one document, manual, AIP section, briefing or file
 
-If you hesitate at all, answer standard. Answering "fast" is a claim that the
-request is trivial; make that claim only when it plainly is.`;
+reasoning — ONLY when the task is genuinely heavy and a wrong answer would be
+       costly. Examples:
+       - a full briefing or report that must combine MANY sources (several
+         airports, NOTAMs + weather + limitations + documents together)
+       - reconciling conflicting sources, regulations or manuals and saying
+         which applies and why
+       - a change that touches MANY records, or a plan with several dependent
+         steps
+       - safety or legality questions where the answer must be argued, not
+         looked up
+       - the dispatcher explicitly asks for a thorough, careful or "think hard"
+         answer
+
+If you hesitate between fast and standard, answer standard. Reasoning is a
+claim that the request is heavy; make that claim only when it plainly is.`;
 
 // Tools whose mere possibility should keep a turn off the cheap tier. Matched
 // on the REQUEST, not the model's plan, because the point is to decide before
@@ -60,13 +79,12 @@ const NOT_TRIVIAL = new RegExp(
 );
 
 /** Keep the classifier's answer inside the set it was asked for. */
-function parseTier(text) {
-  // "reasoning" is deliberately NOT parseable here. The brief puts Opus on
-  // escalation only, and the economics agree: at this deployment's median
-  // 18,000-token input, one reasoning route costs what seven fast routes save.
-  // A classifier allowed to reach for it would erase the saving by being
-  // generous.
-  const word = String(text ?? "").toLowerCase().match(/fast|standard/);
+function parseTier(text, allowReasoning) {
+  // Part 10 measured that a classifier allowed to reach for reasoning made
+  // routing 43% dearer than flat Sonnet on the 69-query reference set. The
+  // operator chose the three-way router anyway (2026-09-25) with a tighter
+  // definition of "reasoning" and a settings switch to turn it back off.
+  const word = String(text ?? "").toLowerCase().match(allowReasoning ? /reasoning|standard|fast/ : /standard|fast/);
   return word ? word[0] : null;
 }
 
@@ -76,21 +94,19 @@ function parseTier(text) {
  * Returns the decision AND why, because both go in the audit log: "which model
  * answered" is not reviewable without "and what made us pick it".
  */
-export async function routeTurn({ question, hasHistory = false }) {
+export async function routeTurn({ question, hasHistory = false, allowReasoning = true }) {
   const started = Date.now();
 
   const text = String(question ?? "").trim();
   if (!text) return decision("standard", "empty question", "skipped", started);
 
-  // Skip the router entirely when the answer is already determined.
-  //
-  // The router's ONLY job is to confirm that a request is trivial enough for
-  // the cheap tier. If the deterministic floor already rules that out, calling
-  // it can change nothing — and the call is not free: measured at ~1.1s p50, it
-  // is a tax on EVERY turn, paid to reach a conclusion already in hand. Skipping
-  // it here removes both the latency and the router's own cost on the turns it
-  // could never have helped.
-  if (NOT_TRIVIAL.test(text)) {
+  // The deterministic floor: a request that can change data never runs on the
+  // cheap tier. With the three-way router it no longer short-circuits — the
+  // router still decides between standard and reasoning for such turns; only
+  // "fast" is ruled out. (When reasoning is switched off, the floor's answer is
+  // the only possible one and the ~1.1 s router call is skipped as before.)
+  const notReadOnly = NOT_TRIVIAL.test(text);
+  if (notReadOnly && !allowReasoning) {
     return decision("standard", "not read-only; the cheap tier is not eligible", "floor", started);
   }
 
@@ -102,12 +118,12 @@ export async function routeTurn({ question, hasHistory = false }) {
       maxTokens: 8,
       temperature: 0,
     });
-    const tier = parseTier(result?.text);
+    const tier = parseTier(result?.text, allowReasoning);
     if (!tier) return decision("standard", `router returned "${String(result?.text ?? "").slice(0, 40)}"`, "unparsed", started);
-    if (tier === "fast" && NOT_TRIVIAL.test(text)) {
+    if (tier === "fast" && notReadOnly) {
       return decision("standard", "router said fast, but the request is not read-only", "floor", started, result?.modelId);
     }
-    return decision(tier, "classified by router", "router", started, result?.modelId);
+    return decision(tier, tier === "reasoning" ? "classified by router as heavy" : "classified by router", "router", started, result?.modelId);
   } catch (error) {
     // An outage must not change what the dispatcher gets, only what it costs.
     return decision("standard", `router unavailable: ${String(error?.message ?? error).slice(0, 80)}`, "fallback", started);

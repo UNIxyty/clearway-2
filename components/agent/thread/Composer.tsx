@@ -14,7 +14,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Icon, IconButton, Keycap } from "../ui/primitives";
 import Orb from "../ui/Orb";
-import { useKeybinds } from "../ui/keybinds";
+import { eventKey, useKeybinds } from "../ui/keybinds";
 import { MicPermissionCard, VoiceBar, useVoiceInput, type VoiceResult } from "./VoiceBar";
 import { AGENT_BASE, type AgentContext } from "../types";
 
@@ -164,7 +164,7 @@ export default function Composer({
   useEffect(() => {
     if (!voiceOn || locked || offline) return;
     const down = (e: KeyboardEvent) => { if (e.repeat) return; if (kb.matches(e, "voice")) { e.preventDefault(); void voice.start(); } else if (e.key === "Escape" && voiceActive) { e.preventDefault(); voice.cancel(); } };
-    const up = (e: KeyboardEvent) => { if (voice.state === "idle" || voice.state === "error") return; const b = kb.binds.voice.split("+"); const key = b[b.length - 1]; if ((e.key === " " ? "Space" : e.key.length === 1 ? e.key.toUpperCase() : e.key) === key || ["Alt", "Meta", "Control", "Shift"].includes(e.key)) void voice.stop(); };
+    const up = (e: KeyboardEvent) => { if (voice.state === "idle" || voice.state === "error") return; const b = kb.binds.voice.split("+"); const key = b[b.length - 1]; if (eventKey(e) === key || ["Alt", "Meta", "Control", "Shift"].includes(e.key)) void voice.stop(); };
     const forwarded = (e: Event) => { const on = (e as CustomEvent<{ on: boolean }>).detail?.on; if (on) void voice.start(); else void voice.stop(); };
     window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("cw-agent-voice", forwarded);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("cw-agent-voice", forwarded); };

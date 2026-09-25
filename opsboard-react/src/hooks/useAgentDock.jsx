@@ -24,8 +24,19 @@ const DEFAULT_BINDS = { open: 'Mod+J', expand: 'Mod+Shift+J', confirm: 'Mod+Ente
 const IS_MAC = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(`${navigator.platform} ${navigator.userAgent}`);
 function activeBinds(config) { return { ...DEFAULT_BINDS, ...(config.perPlatform ? (IS_MAC ? config.mac : config.windows) : config.shared) }; }
 function parseBind(bind) { const parts = String(bind).split('+'); const key = parts.pop(); return { mod: parts.includes('Mod'), meta: parts.includes('Meta'), ctrl: parts.includes('Ctrl'), alt: parts.includes('Alt'), shift: parts.includes('Shift'), key }; }
+function eventKey(e) {
+  // `code` first: on a Mac, ⌥ Space delivers a non-breaking space as `key` and ⌥J delivers "∆".
+  const code = e.code || '';
+  let m = /^Key([A-Z])$/.exec(code); if (m) return m[1];
+  m = /^Digit(\d)$/.exec(code); if (m) return m[1];
+  if (code === 'Space') return 'Space';
+  if (code === 'Enter' || code === 'NumpadEnter') return 'Enter';
+  if (code === 'Escape') return 'Escape';
+  if (e.key === ' ' || e.key === '\u00a0') return 'Space';
+  return e.key.length === 1 ? e.key.toUpperCase() : e.key;
+}
 function matchesBind(e, bind) {
-  const b = parseBind(bind); const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const b = parseBind(bind); const key = eventKey(e);
   const wantMeta = b.meta || (b.mod && IS_MAC), wantCtrl = b.ctrl || (b.mod && !IS_MAC);
   return e.metaKey === wantMeta && e.ctrlKey === wantCtrl && e.altKey === b.alt && e.shiftKey === b.shift && key === b.key;
 }
@@ -78,7 +89,7 @@ export function useAgentDock({ page, label }) {
       // Voice: holding the shortcut on the page opens the panel (if closed) and records into it.
       if (!e.repeat && matchesBind(e, binds.voice)) { e.preventDefault(); holding = true; setOpen(true); setMinimised(false); setTimeout(() => tell(true), 350); }
     };
-    const onUp = (e) => { if (!holding) return; const key = binds.voice.split('+').pop(); const k = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key; if (k === key || ['Alt', 'Meta', 'Control', 'Shift'].includes(e.key)) { holding = false; tell(false); } };
+    const onUp = (e) => { if (!holding) return; const key = binds.voice.split('+').pop(); if (eventKey(e) === key || ['Alt', 'Meta', 'Control', 'Shift'].includes(e.key)) { holding = false; tell(false); } };
     window.addEventListener('keydown', onKey); window.addEventListener('keyup', onUp);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onUp); };
   }, [available, binds]);

@@ -237,6 +237,16 @@ next improvement.
 Verified: API round trip 0.96 s on a spoken sample; in the browser with a fake microphone: bar states,
 transcript sent with the mic mark, reply, Esc discard. Rules verifier 15/15.
 
+## 8j. Shortcuts on a Mac keyboard (commit `__K_COMMIT__`)
+
+⌥ Space never fired and the recorder "sat on Press keys": macOS delivers ⌥ Space as a non-breaking
+space (`key = "\u00a0"`) and ⌥+letter as a symbol (⌥J → ∆), so matching on `key` fails for every Alt
+chord. All matching now uses the physical `code` (`Space`, `KeyJ`, `Digit1`…), in the shared matcher,
+the composer's key-up, the console dock and the recorder. The recorder listens on the window while
+recording, says "Add ⌘, ⌃ or ⌥ to that key" on a bare key, and Esc cancels. Verified with mac-style
+events: ⌥ Space held → Listening → released → message sent; Esc discards; ⌘J via `KeyJ`; the recorder
+saves ⌥ Space as `Alt+Space`.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

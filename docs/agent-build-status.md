@@ -1397,6 +1397,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 10 — list_files, attachments by filename, precheck before confirmation | 6c92217 | yes | yes — 2026-09-25 00:40Z (agent-service rebuilt) |
 | 11 — IMPORTANT / CAA verbatim frames resolve (kind on blocks; list-and-find on the wall) | 9ffd715 | yes | yes — 2026-09-25 00:50Z (agent-service rebuilt) |
 | 12 — voice input: push-to-talk → ElevenLabs STT → voice message; docked bar, permission cards, console hold | 4cb0923 | yes | yes — 2026-09-25 01:14Z (portal build 2IjUAMv2oIOkbKIwJ56xK; agent-service + digital-wall-frontend rebuilt) |
+| 13 — shortcuts match on the physical key (⌥ chords on macOS); recorder feedback | __K_COMMIT__ | yes | __DEPLOYED10__ |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

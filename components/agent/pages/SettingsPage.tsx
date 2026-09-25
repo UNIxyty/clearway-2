@@ -164,15 +164,31 @@ export default function SettingsPage() {
   );
 }
 
-/** Click, press the keys, done. The label shows the chord for the platform it is for. */
+/** Click, press the keys, done. Listens on the window while recording (the button need not keep focus); a bare key gets a hint, Esc cancels. */
 function BindRecorder({ value, os, style, disabled, onChange }: { value: string; os: Platform; style: "mod" | "literal"; disabled?: boolean; onChange: (bind: string) => void }) {
   const [recording, setRecording] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!recording) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      if (e.key === "Escape") { setRecording(false); setNote(null); return; }
+      if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return; // wait for the key that completes the chord
+      const next = bindFromEvent(e, style, os);
+      if (!next) { setNote(os === "mac" ? "Add ⌘, ⌃ or ⌥ to that key" : "Add Ctrl, Alt or Win to that key"); return; }
+      onChange(next); setRecording(false); setNote(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [recording, style, os, onChange]);
   return (
-    <button type="button" disabled={disabled} aria-label={`Change shortcut (${os})`} title={disabled ? "Admins only" : "Click, then press the new shortcut"}
-      onClick={() => setRecording(true)} onBlur={() => setRecording(false)}
-      onKeyDown={(e) => { if (!recording) return; e.preventDefault(); if (e.key === "Escape") { setRecording(false); return; } const next = bindFromEvent(e.nativeEvent, style, os); if (next) { onChange(next); setRecording(false); } }}
-      className="ag-focus" style={{ fontFamily: "inherit", height: 34, borderRadius: 8, border: `1px solid ${recording ? C.primary : C.borderControl}`, background: recording ? C.primaryTint : C.surface, color: C.ink, cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 10px", fontSize: 12.5, opacity: disabled ? 0.6 : 1, boxShadow: recording ? SHADOW.focus : "none" }}>
-      {recording ? <span style={{ color: C.primaryHover, fontWeight: 600 }}>Press keys…</span> : <Keycap standalone>{bindLabel(value, os)}</Keycap>}
-    </button>
+    <span style={{ display: "inline-flex", flexDirection: "column", gap: 3 }}>
+      <button type="button" disabled={disabled} aria-label={`Change shortcut (${os})`} title={disabled ? "Admins only" : "Click, then press the new shortcut"}
+        onClick={() => { setRecording((r) => !r); setNote(null); }}
+        className="ag-focus" style={{ fontFamily: "inherit", height: 34, borderRadius: 8, border: `1px solid ${recording ? C.primary : C.borderControl}`, background: recording ? C.primaryTint : C.surface, color: C.ink, cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 10px", fontSize: 12.5, opacity: disabled ? 0.6 : 1, boxShadow: recording ? SHADOW.focus : "none" }}>
+        {recording ? <span style={{ color: C.primaryHover, fontWeight: 600 }}>Press keys…</span> : <Keycap standalone>{bindLabel(value, os)}</Keycap>}
+      </button>
+      {recording && <span style={{ fontSize: 11, color: note ? C.warn : C.faint }}>{note ?? "Esc cancels"}</span>}
+    </span>
   );
 }

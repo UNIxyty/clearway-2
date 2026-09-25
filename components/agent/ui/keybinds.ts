@@ -38,8 +38,20 @@ export function parseBind(bind: string): Parsed {
   return { mod: has("Mod"), meta: has("Meta"), ctrl: has("Ctrl"), alt: has("Alt"), shift: has("Shift"), key };
 }
 
-function eventKey(e: KeyboardEvent): string {
-  if (e.key === " ") return "Space";
+/**
+ * The physical key, from `code` first: on a Mac, ⌥ Space delivers a
+ * non-breaking space as `key` and ⌥J delivers "∆", so `key` alone never
+ * matches an Alt chord. `code` is layout-independent for letters and digits.
+ */
+export function eventKey(e: KeyboardEvent): string {
+  const code = e.code || "";
+  let m = /^Key([A-Z])$/.exec(code); if (m) return m[1];
+  m = /^Digit(\d)$/.exec(code); if (m) return m[1];
+  if (code === "Space") return "Space";
+  if (code === "Enter" || code === "NumpadEnter") return "Enter";
+  if (code === "Escape") return "Escape";
+  if (/^(Arrow(Up|Down|Left|Right)|F[1-9]|F1[0-2])$/.test(code)) return code;
+  if (e.key === " " || e.key === "\u00a0") return "Space";
   if (e.key.length === 1) return e.key.toUpperCase();
   return e.key;
 }

@@ -209,7 +209,7 @@ dispatcher's own generated files, newest first, filterable); attachments resolve
 immediately instead of after "Confirm"; the email prompt reads `Send “subject” to you with 1
 attachment`. Rules verifier 15/15 on the final code.
 
-## 8h. IMPORTANT and CAA verbatim frames (commit `__H_COMMIT__`)
+## 8h. IMPORTANT and CAA verbatim frames (commit `9ffd715`)
 
 "list me 10 important" rendered ten `VERBATIM NOT SHOWN` frames: the verbatim blocks carried no record
 kind, so every frame re-fetched `/api/verbatim/limitation/IMP-001`; and the wall has no by-id GET for

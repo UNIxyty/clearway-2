@@ -37,6 +37,31 @@ export async function recordGeneratedFile({ file, user, conversationId, kind, ti
   }
 }
 
+/** The dispatcher's own generated files, newest first — what "the brief I made earlier" resolves against. */
+export async function listGeneratedFiles(user, { limit = 30, query = "" } = {}) {
+  const rows = (await rest(
+    `agent_generated_files?user_id=eq.${encodeURIComponent(user.userId)}&expired_at=is.null&select=id,filename,title,kind,mime,bytes,created_at,conversation_id&order=created_at.desc&limit=${Math.min(limit, 100)}`
+  ).catch(async () => rest(`agent_generated_files?user_id=eq.${encodeURIComponent(user.userId)}&select=id,filename,title,kind,mime,bytes,created_at,conversation_id&order=created_at.desc&limit=${Math.min(limit, 100)}`).catch(() => []))) ?? [];
+  const q = String(query ?? "").trim().toLowerCase();
+  return rows.filter((r) => !q || `${r.filename} ${r.title ?? ""}`.toLowerCase().includes(q));
+}
+
+/**
+ * Resolve "that file" the way a person names it: a generated-file id, or a
+ * filename / title (the newest match wins). The model regularly passes the
+ * filename it saw in an earlier reply; refusing that produced "No generated
+ * file weekly_flights_brief.pdf" for a file that was sitting on disk.
+ */
+export async function findGeneratedFile(ref, user) {
+  const raw = String(ref ?? "").trim();
+  if (/^[0-9a-f-]{36}$/i.test(raw)) return readGeneratedFile(raw, user);
+  const name = raw.replace(/^.*\//, "").toLowerCase();
+  if (!name) return null;
+  const rows = await listGeneratedFiles(user, { limit: 100 });
+  const hit = rows.find((r) => r.filename.toLowerCase() === name) ?? rows.find((r) => r.filename.toLowerCase().startsWith(name.replace(/\.[a-z0-9]+$/, ""))) ?? rows.find((r) => String(r.title ?? "").toLowerCase() === name);
+  return hit ? readGeneratedFile(hit.id, user) : null;
+}
+
 /**
  * Read a generated file back — only for the user who generated it. Ownership is
  * part of the query, so one dispatcher cannot fetch another's briefing by id.

@@ -15,7 +15,7 @@ import { portalGet } from "./http.mjs";
 import { InvalidInput, NotFound, ServiceUnavailable } from "./errors.mjs";
 import { generateCsv, generateDocx, generatePdf, generateXlsx } from "../files/generate.mjs";
 import { classifyRecipients, prepareEmail, refuseUnconfirmedExternal, sendAgentEmail, validateRecipients } from "../email/send.mjs";
-import { recordGeneratedFile, readGeneratedFile } from "../files/store.mjs";
+import { recordGeneratedFile, readGeneratedFile, findGeneratedFile, listGeneratedFiles } from "../files/store.mjs";
 
 const BLOCK_SCHEMA = {
   type: "object",
@@ -245,7 +245,7 @@ defineTool({
       subject: { type: "string", minLength: 1, maxLength: 160 },
       to: { type: "array", items: { type: "string" }, maxItems: 20 },
       blocks: { type: "array", items: BLOCK_SCHEMA, minItems: 1, maxItems: 40 },
-      attachmentIds: { type: "array", items: { type: "string" }, maxItems: 5, description: "Ids returned by generate_file." },
+      attachmentIds: { type: "array", items: { type: "string" }, maxItems: 5, description: "Files to attach: ids returned by generate_file, or filenames as listed by list_files (newest match wins)." },
       confirmed: { type: "boolean", default: false },
     },
   },
@@ -261,6 +261,13 @@ defineTool({
       error: { type: ["string", "null"] },
     },
   },
+  // Attachments are resolved before the confirmation prompt: a name that does
+  // not match one of the dispatcher's files fails here, not after "Confirm".
+  async precheck({ attachmentIds = [] }, { user }) {
+    for (const id of attachmentIds) {
+      if (!(await findGeneratedFile(id, user))) throw NotFound(`No file "${id}" among your generated files. Call list_files to see what exists, or generate it first with generate_file.`);
+    }
+  },
   async handler({ subject, to, blocks, attachmentIds = [], confirmed }, { user, conversationId }) {
     assertBlocks(blocks);
     const recipients = validateRecipients(to?.length ? to : [user.email]);
@@ -270,8 +277,8 @@ defineTool({
 
     const attachments = [];
     for (const id of attachmentIds) {
-      const found = await readGeneratedFile(id, user);
-      if (!found) throw NotFound(`No generated file ${id}. Generate it first with generate_file.`);
+      const found = await findGeneratedFile(id, user);
+      if (!found) throw NotFound(`No file "${id}" among your generated files. Call list_files to see what exists, or generate it first with generate_file.`);
       attachments.push({ filename: found.filename, content: found.buffer, bytes: found.buffer.length });
     }
 
@@ -304,3 +311,35 @@ async function fetchPdf(path, user) {
   // looks like success to everyone except the recipient.
   return buffer.length > 500 && buffer.subarray(0, 4).toString() === "%PDF" ? buffer : null;
 }
+
+
+// ── The dispatcher's earlier files ────────────────────────────────────────────
+// A new conversation knows nothing about files made in an earlier one. This is
+// how "email me the brief from this morning" finds it.
+defineTool({
+  name: "list_files",
+  permission: "user",
+  description:
+    "The files you generated earlier for this dispatcher (PDF, DOCX, XLSX, CSV) — id, filename, size, when. Use before send_email when the user refers to a file from an earlier conversation, or asks what files exist. Files are kept 30 days.",
+  sourceLabel: () => "Internal · generated files",
+  input: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      query: { type: "string", maxLength: 120, description: "Filter on filename or title, case-insensitive." },
+      limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+    },
+  },
+  output: {
+    type: "object",
+    required: ["count", "files"],
+    properties: {
+      count: { type: "integer" },
+      files: { type: "array", items: { type: "object", properties: { id: { type: "string" }, filename: { type: "string" }, title: { type: ["string", "null"] }, kind: { type: ["string", "null"] }, bytes: { type: ["integer", "null"] }, createdAt: { type: "string" }, downloadPath: { type: "string" } } } },
+    },
+  },
+  async handler({ query, limit = 20 }, { user }) {
+    const rows = await listGeneratedFiles(user, { limit, query });
+    return { count: rows.length, files: rows.map((r) => ({ id: r.id, filename: r.filename, title: r.title ?? null, kind: r.kind ?? null, bytes: r.bytes ?? null, createdAt: r.created_at, downloadPath: `/agent/api/files/${r.id}` })) };
+  },
+});

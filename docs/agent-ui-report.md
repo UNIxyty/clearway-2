@@ -199,6 +199,16 @@ genuine under-route (`runway dimensions at EYVI` → fast), the classifier's kno
 - The `api/confirmations/… 404` console lines came from old threads re-checking prompts the service has
   long forgotten; a prompt more than ~35 min past its expiry is now settled as expired locally, no request.
 
+## 8g. Earlier files usable from any conversation (commit `__G_COMMIT__`)
+
+The files were on disk (the `/storage` volume is mounted and survives rebuilds); what failed was
+`send_email` being handed the *filename* the model had seen in an earlier reply, where it expected a
+generated-file id — and a new conversation had no way to look ids up. Now: `list_files` (the
+dispatcher's own generated files, newest first, filterable); attachments resolve by id **or** filename
+(newest match); a `precheck` hook runs before the confirmation prompt so a name that does not exist fails
+immediately instead of after "Confirm"; the email prompt reads `Send “subject” to you with 1
+attachment`. Rules verifier 15/15 on the final code.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

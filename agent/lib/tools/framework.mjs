@@ -196,7 +196,7 @@ const CHANGE_COPY = {
   close_flight_on_wall: () => "Close the flight on the wall",
   update_display_settings: () => "Change the wall display settings",
   undo_action: (i, t) => `Undo ${t ?? `action ${String(i.actionId ?? "").slice(0, 8)}`}`,
-  send_email: (i) => `Send an email to ${Array.isArray(i.to) ? i.to.join(", ") : i.to ?? ""}`,
+  send_email: (i) => `Send “${i.subject ?? "an email"}” to ${Array.isArray(i.to) && i.to.length ? i.to.join(", ") : "you"}${Array.isArray(i.attachmentIds) && i.attachmentIds.length ? ` with ${i.attachmentIds.length} attachment${i.attachmentIds.length === 1 ? "" : "s"}` : ""}`,
   email_document: (i) => `Email a document to ${Array.isArray(i.to) ? i.to.join(", ") : i.to ?? ""}`,
 };
 async function describeChange(tool, input, user) {
@@ -276,6 +276,18 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       return result;
     }
     if (!confirmationToken || origin !== "ui") {
+      // A tool may check its inputs BEFORE the user is asked to confirm — an
+      // attachment that does not exist, a recipient that is not allowed — so a
+      // prompt is never shown for a send that would fail after "Confirm".
+      if (tool.precheck) {
+        try { await tool.precheck(bare, { user, conversationId }); }
+        catch (error) {
+          const toolError = error instanceof ToolError ? error : new ToolError("INTERNAL", String(error?.message || error));
+          const result = { ok: false, error: toolError.code, message: toolError.message };
+          await record(result, false, toolError.code);
+          return result;
+        }
+      }
       const change = await describeChange(tool, bare, user);
       const issued = issueConfirmation({ user, toolName: name, input: bare, level, summary: change, targetId: bare.id ?? null, targetLabel: change.target ?? null, conversationId });
       const result = {

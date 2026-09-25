@@ -168,7 +168,7 @@ the wall console while ⌘J no longer did; per-platform recorded Ctrl+Alt+K for 
   and "can't read important/CAA" — the audit shows `list_important` succeeding with 63 rows. Both need
   the exact time and question to chase.
 
-## 8e. Three-way routing (commit `__RT_COMMIT__`)
+## 8e. Three-way routing (commit `1e15a16`)
 
 Operator decision 2026-09-25: the cheap router (Nova Micro) reads every request and picks **fast**
 (Haiku 4.5), **standard** (Sonnet) or **reasoning** (Opus) by task. Rules kept: the router never

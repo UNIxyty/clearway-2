@@ -217,6 +217,26 @@ IMPORTANT or CAA, so even the right kind would have 404'd. Now the block carries
 (limitation / important / caa / tier1) and the route lists and matches IMPORTANT/CAA on id — still the
 stored record, never the model's copy. Verified on the rig with a seeded IMPORTANT entry.
 
+## 8i. Voice input (commit `__V_COMMIT__`)
+
+Push-to-talk is now wired: hold the mic button or the voice shortcut (default ⌥ Space, editable) →
+the bar docks into the composer (Invoked → Listening with live waveform and timer) → release →
+Processing → the recording is transcribed once by ElevenLabs Scribe (`POST /api/voice/transcribe`,
+audio never stored; audit keeps length and language only) → the text is sent as a voice-originated
+message (rule 9 stays: a spoken change still needs the on-screen Confirm). Esc discards. First use shows
+the §8.2 permission card; a denied mic shows the §8.3 card; no mic / nothing heard / voice switched off
+are the spec's error rows. On the wall console the held shortcut opens the panel and records into it.
+Gated by the Voice capability in Agent settings.
+
+Stated deviations: the transcript does not stream while speaking and there is no uncertain-word popover
+(batch STT); low confidence leaves the text in the field to check. Double-tap overlay, floating bar
+without the panel, short-answer card and spoken replies (TTS) are not built. ICAO codes are the weak
+point of any STT — the agent asks when it is unsure (seen in the test), and a vocabulary boost is the
+next improvement.
+
+Verified: API round trip 0.96 s on a spoken sample; in the browser with a fake microphone: bar states,
+transcript sent with the mic mark, reply, Esc discard. Rules verifier 15/15.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

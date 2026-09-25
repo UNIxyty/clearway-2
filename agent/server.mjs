@@ -31,6 +31,7 @@ import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
+import { sttConfigured, transcribe } from "./lib/voice/stt.mjs";
 import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
@@ -280,6 +281,27 @@ const server = http.createServer(async (req, res) => {
       const filter = String(url.searchParams.get("filter") ?? "").split(",").filter(Boolean);
       return sendJson(res, { ok: true, ...(await searchConversations(user, { q: url.searchParams.get("q") ?? "", filter })) });
     }
+    // ── Voice: push-to-talk transcription (§4.23, §8) ─────────────────────
+    // Raw audio in, text out. The audio is never stored; the audit row keeps
+    // only the length and language. Gated by the Voice capability.
+    if (pathname === "/api/voice/transcribe" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (capsNow.voice === false) return sendJson(res, { ok: false, error: "CAPABILITY_OFF", message: "Voice is switched off in Agent settings." }, 403);
+      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not configured on this deployment." }, 503);
+      const started = Date.now();
+      const buffer = await readRawBody(req, 10 * 1024 * 1024 + 1024);
+      if (buffer.length < 1024) return sendJson(res, { ok: false, error: "nothing_heard", message: "Nothing heard." }, 400);
+      try {
+        const result = await transcribe({ buffer, mime: req.headers["content-type"] ?? null, languageHint: url.searchParams.get("language") || null });
+        const uncertain = !result.text || (result.languageProbability != null && result.languageProbability < 0.6);
+        await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length, chars: result.text.length, words: result.words, language: result.language, languageProbability: result.languageProbability, uncertain } });
+        return sendJson(res, { ok: true, text: result.text, language: normaliseLanguage(result.language) ?? result.language ?? null, languageProbability: result.languageProbability, uncertain, latencyMs: Date.now() - started });
+      } catch (error) {
+        await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length } });
+        return sendJson(res, { ok: false, error: "stt_failed", message: String(error?.message ?? error) }, 502);
+      }
+    }
+
     if (pathname === "/api/attachments" && req.method === "POST") {
       await assertMayUseAgent(user);
       const name = decodeURIComponent(url.searchParams.get("name") ?? "");

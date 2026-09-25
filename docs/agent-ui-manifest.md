@@ -17,12 +17,12 @@ pattern in the spec to follow.
 
 | # | Item | Spec § | States / variants | Animations (§14) | Data source | Status |
 |---|---|---|---|---|---|---|
-| A1 | Orb — canvas ring mark, geometry, DPR | 4.1 | idle · listening · thinking · speaking · error | O1–O6 | mic RMS / TTS level (`blocked:backend` for live levels; idle/thinking/error need none) | ✅ idle/thinking/error (canvas); listening/speaking levels blocked:backend (no mic/TTS) |
+| A1 | Orb — canvas ring mark, geometry, DPR | 4.1 | idle · listening · thinking · speaking · error | O1–O6 | mic RMS / TTS level (`blocked:backend` for live levels; idle/thinking/error need none) | ✅ idle/thinking/error/listening (live mic level); speaking blocked:backend (no TTS) |
 | A2 | Orb — avatar 26px, still | 4.1 | idle still · thinking (streaming) | O3 | have | ✅ |
-| A3 | Orb — composer voice button 22px | 4.1 | idle breathing · live | O1, O2 | — | blocked:backend (no STT — the voice button is not rendered rather than stubbed) |
+| A3 | Orb — composer voice button 22px | 4.1 | idle breathing · live | O1, O2 | — | ✅ composer voice button 22px — hold to talk, live level |
 | A4 | Orb — empty state 64px, overlay 120px, cards 30px | 4.1 | idle · error still | O1 | — | ✅ 64 empty state, 30 cards; 120 overlay blocked:backend |
 | A5 | Static ring mark (header, sidebar, chips) | 4.1 | — | — | — | ✅ |
-| A6 | Waveform — voice bar 56×18 / wall 48×16 / speaking 40×16 / short 32×14 / panel static | 4.2 | invoked · listening · low · speaking | W1 | mic bands / TTS (`blocked:backend` live) | blocked:backend (no live audio) |
+| A6 | Waveform — voice bar 56×18 / wall 48×16 / speaking 40×16 / short 32×14 / panel static | 4.2 | invoked · listening · low · speaking | W1 | mic bands / TTS (`blocked:backend` live) | ✅ bar variant 56×18 with live mic bands; speaking/wall variants blocked:backend |
 | A7 | User bubble — full page (16/16/4/16, 560) and panel (14/14/4/14, 330) | 4.3 | default · timestamp `DK · 07:42Z` (hover in panel) · voice-originated mic prefix · inline entity/command chips | — | have | ✅ |
 | A8 | User bubble — sending / failed / edit-retry | 4.3, 16.2 | — | — | — | partial — sending/failed built (spec default); edit/retry blocked:design |
 | A9 | Agent reply shell — avatar column, header line (full), block order | 4.4 | full · panel (no header) | — | have | ✅ |
@@ -80,8 +80,8 @@ pattern in the spec to follow.
 | A61 | Context chip — "Now on…" switch | 4.21 | — | — | have | present (built; not exercised in the browser run) |
 | A62 | Suggested questions — full page 4 cards | 4.22 | hover | H1 | live counts `small` (wall state) | ✅ |
 | A63 | Suggested questions — panel B1/B2/B3 sets | 4.22, 6.6 | — | H1 | `small` | ✅ B1 (EVRA), B2 (console, NOTAM Check) and B3 (no context) |
-| A64 | Compact voice bar — invoked/listening/uncertain/processing/error | 4.23 | 5 + 3 error rows | V1–V6, V8 | STT — `blocked:backend` (no ElevenLabs Scribe wiring) | blocked:backend |
-| A65 | Voice bar — placement, drag/snap, selected-row context pill | 4.23 | — | — | as A64 | blocked:backend |
+| A64 | Compact voice bar — invoked/listening/uncertain/processing/error | 4.23 | 5 + 3 error rows | V1–V6, V8 | STT — `blocked:backend` (no ElevenLabs Scribe wiring) | partial — invoked / listening / processing / error built (docked in the composer); live streaming transcript and the uncertain-word popover need streaming STT (batch STT used); low confidence pauses in the field instead |
+| A65 | Voice bar — placement, drag/snap, selected-row context pill | 4.23 | — | — | as A64 | blocked:design/backend — floating bar on a page without the panel not built (the hold opens the panel and records there) |
 | A66 | Voice bar — short-answer card 8 s, `Open in panel ⌘J` | 4.23 | — | V7 | as A64 | blocked:backend |
 | A67 | Voice bar over the wall display | 4.23, 16.2 #3 | — | — | **not built** (see report §4) | blocked:design — decision for you (see report) |
 | A68 | Voice overlay (large) — 5 states | 4.24 | idle · listening · thinking · speaking · error | V9, O1–O5 | as A64 | blocked:backend |
@@ -104,7 +104,7 @@ pattern in the spec to follow.
 | B7 | Panel — empty states B1 (airport) / B2 (wall console) / B3 (no context + recents) | 6.6 | 3 | — | `small` (live counts, recents `have`) | ✅ B1 (EVRA), B2 (wall console: NOTAM Check via the console dock), B3 (no context) |
 | B8 | Panel — replies at width (all card variants) | 6.7 | — | — | have | ✅ verbatim/confirmation/error/tool cards at 420; data cards present (no rig data) |
 | B9 | Panel — change behind the panel: ghost row, wall preview, applied row highlight, banner, Revert… | 6.8 | pending · applied · cancelled | P6, P7, P8 | page contract `small` (Limitations page) | partial — the panel now runs on the console (iframe dock, ⌘J, context follows the page); the ghost row / wall preview / applied-row highlight / banner need the console pages to react to agent writes (cross-app) |
-| B10 | Panel — voice docked in composer | 6.9 | — | — | as A64 | blocked:backend |
+| B10 | Panel — voice docked in composer | 6.9 | — | — | as A64 | ✅ voice docked in the panel composer |
 | B11 | Panel — History view (groups ABOUT/TODAY/YESTERDAY, search, footer) | 6.10 | list · empty · loading (empty/loading `blocked:design`) | — | have | ✅ |
 | B12 | Panel — loading / streaming / error / offline | 6.11 | 4 | A7 | have | ✅ |
 | B13 | Panel — expand to full page (`/agent/t/…`, "From Flights · KLJ7226" link, back) | 6.12 | — | P2 | have | ✅ |
@@ -115,7 +115,7 @@ pattern in the spec to follow.
 | B18 | Full page — empty state B1 (orb 64, headline, 4 cards) | 7.3 | — | O1 | have | ✅ |
 | B19 | Full page — thread, streaming/stop (B2), load order, focus, tab order | 7.4–7.6 | — | A6, A9, A10 | have | ✅ |
 | B20 | Full page — command palette 1c | 7.7 | `DECISION OPEN` | — | — | blocked:design (decision open — not built) |
-| B21 | Voice — order of events, permission card, unavailable card | 8 | 2 cards | — | as A64 | blocked:backend (no STT to proceed to after the permission card) |
+| B21 | Voice — order of events, permission card, unavailable card | 8 | 2 cards | — | as A64 | ✅ order of events (hold → invoked → listening → release → processing → sent as a voice message), permission card (§8.2), blocked card (§8.3), no-mic / didn't-catch errors |
 | B22 | History page — search, filters, grouped list, row chips/meta | 9 | list · empty · loading · no results (last three `blocked:design`) | H1 | have + `small` search | ✅ |
 | B23 | Knowledge base — header, stat cards, table, tier badges, status | 10 | — | — | have + `small` stats | ✅ |
 | B24 | Knowledge base — approval panel (pending/approved/reference/rejected), extraction check, uploader cannot approve | 10 | 4 | — | have (approve/reject); clause extraction preview `small` | ✅ pending → approved seen; reference/rejected built |
@@ -145,12 +145,12 @@ pattern in the spec to follow.
 | # | ID | Element | Status |
 |---|---|---|---|
 | D1 | O1 | Orb idle breathing | present (built; not exercised in the browser run) |
-| D2 | O2 | Orb listening | blocked:backend |
+| D2 | O2 | Orb listening | ✅ (live mic level drives the orb) |
 | D3 | O3 | Orb thinking | present (built; not exercised in the browser run) |
 | D4 | O4 | Orb speaking | blocked:backend |
 | D5 | O5 | Orb error (still) | present (built; not exercised in the browser run) |
 | D6 | O6 | Orb state colour 200 ms *(spec default)* | present (built; not exercised in the browser run) |
-| D7 | W1 | Waveform bars | blocked:backend |
+| D7 | W1 | Waveform bars | ✅ (bar bands from the mic) |
 | D8 | A6 | Streaming caret blink | ✅ |
 | D9 | A7 | Running step / loading dots / minimised dot pulse | present (built; not exercised in the browser run) |
 | D10 | A8 | Tool summary expand 160 ms *(spec default)* | present (built; not exercised in the browser run) |
@@ -160,9 +160,9 @@ pattern in the spec to follow.
 | D14 | C2 | Hold-to-delete fill 2000 ms linear (runs under reduced motion) | ✅ (seen mid-fill) |
 | D15 | C3 | Hold release 150 ms *(spec default)* | present (built; not exercised in the browser run) |
 | D16 | C4 | Destructive countdown 1 s steps (runs under reduced motion) | present (built; not exercised in the browser run) |
-| D17 | V1 | Voice bar entrance 120 ms | blocked:backend |
-| D18 | V2 | Voice bar width 150 ms *(spec default)* | blocked:backend |
-| D19 | V3 | Processing line 1400 ms | blocked:backend |
+| D17 | V1 | Voice bar entrance 120 ms | ✅ bar appears (record-in) |
+| D18 | V2 | Voice bar width 150 ms *(spec default)* | ✅ listening level |
+| D19 | V3 | Processing line 1400 ms | ✅ processing line |
 | D20 | V4 | Transcript scroll-off | blocked:backend |
 | D21 | V5 | Voice bar error hold 6 s / 3 s, fade 200 ms *(spec default)* | blocked:backend |
 | D22 | V6 | Voice bar exit 120 ms *(spec default)* | blocked:backend |
@@ -195,12 +195,12 @@ pattern in the spec to follow.
 | E1 | ⌘J / Ctrl+J | anywhere | Toggle panel | ✅ editable in Agent settings (default Mod+J: ⌘J / Ctrl+J) |
 | E2 | ⌘⇧J | panel open | Expand to full page | ✅ editable (default Mod+Shift+J) |
 | E3 | ⌘K | anywhere | Command palette (1c only) | blocked:design (decision open) |
-| E4 | hold ⌥ Space | anywhere | Compact voice bar | blocked:backend |
+| E4 | hold ⌥ Space | anywhere | Compact voice bar | ✅ hold the voice shortcut (default ⌥ Space; editable) — portal pages and the wall console |
 | E5 | double-tap ⌥ Space | anywhere | Overlay | blocked:backend |
 | E6 | ⇧ on release | voice | Flip reply mode | blocked:backend |
 | E7 | S / V | speaking / shown | Show instead / say instead | blocked:backend |
 | E8 | 1–3 | uncertain popover | Pick alternative | blocked:backend |
-| E9 | Esc | voice capture | Discard | blocked:backend |
+| E9 | Esc | voice capture | Discard | ✅ Esc discards while recording |
 | E10 | Esc | streaming / speaking | Stop | present (built; not exercised in the browser run) |
 | E11 | Esc | menu open | Close menu first | present (built; not exercised in the browser run) |
 | E12 | Esc | pending confirmation | Cancel | present (built; not exercised in the browser run) |
@@ -233,7 +233,7 @@ pattern in the spec to follow.
 | F6 | Confirmations server-verified, blocking, not optimistic, double-fire safe | double click, held Enter, replayed request → one execution; token bound to args hash | ✅ rules script 15/15 + browser |
 | F7 | Composer locked while pending | typing/sending refused while a prompt is open | ✅ |
 | F8 | Confirmations expire at 5 min, not reusable | clock-advance test → Expired record; old token refused | ✅ rules script (TTL 1500 ms) + countdown in the card |
-| F9 | Voice never confirms | chat "yes" with `inputMode: voice` while pending → nothing runs | ✅ rules script: spoken/typed “yes” changes nothing |
+| F9 | Voice never confirms | chat "yes" with `inputMode: voice` while pending → nothing runs | ✅ rules script: voice-origin tokens refused; a spoken message still needs the on-screen Confirm |
 | F10 | Verbatim never read aloud | TTS payload excludes verbatim blocks (blocked with voice) | blocked:backend (no TTS; the frame carries the not-read-aloud label) |
 | F11 | Offline never queues writes | offline + write attempt → refused; question queued | ✅ offline card queues the question only |
 | F12 | Every tool call runs as the requester | audit rows carry user; no service credentials in tool HTTP | ✅ rules script: model/voice-origin tokens refused |

@@ -15,6 +15,7 @@ import { C, SHADOW, mono } from "../ui/tokens";
 import { Icon, IconButton, Keycap } from "../ui/primitives";
 import Orb from "../ui/Orb";
 import { useKeybinds } from "../ui/keybinds";
+import { MicPermissionCard, VoiceBar, useVoiceInput, type VoiceResult } from "./VoiceBar";
 import { AGENT_BASE, type AgentContext } from "../types";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ export default function Composer({
   locked?: string | null;
   offline?: boolean;
   voiceEnabled?: boolean;
-  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null }) => void;
+  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null } }) => void;
   onStop: () => void;
   onVoice?: () => void;
   autoFocus?: boolean;
@@ -147,6 +148,27 @@ export default function Composer({
 }) {
   const [value, setValue] = useState("");
   const kb = useKeybinds();
+  const voiceOn = voiceEnabled && kb.caps.voice !== false;
+  // Push-to-talk (§4.23 docked, §8.1): the transcript is sent as a voice-
+  // originated message unless confidence was low — then it waits in the
+  // field for the dispatcher to check.
+  const voice = useVoiceInput({
+    onResult: (r: VoiceResult) => {
+      if (r.uncertain) { setValue(r.text); setHint("Low confidence — check what I heard, then press ⏎."); inputRef.current?.focus(); return; }
+      onSend(r.text, [], { mentions: [], command: null, voice: { language: r.language } });
+    },
+    onTypeInstead: () => inputRef.current?.focus(),
+  });
+  const voiceActive = voice.state === "invoked" || voice.state === "listening" || voice.state === "processing" || voice.state === "error";
+  // Hold the voice shortcut anywhere on the page (or the console forwards it): keydown starts, keyup ends, Esc discards.
+  useEffect(() => {
+    if (!voiceOn || locked || offline) return;
+    const down = (e: KeyboardEvent) => { if (e.repeat) return; if (kb.matches(e, "voice")) { e.preventDefault(); void voice.start(); } else if (e.key === "Escape" && voiceActive) { e.preventDefault(); voice.cancel(); } };
+    const up = (e: KeyboardEvent) => { if (voice.state === "idle" || voice.state === "error") return; const b = kb.binds.voice.split("+"); const key = b[b.length - 1]; if ((e.key === " " ? "Space" : e.key.length === 1 ? e.key.toUpperCase() : e.key) === key || ["Alt", "Meta", "Control", "Shift"].includes(e.key)) void voice.stop(); };
+    const forwarded = (e: Event) => { const on = (e as CustomEvent<{ on: boolean }>).detail?.on; if (on) void voice.start(); else void voice.stop(); };
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("cw-agent-voice", forwarded);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("cw-agent-voice", forwarded); };
+  }, [voiceOn, locked, offline, kb, voice, voiceActive]);
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [query, setQuery] = useState("");
@@ -316,6 +338,7 @@ export default function Composer({
         {hint && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
         {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
 
+        {(voice.state === "permission" || voice.state === "blocked") && <MicPermissionCard v={voice} panel={panel} holdLabel={kb.label("voice")} />}
         <div style={{ background: locked ? C.sidebar : C.surface, border: `1px solid ${C.borderControl}`, borderRadius: boxRadius, boxShadow: panel ? "none" : SHADOW.composer }} className="ag-composer">
           {attachments.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 12px 0" }}>{attachments.map((a) => <AttachmentChipView key={a.localId} a={a} onRemove={() => setAttachments((l) => l.filter((x) => x.localId !== a.localId))} onRetry={() => { setAttachments((l) => l.map((x) => (x.localId === a.localId ? { ...x, state: "uploading", progress: 0 } : x))); startUpload(a); }} />)}</div>}
           {command && (
@@ -335,6 +358,8 @@ export default function Composer({
           )}
           {locked ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "11px 13px" : "14px 16px", fontSize: panel ? 13.5 : 14, color: C.muted }}><Icon name="lock" size={14} color={C.faint} />{locked}</div>
+          ) : voiceActive ? (
+            <VoiceBar v={voice} panel={panel} />
           ) : (
             <textarea ref={inputRef} rows={1} value={value} disabled={streaming && false} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} placeholder={placeholder} aria-label="Message"
               style={{ width: "100%", border: "none", outline: "none", resize: "none", padding: panel ? "11px 13px 4px" : "14px 16px 6px", fontFamily: "inherit", fontSize: panel ? 14 : 15, lineHeight: panel ? 1.5 : 1.6, color: C.ink, background: "transparent", minHeight: panel ? 38 : 48, maxHeight: 8 * 24, boxSizing: "border-box", overflowY: "auto" }} />
@@ -346,9 +371,12 @@ export default function Composer({
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <>hold <span style={mono()}>{kb.label("voice")}</span></> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span>hold <span style={mono()}>{kb.label("voice")}</span> to talk</span></>}</span>
-            {voiceEnabled && (
-              <button type="button" title="Hold to talk" aria-label="Hold to talk" onClick={onVoice} className="ag-hover ag-focus" style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
-                <Orb size={22} state="idle" title="Voice" />
+            {voiceOn && !locked && !offline && (
+              <button type="button" title={`Hold to talk · ${kb.label("voice")}`} aria-label="Hold to talk" aria-pressed={voice.state === "listening"} className="ag-hover ag-focus"
+                onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLButtonElement).setPointerCapture?.(e.pointerId); void voice.start(); }}
+                onPointerUp={() => void voice.stop()} onPointerCancel={() => voice.cancel()} onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); void voice.start(); } }} onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") void voice.stop(); }}
+                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${voice.state === "listening" ? C.primary : C.border}`, background: voice.state === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0, touchAction: "none" }}>
+                <Orb size={22} state={voice.state === "listening" ? "listening" : voice.state === "processing" ? "thinking" : "idle"} level={voice.state === "listening" ? Math.max(...voice.levels) : 0} title="Voice" />
               </button>
             )}
             {streaming ? (

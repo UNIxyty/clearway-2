@@ -33,6 +33,7 @@ export default function EmbeddedPanel() {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || !e.data || typeof e.data !== "object") return;
       if (e.data.type === "cw-agent-context") setContext(parseContext(JSON.stringify(e.data.context)));
+      if (e.data.type === "cw-agent-voice") window.dispatchEvent(new CustomEvent("cw-agent-voice", { detail: { on: Boolean(e.data.on) } }));
     };
     const onKey = (e: KeyboardEvent) => { if (matchesBind(e, openBind, os)) { e.preventDefault(); tell({ type: "cw-agent-toggle" }); } };
     window.addEventListener("message", onMessage); window.addEventListener("keydown", onKey);

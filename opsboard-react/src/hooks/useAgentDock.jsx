@@ -11,6 +11,7 @@ import { t } from '../components/console/ui';
 //   panel → host   cw-agent-minimised { on }               tab on the right edge
 //   panel → host   cw-agent-expand    { url }              open the full page
 //   panel → host   cw-agent-toggle                          ⌘J pressed inside the iframe
+//   host → panel   cw-agent-voice     { on }               the voice shortcut held / released on the page
 // The AgentNavRow component lives in components/console/AgentDock.jsx.
 // A user without a grant sees nothing: the same availability probe the
 // portal uses gates the shortcut, the sidebar row and the dock itself.
@@ -19,9 +20,9 @@ const PANEL_WIDTH = 420;
 
 // Shortcut binds — same grammar as components/agent/ui/keybinds.ts: "Mod+Shift+J",
 // Mod = ⌘ on a Mac, Ctrl elsewhere. Kept tiny here rather than imported across apps.
-const DEFAULT_BINDS = { open: 'Mod+J', expand: 'Mod+Shift+J', confirm: 'Mod+Enter' };
+const DEFAULT_BINDS = { open: 'Mod+J', expand: 'Mod+Shift+J', confirm: 'Mod+Enter', voice: 'Alt+Space' };
 const IS_MAC = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(`${navigator.platform} ${navigator.userAgent}`);
-function activeBinds(config) { return config.perPlatform ? (IS_MAC ? config.mac : config.windows) : config.shared; }
+function activeBinds(config) { return { ...DEFAULT_BINDS, ...(config.perPlatform ? (IS_MAC ? config.mac : config.windows) : config.shared) }; }
 function parseBind(bind) { const parts = String(bind).split('+'); const key = parts.pop(); return { mod: parts.includes('Mod'), meta: parts.includes('Meta'), ctrl: parts.includes('Ctrl'), alt: parts.includes('Alt'), shift: parts.includes('Shift'), key }; }
 function matchesBind(e, bind) {
   const b = parseBind(bind); const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key;
@@ -70,11 +71,16 @@ export function useAgentDock({ page, label }) {
 
   useEffect(() => {
     if (!available) return undefined;
+    const tell = (on) => frameRef.current?.contentWindow?.postMessage({ type: 'cw-agent-voice', on }, window.location.origin);
+    let holding = false;
     const onKey = (e) => {
-      if (matchesBind(e, binds.open)) { e.preventDefault(); setOpen((v) => !v); setMinimised(false); }
+      if (matchesBind(e, binds.open)) { e.preventDefault(); setOpen((v) => !v); setMinimised(false); return; }
+      // Voice: holding the shortcut on the page opens the panel (if closed) and records into it.
+      if (!e.repeat && matchesBind(e, binds.voice)) { e.preventDefault(); holding = true; setOpen(true); setMinimised(false); setTimeout(() => tell(true), 350); }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onUp = (e) => { if (!holding) return; const key = binds.voice.split('+').pop(); const k = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key; if (k === key || ['Alt', 'Meta', 'Control', 'Shift'].includes(e.key)) { holding = false; tell(false); } };
+    window.addEventListener('keydown', onKey); window.addEventListener('keyup', onUp);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onUp); };
   }, [available, binds]);
 
   useEffect(() => {

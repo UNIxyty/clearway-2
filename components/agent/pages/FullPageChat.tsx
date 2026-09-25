@@ -108,7 +108,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
           </div>
         </div>
 
-        <Composer context={null} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, command: meta.command })} onStop={t.stop} voiceEnabled={false} />
+        <Composer context={null} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
       </div>
     </PortalShell>
   );

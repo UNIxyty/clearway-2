@@ -84,16 +84,19 @@ export function publishKeybinds(config: KeybindConfig) {
 }
 
 /** The organisation's binds, resolved for this machine. Cached per tab so keycaps never flash the defaults. */
-export function useKeybinds(): { config: KeybindConfig; binds: BindSet; os: Platform; label: (a: BindAction) => string; matches: (e: KeyboardEvent, a: BindAction) => boolean } {
+export type Capabilities = Record<string, boolean>;
+let capsCache: Capabilities | null = null;
+export function useKeybinds(): { config: KeybindConfig; binds: BindSet; os: Platform; caps: Capabilities; label: (a: BindAction) => string; matches: (e: KeyboardEvent, a: BindAction) => boolean } {
   const [config, setConfig] = useState<KeybindConfig>(() => (typeof window === "undefined" ? DEFAULT_CONFIG : readCache() ?? DEFAULT_CONFIG));
   const [os, setOs] = useState<Platform>("mac");
+  const [caps, setCaps] = useState<Capabilities>(() => capsCache ?? {});
   useEffect(() => {
     setOs(platform());
     const onChange = (e: Event) => setConfig((e as CustomEvent<KeybindConfig>).detail);
     window.addEventListener(EVENT, onChange);
-    fetch(`${AGENT_BASE}/api/settings`, { credentials: "same-origin", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((b) => { if (b?.ok && b.keybinds) { setConfig(b.keybinds); try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(b.keybinds)); } catch { /* private mode */ } } }).catch(() => {});
+    fetch(`${AGENT_BASE}/api/settings`, { credentials: "same-origin", cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((b) => { if (b?.ok && b.keybinds) { setConfig(b.keybinds); try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(b.keybinds)); } catch { /* private mode */ } } if (b?.ok && Array.isArray(b.capabilities)) { const next: Capabilities = {}; for (const c of b.capabilities) next[c.key] = Boolean(c.enabled); capsCache = next; setCaps(next); } }).catch(() => {});
     return () => window.removeEventListener(EVENT, onChange);
   }, []);
   const binds = activeSet(config, os);
-  return { config, binds, os, label: (a) => label(binds[a], os), matches: (e, a) => matches(e, binds[a], os) };
+  return { config, binds, os, caps, label: (a) => label(binds[a], os), matches: (e, a) => matches(e, binds[a], os) };
 }

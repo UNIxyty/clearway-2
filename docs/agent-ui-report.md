@@ -217,7 +217,7 @@ IMPORTANT or CAA, so even the right kind would have 404'd. Now the block carries
 (limitation / important / caa / tier1) and the route lists and matches IMPORTANT/CAA on id — still the
 stored record, never the model's copy. Verified on the rig with a seeded IMPORTANT entry.
 
-## 8i. Voice input (commit `__V_COMMIT__`)
+## 8i. Voice input (commit `4cb0923`)
 
 Push-to-talk is now wired: hold the mic button or the voice shortcut (default ⌥ Space, editable) →
 the bar docks into the composer (Invoked → Listening with live waveform and timer) → release →

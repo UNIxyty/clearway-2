@@ -1394,7 +1394,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 7 — @ picker all types, NOTAM text/boxes, DateField, hover fix, voice bind, show/close flight on wall, model line | 9969cb8 | yes | yes — 2026-09-24 23:48Z (portal build yrzZaEQeWyxjo4BP1wb9x; agent-service rebuilt) |
 | 8 — three-way routing (fast / standard / reasoning by task) + High-knowledge switch + route shown under replies | 1e15a16 | yes | yes — 2026-09-25 00:05Z (portal build K1V0YGmfwiZDQgt72L_8l; agent-service rebuilt) |
 | 9 — inline previews (no downloads on reload), thread URLs, 100 MB raw knowledge uploads with progress, quiet expired prompts | 1a3f5a4 | yes | yes — 2026-09-25 00:20Z (portal build gEs6xurBA6v3K3PODUNui; agent-service rebuilt) |
-| 10 — list_files, attachments by filename, precheck before confirmation | __G_COMMIT__ | yes | __DEPLOYED7__ |
+| 10 — list_files, attachments by filename, precheck before confirmation | 6c92217 | yes | __DEPLOYED7__ |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

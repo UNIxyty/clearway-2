@@ -199,7 +199,7 @@ genuine under-route (`runway dimensions at EYVI` → fast), the classifier's kno
 - The `api/confirmations/… 404` console lines came from old threads re-checking prompts the service has
   long forgotten; a prompt more than ~35 min past its expiry is now settled as expired locally, no request.
 
-## 8g. Earlier files usable from any conversation (commit `__G_COMMIT__`)
+## 8g. Earlier files usable from any conversation (commit `6c92217`)
 
 The files were on disk (the `/storage` volume is mounted and survives rebuilds); what failed was
 `send_email` being handed the *filename* the model had seen in an earlier reply, where it expected a

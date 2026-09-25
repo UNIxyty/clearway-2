@@ -40,7 +40,6 @@ async function agentFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(`${AGENT_BASE}${path}`, { credentials: "same-origin", cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
   return { status: res.status, body: await res.json().catch(() => null) };
 }
-function toBase64(buffer: ArrayBuffer): string { const bytes = new Uint8Array(buffer); let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(binary); }
 
 export default function KnowledgePage() {
   const { email, isDeveloper } = useIdentity();
@@ -252,20 +251,35 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
   const [title, setTitle] = useState(""); const [source, setSource] = useState(""); const [version, setVersion] = useState("");
   const [effectiveDate, setEffectiveDate] = useState(""); const [country, setCountry] = useState(""); const [icao, setIcao] = useState("");
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [notice, setNotice] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   async function upload() {
-    if (!file || busy) return; setBusy(true); setError(null);
+    if (!file || busy) return; setBusy(true); setError(null); setProgress(0);
     try {
-      const { status, body } = await agentFetch("/api/knowledge/documents", { method: "POST", body: JSON.stringify({ filename: file.name, mime: file.type || null, contentBase64: toBase64(await file.arrayBuffer()), title: title.trim() || file.name, source: source.trim() || null, version: version.trim() || null, effectiveDate: effectiveDate || null, country: country.trim() || null, icao: icao.trim().toUpperCase() || null }) });
+      if (file.size > 100 * 1024 * 1024) throw new Error("Files are limited to 100 MB.");
+      const q = new URLSearchParams({ name: file.name, title: title.trim() || file.name });
+      for (const [k, v] of [["source", source.trim()], ["version", version.trim()], ["effectiveDate", effectiveDate], ["country", country.trim()], ["icao", icao.trim().toUpperCase()]] as const) if (v) q.set(k, v);
+      // Raw body with progress — a manual-sized PDF never fits a JSON body.
+      const { status, body } = await new Promise<{ status: number; body: { ok?: boolean; message?: string; proposal?: { tier: string; confidence?: number | null; reason: string } | null } | null }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${AGENT_BASE}/api/knowledge/documents?${q.toString()}`);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.withCredentials = true;
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
+        xhr.onload = () => { let parsed = null; try { parsed = JSON.parse(xhr.responseText); } catch { parsed = null; } resolve({ status: xhr.status, body: parsed }); };
+        xhr.onerror = () => reject(new Error("The upload failed — check the connection and try again."));
+        xhr.send(file);
+      });
       if (status !== 200 || !body?.ok) throw new Error(body?.message || `Upload failed (HTTP ${status}).`);
       const p = body.proposal;
       setNotice(p ? `Uploaded. Proposed ${p.tier === "tier1" ? "authoritative" : "reference"}${p.confidence != null ? ` at ${Math.round(p.confidence * 100)}% confidence` : ""}: ${p.reason}` : "Uploaded. Text could not be extracted automatically — review before approving.");
       await onDone();
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
   }
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700 }}>Upload a document</div>
-      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>Text, Markdown, CSV or JSON is classified automatically and proposes a tier. Anything else is stored and waits for an approver to read it. The original is always kept.</div>
+      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>Text, Markdown, CSV or JSON is classified automatically and proposes a tier. Anything else is stored and waits for an approver to read it. The original is always kept. Up to 100 MB.</div>
+      {progress !== null && <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 999, background: C.divider, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: C.primary, transition: "width 120ms linear" }} /></div>}
       {notice && <div style={{ fontSize: 13, color: C.ok }}>{notice}</div>}
       {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -273,7 +287,7 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
           <FieldLabel>File</FieldLabel>
           <label style={{ display: "flex", alignItems: "center", gap: 10, border: `1px dashed ${C.borderControl}`, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 13 }}>
             <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0] ?? null; setFile(f); if (f && !title) setTitle(f.name.replace(/\.[^.]+$/, "")); }} />
-            <span style={{ fontWeight: 600, color: C.primary }}>Choose file</span>
+            <span style={{ fontWeight: 600, color: C.primary }}>{progress !== null ? `Uploading ${progress}%` : "Choose file"}</span>
             <span style={{ color: file ? C.ink : C.faint }}>{file ? `${file.name} · ${kb(file.size)}` : "no file chosen"}</span>
           </label>
         </div>

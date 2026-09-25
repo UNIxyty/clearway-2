@@ -186,7 +186,7 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
       {!panel && (
         <div style={{ width: 132, background: C.sidebar, borderRight: `1px solid ${C.divider}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
           {isPdf
-            ? <object data={`${file.downloadPath}#page=1&toolbar=0&navpanes=0`} type="application/pdf" aria-label="Page 1 preview" style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", pointerEvents: "none" }} />
+            ? <object data={`${file.downloadPath}?inline=1#page=1&toolbar=0&navpanes=0`} type="application/pdf" aria-label="Page 1 preview" style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", pointerEvents: "none" }} />
             : <span style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", display: "flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 12, fontWeight: 700 }), color: C.muted }}>{ext}</span>}
         </div>
       )}
@@ -199,7 +199,7 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
         {file.summary && <span style={{ fontSize: 13, lineHeight: 1.5, color: C.muted }}>{file.summary}</span>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <a href={file.downloadPath} download={file.filename} style={{ textDecoration: "none" }}><Button variant="primary" size="sm" icon="download">Download</Button></a>
-          <a href={file.downloadPath} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><Button variant="secondary" size="sm">Preview</Button></a>
+          <a href={`${file.downloadPath}?inline=1`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><Button variant="secondary" size="sm">Preview</Button></a>
           <Button variant="secondary" size="sm" onClick={() => onSend?.(file)} disabled={!onSend}>Send…</Button>
         </div>
       </div>

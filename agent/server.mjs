@@ -90,7 +90,7 @@ import { wallGet as wallGetForServer } from "./lib/tools/http.mjs";
 /** Raw bytes for an upload, bounded. Anything past the cap ends the request. */
 async function readRawBody(req, maxBytes) {
   const chunks = []; let size = 0;
-  for await (const chunk of req) { size += chunk.length; if (size > maxBytes) throw BadRequest("The file is over the 25 MB limit."); chunks.push(chunk); }
+  for await (const chunk of req) { size += chunk.length; if (size > maxBytes) throw BadRequest(`The file is over the ${Math.round(maxBytes / 1024 / 1024)} MB limit.`); chunks.push(chunk); }
   return Buffer.concat(chunks);
 }
 
@@ -348,9 +348,13 @@ const server = http.createServer(async (req, res) => {
       const id = decodeURIComponent(pathname.split("/").pop());
       const found = await readGeneratedFile(id, user);
       if (!found) return sendJson(res, { ok: false, error: "not_found", message: "No such file." }, 404);
+      // `?inline=1` is what the file card's preview pane and Preview button
+      // use: an attachment disposition inside an <object> made the browser
+      // download every file in the thread on each reload.
+      const inline = url.searchParams.get("inline") === "1";
       res.writeHead(200, {
         "content-type": found.mime || "application/octet-stream",
-        "content-disposition": `attachment; filename="${found.filename}"`,
+        "content-disposition": `${inline ? "inline" : "attachment"}; filename="${found.filename}"`,
         "cache-control": "private, max-age=300",
       });
       return res.end(found.buffer);
@@ -407,11 +411,24 @@ const server = http.createServer(async (req, res) => {
       if (user.agentRole !== "developer") {
         return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to upload documents." }, 403);
       }
-      const body = await readJsonBody(req);
-      const filename = String(body.filename || "").trim();
-      const contentBase64 = String(body.contentBase64 || "");
-      if (!filename || !contentBase64) throw BadRequest("filename and contentBase64 are required.");
-      const buffer = Buffer.from(contentBase64, "base64");
+      // Two shapes: the original (small) base64 JSON, and a RAW body with the
+      // file name and metadata in the query — the only way a manual-sized PDF
+      // gets past the JSON body cap. Raw uploads are bounded at 100 MB.
+      const isJson = /application\/json/i.test(String(req.headers["content-type"] ?? ""));
+      let body, buffer, filename;
+      if (isJson) {
+        body = await readJsonBody(req);
+        filename = String(body.filename || "").trim();
+        const contentBase64 = String(body.contentBase64 || "");
+        if (!filename || !contentBase64) throw BadRequest("filename and contentBase64 are required.");
+        buffer = Buffer.from(contentBase64, "base64");
+      } else {
+        filename = decodeURIComponent(url.searchParams.get("name") ?? "").trim();
+        if (!filename) throw BadRequest("A file name is required (?name=).");
+        buffer = await readRawBody(req, 100 * 1024 * 1024 + 1024);
+        const q = (k) => { const v = url.searchParams.get(k); return v ? decodeURIComponent(v) : null; };
+        body = { mime: req.headers["content-type"] ?? null, title: q("title"), source: q("source"), version: q("version"), effectiveDate: q("effectiveDate"), country: q("country"), icao: q("icao") };
+      }
       if (buffer.length === 0) throw BadRequest("The file is empty.");
 
       const document = await storeDocument({

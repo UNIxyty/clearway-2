@@ -45,6 +45,14 @@ export default function FullPageChat({ conversationId = null }: { conversationId
 
   useEffect(() => { fetch(`${AGENT_BASE}/api/settings`, { credentials: "same-origin", cache: "no-store" }).then((r) => r.json()).then((b) => { if (b?.ok) setSettings({ web: Boolean(b.capabilities?.find((c: { key: string; enabled: boolean }) => c.key === "web_search")?.enabled) }); }).catch(() => {}); }, []);
   useEffect(() => { const el = threadRef.current; if (el) el.scrollTop = el.scrollHeight; }, [t.messages.length]);
+  // Once the thread exists it owns a URL: /agent/t/{id}. Adopted in place (no
+  // remount) so a reload or a shared link comes back to the same thread instead
+  // of "New chat".
+  useEffect(() => {
+    if (!t.conversationId || conversationId === t.conversationId) return;
+    const url = `/agent/t/${encodeURIComponent(t.conversationId)}${from ? `?from=${encodeURIComponent(from)}` : ""}`;
+    if (window.location.pathname !== url.split("?")[0]) window.history.replaceState(window.history.state, "", url);
+  }, [t.conversationId, conversationId, from]);
   // ⌘⇧J from the full page moves the thread into the panel over the last console page.
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if (kb.matches(e, "expand")) { e.preventDefault(); toPanel(); } }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }); // eslint-disable-line react-hooks/exhaustive-deps
   const toPanel = () => {

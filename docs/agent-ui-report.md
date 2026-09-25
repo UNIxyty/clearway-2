@@ -185,6 +185,20 @@ genuine under-route (`runway dimensions at EYVI` → fast), the classifier's kno
 "METAR for EVRA" → `claude-haiku-4-5 · fast · by router`; a reconcile-all-limitations question →
 `claude-opus-4-6 · reasoning · by router`.
 
+## 8f. Files and uploads (commit `__F_COMMIT__`)
+
+- **Every file in a thread downloaded on reload**: the file card's preview `<object>` pointed at the
+  download URL, which is served `Content-Disposition: attachment`. The files route now honours
+  `?inline=1` (preview pane and Preview button); Download keeps the attachment. Verified: a thread with a
+  generated PDF reloads with zero download events.
+- **A thread now owns its URL**: `/agent` adopts `/agent/t/{id}` as soon as the conversation exists, so a
+  reload (or a shared link) comes back to the same thread instead of "New chat".
+- **Knowledge uploads were capped at 256 KB** (base64 JSON body → `400 body too large`). Uploads are now
+  a raw body with the metadata in the query, up to **100 MB**, with a progress bar. Verified with 1.7 MB
+  (API) and 1.5 MB (browser).
+- The `api/confirmations/… 404` console lines came from old threads re-checking prompts the service has
+  long forgotten; a prompt more than ~35 min past its expiry is now settled as expired locally, no request.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

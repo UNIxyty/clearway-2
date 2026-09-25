@@ -74,6 +74,9 @@ export function ConfirmationCard({
   // On mount (e.g. after a reload) ask the server what became of it.
   useEffect(() => {
     if (outcome) return;
+    // The service forgets a confirmation ~30 min after it expires; a prompt
+    // older than that is expired by definition — no request, no 404 in the console.
+    if (c.expiresAt && Date.now() - new Date(c.expiresAt).getTime() > 35 * 60_000) { settle({ status: "expired", at: c.expiresAt }); return; }
     let alive = true;
     fetchStatus(c.token).then((s) => {
       if (!alive || !s) { if (alive && !s) settle({ status: "expired", at: new Date().toISOString(), error: "This confirmation is no longer known to the service." }); return; }

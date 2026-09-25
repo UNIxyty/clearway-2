@@ -10,6 +10,8 @@
 // The agent carries the CALLER's session. There is no service account.
 
 import http from "node:http";
+import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
@@ -117,6 +119,33 @@ function normalizePath(pathname) {
   if (pathname === "/agent") return "/";
   if (pathname.startsWith("/agent/")) return pathname.slice("/agent".length);
   return pathname;
+}
+
+/**
+ * Send file bytes with HTTP Range support (206). PDF.js asks for byte ranges so
+ * the page the user needs arrives first (§V9 progressive load); the same helper
+ * serves generated files, knowledge originals and attachments.
+ */
+function sendFileBytes(req, res, { buffer, mime, filename, inline }) {
+  const total = buffer.length;
+  const base = {
+    "content-type": mime || "application/octet-stream",
+    "content-disposition": `${inline ? "inline" : "attachment"}; filename="${String(filename).replace(/"/g, "")}"`,
+    "accept-ranges": "bytes",
+    "cache-control": "private, max-age=300",
+  };
+  const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+  if (range && total > 0) {
+    let start = range[1] ? Number(range[1]) : NaN, end = range[2] ? Number(range[2]) : NaN;
+    if (Number.isNaN(start)) { start = Math.max(0, total - end); end = total - 1; }
+    else if (Number.isNaN(end) || end >= total) end = total - 1;
+    if (start > end || start >= total) { res.writeHead(416, { "content-range": `bytes */${total}` }); return res.end(); }
+    if (process.env.AGENT_LOG_RANGES === "true") process.stderr.write(`[files] range ${start}-${end}/${total} ${filename}\n`);
+    res.writeHead(206, { ...base, "content-range": `bytes ${start}-${end}/${total}`, "content-length": String(end - start + 1) });
+    return res.end(buffer.subarray(start, end + 1));
+  }
+  res.writeHead(200, { ...base, "content-length": String(total) });
+  return res.end(buffer);
 }
 
 // The tunnel routes `^/agent/.*` here, which also captures the portal's own
@@ -302,6 +331,67 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ── Attachment bytes (viewer E3): the owner only ─────────────────────
+    if (/^\/api\/attachments\/[^/]+$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const id = decodeURIComponent(pathname.split("/").pop());
+      const meta = await loadAttachment(id, user);
+      if (!meta) return sendJson(res, { ok: false, error: "not_found", message: "No such attachment." }, 404);
+      const buffer = await readFile(path.resolve(process.env.STORAGE_ROOT || "/storage", "attachments", id, meta.name)).catch(() => null);
+      if (!buffer) return sendJson(res, { ok: false, error: "not_found", message: "The attachment's file is missing." }, 404);
+      return sendFileBytes(req, res, { buffer, mime: meta.mime, filename: meta.name, inline: url.searchParams.get("inline") === "1" });
+    }
+
+    // ── Document metadata for the viewer (§V4.2): one shape for every source ──
+    if (/^\/api\/documents\/(knowledge|generated|attachment)\/[^/]+$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const [, , , source, rawId] = pathname.split("/");
+      const id = decodeURIComponent(rawId);
+      if (source === "knowledge") {
+        const d = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`).catch(() => null))?.[0];
+        if (!d) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+        const approved = d.tier === "tier1" && (d.status === "indexed" || d.status === "approved");
+        const pending = d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded";
+        return sendJson(res, { ok: true, document: {
+          key: `knowledge:${d.id}`, source: "knowledge", id: d.id, filename: d.filename, title: d.title, mime: d.mime, bytes: d.bytes,
+          url: `/agent/api/knowledge/documents/${d.id}/file?inline=1`, downloadUrl: `/agent/api/knowledge/documents/${d.id}/file`, sourceUrl: `/agent/knowledge`,
+          tier: "company", sourceName: "Knowledge base", fetchedAt: d.created_at, uploadedBy: d.uploaded_by_email ?? null,
+          revision: d.version || d.effective_date ? { label: [d.version ? `v${String(d.version).replace(/^v/i, "")}` : null, d.effective_date ? `eff. ${d.effective_date}` : null].filter(Boolean).join(" · ") } : null,
+          approval: approved ? { status: "authoritative", by: d.approved_by_email ?? null, at: d.approved_at ?? null } : pending ? { status: "awaiting", uploadedBy: d.uploaded_by_email ?? null, at: d.created_at } : d.status === "rejected" ? { status: "rejected" } : { status: "reference" },
+          canApprove: user.agentRole === "developer",
+        } });
+      }
+      if (source === "generated") {
+        const rows = await knowledgeRest(`agent_generated_files?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.userId)}&select=id,filename,title,kind,mime,bytes,created_at,conversation_id&limit=1`).catch(() => null);
+        const f = rows?.[0];
+        if (!f) return sendJson(res, { ok: false, error: "not_found", message: "No such file." }, 404);
+        return sendJson(res, { ok: true, document: { key: `generated:${f.id}`, source: "generated", id: f.id, filename: f.filename, title: f.title, mime: f.mime, bytes: f.bytes, url: `/agent/api/files/${f.id}?inline=1`, downloadUrl: `/agent/api/files/${f.id}`, sourceUrl: null, tier: "internal", sourceName: "Generated by the agent", fetchedAt: f.created_at, revision: null, approval: null } });
+      }
+      const meta = await loadAttachment(id, user);
+      if (!meta) return sendJson(res, { ok: false, error: "not_found", message: "No such attachment." }, 404);
+      return sendJson(res, { ok: true, document: { key: `attachment:${meta.id}`, source: "attachment", id: meta.id, filename: meta.name, title: meta.name, mime: meta.mime, bytes: meta.bytes, url: `/agent/api/attachments/${meta.id}?inline=1`, downloadUrl: `/agent/api/attachments/${meta.id}`, sourceUrl: null, tier: "attachment", sourceName: "Attachment", fetchedAt: meta.uploadedAt ?? null, revision: null, approval: null } });
+    }
+
+    // ── Citation / verbatim checks (§V6): the viewer reports what it found ──
+    // A citation the viewer could not locate, or a quoted clause whose file
+    // text differs, is a fact about the data and goes to the Activity log.
+    if (pathname === "/api/citations/check" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      const kind = body.kind === "verbatim" ? "verbatim.check" : "citation.check";
+      const found = body.found === true;
+      const conversationId = /^[0-9a-f-]{36}$/i.test(String(body.conversationId ?? "")) ? body.conversationId : null;
+      await audit({
+        kind, userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, conversationId,
+        toolName: kind === "verbatim.check" ? "verbatim.check" : "citation.check",
+        toolArgs: { document: String(body.documentKey ?? ""), page: body.page ?? null, citation: body.citation ?? null, span: String(body.span ?? "").slice(0, 400) },
+        success: found, error: found ? null : kind === "verbatim.check" ? "Verbatim mismatch — file text differs from the approved clause" : "Citation not found",
+        confirmationStatus: "not_required",
+        detail: { found, filename: body.filename ?? null, kind: kind === "verbatim.check" ? "data_error" : "citation" },
+      });
+      return sendJson(res, { ok: true, logged: !found });
+    }
+
     if (pathname === "/api/attachments" && req.method === "POST") {
       await assertMayUseAgent(user);
       const name = decodeURIComponent(url.searchParams.get("name") ?? "");
@@ -353,7 +443,7 @@ const server = http.createServer(async (req, res) => {
         const rows = await knowledgeRest2(`agent_tier1_records?id=eq.${encodeURIComponent(id)}&retired_at=is.null&select=*&limit=1`).catch(() => null);
         const r = rows?.[0];
         if (!r || !r.approved_at) return notFound();
-        return sendJson(res, { ok: true, record: { kind, id: r.id, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
+        return sendJson(res, { ok: true, record: { kind, id: r.id, documentId: r.document_id ?? null, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
       }
       // Limitations have a by-id route on the wall; IMPORTANT and CAA only have
       // list routes, so those are listed and matched on id — still the stored
@@ -383,12 +473,7 @@ const server = http.createServer(async (req, res) => {
       // use: an attachment disposition inside an <object> made the browser
       // download every file in the thread on each reload.
       const inline = url.searchParams.get("inline") === "1";
-      res.writeHead(200, {
-        "content-type": found.mime || "application/octet-stream",
-        "content-disposition": `${inline ? "inline" : "attachment"}; filename="${found.filename}"`,
-        "cache-control": "private, max-age=300",
-      });
-      return res.end(found.buffer);
+      return sendFileBytes(req, res, { buffer: found.buffer, mime: found.mime, filename: found.filename, inline });
     }
 
     // ── Email: prepare → preview → send ───────────────────────────────────
@@ -580,13 +665,10 @@ const server = http.createServer(async (req, res) => {
       const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
       const document = rows?.[0];
       if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
-      const buffer = await readDocumentFile(document.storage_key);
-      res.writeHead(200, {
-        "content-type": document.mime || "application/octet-stream",
-        "content-disposition": `attachment; filename="${document.filename}"`,
-        "cache-control": "private, max-age=300",
-      });
-      return res.end(buffer);
+      let buffer;
+      try { buffer = await readDocumentFile(document.storage_key); }
+      catch (error) { if (error?.code === "ENOENT") return sendJson(res, { ok: false, error: "file_missing", message: "The stored file is missing from storage." }, 404); throw error; }
+      return sendFileBytes(req, res, { buffer: buffer, mime: document.mime, filename: document.filename, inline: url.searchParams.get("inline") === "1" });
     }
 
     // ── Conversations: server-side history (the panel, the full page and a
@@ -686,6 +768,8 @@ async function handleChat(req, res, user) {
   await appendMessage({
     conversationId, role: "user",
     content: attachments.length ? `${question}\n\n${attachments.map((a) => `[Attached: ${a.name} · ${a.chars.toLocaleString("en-GB")} chars]`).join("\n")}` : question,
+    // The chips above a sent bubble open in the viewer (§V3 E3), so the ids travel with the message.
+    blocks: attachments.length ? { attachments: attachments.map((a) => ({ id: a.id, name: a.name, bytes: a.bytes ?? null, mime: a.mime ?? null })) } : null,
   });
 
   // ── Routing ─────────────────────────────────────────────────────────────
@@ -738,7 +822,9 @@ async function handleChat(req, res, user) {
 
   // Context the user was looking at, given to the model as operator framing
   // rather than mixed into their message — it is not something they typed.
-  const contextLine = body.context?.label
+  const contextLine = body.context?.kind === "document" && body.context?.document
+    ? `The user is reading a document in the viewer: "${String(body.context.document.filename ?? body.context.label)}" (${String(body.context.document.source ?? "file")} ${String(body.context.document.id ?? "")})${body.context.page ? `, currently on page ${body.context.page}${body.context.pages ? ` of ${body.context.pages}` : ""}` : ""}. "This document", "this page" and similar refer to it.`
+    : body.context?.label
     ? `The user is currently looking at: ${body.context.label}${body.context.icao ? ` (${body.context.icao})` : ""}.`
     : null;
   // Voice is a different risk profile, not a different agent. It is carried as

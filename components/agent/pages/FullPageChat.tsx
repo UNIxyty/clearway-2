@@ -14,12 +14,14 @@ import { Button, HeaderPill, IconButton, Icon, dayTimeZ } from "../ui/primitives
 import Orb from "../ui/Orb";
 import AgentStyles from "../ui/AgentStyles";
 import Composer from "../thread/Composer";
-import { SuggestedQuestions, suggestionsFor, useLiveSuggestions } from "../thread/ContextChip";
+import { ContextChip, SuggestedQuestions, suggestionsFor, useLiveSuggestions } from "../thread/ContextChip";
 import { AgentReply, UserBubble } from "../thread/Message";
 import { OfflineCard } from "../thread/ErrorCard";
 import { useThread } from "../useThread";
 import { AGENT_BASE, type AgentContext } from "../types";
 import { useKeybinds } from "../ui/keybinds";
+import { useViewerOptional } from "../viewer/ViewerContext";
+import { PANEL, VIEWER } from "../ui/tokens";
 
 function useAvailability() {
   const [state, setState] = useState<"checking" | "yes" | "no">("checking");
@@ -40,6 +42,15 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   const context: AgentContext | null = useMemo(() => (from ? { kind: "page", label: from } : null), [from]);
   const t = useThread({ context, initialConversationId: conversationId, initials });
   const kb = useKeybinds();
+  const viewer = useViewerOptional();
+  useEffect(() => { viewer?.setConversationId(t.conversationId); }, [t.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { viewer?.setFrom("Chat"); }, [viewer]);
+  // §V10 B5: while a document is open the thread becomes a right-hand column (420; 360 below 1400 of content width).
+  const docOpen = Boolean(viewer?.open);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => { const f = () => setNarrow(window.innerWidth - (document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248) < VIEWER.panelNarrowBelow); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+  const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
+  useEffect(() => { if (docContext) t.setPinnedContext(docContext); }, [docContext?.label, docContext?.page]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useLiveSuggestions(null);
   const empty = useMemo(() => suggestionsFor(null, live, true), [live]);
 
@@ -73,18 +84,19 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   return (
     <PortalShell crumb="Ops Agent" footer={false} wide>
       <AgentStyles />
-      <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 0px)", minHeight: 0 }}>
+      <div data-cw-thread-column={docOpen ? "" : undefined} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 0px)", minHeight: 0, ...(docOpen ? { position: "fixed", top: 0, right: 0, bottom: 0, width: narrow ? PANEL.minWidth : PANEL.width, zIndex: 31, background: C.surface, borderLeft: `1px solid ${C.border}` } : {}) }}>
         {/* Header 60 (§7.2) */}
-        <div style={{ height: 60, flex: "none", display: "flex", alignItems: "center", gap: 14, padding: "0 24px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ height: 60, flex: "none", display: "flex", alignItems: "center", gap: docOpen ? 8 : 14, padding: docOpen ? "0 16px" : "0 24px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
           <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontSize: 16, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title ?? (msgCount ? t.messages[0].content.slice(0, 60) : "New chat")}</span>
             {msgCount > 0 && <span style={{ ...mono({ fontSize: 12 }), color: C.faint }} suppressHydrationWarning>{started ? dayTimeZ(started, { alwaysDate: true }).replace(/ (\d{2}:\d{2}Z)$/, " · started $1") : ""} · {msgCount} message{msgCount === 1 ? "" : "s"}{from ? <> · from <span style={{ color: C.primaryHover }}>{from}</span></> : null}</span>}
           </div>
-          {settings?.web && <HeaderPill icon="globe" iconColor={C.warn}>Web search on</HeaderPill>}
-          <HeaderPill icon="shield-check">Changes: ask first</HeaderPill>
-          <span style={{ width: 1, height: 24, background: C.border }} />
+          {/* As a 420/360 column beside a document (§V10 B5) the pills go and New chat is icon-only — NOT IN DESIGN, spec default. */}
+          {!docOpen && settings?.web && <HeaderPill icon="globe" iconColor={C.warn}>Web search on</HeaderPill>}
+          {!docOpen && <HeaderPill icon="shield-check">Changes: ask first</HeaderPill>}
+          {!docOpen && <span style={{ width: 1, height: 24, background: C.border }} />}
           <IconButton icon="panel-right" title={`Open as side panel · ${kb.label("expand")}`} size={36} bordered onClick={toPanel} />
-          <Button variant="primary" size="md" icon="plus" onClick={() => { t.newThread(); router.push("/agent"); }}>New chat</Button>
+          {docOpen ? <IconButton icon="plus" title="New chat" size={36} bordered onClick={() => { t.newThread(); router.push("/agent"); }} /> : <Button variant="primary" size="md" icon="plus" onClick={() => { t.newThread(); router.push("/agent"); }}>New chat</Button>}
         </div>
 
         {/* Thread */}
@@ -108,7 +120,12 @@ export default function FullPageChat({ conversationId = null }: { conversationId
           </div>
         </div>
 
-        <Composer context={null} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
+        {docContext && (
+          <div style={{ width: "100%", maxWidth: docOpen ? "none" : 760, margin: "0 auto", padding: docOpen ? "0 16px 8px" : "0 0 8px", display: "flex" }}>
+            <ContextChip context={docContext} onClear={() => { t.setPinnedContext(null); viewer?.close(); }} />
+          </div>
+        )}
+        <Composer context={docContext} panel={docOpen} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
       </div>
     </PortalShell>
   );

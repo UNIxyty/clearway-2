@@ -12,14 +12,31 @@ import { useState, type ReactNode } from "react";
 import { C, TIER, TIER_META } from "../ui/tokens";
 import { Icon, Eyebrow } from "../ui/primitives";
 import type { ClaimSpan, SourceRef, Tier } from "../types";
+import { useOpenDocument } from "../viewer/useOpenDocument";
+import { useViewerOptional } from "../viewer/ViewerContext";
+
+const isFile = (s: SourceRef) => Boolean(s.documentSource || (s.href && /^\/files\//.test(s.href)));
+function useCitationState(s: SourceRef) {
+  const v = useViewerOptional();
+  const tab = v?.tabs.find((t) => t.citations.some((c) => c.k === s.n && (c.span === (s.span ?? null))));
+  const r = tab?.results[s.n];
+  return { notFound: r?.state === "not-found", active: v?.open && v.active === tab && tab?.activeCitation === s.n };
+}
+function CiteLink({ s, children, style, className }: { s: SourceRef; children: React.ReactNode; style: React.CSSProperties; className?: string }) {
+  const od = useOpenDocument();
+  const st = useCitationState(s);
+  const tip = isFile(s) ? `${s.filename ?? s.label}${s.page ? ` · p. ${s.page}` : ""} · click to open at the passage` : s.tier === "web" ? "Opens in a new browser tab" : undefined;
+  if (!isFile(s) && !(s.tier === "web" && s.href)) return <span style={style} className={className}>{children}</span>;
+  return <button type="button" title={tip} className={`ag-focus ${className ?? ""}`} onClick={(e) => void od.openCitation(s, null, e.currentTarget)} aria-label={`Source ${s.n}${st.notFound ? " (not found)" : ""}`} style={{ ...style, fontFamily: "inherit", cursor: "pointer", ...(st.notFound ? { background: C.dangerTint, borderColor: C.dangerBorder } : st.active ? { background: C.primaryTint } : {}) }}>{children}{st.notFound && <span style={{ fontSize: 11, fontWeight: 700, color: C.danger }}>not found</span>}</button>;
+}
 
 const tierOf = (t: Tier) => (t === "memory" ? null : TIER[t]);
 
 /** The numbered badge shared by chips, rows and superscripts. */
-export function SourceNumber({ n, tier, size = 18 }: { n: number; tier: Tier; size?: number }) {
+export function SourceNumber({ n, tier, size = 18, notFound = false }: { n: number; tier: Tier; size?: number; notFound?: boolean }) {
   const t = tierOf(tier);
   return (
-    <span style={{ minWidth: size, height: size, borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size <= 16 ? 10 : 10.5, fontWeight: 700, color: t?.fg ?? C.info, background: t?.bg ?? C.infoTint, flex: "none", padding: "0 3px" }}>{n}</span>
+    <span style={{ minWidth: size, height: size, borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size <= 16 ? 10 : 10.5, fontWeight: 700, color: notFound ? C.danger : (t?.fg ?? C.info), background: notFound ? C.dangerTint : (t?.bg ?? C.infoTint), flex: "none", padding: "0 3px" }}>{n}{notFound ? " ?" : ""}</span>
   );
 }
 
@@ -71,9 +88,7 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
             </>
           );
           const style = { display: "inline-flex", alignItems: "center", gap: 7, background: hot === s.n ? (t?.bg ?? C.primaryTint) : C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: single ? "5px 9px" : "5px 9px 5px 5px", fontSize: 12.5, color: C.body, textDecoration: "none", transition: "background-color 120ms" } as const;
-          return s.href
-            ? <a key={s.n} href={s.href} target={s.tier === "web" ? "_blank" : undefined} rel="noopener noreferrer" style={style} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>{inner}</a>
-            : <span key={s.n} style={style} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>{inner}</span>;
+          return <span key={s.n} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)} style={{ display: "contents" }}><CiteLink s={s} style={style}>{inner}</CiteLink></span>;
         })}
       </div>
     </div>
@@ -98,7 +113,7 @@ export function SourceStrip({ sources, hot, setHot }: { sources: SourceRef[]; ho
             {s.href && <Icon name="arrow-up-right" size={11} color={C.faint} />}
           </span>
         );
-        return s.href ? <a key={s.n} href={s.href} target={s.tier === "web" ? "_blank" : undefined} rel="noopener noreferrer" style={{ textDecoration: "none", color: "inherit" }}>{row}</a> : <span key={s.n}>{row}</span>;
+        return <CiteLink key={s.n} s={s} style={{ textDecoration: "none", color: "inherit", background: "transparent", border: "none", padding: 0, width: "100%", textAlign: "left" }}>{row}</CiteLink>;
       })}
     </div>
   );

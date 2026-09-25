@@ -25,6 +25,15 @@ export function ContextChip({ context, onClear, loading = false }: { context: Ag
     );
   }
   if (!context) return null;
+  if (context.kind === "document") {
+    return (
+      <span style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: C.primaryHover, background: C.primaryTint, border: `1px solid ${C.primaryLine}`, borderRadius: 999, padding: "4px 6px 4px 10px", maxWidth: "100%" }}>
+        <Icon name="file-text" size={12} color={C.primaryHover} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Asking about <span style={mono()}>{context.label}</span>{context.page ? <> · p. <span style={mono()}>{context.page}</span></> : null}</span>
+        <button type="button" onClick={onClear} title="Clear context" aria-label="Clear context" className="ag-focus" style={{ width: 18, height: 18, borderRadius: "50%", background: C.primaryLine, border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0, flex: "none" }}><Icon name="x" size={9} color={C.primaryHover} /></button>
+      </span>
+    );
+  }
   const code = context.kind === "flight" ? context.label : context.icao;
   return (
     <span style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: C.primaryHover, background: C.primaryTint, border: `1px solid ${C.primaryLine}`, borderRadius: 999, padding: "5px 6px 5px 11px" }}>

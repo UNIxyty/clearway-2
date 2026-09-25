@@ -24,6 +24,8 @@ import { installFailedRequestTracker, subscribeHelpStream } from "@/components/h
 import { Keycap, RingMark } from "@/components/agent/ui/primitives";
 import AskAboutButton from "@/components/agent/ui/AskAboutButton";
 import { useKeybinds } from "@/components/agent/ui/keybinds";
+import { useViewer } from "@/components/agent/viewer/ViewerContext";
+import DocumentViewer from "@/components/agent/viewer/DocumentViewer";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -126,7 +128,7 @@ function NavButton({
   );
 }
 
-export default function PortalShell({
+function PortalShellInner({
   children,
   deepContext = null,
   crumb,
@@ -150,6 +152,10 @@ export default function PortalShell({
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { email, display, initials, role, isDeveloper, hasAgent } = useIdentity();
+  // The document viewer covers this page between the sidebar and the panel (§V2). Its breadcrumb names the page.
+  const viewer = useViewer();
+  useEffect(() => { viewer.setFrom(title ?? (pathname.startsWith("/agent") ? "Chat" : "Back")); }, [title, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { document.body.style.overflow = viewer.open ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [viewer.open]);
   // Persisted UI state is read in lazy initializers (typeof window guard for
   // SSR) so the sidebar renders its persisted collapsed/open state on the
   // FIRST client paint — no expand-flicker from a post-mount useEffect. The
@@ -572,8 +578,16 @@ export default function PortalShell({
           same runtime probe that gates the nav entry, so a user without a grant
           gets no panel, no shortcut and no trace of it. */}
       {hasAgent && (
-        <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
+        <AgentPanel open={agentOpen && !viewer.panelClosed} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
       )}
+      {hasAgent && <DocumentViewer onAskAbout={() => setAgentOpen(true)} />}
     </div>
   );
+}
+
+// The ViewerProvider lives in the root layout (app/layout.tsx) so page
+// components that render this shell — and call useOpenDocument above it —
+// share one viewer with the shell and the panel.
+export default function PortalShell(props: Parameters<typeof PortalShellInner>[0]) {
+  return <PortalShellInner {...props} />;
 }

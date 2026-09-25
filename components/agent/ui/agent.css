@@ -102,3 +102,54 @@
 .ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; color: #fff; }
 .ag-row-hover:hover { background: var(--ag-page); }
 .ag-card-hover:hover { border-color: var(--ag-primary-border) !important; background: var(--ag-suggest-hover) !important; cursor: pointer; }
+
+/* ── Document viewer (spec addendum §V11 animation rows) ─────────────────── */
+@keyframes cw-viewer-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes cw-viewer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
+@keyframes cw-ring { 0% { box-shadow: 0 0 0 0 rgba(37,99,235,.35); } 100% { box-shadow: 0 0 0 8px rgba(37,99,235,0); } }
+@keyframes cw-cite-in { from { background-color: rgba(37,99,235,0); } to { background-color: var(--ag-cite-highlight); } }
+.cw-viewer-in { animation: cw-viewer-in 200ms var(--ag-ease-out) both; }   /* DV1 */
+.cw-viewer-out { animation: cw-viewer-out 160ms var(--ag-ease-in) both; }  /* DV2 */
+.cw-page-in canvas { animation: ag-fade-in 150ms var(--ag-ease-out) both; } /* DV13 */
+.cw-thumb-in { opacity: 1 !important; transition: opacity 150ms var(--ag-ease-out); }
+.cw-search-row { animation: ag-fade-in 120ms var(--ag-ease-out) both; }     /* DV11 */
+.cw-skel { animation: ag-pulse 1200ms ease-in-out infinite; }               /* DV15 */
+.cw-tab:hover { background: var(--ag-tab-hover) !important; }
+.cw-tab:focus-visible { outline: 2px solid var(--ag-primary); outline-offset: -2px; }
+.cw-canvas:focus-visible, [role="document"]:focus-visible { outline: 2px solid var(--ag-primary); outline-offset: -2px; }
+
+/* pdf.js text layer: selectable, invisible glyphs positioned over the canvas */
+.textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 1; }
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer ::selection { background: rgba(37,99,235,.28); }
+.textLayer br { display: none; }
+
+/* Search: yellow, never blue (§V4.4) */
+mark.cw-search-hit { background: var(--ag-search-match); color: transparent; border-radius: 2px; }
+mark.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0 2px var(--ag-search-current); }
+.cw-docx mark.cw-search-hit, pre mark.cw-search-hit { color: inherit; }
+
+/* Citations: blue, exact matches only (§V6) */
+mark.cw-cite-hit { background: var(--ag-cite-highlight); box-shadow: 0 0 0 3px var(--ag-cite-highlight); border-radius: 3px; color: transparent; animation: cw-cite-in 150ms var(--ag-ease-out) both; } /* DV5 */
+mark.cw-cite-hit.cw-cite-prev { background: transparent; box-shadow: none; outline: 1px dashed var(--ag-cite-outline); animation: none; }  /* DV7 */
+mark.cw-cite-hit:focus { outline: 2px solid var(--ag-primary); }
+.cw-cite-marker { position: absolute; left: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--ag-primary); color: #fff; font: 700 11px/22px var(--font-sans, inherit); text-align: center; z-index: 2; }
+.cw-cite-marker.cw-cite-ring { animation: cw-ring 700ms ease-out 1 both; }  /* DV6 */
+.cw-cite-marker.cw-cite-marker-prev { background: #fff; color: var(--ag-primary-hover); border: 1px solid var(--ag-cite-outline); line-height: 20px; }
+.cw-cite-tag { position: absolute; font: 600 11px/1.4 var(--font-sans, inherit); color: var(--ag-primary-hover); background: var(--ag-primary-tint); border-radius: 5px; padding: 2px 7px; z-index: 2; }
+.cw-cite-tag-end { right: 12px; bottom: 8px; }
+.cw-cite-tag-start { left: 12px; top: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-viewer-in, .cw-viewer-out, .cw-page-in canvas, .cw-search-row, mark.cw-cite-hit { animation: none !important; }
+  .cw-cite-marker.cw-cite-ring { animation: none !important; }
+  .cw-skel { animation: none !important; opacity: 1; }
+  .cw-thumb-in { transition: none; }
+}
+
+.ag-doc-name:hover:not(:disabled) { color: var(--ag-primary-hover) !important; text-decoration: underline; text-decoration-color: var(--ag-cite-outline); text-underline-offset: 3px; }
+.ag-thumb-open:hover .ag-thumb-open-chip, .ag-thumb-open:focus-visible .ag-thumb-open-chip { opacity: 1 !important; }
+.ag-sent-chip:hover, .ag-sent-chip:focus-visible { border-color: var(--ag-primary) !important; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.ag-sent-chip:hover .ag-sent-chip-size, .ag-sent-chip:focus-visible .ag-sent-chip-size { display: none; }
+.ag-sent-chip:hover .ag-sent-chip-open, .ag-sent-chip:focus-visible .ag-sent-chip-open { display: inline-flex !important; }
+button:hover > .ag-kb-open, button:focus-within > * > .ag-kb-open, .ag-kb-open:focus-visible { opacity: 1 !important; }

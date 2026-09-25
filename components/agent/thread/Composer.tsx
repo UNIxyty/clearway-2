@@ -283,7 +283,7 @@ export default function Composer({
     if (e.key === "Backspace" && !value && inserted.length) { setInserted((l) => l.slice(0, -1)); }
   }
 
-  const placeholder = placeholderOverride ?? (locked ? "" : offline ? "You're offline — questions will send when you're back" : context ? `Ask about ${context.kind === "flight" ? context.label : context.icao ?? context.label}…` : panel ? "Ask, @ a flight or airport, / for an action…" : "Ask, type @ for a flight or airport, / for an action…");
+  const placeholder = placeholderOverride ?? (locked ? "" : offline ? "You're offline — questions will send when you're back" : context ? (context.kind === "document" ? "Ask about this document…" : `Ask about ${context.kind === "flight" ? context.label : context.icao ?? context.label}…`) : panel ? "Ask, @ a flight or airport, / for an action…" : "Ask, type @ for a flight or airport, / for an action…");
   const boxRadius = panel ? 14 : 16;
 
   return (

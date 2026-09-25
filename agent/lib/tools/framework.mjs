@@ -432,14 +432,36 @@ export function sourcesFromToolCalls(calls) {
     // Spread the tier's presentation FIRST so the computed label wins — the
     // tier also carries a `label` ("Company"), and letting it clobber the
     // specific one would make every source chip read the same.
-    sources.push({
+    const base = {
       ...SOURCE_TIERS[tool.sourceTier],
-      n: sources.length + 1,
       tier: tool.sourceTier,
       tierLabel: SOURCE_TIERS[tool.sourceTier].label,
       label: String(label),
       tool: tool.name,
-    });
+    };
+    // Document locators for the viewer (§V6): a knowledge search cites each
+    // document it drew on, with the page and the exact retrieved text — the
+    // span the viewer will look for. Never the model's paraphrase.
+    const r = call.result ?? {};
+    if (call.name === "search_knowledge" || call.name === "get_document") {
+      const hits = [...(r.verbatim ?? []), ...(r.reference ?? []), ...(r.documentId ? [r] : [])];
+      const perDoc = new Map();
+      for (const h of hits) { if (!h?.documentId) continue; if (!perDoc.has(h.documentId)) perDoc.set(h.documentId, h); }
+      if (perDoc.size) {
+        for (const [documentId, h] of perDoc) {
+          const dkey = `doc:${documentId}`;
+          if (seen.has(dkey)) continue;
+          seen.add(dkey);
+          sources.push({ ...base, n: sources.length + 1, label: String(h.title ?? h.source ?? label), documentId, documentSource: "knowledge", filename: h.filename ?? null, page: h.page ?? null, span: h.text ? String(h.text).slice(0, 1200) : null, recordId: h.recordId ?? null });
+        }
+        continue;
+      }
+    }
+    if ((call.name === "get_aip_document" || call.name === "get_gen_document") && r.documentPath) {
+      sources.push({ ...base, n: sources.length + 1, documentSource: "aip", documentPath: String(r.documentPath), filename: String(r.documentPath).split("/").pop() ?? null, page: null, span: null });
+      continue;
+    }
+    sources.push({ ...base, n: sources.length + 1 });
   }
   return sources;
 }
@@ -465,6 +487,7 @@ export function verbatimFromToolCalls(calls) {
         out.push({
           kind,
           id: String(record.id ?? ""),
+          documentId: record.documentId ?? null,
           heading: String(record.title ?? record.country ?? record.id ?? ""),
           text: String(record.description ?? record.body ?? record.functionText ?? record.title ?? ""),
           source: call.result.source ?? tool.name,

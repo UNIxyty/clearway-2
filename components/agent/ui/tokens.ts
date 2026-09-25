@@ -26,15 +26,16 @@ export const C = {
   ok: c.greenDeep, okTint: c.greenTint, okBorder: c.greenBorder, okDot: c.green,
   neutral: c.slate, neutralTint: c.greyTint, info: c.sky, infoTint: c.skyTint,
   stop: c.stop, stopTint: c.stopTint, stopBorder: c.stopBorder, stopSquare: c.stopSquare,
-  rowExpanded: c.rowExpanded, rowRecord: c.rowRecord, warnWash: c.amberWash, okWash: c.greenWash, dangerWash: c.redWash, toggleOff: c.toggleOff, navSubBorder: c.navSubBorder, suggestHover: c.suggestHover, dangerWashSoft: c.redWashSoft, warnWashSoft: c.amberWashSoft, highlight: c.highlight,
+  rowExpanded: c.rowExpanded, rowRecord: c.rowRecord, warnWash: c.amberWash, okWash: c.greenWash, dangerWash: c.redWash, toggleOff: c.toggleOff, navSubBorder: c.navSubBorder, suggestHover: c.suggestHover, searchMatch: c.searchMatch, searchCurrent: c.searchCurrent, citeHighlight: c.citeHighlight, citeClaim: c.citeClaim, citeOutline: c.citeOutline, viewerCanvas: c.viewerCanvas, viewerCanvasImage: c.viewerCanvasImage, viewerPageScan: c.viewerPageScan, violetTint2: c.violetTint2, violetBorder: c.violetBorder, tabHover: c.tabHover, companyDeep: c.companyDeep, dangerWashSoft: c.redWashSoft, warnWashSoft: c.amberWashSoft, highlight: c.highlight,
 } as const;
 
 /** Source tiers — §3 rule 5: fixed, never themed, never swapped. */
-export const TIER = tokens.tier as Record<"internal" | "company" | "web", { fg: string; bg: string; underline: string; strip: string; claimBg?: string }>;
+export const TIER = tokens.tier as Record<"internal" | "company" | "web" | "attachment", { fg: string; bg: string; underline: string; strip: string; claimBg?: string; tint2?: string; border?: string }>;
 export const TIER_META: Record<keyof typeof TIER, { label: string; icon: string }> = {
   internal: { label: "Internal", icon: "database" },
   company: { label: "Company", icon: "book-open" },
   web: { label: "Web", icon: "globe" },
+  attachment: { label: "Attachment", icon: "paperclip" },
 };
 
 export const VOICE = tokens.voice as { uncertainUnderline: string; uncertainBg: string };
@@ -42,6 +43,7 @@ export const WALL = tokens.wall as Record<string, string>;
 export const SHADOW = tokens.shadow as Record<string, string>;
 export const MOTION = tokens.motion as { easeOut: string; easeIn: string; easeInOut: string; fast: number; base: number; hover: number };
 export const RADIUS = tokens.radius as Record<string, number>;
+export const VIEWER = tokens.viewer as { tabStrip: number; header: number; toolbar: number; searchRow: number; thumbRail: number; pageMax: number; panelNarrowBelow: number; citationOffset: number; viewLimitBytes: number; progressiveBytes: number; progressivePages: number; maxTabs: number; cachedDocs: number };
 export const PANEL = tokens.agentPanel as { width: number; minWidth: number; maxWidth: number; headerHeight: number; pushMinContent: number; overlayBelow: number };
 export const FONT = { sans: tokens.font.sans, mono: tokens.font.mono } as const;
 

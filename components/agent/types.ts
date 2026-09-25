@@ -12,6 +12,14 @@ export type SourceRef = {
   tool: string;
   href?: string | null;
   meta?: string | null;
+  /** Viewer locators (§V6): where the cited text lives. Only present for file sources. */
+  documentSource?: "knowledge" | "aip" | "generated" | "attachment" | null;
+  documentId?: string | null;
+  documentPath?: string | null;
+  filename?: string | null;
+  page?: number | null;
+  span?: string | null;
+  recordId?: string | null;
 };
 
 /** A claim in the prose that a source supports (§4.7 A). Only present when the model returned claim boundaries. */
@@ -19,6 +27,7 @@ export type ClaimSpan = { start: number; end: number; n: number };
 
 export type VerbatimRecord = {
   id: string;
+  documentId?: string | null;
   kind?: "limitation" | "important" | "caa" | "tier1";
   heading: string;
   text: string;
@@ -98,6 +107,7 @@ export type PendingConfirmation = {
 export type Attachment = { name: string; text: string; chars: number; id?: string };
 
 export type MessageBlocks = {
+  attachments?: { id: string; name: string; bytes?: number | null; mime?: string | null }[];
   verbatim?: VerbatimRecord[];
   flights?: FlightCardData[];
   actions?: PerformedAction[];
@@ -137,12 +147,15 @@ export type AgentMessage = {
 export type ConversationSummary = { id: string; title: string; lastMessageAt: string; context?: AgentContext | null; snippet?: string; changes?: number; files?: number; sent?: number; voice?: boolean; messageCount?: number; entities?: string[] };
 
 export type AgentContext = {
-  kind: "flight" | "airport" | "page" | "record" | "wall" | "notam-check" | "limitations";
+  kind: "flight" | "airport" | "page" | "record" | "wall" | "notam-check" | "limitations" | "document";
   label: string;
   icao?: string | null;
   flightId?: string | null;
   icon?: string;
   tab?: string | null;
+  page?: number | null;
+  pages?: number | null;
+  document?: { source: string; id: string; filename: string } | null;
   selected?: { id: string; label: string; kind: "flight" | "airport" | "aircraft" | "limitation" | "document" }[] | null;
   visible?: { id: string; label: string; kind: "flight" | "airport" | "aircraft" | "limitation" | "document"; sub?: string | null }[] | null;
 };

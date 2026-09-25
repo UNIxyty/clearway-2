@@ -12,12 +12,14 @@ import { useEffect, useState } from "react";
 import { C, TYPE, mono } from "../ui/tokens";
 import { Button, Icon, Eyebrow, dateLong } from "../ui/primitives";
 import { AGENT_BASE, type VerbatimRecord } from "../types";
+import { useOpenDocument } from "../viewer/useOpenDocument";
 
 type Fetched = { status: "loading" } | { status: "ok"; record: VerbatimRecord } | { status: "error"; message: string };
 
 export function VerbatimFrame({ record, panel = false, notReadAloud = false }: { record: VerbatimRecord; panel?: boolean; notReadAloud?: boolean }) {
   const [state, setState] = useState<Fetched>({ status: "loading" });
   const [copied, setCopied] = useState(false);
+  const od = useOpenDocument();
 
   useEffect(() => {
     let alive = true;
@@ -72,7 +74,7 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
         {!panel && <span style={{ flex: 1 }} />}
         <span style={{ display: "flex", gap: 6 }}>
           <Button variant="secondary" size="xs" icon="copy" onClick={() => void copyExact()} disabled={state.status !== "ok"} style={{ fontSize: panel ? 12 : 12.5 }}>{copied ? "Copied" : panel ? "Copy exact" : "Copy exact text"}</Button>
-          {(r.page != null || r.kind === "tier1") && <Button variant="secondary" size="xs" icon="file-text" style={{ fontSize: panel ? 12 : 12.5 }} onClick={() => { if (r.page != null) window.open(`${AGENT_BASE}/api/verbatim/${r.kind ?? "tier1"}/${encodeURIComponent(r.id)}`, "_blank"); }}>{panel ? `Open${r.page != null ? ` p. ${r.page}` : ""}` : `Open source${r.page != null ? ` · p. ${r.page}` : ""}`}</Button>}
+          {(r.documentId || r.page != null || r.kind === "tier1") && <Button variant="secondary" size="xs" icon="eye" style={{ fontSize: panel ? 12 : 12.5 }} disabled={!r.documentId} title={r.documentId ? "Open the source document and check the quoted text" : "No source file for this record"} onClick={(e) => void od.openVerbatim(r, null, e.currentTarget)}>{panel ? `Open${r.page != null ? ` p. ${r.page}` : ""}` : `Open source${r.page != null ? ` · p. ${r.page}` : ""}`}</Button>}
         </span>
       </div>
     </div>

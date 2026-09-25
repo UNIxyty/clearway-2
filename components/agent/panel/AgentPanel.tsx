@@ -22,6 +22,8 @@ import { OfflineCard } from "../thread/ErrorCard";
 import { useThread } from "../useThread";
 import type { AgentContext, ConversationSummary } from "../types";
 import { matches as matchesBind, useKeybinds } from "../ui/keybinds";
+import { useViewerOptional } from "../viewer/ViewerContext";
+import { VIEWER } from "../ui/tokens";
 
 export function useAgentPanel() {
   const [open, setOpen] = useState(false);
@@ -56,14 +58,30 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
 
   const t = useThread({ context, initialConversationId, initials });
   const kb = useKeybinds();
-  const activeContext = t.pinnedContext ?? context;
+  // §V10 B1: the open document replaces the page context; the chip follows the page.
+  const viewer = useViewerOptional();
+  const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
+  useEffect(() => { viewer?.setConversationId(t.conversationId); }, [t.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const attach = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string }; page: number }>).detail; t.setPinnedContext(null); document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea')?.focus(); void d; };
+    const email = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string } }>).detail; void t.send(`Email me the document "${d.ref.filename}".`); };
+    window.addEventListener("cw-agent-attach-open-doc", attach); window.addEventListener("cw-agent-email-doc", email);
+    return () => { window.removeEventListener("cw-agent-attach-open-doc", attach); window.removeEventListener("cw-agent-email-doc", email); };
+  }, [t]);
+  const activeContext = docContext ?? t.pinnedContext ?? context;
   const contextMoved = Boolean(t.pinnedContext && context && context.label !== t.pinnedContext.label);
   const live = useLiveSuggestions(activeContext);
   const empty = useMemo(() => suggestionsFor(activeContext, live), [activeContext, live]);
 
   // Width, remembered per user (§4.26).
   useEffect(() => { try { const saved = Number(localStorage.getItem("cw-agent-panel-width")); if (saved >= PANEL.minWidth && saved <= PANEL.maxWidth) setWidth(saved); } catch { /* private mode */ } }, []);
-  useEffect(() => { onWidthChange?.(open && !minimised ? width : 0); }, [width, open, minimised, onWidthChange]);
+  // §V2: 360 while a document is open and the content area is under 1400 — re-evaluated on resize, so a
+  // wider window gives the panel its own width back.
+  const [contentWidth, setContentWidth] = useState(0);
+  useEffect(() => { const f = () => setContentWidth(window.innerWidth - (document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248)); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, [viewer?.open]);
+  const narrowForViewer = Boolean(viewer?.open) && contentWidth > 0 && contentWidth < VIEWER.panelNarrowBelow;
+  const shownWidth = narrowForViewer ? PANEL.minWidth : width;
+  useEffect(() => { onWidthChange?.(open && !minimised ? shownWidth : 0); }, [shownWidth, open, minimised, onWidthChange]);
   // Push vs overlay (§6.2).
   useEffect(() => {
     if (embedded) { setOverlay(false); return; }
@@ -130,7 +148,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   if (minimised) {
     const amber = minimised.state === "needs-you";
     return (
-      <button type="button" onClick={() => setMinimised(null)} title={`Reopen the agent · ${kb.label("open")}`} aria-label="Reopen the agent"
+      <button type="button" data-cw-agent-minimised="" onClick={() => setMinimised(null)} title={`Reopen the agent · ${kb.label("open")}`} aria-label="Reopen the agent"
         style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
         {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${C.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? C.warn : C.ink} />}
         <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 600, color: amber ? C.warn : minimised.state === "done" ? C.ink : C.primaryHover }}>
@@ -147,10 +165,11 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
     <>
       <AgentStyles />
       <aside
+        data-cw-agent-panel=""
         role="complementary" aria-label="Ops Agent"
         className={`${closing ? "ag-panel-out" : "ag-panel-in"} ${expanding ? "ag-expanding" : ""}`}
         style={{
-          width: embedded ? "100%" : expanding ? "100vw" : width, flex: "none", background: C.surface, borderLeft: embedded ? "none" : `1px solid ${C.border}`, display: "flex", flexDirection: "column",
+          width: embedded ? "100%" : expanding ? "100vw" : shownWidth, flex: "none", transition: "width 200ms cubic-bezier(0.2,0,0,1)", background: C.surface, borderLeft: embedded ? "none" : `1px solid ${C.border}`, display: "flex", flexDirection: "column",
           position: overlay || expanding ? "fixed" : "relative", ...(overlay || expanding ? { top: 0, right: 0, bottom: 0, zIndex: 60, boxShadow: SHADOW.panelOverlay } : { height: "100vh", position: "sticky", top: 0, zIndex: 40 }),
           fontFamily: "inherit", color: C.ink,
         }}

@@ -128,6 +128,18 @@ export async function searchKnowledge(query, { icao = null, country = null, limi
   ]);
 
   const tier1 = (tier1Rows ?? []).map(tier1Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER1);
+  // The match function returns the clause, not which document holds it. The viewer needs the
+  // document to open the source at the passage (§V6), so look it up for the records that matched.
+  const recordIds = tier1.map((s) => s.recordId).filter(Boolean);
+  if (recordIds.length > 0) {
+    try {
+      const where = await rest(`agent_tier1_records?id=in.(${recordIds.map((id) => encodeURIComponent(id)).join(",")})&select=id,document_id`);
+      const byId = new Map((where ?? []).map((r) => [r.id, r]));
+      for (const s of tier1) { const w = byId.get(s.recordId); if (w) s.documentId = w.document_id ?? null; }  // records carry no page: the viewer searches the whole file for the clause
+    } catch (error) {
+      console.warn(`[retrieval] tier1 record lookup failed: ${error?.message ?? error}`);
+    }
+  }
   const candidates = (tier2Rows ?? []).map(tier2Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER2);
 
   // Rerank tier 2 only — see the note above.

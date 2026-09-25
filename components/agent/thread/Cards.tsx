@@ -9,6 +9,7 @@ import { useState } from "react";
 import { C, mono } from "../ui/tokens";
 import { Button, Icon, Pill, Tag, Eyebrow, hmZ, kb } from "../ui/primitives";
 import { AGENT_BASE, type AirportData, type DocumentData, type FileData, type FlightCardData, type MonoData, type TableData } from "../types";
+import { useOpenDocument } from "../viewer/useOpenDocument";
 
 // ── §4.9 Flight card ──────────────────────────────────────────────────────────
 const deltaMin = (sched: string | null | undefined, est: string | null | undefined) => {
@@ -151,10 +152,13 @@ function PdfTile({ small = false }: { small?: boolean }) {
 }
 export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentData; panel?: boolean; onEmail?: (doc: DocumentData) => void }) {
   const name = doc.title;
+  const od = useOpenDocument();
+  const openable = Boolean(doc.href || doc.documentId);
+  // §V3 E1: Open (primary) · Download · Email; the file name is the same action.
   const actions = (
     <>
+      <Button variant="primary" size={panel ? "xs" : "sm"} icon="eye" disabled={!openable} title={openable ? undefined : "Source unavailable"} style={panel ? { width: "100%" } : undefined} onClick={(e) => void od.openDocumentResult(doc, e.currentTarget)}>Open</Button>
       {doc.href ? <a href={doc.href} download style={{ textDecoration: "none", display: "contents" }}><Button variant="primary" size={panel ? "xs" : "sm"} style={panel ? { width: "100%" } : undefined}>Download</Button></a> : <Button variant="primary" size={panel ? "xs" : "sm"} disabled style={panel ? { width: "100%" } : undefined} title="Not cached yet">Download</Button>}
-      {doc.href ? <a href={doc.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "contents" }}><Button variant="secondary" size={panel ? "xs" : "sm"} style={panel ? { width: "100%" } : undefined}>Open</Button></a> : <Button variant="secondary" size={panel ? "xs" : "sm"} disabled style={panel ? { width: "100%" } : undefined}>Open</Button>}
       <Button variant="secondary" size={panel ? "xs" : "sm"} style={panel ? { width: "100%" } : undefined} onClick={() => onEmail?.(doc)} disabled={!onEmail}>Email</Button>
     </>
   );
@@ -163,7 +167,7 @@ export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentD
       <div style={{ display: "flex", alignItems: "center", gap: panel ? 10 : 14, minWidth: 0, flex: 1 }}>
         <PdfTile small={panel} />
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ ...mono({ fontSize: panel ? 13 : 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+          <button type="button" disabled={!openable} onClick={(e) => void od.openDocumentResult(doc, e.currentTarget)} className="ag-doc-name ag-focus" style={{ ...mono({ fontSize: panel ? 13 : 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: openable ? "pointer" : "default", color: C.ink, fontFamily: undefined }}>{name}</button>
           <span style={{ fontSize: panel ? 12 : 13, color: C.muted, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {doc.subtitle}
             {doc.stale && <Tag fg={C.warn} bg={C.warnTint}>Cached · {doc.stale}</Tag>}
@@ -181,14 +185,16 @@ export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentD
 export function GeneratedFile({ file, panel = false, onSend }: { file: FileData; panel?: boolean; onSend?: (file: FileData) => void }) {
   const ext = (file.filename.split(".").pop() ?? "").toUpperCase();
   const isPdf = ext === "PDF";
+  const od = useOpenDocument();
   return (
     <div role="group" aria-label={`Generated file ${file.filename}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, overflow: "hidden", display: "flex" }}>
       {!panel && (
-        <div style={{ width: 132, background: C.sidebar, borderRight: `1px solid ${C.divider}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+        <button type="button" aria-label={`Open ${file.filename}`} onClick={(e) => void od.openGenerated(file, e.currentTarget)} className="ag-thumb-open ag-focus" style={{ width: 132, background: C.sidebar, borderRight: `1px solid ${C.divider}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", border: "none", cursor: "pointer", position: "relative", fontFamily: "inherit" }}>
           {isPdf
             ? <object data={`${file.downloadPath}?inline=1#page=1&toolbar=0&navpanes=0`} type="application/pdf" aria-label="Page 1 preview" style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", pointerEvents: "none" }} />
             : <span style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", display: "flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 12, fontWeight: 700 }), color: C.muted }}>{ext}</span>}
-        </div>
+          <span className="ag-thumb-open-chip" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: C.surface, background: "rgba(23,24,28,.78)", borderRadius: 6, padding: "4px 7px", opacity: 0, pointerEvents: "none" }}><Icon name="eye" size={11} color={C.surface} />Open</span>
+        </button>
       )}
       <div style={{ padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -198,8 +204,8 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
         <span style={{ ...mono({ fontSize: 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.filename}</span>
         {file.summary && <span style={{ fontSize: 13, lineHeight: 1.5, color: C.muted }}>{file.summary}</span>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <a href={file.downloadPath} download={file.filename} style={{ textDecoration: "none" }}><Button variant="primary" size="sm" icon="download">Download</Button></a>
-          <a href={`${file.downloadPath}?inline=1`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><Button variant="secondary" size="sm">Preview</Button></a>
+          <Button variant="primary" size="sm" icon="eye" onClick={(e) => void od.openGenerated(file, e.currentTarget)}>Open</Button>
+          <a href={file.downloadPath} download={file.filename} style={{ textDecoration: "none" }}><Button variant="secondary" size="sm" icon="download">Download</Button></a>
           <Button variant="secondary" size="sm" onClick={() => onSend?.(file)} disabled={!onSend}>Send…</Button>
         </div>
       </div>
@@ -210,7 +216,10 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
 // ── §4.13 Table result ────────────────────────────────────────────────────────
 const looksMono = (v: string) => /^[A-Z]{4}$|^\d{2}:\d{2}Z$|^[A-Z]{2,3}\d{2,4}[A-Z]?$|^[A-Z]{1,2}-[A-Z]{3,4}$|^\+?-?\d+$|^\d{2} [A-Z]{3}/.test(v.trim());
 export function TableResult({ table: t, panel = false }: { table: TableData; panel?: boolean }) {
-  const [full, setFull] = useState(false);
+  const [fullSheet, setFullSheet] = useState(false);
+  const od = useOpenDocument();
+  const full = fullSheet && !od.hasViewer;
+  const setFull = (on: boolean) => { if (on && od.hasViewer) od.openTable(t); else setFullSheet(on); };
   const [showAll, setShowAll] = useState(false);
   const inline = panel ? 4 : 10;
   const rows = showAll || full ? t.rows : t.rows.slice(0, inline);

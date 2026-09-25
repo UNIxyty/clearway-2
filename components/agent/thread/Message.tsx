@@ -7,7 +7,7 @@
 // one. Every block is drawn from what the backend returned.
 
 import { C, TYPE, mono } from "../ui/tokens";
-import { Button, Icon, hmZ, hmsZ } from "../ui/primitives";
+import { Button, Icon, hmZ, hmsZ, kb } from "../ui/primitives";
 import Orb from "../ui/Orb";
 import Markdown from "../panel/Markdown";
 import { ToolSummary, LiveSteps } from "./ToolActivity";
@@ -17,12 +17,28 @@ import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, 
 import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
 import { ErrorCard, kindFor } from "./ErrorCard";
 import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData } from "../types";
+import { useOpenDocument } from "../viewer/useOpenDocument";
+
+function SentAttachments({ items }: { items: { id: string; name: string; bytes?: number | null }[] }) {
+  const od = useOpenDocument();
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+      {items.map((a) => (
+        <button key={a.id} type="button" onClick={(e) => void od.openAttachment(a.id, a.name, e.currentTarget)} className="ag-sent-chip ag-focus" title={`Open ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 10px 6px 6px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+          <span style={{ width: 30, height: 30, borderRadius: 7, background: C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 9, fontWeight: 700 }), color: C.muted }}>{(a.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</span>
+          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.ink, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span><span className="ag-sent-chip-sub" style={{ fontSize: 11, color: C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}><span className="ag-sent-chip-size">{a.bytes != null ? kb(a.bytes) : "attachment"}</span><span className="ag-sent-chip-open" style={{ display: "none", color: C.primaryHover, fontWeight: 600, alignItems: "center", gap: 4 }}><Icon name="eye" size={11} color={C.primaryHover} />Open</span></span></span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function UserBubble({ message: m, panel = false }: { message: AgentMessage; panel?: boolean }) {
   // Inline chips: @Mentions in blue mono, /commands in black mono (§4.19, §4.20).
   const parts = m.content.split(/(@[A-Z0-9-]{3,}|\/[a-z]+\b)/g);
   return (
     <div style={{ alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, maxWidth: panel ? 330 : 560 }} className="ag-user-row">
+      {m.blocks?.attachments && m.blocks.attachments.length > 0 && <SentAttachments items={m.blocks.attachments} />}
       <div style={{ background: C.bubbleUser, borderRadius: panel ? "14px 14px 4px 14px" : "16px 16px 4px 16px", padding: panel ? "9px 13px" : "11px 15px", fontSize: panel ? 14 : 15, lineHeight: 1.55, color: C.ink, whiteSpace: "pre-wrap", display: "inline-flex", gap: 7, alignItems: "flex-start", opacity: m.sending ? 0.6 : 1 }}>
         {m.voice && <Icon name="mic" size={13} color={C.faint} style={{ marginTop: 3 }} />}
         <span>

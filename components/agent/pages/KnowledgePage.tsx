@@ -14,6 +14,7 @@ import { Button, Icon, IconButton, IconTile, Tag, hmZ, kb } from "../ui/primitiv
 import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
+import { useOpenDocument } from "../viewer/useOpenDocument";
 
 type Doc = {
   id: string; title: string; filename: string; mime: string | null; bytes: number | null; source: string | null; version: string | null;
@@ -43,6 +44,7 @@ async function agentFetch(path: string, init: RequestInit = {}) {
 
 export default function KnowledgePage() {
   const { email, isDeveloper } = useIdentity();
+  const od = useOpenDocument("Knowledge base");
   const [rows, setRows] = useState<Doc[] | null>(null);
   const [stats, setStats] = useState<{ authoritative: number; clauses: number; reference: number; awaiting: number; oldestWaitingDays: number | null; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +111,9 @@ export default function KnowledgePage() {
                   <span>{tier === "auth" ? <Tag fg={C.surface} bg={C.ink}>AUTHORITATIVE</Tag> : tier === "requested" ? <Tag fg={C.ink} bg={C.surface} style={{ border: `1px solid ${C.ink}` }}>AUTH · REQUESTED</Tag> : <Tag fg={C.body} bg={C.surface} style={{ border: `1px solid ${C.borderControl}` }}>REFERENCE</Tag>}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: st.fg }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: st.dot, flex: "none" }} />{st.text}</span>
                   <span style={{ fontSize: 12.5, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.uploaded_by_email ?? "—"}</span>
-                  <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{dateShort(d.updated_at ?? d.created_at)}</span>
+                  <span style={{ ...mono({ fontSize: 12 }), color: C.muted, display: "inline-flex", alignItems: "center", gap: 8 }}>{dateShort(d.updated_at ?? d.created_at)}
+                    <span role="button" tabIndex={0} aria-label={`Open ${d.title}`} className="ag-kb-open ag-focus" onClick={(e) => { e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); } }} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: C.primaryHover, background: C.surface, border: `1px solid ${C.primaryBorder}`, borderRadius: 7, padding: "5px 9px", opacity: 0, fontFamily: "inherit", cursor: "pointer" }}><Icon name="eye" size={12} color={C.primaryHover} />Open</span>
+                  </span>
                 </button>
               );
             })}

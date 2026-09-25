@@ -35,6 +35,8 @@ const KIND_OF = (toolName, row) => {
   return "READ";
 };
 function resultLine(row, kind) {
+  if (row.tool_name === "citation.check") return row.success ? { text: "Citation verified", tone: "ok" } : { text: "Citation not found", tone: "danger" };
+  if (row.tool_name === "verbatim.check") return row.success ? { text: "Quoted text matches", tone: "ok" } : { text: "Data error · text differs", tone: "danger" };
   const r = row.tool_result ?? {};
   if (row.confirmation_status === "pending") return { text: "Awaiting confirmation", tone: "muted" };
   if (row.confirmation_status === "rejected") return { text: "Not run", tone: "muted" };
@@ -52,7 +54,7 @@ function resultLine(row, kind) {
   return { text: "ok", tone: "ok" };
 }
 export async function listActivity(user, { filter = "all", person = null, tool = null, date = null, limit = 60, before = null } = {}) {
-  const parts = ["kind=eq.tool.call", "select=id,created_at,user_id,user_email,tool_name,tool_args,tool_result,confirmation_status,success,error,latency_ms,conversation_id,detail", "order=created_at.desc", `limit=${Math.min(Number(limit) || 60, 200)}`];
+  const parts = ["kind=in.(tool.call,citation.check,verbatim.check)", "select=id,created_at,user_id,user_email,tool_name,tool_args,tool_result,confirmation_status,success,error,latency_ms,conversation_id,detail", "order=created_at.desc", `limit=${Math.min(Number(limit) || 60, 200)}`];
   if (!isPrivileged(user)) parts.push(`user_id=eq.${encodeURIComponent(user.userId)}`);
   else if (person) parts.push(`user_email=eq.${encodeURIComponent(person)}`);
   if (tool) parts.push(`tool_name=eq.${encodeURIComponent(tool)}`);

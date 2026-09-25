@@ -247,6 +247,62 @@ recording, says "Add ⌘, ⌃ or ⌥ to that key" on a bare key, and Esc cancels
 events: ⌥ Space held → Listening → released → message sent; Esc discards; ⌘J via `KeyJ`; the recorder
 saves ⌥ Space as `Alt+Space`.
 
+## 8k. Document viewer (this commit)
+
+Built from the viewer design project (`Ops Agent Document Viewer.dc.html`, `agent-design-spec-viewer.md`,
+`Document Viewer - Features.md`). Layout O1 only: the viewer covers the console page between the sidebar
+and the panel; the page underneath stays mounted; the panel narrows to 360 below 1400 of content width;
+thumbnails start hidden when the canvas is under 900. Item-by-item status, blocked reasons and every
+`NOT IN DESIGN — spec default` used: `docs/agent-viewer-manifest.md`.
+
+**Citation → document, the two tests the prompt asked for (production build, Playwright):**
+
+- *A citation that cannot be located.* Span "Stands 1-6 are closed to parking overnight and the apron is
+  under water." against `EVRA_handling_probe.pdf` p. 1: highlights 0, markers 0 anywhere in the document,
+  red banner "Couldn't find cited passage 1 in this file…", the page still opens, the reply's citation
+  number turns red with `?`, Activity log row `citation.check → Citation not found` (`dv4`).
+- *A quoted limitation whose file differs.* Verbatim record "2.1 Fuel uplift is by bowser only until the
+  hydrant works are complete and stands 7-10 are reopened." (the file has no "and stands 7-10…"):
+  highlights 0, red tag "Text differs from the quoted clause", Activity log row
+  `verbatim.check → Data error · text differs` (`dv5`). The matching record shows the violet
+  "Quoted verbatim in the reply · text matches" tag (`dv6`).
+- Matching is exact and case-sensitive after whitespace normalisation (`locate.ts`); nothing fuzzy is
+  ever drawn. Search hits are yellow, citations blue, so the two never read alike (`dv2`).
+
+**Large PDF, requested page first.** `AMDT.pdf` (28.7 MB, 88 pages) opened at page 60: pdf.js runs with
+range requests only (`disableStream`, `disableAutoFetch`, 64 KB chunks); the agent's range log shows the
+xref chunk, then the header chunk, then the chunks for page 60. Page 60 is the first page drawn (render
+order 60 → 59 → 61), with the progressive row "Loading page 60 of … · 19.9 of 28.7 MB · you can read and
+search the pages already loaded" (`dv7`).
+
+**Files behind the authenticated path.** Production, no session: `/files/*` → 307 to `/login`;
+`/agent/api/files/:id`, `/agent/api/knowledge/documents/:id/file`, `/agent/api/attachments/:id`,
+`/agent/api/documents/generated/:id` → 401; `/agent/doc?…` → 307 to `/login`. Signed in as another user,
+a generated file requested by URL answers 404 and the viewer shows the PERMISSION DENIED card with the
+file name (`dv8`). No `x-debug-runner-secret` anywhere in the viewer.
+
+**Reduced motion.** With `prefers-reduced-motion: reduce` the viewer root, the citation marker and the
+highlight all report `animation-name: none` (`dv10`).
+
+**Deviations and spec defaults worth knowing:** `Attach to reply` pins the open document as the composer
+context (the composer's attachment list holds uploads only); DOCX renders in the browser with `mammoth`
+(no server-side conversion service exists); AIP `Open source` is a path-derived `/aip/…` link (deep-link
+format unknown); below 1000 px of viewer width the header actions drop their labels so the header stays
+one row at 1280 with the panel open; Undo after the seventh tab restores the closed tab and the strip
+holds seven until the next open.
+
+**Blocked (needs backend):** revision / superseded metadata and "open current" (nothing stores a revision or
+a current-version pointer), cached offline copies (no store; the browser's HTTP cache only), spans for AIP
+citations (the AIP tool returns page text, not the cited sentence), server-side text for files over the
+100 MB limit. **Blocked (needs design):** none — every drawn state is built.
+
+**Also fixed on the way:** tier-1 knowledge hits carried no document id, so no citation into an approved
+clause was ever openable (`retrieval.mjs` now looks up document and page for the matched records);
+`GET /api/documents/generated/:id` threw on an undefined helper; a knowledge file missing from storage
+answered 500 instead of 404; the toolbar stayed inert after a tab switch (status reset raced the child
+view's "ready"); the highlight variables were only injected by the panel, so citation highlights were
+invisible when the panel was closed.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

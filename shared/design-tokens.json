@@ -66,7 +66,19 @@
     "suggestHover": "#f7faff",
     "redWashSoft": "#fffafa",
     "amberWashSoft": "#fffcf6",
-    "highlight": "#fef3c7"
+    "highlight": "#fef3c7",
+    "searchMatch": "#fef3c7",
+    "searchCurrent": "#fbbf24",
+    "citeHighlight": "rgba(37,99,235,.12)",
+    "citeClaim": "rgba(37,99,235,.10)",
+    "citeOutline": "#93b4f5",
+    "viewerCanvas": "#eceef1",
+    "viewerCanvasImage": "#e4e6ea",
+    "viewerPageScan": "#fbfaf6",
+    "violetTint2": "#f5f3ff",
+    "violetBorder": "#ddd6fe",
+    "tabHover": "#eceef1",
+    "companyDeep": "#6d28d9"
   },
   "radius": {
     "card": 13,
@@ -127,7 +139,9 @@
       "fg": "#6d28d9",
       "bg": "#ede9fe",
       "underline": "#c4b5fd",
-      "strip": "#7c3aed"
+      "strip": "#7c3aed",
+      "tint2": "#f5f3ff",
+      "border": "#ddd6fe"
     },
     "web": {
       "fg": "#b45309",
@@ -135,6 +149,12 @@
       "underline": "#f3c77e",
       "claimBg": "#fffaf0",
       "strip": "#d97706"
+    },
+    "attachment": {
+      "fg": "#3a3d44",
+      "bg": "#f0f1f3",
+      "underline": "#c9cdd3",
+      "strip": "#6c7079"
     }
   },
   "voice": {
@@ -182,5 +202,20 @@
     "headerHeight": 60,
     "pushMinContent": 900,
     "overlayBelow": 1280
+  },
+  "viewer": {
+    "tabStrip": 40,
+    "header": 68,
+    "toolbar": 46,
+    "searchRow": 48,
+    "thumbRail": 132,
+    "pageMax": 900,
+    "panelNarrowBelow": 1400,
+    "citationOffset": 96,
+    "viewLimitBytes": 104857600,
+    "progressiveBytes": 10485760,
+    "progressivePages": 60,
+    "maxTabs": 6,
+    "cachedDocs": 20
   }
 }

@@ -101,6 +101,7 @@ export function useAgentDock({ page, label }) {
       else if (e.data.type === 'cw-agent-minimised') setMinimised(Boolean(e.data.on));
       else if (e.data.type === 'cw-agent-toggle') { setOpen((v) => !v); setMinimised(false); }
       else if (e.data.type === 'cw-agent-expand' && typeof e.data.url === 'string' && e.data.url.startsWith('/')) window.location.assign(e.data.url);
+      else if (e.data.type === 'cw-agent-open-doc' && typeof e.data.url === 'string' && e.data.url.startsWith('/agent/doc')) window.open(e.data.url, '_blank', 'noopener');
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);

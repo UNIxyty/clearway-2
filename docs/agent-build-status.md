@@ -1399,6 +1399,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 12 — voice input: push-to-talk → ElevenLabs STT → voice message; docked bar, permission cards, console hold | 4cb0923 | yes | yes — 2026-09-25 01:14Z (portal build 2IjUAMv2oIOkbKIwJ56xK; agent-service + digital-wall-frontend rebuilt) |
 | 13 — shortcuts match on the physical key (⌥ chords on macOS); recorder feedback | f87d947 | yes | yes — 2026-09-25 01:35Z (portal build U2JcgdeZ7Ga-xZE5VUqKP; agent-service + digital-wall-frontend rebuilt) |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
+| 14 — document viewer: citation → document (exact match only, not-found = no highlight + red banner + logged), verbatim check, tabs, five entry points, file types, states, `/agent/doc` for the wall | 97086f5 | yes | yes — 2026-09-26 (portal build Wm3l1mh8wU5hJ3MkEp8LT, was U2JcgdeZ7Ga-xZE5VUqKP; agent-service + digital-wall-frontend rebuilt `--no-cache`; server HEAD 97086f5) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):
 39 screenshots; console clean apart from the rig's own 401s. §3 rules verifier 15/15 on the final code.
@@ -1407,6 +1408,19 @@ Report: `docs/agent-ui-report.md`. Manifest: `docs/agent-ui-manifest.md` (89 ✅
 
 Two things for you: the voice-bar-over-the-wall decision (report §8) and the rows blocked on voice
 (no STT/TTS wired — the recordings decision).
+
+**Stage 14 (viewer) verification.** Production build on the rig, Playwright, screenshots `dv1`–`dv27`:
+citation found / not found (0 highlights, 0 markers, red banner, page open, Activity `citation.check →
+Citation not found`) / verbatim mismatch (0 highlights, red tag, Activity `verbatim.check → Data error ·
+text differs`) / verbatim match; 28.7 MB PDF opened at p. 60 renders page 60 first (range log: xref → header
+→ page-60 chunks); another user's generated file by URL → 404 and the PERMISSION DENIED card; reduced
+motion → `animation-name: none`; tabs 6 + Undo; citation from a real reply → second tab at the clause;
+image / scanned / password / broken / text / csv / xlsx / docx / kmz / too-large / fetch-failed / offline.
+Production after deploy, no session: `/files/*` and `/agent/doc` → 307 `/login`; every `/agent/api/*`
+file, document, attachment and citation route → 401; `/agent/api/health` 200; the viewer chunk and
+`pdf.worker.min.mjs` are served from the new build. Manifest: `docs/agent-viewer-manifest.md`; report §8k.
+Blocked (backend): revision/superseded metadata, cached offline copies, AIP citation spans, server-side
+DOCX rendering, portal deep-link format.
 
 ## Deferred items (all parts)
 

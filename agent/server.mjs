@@ -333,9 +333,18 @@ const server = http.createServer(async (req, res) => {
         if (!r || !r.approved_at) return notFound();
         return sendJson(res, { ok: true, record: { kind, id: r.id, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
       }
-      const path = kind === "limitation" ? `/api/timeline/limitations/${encodeURIComponent(id)}` : kind === "important" ? `/api/important/${encodeURIComponent(id)}` : `/api/caa/${encodeURIComponent(id)}`;
-      const payload = await wallGetForServer(path, user).catch(() => null);
-      const r = payload?.limitation ?? payload?.entry ?? payload?.record ?? null;
+      // Limitations have a by-id route on the wall; IMPORTANT and CAA only have
+      // list routes, so those are listed and matched on id — still the stored
+      // record, never the model's copy.
+      let r = null;
+      if (kind === "limitation") {
+        const payload = await wallGetForServer(`/api/timeline/limitations/${encodeURIComponent(id)}`, user).catch(() => null);
+        r = payload?.limitation ?? payload?.entry ?? payload?.record ?? null;
+      } else {
+        const list = await wallGetForServer(kind === "important" ? "/api/important?includeInactive=true" : "/api/caa?includeInactive=true", user).catch(() => null);
+        const rows = list?.entries ?? list?.items ?? list?.records ?? (Array.isArray(list) ? list : []);
+        r = rows.find((e) => String(e?.id ?? "") === id) ?? null;
+      }
       if (!r) return notFound();
       return sendJson(res, { ok: true, record: { kind, id: String(r.id ?? id), reference: null, heading: String(r.title ?? r.authorityName ?? r.country ?? ""), text: String(r.description ?? r.body ?? r.functionText ?? r.title ?? ""), source: kind === "limitation" ? "digital-wall limitations store" : kind === "important" ? "digital-wall IMPORTANT store" : "digital-wall CAA store", version: null, effectiveFrom: r.startDate ?? r.effectiveFrom ?? null, effectiveTo: r.endDate ?? r.effectiveTo ?? null, approvedBy: r.reviewedBy ?? r.addedBy ?? null, approvedAt: r.reviewedAt ?? r.addedAt ?? null, updatedAt: r.updatedAt ?? null, page: null } });
     }

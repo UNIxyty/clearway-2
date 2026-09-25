@@ -209,6 +209,14 @@ dispatcher's own generated files, newest first, filterable); attachments resolve
 immediately instead of after "Confirm"; the email prompt reads `Send “subject” to you with 1
 attachment`. Rules verifier 15/15 on the final code.
 
+## 8h. IMPORTANT and CAA verbatim frames (commit `__H_COMMIT__`)
+
+"list me 10 important" rendered ten `VERBATIM NOT SHOWN` frames: the verbatim blocks carried no record
+kind, so every frame re-fetched `/api/verbatim/limitation/IMP-001`; and the wall has no by-id GET for
+IMPORTANT or CAA, so even the right kind would have 404'd. Now the block carries `kind`
+(limitation / important / caa / tier1) and the route lists and matches IMPORTANT/CAA on id — still the
+stored record, never the model's copy. Verified on the rig with a seeded IMPORTANT entry.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

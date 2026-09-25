@@ -455,10 +455,15 @@ export function verbatimFromToolCalls(calls) {
     if (call.ok === false || !call.result) continue;
     const tool = getTool(call.name);
     if (!tool) continue;
+    // The frame re-fetches the stored text BY KIND AND ID (§3 rule 1); the
+    // kind must travel with the block or every non-limitation record is
+    // looked up as a limitation and comes back "unavailable".
+    const kind = /important/.test(tool.name) ? "important" : /caa/.test(tool.name) ? "caa" : /knowledge/.test(tool.name) ? "tier1" : "limitation";
     for (const key of ["limitations", "entries", "reports", "notams"]) {
       for (const record of call.result[key] ?? []) {
         if (record?.verbatim !== true) continue;
         out.push({
+          kind,
           id: String(record.id ?? ""),
           heading: String(record.title ?? record.country ?? record.id ?? ""),
           text: String(record.description ?? record.body ?? record.functionText ?? record.title ?? ""),

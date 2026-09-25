@@ -185,7 +185,7 @@ genuine under-route (`runway dimensions at EYVI` → fast), the classifier's kno
 "METAR for EVRA" → `claude-haiku-4-5 · fast · by router`; a reconcile-all-limitations question →
 `claude-opus-4-6 · reasoning · by router`.
 
-## 8f. Files and uploads (commit `__F_COMMIT__`)
+## 8f. Files and uploads (commit `1a3f5a4`)
 
 - **Every file in a thread downloaded on reload**: the file card's preview `<object>` pointed at the
   download URL, which is served `Content-Disposition: attachment`. The files route now honours

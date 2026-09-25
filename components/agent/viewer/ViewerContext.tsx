@@ -46,6 +46,15 @@ function saveStore(store: Record<string, { tabs: ViewerTab[]; activeKey: string 
   try { sessionStorage.setItem(STORE, JSON.stringify(store)); } catch { /* private mode */ }
 }
 
+/** Same passage → the existing citation; a new passage under a used number → the next free number. */
+function placeCitation(existing: Citation[], c: Citation): Citation {
+  const same = (a: Citation, b: Citation) => (a.span ?? a.verbatim?.text ?? "") === (b.span ?? b.verbatim?.text ?? "") && (a.page ?? null) === (b.page ?? null);
+  const match = existing.find((e) => same(e, c));
+  if (match) return match;
+  if (!existing.some((e) => e.k === c.k)) return c;
+  return { ...c, k: Math.max(0, ...existing.map((e) => e.k)) + 1 };
+}
+
 export function ViewerProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [tabs, setTabs] = useState<ViewerTab[]>([]);
@@ -77,12 +86,20 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
     if (opts.opener) openerRef.current = opts.opener; else if (!open) openerRef.current = document.activeElement as HTMLElement;
     if (opts.from) setFrom(opts.from);
     setPanelClosed(Boolean(opts.panelClosed));
+    // Place the citation against the tab as it is now, so the pending locate (and its focus) uses the same
+    // number the tab will carry.
+    const already = tabs.find((t) => t.ref.key === ref.key);
+    if (already && opts.citation) opts = { ...opts, citation: placeCitation(already.citations, opts.citation) };
     setTabs((list) => {
       const now = Date.now();
       const existing = list.find((t) => t.ref.key === ref.key);
       let next: ViewerTab[];
       if (existing) {
-        next = list.map((t) => (t.ref.key === ref.key ? { ...t, ref: { ...t.ref, ...ref }, lastViewedAt: now, page: opts.page ?? opts.citation?.page ?? t.page, citations: opts.citation && !t.citations.some((c) => c.k === opts.citation!.k) ? [...t.citations, opts.citation] : t.citations, activeCitation: opts.citation?.k ?? t.activeCitation } : t));
+        // A second citation into the open document (§V6 C3): the same passage is the same citation; a
+        // different passage that happens to carry the same reply number gets the next number here, so
+        // both stay visible and the stepper counts them.
+        const incoming = opts.citation ?? null; // already placed above, against the same tab
+        next = list.map((t) => (t.ref.key === ref.key ? { ...t, ref: { ...t.ref, ...ref }, lastViewedAt: now, page: opts.page ?? incoming?.page ?? t.page, citations: incoming && !t.citations.some((c) => c.k === incoming.k) ? [...t.citations, incoming] : t.citations, activeCitation: incoming?.k ?? t.activeCitation } : t));
       } else {
         const tab: ViewerTab = { ref, page: opts.page ?? opts.citation?.page ?? 1, zoom: "fit", rotation: 0, scrollTop: 0, lastViewedAt: now, citations: opts.citation ? [opts.citation] : [], activeCitation: opts.citation?.k ?? null, results: {} };
         next = [...list, tab];
@@ -98,7 +115,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
     setActiveKey(ref.key);
     if (opts.citation) setPending({ key: ref.key, citation: opts.citation, at: Date.now() });
     setOpen(true);
-  }, [open, showToast]);
+  }, [open, showToast, tabs]);
 
   const close = useCallback(() => {
     setOpen(false); setPending(null);
@@ -118,7 +135,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   const activate = useCallback((key: string) => { setActiveKey(key); setTabs((list) => list.map((t) => (t.ref.key === key ? { ...t, lastViewedAt: Date.now() } : t))); }, []);
   const patchTab = useCallback<ViewerApi["patchTab"]>((key, patch) => setTabs((list) => list.map((t) => (t.ref.key === key ? { ...t, ...patch } : t))), []);
   const setResult = useCallback<ViewerApi["setResult"]>((key, r) => setTabs((list) => list.map((t) => (t.ref.key === key ? { ...t, results: { ...t.results, [r.k]: r } } : t))), []);
-  const addCitation = useCallback<ViewerApi["addCitation"]>((key, c) => setTabs((list) => list.map((t) => (t.ref.key === key && !t.citations.some((x) => x.k === c.k) ? { ...t, citations: [...t.citations, c] } : t))), []);
+  const addCitation = useCallback<ViewerApi["addCitation"]>((key, c) => setTabs((list) => list.map((t) => { if (t.ref.key !== key) return t; const placed = placeCitation(t.citations, c); return t.citations.some((x) => x.k === placed.k) ? t : { ...t, citations: [...t.citations, placed] }; })), []);
   const nextTab = useCallback((dir: 1 | -1) => { setTabs((list) => { if (!list.length) return list; const i = Math.max(0, list.findIndex((t) => t.ref.key === activeKey)); const n = list[(i + dir + list.length) % list.length]; setActiveKey(n.ref.key); return list; }); }, [activeKey]);
 
   const active = useMemo(() => tabs.find((t) => t.ref.key === activeKey) ?? null, [tabs, activeKey]);
@@ -138,7 +155,18 @@ export function useViewer(): ViewerApi {
 export function useViewerOptional(): ViewerApi | null { return useContext(Ctx); }
 
 /** Resolve a document by source + id through the agent, so every entry point shares one metadata shape. */
-export async function fetchDocRef(source: "knowledge" | "generated" | "attachment", id: string): Promise<DocRef | null> {
+/** ICAO and kind from an AIP file path the portal serves: /files/aip/ead-pdf/EVRA.pdf → AD 2 EVRA; /api/aip/gen/pdf?icao=EVRA or aip/gen-pdf/EV-GEN-1.2.pdf → GEN. */
+export function aipLocator(documentPath: string): { kind: "aip" | "gen"; icao: string } | null {
+  const p = String(documentPath);
+  const q = /[?&]icao=([A-Za-z0-9]{4})/.exec(p);
+  if (/gen/i.test(p) && q) return { kind: "gen", icao: q[1].toUpperCase() };
+  const m = /\/([A-Za-z0-9]{4})\.pdf(?:$|\?)/.exec(p);
+  if (m && !/GEN/i.test(p)) return { kind: "aip", icao: m[1].toUpperCase() };
+  if (q) return { kind: "aip", icao: q[1].toUpperCase() };
+  return null;
+}
+
+export async function fetchDocRef(source: "knowledge" | "generated" | "attachment" | "aip" | "gen", id: string): Promise<DocRef | null> {
   const base = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
   try {
     const r = await fetch(`${base}/api/documents/${source}/${encodeURIComponent(id)}`, { credentials: "same-origin", cache: "no-store" });
@@ -155,6 +183,6 @@ export function aipDocRef(documentPath: string, title?: string | null, meta?: { 
   return {
     key: `aip:${clean}`, source: "aip", id: clean, filename, title: title ?? null, mime: filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : null, bytes: null,
     url: `${clean}?inline=1`, downloadUrl: clean, sourceUrl: clean.replace(/^\/files\//, "/aip/") ?? null,
-    tier: "internal", sourceName: meta?.source ? `AIP Portal · ${meta.source.toUpperCase()}` : "AIP Portal", fetchedAt: null, revision: null, approval: null,
+    tier: "internal", sourceName: meta?.source ? `AIP Portal · ${meta.source.toUpperCase()}` : "AIP Portal", fetchedAt: null, revision: { label: "revision unknown", state: "unknown", words: "revision unknown", reason: "not yet resolved" }, approval: null,
   };
 }

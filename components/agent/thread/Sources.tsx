@@ -10,6 +10,7 @@
 
 import { useState, type ReactNode } from "react";
 import { C, TIER, TIER_META } from "../ui/tokens";
+import { RevisionTag } from "./RevisionTag";
 import { Icon, Eyebrow } from "../ui/primitives";
 import type { ClaimSpan, SourceRef, Tier } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
@@ -84,6 +85,7 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
               <Icon name={meta.icon} size={13} color={t?.fg ?? C.info} />
               <span style={{ fontWeight: 600, color: t?.fg ?? C.info }}>{meta.label}</span>
               <span style={{ color: C.body }}>{s.label}</span>
+              {(s.documentSource || s.documentId) && <RevisionTag revision={s.revision} />}
               {s.href && <Icon name="arrow-up-right" size={12} color={C.faint} />}
             </>
           );
@@ -110,6 +112,7 @@ export function SourceStrip({ sources, hot, setHot }: { sources: SourceRef[]; ho
             <SourceNumber n={s.n} tier={s.tier} size={16} />
             <Icon name={meta.icon} size={11} color={t?.fg ?? C.info} />
             <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ fontWeight: 600, color: t?.fg ?? C.info }}>{meta.label}</span> · {s.label}</span>
+            {(s.documentSource || s.documentId) && <RevisionTag revision={s.revision} size={10} />}
             {s.href && <Icon name="arrow-up-right" size={11} color={C.faint} />}
           </span>
         );

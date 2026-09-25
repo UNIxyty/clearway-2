@@ -303,6 +303,61 @@ answered 500 instead of 404; the toolbar stayed inert after a tab switch (status
 view's "ready"); the highlight variables were only injected by the panel, so citation highlights were
 invisible when the panel was closed.
 
+## 8l. Document revisions — unknown is not current (this commit)
+
+Design and data model: `docs/agent-revisions.md`. What existed: EAD hands us the effective date and
+AIRAC in its results table and in its filenames, and both were dropped at the storage key; the
+knowledge base had `version`/`effective_date` columns with 0 of 18 rows filled; no AIRAC calendar
+anywhere. What was added: a revision sidecar beside every cached AIP PDF (written by the sync worker
+and by a backfill script), an AIRAC calendar (`lib/airac.ts`, `agent/lib/knowledge/revision.mjs`),
+`revision` on the resolve/exists routes and on every document tool result, the four states in the
+viewer, on source chips, document cards, the verbatim frame and the Knowledge base list, the
+revision on citation audits, and `docs/supabase-agent-revisions.sql` for the columns the knowledge
+base still lacks (feature-detected until run).
+
+**Verified on the production build (Playwright, `rv1`–`rv13`):**
+- Four viewer states: `rv1` current (AD 2 EVRA, AIRAC 2609), `rv2` not yet effective (UMGG, AIRAC
+  2610 from 01 OCT 2026, blue banner), `rv3` superseded (knowledge v1 → amber banner + **Open
+  current** to v2), `rv4` unknown (EHAM, italic chip + grey banner "It is not known whether this copy
+  is current — do not treat it as such").
+- Answer citing a superseded document (`rv6`): the reply opens with "that document (v1, effective
+  2026-01-05) is **superseded** … The current version is v2" and answers from v2; the source chip
+  and the document card carry `v1 · superseded`; the citation opens the viewer with the amber banner
+  (`rv7`).
+- Approved text from a superseded source (`rv6b`): the tier-1 record is still quoted word for word,
+  ordered after the current one, with the note "The source document has been superseded — this
+  approved wording may no longer match the current document" inside the frame, and the answer says so.
+- Document cards from a real reply (`rv8`): EVRA current / UMGG not yet effective / EHAM revision
+  unknown, and the answer states each ("EHAM — Revision unknown … cannot be confirmed as current").
+- Cited-revision mismatch (`rv13`): "The answer cited AIRAC 2608; this copy is AIRAC 2609 · eff.
+  03 SEP 2026. The cited revision was replaced under the same file, so the current copy is shown."
+- The two banners side by side (`rv5`): red "Couldn't find cited passage … Treat the claim as
+  unverified" vs grey "Nothing to highlight — not a failed check."
+- The four previously untested cases: E1 document card → viewer (`rv9`), E3 sent attachment chip →
+  viewer as Attachment (`rv12`), passage across a page break — three tinted parts on pages 1 and 2,
+  one marker, both tags (`rv10`), second citation into the open document — same tab, previous passage
+  dashed, stepper "Citation 2 of 2" (`rv11`).
+
+**Migration.** Knowledge base: 18 pre-existing documents, none with a version or effective date → 18
+unknown; the 5 fixtures added by this job carry revisions (3 current, 1 not yet effective, 1
+superseded). AIP: production counts are in `docs/agent-build-status.md` stage 15 (the backfill runs
+on the server after deploy).
+
+**Design decision to confirm.** An AIP copy fetched before the cycle in force began is reported
+**unknown** ("not checked against the source since AIRAC 2609 took effect"), not current. With no
+scheduled re-check (syncs are on demand and EAD blocks datacenter IPs) every cached copy goes unknown
+at each cycle boundary until re-fetched. That is the truthful state; a per-cycle re-check is the
+follow-up.
+
+**Also changed on the way:** tier-1 knowledge records now appear as verbatim frames in replies (the
+frame builder only looked at limitation/IMPORTANT/CAA arrays, never at the knowledge tool's own
+`verbatim` array — the frame rules are unchanged, the text is re-fetched by kind and id); a second
+citation with the same reply number into an open document is numbered next instead of being treated
+as the first; sent attachments show their chips at once (names travel with the ids); the text, table,
+image and DOCX views fetched their file once per render (six requests for one text file);
+`requireAuthenticatedUser` honours `DISABLE_AUTH_FOR_TESTING` like the middleware (test
+environments only), which is what let the document-card path be exercised on the rig.
+
 ## 9. Also found on the rig (backend)
 
 - After a cancelled `send_email`, the model re-proposed the same send unprompted on the next turn

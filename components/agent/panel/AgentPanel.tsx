@@ -226,7 +226,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
           </div>
         )}
 
-        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
+        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
       </aside>
     </>
   );

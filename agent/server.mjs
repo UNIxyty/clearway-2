@@ -88,7 +88,8 @@ function sanitiseAttachments(raw) {
   return out;
 }
 
-import { wallGet as wallGetForServer } from "./lib/tools/http.mjs";
+import { wallGet as wallGetForServer, portalGet as portalGetForServer } from "./lib/tools/http.mjs";
+import { documentRevision, loadSiblings, publicRevision, revisionFromPortal } from "./lib/knowledge/revision.mjs";
 
 /** Raw bytes for an upload, bounded. Anything past the cap ends the request. */
 async function readRawBody(req, maxBytes) {
@@ -126,6 +127,13 @@ function normalizePath(pathname) {
  * the page the user needs arrives first (§V9 progressive load); the same helper
  * serves generated files, knowledge originals and attachments.
  */
+/** The viewer's revision shape (§V4.2 chip, §V4.5 banners): words, state, and where the current copy is. */
+function viewerRevision(rev, hrefFor) {
+  if (!rev) return { state: "unknown", words: "revision unknown", label: "revision unknown", reason: "no revision data", superseded: false, currentHref: null, effectiveFrom: null, validUntil: null, fetchedAt: null, revision: null, previous: [] };
+  const currentId = rev.supersededBy ?? rev.currentId ?? null;
+  return { state: rev.state, words: rev.words, label: rev.label, reason: rev.reason ?? "", superseded: rev.state === "superseded", currentHref: currentId && hrefFor ? hrefFor(currentId) : null, effectiveFrom: rev.effectiveFrom ?? null, validUntil: rev.validUntil ?? null, fetchedAt: rev.fetchedAt ?? null, revision: rev.revision ?? null, previous: rev.previous ?? [] };
+}
+
 function sendFileBytes(req, res, { buffer, mime, filename, inline }) {
   const total = buffer.length;
   const base = {
@@ -343,10 +351,31 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── Document metadata for the viewer (§V4.2): one shape for every source ──
-    if (/^\/api\/documents\/(knowledge|generated|attachment)\/[^/]+$/.test(pathname) && req.method === "GET") {
+    if (/^\/api\/documents\/(knowledge|generated|attachment|aip|gen)\/[^/]+$/.test(pathname) && req.method === "GET") {
       await assertMayUseAgent(user);
       const [, , , source, rawId] = pathname.split("/");
-      const id = decodeURIComponent(rawId);
+      const id = decodeURIComponent(rawId).split("?")[0];
+      // AIP AD 2 / GEN 1.2 by ICAO: the portal resolves the source and the cached copy's revision
+      // (§V7 revision chip, §V6 revision mismatch). Unknown is stated, never shown as current.
+      if (source === "aip" || source === "gen") {
+        const icao = id.toUpperCase();
+        if (!/^[A-Z0-9]{4}$/.test(icao)) return sendJson(res, { ok: false, error: "bad_request", message: "ICAO code required." }, 400);
+        const data = source === "aip"
+          ? await portalGetForServer(`/api/aip/resolve?icao=${encodeURIComponent(icao)}`, user, { timeoutMs: 20_000 }).catch(() => null)
+          : await portalGetForServer(`/api/aip/gen/pdf/exists?icao=${encodeURIComponent(icao)}`, user, { timeoutMs: 15_000 }).catch(() => null);
+        if (!data) return sendJson(res, { ok: false, error: "unavailable", message: "The portal did not answer." }, 503);
+        const cached = source === "aip" ? Boolean(data.cached) : Boolean(data.exists);
+        const filesPath = source === "aip" ? (cached && data.filesPath ? String(data.filesPath) : (data.pdfPath ? String(data.pdfPath) : null)) : (data.storageKey ? `/files/${data.storageKey}` : `/api/aip/gen/pdf?icao=${icao}`);
+        if (!filesPath) return sendJson(res, { ok: false, error: "not_found", message: `No AIP source serves ${icao}.` }, 404);
+        const rev = revisionFromPortal(source === "aip" ? data.revision : data.revision, cached);
+        const filename = filesPath.split("?")[0].split("/").pop() || `${icao}.pdf`;
+        return sendJson(res, { ok: true, document: {
+          key: `aip:${filesPath.split("?")[0]}`, source: "aip", id: filesPath.split("?")[0], filename, title: source === "aip" ? `AD 2 · ${icao}` : `GEN 1.2 · ${icao}`, mime: "application/pdf", bytes: null,
+          url: `${filesPath}${filesPath.includes("?") ? "&" : "?"}inline=1`, downloadUrl: filesPath, sourceUrl: `/aip?icao=${icao}`,
+          tier: "internal", sourceName: `AIP Portal${data.source ? ` · ${String(data.source).toUpperCase()}` : ""}`, fetchedAt: rev.fetchedAt ?? null,
+          revision: viewerRevision(rev, null), approval: null, canApprove: false,
+        } });
+      }
       if (source === "knowledge") {
         const d = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`).catch(() => null))?.[0];
         if (!d) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
@@ -356,7 +385,7 @@ const server = http.createServer(async (req, res) => {
           key: `knowledge:${d.id}`, source: "knowledge", id: d.id, filename: d.filename, title: d.title, mime: d.mime, bytes: d.bytes,
           url: `/agent/api/knowledge/documents/${d.id}/file?inline=1`, downloadUrl: `/agent/api/knowledge/documents/${d.id}/file`, sourceUrl: `/agent/knowledge`,
           tier: "company", sourceName: "Knowledge base", fetchedAt: d.created_at, uploadedBy: d.uploaded_by_email ?? null,
-          revision: d.version || d.effective_date ? { label: [d.version ? `v${String(d.version).replace(/^v/i, "")}` : null, d.effective_date ? `eff. ${d.effective_date}` : null].filter(Boolean).join(" · ") } : null,
+          revision: viewerRevision(documentRevision(d, await loadSiblings(d)), (id) => `/agent/doc?source=knowledge&id=${id}`),
           approval: approved ? { status: "authoritative", by: d.approved_by_email ?? null, at: d.approved_at ?? null } : pending ? { status: "awaiting", uploadedBy: d.uploaded_by_email ?? null, at: d.created_at } : d.status === "rejected" ? { status: "rejected" } : { status: "reference" },
           canApprove: user.agentRole === "developer",
         } });
@@ -384,10 +413,10 @@ const server = http.createServer(async (req, res) => {
       await audit({
         kind, userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, conversationId,
         toolName: kind === "verbatim.check" ? "verbatim.check" : "citation.check",
-        toolArgs: { document: String(body.documentKey ?? ""), page: body.page ?? null, citation: body.citation ?? null, span: String(body.span ?? "").slice(0, 400) },
+        toolArgs: { document: String(body.documentKey ?? ""), page: body.page ?? null, citation: body.citation ?? null, span: String(body.span ?? "").slice(0, 400), revision: body.revision?.label ?? null, revisionState: body.revision?.state ?? null },
         success: found, error: found ? null : kind === "verbatim.check" ? "Verbatim mismatch — file text differs from the approved clause" : "Citation not found",
         confirmationStatus: "not_required",
-        detail: { found, filename: body.filename ?? null, kind: kind === "verbatim.check" ? "data_error" : "citation" },
+        detail: { found, filename: body.filename ?? null, kind: kind === "verbatim.check" ? "data_error" : "citation", revision: body.revision ?? null, citedRevision: body.citedRevision ?? null },
       });
       return sendJson(res, { ok: true, logged: !found });
     }
@@ -443,7 +472,9 @@ const server = http.createServer(async (req, res) => {
         const rows = await knowledgeRest2(`agent_tier1_records?id=eq.${encodeURIComponent(id)}&retired_at=is.null&select=*&limit=1`).catch(() => null);
         const r = rows?.[0];
         if (!r || !r.approved_at) return notFound();
-        return sendJson(res, { ok: true, record: { kind, id: r.id, documentId: r.document_id ?? null, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
+        const sourceDoc = r.document_id ? (await knowledgeRest2(`agent_documents?id=eq.${encodeURIComponent(r.document_id)}&select=*&limit=1`).catch(() => null))?.[0] ?? null : null;
+        const revision = sourceDoc ? publicRevision(documentRevision(sourceDoc, await loadSiblings(sourceDoc))) : { state: "unknown", words: "revision unknown", label: "revision unknown", revision: null, effectiveFrom: null, validUntil: null, fetchedAt: null, reason: "the record is not linked to a document", supersededBy: null };
+        return sendJson(res, { ok: true, record: { kind, id: r.id, revision, documentId: r.document_id ?? null, reference: r.reference ?? null, heading: r.title ?? null, text: String(r.text ?? ""), source: r.source_document ?? null, version: r.version ?? null, effectiveFrom: r.effective_date ?? null, effectiveTo: r.expires_date ?? null, approvedBy: r.approved_by_email ?? null, approvedAt: r.approved_at ?? null, updatedAt: r.created_at ?? null, page: null } });
       }
       // Limitations have a by-id route on the wall; IMPORTANT and CAA only have
       // list routes, so those are listed and matched on id — still the stored
@@ -517,7 +548,9 @@ const server = http.createServer(async (req, res) => {
       const status = url.searchParams.get("status");
       const filter = status ? `&status=eq.${encodeURIComponent(status)}` : "";
       const rows = await knowledgeRest(`agent_documents?select=*${filter}&order=created_at.desc&limit=200`);
-      return sendJson(res, { ok: true, documents: rows ?? [] });
+      // Revision words per row (siblings = the same listing): unknown is stated, never blank.
+      const all = rows ?? [];
+      return sendJson(res, { ok: true, documents: all.map((d) => ({ ...d, revision: publicRevision(documentRevision(d, all)) })) });
     }
 
     if (pathname === "/api/knowledge/documents" && req.method === "POST") {

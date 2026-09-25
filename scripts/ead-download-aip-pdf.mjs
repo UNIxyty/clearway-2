@@ -8,7 +8,7 @@
  * Output: PDF saved to data/ead-aip/<filename>.pdf
  */
 
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import {
@@ -524,6 +524,7 @@ async function main() {
       const isAd3Row = makeAdRowCheck('3');
       const isAd4Row = makeAdRowCheck('4');
 
+      let selectedRow = null; // the table row the PDF came from, with its effective date
       async function scanCurrentPage() {
         const rows = page.locator('#mainForm\\:searchResults_data tr');
         const rowCount = await rows.count();
@@ -539,6 +540,10 @@ async function main() {
           const linkText = await link.textContent().catch(() => '') || '';
           const heading = headingNorm(docHeading);
           if (chartRe.test(linkText) || chartRe.test(heading)) continue;
+          // Columns: 0=Effective Date, 1=Document Name, 2=eAIP, 3=AIRAC, 4=Document Heading. The
+          // effective date is what tells a reader whether the copy is current — keep it.
+          const effectiveDateText = ((await cells.nth(0).textContent().catch(() => '')) || '').trim();
+          const airacText = cellCount > 3 ? ((await cells.nth(3).textContent().catch(() => '')) || '').trim() : '';
 
           for (const [bucket, isRow, linkRe] of [[ad2, isAd2Row, ad2LinkRe], [ad3, isAd3Row, ad3LinkRe], [ad4, isAd4Row, ad4LinkRe]]) {
             const byHeading = isRow(heading);
@@ -548,13 +553,15 @@ async function main() {
             if (byHeading) score += 120;
             if (byName) score += 60;
             if (!variationRe.test(linkText)) score += 30; else score -= 5;
-            bucket.push({ link, linkText, heading, score });
+            bucket.push({ link, linkText, heading, score, effectiveDateText, airacText });
             if (bucket === ad2 && variationRe.test(linkText) && !fallback) fallback = link;
             break;
           }
         }
-        const best = (arr) => arr.sort((a, b) => b.score - a.score).find((c) => !variationRe.test(c.linkText))?.link ?? null;
+        const bestRow = (arr) => arr.sort((a, b) => b.score - a.score).find((c) => !variationRe.test(c.linkText)) ?? null;
+        const best = (arr) => bestRow(arr)?.link ?? null;
         const found2 = best(ad2), found3 = best(ad3), found4 = best(ad4);
+        selectedRow = bestRow(ad2) ?? bestRow(ad3) ?? bestRow(ad4) ?? null;
         if (found2) log(`Selected AD 2 candidate: ${ad2[0].linkText} | ${ad2[0].heading}`);
         else if (found3) log(`Found AD 3 candidate: ${ad3[0].linkText} | ${ad3[0].heading}`);
         else if (found4) log(`Found AD 4 candidate: ${ad4[0].linkText} | ${ad4[0].heading}`);
@@ -627,6 +634,13 @@ async function main() {
         writeFileSync(savePath, bytes);
       }
       log('Saved: ' + savePath);
+      // Revision sidecar for the sync worker: the EAD table's own effective date and AIRAC flag
+      // for the row we downloaded. Never guessed — absent when the row gave none.
+      try {
+        const airacFlag = selectedRow?.airacText ? /^(y|yes|true|airac)/i.test(selectedRow.airacText) : null;
+        writeFileSync(`${savePath}.meta.json`, JSON.stringify({ icao, effectiveDate: selectedRow?.effectiveDateText || null, airacFlag, airacText: selectedRow?.airacText || null, sourceFilename: basename(savePath), sourceUrl: fullUrl, fetchedAt: new Date().toISOString() }, null, 2));
+        log(`Revision: effective ${selectedRow?.effectiveDateText || 'unknown'}${selectedRow?.airacText ? ` · AIRAC ${selectedRow.airacText}` : ''}`);
+      } catch (metaErr) { log('Revision sidecar not written: ' + (metaErr?.message || metaErr)); }
       console.log(savePath);
       await browser.close();
       return;

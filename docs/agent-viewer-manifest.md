@@ -37,9 +37,9 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 
 | # | Item | Status | Evidence / note |
 |---|---|---|---|
-| B1 | E1 Document result: `Open` (primary, eye) · Download · Email; file name is a link; disabled when unavailable | present | Built in `Cards.tsx`. Not reachable on the rig: the portal document tools answer 401 there (no session), so no document card could be produced. Code path identical to E2/E5, which are verified |
+| B1 | E1 Document result: `Open` (primary, eye) · Download · Email; file name is a link; revision line; disabled when unavailable | ✅ | `rv8`/`rv9`: cards from a real reply (AD 2 EVRA/UMGG/EHAM) with revision tags; Open → viewer. The rig honours `DISABLE_AUTH_FOR_TESTING` in `requireAuthenticatedUser` (test environments only, mirrors the middleware) |
 | B2 | E2 Generated file: `Open` primary; thumbnail button with hover chip `Open` | ✅ | `dv9`: Open on the card opens the viewer with the thread as a right column |
-| B3 | E3 Sent attachment chips above the bubble, openable; uploading/failed/too-large not openable | present | Chips render from `blocks.attachments` (`Message.tsx`); opening goes through `GET /agent/api/attachments/:id`. Not exercised in Playwright this build |
+| B3 | E3 Sent attachment chips above the bubble, openable; uploading/failed/too-large not openable | ✅ | `rv12`: a real upload sent with a message, chip click opens the attachment (Attachment tier) |
 | B4 | E4 Citation: claim + superscript one target; file sources open at the passage; web sources open a browser tab; not-found styling `n ?` red | ✅ | `dv26`: the citation in a real reply opens the approved clause in a second tab with the highlight; `dv3`/`dv4`. Hover tooltip is the native `title` (see §M) |
 | B5 | E5 Knowledge base row `Open` on hover/focus; panel closed; `Ask about this document ⌘J` in the header | ✅ | `dv1` |
 | B6 | One entry hook for all five (`useOpenDocument`) with hand-off to `/agent/doc` when the panel is framed by the wall console | ✅ | `useAgentDock.jsx` opens the hand-off URL in a new tab |
@@ -50,7 +50,7 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 |---|---|---|---|
 | C1 | Tab strip 40: breadcrumb `← {from}`, tabs (type icon, mono name, close), max 6 with LRU eviction + `Closed {file} · Undo` toast | ✅ | `dv11`: 8 opens → 6 tabs, toast with Undo; `dv12` |
 | C2 | Tabs belong to the thread; restored with page/zoom | ✅ | `ViewerContext` stores per conversation in sessionStorage; panel/full chat call `setConversationId` |
-| C3 | Header: type tile, mono name, revision chip, meta line (type · size · pages → tier words → time → authority badge), actions, close | ✅ (revision chip: present, no data — see §K) | `dv1`, `dv7` |
+| C3 | Header: type tile, mono name, revision chip (always present: current grey / superseded amber / not yet effective blue / "revision unknown" italic), meta line (type · size · pages → tier words → time → authority badge), actions, close | ✅ | `dv1`, `dv7`, `rv1`–`rv4` |
 | C4 | `Attach to reply` | ✅ deviation | Pins the open document as the composer context (`Asking about … · p. n`) rather than adding a chip — the composer's attachment list holds uploads only. Documented in §M |
 | C5 | `Email` → email flow with confirmation | ✅ | Sends "Email the file … — ask me before sending" to the thread; the agent's send_email confirmation is the existing base §4.15 flow |
 | C6 | `Download` original · `⌘S` | ✅ | `downloadUrl` from metadata; DOCX downloads the original, never the preview |
@@ -58,7 +58,7 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 | C8 | Toolbar: thumbnails, prev/next, page field (out-of-range → red 1 s, revert), zoom steps 50–200, zoom value, fit width, rotate, citation stepper, search; inert while loading/state card | ✅ | `dv2`, `dv3` stepper `Citation 1 of 1` |
 | C9 | Per-type toolbar: image = zoom to 400 + `Fit`; table/text = search only | ✅ | `dv14`, `dv18`, `dv19` |
 | C10 | Search row: field with count, prev/next, page list, Close; yellow matches, darker current; thumbnail dot; debounce 200 ms; case-insensitive substring | ✅ | `dv2` (2 hits, `1 of 2`, `Matches on pages 1`, orange dot on thumb 1) |
-| C11 | Banners in order: citation not found → superseded → offline → scanned / rendered preview; not dismissible | ✅ (superseded: present, no data) | `dv4`, `dv15`, `dv20`, `dv24` |
+| C11 | Banners in order: citation not found → revision mismatch → superseded / not yet effective / unknown → offline → scanned / rendered preview; not dismissible. "No span" is grey and says "not a failed check"; "not found" is red and says "treat the claim as unverified" | ✅ | `dv4`, `dv15`, `dv20`, `dv24`, `rv3`, `rv5a`/`rv5b` |
 | C12 | Thumbnail rail: rendered thumbs, current outline, citation badge, search dot, loading placeholder, click to jump, auto-scroll | ✅ | `dv3` badge `1`, `dv7` |
 | C13 | Canvas: `#eceef1` PDF / `#e4e6ea` image / white table+text / `#fbfbfc` state cards; page shadow; markers in the gutter 12 px left of the page; selectable text layer | ✅ | Tokens `viewer.canvas*` in `shared/design-tokens.json` |
 
@@ -78,12 +78,12 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 |---|---|---|---|
 | E1 | Locate: cited page's text layer first, then whole document; whitespace-normalised, **case-sensitive exact**; no fuzzy highlight | ✅ | `locate.ts` `findExact`; `dv3` |
 | E2 | C1 Found: scroll passage to 96 px, tint + 3 px halo, margin marker rings once, stepper, reply claim/source tint | ✅ | `dv3`: 1 highlight, 1 marker, focus on the mark |
-| E3 | C2 Page-break span: both parts tinted, marker on the first, `Passage continues on p. n ↓` / `↑ … continued from p. n` tags | present | Built (`PdfView.locate` splits at page boundaries, tags in CSS). No rig document has a passage across a page break to show it |
-| E4 | C3 Second citation same tab: previous → dashed outline + white marker; `[`/`]` step | present | Built (`cw-cite-prev`); the rig produced no reply with two citations into one file |
+| E3 | C2 Page-break span: both parts tinted, marker on the first, `Passage continues on p. n ↓` / `↑ … continued from p. n` tags | ✅ | `rv10`/`rv10b`: a clause approved across pages 1–2 of a rendered PDF |
+| E4 | C3 Second citation same tab: previous → dashed outline + white marker; `[`/`]` step | ✅ | `rv11`: two replies citing the same file; the second citation moves in the same tab, the first passage stays dashed |
 | E5 | **C4 Not found: no tint, no marker anywhere; red banner quoting the claim; page still opens; reply superscript `n ?` red; Activity log row** | ✅ | `dv4`: highlights 0, markers 0, banner 1, page shown; Activity `citation.check → Citation not found` |
 | E6 | Verbatim from a quoted block: highlight + `Quoted verbatim in the reply · text matches`; mismatch → red `Text differs from the quoted clause` + data error logged | ✅ | `dv6` match tag; `dv5` mismatch: highlights 0, red warning; Activity `verbatim.check → Data error · text differs` |
 | E7 | Scanned: open at the page, no highlight, scanned banner (not the red banner) | ✅ | `verify-viewer4` "scanned with citation: red banner 0, highlights 0, scanned banner 1" |
-| E8 | Revision mismatch: open the cited revision or superseded banner + `Found in …, cited from …` | blocked:backend | No document has a revision or a "current" pointer (`agent_documents` carries none; AIP documents come with a path only) |
+| E8 | Revision mismatch: open the cited revision or superseded banner + `Found in …, cited from …` | ✅ | Revisions job: knowledge citations open the exact revision row (a superseded one shows the amber banner with **Open current**); AIP copies replaced under the same key show "The answer cited AIRAC 2608; this copy is AIRAC 2609" (`rv13`). See `docs/agent-revisions.md` |
 | E9 | Spans for AIP sources | partial | AIP citations open the file at the page with a `no-span` banner; the AIP tool returns page text, not the exact cited sentence. Knowledge-base and generated sources carry spans |
 
 ## F. Tier without the ink frame (§V7)
@@ -122,7 +122,7 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 | H7 | Password: `PROTECTED` card with field, wrong password → red field + `Wrong password`, correct opens | ✅ | `dv16` |
 | H8 | Fetch failed: `FETCH FAILED` card, Retry (cached copy: see H10) | ✅ | `dv23` |
 | H9 | Permission denied: `PERMISSION DENIED` card with file name, diag, `Request access` · `Copy request` | ✅ | `dv8` for another user's generated file requested by URL; direct URL answers 404 |
-| H10 | Stale / superseded: amber banner + chip + `Open current` | blocked:backend | see E8 |
+| H10 | Stale / superseded: amber banner + chip + `Open current`; plus **not yet effective** (blue) and **revision unknown** (grey, italic chip) — unknown is never shown as current | ✅ | `rv1`–`rv4`: current / not yet effective / superseded / unknown |
 | H11 | Offline: banner, Email/Download/Open source disabled, search works; no cached copy → `wifi-off` card | ✅ banner · partial cache | `dv24`. There is no saved-copy store: an open document keeps working from the browser's HTTP cache only; a document not yet fetched shows the `wifi-off` card |
 | H12 | Limits: 100 MB view limit; progressive above 10 MB or 60 pages; 20 cached documents per user | ✅ limits · blocked cache | `VIEWER.maxBytes`, `progressiveBytes`, `progressivePages` in tokens; cached copies need a store (§K) |
 
@@ -154,7 +154,7 @@ attachments, Range requests, citation checks), `agent/lib/tools/framework.mjs` (
 | Citation spans and page | wired: `sourcesFromToolCalls` emits document id and the retrieved span for knowledge and generated sources; tier-1 (approved clause) hits get their document id from `agent_tier1_records` (the table has no page column, so the viewer searches the whole file for the clause); AIP sources carry the path only |
 | Document fetch / Range API | built: `GET /agent/api/documents/{knowledge\|generated\|attachment}/:id` (metadata), Range/206 on the file routes, `GET /agent/api/attachments/:id` |
 | Failed-citation log write | built: `POST /agent/api/citations/check` → `agent_audit_log` kinds `citation.check`, `verbatim.check`; listed in Activity |
-| Revision / superseded metadata | **blocked:backend** — nothing stores a revision or a current-version pointer |
+| Revision / superseded metadata | built (revisions job): AIP sidecars `aip/<ns>/<NAME>.meta.json` written by the sync worker from the EAD table / dated filenames; `agent_documents` version + effective date, siblings, and `docs/supabase-agent-revisions.sql` for `valid_until` / `superseded_by` |
 | DOCX rendering service | **blocked:backend** — rendered in the browser instead (G6) |
 | Portal deep-link format | **blocked:backend** — `/aip/{path}` guessed from the file path; page not carried |
 | Cached-copy storage (20 per user) | **blocked:backend** — no store; browser cache only |

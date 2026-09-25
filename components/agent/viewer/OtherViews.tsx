@@ -53,7 +53,7 @@ export function ImageView({ url, zoom, onZoom, onMeta, onError, canvasWidth, can
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => { let alive = true; let obj: string | null = null; fetch(url, { credentials: "same-origin" }).then(async (r) => { if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const b = await r.blob(); if (!alive) return; obj = URL.createObjectURL(b); setSrc(obj); }).catch((e) => onError("fetch", String(e))); return () => { alive = false; if (obj) URL.revokeObjectURL(obj); }; }, [url, onError]);
+  useEffect(() => { let alive = true; let obj: string | null = null; fetch(url, { credentials: "same-origin" }).then(async (r) => { if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const b = await r.blob(); if (!alive) return; obj = URL.createObjectURL(b); setSrc(obj); }).catch((e) => onError("fetch", String(e))); return () => { alive = false; if (obj) URL.revokeObjectURL(obj); }; }, [url]); // eslint-disable-line react-hooks/exhaustive-deps -- fetch once per url; callbacks are stable in practice
   const fit = nat ? Math.min((canvasWidth - 56) / nat.w, (canvasHeight - 48) / nat.h, 1) : 1;
   const scale = zoom === "fit" ? fit : zoom / 100;
   useEffect(() => { onZoom(zoom, Math.round(scale * 100)); }, [zoom, scale, onZoom]);
@@ -99,7 +99,7 @@ export function TableView({ url, table, query, onMeta, onError, onSearch, citedR
       } catch (e) { onError("render", `table.parse → ${(e as Error)?.message ?? "error"}`); }
     })();
     return () => { alive = false; };
-  }, [url, table, onError]);
+  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps -- fetch once per url; callbacks are stable in practice
   const sheet = sheets?.[active] ?? null;
   const header = sheet?.rows[0] ?? [], body = sheet?.rows.slice(1) ?? [];
   useEffect(() => { if (sheet) onMeta({ rows: body.length, cols: header.length, sheets: sheets?.length ?? 1 }); }, [sheet, body.length, header.length, sheets?.length, onMeta]);
@@ -138,7 +138,7 @@ export function TableView({ url, table, query, onMeta, onError, onSearch, citedR
 // ── Text / raw ────────────────────────────────────────────────────────────────
 export function TextView({ url, query, citedSpan, onMeta, onError, onSearch, onCitationResult }: { url: string; query: string; citedSpan: string | null; onMeta: (m: { lines: number }) => void; onError: (kind: "fetch" | "permission" | "render" | "empty", detail: string) => void; onSearch: (r: { count: number; current: number; pages: number[] }) => void; onCitationResult?: (found: boolean) => void }) {
   const [text, setText] = useState<string | null>(null);
-  useEffect(() => { let alive = true; fetch(url, { credentials: "same-origin" }).then(async (r) => { if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const t = await r.text(); if (!alive) return; if (!t.length) { onError("empty", "0 bytes"); return; } setText(t); onMeta({ lines: t.split("\n").length }); }).catch((e) => onError("fetch", String(e))); return () => { alive = false; }; }, [url, onError, onMeta]);
+  useEffect(() => { let alive = true; fetch(url, { credentials: "same-origin" }).then(async (r) => { if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const t = await r.text(); if (!alive) return; if (!t.length) { onError("empty", "0 bytes"); return; } setText(t); onMeta({ lines: t.split("\n").length }); }).catch((e) => onError("fetch", String(e))); return () => { alive = false; }; }, [url]); // eslint-disable-line react-hooks/exhaustive-deps -- fetch once per url; callbacks are stable in practice
   const lines = useMemo(() => (text ?? "").split("\n"), [text]);
   const q = normalise(query).toLowerCase();
   const hitLines = useMemo(() => new Set(q ? lines.map((l, i) => (l.toLowerCase().includes(q) ? i : -1)).filter((i) => i >= 0) : []), [lines, q]);
@@ -160,7 +160,7 @@ export function TextView({ url, query, citedSpan, onMeta, onError, onSearch, onC
 export function DocxView({ url, query, onMeta, onError, onSearch, canvasWidth }: { url: string; query: string; onMeta: () => void; onError: (kind: "fetch" | "permission" | "render", detail: string) => void; onSearch: (r: { count: number; current: number; pages: number[] }) => void; canvasWidth: number }) {
   const [html, setHtml] = useState<string | null>(null);
   const host = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { let alive = true; (async () => { try { const r = await fetch(url, { credentials: "same-origin" }); if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const buf = await r.arrayBuffer(); const mammoth = await import("mammoth"); const out = await mammoth.convertToHtml({ arrayBuffer: buf }); if (!alive) return; setHtml(out.value); onMeta(); } catch (e) { onError("render", `docx.render → ${(e as Error)?.message ?? "error"}`); } })(); return () => { alive = false; }; }, [url, onError, onMeta]);
+  useEffect(() => { let alive = true; (async () => { try { const r = await fetch(url, { credentials: "same-origin" }); if (!r.ok) { onError(r.status === 401 || r.status === 403 ? "permission" : "fetch", `HTTP ${r.status}`); return; } const buf = await r.arrayBuffer(); const mammoth = await import("mammoth"); const out = await mammoth.convertToHtml({ arrayBuffer: buf }); if (!alive) return; setHtml(out.value); onMeta(); } catch (e) { onError("render", `docx.render → ${(e as Error)?.message ?? "error"}`); } })(); return () => { alive = false; }; }, [url]); // eslint-disable-line react-hooks/exhaustive-deps -- fetch once per url; callbacks are stable in practice
   // search: wrap matches in the rendered text
   const count = useMemo(() => { if (!html) return 0; const q = normalise(query).toLowerCase(); if (!q) return 0; const text = html.replace(/<[^>]+>/g, " ").toLowerCase(); let n = 0, i = text.indexOf(q); while (i !== -1) { n += 1; i = text.indexOf(q, i + q.length); } return n; }, [html, query]);
   useEffect(() => { onSearch({ count, current: count ? 1 : 0, pages: [] }); }, [count, onSearch]);

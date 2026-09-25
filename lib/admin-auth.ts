@@ -87,6 +87,14 @@ export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSucc
     return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
   }
 
+  // Isolated test environments only (mirrors middleware.ts): a synthetic developer so the
+  // agent's portal-backed tools can be exercised on a build with no real session.
+  if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true") {
+    const email = (process.env.DEVELOPER_EMAILS || "local@clearway.aero").split(",")[0].trim();
+    const testUser = { id: "00000000-0000-4000-8000-000000000001", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as AuthSuccess["user"];
+    return { user: testUser, supabase, isDeveloper: true };
+  }
+
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user?.id) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };

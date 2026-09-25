@@ -28,7 +28,8 @@ export type DocRef = {
   sourceName: string;
   fetchedAt?: string | null;
   uploadedBy?: string | null;
-  revision?: { label: string; superseded?: boolean; currentHref?: string | null } | null;
+  /** Revision of this copy. Absent/null renders as "revision unknown" — never as current. */
+  revision?: { label: string; state?: "current" | "future" | "superseded" | "unknown"; words?: string; reason?: string | null; superseded?: boolean; currentHref?: string | null; effectiveFrom?: string | null; validUntil?: string | null; fetchedAt?: string | null; revision?: string | null; previous?: { revision: string | null; effectiveDate: string | null; airac: string | null; fetchedAt: string | null }[] } | null;
   approval?: DocApproval | null;
   canApprove?: boolean;
   /** Agent table results open as a Table tab (§V8). */
@@ -45,6 +46,8 @@ export type Citation = {
   span: string | null;
   /** Verbatim block check (§V6 "From a verbatim block"). */
   verbatim?: { text: string; recordId: string | null } | null;
+  /** The revision the answer cited (§V6 revision mismatch). */
+  revision?: { state: string; label: string; revision?: string | null } | null;
   conversationId?: string | null;
 };
 

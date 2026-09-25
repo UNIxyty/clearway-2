@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { C, TYPE, mono } from "../ui/tokens";
 import { Button, Icon, Eyebrow, dateLong } from "../ui/primitives";
+import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type VerbatimRecord } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 
@@ -55,6 +56,12 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
       </div>
       <div style={{ padding: panel ? "10px 11px" : "16px 18px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
         {r.heading && !panel && <div style={{ fontSize: 12.5, fontWeight: 700, color: C.body }}>{r.heading}</div>}
+        {r.revision && r.revision.state !== "current" && (
+          <div role="note" data-verbatim-revision={r.revision.state} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: panel ? 12 : 12.5, lineHeight: 1.45, color: C.body, background: r.revision.state === "superseded" ? C.warnTint : r.revision.state === "future" ? C.infoTint : C.sidebar, border: `1px solid ${r.revision.state === "superseded" ? C.warnBorder : r.revision.state === "future" ? C.infoBorder : C.border}`, borderRadius: 8, padding: "7px 10px" }}>
+            <RevisionTag revision={r.revision} size={11} />
+            <span>{r.revision.state === "superseded" ? "The source document has been superseded — this approved wording may no longer match the current document." : r.revision.state === "future" ? `The source document is not yet effective${r.revision.effectiveFrom ? ` (applies from ${r.revision.effectiveFrom})` : ""}.` : "The source document has no revision data — it is not known whether this wording is current."}</span>
+          </div>
+        )}
         {state.status === "loading" ? (
           <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ height: 12, width: "90%", borderRadius: 4, background: C.hover }} /><div style={{ height: 12, width: "70%", borderRadius: 4, background: C.hover }} />

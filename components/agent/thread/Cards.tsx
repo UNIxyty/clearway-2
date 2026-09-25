@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { C, mono } from "../ui/tokens";
 import { Button, Icon, Pill, Tag, Eyebrow, hmZ, kb } from "../ui/primitives";
+import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type AirportData, type DocumentData, type FileData, type FlightCardData, type MonoData, type TableData } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 
@@ -170,6 +171,7 @@ export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentD
           <button type="button" disabled={!openable} onClick={(e) => void od.openDocumentResult(doc, e.currentTarget)} className="ag-doc-name ag-focus" style={{ ...mono({ fontSize: panel ? 13 : 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: openable ? "pointer" : "default", color: C.ink, fontFamily: undefined }}>{name}</button>
           <span style={{ fontSize: panel ? 12 : 13, color: C.muted, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {doc.subtitle}
+            <RevisionTag revision={doc.revision} showCurrent />
             {doc.stale && <Tag fg={C.warn} bg={C.warnTint}>Cached · {doc.stale}</Tag>}
             {!doc.cached && !doc.stale && <span style={{ color: C.faint }}>· not cached yet</span>}
           </span>

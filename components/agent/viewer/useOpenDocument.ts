@@ -7,7 +7,7 @@
 
 import { useCallback } from "react";
 import type { DocumentData, FileData, SourceRef, TableData, VerbatimRecord } from "../types";
-import { aipDocRef, fetchDocRef, useViewerOptional } from "./ViewerContext";
+import { aipDocRef, aipLocator, fetchDocRef, useViewerOptional } from "./ViewerContext";
 import type { Citation, DocRef, OpenOptions } from "./types";
 
 function inIframe() { return typeof window !== "undefined" && window.parent !== window; }
@@ -26,11 +26,21 @@ export function useOpenDocument(from?: string | null) {
     if (inIframe()) window.parent.postMessage({ type: "cw-agent-open-doc", url }, window.location.origin); else window.open(url, "_blank", "noopener");
   }, [viewer, from]);
 
+  /** An AIP/GEN document: open at once from the path (revision "unknown" until resolved), then merge the portal's revision. */
+  const openAip = useCallback(async (path: string, title: string | null | undefined, opts: OpenOptions, meta?: { cached?: boolean; source?: string | null }) => {
+    const base = aipDocRef(path, title, meta);
+    openRef(base, opts);
+    const loc = aipLocator(path);
+    if (!loc) return;
+    const ref = await fetchDocRef(loc.kind, loc.icao);
+    if (ref) openRef({ ...ref, key: base.key, id: base.id }, { ...opts, opener: undefined });
+  }, [openRef]);
+
   /** §V3 E1 — a document result card. */
   const openDocumentResult = useCallback(async (doc: DocumentData, opener?: HTMLElement | null) => {
     if (doc.documentId) { const ref = await fetchDocRef("knowledge", doc.documentId); if (ref) openRef(ref, { opener }); return; }
-    if (doc.href) openRef(aipDocRef(doc.href, doc.title, { cached: doc.cached, source: doc.subtitle }), { opener });
-  }, [openRef]);
+    if (doc.href) void openAip(doc.href, doc.title, { opener }, { cached: doc.cached, source: doc.subtitle });
+  }, [openRef, openAip]);
 
   /** §V3 E2 — a generated file. */
   const openGenerated = useCallback(async (file: FileData, opener?: HTMLElement | null) => {
@@ -47,13 +57,13 @@ export function useOpenDocument(from?: string | null) {
   /** §V3 E4 — a citation. Web sources open the URL; file sources open at the passage. Returns false when nothing openable. */
   const openCitation = useCallback(async (s: SourceRef, conversationId: string | null, opener?: HTMLElement | null): Promise<boolean> => {
     if (s.tier === "web") { if (s.href) window.open(s.href, "_blank", "noopener"); return Boolean(s.href); }
-    const citation: Citation = { k: s.n, page: s.page ?? null, span: s.span ?? null, conversationId };
+    const citation: Citation = { k: s.n, page: s.page ?? null, span: s.span ?? null, conversationId, revision: s.revision ? { state: s.revision.state, label: s.revision.label, revision: s.revision.revision ?? null } : null };
     if (s.documentSource === "knowledge" && s.documentId) { const ref = await fetchDocRef("knowledge", s.documentId); if (!ref) return false; openRef(ref, { citation, opener }); return true; }
-    if (s.documentSource === "aip" && s.documentPath) { openRef(aipDocRef(s.documentPath, s.label), { citation, opener }); return true; }
+    if (s.documentSource === "aip" && s.documentPath) { void openAip(s.documentPath, s.label, { citation, opener }); return true; }
     if (s.documentSource === "generated" && s.documentId) { const ref = await fetchDocRef("generated", s.documentId); if (!ref) return false; openRef(ref, { citation, opener }); return true; }
-    if (s.href && /^\/files\//.test(s.href)) { openRef(aipDocRef(s.href, s.label), { citation, opener }); return true; }
+    if (s.href && /^\/files\//.test(s.href)) { void openAip(s.href, s.label, { citation, opener }); return true; }
     return false;
-  }, [openRef]);
+  }, [openRef, openAip]);
 
   /** §V6 — from a verbatim block: open the authoritative document and check the quoted clause against the file. */
   const openVerbatim = useCallback(async (r: VerbatimRecord & { documentId?: string | null }, conversationId: string | null, opener?: HTMLElement | null) => {

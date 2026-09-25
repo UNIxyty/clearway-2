@@ -86,8 +86,9 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
     if (!tab) return;
     v.setResult(tab.ref.key, r);
     const c = tab.citations.find((x) => x.k === r.k);
-    if (r.state === "not-found") void reportCheck({ kind: c?.verbatim ? "verbatim" : "citation", documentKey: tab.ref.key, filename: tab.ref.filename, page: c?.page ?? null, citation: r.k, span: c?.span ?? c?.verbatim?.text ?? null, found: false, conversationId: v.conversationId });
-    if (r.state === "found" && c?.verbatim) void reportCheck({ kind: "verbatim", documentKey: tab.ref.key, filename: tab.ref.filename, page: r.page, citation: r.k, span: c.verbatim.text, found: true, conversationId: v.conversationId });
+    const revisionInfo = tab.ref.revision ? { state: tab.ref.revision.state ?? (tab.ref.revision.superseded ? "superseded" : "current"), label: tab.ref.revision.label } : { state: "unknown", label: "revision unknown" };
+    if (r.state === "not-found") void reportCheck({ kind: c?.verbatim ? "verbatim" : "citation", revision: revisionInfo, citedRevision: c?.revision ? { state: c.revision.state, label: c.revision.label } : null, documentKey: tab.ref.key, filename: tab.ref.filename, page: c?.page ?? null, citation: r.k, span: c?.span ?? c?.verbatim?.text ?? null, found: false, conversationId: v.conversationId });
+    if (r.state === "found" && c?.verbatim) void reportCheck({ kind: "verbatim", revision: revisionInfo, documentKey: tab.ref.key, filename: tab.ref.filename, page: r.page, citation: r.k, span: c.verbatim.text, found: true, conversationId: v.conversationId });
   });
   useEffect(() => {
     if (!v.pending || !tab || v.pending.key !== tab.ref.key) return;
@@ -154,7 +155,15 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
   const tile = docTileLook(kind, ref);
   const activeResult = tab.activeCitation != null ? tab.results[tab.activeCitation] : null;
   const activeCitation = tab.activeCitation != null ? tab.citations.find((c) => c.k === tab.activeCitation) : null;
-  const superseded = ref.revision?.superseded;
+  // Revision (§Revisions): unknown is its own state and is always stated — the chip never goes blank.
+  const revState: "current" | "future" | "superseded" | "unknown" = ref.revision?.state ?? (ref.revision?.superseded ? "superseded" : ref.revision?.label ? "current" : "unknown");
+  const revLabel = ref.revision?.label ?? "revision unknown";
+  const superseded = revState === "superseded";
+  const revLook = revState === "superseded" ? { fg: C.warn, bg: C.warnTint, border: C.warnBorder } : revState === "future" ? { fg: C.info, bg: C.infoTint, border: C.infoBorder } : revState === "unknown" ? { fg: C.muted, bg: C.surface, border: C.borderControl } : { fg: C.body, bg: C.hover, border: "transparent" };
+  // §V6 revision mismatch: the answer cited one revision, this copy is another.
+  const citedRev = activeCitation?.revision ?? null;
+  const revisionMismatch = Boolean(citedRev && ref.revision && citedRev.state !== "unknown" && revState !== "unknown" && (citedRev.revision && ref.revision.revision ? citedRev.revision !== ref.revision.revision : citedRev.label !== ref.revision.label));
+  const citedHeld = revisionMismatch && (ref.revision?.previous ?? []).some((p) => p.revision && citedRev?.revision && p.revision === citedRev.revision);
   const tierLook = ref.tier === "company" ? { fg: TIER.company.fg, icon: "book-open", name: "Company" } : ref.tier === "attachment" ? { fg: TIER.attachment.fg, icon: "paperclip", name: "Attachment" } : { fg: TIER.internal.fg, icon: "database", name: "Internal" };
   const loadedFraction = status.state === "progressive" || status.state === "loading" ? (status.total ? Math.min(1, status.loaded / status.total) : 0) : 1;
   const stepLabel = (id: string) => kbd.label(id as never);
@@ -185,7 +194,7 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
         <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <span style={{ ...mono({ fontSize: 14.5, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref.filename}</span>
-            {ref.revision && <span style={{ ...mono({ fontSize: 11.5, fontWeight: 600 }), color: superseded ? C.warn : C.body, background: superseded ? C.warnTint : C.hover, borderRadius: 5, padding: "2px 7px", whiteSpace: "nowrap" }}>{ref.revision.label}</span>}
+            <span data-revision-state={revState} title={ref.revision?.reason ?? undefined} style={{ ...mono({ fontSize: 11.5, fontWeight: 600 }), color: revLook.fg, background: revLook.bg, border: `1px solid ${revLook.border}`, borderRadius: 5, padding: "2px 7px", whiteSpace: "nowrap", fontStyle: revState === "unknown" ? "italic" : "normal" }}>{revLabel}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.muted, flexWrap: "wrap" }}>
             <span>{typeLabel(kind, ref)}{scanned ? " · scanned" : ""}{ref.bytes != null ? ` · ${kb(ref.bytes)}` : ""}{pages ? ` · ${pages} page${pages === 1 ? "" : "s"}` : meta.dims ? ` · ${meta.dims}` : meta.rows ? ` · ${meta.rows}` : ""}</span>
@@ -269,8 +278,12 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
           action={!scanned ? { label: "Search the document", onClick: () => { const q = (activeCitation.span ?? activeCitation.verbatim?.text ?? "").split(/\s+/).slice(0, 4).join(" "); setSearch((s) => ({ ...s, open: true, query: q })); pdf.current?.search(q); setTimeout(() => searchInput.current?.focus(), 30); } } : undefined} />
       )}
       {activeResult?.state === "found" && activeCitation?.verbatim && <div style={{ flex: "none", padding: "6px 16px", borderBottom: `1px solid ${C.divider}`, display: "flex" }}><span style={{ fontSize: 10.5, fontWeight: 600, color: C.companyDeep, background: C.violetTint2, border: `1px solid ${C.violetBorder}`, borderRadius: 5, padding: "2px 7px" }}>Quoted verbatim in the reply · text matches</span></div>}
-      {activeResult?.state === "no-span" && activeCitation && <Banner icon="info" fg={C.body} bg={C.sidebar} border={C.border} lead="No passage to locate." text={`The agent cited ${ref.filename}${activeCitation.page ? ` at p. ${activeCitation.page}` : ""} as a whole; it did not return the exact words it relied on, so nothing is highlighted. Read the page yourself.`} />}
-      {superseded && ref.revision && <Banner icon="history" fg={C.warn} bg={C.warnTint} border={C.warnBorder} lead="Superseded." text={`This is ${ref.revision.label}.`} action={ref.revision.currentHref ? { label: "Open current", href: ref.revision.currentHref } : undefined} />}
+      {/* §5: "no span" and "not found" mean opposite things. No span = nothing to check, the claim stands (grey, informational). Not found = the passage is not in the file, treat the claim as unverified (red, above). */}
+      {activeResult?.state === "no-span" && activeCitation && <Banner icon="info" fg={C.body} bg={C.sidebar} border={C.border} lead="Nothing to highlight — not a failed check." text={`The agent cited ${ref.filename}${activeCitation.page ? ` at p. ${activeCitation.page}` : ""} as a whole rather than an exact passage, so there is no sentence to locate. The claim is not in question; read the page to see it in context.`} />}
+      {revisionMismatch && citedRev && <Banner icon="history" fg={C.warn} bg={C.warnTint} border={C.warnBorder} lead={`The answer cited ${citedRev.label}; this copy is ${revLabel}.`} text={citedHeld ? "The cited revision was replaced under the same file, so the current copy is shown. The passage may have moved or changed — check it against the highlight." : "The cited revision is not available, so the current copy is shown. The passage may have moved or changed."} />}
+      {superseded && <Banner icon="history" fg={C.warn} bg={C.warnTint} border={C.warnBorder} lead="Superseded." text={`This is ${revLabel}${ref.revision?.reason ? ` — ${ref.revision.reason}` : ""}. Check the current revision before acting on it.`} action={ref.revision?.currentHref ? { label: "Open current", href: ref.revision.currentHref } : undefined} />}
+      {revState === "future" && <Banner icon="clock" fg={C.info} bg={C.infoTint} border={C.infoBorder} lead="Not yet effective." text={`This is ${revLabel}${ref.revision?.effectiveFrom ? ` — it applies from ${ref.revision.effectiveFrom}` : ""}. It is not in force today.`} />}
+      {revState === "unknown" && <Banner icon="circle-help" fg={C.muted} bg={C.surface} border={C.borderControl} lead="Revision unknown." text={`${ref.revision?.reason ? ref.revision.reason.charAt(0).toUpperCase() + ref.revision.reason.slice(1) : "There is no revision data for this document"}. It is not known whether this copy is current — do not treat it as such.`} />}
       {offline && <Banner icon="wifi-off" fg={C.body} bg={C.sidebar} border={C.border} lead="You're offline." text="Showing the copy saved on this PC. Search works; Download, Email and Open source need a connection." />}
       {scanned && <Banner icon="scan-text" fg={C.body} bg={C.sidebar} border={C.border} lead="Scanned document — no text layer." text="Search and citation highlights aren't available, and the agent can only read what it extracted when the file was indexed." />}
       {kind === "docx" && !otherError && <Banner icon="info" fg={C.body} bg={C.sidebar} border={C.border} lead="Rendered preview." text="Layout may differ from Word. Download for the original file." action={ref.downloadUrl ? { label: "Download original", href: ref.downloadUrl } : undefined} />}
@@ -336,7 +349,7 @@ function HeaderAction({ icon, label, title, disabled, onClick, compact }: { icon
 }
 function Banner({ icon, fg, bg, border, lead, text, action }: { icon: string; fg: string; bg: string; border: string; lead: string; text: string; action?: { label: string; onClick?: () => void; href?: string } }) {
   return (
-    <div role={fg === C.danger ? "alert" : "status"} style={{ flex: "none", padding: "10px 16px", background: bg, borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 10 }}>
+    <div role={fg === C.danger ? "alert" : "status"} data-banner={lead} style={{ flex: "none", padding: "10px 16px", background: bg, borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 10 }}>
       <Icon name={icon} size={16} color={fg} />
       <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: C.body }}><strong style={{ color: fg }}>{lead}</strong> {text}</span>
       {action && (action.href ? <a href={action.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><Button variant="secondary" size="xs">{action.label}</Button></a> : <Button variant="secondary" size="xs" onClick={action.onClick}>{action.label}</Button>)}

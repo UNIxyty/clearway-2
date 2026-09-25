@@ -5,6 +5,7 @@
 import { defineTool, S } from "./framework.mjs";
 import { portalGet } from "./http.mjs";
 import { NotFound } from "./errors.mjs";
+import { REVISION_SCHEMA, revisionFromPortal, revisionNotice } from "../knowledge/revision.mjs";
 
 const up = (icao) => String(icao).toUpperCase();
 
@@ -31,6 +32,8 @@ defineTool({
       cached: { type: "boolean", description: "True when a PDF is already in the shared cache (no scrape needed)." },
       eadSupported: { type: "boolean" },
       documentPath: { type: ["string", "null"], description: "Portal path that serves the PDF." },
+      revision: REVISION_SCHEMA,
+      revisionNote: { type: ["string", "null"], description: "Say this next to any claim drawn from the document. Null only when the copy is current." },
       note: { type: ["string", "null"] },
     },
   },
@@ -38,6 +41,7 @@ defineTool({
     const code = up(icao);
     const data = await portalGet(`/api/aip/resolve?icao=${encodeURIComponent(code)}`, user, { timeoutMs: 25_000 });
     if (!data?.source) throw NotFound(`No AIP source serves ${code}.`);
+    const revision = revisionFromPortal(data.revision, data.cached);
     return {
       icao: code,
       source: String(data.source),
@@ -45,6 +49,8 @@ defineTool({
       cached: Boolean(data.cached),
       eadSupported: Boolean(data.eadSupported),
       documentPath: data.cached && data.filesPath ? String(data.filesPath) : (data.pdfPath ? String(data.pdfPath) : null),
+      revision,
+      revisionNote: revisionNotice(revision, { name: `The AD 2 document for ${code}` }),
       note: data.cached
         ? null
         : "Not cached yet — opening it will trigger a download from the national source, which can take a while.",
@@ -74,6 +80,8 @@ defineTool({
       cached: { type: "boolean" },
       source: { type: ["string", "null"], description: "ead | non-ead, when a cached copy exists." },
       documentPath: { type: ["string", "null"] },
+      revision: REVISION_SCHEMA,
+      revisionNote: { type: ["string", "null"] },
       note: { type: ["string", "null"] },
     },
   },
@@ -84,12 +92,15 @@ defineTool({
     // triggers a download.
     const probe = await portalGet(`/api/aip/gen/pdf/exists?icao=${encodeURIComponent(code)}`, user, { timeoutMs: 15_000 }).catch(() => null);
     const cached = Boolean(probe?.exists);
+    const revision = revisionFromPortal(probe?.revision, cached);
     return {
       icao: code,
       available: true,
       cached,
       source: probe?.source ?? null,
       documentPath: `/api/aip/gen/pdf?icao=${encodeURIComponent(code)}`,
+      revision,
+      revisionNote: revisionNotice(revision, { name: `The GEN 1.2 document for ${code}` }),
       note: cached ? null : "No cached copy — opening it will fetch from the national source.",
     };
   },

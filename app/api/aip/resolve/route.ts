@@ -6,6 +6,7 @@ import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { isUsaAipIcao } from "@/lib/usa-aip";
 import { isEadSupportedIcao } from "@/lib/ead-country-coverage";
+import { readAipRevision } from "@/lib/aip-revision";
 
 // Resolve which AIP source serves an ICAO and whether its AD-2 PDF is
 // already in the shared /storage cache — WITHOUT triggering any sync.
@@ -61,12 +62,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Revision of the cached copy (additive — existing consumers ignore it). Unknown is stated, never
+  // rendered as current: see lib/airac.ts.
+  const revision = await readAipRevision(storageKey);
+
   return NextResponse.json({
     icao,
     source,
     eadSupported: isEadSupportedIcao(icao),
     cached: Boolean(storageKey),
     storageKey,
+    revision,
     // Where a cached copy is served from (no sync) / the normal fetch route
     // (downloads on miss and writes the shared cache).
     filesPath: storageKey ? `/files/${storageKey}` : null,

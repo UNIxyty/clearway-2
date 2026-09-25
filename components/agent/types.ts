@@ -4,6 +4,19 @@
 
 export type Tier = "internal" | "company" | "web" | "memory";
 
+/** Revision state of a document (§Revisions): unknown is its own state, never current. */
+export type RevisionInfo = {
+  state: "current" | "future" | "superseded" | "unknown";
+  words: string;
+  label: string;
+  reason?: string | null;
+  revision?: string | null;
+  effectiveFrom?: string | null;
+  validUntil?: string | null;
+  fetchedAt?: string | null;
+  supersededBy?: string | null;
+};
+
 export type SourceRef = {
   n: number;
   tier: Tier;
@@ -20,6 +33,8 @@ export type SourceRef = {
   page?: number | null;
   span?: string | null;
   recordId?: string | null;
+  /** Revision state of the cited document — shown next to the citation, unknown included. */
+  revision?: RevisionInfo | null;
 };
 
 /** A claim in the prose that a source supports (§4.7 A). Only present when the model returned claim boundaries. */
@@ -29,6 +44,8 @@ export type VerbatimRecord = {
   id: string;
   documentId?: string | null;
   kind?: "limitation" | "important" | "caa" | "tier1";
+  /** Revision of the SOURCE document of an approved clause (the strictest rule: superseded sources are flagged). */
+  revision?: RevisionInfo | null;
   heading: string;
   text: string;
   source: string;
@@ -82,7 +99,7 @@ export type FlightCardData = {
 export type PerformedAction = { actionId: string; what: string; targetKind: string; target: string | null; ref?: string | null; detail?: string | null };
 
 export type MonoData = { id: string; title: string; text: string; tool: string; meta?: string | null; icao?: string | null };
-export type DocumentData = { kind: "aip" | "gen" | "knowledge"; title: string; subtitle: string | null; href: string | null; cached: boolean; note: string | null; documentId: string | null; tool: string; stale?: string | null };
+export type DocumentData = { kind: "aip" | "gen" | "knowledge"; title: string; subtitle: string | null; href: string | null; cached: boolean; note: string | null; documentId: string | null; tool: string; stale?: string | null; revision?: RevisionInfo | null };
 export type FileData = { id: string; filename: string; mime: string | null; bytes: number | null; downloadPath: string; tool: string; pages?: number | null; summary?: string | null; generatedAt?: string | null };
 export type AirportData = { icao: string; name?: string | null; country: string | null; aipUrl: string | null; aipCached: boolean | null; metar: string | null; metarAt?: string | null; category?: string | null; decoded?: string | null; notamCount: number | null; notamNew?: number | null; limitationCount: number | null; caa?: { name: string; phone?: string | null; email?: string | null } | null };
 export type TableData = { id: string; title?: string | null; columns: string[]; rows: string[][]; monoColumns?: number[]; footer?: { openHref?: string | null; openLabel?: string | null; filterHint?: string | null } | null };

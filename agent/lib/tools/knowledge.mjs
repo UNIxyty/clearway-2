@@ -9,6 +9,7 @@
 import { defineTool, S } from "./framework.mjs";
 import { searchKnowledge, logRetrieval, rest } from "../knowledge/retrieval.mjs";
 import { checkGrounding, groundingConfigured } from "../knowledge/grounding.mjs";
+import { REVISION_SCHEMA, attachDocumentRevisions, documentRevision, loadSiblings, preferCurrent, publicRevision, revisionNotesFor } from "../knowledge/revision.mjs";
 import { NotFound, ServiceUnavailable } from "./errors.mjs";
 
 const SOURCE_SCHEMA = {
@@ -31,6 +32,7 @@ const SOURCE_SCHEMA = {
     approvedAt: { type: ["string", "null"] },
     score: { type: ["number", "null"] },
     rerankScore: { type: ["number", "null"] },
+    revision: REVISION_SCHEMA,
   },
 };
 
@@ -69,6 +71,7 @@ defineTool({
       reference: { type: "array", items: SOURCE_SCHEMA },
       verified: { type: "boolean", description: "False when nothing sufficiently relevant was found." },
       note: { type: ["string", "null"] },
+      revisionNotes: { type: "array", items: { type: "string" }, description: "Documents that are superseded, not yet effective or of unknown revision. Say each next to the claim it supports." },
       embeddingModel: { type: ["string", "null"] },
       rerankMethod: { type: ["string", "null"] },
     },
@@ -80,6 +83,11 @@ defineTool({
     } catch (error) {
       throw ServiceUnavailable(`The knowledge base could not be searched: ${error.message}`);
     }
+    // Revision state on every hit (unknown is not current), and current revisions first.
+    await attachDocumentRevisions([...result.tier1, ...result.tier2]);
+    result.tier1 = preferCurrent(result.tier1, { dropSuperseded: false });
+    result.tier2 = preferCurrent(result.tier2);
+    const revisionNotes = [...revisionNotesFor(result.tier1, { authoritative: true }), ...revisionNotesFor(result.tier2)];
 
     // A failed search is not the same fact as an empty one, and telling the
     // model "nothing matched" when retrieval broke invites it to answer from
@@ -121,6 +129,7 @@ defineTool({
           found === 0
             ? "Nothing in the knowledge base matched this question. Say that it could not be verified — do not answer from general knowledge."
             : `Nothing matched closely enough to rely on (best similarity ${best.toFixed(2)}, below ${CONFIDENT}). Say the information could not be verified. Do not answer from general knowledge, and do not present the passages below as if they answered the question.`,
+        revisionNotes,
         embeddingModel: result.embeddingModel,
         rerankMethod: result.rerankMethod,
       };
@@ -132,9 +141,13 @@ defineTool({
       verbatim: result.tier1,
       reference: result.tier2,
       verified: true,
-      note: result.tier1.length > 0
-        ? "The verbatim records are approved operational text. They are shown to the dispatcher word for word — explain around them, never in place of them."
-        : groundingConfigured() ? null : "Grounding verification is not configured, so this answer is unverified.",
+      note: [
+        result.tier1.length > 0
+          ? "The verbatim records are approved operational text. They are shown to the dispatcher word for word — explain around them, never in place of them."
+          : groundingConfigured() ? null : "Grounding verification is not configured, so this answer is unverified.",
+        ...revisionNotes,
+      ].filter(Boolean).join(" ") || null,
+      revisionNotes,
       embeddingModel: result.embeddingModel,
       rerankMethod: result.rerankMethod,
     };
@@ -172,8 +185,10 @@ defineTool({
           tier: { type: ["string", "null"] },
           bytes: { type: ["integer", "null"] },
           downloadPath: { type: "string" },
+          revision: REVISION_SCHEMA,
         },
       },
+      revisionNote: { type: ["string", "null"] },
     },
   },
   async handler({ documentId, name }, _ctx) {
@@ -184,8 +199,12 @@ defineTool({
     const rows = await rest(`agent_documents?${filter}&status=in.(approved,indexed)&select=*&limit=1`);
     const doc = rows?.[0];
     if (!doc) throw NotFound(`No document matching ${documentId ?? name}.`);
+    const revision = publicRevision(documentRevision(doc, await loadSiblings(doc)));
+    const revisionNote = revisionNotesFor([{ title: doc.title, revision }])[0] ?? null;
     return {
+      revisionNote,
       document: {
+        revision,
         id: doc.id,
         title: doc.title,
         filename: doc.filename,

@@ -248,7 +248,6 @@ export const PdfView = forwardRef<PdfHandle, {
       }
     }
   }, [matches, matchIndex, cites, activeCitation]);
-  useEffect(() => { applyMarks(); }, [applyMarks, rendered]);
 
   // ── Scroll helpers ────────────────────────────────────────────────────────
   const scrollToPage = useCallback((n: number, behavior: "smooth" | "auto" = "smooth", offset = 24) => {
@@ -264,6 +263,15 @@ export const PdfView = forwardRef<PdfHandle, {
     el.scrollTo({ top: Math.max(0, top), behavior: reducedMotion || far ? "auto" : "smooth" });
     return true;
   }, [pageCss.h, reducedMotion]);
+  // Focus lands on the passage once its mark exists in the DOM — the immediate attempt after locate can
+  // run before React has applied the new citation (a second citation into an open tab).
+  const focusK = useRef<{ k: number; page: number } | null>(null);
+  useEffect(() => {
+    applyMarks();
+    const want = focusK.current; if (!want) return;
+    const m = pageEls.current.get(want.page)?.querySelector<HTMLElement>(`mark[data-cite="${want.k}"]`);
+    if (m) { focusK.current = null; scrollToMark(want.page, `mark[data-cite="${want.k}"]`); m.focus(); }
+  }, [applyMarks, rendered, scrollToMark]);
 
   // Initial position: the target page.
   const positioning = useRef(false);
@@ -300,7 +308,7 @@ export const PdfView = forwardRef<PdfHandle, {
       if (hit) {
         setCites((m) => ({ ...m, [c.k]: { page: n, ranges: hitToItemRanges(t, hit) } }));
         const r: CitationResult = { k: c.k, state: "found", page: n, parts: 1 }; onCitationResult(r);
-        scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); const m = pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`); m?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}`); }, 60); });
+        focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); const m = pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`); m?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}`); }, 60); });
         return r;
       }
     }
@@ -314,7 +322,7 @@ export const PdfView = forwardRef<PdfHandle, {
           const h1: Hit = { start: a.joined.length - head.length, end: a.joined.length }, h2: Hit = { start: 0, end: tail.length };
           setCites((m) => ({ ...m, [c.k]: { page: n, ranges: hitToItemRanges(a, h1), contPage: n + 1, contRanges: hitToItemRanges(b, h2) } }));
           const r: CitationResult = { k: c.k, state: "found", page: n, parts: 2 }; onCitationResult(r);
-          scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`)?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}, continues on page ${n + 1}`); }, 60); });
+          focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`)?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}, continues on page ${n + 1}`); }, 60); });
           return r;
         }
       }

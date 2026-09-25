@@ -10,7 +10,7 @@
  * Output: PDF saved to data/ead-gen/<prefix>-GEN-1.2.pdf; text printed to stdout.
  */
 
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 
@@ -389,7 +389,9 @@ async function main() {
         const linkText = ((await link.textContent().catch(() => '')) || '').trim();
         const href = await link.getAttribute('href');
         if (!href) continue;
-        out.push({ docHeading, linkText, href });
+        const effectiveDateText = ((await cells.nth(0).textContent().catch(() => '')) || '').trim();
+        const airacText = cellCount > 3 ? ((await cells.nth(3).textContent().catch(() => '')) || '').trim() : '';
+        out.push({ docHeading, linkText, href, effectiveDateText, airacText });
       }
       return out;
     }
@@ -472,6 +474,12 @@ async function main() {
     }
     log(`Selected GEN candidate: ${selectedCandidate.linkText}`);
     log('Saved: ' + savePath);
+    // Revision sidecar (EAD table's effective date + AIRAC flag for the chosen row) for the sync worker.
+    try {
+      const airacFlag = selectedCandidate?.airacText ? /^(y|yes|true|airac)/i.test(selectedCandidate.airacText) : null;
+      writeFileSync(`${savePath}.meta.json`, JSON.stringify({ prefix, effectiveDate: selectedCandidate?.effectiveDateText || null, airacFlag, airacText: selectedCandidate?.airacText || null, sourceFilename: selectedCandidate?.linkText || basename(savePath), sourceUrl: selectedCandidate?.href || null, fetchedAt: new Date().toISOString() }, null, 2));
+      log(`Revision: effective ${selectedCandidate?.effectiveDateText || 'unknown'}`);
+    } catch (metaErr) { log('Revision sidecar not written: ' + (metaErr?.message || metaErr)); }
 
     // —— Extract and show content ——
     const txtPath = join(outDir, `${prefix}-GEN-1.2.txt`);

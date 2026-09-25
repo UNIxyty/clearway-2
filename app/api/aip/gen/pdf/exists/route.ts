@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { storageObjectExists } from "@/lib/aip-storage";
+import { readAipRevision } from "@/lib/aip-revision";
 
 const EAD_GEN_PDF_PREFIX = "aip/gen-pdf";
 const NON_EAD_GEN_PDF_PREFIX = "aip/non-ead-gen-pdf";
@@ -19,5 +20,7 @@ export async function GET(request: NextRequest) {
     storageObjectExists(eadKey),
     storageObjectExists(nonEadKey),
   ]);
-  return NextResponse.json({ exists: eadExists || nonEadExists, source: eadExists ? "ead" : nonEadExists ? "non-ead" : null });
+  const key = eadExists ? eadKey : nonEadExists ? nonEadKey : null;
+  const revision = await readAipRevision(key);
+  return NextResponse.json({ exists: eadExists || nonEadExists, source: eadExists ? "ead" : nonEadExists ? "non-ead" : null, storageKey: key, revision });
 }

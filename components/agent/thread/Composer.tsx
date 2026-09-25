@@ -140,7 +140,7 @@ export default function Composer({
   locked?: string | null;
   offline?: boolean;
   voiceEnabled?: boolean;
-  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null } }) => void;
+  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null }; attachments?: { id: string; name: string; bytes: number | null; mime: string | null }[] }) => void;
   onStop: () => void;
   onVoice?: () => void;
   autoFocus?: boolean;
@@ -252,8 +252,10 @@ export default function Composer({
       commandName = command.command.cmd; void req;
     }
     setHint(null);
-    const ids = attachments.filter((a) => a.state === "uploaded" && a.id).map((a) => a.id as string);
-    onSend(text, ids, { mentions: inserted, command: commandName });
+    const uploaded = attachments.filter((a) => a.state === "uploaded" && a.id);
+    const ids = uploaded.map((a) => a.id as string);
+    // Names travel with the ids so the sent bubble can show openable chips at once (§V3 E3), not only after a reload.
+    onSend(text, ids, { mentions: inserted, command: commandName, attachments: uploaded.map((a) => ({ id: a.id as string, name: a.name, bytes: a.bytes ?? null, mime: null })) });
     setValue(""); setAttachments([]); setInserted([]); setCommand(null); setMenu("none");
   }
 

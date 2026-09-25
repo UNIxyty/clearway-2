@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
 import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PendingConfirmation, type ToolActivity } from "./types";
 
-export type SendOptions = { attachmentIds?: string[]; voice?: boolean; language?: string | null; command?: string | null };
+export type SendOptions = { attachmentIds?: string[]; attachments?: { id: string; name: string; bytes: number | null; mime: string | null }[]; voice?: boolean; language?: string | null; command?: string | null };
 
 export function useThread({ context, initialConversationId = null, initials = null }: { context: AgentContext | null; initialConversationId?: string | null; initials?: string | null }) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -79,7 +79,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
     setPinnedContext(pinned);
     lastQuestion.current = { text, opts };
     const userId = `local-${Date.now()}`;
-    setMessages((m) => [...m, { id: userId, role: "user", content: text, createdAt: new Date().toISOString(), sending: true, voice: Boolean(opts.voice), initials }, { id: "streaming", role: "assistant", content: "", streaming: true, createdAt: new Date().toISOString(), toolActivity: [] }]);
+    setMessages((m) => [...m, { id: userId, role: "user", content: text, createdAt: new Date().toISOString(), sending: true, voice: Boolean(opts.voice), initials, blocks: opts.attachments?.length ? { attachments: opts.attachments } : undefined }, { id: "streaming", role: "assistant", content: "", streaming: true, createdAt: new Date().toISOString(), toolActivity: [] }]);
     setStreaming(true); setActivity(null);
 
     const controller = new AbortController(); abortRef.current = controller;

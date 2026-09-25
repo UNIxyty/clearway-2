@@ -444,7 +444,7 @@ export function sourcesFromToolCalls(calls) {
     // span the viewer will look for. Never the model's paraphrase.
     const r = call.result ?? {};
     if (call.name === "search_knowledge" || call.name === "get_document") {
-      const hits = [...(r.verbatim ?? []), ...(r.reference ?? []), ...(r.documentId ? [r] : [])];
+      const hits = [...(r.verbatim ?? []), ...(r.reference ?? []), ...(r.documentId ? [r] : []), ...(r.document?.id ? [{ documentId: r.document.id, title: r.document.title, filename: r.document.filename, revision: r.document.revision ?? null, text: null, page: null }] : [])];
       const perDoc = new Map();
       for (const h of hits) { if (!h?.documentId) continue; if (!perDoc.has(h.documentId)) perDoc.set(h.documentId, h); }
       if (perDoc.size) {
@@ -452,13 +452,13 @@ export function sourcesFromToolCalls(calls) {
           const dkey = `doc:${documentId}`;
           if (seen.has(dkey)) continue;
           seen.add(dkey);
-          sources.push({ ...base, n: sources.length + 1, label: String(h.title ?? h.source ?? label), documentId, documentSource: "knowledge", filename: h.filename ?? null, page: h.page ?? null, span: h.text ? String(h.text).slice(0, 1200) : null, recordId: h.recordId ?? null });
+          sources.push({ ...base, n: sources.length + 1, label: String(h.title ?? h.source ?? label), documentId, documentSource: "knowledge", filename: h.filename ?? null, page: h.page ?? null, revision: h.revision ?? null, span: h.text ? String(h.text).slice(0, 1200) : null, recordId: h.recordId ?? null });
         }
         continue;
       }
     }
     if ((call.name === "get_aip_document" || call.name === "get_gen_document") && r.documentPath) {
-      sources.push({ ...base, n: sources.length + 1, documentSource: "aip", documentPath: String(r.documentPath), filename: String(r.documentPath).split("/").pop() ?? null, page: null, span: null });
+      sources.push({ ...base, n: sources.length + 1, documentSource: "aip", documentPath: String(r.documentPath), filename: String(r.documentPath).split("/").pop() ?? null, page: null, span: null, revision: r.revision ?? null });
       continue;
     }
     sources.push({ ...base, n: sources.length + 1 });
@@ -481,15 +481,18 @@ export function verbatimFromToolCalls(calls) {
     // kind must travel with the block or every non-limitation record is
     // looked up as a limitation and comes back "unavailable".
     const kind = /important/.test(tool.name) ? "important" : /caa/.test(tool.name) ? "caa" : /knowledge/.test(tool.name) ? "tier1" : "limitation";
-    for (const key of ["limitations", "entries", "reports", "notams"]) {
+    // "verbatim" is the knowledge tool's own array of approved (tier-1) records — marked
+    // verbatim: true by the tool, so they qualify under the same rule as the others.
+    for (const key of ["limitations", "entries", "reports", "notams", "verbatim"]) {
       for (const record of call.result[key] ?? []) {
         if (record?.verbatim !== true) continue;
         out.push({
           kind,
-          id: String(record.id ?? ""),
+          id: String(record.id ?? record.recordId ?? ""),
           documentId: record.documentId ?? null,
-          heading: String(record.title ?? record.country ?? record.id ?? ""),
-          text: String(record.description ?? record.body ?? record.functionText ?? record.title ?? ""),
+          revision: record.revision ?? null,
+          heading: String(record.title ?? record.country ?? record.id ?? record.recordId ?? ""),
+          text: String(record.description ?? record.body ?? record.functionText ?? record.text ?? record.title ?? ""),
           source: call.result.source ?? tool.name,
           effectiveFrom: record.effectiveFrom ?? null,
           effectiveTo: record.effectiveTo ?? null,
@@ -638,10 +641,13 @@ export function documentsFromToolCalls(calls) {
     if (call.ok === false || !call.result) continue;
     const r = call.result;
     if (call.name === "get_aip_document") {
-      push({ kind: "aip", title: `AD 2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: r.note ?? null, documentId: null, tool: call.name });
+      push({ kind: "aip", title: `AD 2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: r.note ?? null, documentId: null, tool: call.name, revision: r.revision ?? null });
     }
     if (call.name === "get_gen_document" && r.available) {
-      push({ kind: "gen", title: `GEN 1.2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: null, documentId: null, tool: call.name });
+      push({ kind: "gen", title: `GEN 1.2 · ${String(r.icao ?? "").toUpperCase()}`, subtitle: r.source ?? null, href: r.documentPath ?? null, cached: Boolean(r.cached), note: null, documentId: null, tool: call.name, revision: r.revision ?? null });
+    }
+    if (call.name === "get_document" && r.document?.id) {
+      push({ kind: "knowledge", title: r.document.title ?? r.document.filename ?? "Document", subtitle: [r.document.source, r.document.version ? `v${String(r.document.version).replace(/^v/i, "")}` : null].filter(Boolean).join(" · ") || null, href: null, cached: true, note: null, documentId: r.document.id, tool: call.name, revision: r.document.revision ?? null });
     }
     if (call.name === "search_knowledge") {
       for (const ref of r.reference ?? []) {
@@ -650,7 +656,7 @@ export function documentsFromToolCalls(calls) {
           title: ref.title ?? ref.reference ?? "Document",
           subtitle: [ref.source, ref.version, ref.page != null ? `p.${ref.page}` : null].filter(Boolean).join(" · ") || null,
           href: null,
-          cached: true, note: ref.heading ?? null, documentId: ref.documentId ?? null, tool: call.name,
+          cached: true, note: ref.heading ?? null, documentId: ref.documentId ?? null, tool: call.name, revision: ref.revision ?? null,
         });
       }
     }

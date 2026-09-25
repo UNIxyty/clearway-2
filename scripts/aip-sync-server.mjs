@@ -14,6 +14,8 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync, mkdirSync, copyFileSync } from "fs";
 import { deleteFile, readFile as readStorageFile, saveFile } from "../lib/storage.mjs";
+import { buildRevisionMeta, metaKeyFor } from "../lib/aip-revision-meta.mjs";
+import { basename } from "path";
 import { logError, logInfo } from "../lib/utils/logger.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -921,7 +923,27 @@ async function uploadPdfToS3(icao, namespace = "ead", downloadedPdfPath = null) 
   }
   const key = namespace === "scraper" ? `aip/scraper-pdf/${icao}.pdf` : `aip/ead-pdf/${icao}.pdf`;
   await saveFile(key, body);
+  await saveRevisionMeta({ key, icao, source: namespace, body, pdfPath });
   return key;
+}
+
+// The revision sidecar (lib/aip-revision-meta.mjs): what the source said about this copy's
+// effective date, written beside the PDF so the portal and the agent can say whether a
+// document is current. The downloader leaves `<file>.meta.json` next to the download when it
+// read the EAD table; otherwise the dated source filename is used; otherwise the sidecar says
+// the date is unknown — never a guess.
+async function saveRevisionMeta({ key, icao, source, body, pdfPath }) {
+  try {
+    const sidecarPath = `${pdfPath}.meta.json`;
+    const sidecar = existsSync(sidecarPath) ? JSON.parse(readFileSync(sidecarPath, "utf8")) : null;
+    const previousRaw = await readStorageFile(metaKeyFor(key)).catch(() => null);
+    const previous = previousRaw ? JSON.parse(previousRaw.toString("utf8")) : null;
+    const meta = buildRevisionMeta({ icao, source, body, sourceFilename: basename(pdfPath), sourceUrl: sidecar?.sourceUrl ?? null, sidecar, previous });
+    await saveFile(metaKeyFor(key), JSON.stringify(meta, null, 2));
+    logInfo("AIP-SYNC", `Revision for ${key}: ${meta.effectiveDate ?? "unknown"}${meta.airac ? ` (AIRAC ${meta.airac})` : ""} via ${meta.revisionSource}`);
+  } catch (error) {
+    logError("AIP-SYNC", `Revision sidecar not written for ${key}`, error);
+  }
 }
 
 async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
@@ -1206,6 +1228,7 @@ async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
   }
   const key = namespace === "scraper-gen-pdf" ? `aip/scraper-gen-pdf/${icao}-GEN-1.2.pdf` : `aip/gen-pdf/${prefix}-GEN-1.2.pdf`;
   await saveFile(key, body);
+  await saveRevisionMeta({ key, icao: icao || prefix, source: namespace === "scraper-gen-pdf" ? "scraper-gen" : "gen", body, pdfPath });
   return key;
 }
 

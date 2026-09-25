@@ -69,6 +69,6 @@ export function hitToItemRanges(page: PageText, hit: Hit): { item: number; from:
 }
 
 /** Report a citation or verbatim check to the Activity log (§V6: a miss is a fact about the data). */
-export async function reportCheck(input: { kind: "citation" | "verbatim"; documentKey: string; filename?: string | null; page?: number | null; citation?: number | null; span?: string | null; found: boolean; conversationId?: string | null }) {
+export async function reportCheck(input: { kind: "citation" | "verbatim"; documentKey: string; filename?: string | null; page?: number | null; citation?: number | null; span?: string | null; revision?: { state: string; label: string } | null; citedRevision?: { state: string; label: string } | null; found: boolean; conversationId?: string | null }) {
   try { await fetch(`${AGENT_BASE}/api/citations/check`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); } catch { /* the log is best-effort; the UI already shows the state */ }
 }

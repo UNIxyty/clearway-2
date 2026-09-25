@@ -21,6 +21,8 @@ function Opener() {
     (async () => {
       let ref: DocRef | null = null;
       if (source === "knowledge" || source === "generated" || source === "attachment") ref = await fetchDocRef(source, id);
+      // AIP / GEN by ICAO (`source=aip&id=EVRA`): the agent resolves the cached copy and its revision.
+      if ((source === "aip" || (source as string) === "gen") && /^[A-Za-z0-9]{4}$/.test(id)) ref = await fetchDocRef(source as "aip" | "gen", id.toUpperCase());
       // Metadata answers 404 for a file that is not yours: open anyway with what the link says, so the
       // viewer shows the permission card with the file name (§V9) instead of nothing.
       if (!ref && (source === "generated" || source === "attachment")) {
@@ -31,7 +33,7 @@ function Opener() {
       if (!ref && source === "aip") { const url = params.get("url") ?? `${id}?inline=1`; const filename = params.get("filename") ?? id.split("/").pop() ?? "document.pdf"; ref = { key: `aip:${id}`, source: "aip", id, filename, mime: "application/pdf", bytes: null, url, downloadUrl: id, sourceUrl: id, tier: "internal", sourceName: "AIP Portal" }; }
       // `bytes` lets a link state the size when the metadata has none (e.g. a hand-off link); the viewer's size limit reads it.
       if (ref && params.get("bytes")) ref = { ...ref, bytes: Number(params.get("bytes")) || ref.bytes };
-      if (ref) v.openDocument(ref, { page, panelClosed: true, from: "Chat", citation: span ? (params.get("verbatim") === "1" ? { k: 1, page, span: null, verbatim: { text: span, recordId: params.get("record") } } : { k: 1, page, span }) : null });
+      if (ref) v.openDocument(ref, { page, panelClosed: true, from: "Chat", citation: span ? (params.get("verbatim") === "1" ? { k: 1, page, span: null, verbatim: { text: span, recordId: params.get("record") } } : { k: 1, page, span, revision: params.get("citedRevision") ? { state: "superseded", label: String(params.get("citedRevision")), revision: String(params.get("citedRevision")) } : null }) : null });
     })();
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   return <div style={{ padding: 32, fontSize: 14, color: C.muted }}>{v.open ? "" : "Opening the document…"}</div>;

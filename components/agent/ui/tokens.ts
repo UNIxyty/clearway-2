@@ -24,7 +24,7 @@ export const C = {
   warn: c.amberDeep, warnTint: c.amberTint, warnBorder: c.amberBorder, warnDot: c.amber, warnStrong: c.amberStrong, warnStrongTint: c.amberStrongTint,
   danger: c.redDeep, dangerBadge: c.red, dangerTint: c.redTintSoft, dangerBorder: c.redBorder, dangerDisabled: c.dangerDisabled,
   ok: c.greenDeep, okTint: c.greenTint, okBorder: c.greenBorder, okDot: c.green,
-  neutral: c.slate, neutralTint: c.greyTint, info: c.sky, infoTint: c.skyTint,
+  neutral: c.slate, neutralTint: c.greyTint, info: c.sky, infoTint: c.skyTint, infoBorder: c.skyBorder,
   stop: c.stop, stopTint: c.stopTint, stopBorder: c.stopBorder, stopSquare: c.stopSquare,
   rowExpanded: c.rowExpanded, rowRecord: c.rowRecord, warnWash: c.amberWash, okWash: c.greenWash, dangerWash: c.redWash, toggleOff: c.toggleOff, navSubBorder: c.navSubBorder, suggestHover: c.suggestHover, searchMatch: c.searchMatch, searchCurrent: c.searchCurrent, citeHighlight: c.citeHighlight, citeClaim: c.citeClaim, citeOutline: c.citeOutline, viewerCanvas: c.viewerCanvas, viewerCanvasImage: c.viewerCanvasImage, viewerPageScan: c.viewerPageScan, violetTint2: c.violetTint2, violetBorder: c.violetBorder, tabHover: c.tabHover, companyDeep: c.companyDeep, dangerWashSoft: c.redWashSoft, warnWashSoft: c.amberWashSoft, highlight: c.highlight,
 } as const;

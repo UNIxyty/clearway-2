@@ -11,6 +11,8 @@ import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import { EmptyState, FieldLabel, LoadingRows, TextArea, TextInput } from "@/components/console-kit";
 import { C, mono } from "../ui/tokens";
 import { Button, Icon, IconButton, IconTile, Tag, hmZ, kb } from "../ui/primitives";
+import { RevisionTag } from "../thread/RevisionTag";
+import type { RevisionInfo } from "../types";
 import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
@@ -18,7 +20,7 @@ import { useOpenDocument } from "../viewer/useOpenDocument";
 
 type Doc = {
   id: string; title: string; filename: string; mime: string | null; bytes: number | null; source: string | null; version: string | null;
-  effective_date: string | null; country: string | null; icao: string | null; tier: "tier1" | "tier2" | null; proposed_tier: "tier1" | "tier2" | null;
+  effective_date: string | null; country: string | null; icao: string | null; tier: "tier1" | "tier2" | null; proposed_tier: "tier1" | "tier2" | null; revision?: RevisionInfo | null;
   proposed_reason: string | null; status: "uploaded" | "classified" | "awaiting_approval" | "approved" | "rejected" | "indexed" | "failed";
   uploaded_by: string | null; uploaded_by_email: string | null; approved_by_email: string | null; approved_at: string | null; rejected_reason: string | null; created_at: string; updated_at: string | null;
 };
@@ -194,6 +196,7 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
         <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 7, columnGap: 8, fontSize: 13 }}>
           <span style={{ color: C.muted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ?? "—"}</span>
           <span style={{ color: C.muted }}>Applies to</span><span style={mono({ fontSize: 12.5 })}>{doc.icao ?? doc.country ?? "—"}</span>
+          <span style={{ color: C.muted }}>Revision</span><span><RevisionTag revision={doc.revision} showCurrent /></span>
           {doc.effective_date && <><span style={{ color: C.muted }}>Effective</span><span style={mono({ fontSize: 12.5 })}>{dateShort(doc.effective_date)}</span></>}
           {doc.source && <><span style={{ color: C.muted }}>Source</span><span>{doc.source}{doc.version ? ` · ${doc.version}` : ""}</span></>}
           <span style={{ color: C.muted }}>File</span><span style={mono({ fontSize: 12.5 })}>{doc.filename}{doc.bytes ? ` · ${kb(doc.bytes)}` : ""}</span>

@@ -1396,7 +1396,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 9 — inline previews (no downloads on reload), thread URLs, 100 MB raw knowledge uploads with progress, quiet expired prompts | 1a3f5a4 | yes | yes — 2026-09-25 00:20Z (portal build gEs6xurBA6v3K3PODUNui; agent-service rebuilt) |
 | 10 — list_files, attachments by filename, precheck before confirmation | 6c92217 | yes | yes — 2026-09-25 00:40Z (agent-service rebuilt) |
 | 11 — IMPORTANT / CAA verbatim frames resolve (kind on blocks; list-and-find on the wall) | 9ffd715 | yes | yes — 2026-09-25 00:50Z (agent-service rebuilt) |
-| 12 — voice input: push-to-talk → ElevenLabs STT → voice message; docked bar, permission cards, console hold | 4cb0923 | yes | __DEPLOYED9__ |
+| 12 — voice input: push-to-talk → ElevenLabs STT → voice message; docked bar, permission cards, console hold | 4cb0923 | yes | yes — 2026-09-25 01:14Z (portal build 2IjUAMv2oIOkbKIwJ56xK; agent-service + digital-wall-frontend rebuilt) |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):

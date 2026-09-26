@@ -338,8 +338,10 @@ function PortalShellInner({
           : topics.map((topic) => {
               const isAgentTopic = topic.id === "agent";
               const onAgentPage = isAgentTopic && pathname.startsWith("/agent");
-              // Sub-items show while on an agent page (§5); elsewhere the topic folds like any other.
-              const open = openTopics.has(topic.id) || onAgentPage;
+              // Item 2: every agent page is reachable from the sidebar at all times — the agent topic's sub-items
+              // are always shown, in the expanded sidebar AND in the 68px rail (icon + tooltip). Clicking the topic
+              // row still opens/closes the panel (⌘J), so it never folds the list away.
+              const open = isAgentTopic || openTopics.has(topic.id);
               const items = (topic.items ?? []).filter((i) => (!i.adminOnly || role === "admin" || isDeveloper) && (!i.approverOnly || isDeveloper));
               const anyChildActive = items.some((i) => !i.external && isActive(i.href));
               return (

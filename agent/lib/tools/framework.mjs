@@ -241,7 +241,7 @@ async function describeChange(tool, input, user) {
   return { what: String(what).replace(/\s+/g, " ").trim(), target };
 }
 
-export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui", skipConfirm = false }) {
+export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui", skipConfirm = false, onProgress = null, signal = null }) {
   const startedAt = Date.now();
   const tool = getTool(name);
 
@@ -393,7 +393,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   const execute = async () => {
     try {
       return await Promise.race([
-        tool.handler(validInput, { user, conversationId }),
+        tool.handler(validInput, { user, conversationId, signal, progress: (step, detail = {}) => { try { onProgress?.({ name, step, ...detail }); } catch { /* progress is best-effort */ } } }),
         new Promise((_, reject) =>
           setTimeout(() => reject(Timeout(`${name} timed out after ${Math.round(tool.timeoutMs / 1000)}s.`)), tool.timeoutMs)
         ),

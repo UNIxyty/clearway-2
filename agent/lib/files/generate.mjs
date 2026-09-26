@@ -105,7 +105,7 @@ export function blocksToPrintHtml({ title, subtitle, blocks = [], footer }) {
     `</body></html>`;
 }
 
-export async function generatePdf({ filename, title, subtitle, blocks, footer }) {
+export async function generatePdf({ filename, title, subtitle, blocks, footer, onStep = null, signal = null }) {
   // Imported lazily so a container without chromium still starts and serves
   // every other route — a missing browser should break PDF generation, not the
   // whole agent.
@@ -123,6 +123,8 @@ export async function generatePdf({ filename, title, subtitle, blocks, footer })
     // 'load' not 'networkidle': the Google Fonts link must not hang generation
     // when the container has no egress. The fallback stack is deliberate.
     await page.setContent(html, { waitUntil: "load", timeout: PDF_TIMEOUT_MS });
+    if (signal?.aborted) throw new Error("Cancelled — the file was not created.");
+    onStep?.();
     const pdf = await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
     // `await` matters: a bare `return persist()` inside this try/finally rejects
     // while `finally` is still awaiting browser.close(), with no handler attached

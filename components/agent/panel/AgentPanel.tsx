@@ -62,12 +62,13 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   const viewer = useViewerOptional();
   const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
   useEffect(() => { viewer?.setConversationId(t.conversationId); }, [t.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { viewer?.setQuoted(t.messages.flatMap((m) => (m.blocks?.verbatim ?? []).filter((r) => r.kind === "tier1" && r.documentId).map((r) => ({ documentId: String(r.documentId), text: r.text })))); }, [t.messages]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const attach = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string }; page: number }>).detail; t.setPinnedContext(null); document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea')?.focus(); void d; };
     const email = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string } }>).detail; void t.send(`Email me the document "${d.ref.filename}".`); };
     const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (!d?.text) return; if (d.send) void t.send(d.text); else { const ta = document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea'); if (ta) { ta.value = d.text; ta.focus(); } } };
-    window.addEventListener("cw-agent-attach-open-doc", attach); window.addEventListener("cw-agent-email-doc", email); window.addEventListener("cw-agent-compose", compose);
-    return () => { window.removeEventListener("cw-agent-attach-open-doc", attach); window.removeEventListener("cw-agent-email-doc", email); window.removeEventListener("cw-agent-compose", compose); };
+    window.addEventListener("cw-agent-attach-open-doc", attach); window.addEventListener("cw-agent-email-doc", email); window.addEventListener("cw-agent-compose", compose); const stop = () => t.stop(); window.addEventListener("cw-agent-stop", stop);
+    return () => { window.removeEventListener("cw-agent-attach-open-doc", attach); window.removeEventListener("cw-agent-email-doc", email); window.removeEventListener("cw-agent-compose", compose); window.removeEventListener("cw-agent-stop", stop); };
   }, [t]);
   const activeContext = docContext ?? t.pinnedContext ?? context;
   const contextMoved = Boolean(t.pinnedContext && context && context.label !== t.pinnedContext.label);
@@ -227,7 +228,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
           </div>
         )}
 
-        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
+        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, tier: meta.tier ?? null, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
       </aside>
     </>
   );

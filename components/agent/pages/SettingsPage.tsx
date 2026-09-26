@@ -11,6 +11,7 @@ import PortalShell from "@/components/portal/Shell";
 import { LoadingRows } from "@/components/console-kit";
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Button, Eyebrow, Keycap, Toggle } from "../ui/primitives";
+import { PersonalSettings, RoutingSettings } from "./SettingsPersonal";
 import { BIND_DEFAULTS, DEFAULT_CONFIG, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE } from "../types";
@@ -68,11 +69,13 @@ export default function SettingsPage() {
   const cell = (v: string) => (v === "yes" ? <span style={{ color: C.okDot }}>✓</span> : v === "ask" ? <span style={{ color: C.primaryHover }}>ask</span> : <span style={{ color: C.disabledFill }}>—</span>);
 
   return (
-    <PortalShell crumb="Ops Agent" title="Agent settings" subtitle="Organisation settings, admins only. Your own voice preferences are under Account.">
+    <PortalShell crumb="Ops Agent" title="Agent settings" subtitle="Your preferences, and organisation settings for admins.">
       <AgentStyles />
       <div style={{ padding: "30px 32px", display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 18, alignItems: "start", maxWidth: 1180 }}>
         {error && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13, color: C.danger }}>{error}</div>}
-        {forbidden && !caps && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13.5, color: C.muted }}>Admins only. Ask an administrator if you need a capability changed.</div>}
+        <PersonalSettings />
+        <RoutingSettings />
+        {forbidden && !caps && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13.5, color: C.muted }}>Organisation settings are for admins. Ask an administrator if you need a capability changed.</div>}
 
         {/* Capabilities */}
         <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden", gridColumn: "1 / 2" }} aria-label="Capabilities">

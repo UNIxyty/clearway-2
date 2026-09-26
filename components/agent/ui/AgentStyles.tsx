@@ -15,7 +15,7 @@ export default function AgentStyles() {
   const vars = {
     "--ag-primary": C.primary, "--ag-primary-hover": C.primaryHover, "--ag-primary-border": C.primaryBorder,
     "--ag-hover": C.hover, "--ag-page": C.page, "--ag-suggest-hover": C.suggestHover,
-    "--ag-primary-tint": C.primaryTint, "--ag-tab-hover": C.tabHover, "--ag-search-match": C.searchMatch, "--ag-search-current": C.searchCurrent, "--ag-cite-highlight": C.citeHighlight, "--ag-cite-outline": C.citeOutline,
+    "--ag-primary-tint": C.primaryTint, "--ag-tab-hover": C.tabHover, "--ag-search-match": C.searchMatch, "--ag-search-current": C.searchCurrent, "--ag-cite-highlight": C.citeHighlight, "--ag-cite-outline": C.citeOutline, "--ag-quote-bg": C.violetTint2, "--ag-quote-line": C.violetBorder, "--ag-quote-fg": C.companyDeep, "--ag-quote-tint": C.quoteTint,
   } as Record<string, string>;
   // #f7faff is the suggested-question hover wash (§4.22); it is the only value
   // the shared file has no name for and is set here so it stays in one place.

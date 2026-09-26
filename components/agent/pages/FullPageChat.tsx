@@ -44,6 +44,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   const kb = useKeybinds();
   const viewer = useViewerOptional();
   useEffect(() => { viewer?.setConversationId(t.conversationId); }, [t.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { viewer?.setQuoted(t.messages.flatMap((m) => (m.blocks?.verbatim ?? []).filter((r) => r.kind === "tier1" && r.documentId).map((r) => ({ documentId: String(r.documentId), text: r.text })))); }, [t.messages]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { viewer?.setFrom("Chat"); }, [viewer]);
   // §V10 B5: while a document is open the thread becomes a right-hand column (420; 360 below 1400 of content width).
   const docOpen = Boolean(viewer?.open);
@@ -52,7 +53,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
   useEffect(() => { if (docContext) t.setPinnedContext(docContext); }, [docContext?.label, docContext?.page]); // eslint-disable-line react-hooks/exhaustive-deps
   // Selection actions in the viewer hand a prepared request to the open agent surface (item 15).
-  useEffect(() => { const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (d?.text && d.send) void t.send(d.text); }; window.addEventListener("cw-agent-compose", compose); return () => window.removeEventListener("cw-agent-compose", compose); }, [t]);
+  useEffect(() => { const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (d?.text && d.send) void t.send(d.text); }; window.addEventListener("cw-agent-compose", compose); const stop = () => t.stop(); window.addEventListener("cw-agent-stop", stop); return () => { window.removeEventListener("cw-agent-compose", compose); window.removeEventListener("cw-agent-stop", stop); }; }, [t]);
   const live = useLiveSuggestions(null);
   const empty = useMemo(() => suggestionsFor(null, live, true), [live]);
 
@@ -127,7 +128,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
             <ContextChip context={docContext} onClear={() => { t.setPinnedContext(null); viewer?.close(); }} />
           </div>
         )}
-        <Composer context={docContext} panel={docOpen} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
+        <Composer context={docContext} panel={docOpen} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, tier: meta.tier ?? null, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
       </div>
     </PortalShell>
   );

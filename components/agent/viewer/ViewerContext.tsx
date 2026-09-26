@@ -17,6 +17,9 @@ export type ViewerApi = {
   active: ViewerTab | null;
   from: string | null;
   panelClosed: boolean;
+  /** Approved clauses the current thread quoted (§V7 violet markers). */
+  quoted: { documentId: string; text: string }[];
+  setQuoted: (q: { documentId: string; text: string }[]) => void;
   setPanelClosed: (closed: boolean) => void;
   toast: Toast;
   conversationId: string | null;
@@ -64,6 +67,8 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<Toast>(null);
   const [conversationId, setConversationIdState] = useState<string | null>(null);
   const [pending, setPending] = useState<ViewerApi["pending"]>(null);
+  const [quoted, setQuotedState] = useState<{ documentId: string; text: string }[]>([]);
+  const setQuoted = useCallback((q: { documentId: string; text: string }[]) => setQuotedState((prev) => (JSON.stringify(prev) === JSON.stringify(q) ? prev : q)), []);
   const openerRef = useRef<HTMLElement | null>(null);
   const toastTimer = useRef<number | null>(null);
 
@@ -140,9 +145,9 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
 
   const active = useMemo(() => tabs.find((t) => t.ref.key === activeKey) ?? null, [tabs, activeKey]);
   const api = useMemo<ViewerApi>(() => ({
-    open, tabs, active, from, panelClosed, setPanelClosed, toast, conversationId, setConversationId, setFrom: (label) => setFrom(label), openDocument, close, closeTab, activate, patchTab, setResult, addCitation, nextTab,
+    open, tabs, active, from, panelClosed, setPanelClosed, quoted, setQuoted, toast, conversationId, setConversationId, setFrom: (label) => setFrom(label), openDocument, close, closeTab, activate, patchTab, setResult, addCitation, nextTab,
     dismissToast: () => setToast(null), pending, consumePending: () => setPending(null),
-  }), [open, tabs, active, from, panelClosed, toast, conversationId, setConversationId, openDocument, close, closeTab, activate, patchTab, setResult, addCitation, nextTab, pending]);
+  }), [open, tabs, active, from, panelClosed, quoted, setQuoted, toast, conversationId, setConversationId, openDocument, close, closeTab, activate, patchTab, setResult, addCitation, nextTab, pending]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 

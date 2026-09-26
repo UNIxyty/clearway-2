@@ -157,14 +157,24 @@ function Highlight({ text, prefix }: { text: string; prefix: string }) {
 }
 
 // ── / commands ────────────────────────────────────────────────────────────────
-type Command = { cmd: string; description: string; args: string; icon: string; kind: string; kindColor: string; needs: ("icao" | "flight" | "to" | "text")[]; optional?: string; ask: (args: string[]) => string };
-const COMMANDS: Command[] = [
-  { cmd: "/aip", description: "Get an AIP document", args: "ICAO [part]", icon: "file-text", kind: "READ", kindColor: C.faint, needs: ["icao"], optional: "part", ask: ([icao, part]) => `Find the ${part?.trim() || "AD 2"} document for ${icao}.` },
-  { cmd: "/notam", description: "Active and new NOTAMs", args: "ICAO [since]", icon: "file-check", kind: "READ", kindColor: C.faint, needs: ["icao"], optional: "since", ask: ([icao, since]) => `What NOTAMs are current at ${icao}${since?.trim() ? ` since ${since.trim()}` : ""}?` },
-  { cmd: "/weather", description: "METAR and TAF, raw + decoded", args: "ICAO…", icon: "cloud-sun", kind: "READ", kindColor: C.faint, needs: ["icao"], ask: ([icao]) => `Give me the METAR and TAF for ${icao}, raw and decoded.` },
-  { cmd: "/brief", description: "Build a briefing for a flight or wave", args: "flight | time range", icon: "clipboard-list", kind: "MAKES A FILE", kindColor: C.okDot, needs: ["text"], ask: ([what]) => `Build a one-page crew briefing PDF for ${what}, quoting any limitation that applies verbatim.` },
-  { cmd: "/email", description: "Send something from this thread", args: "to [what]", icon: "send", kind: "ASKS FIRST", kindColor: C.primaryHover, needs: ["to"], optional: "what", ask: ([to, what]) => `Email ${what?.trim() || "the latest document from this thread"} to ${to}.` },
-];
+type Need = "icao" | "flight" | "to" | "text" | "tier" | "operator" | "country";
+type Command = { cmd: string; description: string; args: string; icon: string; kind: string; kindColor: string; needs: Need[]; optional?: string; template: string; ask: (args: string[]) => string };
+// Item 10: the list is CONFIG (agent/config/commands.json + an admin override), served per user by
+// GET /api/commands — a user only sees commands whose tools their role has. Fetched once per page load.
+const KIND_COLOR: Record<string, string> = { READ: C.faint, CHANGES: C.warn, "ASKS FIRST": C.primaryHover, "MAKES A FILE": C.okDot, SETTING: C.info };
+/** {0} {1} args; {1|default} when empty; {1?text $} only when present ($ = the argument). */
+export function renderTemplate(template: string, args: string[]): string {
+  return template
+    .replace(/\{(\d+)\?([^}]*)\}/g, (_, n, t) => (args[Number(n)]?.trim() ? String(t).replace(/\$/g, args[Number(n)].trim()) : ""))
+    .replace(/\{(\d+)\|([^}]*)\}/g, (_, n, d) => args[Number(n)]?.trim() || d)
+    .replace(/\{(\d+)\}/g, (_, n) => args[Number(n)]?.trim() ?? "")
+    .replace(/\s+([.?!,])/g, "$1").trim();
+}
+let commandCache: Promise<Command[]> | null = null;
+function loadCommands(): Promise<Command[]> {
+  commandCache ??= fetch(`${AGENT_BASE}/api/commands`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : { commands: [] })).then((b) => ((b?.commands ?? []) as Omit<Command, "ask" | "kindColor">[]).map((c) => ({ ...c, kindColor: KIND_COLOR[c.kind] ?? C.faint, ask: (a: string[]) => renderTemplate(c.template, a) }))).catch(() => { commandCache = null; return []; });
+  return commandCache;
+}
 export type ActiveCommand = { command: Command; args: string[]; slot: number };
 
 // ── The composer ──────────────────────────────────────────────────────────────
@@ -178,7 +188,7 @@ export default function Composer({
   locked?: string | null;
   offline?: boolean;
   voiceEnabled?: boolean;
-  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null }; attachments?: { id: string; name: string; bytes: number | null; mime: string | null; readStatus?: ReadStatus; readMode?: string; readReason?: string | null }[] }) => void;
+  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; tier?: string | null; voice?: { language: string | null }; attachments?: { id: string; name: string; bytes: number | null; mime: string | null; readStatus?: ReadStatus; readMode?: string; readReason?: string | null }[] }) => void;
   onStop: () => void;
   onVoice?: () => void;
   autoFocus?: boolean;
@@ -244,7 +254,11 @@ export default function Composer({
     return () => { alive = false; };
   }, [menu, query, mentionType, context]);
 
-  const commands = useMemo(() => COMMANDS.filter((c) => c.cmd.slice(1).startsWith(query.toLowerCase())), [query]);
+  const [allCommands, setAllCommands] = useState<Command[]>([]);
+  useEffect(() => { let alive = true; void loadCommands().then((c) => { if (alive) setAllCommands(c); }); return () => { alive = false; }; }, []);
+  const commands = useMemo(() => allCommands.filter((c) => c.cmd.slice(1).startsWith(query.toLowerCase()) || (query.length >= 2 && c.description.toLowerCase().includes(query.toLowerCase()))), [query, allCommands]);
+  // `/model <tier>` chooses the tier for the NEXT message (one turn), shown as a chip until it is used.
+  const [nextTier, setNextTier] = useState<string | null>(null);
 
   const uploading = attachments.some((a) => a.state === "uploading");
   const tooLarge = attachments.filter((a) => a.state === "too-large");
@@ -289,17 +303,25 @@ export default function Composer({
     if (command) {
       const req = command.command.needs.length;
       const args = command.args.map((a) => a.trim());
-      if (!args[0]) { setHint(`${command.command.cmd} needs ${command.command.args.split(" ")[0]} — for example ${command.command.cmd} EVRA`); slotRefs.current[0]?.focus(); return; }
+      if (command.command.needs[0] === "tier") {
+        const t = args[0].toLowerCase();
+        if (!["fast", "standard", "reasoning"].includes(t)) { setHint("/model needs fast, standard or reasoning."); slotRefs.current[0]?.focus(); return; }
+        setNextTier(t); setCommand(null); setHint(`Your next message uses the ${t} tier.`);
+        if (!text.trim() && !attachments.some((a) => a.state === "uploaded")) return;
+      }
+      if (req > 0 && !args[0] && command.command.needs[0] !== "tier") { setHint(`${command.command.cmd} needs ${command.command.args.split(" ")[0]} — for example ${command.command.cmd} ${command.command.needs[0] === "icao" ? "EVRA" : command.command.needs[0] === "flight" ? "BTI472" : "…"}`); slotRefs.current[0]?.focus(); return; }
       if (command.command.needs[0] === "icao" && !/^[A-Za-z]{4}$/.test(args[0])) { setHint(`${command.command.cmd} needs a four-letter ICAO code.`); slotRefs.current[0]?.focus(); return; }
       if (command.command.needs[0] === "icao") args[0] = args[0].toUpperCase();
-      text = [command.command.ask(args), text].filter(Boolean).join(" ");
-      commandName = command.command.cmd; void req;
+      if (command.command.needs[0] !== "tier") { text = [command.command.ask(args), text].filter(Boolean).join(" "); commandName = command.command.cmd; }
+      void req;
     }
     setHint(null);
     const uploaded = attachments.filter((a) => a.state === "uploaded" && a.id);
     const ids = uploaded.map((a) => a.id as string);
     // Names travel with the ids so the sent bubble can show openable chips at once (§V3 E3), not only after a reload.
-    onSend(text, ids, { mentions: inserted, command: commandName, attachments: uploaded.map((a) => ({ id: a.id as string, name: a.name, bytes: a.bytes ?? null, mime: null, readStatus: a.readStatus, readMode: a.readMode, readReason: a.readReason ?? null })) });
+    const tierForTurn = command?.command.needs[0] === "tier" ? (command.args[0] ?? "").trim().toLowerCase() : nextTier;
+    setNextTier(null);
+    onSend(text, ids, { mentions: inserted, command: commandName, tier: tierForTurn || null, attachments: uploaded.map((a) => ({ id: a.id as string, name: a.name, bytes: a.bytes ?? null, mime: null, readStatus: a.readStatus, readMode: a.readMode, readReason: a.readReason ?? null })) });
     setValue(""); setAttachments([]); setInserted([]); setCommand(null); setMenu("none");
   }
 
@@ -310,7 +332,7 @@ export default function Composer({
   }
   function pickCommand(c: Command) {
     setValue((v) => v.replace(/(?:^|\s)\/\S*$/, "").trimEnd());
-    setCommand({ command: c, args: c.optional ? ["", ""] : [""], slot: 0 });
+    setCommand({ command: c, args: c.optional && c.needs.length ? ["", ""] : [""], slot: 0 });
     setMenu("none");
     setTimeout(() => slotRefs.current[0]?.focus(), 0);
   }
@@ -381,7 +403,8 @@ export default function Composer({
           </div>
         )}
 
-        {hint && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
+        {nextTier && <div data-next-tier style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.info, padding: "0 4px 6px" }}><Icon name="cpu" size={12} color={C.info} />Next message: <b>{nextTier}</b> tier<button type="button" onClick={() => { setNextTier(null); setHint(null); }} style={{ fontFamily: "inherit", fontSize: 12, color: C.muted, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>clear</button></div>}
+            {hint && !(nextTier && hint.startsWith("Your next message")) && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
         {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
 
         {(voice.state === "permission" || voice.state === "blocked") && <MicPermissionCard v={voice} panel={panel} holdLabel={kb.label("voice")} />}
@@ -394,7 +417,7 @@ export default function Composer({
                 <button type="button" onClick={() => setCommand(null)} aria-label="Remove command" style={{ width: 15, height: 15, borderRadius: 4, background: "rgba(255,255,255,.14)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={9} color={C.surface} /></button>
               </span>
               {command.args.map((arg, i) => (
-                <input key={i} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? command.command.args.split(" ")[0] : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
+                <input key={i} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? (command.command.args.split(" ")[0] || "optional") : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
                   onChange={(e) => setCommand((c) => c ? { ...c, args: c.args.map((a, j) => (j === i ? e.target.value : a)) } : c)}
                   onKeyDown={(e) => { if (e.key === "Tab" && i < command.args.length - 1) { e.preventDefault(); slotRefs.current[i + 1]?.focus(); } if (e.key === "Backspace" && !arg && i === 0) { e.preventDefault(); setCommand(null); inputRef.current?.focus(); } if (e.key === "Enter") { e.preventDefault(); submit(); } if (e.key === "Escape") { setCommand(null); inputRef.current?.focus(); } }}
                   style={{ ...mono({ fontSize: 13.5 }), color: i === 0 || arg ? C.primaryHover : C.faint, background: i === 0 || arg ? C.primaryTint3 : "transparent", border: i === 0 || arg ? `1px solid ${C.primary}` : `1px dashed ${C.borderControl}`, borderRadius: 7, padding: "2px 8px", outline: "none", minWidth: 90 }} />

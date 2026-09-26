@@ -158,7 +158,7 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
  *    and returns the standard error vocabulary. The model never gets to run
  *    anything the framework has not approved.
  */
-export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false }) {
+export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false, onToolProgress = null, signal = null }) {
   // The tier may RISE during the turn (escalation after a tool round, item 3); it never falls.
   let tier = startTier;
   let { requested, effective, config } = resolveTier(tier);
@@ -178,6 +178,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   const toolCalls = [];
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+    if (signal?.aborted) { const e = new Error("Cancelled by the user."); e.code = "cancelled"; throw e; }
     const lastRound = round === MAX_TOOL_ROUNDS;
     const roundStarted = Date.now();
     let roundText = "";
@@ -287,9 +288,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     const results = await Promise.all(
       requestedTools.map(async (call) => {
         const startedAt = Date.now();
+        // Item 11: tell the console a tool STARTED, so long jobs (file generation) show named steps and a
+        // building card instead of a bare wait.
+        try { onToolProgress?.({ name: call.name, toolUseId: call.toolUseId, step: "start", input: call.input }); } catch { /* best-effort */ }
         // origin: "model" -- a confirmation token in a model tool call is refused
         // by executeTool; only the console's confirm endpoint may spend one.
-        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice" });
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice", signal, onProgress: (e) => { try { onToolProgress?.({ toolUseId: call.toolUseId, ...e }); } catch { /* best-effort */ } } });
         return { call, result, startedAt, durationMs: Date.now() - startedAt };
       })
     );

@@ -311,3 +311,8 @@ mark.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0
 .ag-sent-chip:hover .ag-sent-chip-size, .ag-sent-chip:focus-visible .ag-sent-chip-size { display: none; }
 .ag-sent-chip:hover .ag-sent-chip-open, .ag-sent-chip:focus-visible .ag-sent-chip-open { display: inline-flex !important; }
 button:hover > .ag-kb-open, button:focus-within > * > .ag-kb-open, .ag-kb-open:focus-visible { opacity: 1 !important; }
+
+/* §V7 approved clauses quoted in the thread: violet tint, multiplied over the glyphs like every highlight (item 14) */
+.cw-hl.cw-quote-hit { background: var(--ag-quote-tint); box-shadow: inset 0 -2px 0 var(--ag-quote-line); border-radius: 2px; }
+.cw-quote-marker { position: absolute; left: -34px; width: 22px; height: 20px; border-radius: 5px; background: var(--ag-quote-bg); border: 1px solid var(--ag-quote-line); pointer-events: none; user-select: none; }
+.cw-quote-marker::after { content: ""; position: absolute; inset: 3px 4px; background: var(--ag-quote-fg); -webkit-mask: url(/icons/quote.svg) center/12px no-repeat; mask: url(/icons/quote.svg) center/12px no-repeat; }

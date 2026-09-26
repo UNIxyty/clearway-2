@@ -9,7 +9,7 @@
 import { useMemo } from "react";
 import { C, TYPE, mono } from "../ui/tokens";
 import { Button, Icon, hmZ, hmsZ, kb } from "../ui/primitives";
-import { AutoConfirmedActions, Thinking, type ThinkingBlock } from "./Thinking";
+import { AutoConfirmedActions, BuildingFileCard, Thinking, type BuildingFile, type ThinkingBlock } from "./Thinking";
 import { splitStructured } from "./structuredProse";
 import Orb from "../ui/Orb";
 import Markdown from "../panel/Markdown";
@@ -152,6 +152,7 @@ export function AgentReply({
         <AutoConfirmedActions actions={performed} panel={panel} onUndo={(a) => window.dispatchEvent(new CustomEvent("cw-agent-compose", { detail: { text: `Undo the change "${a.what}" (action ${a.actionId}).`, send: true } }))} />
         {mono_.map((x) => <MonoBlock key={x.id} block={x} panel={panel} onShowOnPage={onShowOnPage} />)}
         {documents.map((d) => <DocumentResult key={`${d.kind}-${d.href ?? d.documentId ?? d.title}`} doc={d} panel={panel} onEmail={onEmailDocument} />)}
+        {m.streaming && ((b as { building?: BuildingFile[] }).building ?? []).map((f) => <BuildingFileCard key={f.id} file={f} panel={panel} />)}
         {files.map((f) => <GeneratedFile key={f.id} file={f} panel={panel} onSend={onSendFile} />)}
 
         {verbatim.map((r) => <VerbatimFrame key={`${r.kind ?? "limitation"}-${r.id}`} record={r} panel={panel} />)}

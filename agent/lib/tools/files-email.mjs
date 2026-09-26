@@ -97,9 +97,13 @@ defineTool({
     },
   },
   output: { type: "object", required: ["file"], properties: { file: FILE_RESULT } },
-  async handler(input, { user, conversationId }) {
+  async handler(input, { user, conversationId, progress = () => {}, signal = null }) {
     const startedAt = Date.now();
     const { format, filename, subtitle, blocks = [], columns = [], rows = [] } = input;
+    // Item 11: named steps for the console's building card; cancel is honoured between steps.
+    const STEPS = format === "pdf" ? ["Checking the content", "Laying out the pages", "Rendering the PDF", "Saving the file"] : format === "docx" ? ["Checking the content", "Building the document", "Saving the file"] : ["Checking the rows", "Building the sheet", "Saving the file"];
+    const step = (i) => { if (signal?.aborted) throw InvalidInput("Cancelled — the file was not created."); progress(STEPS[i], { index: i, steps: STEPS, filename, format }); };
+    step(0);
     const title = input.title ?? filename;
     if ((format === "xlsx" || format === "csv") && columns.length === 0) {
       throw InvalidInput(`${format} needs columns and rows.`);
@@ -112,14 +116,17 @@ defineTool({
 
     let file;
     try {
-      if (format === "pdf") file = await generatePdf({ filename, title, subtitle, blocks });
+      step(1);
+      if (format === "pdf") file = await generatePdf({ filename, title, subtitle, blocks, onStep: () => step(2), signal });
       else if (format === "docx") file = await generateDocx({ filename, title, blocks });
       else if (format === "xlsx") file = await generateXlsx({ filename, sheetName: title.slice(0, 31), columns, rows });
       else file = await generateCsv({ filename, columns, rows });
     } catch (error) {
+      if (/Cancelled/.test(String(error?.message))) throw error;
       throw ServiceUnavailable(`The file could not be generated: ${error.message}`);
     }
 
+    step(STEPS.length - 1);
     await recordGeneratedFile({
       file, user, conversationId, kind: format, title,
       generatedMs: Date.now() - startedAt,

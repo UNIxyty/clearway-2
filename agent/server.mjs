@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 // Clearway dispatcher agent — service entry point.
 //
 // Shape follows digital-wall/server.mjs: a plain node http server with explicit
@@ -92,6 +93,20 @@ function assertRigMayWriteKnowledge() {
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true" && process.env.AGENT_RIG_KB_WRITES !== "1") {
     throw BadRequest("This is a test environment sharing the production database: knowledge-base writes are disabled here (set AGENT_RIG_KB_WRITES=1 only if the files will be copied to the server).");
   }
+}
+
+let commandCache = { at: 0, list: null };
+async function commandsFor(user) {
+  if (!commandCache.list || Date.now() - commandCache.at > 30_000) {
+    const base = JSON.parse(readFileSync(new URL("./config/commands.json", import.meta.url), "utf8")).commands ?? [];
+    let override = [];
+    try { const row = (await knowledgeRest("agent_settings?id=eq.commands&select=reason"))?.[0]; override = row?.reason ? JSON.parse(row.reason).commands ?? [] : []; } catch { override = []; }
+    const byCmd = new Map(base.map((c) => [c.cmd, c]));
+    for (const c of override) { if (!c?.cmd) continue; if (c.disabled) byCmd.delete(c.cmd); else byCmd.set(c.cmd, { ...(byCmd.get(c.cmd) ?? {}), ...c }); }
+    commandCache = { at: Date.now(), list: [...byCmd.values()] };
+  }
+  const tools = new Set(toolNamesFor(user));
+  return commandCache.list.filter((c) => (c.requires ?? []).every((t) => tools.has(t))).map(({ requires, ...c }) => c);
 }
 
 function sendError(res, error) {
@@ -307,6 +322,13 @@ const server = http.createServer(async (req, res) => {
       const [caps, enabled, binds] = await Promise.all([capabilities(), agentEnabled(), keybinds()]);
       return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), keybinds: binds, keybindActions: KEYBIND_ACTIONS, keybindDefaults: KEYBIND_DEFAULTS, killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
     }
+    // Slash commands (§4.20), config-driven: agent/config/commands.json merged with the admin override in
+    // agent_settings `commands`; only commands whose tools this user has are returned (item 10).
+    if (pathname === "/api/commands" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, commands: await commandsFor(user) });
+    }
+
     // Personal preferences (any agent user): default model tier, skip confirmation for low-risk actions.
     if (pathname === "/api/settings/me" && req.method === "GET") {
       await assertMayUseAgent(user);
@@ -1106,7 +1128,11 @@ async function handleChat(req, res, user) {
   let retried = null;
   try {
     const onRound = ({ tier, toolCalls: calls }) => escalationAfterRound({ tier, toolCalls: calls, escalation: routing.escalation });
-    const run = (tier) => streamConversationWithTools({ tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
+    // Stop in the console closes the stream; the turn (and a file being built) is cancelled between steps.
+    const abort = new AbortController();
+    res.on("close", () => { if (!res.writableEnded) abort.abort(); });
+    const onToolProgress = (e) => { if (!res.writableEnded) send("tool_progress", { name: e.name, toolUseId: e.toolUseId ?? null, step: e.step, index: e.index ?? null, steps: e.steps ?? null, filename: e.filename ?? e.input?.filename ?? null, format: e.format ?? e.input?.format ?? null }); };
+    const run = (tier) => streamConversationWithTools({ onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
     let stream = run(route.tier);
     // A failed first attempt is retried once, one tier up — only if nothing was shown yet, so the reply
     // is never a splice of two models.

@@ -73,7 +73,8 @@ export const NAV_TOPICS: NavTopic[] = [
     // Ops Agent (design spec §5): between Digital Wall and Reports & Issues.
     id: "agent",
     label: "Ops Agent",
-    icon: "circle-dot",
+    // The Clearway ring mark (§4.1), static — the agent's identity everywhere else (orb, voice, minimised tab).
+    icon: "ring-mark",
     roles: ["admin", "user"], // roles don't matter here — agentOnly is the gate
     agentOnly: true,
     keycap: "⌘J",
@@ -82,7 +83,7 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "agent-history", label: "History", icon: "history", href: "/agent/history" },
       { id: "agent-knowledge", label: "Knowledge base", icon: "library", href: "/agent/knowledge", badge: "kb-approvals" },
       { id: "agent-activity", label: "Activity log", icon: "scroll-text", href: "/agent/activity" },
-      { id: "agent-settings", label: "Settings", icon: "settings-2", href: "/agent/settings", adminOnly: true },
+      { id: "agent-settings", label: "Settings", icon: "settings-2", href: "/agent/settings" }, // personal settings for everyone; organisation sections are admin-only inside the page
     ],
   },
   {

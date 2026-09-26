@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
 import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
 
-export type SendOptions = { attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null };
+export type SendOptions = { tier?: string | null; attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null };
 
 export function useThread({ context, initialConversationId = null, initials = null }: { context: AgentContext | null; initialConversationId?: string | null; initials?: string | null }) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -92,11 +92,12 @@ export function useThread({ context, initialConversationId = null, initials = nu
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}) }),
+        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}) }),
       });
       if (!response.ok || !response.body) { const b = await response.json().catch(() => null); throw new Error(b?.message || `The assistant is unavailable (HTTP ${response.status}).`); }
       markUser({ sending: false });
       const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
+      const building = new Map<string, { id: string; filename: string; format: string | null; steps: string[]; index: number }>();
       let thoughtText = ""; let thoughtMs = 0; const escalations: { from: string; to: string; reason: string }[] = [];
       const currentBlocks = () => { let found: Record<string, unknown> = {}; setMessages((list) => { for (let i = list.length - 1; i >= 0; i -= 1) if (list[i].role === "assistant") { found = (list[i].blocks ?? {}) as Record<string, unknown>; break; } return list; }); return found; };
       for (;;) {
@@ -119,8 +120,20 @@ export function useThread({ context, initialConversationId = null, initials = nu
             thoughtText += (thoughtText ? "\n\n" : "") + String(payload.text).trim(); thoughtMs += Number(payload.ms) || 0;
             patchAssistant({ content: answer, blocks: { ...(currentBlocks()), thinking: { text: thoughtText, ms: thoughtMs } } as never });
           }
+          else if (event === "tool_progress") {
+            // Item 11: a tool started or reported a step. Long jobs show as running steps; a file being built
+            // shows as a building card with its named steps until the finished card replaces it.
+            if (payload.step === "start") { tools.push({ name: payload.name, ok: true, error: null, startedAt: new Date().toISOString(), durationMs: null, args: null, state: "running", toolUseId: payload.toolUseId } as never); patchAssistant({ toolActivity: [...tools] }); }
+            if (payload.name === "generate_file") {
+              const prev = building.get(payload.toolUseId) ?? { id: payload.toolUseId, filename: payload.filename ?? "file", format: payload.format ?? null, steps: [] as string[], index: -1 };
+              building.set(payload.toolUseId, { ...prev, filename: payload.filename ?? prev.filename, format: payload.format ?? prev.format, steps: payload.steps ?? prev.steps, index: payload.index ?? prev.index });
+              patchAssistant({ blocks: { ...(currentBlocks()), building: [...building.values()] } as never });
+            }
+          }
           else if (event === "escalated") { escalations.push(payload); patchAssistant({ routeSource: `escalated ${payload.from}→${payload.to}` }); }
           else if (event === "tool") {
+            { const r = tools.findIndex((t) => (t as { state?: string }).state === "running" && t.name === payload.name); if (r >= 0) tools.splice(r, 1); }
+            if (payload.name === "generate_file") { for (const [k, v] of building) if (v) { building.delete(k); break; } patchAssistant({ blocks: { ...(currentBlocks()), building: [...building.values()] } as never }); }
             tools.push({ name: payload.name, ok: payload.ok, error: payload.error ?? null, startedAt: payload.startedAt ?? null, durationMs: payload.durationMs ?? null, args: payload.input ?? null, state: "done", write: Boolean(payload.confirmationRequired) });
             setActivity(payload.name);
             patchAssistant({ toolActivity: [...tools] });

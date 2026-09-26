@@ -33,12 +33,17 @@ const CLASSIFIER = `You route a flight dispatcher's request to one of three mode
 Reply with exactly one line: the tier, a space, and your confidence from 0.0 to 1.0.
 Example replies: "fast 0.9", "standard 0.7", "reasoning 0.8".
 
-fast — a direct lookup or a simple list; one source, no judgement. Most everyday questions are fast:
-  "what's the METAR for EVRA" · "show today's flights" · "flights for ABC tomorrow" · "is the wall up" ·
-  "list the limitations for EVRA" · "where is YL-ABC" · "open the AD 2 for LFPG" · "NOTAMs for EGLL" ·
-  "what time is it in UTC" · "what does GEN 1.2 say about permits for Latvia" (one document, read out)
+fast — a direct lookup or a simple list read out as it is; one source, no judgement. Most everyday
+  questions are fast. Show / list / any / which / is / has questions about one kind of record are fast:
+  "what's the METAR for EVRA" · "TAF for LOWW" · "show today's flights" · "flights to LFPG on Friday" ·
+  "is the wall up" · "list the limitations for EVRA" · "any NOTAMs at EGKK" · "which aircraft are hidden" ·
+  "show the CAA records we hold" · "has the weather sync run" · "what have I asked you to remember" ·
+  "remember that I work nights" · "which reports were deleted" · "what can you do" · "where is YL-ABC"
 
 standard — a normal task that needs a few steps or some interpretation:
+  anything answered from INSIDE a document — an AIP or GEN section's contents, runway dimensions, fuel,
+  opening hours, what a page says ("pull the AD 2 page for EVRA", "runway dimensions at EYVI"),
+  a flight's status or CTOT when the flight must first be worked out ("our first departure", "the CTOT"),
   combining two or three sources ("weather and NOTAMs for tomorrow's EVRA departures"),
   explaining what a rule MEANS for a flight, a single change to a record (add, edit, remove, show on the wall),
   a short briefing for one flight, drafting an email, comparing two things.

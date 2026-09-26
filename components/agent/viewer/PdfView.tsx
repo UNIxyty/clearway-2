@@ -97,6 +97,8 @@ export const PdfView = forwardRef<PdfHandle, {
   thumbnails: boolean;
   citations: Citation[];
   activeCitation: number | null;
+  /** §V7: approved clauses this conversation quoted from this (authoritative) document — violet marks. */
+  quotes?: string[];
   scanned?: boolean;
   onStatus: (s: PdfStatus) => void;
   onPage: (n: number) => void;
@@ -106,7 +108,7 @@ export const PdfView = forwardRef<PdfHandle, {
   onCitationResult: (r: CitationResult) => void;
   onAnnounce: (text: string) => void;
   reducedMotion: boolean;
-}>(function PdfView({ url, bytes, targetPage, hidden, zoom, rotation, canvasWidth, thumbnails, citations, activeCitation, onStatus, onPage, onZoom, onRotation, onSearch, onCitationResult, onAnnounce, reducedMotion }, ref) {
+}>(function PdfView({ url, bytes, targetPage, hidden, zoom, rotation, canvasWidth, thumbnails, citations, activeCitation, quotes = [], onStatus, onPage, onZoom, onRotation, onSearch, onCitationResult, onAnnounce, reducedMotion }, ref) {
   const scroller = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const pageEls = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -118,6 +120,7 @@ export const PdfView = forwardRef<PdfHandle, {
   const [current, setCurrent] = useState(Math.max(1, targetPage));
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<{ page: number; hit: Hit }[]>([]);
+  const [quoteHits, setQuoteHits] = useState<{ page: number; hit: Hit }[]>([]);
   const [matchIndex, setMatchIndex] = useState(0);
   const [cites, setCites] = useState<Record<number, { page: number; ranges: { item: number; from: number; to: number }[]; contPage?: number; contRanges?: { item: number; from: number; to: number }[] }>>({});
   const [scanned, setScanned] = useState(false);
@@ -247,7 +250,7 @@ export const PdfView = forwardRef<PdfHandle, {
           let hl = host.querySelector<HTMLDivElement>(":scope > .cw-hl-layer");
           if (!hl) { hl = document.createElement("div"); hl.className = "cw-hl-layer"; host.append(hl); }
           // Old geometry is stale until the new text layer is measured.
-          hl.replaceChildren(); host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag").forEach((m) => m.remove());
+          hl.replaceChildren(); host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag, :scope > .cw-quote-marker").forEach((m) => m.remove());
           layer = document.createElement("div"); layer.className = "textLayer"; hl.after(layer);
           const tc = await page.getTextContent(); if (token !== docToken.current) return;
           if (!textCache.current.has(n)) textCache.current.set(n, buildPageText(tc.items as { str: string }[]));
@@ -286,6 +289,8 @@ export const PdfView = forwardRef<PdfHandle, {
           placeRect(el, r); hl.append(el); return el;
         });
       };
+      // approved clauses quoted in the thread (violet, §V7) — below search and citations in meaning, drawn first
+      quoteHits.forEach((q) => { if (q.page !== n) return; const drawn = draw(q.hit, "cw-quote-hit"); const first = drawn[0]; if (first) { const mk = document.createElement("span"); mk.className = "cw-quote-marker"; mk.setAttribute("aria-hidden", "true"); mk.title = "Quoted verbatim in the conversation"; mk.style.top = first.style.top; host.append(mk); } });
       // search hits on this page
       matches.forEach((m, i) => { if (m.page === n) draw(m.hit, i === matchIndex ? "cw-search-hit cw-search-current" : "cw-search-hit"); });
       // citations on this page
@@ -312,11 +317,26 @@ export const PdfView = forwardRef<PdfHandle, {
         }
       }
     }
-  }, [matches, matchIndex, cites, activeCitation]);
+  }, [matches, matchIndex, cites, activeCitation, quoteHits]);
   // Deferred redraws (rAF after a search step or a locate) must use the newest state, not the closure's:
   // a stale applyMarks wiped the just-drawn citation / drew the previous current match.
   const marksRef = useRef(applyMarks);
   marksRef.current = applyMarks;
+  // Locate each quoted clause exactly (same rule as citations: exact match or nothing).
+  const quoteKey = quotes.join("\u0000");
+  useEffect(() => {
+    if (!doc || !pages || !quotes.length || scanned) { setQuoteHits([]); return; }
+    let alive = true;
+    void (async () => {
+      const out: { page: number; hit: Hit }[] = [];
+      for (let n = 1; n <= pages && alive; n += 1) {
+        const t = await getText(n).catch(() => null); if (!t) continue;
+        for (const q of quotes) { const hit = findExact(t, q); if (hit) out.push({ page: n, hit }); }
+      }
+      if (alive) setQuoteHits(out);
+    })();
+    return () => { alive = false; };
+  }, [doc, pages, quoteKey, scanned, getText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Scroll helpers ────────────────────────────────────────────────────────
   const scrollToPage = useCallback((n: number, behavior: "smooth" | "auto" = "smooth", offset = 24) => {

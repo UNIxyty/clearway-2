@@ -32,6 +32,32 @@ const AI_NOTE = "Records the agent creates or edits are marked as AI-authored, s
 //
 // null means the check itself did not answer; the caller must not turn that
 // into a claim either way.
+// Why a limitation will or will not appear on the wall, in words the dispatcher can act on. The wall shows a
+// limitation only when it is active, inside its date window, and attached to a flight on the board (by airport,
+// country or flight). Read from the wall's own view (window + match counts), never re-derived here.
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const dayWords = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d ?? "")); return m ? `${m[3]} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(d ?? ""); };
+function scheduleNote({ startDate, endDate, isPermanent }, today = new Date().toISOString().slice(0, 10)) {
+  if (isPermanent) return null;
+  if (startDate && startDate > today) return `It will not show on the wall until ${dayWords(startDate)} (its start date).`;
+  if (endDate && endDate < today) return `Its end date (${dayWords(endDate)}) has passed, so it will not show on the wall.`;
+  return null;
+}
+async function wallVisibility(id, user) {
+  const view = await wallGet("/api/timeline/limitations?includeInactive=false&withMatches=true", user, { timeoutMs: 15_000 }).catch(() => null);
+  if (!Array.isArray(view?.limitations)) return { visible: null, warning: null };
+  const row = view.limitations.find((r) => r?.id === id);
+  if (!row) {
+    const all = await wallGet("/api/timeline/limitations?includeInactive=true", user, { timeoutMs: 15_000 }).catch(() => null);
+    const rec = (all?.limitations ?? []).find((r) => r?.id === id) ?? null;
+    const note = rec ? (rec.isActive === false ? "It is switched off, so it does not show on the wall." : scheduleNote(rec)) : null;
+    return { visible: false, warning: `Saved on the Limitations page, but not on the wall now. ${note ?? "It is outside its date window."}` };
+  }
+  const where = [...(row.match?.airportIcaos ?? []), ...(row.match?.countries ?? [])].join(", ");
+  if ((row.matchedFlightCount ?? 0) === 0) return { visible: false, warning: `Active, but no flight${where ? ` to or from ${where}` : ""} is on the board in the next four days, so nothing shows on the wall yet. It attaches to the next matching flight.` };
+  return { visible: true, warning: null, matchedFlights: row.matchedFlightCount };
+}
+
 async function showsOnWall(id, user) {
   const view = await wallGet("/api/timeline/limitations?includeInactive=false", user, { timeoutMs: 15_000 })
     .catch(() => null);
@@ -76,9 +102,24 @@ defineTool({
       title: { type: ["string", "null"] },
       aiAuthored: { type: "boolean" },
       visibleOnWall: { type: ["boolean", "null"], description: WALL_VISIBILITY_NOTE },
+      warning: { type: ["string", "null"], description: "When set, tell the user this in your reply: why it is not on the wall (yet)." },
+      matchedFlights: { type: ["integer", "null"] },
     },
   },
+  // The confirmation prompt says up front when it will appear (item: limitation saved but not on the wall).
+  async describeChange(input) {
+    const where = [...(input.airportIcaos ?? []).map((a) => String(a).toUpperCase()), ...(input.countries ?? [])].join(", ");
+    const when = input.isPermanent ? "permanent" : [input.startDate ? `from ${dayWords(input.startDate)}` : null, input.endDate ? `until ${dayWords(input.endDate)}` : null].filter(Boolean).join(" ");
+    const note = scheduleNote(input);
+    return { what: `Add limitation "${input.title}"${where ? ` for ${where}` : ""}${when ? ` (${when})` : ""}${note ? ` — ${note.charAt(0).toLowerCase()}${note.slice(1)}` : ""}`, target: input.title };
+  },
+  async precheck(input) {
+    if (!(input.airportIcaos?.length || input.countries?.length)) {
+      throw InvalidInput("A limitation needs at least one airport or country — without one it matches no flight and never shows on the wall. Ask the user which airport(s) or countries it applies to.");
+    }
+  },
   async handler(input, { user, conversationId }) {
+    if (!(input.airportIcaos?.length || input.countries?.length)) throw InvalidInput("A limitation needs at least one airport or country, or it never shows on the wall.");
     const payload = markAiAuthored({
       title: input.title,
       description: input.description ?? "",
@@ -104,7 +145,7 @@ defineTool({
     });
     return {
       created: true, actionId, id: created.id, title: created.title, aiAuthored: true,
-      visibleOnWall: await showsOnWall(created.id, user),
+      ...(await wallVisibility(created.id, user).then((v) => ({ visibleOnWall: v.visible, ...(v.warning ? { warning: v.warning } : {}), ...(v.matchedFlights ? { matchedFlights: v.matchedFlights } : {}) }))),
     };
   },
 });
@@ -138,6 +179,8 @@ defineTool({
     properties: {
       updated: { type: "boolean" }, actionId: { type: ["string", "null"] }, id: { type: "string" }, aiAuthored: { type: "boolean" },
       visibleOnWall: { type: ["boolean", "null"], description: WALL_VISIBILITY_NOTE },
+      warning: { type: ["string", "null"], description: "When set, tell the user this in your reply: why it is not on the wall (yet)." },
+      matchedFlights: { type: ["integer", "null"] },
     },
   },
   async handler(input, { user, conversationId }) {
@@ -178,7 +221,8 @@ defineTool({
       targetKind: "limitation", targetId: input.id, targetLabel: before.title,
       beforeState: before, afterState: after,
     });
-    return { updated: true, actionId, id: input.id, aiAuthored: true, visibleOnWall: await showsOnWall(input.id, user) };
+    const vis = await wallVisibility(input.id, user);
+    return { updated: true, actionId, id: input.id, aiAuthored: true, visibleOnWall: vis.visible, ...(vis.warning ? { warning: vis.warning } : {}), ...(vis.matchedFlights ? { matchedFlights: vis.matchedFlights } : {}) };
   },
 });
 

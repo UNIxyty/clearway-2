@@ -128,7 +128,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
             <ContextChip context={docContext} onClear={() => { t.setPinnedContext(null); viewer?.close(); }} />
           </div>
         )}
-        <Composer context={docContext} panel={docOpen} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, tier: meta.tier ?? null, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
+        <Composer context={docContext} panel={docOpen} streaming={t.streaming} locked={composerLocked} offline={t.offline} voiceThread={t} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, tier: meta.tier ?? null, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />
       </div>
     </PortalShell>
   );

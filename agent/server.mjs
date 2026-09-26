@@ -36,6 +36,9 @@ import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./l
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { sttConfigured, transcribe } from "./lib/voice/stt.mjs";
 import { relayVoiceActivity, sanitiseVoiceActivity, wallEventsSecret } from "./lib/voice/wall-readout.mjs";
+import { mintRealtimeSession } from "./lib/voice/realtime.mjs";
+import { FIXED_PHRASES, speechPlan } from "./lib/voice/speech.mjs";
+import { synthesize, ttsConfigured } from "./lib/voice/tts.mjs";
 import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
@@ -454,6 +457,64 @@ const server = http.createServer(async (req, res) => {
       if (!payload) throw BadRequest("A sessionId and a known phase are required.");
       const { relayed, coalesced } = relayVoiceActivity(payload);
       return sendJson(res, { ok: true, relayed, coalesced });
+    }
+
+    // ── Voice: live transcript (§4.23 streaming) ─────────────────────────
+    // A single-use ElevenLabs token and the full socket URL for ONE utterance.
+    // The key never leaves this service; the browser streams audio straight
+    // to Scribe and nothing about the audio passes through here (§8.4). The
+    // audit row records that a live session was opened and how it was primed.
+    if (pathname === "/api/voice/realtime-token" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (capsNow.voice === false) return sendJson(res, { ok: false, error: "CAPABILITY_OFF", message: "Voice is switched off in Agent settings." }, 403);
+      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not configured on this deployment." }, 503);
+      const started = Date.now();
+      const body = await readJsonBody(req).catch(() => ({}));
+      try {
+        const session = await mintRealtimeSession(user, { language: body?.language ? String(body.language) : null });
+        await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { keyterms: session.keyterms.length, candidates: session.candidates.length, sources: session.sources } });
+        return sendJson(res, { ok: true, ...session, sources: undefined });
+      } catch (error) {
+        await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started });
+        return sendJson(res, { ok: false, error: "realtime_unavailable", message: String(error?.message ?? error) }, 502);
+      }
+    }
+
+    // ── Voice: spoken reply (§4.25) ──────────────────────────────────────
+    // Speaks the caller's latest stored reply in a conversation they own, or
+    // one of a few fixed phrases — never arbitrary text. What may be said is
+    // decided from the reply's BLOCKS (speech.mjs): verbatim limitation text is
+    // never read aloud (rule 10) and a confirmation is only pointed at (rule 9).
+    if (pathname === "/api/voice/speak" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (capsNow.voice === false) return sendJson(res, { ok: false, error: "CAPABILITY_OFF", message: "Voice is switched off in Agent settings." }, 403);
+      const started = Date.now();
+      const body = await readJsonBody(req);
+      let plan;
+      if (body.phrase) {
+        const text = FIXED_PHRASES[String(body.phrase)];
+        if (!text) throw BadRequest("Unknown phrase.");
+        plan = { kind: "short", spoken: text, display: text, sentences: [text], badge: null, room: false, summarised: false, verbatimIds: [], withheldSentences: 0, fullSeconds: 1 };
+      } else {
+        const conversationId = String(body.conversationId || "").trim();
+        if (!conversationId) throw BadRequest("A conversationId is required.");
+        const thread = await listMessages(conversationId, user.userId, 500);
+        if (!thread) return sendJson(res, { ok: false, error: "not_found", message: "That conversation was not found." }, 404);
+        const reply = [...thread.messages].reverse().find((m) => m.role === "assistant");
+        if (!reply) return sendJson(res, { ok: false, error: "not_found", message: "No reply to speak yet." }, 404);
+        plan = { ...speechPlan(reply), messageId: reply.id };
+      }
+      const speak = body.speak !== false && Boolean(plan.spoken) && ttsConfigured();
+      let audio = null;
+      if (speak) {
+        try { audio = await synthesize(plan.spoken, { sentences: plan.sentences }); }
+        catch (error) {
+          await audit({ kind: "voice.spoken", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { kind: plan.kind } });
+          return sendJson(res, { ok: true, plan, audio: null, ttsError: String(error?.message ?? error).slice(0, 160) });
+        }
+      }
+      await audit({ kind: "voice.spoken", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { kind: plan.kind, spoken: Boolean(audio), chars: plan.spoken.length, verbatimWithheld: plan.verbatimIds.length, sentencesWithheld: plan.withheldSentences, phrase: body.phrase ?? null } });
+      return sendJson(res, { ok: true, plan, audio });
     }
 
     // ── Attachment bytes (viewer E3): the owner only ─────────────────────

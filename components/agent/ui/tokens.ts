@@ -38,7 +38,7 @@ export const TIER_META: Record<keyof typeof TIER, { label: string; icon: string 
   attachment: { label: "Attachment", icon: "paperclip" },
 };
 
-export const VOICE = tokens.voice as { uncertainUnderline: string; uncertainBg: string };
+export const VOICE = tokens.voice as { uncertainUnderline: string; uncertainBg: string; overlayScrim: string; readingHighlight: string; popoverShadow: string; shortCardShadow: string; errorShadow: string };
 export const WALL = tokens.wall as Record<string, string>;
 export const SHADOW = tokens.shadow as Record<string, string>;
 export const MOTION = tokens.motion as { easeOut: string; easeIn: string; easeInOut: string; fast: number; base: number; hover: number };

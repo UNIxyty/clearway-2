@@ -316,3 +316,22 @@ button:hover > .ag-kb-open, button:focus-within > * > .ag-kb-open, .ag-kb-open:f
 .cw-hl.cw-quote-hit { background: var(--ag-quote-tint); box-shadow: inset 0 -2px 0 var(--ag-quote-line); border-radius: 2px; }
 .cw-quote-marker { position: absolute; left: -34px; width: 22px; height: 20px; border-radius: 5px; background: var(--ag-quote-bg); border: 1px solid var(--ag-quote-line); pointer-events: none; user-select: none; }
 .cw-quote-marker::after { content: ""; position: absolute; inset: 3px 4px; background: var(--ag-quote-fg); -webkit-mask: url(/icons/quote.svg) center/12px no-repeat; mask: url(/icons/quote.svg) center/12px no-repeat; }
+/* ── Voice (§14 V-rows) ─────────────────────────────────────────────────── */
+/* V2 — voice bar width follows the transcript, 380 → 560, 150 ms. */
+.ag-voicebar-grow { transition: width 150ms var(--ag-ease-out); }
+/* Live partial tail: the part of the tail that CHANGED since the last partial
+   settles in place (no jump, no flash) — committed text never animates. */
+@keyframes ag-partial-settle { from { opacity: .45; } to { opacity: 1; } }
+.ag-partial-in { animation: ag-partial-settle 120ms var(--ag-ease-out) both; }
+/* V9 — overlay: scrim 0 → .28, card 16px → 0 + opacity, card 40 ms after the scrim. */
+@keyframes ag-rise-in-16 { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.ag-scrim-in { animation: ag-fade-in 200ms var(--ag-ease-out) both; }
+.ag-overlay-in { animation: ag-rise-in-16 200ms var(--ag-ease-out) 40ms both; }
+/* S2 — reading-position highlight moves sentence to sentence, 150 ms. */
+.ag-reading { transition: background-color 150ms var(--ag-ease-out), box-shadow 150ms var(--ag-ease-out), color 150ms var(--ag-ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  .ag-voicebar-grow, .ag-reading { transition: none; }
+  .ag-partial-in { animation: none; }
+  .ag-scrim-in { animation: none; }
+  .ag-overlay-in { animation-name: ag-fade-in; animation-duration: 1ms; animation-delay: 0ms; }
+}

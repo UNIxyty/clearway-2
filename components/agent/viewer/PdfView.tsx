@@ -5,10 +5,17 @@
 // for selection, search (yellow) and citations (blue, exact match only);
 // thumbnails; password and scanned detection. Nothing here is ever drawn from
 // the model's words — highlights come from the file's own text layer.
+//
+// Layers per page, bottom to top: canvas → highlight layer (.cw-hl-layer) →
+// pdf.js text layer (.textLayer) → markers/tags. The text layer is pdf.js's
+// own, unmodified: its spans are never split or wrapped (that broke native
+// selection). Highlights are rectangles measured from those spans and drawn in
+// the highlight layer, which multiplies onto the canvas so glyphs stay legible.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { C, VIEWER, mono } from "../ui/tokens";
 import { buildPageText, findAll, findExact, hitToItemRanges, normalise, type Hit, type PageText } from "./locate";
+import { attachTextLayerSelection, detachTextLayerSelection } from "./textLayerSelection";
 import type { Citation, CitationResult } from "./types";
 
 type Pdfjs = typeof import("pdfjs-dist");
@@ -39,6 +46,43 @@ let pdfjsPromise: Promise<Pdfjs> | null = null;
 async function loadPdfjs(): Promise<Pdfjs> {
   if (!pdfjsPromise) pdfjsPromise = import("pdfjs-dist").then((m) => { m.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"; return m; });
   return pdfjsPromise;
+}
+
+/** A page container: pdf.js's text divs (index = text item index) are kept on it once the text layer is built. */
+type PageHost = HTMLDivElement & { __divs?: HTMLElement[] };
+type Box = { x: number; y: number; w: number; h: number };
+
+/** Page-space boxes of characters [from, to) of one pdf.js text div — measured, never by editing the span. */
+function charRangeRects(div: HTMLElement | undefined, from: number, to: number, origin: DOMRect): Box[] {
+  const node = div?.firstChild; if (!node || node.nodeType !== Node.TEXT_NODE) return [];
+  const len = (node as Text).length; if (from >= len) return [];
+  const range = document.createRange(); range.setStart(node, from); range.setEnd(node, Math.min(to, len));
+  // getClientRects includes the span's scaleX/rotation transforms, so these match the glyphs on the canvas.
+  return [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0).map((r) => ({ x: r.left - origin.left, y: r.top - origin.top, w: r.width, h: r.height }));
+}
+
+/** Join consecutive boxes on the same line (one text item per word or run) so a hit reads as one band. */
+function mergeLineRects(boxes: Box[]): Box[] {
+  const out: Box[] = [];
+  for (const b of boxes) {
+    const last = out[out.length - 1];
+    if (last) {
+      const overlap = Math.min(last.y + last.h, b.y + b.h) - Math.max(last.y, b.y);
+      const gap = b.x - (last.x + last.w);
+      if (overlap >= 0.5 * Math.min(last.h, b.h) && gap < Math.max(last.h, b.h) && b.x >= last.x - 1) {
+        const x = Math.min(last.x, b.x), y = Math.min(last.y, b.y);
+        last.w = Math.max(last.x + last.w, b.x + b.w) - x; last.h = Math.max(last.y + last.h, b.y + b.h) - y; last.x = x; last.y = y;
+        continue;
+      }
+    }
+    out.push({ ...b });
+  }
+  return out;
+}
+
+function placeRect(el: HTMLElement, b: Box) {
+  el.style.left = `${b.x.toFixed(1)}px`; el.style.top = `${b.y.toFixed(1)}px`;
+  el.style.width = `${b.w.toFixed(1)}px`; el.style.height = `${b.h.toFixed(1)}px`;
 }
 
 export const PdfView = forwardRef<PdfHandle, {
@@ -171,6 +215,7 @@ export const PdfView = forwardRef<PdfHandle, {
   // no text layer, and no retry). Only a new document cancels.
   const docToken = useRef(0);
   useEffect(() => { docToken.current += 1; }, [doc]);
+  useEffect(() => () => { queueMicrotask(() => detachTextLayerSelection()); }, [doc]); // drop selection listeners for layers that left the DOM
   const inFlight = useRef<Map<number, string>>(new Map());
   useEffect(() => {
     if (!doc || !pdfjsRef.current) return;
@@ -192,13 +237,24 @@ export const PdfView = forwardRef<PdfHandle, {
           canvas.style.width = `${viewport.width}px`; canvas.style.height = `${viewport.height}px`;
           const ctx = canvas.getContext("2d")!; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           await page.render({ canvasContext: ctx, viewport, canvas }).promise; if (token !== docToken.current) return;
-          let layer = host.querySelector<HTMLDivElement>(".textLayer"); if (layer) layer.remove();
-          layer = document.createElement("div"); layer.className = "textLayer"; layer.style.setProperty("--scale-factor", String(viewport.scale)); host.append(layer);
+          // The text layer is rebuilt only here, i.e. only for a new scale or rotation (the key above).
+          let layer = host.querySelector<HTMLDivElement>(":scope > .textLayer"); if (layer) { detachTextLayerSelection(layer); layer.remove(); }
+          (host as PageHost).__divs = undefined;
+          // pdf.js 5 writes span font-size/position and the layer size as calc(var(--total-scale-factor) * …);
+          // .cw-page derives that from these two, exactly as pdf_viewer.css does on `.pdfViewer .page`.
+          host.style.setProperty("--scale-factor", String(viewport.scale));
+          host.style.setProperty("--user-unit", String(viewport.userUnit ?? 1));
+          let hl = host.querySelector<HTMLDivElement>(":scope > .cw-hl-layer");
+          if (!hl) { hl = document.createElement("div"); hl.className = "cw-hl-layer"; host.append(hl); }
+          // Old geometry is stale until the new text layer is measured.
+          hl.replaceChildren(); host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag").forEach((m) => m.remove());
+          layer = document.createElement("div"); layer.className = "textLayer"; hl.after(layer);
           const tc = await page.getTextContent(); if (token !== docToken.current) return;
           if (!textCache.current.has(n)) textCache.current.set(n, buildPageText(tc.items as { str: string }[]));
           const tl = new pdfjsRef.current!.TextLayer({ textContentSource: tc, container: layer, viewport });
           await tl.render(); if (token !== docToken.current) return;
-          (host as HTMLDivElement & { __divs?: HTMLElement[] }).__divs = tl.textDivs as HTMLElement[];
+          attachTextLayerSelection(layer);
+          (host as PageHost).__divs = tl.textDivs as HTMLElement[];
           host.dataset.rendered = key;
           setRendered((s) => { const next = new Set(s); next.add(n); return next; });
           host.classList.add("cw-page-in");
@@ -210,23 +266,28 @@ export const PdfView = forwardRef<PdfHandle, {
   }, [doc, visible, scale, rotation, getPage, onStatus, current]);
 
   // ── Marks: search (yellow) and citations (blue) on rendered pages ─────────
+  // Drawn into each page's highlight layer from the text layer's geometry; pdf.js's spans are only read.
   const applyMarks = useCallback(() => {
     for (const [n, host] of pageEls.current) {
-      const divs = (host as HTMLDivElement & { __divs?: HTMLElement[] }).__divs; if (!divs) continue;
-      // reset
-      host.querySelectorAll("mark").forEach((m) => { const parent = m.parentNode; if (!parent) return; while (m.firstChild) parent.insertBefore(m.firstChild, m); parent.removeChild(m); parent.normalize?.(); });
-      host.querySelectorAll(".cw-cite-marker, .cw-cite-tag").forEach((m) => m.remove());
-      const wrap = (item: number, from: number, to: number, cls: string, attrs: Record<string, string> = {}) => {
-        const div = divs[item]; if (!div) return null;
-        const textNode = [...div.childNodes].find((c) => c.nodeType === 3) as Text | undefined; if (!textNode) return null;
-        const full = textNode.textContent ?? ""; if (from >= full.length) return null;
-        const range = document.createRange(); range.setStart(textNode, from); range.setEnd(textNode, Math.min(to, full.length));
-        const mark = document.createElement("mark"); mark.className = cls; for (const [k, v] of Object.entries(attrs)) mark.setAttribute(k, v);
-        try { range.surroundContents(mark); } catch { return null; }
-        return mark;
+      const divs = (host as PageHost).__divs; if (!divs) continue;
+      const hl = host.querySelector<HTMLDivElement>(":scope > .cw-hl-layer"); if (!hl) continue;
+      // reset (the text layer is never touched)
+      hl.replaceChildren();
+      host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag").forEach((m) => m.remove());
+      const origin = host.getBoundingClientRect();
+      if (!origin.width || !origin.height) continue; // not laid out (viewer hidden): redrawn when shown
+      const text = textCache.current.get(n); if (!text) continue;
+      const draw = (hit: Hit | { item: number; from: number; to: number }[], cls: string, attrs: Record<string, string> = {}) => {
+        const ranges = Array.isArray(hit) ? hit : hitToItemRanges(text, hit);
+        const rects = mergeLineRects(ranges.flatMap((r) => charRangeRects(divs[r.item], r.from, r.to, origin)));
+        return rects.map((r) => {
+          const el = document.createElement("div"); el.className = `cw-hl ${cls}`;
+          for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+          placeRect(el, r); hl.append(el); return el;
+        });
       };
       // search hits on this page
-      matches.forEach((m, i) => { if (m.page !== n) return; const text = textCache.current.get(n); if (!text) return; for (const r of hitToItemRanges(text, m.hit)) wrap(r.item, r.from, r.to, i === matchIndex ? "cw-search-hit cw-search-current" : "cw-search-hit"); });
+      matches.forEach((m, i) => { if (m.page === n) draw(m.hit, i === matchIndex ? "cw-search-hit cw-search-current" : "cw-search-hit"); });
       // citations on this page
       for (const [kStr, c] of Object.entries(cites)) {
         const k = Number(kStr); const isActive = k === activeCitation; const cls = isActive ? "cw-cite-hit" : "cw-cite-hit cw-cite-prev";
@@ -234,12 +295,16 @@ export const PdfView = forwardRef<PdfHandle, {
         if (c.contPage && c.contRanges) parts.push({ page: c.contPage, ranges: c.contRanges, cont: true });
         for (const part of parts) {
           if (part.page !== n) continue;
-          let first: HTMLElement | null = null;
-          for (const r of part.ranges) { const m = wrap(r.item, r.from, r.to, cls, { "data-cite": String(k), tabindex: "-1" }); if (m && !first) first = m; }
-          if (!first) continue;
+          const drawn = draw(part.ranges, cls, { "data-cite": String(k) });
+          const first = drawn[0]; if (!first) continue;
           if (!part.cont) {
+            // Keyboard / screen-reader target for the passage (§V5 focus): transparent, over its first line.
+            const focus = document.createElement("div"); focus.className = "cw-hl-focus"; focus.tabIndex = -1;
+            focus.dataset.cite = String(k); focus.setAttribute("role", "note");
+            focus.setAttribute("aria-label", `Cited passage ${k}, page ${n}${c.contPage ? `, continues on page ${c.contPage}` : ""}`);
+            focus.style.cssText = first.style.cssText; hl.append(focus);
             const marker = document.createElement("span"); marker.className = `cw-cite-marker${isActive ? " cw-cite-ring" : " cw-cite-marker-prev"}`; marker.textContent = String(k); marker.setAttribute("aria-hidden", "true");
-            const div = first.closest<HTMLElement>(".textLayer > span") ?? first; marker.style.top = `${div.offsetTop}px`; host.append(marker);
+            marker.style.top = first.style.top; host.append(marker);
             if (c.contPage) { const tag = document.createElement("span"); tag.className = "cw-cite-tag cw-cite-tag-end"; tag.textContent = `Passage continues on p. ${c.contPage} ↓`; host.append(tag); }
           } else {
             const tag = document.createElement("span"); tag.className = "cw-cite-tag cw-cite-tag-start"; tag.textContent = `↑ Cited passage ${k} continued from p. ${c.page}`; host.append(tag);
@@ -248,6 +313,10 @@ export const PdfView = forwardRef<PdfHandle, {
       }
     }
   }, [matches, matchIndex, cites, activeCitation]);
+  // Deferred redraws (rAF after a search step or a locate) must use the newest state, not the closure's:
+  // a stale applyMarks wiped the just-drawn citation / drew the previous current match.
+  const marksRef = useRef(applyMarks);
+  marksRef.current = applyMarks;
 
   // ── Scroll helpers ────────────────────────────────────────────────────────
   const scrollToPage = useCallback((n: number, behavior: "smooth" | "auto" = "smooth", offset = 24) => {
@@ -257,8 +326,8 @@ export const PdfView = forwardRef<PdfHandle, {
   const scrollToMark = useCallback((n: number, selector: string) => {
     const el = scroller.current, host = pageEls.current.get(n); if (!el || !host) return false;
     const mark = host.querySelector<HTMLElement>(selector); if (!mark) return false;
-    const div = mark.closest<HTMLElement>(".textLayer > span") ?? mark;
-    const top = host.offsetTop + div.offsetTop - VIEWER.citationOffset;
+    // Highlight rects live in .cw-hl-layer, which sits at the page's origin: offsetTop is the offset in the page.
+    const top = host.offsetTop + mark.offsetTop - VIEWER.citationOffset;
     const far = Math.abs(el.scrollTop - top) > (pageCss.h + 20) * 6;
     el.scrollTo({ top: Math.max(0, top), behavior: reducedMotion || far ? "auto" : "smooth" });
     return true;
@@ -269,9 +338,9 @@ export const PdfView = forwardRef<PdfHandle, {
   useEffect(() => {
     applyMarks();
     const want = focusK.current; if (!want) return;
-    const m = pageEls.current.get(want.page)?.querySelector<HTMLElement>(`mark[data-cite="${want.k}"]`);
-    if (m) { focusK.current = null; scrollToMark(want.page, `mark[data-cite="${want.k}"]`); m.focus(); }
-  }, [applyMarks, rendered, scrollToMark]);
+    const m = pageEls.current.get(want.page)?.querySelector<HTMLElement>(`.cw-hl-focus[data-cite="${want.k}"]`);
+    if (m) { focusK.current = null; scrollToMark(want.page, `.cw-hl-focus[data-cite="${want.k}"]`); m.focus({ preventScroll: true }); }
+  }, [applyMarks, rendered, hidden, scrollToMark]);
 
   // Initial position: the target page.
   const positioning = useRef(false);
@@ -292,7 +361,7 @@ export const PdfView = forwardRef<PdfHandle, {
   }, [doc, pages, scanned, getText, onSearch, scrollToPage, scrollToMark]);
   const nextMatch = useCallback((dir: 1 | -1) => {
     if (!matches.length) return; const i = (matchIndex + dir + matches.length) % matches.length; setMatchIndex(i); onSearch({ count: matches.length, current: i + 1, pages: [...new Set(matches.map((m) => m.page))] });
-    scrollToPage(matches[i].page, "auto"); requestAnimationFrame(() => { applyMarks(); scrollToMark(matches[i].page, ".cw-search-current"); });
+    scrollToPage(matches[i].page, "auto"); requestAnimationFrame(() => { marksRef.current(); scrollToMark(matches[i].page, ".cw-search-current"); });
   }, [matches, matchIndex, onSearch, scrollToPage, scrollToMark, applyMarks]);
 
   // ── Citations: exact match on the cited page, then the whole document, then across a page break ──
@@ -308,7 +377,7 @@ export const PdfView = forwardRef<PdfHandle, {
       if (hit) {
         setCites((m) => ({ ...m, [c.k]: { page: n, ranges: hitToItemRanges(t, hit) } }));
         const r: CitationResult = { k: c.k, state: "found", page: n, parts: 1 }; onCitationResult(r);
-        focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); const m = pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`); m?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}`); }, 60); });
+        focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { marksRef.current(); setTimeout(() => { scrollToMark(n, `.cw-hl-focus[data-cite="${c.k}"]`); const m = pageEls.current.get(n)?.querySelector<HTMLElement>(`.cw-hl-focus[data-cite="${c.k}"]`); m?.focus({ preventScroll: true }); onAnnounce(`Cited passage ${c.k}, page ${n}`); }, 60); });
         return r;
       }
     }
@@ -322,7 +391,7 @@ export const PdfView = forwardRef<PdfHandle, {
           const h1: Hit = { start: a.joined.length - head.length, end: a.joined.length }, h2: Hit = { start: 0, end: tail.length };
           setCites((m) => ({ ...m, [c.k]: { page: n, ranges: hitToItemRanges(a, h1), contPage: n + 1, contRanges: hitToItemRanges(b, h2) } }));
           const r: CitationResult = { k: c.k, state: "found", page: n, parts: 2 }; onCitationResult(r);
-          focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { applyMarks(); setTimeout(() => { scrollToMark(n, `mark[data-cite="${c.k}"]`); pageEls.current.get(n)?.querySelector<HTMLElement>(`mark[data-cite="${c.k}"]`)?.focus(); onAnnounce(`Cited passage ${c.k}, page ${n}, continues on page ${n + 1}`); }, 60); });
+          focusK.current = { k: c.k, page: n }; scrollToPage(n, "auto"); requestAnimationFrame(() => { marksRef.current(); setTimeout(() => { scrollToMark(n, `.cw-hl-focus[data-cite="${c.k}"]`); pageEls.current.get(n)?.querySelector<HTMLElement>(`.cw-hl-focus[data-cite="${c.k}"]`)?.focus({ preventScroll: true }); onAnnounce(`Cited passage ${c.k}, page ${n}, continues on page ${n + 1}`); }, 60); });
           return r;
         }
       }
@@ -341,7 +410,7 @@ export const PdfView = forwardRef<PdfHandle, {
     search: (q) => void runSearch(q),
     nextMatch,
     locate,
-    focusCitation: (k) => { const c = cites[k]; if (!c) return; scrollToPage(c.page, "auto"); requestAnimationFrame(() => scrollToMark(c.page, `mark[data-cite="${k}"]`)); },
+    focusCitation: (k) => { const c = cites[k]; if (!c) return; scrollToPage(c.page, "auto"); requestAnimationFrame(() => scrollToMark(c.page, `.cw-hl-focus[data-cite="${k}"]`)); },
     submitPassword: (pw) => { passwordCb.current?.(pw); onStatus({ state: "loading", loaded: 0, total: bytes }); },
     retry: () => setAttempt((a) => a + 1),
   }), [pages, scrollToPage, onZoom, onRotation, rotation, runSearch, nextMatch, locate, cites, scrollToMark, onStatus, bytes]);

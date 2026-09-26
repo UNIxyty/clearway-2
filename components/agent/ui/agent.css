@@ -118,30 +118,188 @@
 .cw-tab:focus-visible { outline: 2px solid var(--ag-primary); outline-offset: -2px; }
 .cw-canvas:focus-visible, [role="document"]:focus-visible { outline: 2px solid var(--ag-primary); outline-offset: -2px; }
 
-/* pdf.js text layer: selectable, invisible glyphs positioned over the canvas */
-.textLayer { position: absolute; inset: 0; overflow: hidden; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 1; }
-.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
-.textLayer ::selection { background: rgba(37,99,235,.28); }
-.textLayer br { display: none; }
+/* ── pdf.js text layer ─────────────────────────────────────────────────────
+   Copied verbatim from pdfjs-dist 5.4.296 web/pdf_viewer.css (the `.textLayer`
+   rules, lines 885–1011). Do not edit: pdf.js's TextLayer positions and sizes
+   its spans for exactly these rules. Upgrade pdfjs-dist → re-copy them. */
+.textLayer{
+  position:absolute;
+  text-align:initial;
+  inset:0;
+  overflow:clip;
+  opacity:1;
+  line-height:1;
+  -webkit-text-size-adjust:none;
+     -moz-text-size-adjust:none;
+          text-size-adjust:none;
+  forced-color-adjust:none;
+  transform-origin:0 0;
+  caret-color:CanvasText;
+  z-index:0;
+}
 
+.textLayer.highlighting{
+    touch-action:none;
+  }
+
+.textLayer :is(span,br){
+    color:transparent;
+    position:absolute;
+    white-space:pre;
+    cursor:text;
+    transform-origin:0% 0%;
+  }
+
+.textLayer  > :not(.markedContent),.textLayer .markedContent span:not(.markedContent){
+    z-index:1;
+  }
+
+.textLayer span.markedContent{
+    top:0;
+    height:0;
+  }
+
+.textLayer span[role="img"]{
+    -webkit-user-select:none;
+       -moz-user-select:none;
+            user-select:none;
+    cursor:default;
+  }
+
+.textLayer .highlight{
+    --highlight-bg-color:rgb(180 0 170 / 0.25);
+    --highlight-selected-bg-color:rgb(0 100 0 / 0.25);
+    --highlight-backdrop-filter:none;
+    --highlight-selected-backdrop-filter:none;
+  }
+
+@media screen and (forced-colors: active){
+
+.textLayer .highlight{
+      --highlight-bg-color:transparent;
+      --highlight-selected-bg-color:transparent;
+      --highlight-backdrop-filter:var(--hcm-highlight-filter);
+      --highlight-selected-backdrop-filter:var(
+        --hcm-highlight-selected-filter
+      );
+  }
+    }
+
+.textLayer .highlight{
+
+    margin:-1px;
+    padding:1px;
+    background-color:var(--highlight-bg-color);
+    -webkit-backdrop-filter:var(--highlight-backdrop-filter);
+            backdrop-filter:var(--highlight-backdrop-filter);
+    border-radius:4px;
+  }
+
+.appended:is(.textLayer .highlight){
+      position:initial;
+    }
+
+.begin:is(.textLayer .highlight){
+      border-radius:4px 0 0 4px;
+    }
+
+.end:is(.textLayer .highlight){
+      border-radius:0 4px 4px 0;
+    }
+
+.middle:is(.textLayer .highlight){
+      border-radius:0;
+    }
+
+.selected:is(.textLayer .highlight){
+      background-color:var(--highlight-selected-bg-color);
+      -webkit-backdrop-filter:var(--highlight-selected-backdrop-filter);
+              backdrop-filter:var(--highlight-selected-backdrop-filter);
+    }
+
+.textLayer ::-moz-selection{
+    background:rgba(0 0 255 / 0.25);
+    background:color-mix(in srgb, AccentColor, transparent 75%);
+  }
+
+.textLayer ::selection{
+    background:rgba(0 0 255 / 0.25);
+    background:color-mix(in srgb, AccentColor, transparent 75%);
+  }
+
+.textLayer br::-moz-selection{
+    background:transparent;
+  }
+
+.textLayer br::selection{
+    background:transparent;
+  }
+
+.textLayer .endOfContent{
+    display:block;
+    position:absolute;
+    inset:100% 0 0;
+    z-index:0;
+    cursor:default;
+    -webkit-user-select:none;
+       -moz-user-select:none;
+            user-select:none;
+  }
+
+.textLayer.selecting .endOfContent{
+    top:0;
+  }
+
+/* From the same file: `.pdfViewer .page` defines the variables TextLayer's
+   inline styles are written in (font-size / layer size are
+   calc(var(--total-scale-factor) * …) and round(down, …, var(--scale-round-x))).
+   --scale-factor and --user-unit are set per page from the render viewport. */
+.cw-page {
+  --scale-factor: 1;
+  --user-unit: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+/* From the same file (global there, scoped here): TextLayer lays the layer out
+   in unrotated page space and tags it with data-main-rotation. */
+.textLayer[data-main-rotation="90"] { transform: rotate(90deg) translateY(-100%); }
+.textLayer[data-main-rotation="180"] { transform: rotate(180deg) translate(-100%, -100%); }
+.textLayer[data-main-rotation="270"] { transform: rotate(270deg) translateX(-100%); }
+
+/* ── PDF highlight layer ────────────────────────────────────────────────────
+   A sibling of .textLayer, before it in the DOM (so below it), never inside
+   pdf.js's spans. Rectangles are measured from the text layer's geometry.
+   The layer multiplies onto the canvas, so every tint colours the glyphs
+   Acrobat-style instead of covering them. Blending is set on the layer (it is
+   the group that meets the canvas) and on each rect (so overlapping tints —
+   a search hit inside a citation — also multiply). */
+.cw-hl-layer { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; z-index: 0; }
+.cw-hl { position: absolute; mix-blend-mode: multiply; pointer-events: none; }
 /* Search: yellow, never blue (§V4.4) */
+.cw-hl.cw-search-hit { background: var(--ag-search-match); border-radius: 2px; }
+.cw-hl.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0 2px var(--ag-search-current); }
+/* Citations: blue, exact matches only (§V6) */
+.cw-hl.cw-cite-hit { background: var(--ag-cite-highlight); box-shadow: 0 0 0 3px var(--ag-cite-highlight); border-radius: 3px; animation: cw-cite-in 150ms var(--ag-ease-out) both; } /* DV5 */
+.cw-hl.cw-cite-hit.cw-cite-prev { background: transparent; box-shadow: none; outline: 1px dashed var(--ag-cite-outline); animation: none; }  /* DV7 */
+/* Keyboard/aria target for a cited passage: transparent, over its first line. */
+.cw-hl-focus { position: absolute; background: transparent; border-radius: 3px; pointer-events: none; }
+.cw-hl-focus:focus { outline: 2px solid var(--ag-primary); outline-offset: 3px; }
+
+/* Search in text/DOCX previews (real, visible text: a plain mark is fine) */
 mark.cw-search-hit { background: var(--ag-search-match); color: transparent; border-radius: 2px; }
 mark.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0 2px var(--ag-search-current); }
 .cw-docx mark.cw-search-hit, pre mark.cw-search-hit { color: inherit; }
 
-/* Citations: blue, exact matches only (§V6) */
-mark.cw-cite-hit { background: var(--ag-cite-highlight); box-shadow: 0 0 0 3px var(--ag-cite-highlight); border-radius: 3px; color: transparent; animation: cw-cite-in 150ms var(--ag-ease-out) both; } /* DV5 */
-mark.cw-cite-hit.cw-cite-prev { background: transparent; box-shadow: none; outline: 1px dashed var(--ag-cite-outline); animation: none; }  /* DV7 */
-mark.cw-cite-hit:focus { outline: 2px solid var(--ag-primary); }
-.cw-cite-marker { position: absolute; left: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--ag-primary); color: #fff; font: 700 11px/22px var(--font-sans, inherit); text-align: center; z-index: 2; }
+.cw-cite-marker { position: absolute; left: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--ag-primary); color: #fff; font: 700 11px/22px var(--font-sans, inherit); text-align: center; z-index: 2; user-select: none; }
 .cw-cite-marker.cw-cite-ring { animation: cw-ring 700ms ease-out 1 both; }  /* DV6 */
 .cw-cite-marker.cw-cite-marker-prev { background: #fff; color: var(--ag-primary-hover); border: 1px solid var(--ag-cite-outline); line-height: 20px; }
-.cw-cite-tag { position: absolute; font: 600 11px/1.4 var(--font-sans, inherit); color: var(--ag-primary-hover); background: var(--ag-primary-tint); border-radius: 5px; padding: 2px 7px; z-index: 2; }
+.cw-cite-tag { position: absolute; font: 600 11px/1.4 var(--font-sans, inherit); color: var(--ag-primary-hover); background: var(--ag-primary-tint); border-radius: 5px; padding: 2px 7px; z-index: 2; user-select: none; }
 .cw-cite-tag-end { right: 12px; bottom: 8px; }
 .cw-cite-tag-start { left: 12px; top: 8px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cw-viewer-in, .cw-viewer-out, .cw-page-in canvas, .cw-search-row, mark.cw-cite-hit { animation: none !important; }
+  .cw-viewer-in, .cw-viewer-out, .cw-page-in canvas, .cw-search-row, .cw-hl.cw-cite-hit { animation: none !important; }
   .cw-cite-marker.cw-cite-ring { animation: none !important; }
   .cw-skel { animation: none !important; opacity: 1; }
   .cw-thumb-in { transition: none; }

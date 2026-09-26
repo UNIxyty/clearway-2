@@ -77,3 +77,6 @@ downloads/aim-from-json/
 downloads/aim-batch-gen12-ad2/
 # runtime geo snapshot (regenerated from the Supabase airports table at boot)
 digital-wall/data/geo-airports.json
+
+# Agent service dependencies (installed in its image; never tracked)
+agent/node_modules/

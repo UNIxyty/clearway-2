@@ -7,9 +7,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
-import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PendingConfirmation, type ToolActivity } from "./types";
+import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
 
-export type SendOptions = { attachmentIds?: string[]; attachments?: { id: string; name: string; bytes: number | null; mime: string | null }[]; voice?: boolean; language?: string | null; command?: string | null };
+export type SendOptions = { attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null };
 
 export function useThread({ context, initialConversationId = null, initials = null }: { context: AgentContext | null; initialConversationId?: string | null; initials?: string | null }) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -105,7 +105,11 @@ export function useThread({ context, initialConversationId = null, initials = nu
           const event = /^event: (.+)$/m.exec(frame)?.[1]; const data = /^data: (.+)$/m.exec(frame)?.[1];
           if (!event || !data) continue;
           const payload = JSON.parse(data);
-          if (event === "start") { setConversationId(payload.conversationId); if (payload.title) setTitle(payload.title); }
+          if (event === "start") {
+            setConversationId(payload.conversationId); if (payload.title) setTitle(payload.title);
+            // The server says whether each file was actually read; the sent chip shows it (§4.18).
+            if (Array.isArray(payload.attachments)) markUser({ blocks: { attachments: payload.attachments as SentAttachment[] } });
+          }
           else if (event === "delta") { answer += payload.text; setActivity(null); patchAssistant({ content: answer }); }
           else if (event === "tool") {
             tools.push({ name: payload.name, ok: payload.ok, error: payload.error ?? null, startedAt: payload.startedAt ?? null, durationMs: payload.durationMs ?? null, args: payload.input ?? null, state: "done", write: Boolean(payload.confirmationRequired) });

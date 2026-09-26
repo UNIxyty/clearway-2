@@ -39,6 +39,7 @@ import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.m
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
+import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus } from "./lib/attachments.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
 
@@ -82,8 +83,9 @@ function sanitiseAttachments(raw) {
     const text = String(item?.text ?? "");
     if (!name || !text.trim()) continue;
     if (/[\u0000-\u0008\u000E-\u001F]/.test(text.slice(0, 4000))) continue; // binary pasted as text
-    const clipped = text.slice(0, 60_000);
-    out.push({ name, text: clipped, chars: text.length, truncated: text.length > clipped.length });
+    // Not clipped here: attachmentBlocks() cuts to the model budget WITH a
+    // marker saying how much was omitted (the body cap bounds it anyway).
+    out.push({ name, text, chars: text.length, truncated: false });
   }
   return out;
 }
@@ -425,13 +427,24 @@ const server = http.createServer(async (req, res) => {
       await assertMayUseAgent(user);
       const name = decodeURIComponent(url.searchParams.get("name") ?? "");
       if (!name) throw BadRequest("A file name is required (?name=).");
-      const buffer = await readRawBody(req, 25 * 1024 * 1024 + 1024);
+      // Limits: agent/config/attachments.json, the same file the composer reads.
+      // Checked on the declared length first so a too-large file is refused
+      // before its bytes are read, then again per kind once the name is known.
+      const declared = Number(req.headers["content-length"] ?? 0);
       try {
+        if (declared) assertAcceptable(name, declared);
+        const buffer = await readRawBody(req, ATTACHMENT_LIMITS.maxUploadBytes).catch(() => { throw new AttachmentRejected("too_large", `${name} is over the ${Math.round(ATTACHMENT_LIMITS.maxUploadBytes / 1048576)} MB upload limit.`); });
         const meta = await storeAttachment({ name, buffer, mime: req.headers["content-type"] ?? null, user });
-        await audit({ kind: "attachment.uploaded", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { id: meta.id, name: meta.name, bytes: meta.bytes, hasText: meta.hasText } });
+        await audit({ kind: "attachment.uploaded", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { id: meta.id, name: meta.name, bytes: meta.bytes, hasText: meta.hasText, readStatus: meta.readStatus, readMode: meta.readMode, readReason: meta.readReason } });
         return sendJson(res, { ok: true, attachment: meta });
       } catch (error) {
-        return sendJson(res, { ok: false, error: "rejected", message: String(error?.message ?? error) }, 400);
+        // Only AttachmentRejected messages are written for the user; anything
+        // else is logged and replaced, never shown raw.
+        const known = error instanceof AttachmentRejected;
+        if (!known) process.stderr.write(`[agent] attachment upload failed: ${error?.stack || error}\n`);
+        const status = !known ? 500 : error.code === "too_large" ? 413 : error.code === "unsupported" ? 415 : 400;
+        await audit({ kind: "attachment.uploaded", userId: user.userId, userEmail: user.email, success: false, error: known ? error.code : "internal_error", confirmationStatus: "not_required", detail: { name, bytes: declared || null } }).catch(() => {});
+        return sendJson(res, { ok: false, error: "rejected", reason: known ? error.code : "internal_error", message: known ? error.message : `${name} could not be uploaded. Try again.` }, status);
       }
     }
 
@@ -769,13 +782,38 @@ async function handleChat(req, res, user) {
 
   // must not have it come back as authoritative.
 
+  //
+  // They go to the model as CONTENT BLOCKS in the user's message (text, image
+  // or the PDF itself — lib/attachments.mjs), not as a line in the system
+  // prompt: images and scanned pages cannot travel as text, and an attachment
+  // that could not be read is stated as such to the model rather than
+  // silently replaced. An id that does not resolve is reported, not dropped.
+  const maxFiles = ATTACHMENT_LIMITS.maxFilesPerMessage;
+  const requestedIds = Array.isArray(body.attachmentIds) ? body.attachmentIds.map(String) : [];
   const uploaded = [];
-  for (const id of Array.isArray(body.attachmentIds) ? body.attachmentIds.slice(0, 3) : []) {
-    const a = await loadAttachment(id, user);
-    if (a) uploaded.push({ name: a.name, text: a.text ?? `(${a.mime ?? "file"}, ${Math.round(a.bytes / 1024)} KB — no text could be extracted from this format)`, chars: a.chars ?? 0, id: a.id });
+  for (const id of requestedIds.slice(0, maxFiles)) {
+    const a = await loadAttachment(id, user, { withBytes: true });
+    uploaded.push(a ?? { id, name: `attachment ${id.slice(0, 8)}`, missing: true, reason: "it no longer exists on the server or belongs to someone else" });
   }
-  const attachments = [...sanitiseAttachments(body.attachments), ...uploaded].slice(0, 3);
-  if (!question) throw BadRequest("A message is required.");
+  const pasted = sanitiseAttachments(body.attachments).map((p) => ({ name: p.name, text: p.text, chars: p.chars, hasText: true, readStatus: "read", readMode: "text", kindLabel: "Pasted text" }));
+  const allAttachments = [...pasted, ...uploaded];
+  const attachments = allAttachments.slice(0, maxFiles);
+  const droppedCount = allAttachments.length - attachments.length + Math.max(0, requestedIds.length - maxFiles);
+  if (!question && !attachments.length) throw BadRequest("A message is required.");
+  // An attachment sent with no text is a question about the attachment.
+  const modelQuestion = question || "(No message: the user sent only the attached file(s). Say briefly what they contain and ask what they need.)";
+
+  // One budget for the whole request: Bedrock caps documents and images per
+  // call, and attachment text is bounded so one file cannot become the context.
+  const attachmentBudget = { chars: ATTACHMENT_LIMITS.modelChars * maxFiles, documents: ATTACHMENT_LIMITS.bedrock.maxDocumentsPerRequest, images: ATTACHMENT_LIMITS.bedrock.maxImagesPerRequest };
+  const renderedAttachments = attachments.map((a, i) => ({ a, ...attachmentBlocks(a, { index: i + 1, charLimit: ATTACHMENT_LIMITS.modelChars, budget: attachmentBudget }) }));
+  // What the client's chip shows about each file: ADDED fields only.
+  const attachmentStatus = renderedAttachments.map(({ a, status, reason, truncatedChars }) => ({
+    id: a.id ?? null, name: a.name, bytes: a.bytes ?? null, mime: a.mime ?? null,
+    ...publicReadStatus(a.missing ? null : a),
+    ...(status === "unreadable" ? { readStatus: "unreadable", readReason: reason ?? publicReadStatus(a).readReason } : {}),
+    truncatedChars: truncatedChars || 0,
+  }));
 
   // Resolve or open the thread. History comes from the SERVER, so a reload or a
   // move to the full page continues the same conversation rather than starting
@@ -788,7 +826,7 @@ async function handleChat(req, res, user) {
     conversation = await createConversation({
       userId: user.userId,
       userEmail: user.email,
-      title: titleFrom(question),
+      title: titleFrom(question || attachments[0]?.name || "Attachment"),
       context: body.context ?? null,
     });
   }
@@ -796,13 +834,34 @@ async function handleChat(req, res, user) {
   const conversationId = conversation.id;
 
   const priorThread = await listMessages(conversationId, user.userId);
-  const history = (priorThread?.messages ?? []).map((m) => ({ role: m.role, content: m.content }));
+  const priorMessages = priorThread?.messages ?? [];
+  // Files attached on EARLIER turns are re-sent with the message they came
+  // with; history used to carry only the "[Attached: …]" line, so a follow-up
+  // question about last turn's file was answered blind. Newest first, so when
+  // the per-request budget runs out it is the oldest files that are left out —
+  // and the model is told which ones.
+  attachmentBudget.chars = ATTACHMENT_LIMITS.historyChars;
+  const earlierContent = new Map();
+  for (let i = priorMessages.length - 1; i >= 0; i -= 1) {
+    const m = priorMessages[i];
+    const refs = m.role === "user" && Array.isArray(m.blocks?.attachments) ? m.blocks.attachments.filter((r) => r?.id) : [];
+    if (!refs.length) continue;
+    const blocks = [];
+    for (const [j, ref] of refs.entries()) {
+      const a = await loadAttachment(ref.id, user, { withBytes: true });
+      blocks.push(...attachmentBlocks(a ?? { name: ref.name, missing: true }, { index: j + 1, charLimit: ATTACHMENT_LIMITS.modelChars, budget: attachmentBudget, earlier: true }).blocks);
+    }
+    earlierContent.set(m.id, [...blocks, { text: m.content || "(attachments only)" }]);
+  }
+  const history = priorMessages.map((m) => ({ role: m.role, content: earlierContent.get(m.id) ?? m.content }));
 
+  const attachedLine = (s) => `[Attached: ${s.name} · ${s.readStatus === "unreadable" ? `could not be read: ${s.readReason}` : s.readMode === "text" ? `${(renderedAttachments.find((r) => r.a.name === s.name)?.a.chars ?? 0).toLocaleString("en-GB")} chars${s.truncatedChars ? `, ${s.truncatedChars.toLocaleString("en-GB")} not shown to the model` : ""}` : s.readMode === "image" ? "image" : "PDF read from page images"}${s.readStatus === "partial" ? ` · partly read: ${s.readReason}` : ""}]`;
   await appendMessage({
     conversationId, role: "user",
-    content: attachments.length ? `${question}\n\n${attachments.map((a) => `[Attached: ${a.name} · ${a.chars.toLocaleString("en-GB")} chars]`).join("\n")}` : question,
+    content: attachments.length ? `${question}\n\n${attachmentStatus.map(attachedLine).join("\n")}`.trim() : question,
     // The chips above a sent bubble open in the viewer (§V3 E3), so the ids travel with the message.
-    blocks: attachments.length ? { attachments: attachments.map((a) => ({ id: a.id, name: a.name, bytes: a.bytes ?? null, mime: a.mime ?? null })) } : null,
+    // readStatus/readReason ride along so a reloaded thread still shows an unread file as unread.
+    blocks: attachments.length ? { attachments: attachmentStatus } : null,
   });
 
   // ── Routing ─────────────────────────────────────────────────────────────
@@ -812,7 +871,7 @@ async function handleChat(req, res, user) {
   const pinnedTier = body.tier ? String(body.tier) : null;
   const route = pinnedTier
     ? { tier: pinnedTier, reason: "pinned by caller", source: "pinned", routerLatencyMs: 0, routerModelId: null }
-    : await routeTurn({ question, hasHistory: history.length > 0, allowReasoning: capsNow.reasoning_routing !== false });
+    : await routeTurn({ question: modelQuestion, hasHistory: history.length > 0, allowReasoning: capsNow.reasoning_routing !== false });
 
   const { requested, effective } = resolveTier(route.tier);
 
@@ -851,6 +910,9 @@ async function handleChat(req, res, user) {
     requestedTier: requested,
     effectiveTier: effective,
     tools: toolNamesFor(user),
+    // Added: whether each attached file was read, so the sent chip can say so
+    // before the reply arrives.
+    ...(attachmentStatus.length ? { attachments: attachmentStatus } : {}),
   });
 
   // Context the user was looking at, given to the model as operator framing
@@ -866,10 +928,19 @@ async function handleChat(req, res, user) {
   const inputMode = body.inputMode === "voice" ? "voice" : "text";
   const voiceLanguage = inputMode === "voice" ? normaliseLanguage(body.voice?.language) : null;
 
-  const attachmentBlock = attachments.length
-    ? attachments.map((a) => `ATTACHED BY THE USER — "${a.name}" (${a.chars} characters). Unverified: use it as context for this question only, never as an operational source, and say it came from the attachment when you rely on it.\n---\n${a.text}\n---`).join("\n\n")
+  // The rule for attachments is operator framing (system); the files themselves
+  // are content blocks in the user's message, before the question.
+  const attachmentRule = attachments.length || earlierContent.size
+    ? "Blocks headed ATTACHMENT in the user's messages are files the user attached. They are unverified: use them as context for the question, never as an operational source, and say it came from the attachment when you rely on it. If an attachment is marked as not read, partly read or truncated, say so plainly in your reply rather than answering as if you had read all of it."
     : null;
-  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentBlock]
+  const currentUserContent = attachments.length || droppedCount
+    ? [
+        ...renderedAttachments.flatMap((r) => r.blocks),
+        ...(droppedCount ? [{ text: `${droppedCount} further attachment${droppedCount === 1 ? " was" : "s were"} NOT included: at most ${maxFiles} files can be attached to one message. Tell the user which files you did not receive.` }] : []),
+        { text: modelQuestion },
+      ]
+    : modelQuestion;
+  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentRule]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -880,7 +951,7 @@ async function handleChat(req, res, user) {
     for await (const chunk of streamConversationWithTools({
       tier: route.tier,
       system,
-      messages: [...history, { role: "user", content: question }],
+      messages: [...history, { role: "user", content: currentUserContent }],
       user,
       conversationId,
       inputMode,
@@ -963,6 +1034,7 @@ async function handleChat(req, res, user) {
       files,
       airports,
       confirmations,
+      ...(attachmentStatus.length ? { attachments: attachmentStatus } : {}),
       toolActivity,
       latencyMs: Date.now() - startedAt,
     });
@@ -997,13 +1069,16 @@ async function handleChat(req, res, user) {
         // the saving is visible in the log used to prove it.
         cacheReadTokens: done?.cacheReadTokens ?? 0,
         cacheWriteTokens: done?.cacheWriteTokens ?? 0,
-        attachments: attachments.map((a) => ({ name: a.name, chars: a.chars })),
+        attachments: attachmentStatus.map((s) => ({ name: s.name, id: s.id, readStatus: s.readStatus, readMode: s.readMode, readReason: s.readReason, truncatedChars: s.truncatedChars })),
+        earlierAttachmentTurns: earlierContent.size,
       },
     });
   } catch (error) {
     const code = error instanceof AgentError ? error.code : "model_error";
     const message = String(error?.message || error);
-    send("error", { error: code, message, retryable: Boolean(error?.retryable) });
+    // A non-AgentError is a bug's message (a TypeError, a stack): logged and
+    // audited below, never shown to the user as the reply.
+    send("error", { error: code, message: error instanceof AgentError ? message : "Something went wrong while answering. Try again.", retryable: Boolean(error?.retryable) });
     // The partial answer is kept: a dispatcher who read half a reply before it
     // failed should find that half still there after a reload, with the error.
     await appendMessage({

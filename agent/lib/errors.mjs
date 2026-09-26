@@ -45,6 +45,12 @@ export function classifyBedrockError(error) {
   if (/TimeoutError|ModelTimeoutException|ETIMEDOUT|AbortError|aborted/i.test(both)) {
     return ModelTimeout("The model did not respond in time.", message);
   }
+  // A ValidationException about an attached image or document is the FILE's
+  // fault, not the model's: without this it read as "the model is not
+  // available", triggered a pointless fallback, and hid which file was refused.
+  if (/ValidationException/i.test(both) && /\b(image|document|pdf|media type|file)\b/i.test(message) && !/model identifier|inference profile|on-demand throughput|access to the model/i.test(message)) {
+    return new AgentError("attachment_rejected", "The model could not open one of the attached files. Remove it or attach it in another format (for example a PDF export or a smaller image) and ask again.", { status: 400, detail: message.slice(0, 500) });
+  }
   if (/not available for this account|ResourceNotFoundException|ValidationException|AccessDeniedException|marketplace|use case details/i.test(both)) {
     return ModelUnavailable("The model is not available to this AWS account or region.", message);
   }

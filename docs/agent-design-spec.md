@@ -758,7 +758,7 @@ Admin names in the permission copy are dynamic (users with the role) — \`SOURC
 
 ### 4.18 Attachments
 
-Ops Agent C1. Accepted: \`PDF, images, CSV, XLSX, TXT\`. Max \`25 MB\` per file. Entry: picker (\`paperclip\`), paste, drag-drop anywhere on the thread.
+Ops Agent C1. Accepted: \`PDF, images, DOCX, CSV, XLSX, TXT/MD/JSON\`. Max \`25 MB\` per file; images \`3.75 MB\` / 8000 px (the Bedrock image-block limit); a scanned PDF (pages without a text layer) \`4.5 MB\` / 50 pages (the Bedrock document-block limit). Limits live in \`agent/config/attachments.json\`, read by both the agent and the composer. A file that was stored but could not be read shows as "Can't be read · reason" on its chip and "Not read · reason" on the sent chip, and the model is told the same. Entry: picker (\`paperclip\`), paste, drag-drop anywhere on the thread.
 
 **Chip** — 170px wide, radius 10, padding 8, flex gap 9; positioned relative with a remove button. Chips row: wrap, gap 8, padding \`12px 12px 0\` inside the composer, above the text.
 

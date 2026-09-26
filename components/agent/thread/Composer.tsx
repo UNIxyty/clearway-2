@@ -3,9 +3,11 @@
 // The composer (design spec §4.17), attachments (§4.18), @ mentions (§4.19)
 // and / commands (§4.20). Full-page and panel variants, six composer states.
 //
-// Attachments are real uploads to the agent (25 MB, PDF/images/CSV/XLSX/TXT)
-// with progress, retry and too-large states; sending waits for uploads and a
-// too-large file is excluded and stays marked. @ resolves real entities
+// Attachments are real uploads to the agent with progress, retry and too-large
+// states; sending waits for uploads and a too-large file is excluded and stays
+// marked. The limits per kind come from agent/config/attachments.json — the
+// same file the agent enforces — and a file the agent stored but could not
+// READ is shown as such on its chip, not as a normal upload. @ resolves real entities
 // through the agent's own tools, the current selection first. A / command is
 // a black chip with argument slots; on send it becomes the sentence it stands
 // for and goes through the same pipeline as anything typed.
@@ -17,42 +19,68 @@ import Orb from "../ui/Orb";
 import { eventKey, useKeybinds } from "../ui/keybinds";
 import { MicPermissionCard, VoiceBar, useVoiceInput, type VoiceResult } from "./VoiceBar";
 import { AGENT_BASE, type AgentContext } from "../types";
+import ATTACH from "@/agent/config/attachments.json";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
-export type AttachmentChip = { localId: string; name: string; bytes: number; kind: "image" | "file"; state: "uploading" | "uploaded" | "failed" | "too-large"; progress: number; id?: string; hasText?: boolean; error?: string; file?: File; previewUrl?: string };
-const MAX_BYTES = 25 * 1024 * 1024;
-const ACCEPT = ".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.xlsx,.txt,.md,.json";
-const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+export type ReadStatus = "read" | "partial" | "unreadable";
+export type AttachmentChip = { localId: string; name: string; bytes: number; kind: "image" | "file"; state: "uploading" | "uploaded" | "failed" | "too-large"; progress: number; id?: string; hasText?: boolean; error?: string; file?: File; previewUrl?: string; readStatus?: ReadStatus; readMode?: string; readReason?: string | null; readNote?: string | null };
+type KindSpec = { label: string; extensions: string[]; maxBytes: number };
+const KINDS = ATTACH.kinds as Record<string, KindSpec>;
+const ACCEPT = Object.values(KINDS).flatMap((k) => k.extensions).map((e) => `.${e}`).join(",");
+const ACCEPT_LABEL = Object.values(KINDS).map((k) => k.label).join(", ");
+const fmtSize = (b: number) => (b >= 1048576 ? `${Number((b / 1048576).toFixed(b >= 10485760 ? 0 : 2))} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+/** Why this file won't be sent, or null. Mirrors assertAcceptable() in agent/lib/attachments.mjs. */
+function localRejection(f: File): string | null {
+  const ext = (f.name.split(".").pop() ?? "").toLowerCase();
+  const kind = Object.values(KINDS).find((k) => k.extensions.includes(ext));
+  if (!kind) return `Can't be attached · ${ACCEPT_LABEL} only`;
+  const max = Math.min(kind.maxBytes, ATTACH.maxUploadBytes);
+  if (f.size > max) return `${fmtSize(f.size)} · over ${fmtSize(max)}${ext && KINDS.image?.extensions.includes(ext) ? " (image limit)" : ""}`;
+  return null;
+}
+type UploadResult = { id: string; hasText: boolean; readStatus?: ReadStatus; readMode?: string; readReason?: string | null; readNote?: string | null };
+class UploadRejected extends Error { constructor(message: string, public final: boolean) { super(message); } }
 
-function uploadWithProgress(file: File, onProgress: (p: number) => void): Promise<{ id: string; hasText: boolean }> {
+function uploadWithProgress(file: File, onProgress: (p: number) => void): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${AGENT_BASE}/api/attachments?name=${encodeURIComponent(file.name)}`);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.withCredentials = true;
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => { try { const b = JSON.parse(xhr.responseText); if (xhr.status === 200 && b.ok) resolve({ id: b.attachment.id, hasText: b.attachment.hasText }); else reject(new Error(b.message || `HTTP ${xhr.status}`)); } catch { reject(new Error(`HTTP ${xhr.status}`)); } };
-    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.onload = () => {
+      let b: { ok?: boolean; reason?: string; message?: string; attachment?: UploadResult } | null = null;
+      try { b = JSON.parse(xhr.responseText); } catch { b = null; }
+      if (xhr.status === 200 && b?.ok && b.attachment) { const a = b.attachment; resolve({ id: a.id, hasText: a.hasText, readStatus: a.readStatus, readMode: a.readMode, readReason: a.readReason ?? null, readNote: a.readNote ?? null }); return; }
+      // A refusal the user must act on (too large, wrong type) is final; anything else can be retried.
+      const final = xhr.status === 413 || xhr.status === 415 || ["too_large", "unsupported", "empty"].includes(String(b?.reason));
+      const message = typeof b?.message === "string" && b.message ? b.message : xhr.status === 413 ? `${fmtSize(file.size)} · too large to upload` : "Upload failed";
+      reject(new UploadRejected(message, final));
+    };
+    xhr.onerror = () => reject(new UploadRejected("Upload failed · check the connection", false));
     xhr.send(file);
   });
 }
 
 function AttachmentChipView({ a, onRemove, onRetry }: { a: AttachmentChip; onRemove: () => void; onRetry: () => void }) {
+  const unread = a.state === "uploaded" && (a.readStatus === "unreadable" || a.readStatus === "partial");
   const look = a.state === "uploading" ? { border: C.primaryLine, bg: C.surface, tileBg: C.primaryTint, tileIcon: "file-text", tileFg: C.primary }
     : a.state === "failed" ? { border: C.dangerBorder, bg: C.dangerWashSoft, tileBg: C.dangerTint, tileIcon: "rotate-cw", tileFg: C.dangerBadge }
-    : a.state === "too-large" ? { border: C.warnBorder, bg: C.warnWashSoft, tileBg: C.warnTint, tileIcon: "file-warning", tileFg: C.warn }
+    : a.state === "too-large" || unread ? { border: C.warnBorder, bg: C.warnWashSoft, tileBg: C.warnTint, tileIcon: "file-warning", tileFg: C.warn }
     : { border: C.border, bg: C.surface, tileBg: C.primaryTint, tileIcon: "file-text", tileFg: C.primary };
   return (
-    <div style={{ position: "relative", width: 170, borderRadius: 10, padding: 8, display: "flex", gap: 9, alignItems: "center", background: look.bg, border: `1px solid ${look.border}` }}>
+    <div title={a.error ?? (unread ? `${a.readStatus === "partial" ? "Partly read" : "Can't be read"}: ${a.readReason ?? "no content could be extracted"}` : a.readNote ?? undefined)} style={{ position: "relative", width: 170, borderRadius: 10, padding: 8, display: "flex", gap: 9, alignItems: "center", background: look.bg, border: `1px solid ${look.border}` }}>
       <button type="button" onClick={a.state === "failed" ? onRetry : undefined} title={a.state === "failed" ? "Retry" : undefined} style={{ width: 38, height: 38, borderRadius: 6, background: look.tileBg, border: "none", padding: 0, flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: a.state === "failed" ? "pointer" : "default", overflow: "hidden" }}>
         {a.kind === "image" && a.previewUrl && a.state !== "failed" ? <img src={a.previewUrl} alt="" style={{ width: 38, height: 38, objectFit: "cover" }} /> : <Icon name={look.tileIcon} size={17} color={look.tileFg} />}
       </button>
       <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
         <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
         {a.state === "uploading" && <><span style={{ fontSize: 11.5, color: C.primaryHover }}>Uploading · {a.progress}%</span><span style={{ height: 3, borderRadius: 2, background: C.border, marginTop: 3, overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${a.progress}%`, background: C.primary, transition: "width 120ms linear" }} /></span></>}
-        {a.state === "uploaded" && <span style={{ fontSize: 11.5, color: C.muted }}>{fmtSize(a.bytes)}{a.hasText === false ? " · no text" : ""}</span>}
+        {a.state === "uploaded" && (unread
+          ? <span style={{ fontSize: 11.5, color: C.warn, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.readStatus === "partial" ? "Partly read" : "Can't be read"}{a.readReason ? ` · ${a.readReason}` : ""}</span>
+          : <span style={{ fontSize: 11.5, color: C.muted }}>{fmtSize(a.bytes)}{a.readMode === "pdf" ? " · scanned, read as pages" : ""}</span>)}
         {a.state === "failed" && <button type="button" onClick={onRetry} style={{ textAlign: "left", fontFamily: "inherit", fontSize: 11.5, color: C.danger, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>Failed · Retry</button>}
-        {a.state === "too-large" && <span style={{ fontSize: 11.5, color: C.warn }}>{fmtSize(a.bytes)} · over 25 MB</span>}
+        {a.state === "too-large" && <span style={{ fontSize: 11.5, color: C.warn, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.error ?? `${fmtSize(a.bytes)} · too large`}</span>}
       </div>
       <button type="button" onClick={onRemove} title="Remove" aria-label={`Remove ${a.name}`} className="ag-focus" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: C.surface, border: `1px solid ${C.borderControl}`, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={10} color={C.muted} /></button>
     </div>
@@ -140,7 +168,7 @@ export default function Composer({
   locked?: string | null;
   offline?: boolean;
   voiceEnabled?: boolean;
-  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null }; attachments?: { id: string; name: string; bytes: number | null; mime: string | null }[] }) => void;
+  onSend: (text: string, attachmentIds: string[], meta: { mentions: Mention[]; command: string | null; voice?: { language: string | null }; attachments?: { id: string; name: string; bytes: number | null; mime: string | null; readStatus?: ReadStatus; readMode?: string; readReason?: string | null }[] }) => void;
   onStop: () => void;
   onVoice?: () => void;
   autoFocus?: boolean;
@@ -170,6 +198,8 @@ export default function Composer({
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("cw-agent-voice", forwarded); };
   }, [voiceOn, locked, offline, kb, voice, voiceActive]);
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
+  const attachmentsRef = useRef<AttachmentChip[]>([]);
+  attachmentsRef.current = attachments;
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [query, setQuery] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
@@ -213,15 +243,19 @@ export default function Composer({
   const startUpload = useCallback((chip: AttachmentChip) => {
     if (!chip.file) return;
     uploadWithProgress(chip.file, (p) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, progress: p } : a))))
-      .then(({ id, hasText }) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: "uploaded", progress: 100, id, hasText } : a))))
-      .catch((e) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: "failed", error: e.message } : a))));
+      .then((r) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: "uploaded", progress: 100, id: r.id, hasText: r.hasText, readStatus: r.readStatus, readMode: r.readMode, readReason: r.readReason, readNote: r.readNote } : a))))
+      .catch((e: unknown) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: e instanceof UploadRejected && e.final ? "too-large" : "failed", error: e instanceof Error ? e.message : "Upload failed" } : a))));
   }, []);
   const addFiles = useCallback((files: FileList | File[] | null) => {
     if (!files) return;
     const next: AttachmentChip[] = [];
+    // The agent reads at most maxFilesPerMessage files per message; extras are marked, not silently dropped.
+    let slots = ATTACH.maxFilesPerMessage - attachmentsRef.current.filter((a) => a.state === "uploading" || a.state === "uploaded").length;
     for (const f of Array.from(files)) {
       const kind = /^image\//.test(f.type) ? "image" : "file";
-      const chip: AttachmentChip = { localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: f.name, bytes: f.size, kind, state: f.size > MAX_BYTES ? "too-large" : "uploading", progress: 0, file: f, previewUrl: kind === "image" ? URL.createObjectURL(f) : undefined };
+      const rejection = localRejection(f) ?? (slots <= 0 ? `Not sent · ${ATTACH.maxFilesPerMessage} files per message` : null);
+      if (!rejection) slots -= 1;
+      const chip: AttachmentChip = { localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: f.name, bytes: f.size, kind, state: rejection ? "too-large" : "uploading", error: rejection ?? undefined, progress: 0, file: f, previewUrl: kind === "image" ? URL.createObjectURL(f) : undefined };
       next.push(chip);
     }
     setAttachments((list) => [...list, ...next]);
@@ -255,7 +289,7 @@ export default function Composer({
     const uploaded = attachments.filter((a) => a.state === "uploaded" && a.id);
     const ids = uploaded.map((a) => a.id as string);
     // Names travel with the ids so the sent bubble can show openable chips at once (§V3 E3), not only after a reload.
-    onSend(text, ids, { mentions: inserted, command: commandName, attachments: uploaded.map((a) => ({ id: a.id as string, name: a.name, bytes: a.bytes ?? null, mime: null })) });
+    onSend(text, ids, { mentions: inserted, command: commandName, attachments: uploaded.map((a) => ({ id: a.id as string, name: a.name, bytes: a.bytes ?? null, mime: null, readStatus: a.readStatus, readMode: a.readMode, readReason: a.readReason ?? null })) });
     setValue(""); setAttachments([]); setInserted([]); setCommand(null); setMenu("none");
   }
 
@@ -295,7 +329,7 @@ export default function Composer({
           <div className="ag-dropzone-in" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); setDragging(false); }} style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 8, height: 150, border: `2px dashed ${C.primary}`, background: C.primaryTint3, borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, zIndex: 5 }}>
             <Icon name="file-up" size={24} color={C.primary} />
             <span style={{ fontSize: 15, fontWeight: 700, color: C.primaryHover }}>Drop to attach</span>
-            <span style={{ fontSize: 12.5, color: C.primaryOnTint }}>PDF, images, CSV, XLSX, TXT · up to 25 MB each · the whole thread is the drop target</span>
+            <span style={{ fontSize: 12.5, color: C.primaryOnTint }}>{ACCEPT_LABEL} · up to {fmtSize(ATTACH.maxUploadBytes)} each, images {fmtSize(KINDS.image.maxBytes)} · the whole thread is the drop target</span>
           </div>
         )}
         {menu === "mention" && (

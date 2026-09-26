@@ -94,6 +94,17 @@ export type FlightCardData = {
   limitationCount?: number;
   importantCount?: number;
   notamUnreviewed?: string[] | null;
+  // From the wall's flight record (digital-wall/lib/flight-record.mjs).
+  operatorName?: string | null;
+  actualDeparture?: string | null;
+  actualArrival?: string | null;
+  /** True when the wall inferred `status` from the clock (no movement data). */
+  statusEstimated?: boolean;
+  tripStatus?: string | null;
+  tripNo?: string | null;
+  departureDelayMin?: number | null;
+  arrivalDelayMin?: number | null;
+  caaCount?: number;
 };
 
 export type PerformedAction = { actionId: string; what: string; targetKind: string; target: string | null; ref?: string | null; detail?: string | null };

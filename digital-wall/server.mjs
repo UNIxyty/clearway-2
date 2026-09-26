@@ -24,6 +24,7 @@ import { NotamCheckService, getDigestConfig, loadDigestConfig, saveDigestConfig 
 import { AipSendService } from "./lib/aip-send.mjs";
 import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
+import { FLIGHT_RECORD_VERSION, dayBounds, filterFlightRecords, flightRecordsFromTimeline, notamCheckState, sortFlightRecords } from "./lib/flight-record.mjs";
 import { ReportsStore, REPORT_STATUS_LABELS } from "./lib/reports-store.mjs";
 import { escapeHtml, mailerConfigured, renderTemplateFile, sendEmail } from "./lib/mailer.mjs";
 import {
@@ -2068,6 +2069,76 @@ const server = http.createServer(async (req, res) => {
       // The complete record goes back to the caller: it is the before-state a
       // restore is built from, and the caller must not have to reconstruct it.
       sendJson(res, { ok: true, id, limitation: deleted });
+      return;
+    }
+
+    // ── Normalized flight records (agent + any reader outside the board) ──
+    // ADDITIVE endpoint: the board's own decorated flights (getFlights →
+    // decorateFlightWithLimitations, verbatim) joined with their aircraft-group
+    // context and keyed "<oprId>:<flightNid>" — lib/flight-record.mjs. Unlike
+    // /api/timeline/flights it does NOT apply the wall's visibility window by
+    // default (window=board opts back in), so a flight tomorrow or last week
+    // is still found; hidden aircraft stay hidden, exactly as on the board.
+    // Filters run server-side so a narrow question never ships the whole
+    // cache. Behind the normal /api auth gate and deliberately NOT in
+    // DISPLAY_READ_PATHS: a display device token cannot reach it.
+    if (pathname === "/api/flights/normalized" && req.method === "GET") {
+      const q = (name) => {
+        const value = url.searchParams.get(name);
+        return value == null || value.trim() === "" ? null : value.trim();
+      };
+      const date = q("date");
+      const bounds = date ? dayBounds(date) : null;
+      if (date && !bounds) {
+        sendJson(res, { ok: false, error: "date must be YYYY-MM-DD." }, 400);
+        return;
+      }
+      const from = bounds?.from ?? q("from");
+      const to = bounds?.to ?? q("to");
+      const boardWindow = q("window") === "board";
+      const limit = Math.max(1, Math.min(500, Number(q("limit")) || 100));
+      const flightNid = q("flightNid");
+      const key = q("key") ?? (flightNid ? `${q("oprId") ?? ""}:${flightNid}`.replace(/^:/, "") : null);
+      try {
+        const payload = await timelineService.getFlights({
+          from,
+          to,
+          allOperators: true,
+          ...(boardWindow ? {} : { applyTimeWindow: false }),
+        });
+        const matched = sortFlightRecords(
+          filterFlightRecords(flightRecordsFromTimeline(payload), {
+            key,
+            oprId: key ? null : q("oprId"),
+            operator: q("operator"),
+            icao: q("icao"),
+            adep: q("adep"),
+            ades: q("ades"),
+            registration: q("registration"),
+            callsign: q("callsign"),
+            status: q("status"),
+            trip: q("trip"),
+          })
+        );
+        const notamState = notamCheck.publicState();
+        sendJson(res, {
+          ok: true,
+          version: FLIGHT_RECORD_VERSION,
+          source: payload.source ?? null,
+          syncedAt: payload.syncedAt ?? null,
+          window: boardWindow ? "board" : "all-cached",
+          from: from ?? null,
+          to: to ?? null,
+          total: matched.length,
+          truncated: matched.length > limit,
+          flights: matched.slice(0, limit).map((record) => ({
+            ...record,
+            notamCheck: notamCheckState(record, notamState),
+          })),
+        });
+      } catch (error) {
+        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+      }
       return;
     }
 

@@ -267,16 +267,19 @@ export async function searchConversations(user, { q = "", filter = [], limit = 8
 export async function suggestions(user, context) {
   const wall = await wallGet("/api/timeline/flights", user, { timeoutMs: 8_000 }).catch(() => null);
   const flights = Array.isArray(wall?.flights) ? wall.flights : Array.isArray(wall?.aircraft) ? wall.aircraft.flatMap((a) => a.flights ?? []) : [];
-  const delayed = flights.filter((f) => (f.delayMinutes ?? f.delay ?? 0) > 0 || /delay/i.test(String(f.status ?? "")));
+  // The wall's decorated flight: movementState "delayed" / departureDelayMin
+  // (leon-sync mapLeonFlight). There is no delayMinutes/callsign field.
+  const delayed = flights.filter((f) => !f.isCnl && (f.movementState === "delayed" || (f.departureDelayMin ?? 0) > 0));
   const notam = await wallGet("/api/notam-check/today", user, { timeoutMs: 8_000 }).catch(() => null);
-  const outstanding = notam?.outstandingCount ?? (Array.isArray(notam?.outstanding) ? notam.outstanding.length : null);
+  // /api/notam-check/today is the check's publicState: { total, done, airports[] }.
+  const outstanding = notam?.outstandingCount ?? (Array.isArray(notam?.outstanding) ? notam.outstanding.length : Number.isInteger(notam?.total) && Number.isInteger(notam?.done) ? notam.total - notam.done : null);
   const recent = (await rest(`agent_conversations?user_id=eq.${encodeURIComponent(user.userId)}&archived_at=is.null&select=id,title,last_message_at&order=last_message_at.desc&limit=2`).catch(() => [])) ?? [];
   const firstName = String(user.name || user.email || "").split(/[\s@.]/)[0] || null;
   const hour = new Date().getUTCHours();
   const greeting = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
   return {
     greeting: firstName ? `${greeting}, ${firstName}.` : `${greeting}.`,
-    flightsToday: flights.length, delayed: delayed.length, delayedCallsigns: delayed.slice(0, 2).map((f) => f.callsign ?? f.flightNid).filter(Boolean),
+    flightsToday: flights.length, delayed: delayed.length, delayedCallsigns: delayed.slice(0, 2).map((f) => f.flightNo ?? f.flightNid).filter(Boolean),
     notamOutstanding: outstanding,
     recent: recent.map((c) => ({ id: c.id, title: c.title, at: c.last_message_at })),
     context: context ?? null,

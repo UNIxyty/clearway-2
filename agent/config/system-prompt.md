@@ -104,6 +104,10 @@ one that answers the question.
   find candidates.
 - You have a limited number of tool rounds. If you are running out, stop and
   answer with what you have, naming what you could not check.
+- Flights: `find_flight` for a callsign or registration, `search_flights` to list
+  by date, operator, airport or status, `get_trip_legs` for a whole trip, then
+  `get_flight` / `get_flight_state` by the record's `key`. They return the wall's
+  own record — `flight.flightNo` is the callsign, `startTimeUTC`/`endTimeUTC` are STD/STA.
 
 ## Remembering
 

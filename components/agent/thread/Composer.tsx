@@ -83,8 +83,18 @@ async function resolveMentions(q: string, type: MentionType | "all", context: Ag
   const jobs: Promise<void>[] = [];
   // Flights: today's wall window; a query matches callsign, registration or route.
   if (want("flight")) jobs.push(invoke("search_flights", query.length >= 2 ? { callsign: query.toUpperCase(), limit: 12 } : { limit: 12 }).then((b) => {
-    const list = (b?.flights ?? []).filter((f: Record<string, string | null>) => hit(f.callsign, f.registration, f.departureIcao, f.arrivalIcao));
-    for (const f of list.slice(0, per)) out.push({ type: "flight", id: f.flightId, primary: f.callsign || f.registration || f.flightId, secondary: `${f.departureIcao ?? "?"} → ${f.arrivalIcao ?? "?"}${f.registration ? ` · ${f.registration}` : ""}` });
+    // Rows are the wall's flight records ({ key, registration, flight: { flightNo, adep, ades } });
+    // the older flat summary ({ flightId, callsign, departureIcao, … }) is still read.
+    type Row = { key?: string; flightId?: string; callsign?: string | null; registration?: string | null; departureIcao?: string | null; arrivalIcao?: string | null; flight?: { flightNo?: string | null; adep?: { icao?: string | null } | null; ades?: { icao?: string | null } | null } };
+    const rows = ((b?.flights ?? []) as Row[]).map((r) => ({
+      id: String(r.key ?? r.flightId ?? ""),
+      callsign: r.flight?.flightNo ?? r.callsign ?? null,
+      registration: r.registration ?? null,
+      dep: r.flight?.adep?.icao ?? r.departureIcao ?? null,
+      arr: r.flight?.ades?.icao ?? r.arrivalIcao ?? null,
+    }));
+    const list = rows.filter((f) => f.id && hit(f.callsign, f.registration, f.dep, f.arr));
+    for (const f of list.slice(0, per)) out.push({ type: "flight", id: f.id, primary: f.callsign || f.registration || f.id, secondary: `${f.dep ?? "?"} → ${f.arr ?? "?"}${f.registration ? ` · ${f.registration}` : ""}` });
   }));
   // Airports: the portal's own airport search (ICAO, IATA or name); same session.
   if (want("airport") && query.length >= 2) jobs.push(fetch(`/api/search?q=${encodeURIComponent(query)}`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).then((b) => {

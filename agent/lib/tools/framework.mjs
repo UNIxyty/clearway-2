@@ -515,10 +515,16 @@ export function verbatimFromToolCalls(calls) {
 export function flightCardsFromToolCalls(calls) {
   const cards = [];
   const seen = new Set();
-  const push = (flight, extra = {}) => {
-    if (!flight?.flightId || seen.has(flight.flightId)) return;
-    seen.add(flight.flightId);
-    cards.push({
+  const add = (card) => {
+    if (!card?.flightId || seen.has(card.flightId)) return;
+    seen.add(card.flightId);
+    cards.push(card);
+  };
+  // Legacy summary shape (conversations stored before the flight tools
+  // returned the wall's record) — still renders as it always did.
+  const pushLegacy = (flight, extra = {}) => {
+    if (!flight?.flightId) return;
+    add({
       flightId: flight.flightId,
       callsign: flight.callsign ?? flight.flightNid ?? null,
       registration: flight.registration ?? null,
@@ -531,25 +537,78 @@ export function flightCardsFromToolCalls(calls) {
       ...extra,
     });
   };
+  const push = (item, extra = {}) => {
+    if (item?.key && item?.flight) add({ ...flightCardFromRecord(item), ...extra });
+    else pushLegacy(item, extra);
+  };
 
   for (const call of calls) {
     if (call.ok === false || !call.result) continue;
     if (call.name === "get_flight") push(call.result.flight);
     if (call.name === "get_flight_state") {
-      push(call.result.flight, {
-        limitationCount: (call.result.limitations ?? []).length,
-        importantCount: (call.result.important ?? []).length,
-        departure: call.result.departure ?? null,
-        arrival: call.result.arrival ?? null,
+      const r = call.result;
+      const legacy = !(r.flight?.key && r.flight?.flight);
+      push(r.flight, {
+        limitationCount: (r.limitations ?? []).length,
+        importantCount: (r.important ?? []).length,
+        ...(legacy ? { departure: r.departure ?? null, arrival: r.arrival ?? null } : {}),
       });
     }
-    // A search can return many; only render cards when it is a short list, so
+    // A list can return many; only render cards when it is a short list, so
     // the panel does not turn a fleet-wide query into fifty cards.
-    if (call.name === "search_flights" && (call.result.flights ?? []).length <= 3) {
+    if ((call.name === "search_flights" || call.name === "find_flight") && (call.result.flights ?? []).length <= 3) {
       for (const f of call.result.flights ?? []) push(f);
+    }
+    if (call.name === "get_trip_legs" && (call.result.legs ?? []).length <= 6) {
+      for (const f of call.result.legs ?? []) push(f);
     }
   }
   return cards;
+}
+
+/**
+ * One card from the wall's flight record (digital-wall/lib/flight-record.mjs):
+ * a straight read of the record's fields — nothing computed that the wall did
+ * not already decide, only which of its fields fill which slot.
+ */
+export function flightCardFromRecord(record) {
+  const f = record?.flight ?? {};
+  const ms = (v) => { const t = Date.parse(v ?? ""); return Number.isFinite(t) ? t : null; };
+  // Leon's etd/eta default to STD/STA when there is no flight-watch estimate;
+  // an "estimate" equal to the schedule is not one, so the card omits it.
+  const estimate = (est, sched) => (est && ms(est) !== ms(sched) ? est : null);
+  const lims = Array.isArray(f.limitations) ? f.limitations : [];
+  const count = (type) => lims.filter((l) => l?.type === type).length;
+  const unreviewed = record?.notamCheck?.unreviewed ?? [];
+  return {
+    flightId: record.key,
+    callsign: f.flightNo && f.flightNo !== "UNKNOWN" ? f.flightNo : null,
+    registration: record.registration && record.registration !== "UNKNOWN" ? record.registration : null,
+    operatorId: record.oprId ?? null,
+    operatorName: record.operatorName ?? null,
+    aircraftType: record.acftTypeIcao ?? record.acftTypeShortName ?? null,
+    departureIcao: f.adep?.icao ?? null,
+    arrivalIcao: f.ades?.icao ?? null,
+    departureCity: f.adep?.city ?? null,
+    arrivalCity: f.ades?.city ?? null,
+    scheduledDeparture: f.startTimeUTC ?? null,
+    estimatedDeparture: estimate(f.etd, f.startTimeUTC),
+    actualDeparture: f.atd ?? null,
+    scheduledArrival: f.endTimeUTC ?? null,
+    estimatedArrival: estimate(f.eta, f.endTimeUTC),
+    actualArrival: f.ata ?? null,
+    status: f.isCnl ? "cancelled" : (f.movementState ?? null),
+    statusEstimated: f.movementStateEstimated === true,
+    tripStatus: f.tripStatus ?? f.status ?? null,
+    tripNo: f.tripNo != null ? String(f.tripNo) : null,
+    departureDelayMin: Number.isFinite(f.departureDelayMin) ? f.departureDelayMin : null,
+    arrivalDelayMin: Number.isFinite(f.arrivalDelayMin) ? f.arrivalDelayMin : null,
+    ctot: f.ctot ?? f.ctotUTC ?? null,
+    limitationCount: count("LIM"),
+    importantCount: count("IMP"),
+    caaCount: count("CAA"),
+    notamUnreviewed: Array.isArray(unreviewed) && unreviewed.length ? unreviewed : null,
+  };
 }
 
 /**

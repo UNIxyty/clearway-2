@@ -1471,4 +1471,4 @@ Built: `extension/` (MV3; side panel, worker, offscreen mic, four on-demand cont
 `From` column, Agent settings Sites card, `/admin/agent-sites`. Report, permission model and packaging:
 `docs/agent-extension.md`; screenshots `docs/agent-extension-shots/`. Verified in Chromium with the unpacked
 build (44 of 49 items seen working; the rest built but not observable in automation — listed in the report).
-Deployed: see the commit hash and BUILD_ID recorded below once pushed.
+Deployed: commit `c50b791` on `main`, server HEAD `c50b791d`, portal BUILD_ID `dcdr8wKALjYz4kDPkOGfd`, agent-service rebuilt (healthy). Production checks: `GET /agent/api/extension/session` → 401 JSON when signed out; `/admin/agent-sites` → 307 to sign-in. The extension package itself is not deployed anywhere: load `extension/dist` unpacked or upload `clearway-ops-agent.zip`.

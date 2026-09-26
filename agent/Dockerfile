@@ -24,6 +24,10 @@ COPY agent/ ./
 # agent imports it from (../../digital-wall/lib/mailer.mjs) so the module reads
 # the same in the image as in the repo.
 COPY digital-wall/lib/mailer.mjs /digital-wall/lib/mailer.mjs
+# Likewise the wall's flight-record module (the board flight + its aircraft
+# group, keyed "<oprId>:<flightNid>"): the flight tools read the wall's own
+# record shape rather than a second one. Pure, no imports.
+COPY digital-wall/lib/flight-record.mjs /digital-wall/lib/flight-record.mjs
 
 EXPOSE 5175
 

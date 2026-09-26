@@ -37,3 +37,17 @@ export async function panelOpen(): Promise<boolean> {
 
 export const ports = new Set<chrome.runtime.Port>();
 export function tellPanel(msg: Record<string, unknown>) { for (const p of ports) { try { p.postMessage(msg); } catch { ports.delete(p); } } }
+
+/** activeTab is granted by a gesture on a tab and lost when that tab navigates to another origin. Chrome exposes no
+ *  query for it, so the worker records the gesture itself (commands, menu clicks, the panel opening). */
+export async function noteGesture(tab: chrome.tabs.Tab | null | undefined) {
+  if (!tab?.id || !tab.url) return;
+  let origin = ""; try { origin = new URL(tab.url).origin; } catch { return; }
+  await chrome.storage.local.set({ gestureTab: { tabId: tab.id, origin, at: Date.now() } });
+}
+export async function captureWorks(tab: chrome.tabs.Tab | null | undefined): Promise<boolean> {
+  if (!tab?.id || !tab.url) return false;
+  const g = ((await chrome.storage.local.get("gestureTab")).gestureTab as { tabId: number; origin: string } | undefined);
+  let origin = ""; try { origin = new URL(tab.url).origin; } catch { return false; }
+  return Boolean(g && g.tabId === tab.id && g.origin === origin);
+}

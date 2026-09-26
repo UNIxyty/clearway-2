@@ -740,7 +740,7 @@ Admin names in the permission copy are dynamic (users with the role) — \`SOURC
 - Box: white, \`1px #d6d8dc\`, radius 16, \`shadow.composer\`.
 - Input area: padding \`14px 16px 6px\`, min-height 48, 15/1.6. Placeholder \`#9aa0a8\`: \`Ask a follow-up, @ to mention, / for an action…\` (in a thread) · \`Ask, type @ for a flight or airport, / for an action…\` (empty state).
 - **Grows** with content up to **8 lines** (8 × 24px = 192px), then scrolls internally.
-- Toolbar: padding \`6px 8px 8px\`, gap 4: three icon buttons 34×34 radius 8 (hover \`#f0f1f3\`), icons 17 \`#6c7079\`: \`paperclip\` (title \`Attach\`), \`at-sign\` (\`Mention\`), \`slash\` (\`Command\`) · spacer · hint 12 \`#9aa0a8\`, margin-right 8: \`⏎ send · ⇧⏎ new line · hold ⌥ Space to talk\` (keys mono) · voice button 36×36, \`1px #e6e7ea\`, radius 10, contains the 22px orb (title \`Hold to talk\`) · send button 36×36 radius 10, \`arrow-up\` 17 white.
+- Toolbar: padding \`6px 8px 8px\`, gap 4: three icon buttons 34×34 radius 8 (hover \`#f0f1f3\`), icons 17 \`#6c7079\`: \`paperclip\` (title \`Attach\`), \`at-sign\` (\`Mention\`), \`slash\` (\`Command\`) · spacer · hint 12 \`#9aa0a8\`, margin-right 8: \`⏎ send · ⇧⏎ new line · ⌥⇧Space talk · again to send\` (keys mono) · voice button 36×36, \`1px #e6e7ea\`, radius 10, contains the 22px orb (title \`Talk · ⌥⇧Space · again to send\`; click starts, click again sends; \`aria-pressed\` while listening) · send button 36×36 radius 10, \`arrow-up\` 17 white.
 - Focus: border \`#2563eb\` + \`0 0 0 3px rgba(37,99,235,.1)\`.
 
 | State | Box bg | Placeholder / content | Send button |
@@ -752,7 +752,7 @@ Admin names in the permission copy are dynamic (users with the role) — \`SOURC
 | Voice active | — | compact bar docked in place of the input (§4.23, panel) | hidden during capture (spec default) |
 | Offline | **not drawn** — spec default: white, placeholder \`You're offline — questions will send when you're back\`, send enabled (queues) |
 
-**Panel**: box radius 14 (or 12 for the one-line form), \`1px #d6d8dc\`; input padding \`11px 13px 4px\`, 14px; placeholder \`Ask about {context}…\` (e.g. \`Ask about KLJ7226…\`, \`Ask about EVRA…\`, \`Ask about NOTAM Check…\`) or \`Ask, @ a flight or airport, / for an action…\` with no context. Toolbar padding \`4px 6px 6px\`, gap 2: 30×30 icon buttons (\`paperclip\`, \`at-sign\`, \`slash\`), icons 15 · spacer · hint 11 \`hold ⌥ Space\` · send 32×32 radius 9, icon 15. Container padding \`10px 14px 14px\`, top border \`#eef0f2\`. One-line form (as drawn in A2/A3/B): height 44, radius 12, padding \`0 12px\`, 14px.
+**Panel**: box radius 14 (or 12 for the one-line form), \`1px #d6d8dc\`; input padding \`11px 13px 4px\`, 14px; placeholder \`Ask about {context}…\` (e.g. \`Ask about KLJ7226…\`, \`Ask about EVRA…\`, \`Ask about NOTAM Check…\`) or \`Ask, @ a flight or airport, / for an action…\` with no context. Toolbar padding \`4px 6px 6px\`, gap 2: 30×30 icon buttons (\`paperclip\`, \`at-sign\`, \`slash\`), icons 15 · spacer · hint 11 \`⌥⇧Space talk · again to send\` · send 32×32 radius 9, icon 15. Container padding \`10px 14px 14px\`, top border \`#eef0f2\`. One-line form (as drawn in A2/A3/B): height 44, radius 12, padding \`0 12px\`, 14px.
 
 **Keyboard:** \`⏎\` send; \`⇧⏎\` new line; \`@\` opens mentions; \`/\` at the start of a line or after a space opens commands; \`↑\` in an empty composer: **not drawn** (spec default: edit last message — do not build unless confirmed).
 
@@ -869,7 +869,7 @@ Question sets and headlines are in §6.6. **Content source:** generated from the
 
 Alternatives V. The default voice UI: "just ask it something quickly" without losing sight of the page. The large overlay (§4.24) is for deliberate hands-free moments.
 
-**Invocation:** **hold \`⌥ Space\`** anywhere in the console. Release to send. \`Esc\` discards. Double-tap \`⌥ Space\` opens the large overlay instead.
+**Invocation:** **press \`⌥⇧Space\`** anywhere in the console; **press it again to send**. \`Esc\` discards. Double-tap \`⌥⇧Space\` (two presses within 300 ms) opens the large overlay instead. The same key, with the same press-again-to-send behaviour, applies on the wall console and in the extension.
 
 **Anatomy (light)**
 
@@ -883,7 +883,7 @@ Alternatives V. The default voice UI: "just ask it something quickly" without lo
 
 | # | State | Differences from base | Copy |
 |---|---|---|---|
-| 1 | **Invoked** | Width 380. Waveform flat (0.12). Appears in **120 ms**, before the mic warms up, "so the keypress feels answered" | \`Listening…\` (\`#9aa0a8\`, 13.5) · right \`⌥ Space held · Esc\` 11.5 \`#9aa0a8\` (keys mono \`#6c7079\`) |
+| 1 | **Invoked** | Width 380. Waveform flat (0.12). Appears in **120 ms**, before the mic warms up, "so the keypress feels answered" | \`Listening…\` (\`#9aa0a8\`, 13.5) · right \`⌥⇧Space again to send · Esc\` 11.5 \`#9aa0a8\` (keys mono \`#6c7079\`) |
 | 2 | **Listening** | Live waveform; transcript streaming; timer | e.g. \`is BTI472 still on the CTOT or has it been rele\` |
 | 3 | **Uncertain word** | Uncertain token: \`border-bottom 2px dotted #d97706\`, bg \`#fef7e6\`, radius 3, padding \`0 3px\`, mono 13. Right: \`1 word to check\` 11.5/600 \`#b45309\`. Popover above the word (top offset 46px): bg \`#17181c\`, radius 10, padding 5, gap 4, 12.5 white, shadow \`0 6px 18px rgba(0,0,0,.2)\`; options radius 6 padding \`4px 8px\` mono 600, first option bg \`#2563eb\`; last \`type…\` \`#b9bdc5\` | options: \`1 GBJ88\` \`2 GBJ86\` \`3 GBJ8\` \`type…\` |
 | 4 | **Processing** | Waveform replaced by a 2px \`#2563eb\` progress line (33% width) sliding along the bottom edge (§14 V3). Request quoted left (\`#6c7079\`, max 220px, ellipsis); 1×18 divider \`#e6e7ea\`; current tool step right (13.5, ellipsis); \`Esc\` mono 11.5 | \`"is BTI472 still on the CTOT…"\` · \`Checking Leon for BTI472…\` |
@@ -893,7 +893,7 @@ Alternatives V. The default voice UI: "just ask it something quickly" without lo
 |---|---|---|---|
 | \`No microphone\` | \`none connected to this PC\` | \`Type instead ⌘J\` | 6 s, then fade |
 | \`Microphone blocked\` | \`allow it in the address bar, then retry\` | \`How to allow\` | 6 s |
-| \`Didn't catch that\` | \`nothing heard in 4 s\` | \`Hold ⌥ Space again\` | **3 s** |
+| \`Didn't catch that\` | \`nothing heard in 4 s\` | \`Press ⌥⇧Space again\` | **3 s** |
 
 **Uncertain-word behaviour.** Codes are matched against live flights and ICAOs, so alternatives are real entities. Press \`1\`–\`3\`, or type to replace just that word. Keep talking and it stays marked. **The agent asks before acting on an unresolved one** (Ops Agent D3): it replies \`I heard "G B J eight eight" with low confidence. Which one?\` with option buttons (mono 13/600, white, \`1px #d6d8dc\`, radius 8, padding \`6px 10px\`): \`GBJ88 EPWA→EVRA\` \`GBJ86 EVRA→LKPR\`. **Why:** a wrong callsign acted on is worse than a question.
 
@@ -913,22 +913,22 @@ Alternatives V. The default voice UI: "just ask it something quickly" without lo
 
 ### 4.24 Voice overlay (large)
 
-Ops Agent D2. Invoked by **double-tap \`⌥ Space\`**. For a hands-free conversation.
+Ops Agent D2. Invoked by **double-tap \`⌥⇧Space\`**. For a hands-free conversation.
 
 - Scrim over the whole console: \`rgba(23,24,28,.28)\`.
 - Card: centred horizontally, **36px from the bottom**, width **600**, white, radius 22, \`shadow.overlay\`, padding \`26px 28px 18px\`, column, centred, gap 14.
 - Orb 120px (§4.1).
 - State label 11/700/0.12em; colour \`#2563eb\` for live states, \`#9aa0a8\` ready, \`#e5484d\` error.
 - Transcript 19/1.5 centred \`#17181c\`, min-height 58, max-width 520.
-- Footer: full-width, top \`#eef0f2\`, padding-top 12, gap 16, 12 \`#9aa0a8\`: \`Release ⌥ Space to send\` · \`Esc discard\` · \`Tap once to keep listening\` · spacer · \`Reply in the panel · sound on\`.
+- Footer: full-width, top \`#eef0f2\`, padding-top 12, gap 16, 12 \`#9aa0a8\`: \`Press ⌥⇧Space again to send\` · \`Esc discard\` · spacer · \`Reply in the panel · sound on\`. (Listening always continues until the sending press, so there is no separate "keep listening" tap.)
 
 | State | Label | Transcript copy (sample) |
 |---|---|---|
-| idle | \`READY\` \`#9aa0a8\` | \`Hold ⌥ Space and speak.\` (\`#9aa0a8\`) |
+| idle | \`READY\` \`#9aa0a8\` | \`Press ⌥⇧Space and speak.\` (\`#9aa0a8\`) |
 | listening | \`LISTENING\` | \`Put G B J eight eight on the wall and mark EPWA as\` + grey tail \` checked…\`; uncertain phrase styled as §4.23; below it a disambiguation row (bg \`#fef7e6\`, \`1px #f6ddb0\`, radius 10, padding \`7px 10px\`, 12.5 \`#92400e\`): \`Not sure I heard the callsign:\` + two mono chips \`GBJ88 · EPWA→EVRA\` (600) \`GBJ86 · EVRA→LKPR\` |
 | thinking | \`WORKING\` | \`Checking NOTAM status for EPWA…\` (\`#6c7079\`, code \`#17181c\` mono) |
 | speaking | \`SPEAKING\` | spoken part \`#17181c\`, unspoken \`#b9bdc5\`: \`Two EPWA NOTAMs are still open. I need your\` / \` confirmation before I change the wall — it's on screen for you now.\` |
-| error | \`MICROPHONE LOST\` \`#e5484d\` | \`I lost the microphone mid-sentence.\` (\`#b91c1c\`) + \` What I heard is kept in the composer — press ⌥ Space to try again.\` (\`#6c7079\`) |
+| error | \`MICROPHONE LOST\` \`#e5484d\` | \`I lost the microphone mid-sentence.\` (\`#b91c1c\`) + \` What I heard is kept in the composer — press ⌥⇧Space to try again.\` (\`#6c7079\`) |
 
 The design includes a state switcher (Idle/Listening/Thinking/Speaking/Error tabs) **for review only. Do not build it.**
 
@@ -947,7 +947,7 @@ The design includes a state switcher (Idle/Listening/Thinking/Speaking/Error tab
 | Needs confirmation | Always shown. Voice never confirms a change. |
 | Preference = text | Never speaks unless \`V\` is pressed. |
 
-Preference (6b): lives in the voice bar as a pill \`Reply: spoken\` / \`Reply: auto\` (\`volume-2\` 12, 12/600 \`#1d4ed8\` bg \`#eef4ff\` radius 999 padding \`6px 10px\` or \`3px 8px\` in the panel) and in Account. **Hold \`⇧\` as you release \`⌥ Space\` to flip it for this one answer.** Values: \`auto\` (6c inference), \`spoken\`, \`text\`. Default: \`auto\` (spec default).
+Preference (6b): lives in the voice bar as a pill \`Reply: spoken\` / \`Reply: auto\` (\`volume-2\` 12, 12/600 \`#1d4ed8\` bg \`#eef4ff\` radius 999 padding \`6px 10px\` or \`3px 8px\` in the panel) and in Account. **Hold \`⇧\` on the sending press of \`⌥⇧Space\` to flip it for this one answer.** The preference is stored on the server per user (\`replyMode\` on \`/api/settings/me\`), so the extension and every console tab share it. Values: \`auto\` (6c inference), \`spoken\`, \`text\`. Default: \`auto\` (spec default).
 
 **Speaking card** (bar context): width 440, white, \`1px #d6d8dc\`, radius 16, \`shadow.voicebar\`, padding \`12px 14px\`, column gap 8.
 - Top row gap 10: waveform (40×16, 7 bars) · \`SPEAKING · 0:03 / 0:06\` 12/700/0.08em \`#2563eb\` flex 1 · \`Show instead S\` (12.5/600 bg \`#f5f6f7\` \`1px #e6e7ea\` radius 999 padding \`5px 10px\`, key mono \`#9aa0a8\`) · \`Stop\` (§4.6 stop colours, radius 999).
@@ -1182,7 +1182,7 @@ Page ↔ panel event contract: \`SOURCE UNKNOWN — developer to wire\`. The pag
 
 ### 6.9 Voice in the panel
 
-- With the panel open, the compact bar **docks into the panel composer**: composer border \`#2563eb\` + focus halo, radius 14, padding \`10px 12px\`. Top row gap 10: ring mark 16 · 10 static-drawn bars (animated in production, §4.2) · spacer · \`0:03 · Esc\` mono 11 \`#9aa0a8\`. Transcript types into the field 14/1.5 with grey provisional tail and caret. Release to send; it lands in the thread as a normal message. The context chip applies. (An alternative draft footer \`Release ⌥ Space to send · Esc discard\` + \`Reply: auto\` pill — build the pill; see §4.25.)
+- With the panel open, the compact bar **docks into the panel composer**: composer border \`#2563eb\` + focus halo, radius 14, padding \`10px 12px\`. Top row gap 10: ring mark 16 · 10 static-drawn bars (animated in production, §4.2) · spacer · \`0:03 · Esc\` mono 11 \`#9aa0a8\`. Transcript types into the field 14/1.5 with grey provisional tail and caret. Press ⌥⇧Space again (or click the mic button again) to send; it lands in the thread as a normal message. The context chip applies. (An alternative draft footer \`Press ⌥⇧Space again to send · Esc discard\` + \`Reply: auto\` pill — build the pill; see §4.25.)
 - Keybind from elsewhere with the panel closed: §4.23 short-answer flow (C2): 1 · hold anywhere → bar; 2 · short answer → card above the bar for 8 s, panel stays closed; 3 · needs room → the panel opens with the thread already in it.
 
 ### 6.10 History in the panel (C3)
@@ -1337,18 +1337,18 @@ Designed as an alternative for one-shot questions via \`⌘K\`; not confirmed fo
 ---
 ## 8. Screen: voice
 
-**Purpose.** Ask by voice without leaving the page (compact bar), or hold a hands-free exchange (overlay). The components are §4.1, §4.2, §4.23, §4.24, §4.25. This section covers entry, permission and the order of events.
+**Purpose.** Ask by voice without leaving the page (compact bar), or have a hands-free exchange (overlay). Voice is press-again-to-send everywhere (console, wall console, extension) and the key is \`⌥⇧Space\` everywhere (editable in §12; a stored \`Alt+Space\` from before this decision reads as the new default). The components are §4.1, §4.2, §4.23, §4.24, §4.25. This section covers entry, permission and the order of events.
 
 ### 8.1 Order of events (compact bar)
 
-1. \`⌥ Space\` keydown (held ≥ 150 ms — spec default to distinguish from double-tap) → bar appears (120 ms) in **Invoked**. Mic permission checked.
+1. \`⌥⇧Space\` keydown (key-repeat and keyup ignored) → bar appears (120 ms) in **Invoked**. Mic permission checked.
 2. First audio frame → **Listening**; waveform live; transcript streams.
 3. Low-confidence code token → **Uncertain** marking + popover; listening continues.
-4. Key released → **Processing**: transcript sent as a message (to the panel thread if open, else to a background thread); current tool step shown.
+4. \`⌥⇧Space\` pressed again (or the mic button clicked again) → **Processing**: transcript sent as a message (to the panel thread if open, else to a background thread); current tool step shown.
 5. Answer → delivery per §4.25 rules: short card above the bar (8 s) / spoken / panel opens for content that needs room. Confirmation → panel (if open) or modal (§4.15 E).
 6. \`Esc\` at any point before step 4 → discard, bar exits. After step 4, \`Esc\` stops the reply (and speech).
 
-Double-tap \`⌥ Space\` (two presses within 300 ms — spec default) → overlay (§4.24) instead.
+Double-tap \`⌥⇧Space\` (two presses within 300 ms — spec default; nothing can have been heard yet) → overlay (§4.24) instead. In the overlay the same key starts and, pressed again, sends.
 
 ### 8.2 Microphone permission not yet granted (Ops Agent D5)
 
@@ -1356,7 +1356,7 @@ Shown the first time voice is invoked. Card white, \`1px #e6e7ea\`, radius 14, p
 
 \`\`\`
 [orb idle 30, still]  Talk to the agent from anywhere          (14.5/700)
-Hold ⌥ Space on any console page. Audio is transcribed and discarded; only the text is kept in the thread.
+Press ⌥⇧Space on any console page, and again to send. Audio is transcribed and discarded; only the text is kept in the thread.
 [Allow microphone] (primary)   [Not now] (ghost)
 \`\`\`
 
@@ -1510,7 +1510,7 @@ Toggle: 44×26 radius 999, padding 3, knob 20×20 white radius 50% \`0 1px 3px r
 | Label | Description (verbatim) | Default in design |
 |---|---|---|
 | \`Web search\` | \`Public sources, shown in amber with URL and time. Off: company and internal only.\` | on |
-| \`Voice\` | \`Push-to-talk and the ⌥ Space keybind. Audio is discarded after transcription.\` | on |
+| \`Voice\` | \`Voice and the ⌥⇧Space keybind. Press to start, press again to send. Audio is discarded after transcription.\` | on |
 | \`Write actions\` | \`Wall, NOTAM Check, limitations. Always asks first; this switch only removes the ability.\` | on |
 | \`Send email\` | \`Through Resend, signed with the requester's name. Always asks first.\` | on |
 | \`Auto-approve reference uploads\` | \`Authoritative uploads always need an approver regardless.\` | off |
@@ -1624,7 +1624,7 @@ Every moving thing. Easing marked *(spec default)* is not in the design (§2.4).
 | C2 | Hold-to-delete fill | pointer/space held | overlay width | 0% → 100% | **2000 ms** linear | linear | — | same (progress, not decoration); announce "hold 2 seconds" |
 | C3 | Hold release before complete | release | overlay width | current → 0% | 150 ms *(spec default)* | ease.in | — | instant |
 | C4 | Destructive countdown | pending | text | \`4:12 left\` ticking | 1 s steps | — | — | same |
-| V1 | Voice bar entrance | ⌥ Space held | opacity, translateY | 0, +8px → 1, 0 *(spec default values)* | **120 ms** | ease.out | — | opacity only |
+| V1 | Voice bar entrance | ⌥⇧Space pressed | opacity, translateY | 0, +8px → 1, 0 *(spec default values)* | **120 ms** | ease.out | — | opacity only |
 | V2 | Voice bar width growth | transcript length | width | 380 → max 560 | 150 ms *(spec default)* | ease.out | — | instant |
 | V3 | Processing line | processing | translateX of a 33%-wide 2px bar | -100% → 300% | **1400 ms loop** | **ease-in-out** (design) | — | static 33% bar |
 | V4 | Transcript scroll-off | text exceeds width | horizontal offset | older words leave left | continuous as words arrive | — | — | same |
@@ -1632,7 +1632,7 @@ Every moving thing. Easing marked *(spec default)* is not in the design (§2.4).
 | V6 | Voice bar exit | send / Esc / error end | opacity, translateY | 1,0 → 0,+8px | 120 ms *(spec default)* | ease.in | — | opacity only |
 | V7 | Short-answer card | short answer | enter as V1; auto-dismiss | visible **8 s** | 120 ms in / out | ease.out / in | — | opacity only |
 | V8 | Uncertain popover | low-confidence token | opacity, translateY | 0,4px → 1,0 | 120 ms *(spec default)* | ease.out | — | opacity only |
-| V9 | Overlay entrance | double-tap ⌥ Space | scrim opacity; card translateY + opacity | 0 → .28; 16px → 0 | **not drawn** — 200 ms *(spec default)* | ease.out | card 40 ms after scrim | opacity only |
+| V9 | Overlay entrance | double-tap ⌥⇧Space | scrim opacity; card translateY + opacity | 0 → .28; 16px → 0 | **not drawn** — 200 ms *(spec default)* | ease.out | card 40 ms after scrim | opacity only |
 | S1 | Speaking progress bar | playing | width | 0 → 100% | length of audio | linear | — | same |
 | S2 | Reading-position highlight | sentence boundary | background of current sentence | none → \`#e8effe\` | 150 ms *(spec default)* | ease.out | per sentence | instant |
 | S3 | Transcript colour (spoken vs unspoken) | word/sentence timing | colour | \`#b9bdc5\` → \`#17181c\` | per word | — | — | same |
@@ -1661,9 +1661,9 @@ Every moving thing. Easing marked *(spec default)* is not in the design (§2.4).
 | \`⌘J\` / Ctrl+J | anywhere in the console | Toggle side panel (opens with current context) |
 | \`⌘⇧J\` | panel open | Expand to full page |
 | \`⌘K\` | anywhere | Command palette — **only if 1c is built** (\`DECISION OPEN\`) |
-| hold \`⌥ Space\` | anywhere (not while typing in another input — spec default: yes, it still works; ⌥ Space does not type a character users need) | Compact voice bar; release sends |
-| double-tap \`⌥ Space\` | anywhere | Large voice overlay |
-| \`⇧\` held on release of ⌥ Space | voice | Flip reply mode for this answer |
+| \`⌥⇧Space\` | anywhere (not while typing in another input — spec default: yes, it still works; ⌥⇧Space does not type a character users need) | Compact voice bar; press again to send |
+| double-tap \`⌥⇧Space\` | anywhere | Large voice overlay |
+| \`⇧\` held on the sending press of ⌥⇧Space | voice | Flip reply mode for this answer |
 | \`S\` / \`V\` | while an answer is being spoken / shown | Show instead / say instead |
 | \`1\`–\`3\` | uncertain-word popover | Pick alternative |
 | \`Esc\` | voice capture | Discard |

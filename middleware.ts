@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
+import { rigViolation } from "@/lib/rig-guard.mjs";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -51,6 +52,9 @@ function failClosed(request: NextRequest, pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // The test rig must never reach the production database (lib/rig-guard.mjs).
+  { const why = rigViolation(); if (why) return new NextResponse(`REFUSING: ${why}`, { status: 500 }); }
+
   const { pathname, search } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";
   // Cached PDFs under /files/* are NOT public assets even though they carry an

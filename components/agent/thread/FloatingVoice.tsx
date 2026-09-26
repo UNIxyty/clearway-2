@@ -1,7 +1,7 @@
 "use client";
 
 // Voice with the panel closed (design spec §4.23 placement, §6.9 C2 flow):
-// hold the voice key anywhere on a console page → the compact bar floats 22 px
+// press the voice key anywhere on a console page → the compact bar floats 22 px
 // above the bottom edge, centred on the content area (not the viewport — the
 // sidebar is excluded), draggable along the bottom edge with left / centre /
 // right snaps remembered per user. The question goes to the panel's own
@@ -84,7 +84,7 @@ export default function FloatingVoice({ thread, context, openPanel }: { thread: 
       <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
         style={{ position: "fixed", bottom: 22, zIndex: 70, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none", ...position, ...(dx ? { translate: `${dx}px 0` } : {}) }}>
         <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", gap: 8, alignItems: "inherit" }}>
-          {permission && <MicPermissionCard v={s.voice} panel={false} floating holdLabel={s.holdLabel} onTypeInstead={openPanel} />}
+          {permission && <MicPermissionCard v={s.voice} panel={false} floating keyLabel={s.keyLabel} onTypeInstead={openPanel} />}
           {delivered && speaking && <SpeakingCard s={s} plan={delivered.plan} onShowFull={() => { s.speaker.stop(); openPanel(); }} />}
           {shortCard && <ShortAnswerCard text={shortCard} openLabel={s.openLabel} onOpen={() => { s.setReply({ phase: "idle" }); openPanel(); }} sayable={!delivered?.spoken} onSay={s.sayInstead} />}
           <VoiceNote v={s.voice} />

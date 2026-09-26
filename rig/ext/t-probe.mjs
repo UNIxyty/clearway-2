@@ -1,0 +1,12 @@
+import { launch, panelPage, sleep, swEval } from "./harness.mjs";
+const { context, sw, extId } = await launch({ fresh: true, profile: "ext-profile-probe" });
+sw.on("console", (m) => console.log("SW:", m.text().slice(0, 200)));
+await sleep(1500);
+await swEval(sw, () => chrome.storage.sync.set({ settings: { pill: true, notifications: true, firstRunDone: true, mic: "allowed" } }));
+const panel = await panelPage(context, extId);
+panel.on("pageerror", (e) => console.log("PAGEERROR:", e.message.slice(0, 200)));
+panel.on("console", (m) => { if (m.type() === "error") console.log("CONSOLE:", m.text().slice(0, 200)); });
+await sleep(3000);
+console.log("session:", JSON.stringify((await swEval(sw, () => chrome.storage.local.get("session"))).session).slice(0, 300));
+console.log("panel text:", (await panel.evaluate(() => document.body.innerText)).slice(0, 200).replace(/\n/g, " | "));
+await context.close();

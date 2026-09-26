@@ -107,7 +107,7 @@ function usePopoverLeft(host: React.RefObject<HTMLElement>, wordRefs: React.Muta
 // ── Reply preference pill (6b) ────────────────────────────────────────────────
 export function ReplyModePill({ mode, onClick, panel = false }: { mode: ReplyMode; onClick: () => void; panel?: boolean }) {
   return (
-    <button type="button" onClick={onClick} title="How answers to voice questions are delivered — click to change. Hold ⇧ as you release to flip it for one answer."
+    <button type="button" onClick={onClick} title="How answers to voice questions are delivered — click to change. Hold ⇧ on the sending press to flip it for one answer."
       style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: C.primaryHover, background: C.primaryTint, border: "none", borderRadius: 999, padding: panel ? "3px 8px" : "6px 10px", cursor: "pointer", whiteSpace: "nowrap", flex: "none" }}>
       <Icon name="volume-2" size={12} color={C.primaryHover} />Reply: {mode}
     </button>
@@ -162,7 +162,7 @@ export function VoiceBar({ s, variant, panel = false, selectedLabel = null, styl
         <span style={{ fontSize: 13, color: C.muted, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.detail}</span>
         <button type="button" onClick={() => (e.action === "type" ? (v.dismiss(), s.typeInstead()) : e.action === "allow" ? v.dismiss() : (v.dismiss(), void v.start()))}
           style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.sidebar, border: `1px solid ${C.border}`, borderRadius: 999, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>
-          {e.action === "type" ? `Type instead ${s.openLabel}` : e.action === "allow" ? "How to allow" : `Hold ${s.holdLabel} again`}
+          {e.action === "type" ? `Type instead ${s.openLabel}` : e.action === "allow" ? "How to allow" : `Press ${s.keyLabel} again`}
         </button>
       </div>
     );
@@ -207,7 +207,7 @@ export function VoiceBar({ s, variant, panel = false, selectedLabel = null, styl
           {!floating && <span style={{ flex: 1 }} />}
           {checkCount > 0
             ? <span style={{ fontSize: 11.5, fontWeight: 600, color: C.warn, whiteSpace: "nowrap" }}>{checkCount === 1 ? "1 word to check" : `${checkCount} words to check`}</span>
-            : look === "invoked" ? <Keys label={s.holdLabel} /> : <span style={{ ...mono({ fontSize: floating ? 11.5 : 11 }), color: C.faint, whiteSpace: "nowrap" }}>{mmss(v.elapsed)}{floating ? "" : " · Esc"}</span>}
+            : look === "invoked" ? <Keys label={s.keyLabel} /> : <span style={{ ...mono({ fontSize: floating ? 11.5 : 11 }), color: C.faint, whiteSpace: "nowrap" }}>{mmss(v.elapsed)}{floating ? "" : " · Esc"}</span>}
           {floating && selectedLabel && look !== "invoked" && <span style={{ fontSize: 11, fontWeight: 600, color: C.primaryHover, background: C.primaryTint, borderRadius: 999, padding: "4px 8px", whiteSpace: "nowrap" }}>+ {selectedLabel} selected</span>}
           {!floating && <ReplyModePill mode={s.mode} onClick={s.cycleMode} panel={panel} />}
           {first && first.options.length > 0 && (look === "check" || look === "listening") && <UncertainPopover word={first} left={popLeft} onPick={(val) => v.resolve(first.id, val)} />}
@@ -332,7 +332,7 @@ export function DockedSpeaking({ s, panel }: { s: VoiceSession; panel: boolean }
 }
 
 // ── §8.2 / §8.3 permission cards ──────────────────────────────────────────────
-export function MicPermissionCard({ v, panel, holdLabel, onTypeInstead, floating = false }: { v: VoiceInput; panel: boolean; holdLabel: string; onTypeInstead: () => void; floating?: boolean }) {
+export function MicPermissionCard({ v, panel, keyLabel, onTypeInstead, floating = false }: { v: VoiceInput; panel: boolean; keyLabel: string; onTypeInstead: () => void; floating?: boolean }) {
   const blocked = v.state === "blocked";
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) && !/Chrome\//.test(ua) ? "Safari" : "Chrome";
@@ -347,7 +347,7 @@ export function MicPermissionCard({ v, panel, holdLabel, onTypeInstead, floating
       <div style={{ fontSize: panel ? 13 : 13.5, lineHeight: 1.5, color: C.body }}>
         {blocked
           ? `${browser} is blocking it. ${how} On the ops-room PC no microphone is connected — typing works the same.`
-          : `Hold ${holdLabel} on any console page. Audio is transcribed and discarded; only the text is kept in the thread.`}
+          : `Press ${keyLabel} on any console page, and again to send. Audio is transcribed and discarded; only the text is kept in the thread.`}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         {blocked

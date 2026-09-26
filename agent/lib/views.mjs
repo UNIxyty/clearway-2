@@ -124,7 +124,7 @@ export function activityCsv(rows) {
 // "don't ask" mode, by design.
 export const CAPABILITIES = [
   { key: "web_search", label: "Web search", description: "Public sources, shown in amber with URL and time. Off: company and internal only.", default: true },
-  { key: "voice", label: "Voice", description: "Push-to-talk and the ⌥ Space keybind. Audio is discarded after transcription.", default: true },
+  { key: "voice", label: "Voice", description: "Voice and the ⌥⇧Space keybind. Press to start, press again to send. Audio is discarded after transcription.", default: true },
   { key: "write_actions", label: "Write actions", description: "Wall, NOTAM Check, limitations. Always asks first; this switch only removes the ability.", default: true },
   { key: "send_email", label: "Send email", description: "Through Resend, signed with the requester's name. Always asks first.", default: true },
   { key: "auto_approve_reference", label: "Auto-approve reference uploads", description: "Authoritative uploads always need an approver regardless.", default: false },
@@ -156,15 +156,21 @@ export const KEYBIND_ACTIONS = [
   { key: "open", label: "Open or close the panel", description: "Anywhere in the console and on the wall console." },
   { key: "expand", label: "Expand to the full page · back to the panel", description: "Carries the thread with it." },
   { key: "confirm", label: "Confirm a standard change", description: "Only while a confirmation card is showing. Destructive changes have no keyboard confirm." },
-  { key: "voice", label: "Push to talk (hold)", description: "Hold to speak, release to send. Shown in the composer; voice itself is not wired yet." },
+  { key: "voice", label: "Talk", description: "Press to start, press again to send. Shown in the composer." },
 ];
-export const KEYBIND_DEFAULTS = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Space" };
+// One voice key everywhere (console, wall console, extension): Alt+Shift+Space.
+// Alt+Space alone opens the window menu on Windows and clashes with the
+// extension's suggested shortcuts, so the Windows set uses the same value.
+export const KEYBIND_DEFAULTS = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Shift+Space" };
+// Earlier defaults that a stored row may still carry; read as the current default so old rows migrate on read.
+const RETIRED_DEFAULTS = { voice: ["Alt+Space"] };
 const BIND_RE = /^((Mod|Meta|Ctrl|Alt|Shift)\+)+(Enter|Space|Escape|[A-Z0-9]|F[1-9]|F1[0-2]|Arrow(Up|Down|Left|Right)|[\[\]\\;',./`=-])$/;
 export function normalizeKeybinds(input) {
   const out = { perPlatform: Boolean(input?.perPlatform), shared: {}, mac: {}, windows: {} };
   for (const set of ["shared", "mac", "windows"]) {
     for (const a of KEYBIND_ACTIONS) {
-      const raw = String(input?.[set]?.[a.key] ?? KEYBIND_DEFAULTS[a.key]).trim();
+      let raw = String(input?.[set]?.[a.key] ?? KEYBIND_DEFAULTS[a.key]).trim();
+      if (RETIRED_DEFAULTS[a.key]?.includes(raw)) raw = KEYBIND_DEFAULTS[a.key];
       if (!BIND_RE.test(raw)) throw new Error(`Invalid shortcut for ${a.key}: ${raw}`);
       out[set][a.key] = raw;
     }

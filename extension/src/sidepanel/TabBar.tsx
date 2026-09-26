@@ -41,9 +41,9 @@ export function TabBar({ tab, selectionHas, requestedAt, onSend, quick, blockedN
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.faint, marginRight: 2 }}>SEND</span>
-            {send("selection", "scan-text", "Selection", !selectionHas)}{send("region", "scan", "Region")}{send("page", "file-text", "Page")}
+            {send("selection", "scan-text", "Selection", !selectionHas)}{send("region", "scan", "Region", tab.captureWorks === false)}{send("page", "file-text", "Page")}
           </div>
-          <div style={{ fontSize: 11.5, color: C.faint }}>Nothing on this page is shared until you send it.</div>
+          <div style={{ fontSize: 11.5, color: C.faint }}>{tab.captureWorks === false ? `Nothing on this page is shared until you send it. Capture with ${SHORTCUTS.capture} or right-click → Capture region.` : "Nothing on this page is shared until you send it."}</div>
         </>
       ) : (
         <div style={{ fontSize: 12, lineHeight: 1.5, color: C.muted }}>

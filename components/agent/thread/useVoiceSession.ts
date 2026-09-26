@@ -9,10 +9,12 @@
 //                    uncertain words, final commit, batch fallback.
 //   useSpeaker     — TTS playback with level (orb O4, waveform W1) and word /
 //                    sentence timing (S2, S3).
-//   useVoiceSession — the keybind flow (hold / tap / double-tap, ⇧ on
-//                    release, Esc precedence), the overlay, the reply-mode
-//                    preference (6b/6c), rule 9 ("Please confirm on screen")
-//                    and the wall readout activity (postVoiceActivity).
+//   useVoiceSession — the keybind flow (press to start, press again to send,
+//                    double-tap for the overlay, ⇧ on the sending press, Esc
+//                    precedence), the overlay, the reply-mode preference
+//                    (6b/6c — held on the server, per user), rule 9 ("Please
+//                    confirm on screen") and the wall readout activity
+//                    (postVoiceActivity).
 //
 // THE RULE THIS FILE KEEPS: nothing acts on a partial. Interim text is only
 // ever rendered. The send path receives text built from committed segments
@@ -21,7 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_BASE, type AgentMessage } from "../types";
-import { eventKey, useKeybinds } from "../ui/keybinds";
+import { useKeybinds } from "../ui/keybinds";
 import { VoiceCapture, alternativesFor, fetchRealtimeSession, type Candidate, type HeardWord, type Segment } from "./voiceCapture";
 import { postVoiceActivity, type VoicePhase } from "./voiceActivity";
 
@@ -34,7 +36,7 @@ export type SpeechPlan = { kind: "short" | "long" | "shown" | "confirm" | "empty
 export type SpeechAudio = { audio: string; mime: string; duration: number; words: { i: number; t: number }[]; sentences: { text: string; start: number; end: number }[] };
 
 const MIN_MS = 400;           // a button press shorter than this is not speech
-const TAP_MS = 150;           // §8.1: held ≥ 150 ms is a hold; shorter is a tap
+const TAP_MS = 150;           // §8.1: a forwarded on/off shorter than this heard nothing — treated as a tap
 const DOUBLE_TAP_MS = 300;    // §8.1: two presses within 300 ms → overlay
 const NOTHING_HEARD_MS = 4000; // §4.23: "nothing heard in 4 s"
 const SILENT_LEVEL = 0.02;
@@ -172,7 +174,7 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
     if ((stateRef.current as VoiceState) !== "finalizing") return; // Esc while finalizing
     if (result.via === "realtime") {
       const segs = segRef.current.length ? segRef.current : result.segments;
-      if (!committedText(segs)) { resetText(); fail({ title: "Didn't catch that", detail: held < MIN_MS ? "hold the key while you speak" : "nothing heard", action: "retry", hold: 3000 }); return; }
+      if (!committedText(segs)) { resetText(); fail({ title: "Didn't catch that", detail: held < MIN_MS ? "speak before pressing again" : "nothing heard", action: "retry", hold: 3000 }); return; }
       if (unresolvedWords(segs).length) { set("check"); return; } // the popover asks (§4.23: ask before acting on an unresolved one)
       deliver(segs, "realtime", result.language);
       return;
@@ -180,7 +182,7 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
     // Batch fallback — the old path, with a visible note.
     setNote((n) => n ?? "Live transcript unavailable — transcribed after release.");
     const blob = result.audio;
-    if (!blob || held < MIN_MS || peak < SILENT_LEVEL || blob.size < 1024) { resetText(); fail({ title: "Didn't catch that", detail: held < MIN_MS ? "hold the key while you speak" : "nothing heard", action: "retry", hold: 3000 }); return; }
+    if (!blob || held < MIN_MS || peak < SILENT_LEVEL || blob.size < 1024) { resetText(); fail({ title: "Didn't catch that", detail: held < MIN_MS ? "speak before pressing again" : "nothing heard", action: "retry", hold: 3000 }); return; }
     try {
       const res = await fetch(`${AGENT_BASE}/api/voice/transcribe`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": blob.type || "audio/webm" }, body: blob });
       const body = await res.json().catch(() => null);
@@ -326,8 +328,15 @@ export type ReplyState =
   | { phase: "delivered"; request: string; plan: SpeechPlan; spoken: boolean; mode: ReplyMode; at: number; audio: SpeechAudio | null }
   | { phase: "notice"; text: string; tone: "warn" | "info"; at: number };
 
+// The reply mode is a per-user server preference (GET/PATCH /api/settings/me,
+// `replyMode`) so the extension and every console tab see the same choice.
+// localStorage only caches the last known value for the first paint; it is
+// never the source of truth.
 const MODE_KEY = "cw-agent-reply-mode";
-export function readReplyMode(): ReplyMode { try { const v = localStorage.getItem(MODE_KEY); return v === "spoken" || v === "text" || v === "auto" ? v : "auto"; } catch { return "auto"; } }
+const MODE_EVENT = "cw-agent-reply-mode";
+const isReplyMode = (v: unknown): v is ReplyMode => v === "spoken" || v === "text" || v === "auto";
+export function readReplyMode(): ReplyMode { try { const v = localStorage.getItem(MODE_KEY); return isReplyMode(v) ? v : "auto"; } catch { return "auto"; } }
+function cacheReplyMode(m: ReplyMode) { try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ } }
 
 /** A tool step for the Processing state / overlay WORKING line: "Checking search flights for BTI472…". */
 export function stepLabel(messages: AgentMessage[], activity: string | null): string | null {
@@ -364,8 +373,27 @@ export function useVoiceSession({
   const [overlay, setOverlay] = useState(false);
   const [handsFree, setHandsFree] = useState(false);
   const [mode, setModeRaw] = useState<ReplyMode>("auto");
-  useEffect(() => { setModeRaw(readReplyMode()); }, []);
-  const setMode = useCallback((m: ReplyMode) => { setModeRaw(m); try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ } }, []);
+  const modeRef = useRef<ReplyMode>("auto"); modeRef.current = mode;
+  useEffect(() => {
+    setModeRaw(readReplyMode()); // cached first paint only
+    let alive = true;
+    fetch(`${AGENT_BASE}/api/settings/me`, { credentials: "same-origin", cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { const m = b?.replyMode ?? b?.prefs?.replyMode; if (alive && isReplyMode(m)) { setModeRaw(m); cacheReplyMode(m); } })
+      .catch(() => { /* offline: the cached value stands until the next load */ });
+    // Another voice host on the page (composer + floating bar) changed it.
+    const sync = (e: Event) => { const m = (e as CustomEvent<ReplyMode>).detail; if (isReplyMode(m)) setModeRaw(m); };
+    window.addEventListener(MODE_EVENT, sync);
+    return () => { alive = false; window.removeEventListener(MODE_EVENT, sync); };
+  }, []);
+  const setMode = useCallback((m: ReplyMode) => {
+    const prev = modeRef.current;
+    const apply = (v: ReplyMode) => { setModeRaw(v); cacheReplyMode(v); window.dispatchEvent(new CustomEvent(MODE_EVENT, { detail: v })); };
+    apply(m); // optimistic
+    fetch(`${AGENT_BASE}/api/settings/me`, { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ replyMode: m }) })
+      .then(async (r) => { const b = await r.json().catch(() => null); if (!r.ok || !b?.ok) throw new Error(b?.message || `HTTP ${r.status}`); })
+      .catch((err) => { console.error("Reply mode was not saved; keeping the previous one.", err); apply(prev); });
+  }, []);
   const cycleMode = useCallback(() => setMode(mode === "auto" ? "spoken" : mode === "spoken" ? "text" : "auto"), [mode, setMode]);
 
   // Wall readout: one session id per utterance+reply; ≤ 4 updates a second.
@@ -386,7 +414,6 @@ export function useVoiceSession({
 
   const lockedRef = useRef(locked); lockedRef.current = locked;
   const threadRef = useRef(thread); threadRef.current = thread;
-  const modeRef = useRef(mode); modeRef.current = mode;
 
   const notice = useCallback((text: string, tone: "warn" | "info" = "warn") => setReply({ phase: "notice", text, tone, at: Date.now() }), []);
 
@@ -471,6 +498,9 @@ export function useVoiceSession({
   }, [reply, speaker.playing]);
 
   // ── Keybind flow (§8.1, §15) ──
+  // press()/release() are the two halves of one utterance (the forwarded
+  // `cw-agent-voice` event sends them as {on:true}/{on:false}); toggle() is the
+  // key and the mic button: press to start, press again to send.
   const overlayRef = useRef(overlay); overlayRef.current = overlay;
   const handsRef = useRef(handsFree); handsRef.current = handsFree;
   const keys = useRef({ pressAt: 0, lastPressAt: 0, lastWasTap: false, holding: false, stopOnUp: false });
@@ -510,6 +540,16 @@ export function useVoiceSession({
     void voice.stop({ flip: shift });
   }, [voice]);
 
+  /** One press of the voice key or the mic button: start listening, or — while listening — send. */
+  const toggle = useCallback((shift: boolean) => {
+    const k = keys.current; const now = Date.now(); const s = voice.stateRef.current;
+    const live = s === "invoked" || s === "listening" || s === "check";
+    if (!k.holding || !live) { press(); return; }
+    // A second press within the double-tap window heard nothing yet: the large overlay (§4.24) instead.
+    if (!overlayRef.current && now - k.pressAt < DOUBLE_TAP_MS) { k.holding = false; k.lastWasTap = true; k.lastPressAt = k.pressAt; voice.cancel({ silent: true }); press(); return; }
+    release(shift);
+  }, [press, release, voice]);
+
   /** Esc precedence: voice capture → speech/reply → overlay (§15). Returns true when handled. */
   const escape = useCallback((): boolean => {
     const s = voice.stateRef.current;
@@ -528,7 +568,7 @@ export function useVoiceSession({
     const typing = () => { const a = document.activeElement as HTMLElement | null; return Boolean(a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.isContentEditable)); };
     const down = (e: KeyboardEvent) => {
       if (guard && !guard()) return;
-      if (kb.matches(e, "voice")) { e.preventDefault(); if (!e.repeat) press(); return; }
+      if (kb.matches(e, "voice")) { e.preventDefault(); if (!e.repeat) toggle(e.shiftKey); return; } // keyup is ignored: press again to send
       if (e.key === "Escape") { if (escape()) { e.preventDefault(); e.stopPropagation(); } return; }
       // Uncertain-word popover: 1–3 pick.
       if (voice.stateRef.current === "check" || (voice.unresolved.length && voice.stateRef.current === "listening")) {
@@ -543,22 +583,17 @@ export function useVoiceSession({
         if (e.key === "Enter" && !docked && reply.phase === "delivered") { e.preventDefault(); openPanel?.(); setReply({ phase: "idle" }); return; }
       }
     };
-    const up = (e: KeyboardEvent) => {
-      if (!keys.current.holding) return;
-      const key = kb.binds.voice.split("+").pop();
-      if (eventKey(e) === key || ["Alt", "Meta", "Control"].includes(e.key)) release(e.shiftKey);
-    };
-    // The console host forwards the shortcut into the panel iframe.
+    // The console host / extension forwards the shortcut into the panel iframe as on/off.
     const forwarded = (e: Event) => { if (guard && !guard()) return; const on = (e as CustomEvent<{ on: boolean; shift?: boolean }>).detail?.on; if (on) press(); else release(Boolean((e as CustomEvent<{ shift?: boolean }>).detail?.shift)); };
-    window.addEventListener("keydown", down, true); window.addEventListener("keyup", up, true); window.addEventListener("cw-agent-voice", forwarded);
-    return () => { window.removeEventListener("keydown", down, true); window.removeEventListener("keyup", up, true); window.removeEventListener("cw-agent-voice", forwarded); };
-  }, [enabled, kb, press, release, escape, guard, voice, speaker.playing, showInstead, sayInstead, reply.phase, docked, openPanel]);
+    window.addEventListener("keydown", down, true); window.addEventListener("cw-agent-voice", forwarded);
+    return () => { window.removeEventListener("keydown", down, true); window.removeEventListener("cw-agent-voice", forwarded); };
+  }, [enabled, kb, press, release, toggle, escape, guard, voice, speaker.playing, showInstead, sayInstead, reply.phase, docked, openPanel]);
 
   const closeOverlay = useCallback(() => { voice.cancel({ silent: true }); speaker.stop(); setOverlay(false); setHandsFree(false); }, [speaker, voice]);
 
   return {
     voice, speaker, reply, setReply, overlay, setOverlay, closeOverlay, handsFree, mode, setMode, cycleMode,
-    press, release, escape, sayInstead, showInstead, holdLabel: kb.label("voice"), openLabel: kb.label("open"), reduced: reducedMotion(),
+    press, release, toggle, escape, sayInstead, showInstead, keyLabel: kb.label("voice"), openLabel: kb.label("open"), reduced: reducedMotion(),
     typeInstead: () => { voice.dismiss(); onTypeInstead?.(); },
     working: reply.phase === "working",
   };

@@ -28,6 +28,8 @@ COPY digital-wall/lib/mailer.mjs /digital-wall/lib/mailer.mjs
 # group, keyed "<oprId>:<flightNid>"): the flight tools read the wall's own
 # record shape rather than a second one. Pure, no imports.
 COPY digital-wall/lib/flight-record.mjs /digital-wall/lib/flight-record.mjs
+# The rig guard (refuses a test-rig run that points at production) lives at the repo root; server.mjs imports ../lib/rig-guard.mjs.
+COPY lib/rig-guard.mjs /lib/rig-guard.mjs
 
 EXPOSE 5175
 

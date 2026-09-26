@@ -17,7 +17,7 @@ export type SessionState = {
   replyMode?: string | null; checkedAt: number; error?: string | null;
 };
 export type SiteStatus = "approved" | "approved-pending-enable" | "requested" | "not-on-list" | "chrome" | "unknown";
-export type TabInfo = { id: number | null; url: string; host: string; path: string; title: string; favIconUrl: string | null; status: SiteStatus; scriptable: boolean };
+export type TabInfo = { id: number | null; url: string; host: string; path: string; title: string; favIconUrl: string | null; status: SiteStatus; scriptable: boolean; captureWorks?: boolean };
 export type PendingConfirmation = { token: string; what: string | null; expiresAt: string | null; conversationId: string | null; toolName: string; fromThisBrowser: boolean };
 export type PendingState = { confirmations: PendingConfirmation[]; jobs: { id: string; filename: string; at: string; conversationId: string | null }[]; approvedSites: string[]; notamReview: number };
 export type Settings = { pill: boolean; notifications: boolean; firstRunDone: boolean; mic: "pending" | "allowed" | "skipped" };

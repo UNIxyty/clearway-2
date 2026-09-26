@@ -69,20 +69,24 @@ the 40 % pale icon (set through `action.setIcon` with alpha 0.4).
   `unavailable`; on production it reads the normalised feed by `flightNid`. Verify there.
 - **Finished-job badge/notification**: there is no job registry; `/api/extension/badge` returns `jobs: []`.
 - **NOTAM review count** comes from the wall's `/api/notam-check/today` (0 on the rig).
-- **Reply mode** (spoken / shown) lives in the console's browser storage; the server returns `replyMode: null`,
-  so the extension treats it as "auto". Needs an Account setting on the server.
+- **Reply mode** (spoken / shown / auto) is a per-user server preference (`GET`/`PATCH /api/settings/me`,
+  `replyMode`; row `pref:<userId>:replyMode`). The console caches it in browser storage for the first paint only.
+  `/api/extension/session` should return the same value in its `replyMode` field (currently still `null` there).
 - **Omnibox METAR/NOTAM/flight rows** need the portal's weather source and the wall; the AIP row works.
 - **"Save to Knowledge base…"** is not offered: no tool saves a document from a URL.
 
 **Needs design**
 - **Region from the panel button**: Chrome does not grant `activeTab` for a click inside the side panel, and a
-  host permission alone does not allow `captureVisibleTab` (verified). The button works on the tab where the
-  panel was opened from the toolbar icon or ⌥⇧C, and otherwise shows a card saying to use ⌥⇧S or right-click.
-  The spec's assumption (E5) was wrong; the card copy is a spec default.
+  host permission alone does not allow `captureVisibleTab` (verified). The worker records each gesture on a tab
+  (a command, a menu click, the panel opening from the icon or ⌥⇧C) and the button is **disabled** unless the
+  active tab has one, with the hint "Capture with ⌥⇧S or right-click → Capture region"; after a gesture it works
+  as before (verified: `rig/ext/t-region.mjs`, `region-disabled.png` / `region-enabled.png`). The explanation
+  card stays for a capture that fails another way.
 - **S4b → Chrome's prompt**: works; Chrome's prompt itself cannot be approved in automation (the card and the
   request are seen).
-- **Console voice keybind**: the extension shows and listens for ⌥⇧Space (E14 9 recommends the console
-  follow; still `DECISION OPEN`). The composer's hint still reads "hold" — the console component's word.
+- **Voice keybind and behaviour** (decided 2026-09-27): ⌥⇧Space everywhere, press to start and press again to
+  send, in the console and the extension; the console's mic button toggles the same way; a stored `Alt+Space`
+  reads as the new default. All "hold" copy is gone.
 - **Attachment card expanded state**, **request declined card** — built with spec defaults, not drawn.
 
 ## `NOT IN DESIGN — spec default` used
@@ -137,11 +141,24 @@ Storage: `agent_settings` rows `extsite:<host>` and `extreq:<id>` (no DDL). Ever
 | `web_accessible_resources: fonts/*` | The in-page surfaces load Public Sans / IBM Plex Mono from the package. Nothing else is exposed. |
 | CSP `script-src 'self'` … `connect-src <console> wss://api.elevenlabs.io` | No remote code, no eval (the build fails on either); network only to the console and, for voice, ElevenLabs through a single-use token minted by the agent service. |
 
-Authentication: the console's Supabase session, observed, never copied. Every request is `credentials:
-"include"` to the console origin with `x-clearway-client: extension` and `x-clearway-page-host`; the server
-authenticates the cookie exactly as it does for the console (`agent/lib/auth.mjs`) and runs every tool as that
-user. A SameSite=Lax cookie on the console origin was confirmed to travel with extension requests (t6).
-Disconnect stops the extension (server audit `extension.disconnected`) and leaves the console session as it is.
+Authentication, two paths (2026-09-27):
+1. **Cookie (primary).** The console's Supabase session, observed, never copied: every request is
+   `credentials: "include"` to the console origin with `x-clearway-client: extension`; the server authenticates
+   the cookie exactly as it does for the console (`agent/lib/auth.mjs`) and runs every tool as that user.
+2. **Token (fallback), when the cookie does not arrive.** The extension asks a signed-in console tab (same
+   origin, its cookies always travel) to call `POST /api/extension/token`; the agent answers with a sealed,
+   short-lived token (15 min, AES-GCM, `agent/lib/extension-session.mjs`) that carries the user's own Supabase
+   access token, so upstream calls still run as the user. The extension keeps it in `chrome.storage.session`
+   (memory only, never `local`), refreshes it two minutes before expiry through `POST /api/extension/token/refresh`,
+   re-exchanges from a console tab when refresh is refused, and clears it on Disconnect and on any 401. The
+   server tries the cookie first, the token second, and a plain bearer last, and records which path
+   authenticated each user: an audit row `extension.auth_path` whenever it changes, plus `authPath` in the
+   session response. A silent change of browser behaviour therefore appears in the Activity log.
+   Verified on the rig with the cookie withheld from the extension's requests (`rig/ext/t-auth-fallback.mjs`):
+   signed out without a console tab; token path with one; chat, refresh and Disconnect through it; audit trail
+   `bypass → cookie → token`.
+   Note: Chrome sends even a `SameSite=Strict` console cookie with an extension's host-permitted requests, so the
+   failure mode was simulated at the rig proxy, which drops the Cookie header from extension requests only.
 
 ## Packaging
 

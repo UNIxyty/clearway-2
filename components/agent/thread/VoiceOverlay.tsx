@@ -3,9 +3,9 @@
 // The large voice overlay (design spec §4.24, Ops Agent D2) — double-tap the
 // voice key. Scrim, a 600-wide card 36 px from the bottom, the 120 px orb in
 // all five states (O1–O5, colour change O6), the state label, the transcript
-// and the footer. Hands-free: a tap keeps it listening, the next tap sends;
-// holding works as push-to-talk. The review-only state switcher in the design
-// is not built (§4.24).
+// and the footer. Hands-free by construction: one press of the voice key
+// starts listening, the next press sends. The review-only state switcher in
+// the design is not built (§4.24).
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -31,7 +31,7 @@ export default function VoiceOverlay({ s, replyWhere }: { s: VoiceSession; reply
 
   let transcript: React.ReactNode;
   if (orb === "error" && v.error) {
-    transcript = <><span style={{ color: C.danger }}>{v.error.lost ? "I lost the microphone mid-sentence." : `${v.error.title}.`}</span><span style={{ color: C.muted }}>{v.error.lost ? ` What I heard is kept in the composer — press ${s.holdLabel} to try again.` : ` ${v.error.detail}.`}</span></>;
+    transcript = <><span style={{ color: C.danger }}>{v.error.lost ? "I lost the microphone mid-sentence." : `${v.error.title}.`}</span><span style={{ color: C.muted }}>{v.error.lost ? ` What I heard is kept in the composer — press ${s.keyLabel} to try again.` : ` ${v.error.detail}.`}</span></>;
   } else if (orb === "listening") {
     transcript = v.segments.length || v.partial ? <Transcript segments={v.segments} partial={v.partial} caret={v.state === "listening"} size={19} wrap center /> : <span style={{ color: C.faint }}>Listening…</span>;
   } else if (orb === "thinking") {
@@ -45,7 +45,7 @@ export default function VoiceOverlay({ s, replyWhere }: { s: VoiceSession; reply
   } else if (s.reply.phase === "notice") {
     transcript = <span style={{ color: C.warn }}>{s.reply.text}</span>;
   } else {
-    transcript = <span style={{ color: C.faint }}>Hold {s.holdLabel} and speak.</span>;
+    transcript = <span style={{ color: C.faint }}>Press {s.keyLabel} and speak.</span>;
   }
 
   return createPortal(
@@ -67,9 +67,8 @@ export default function VoiceOverlay({ s, replyWhere }: { s: VoiceSession; reply
         )}
         {v.note && <div role="status" style={{ fontSize: 12, color: C.warn }}>{v.note}</div>}
         <div style={{ alignSelf: "stretch", borderTop: `1px solid ${C.divider}`, paddingTop: 12, display: "flex", alignItems: "center", gap: 16, fontSize: 12, color: C.faint, flexWrap: "wrap" }}>
-          <span>Release <span style={mono()}>{s.holdLabel}</span> to send</span>
+          <span>Press <span style={mono()}>{s.keyLabel}</span> again to send</span>
           <span><span style={mono()}>Esc</span> discard</span>
-          <span>Tap once to keep listening</span>
           <span style={{ flex: 1 }} />
           <span>Reply in the {replyWhere} · sound {s.mode === "text" ? "off" : "on"}</span>
           <ReplyModePill mode={s.mode} onClick={s.cycleMode} panel />

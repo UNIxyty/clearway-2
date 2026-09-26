@@ -110,10 +110,13 @@ export function escalationAfterRound({ tier, toolCalls, escalation }) {
 // ── Per-user preferences (stored as agent_settings rows, no DDL) ───────────────────────────────────
 // pref:<userId>:tier          reason = "fast" | "standard" | "reasoning" | "" (automatic)
 // pref:<userId>:skipConfirm   enabled = true/false  (item 4)
+// pref:<userId>:replyMode     reason = "auto" | "spoken" | "text"  (voice reply, spec 6b; default auto)
 // lock:skipConfirm            enabled = true → nobody may skip; reason = JSON array of locked user ids
 
+export const REPLY_MODES = ["auto", "spoken", "text"];
+
 export async function userPrefs(userId) {
-  const ids = [`pref:${userId}:tier`, `pref:${userId}:skipConfirm`, "lock:skipConfirm"];
+  const ids = [`pref:${userId}:tier`, `pref:${userId}:skipConfirm`, `pref:${userId}:replyMode`, "lock:skipConfirm"];
   const rows = (await rest(`agent_settings?id=in.(${ids.map((i) => `"${encodeURIComponent(i)}"`).join(",")})&select=id,enabled,reason`).catch(() => [])) ?? [];
   const by = Object.fromEntries(rows.map((r) => [r.id, r]));
   const lock = by["lock:skipConfirm"];
@@ -122,7 +125,8 @@ export async function userPrefs(userId) {
   const lockedForAll = lock?.enabled === true;
   const skipLocked = lockedForAll || lockedUsers.includes(userId);
   const defaultTier = MANUAL_TIERS.includes(by[`pref:${userId}:tier`]?.reason) ? by[`pref:${userId}:tier`].reason : null;
-  return { defaultTier, skipConfirm: !skipLocked && by[`pref:${userId}:skipConfirm`]?.enabled === true, skipConfirmRequested: by[`pref:${userId}:skipConfirm`]?.enabled === true, skipLocked, skipLockedForAll: lockedForAll };
+  const replyMode = REPLY_MODES.includes(by[`pref:${userId}:replyMode`]?.reason) ? by[`pref:${userId}:replyMode`].reason : "auto";
+  return { defaultTier, replyMode, skipConfirm: !skipLocked && by[`pref:${userId}:skipConfirm`]?.enabled === true, skipConfirmRequested: by[`pref:${userId}:skipConfirm`]?.enabled === true, skipLocked, skipLockedForAll: lockedForAll };
 }
 
 export async function setUserPref(userId, email, key, value) {
@@ -132,6 +136,10 @@ export async function setUserPref(userId, email, key, value) {
     await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:tier`, enabled: Boolean(v), reason: v, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
   } else if (key === "skipConfirm") {
     await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:skipConfirm`, enabled: Boolean(value), reason: null, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
+  } else if (key === "replyMode") {
+    const v = value == null || value === "" ? "auto" : String(value);
+    if (!REPLY_MODES.includes(v)) throw new Error("Reply mode must be auto, spoken or text.");
+    await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:replyMode`, enabled: v !== "auto", reason: v, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
   } else throw new Error("Unknown preference.");
   return userPrefs(userId);
 }

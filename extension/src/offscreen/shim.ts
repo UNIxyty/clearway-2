@@ -12,6 +12,12 @@
 //    timer at ~60 Hz; cancelAnimationFrame maps to clearTimeout. main.ts throttles what it forwards anyway.
 import { CONSOLE_ORIGIN } from "~/shared/config";
 
+// Fallback token (memory-only, chrome.storage.session): sent as a bearer; the server uses it only when the
+// console's cookie did not arrive.
+let tokenCache: string | null = null;
+const readToken = async () => { try { tokenCache = ((await chrome.storage.session.get("token")).token as { value: string } | undefined)?.value ?? null; } catch { tokenCache = null; } };
+void readToken(); try { chrome.storage.onChanged.addListener((c, area) => { if (area === "session" && c.token) tokenCache = (c.token.newValue as { value: string } | undefined)?.value ?? null; }); } catch { /* no storage */ }
+
 const nativeFetch = window.fetch.bind(window);
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -20,6 +26,7 @@ window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response
   const target = `${CONSOLE_ORIGIN}${url}`;
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   headers.set("x-clearway-client", "extension");
+  if (tokenCache && !headers.has("authorization")) headers.set("authorization", `Bearer ${tokenCache}`);
   const patched: RequestInit = { ...init, headers, credentials: "include", cache: "no-store" };
   // A Request object carries its own method/body: rebase it onto the new URL, then apply the overrides.
   const base = input instanceof Request ? new Request(target, input) : target;

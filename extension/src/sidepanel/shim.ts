@@ -7,6 +7,9 @@ import { CONSOLE_ORIGIN } from "~/shared/config";
 let pageHost: string | null = null;
 export function setPageHost(h: string | null) { pageHost = h; }
 
+let tokenCache: string | null = null;
+const readToken = async () => { try { tokenCache = ((await chrome.storage.session.get("token")).token as { value: string } | undefined)?.value ?? null; } catch { tokenCache = null; } };
+void readToken(); try { chrome.storage.onChanged.addListener((c, area) => { if (area === "session" && c.token) tokenCache = (c.token.newValue as { value: string } | undefined)?.value ?? null; }); } catch { /* no storage */ }
 const native = window.fetch.bind(window);
 window.fetch = ((input: RequestInfo | URL, init: RequestInit = {}) => {
   let url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -14,17 +17,11 @@ window.fetch = ((input: RequestInfo | URL, init: RequestInit = {}) => {
   if (!url.startsWith(CONSOLE_ORIGIN)) return native(input, init);
   const headers = new Headers(init.headers ?? (typeof input !== "string" && !(input instanceof URL) ? input.headers : undefined));
   headers.set("x-clearway-client", "extension");
+  if (tokenCache && !headers.has("authorization")) headers.set("authorization", `Bearer ${tokenCache}`);
   if (pageHost) headers.set("x-clearway-page-host", pageHost);
   headers.set("accept", headers.get("accept") ?? "application/json, text/event-stream");
   const req = typeof input === "string" || input instanceof URL ? url : new Request(url, input);
-  const p = native(req, { ...init, headers, credentials: "include" });
-  // The console's voice keybind (⌥ Space) is the extension's ⌥⇧Space (§E14 9): the composer's label and its
-  // own keydown listener follow the extension's shortcut, nothing else in the settings changes.
-  if (/\/agent\/api\/settings(\?|$)/.test(url)) return p.then(async (r) => {
-    try { const b = await r.clone().json(); if (b?.keybinds) { for (const k of ["shared", "mac", "windows"]) if (b.keybinds[k]) b.keybinds[k].voice = "Alt+Shift+Space"; return new Response(JSON.stringify(b), { status: r.status, headers: { "content-type": "application/json" } }); } } catch { /* not JSON */ }
-    return r;
-  });
-  return p;
+  return native(req, { ...init, headers, credentials: "include" });
 }) as typeof window.fetch;
 
 const nativeOpen = window.open.bind(window);

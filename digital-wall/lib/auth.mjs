@@ -24,10 +24,10 @@ const VERIFY_CACHE_TTL_MS = 60 * 1000;
 const verifyCache = new Map(); // sha256(token) -> { user, expiresAtMs } | { invalid: true, expiresAtMs }
 
 export const MOCK_USER = {
-  userId: "local-user-id",
-  email: "local@clearway.aero",
-  name: "Local Operator",
-  initials: "LO",
+  userId: "00000000-7e57-4000-8000-000000000000",
+  email: "rig-test@rig.invalid",
+  name: "RIG TEST ACCOUNT (not a person)",
+  initials: "RT",
   role: "ADMIN",
 };
 

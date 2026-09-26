@@ -85,3 +85,10 @@ agent/node_modules/
 extension/node_modules/
 extension/dist/
 extension/*.zip
+
+# rig env (local database + copied model keys)
+.env.rig
+rig/.scratch/
+rig/supabase/.temp/
+rig/supabase/.branches/
+.env.rig-auth

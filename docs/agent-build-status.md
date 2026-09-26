@@ -1472,3 +1472,18 @@ Built: `extension/` (MV3; side panel, worker, offscreen mic, four on-demand cont
 `docs/agent-extension.md`; screenshots `docs/agent-extension-shots/`. Verified in Chromium with the unpacked
 build (44 of 49 items seen working; the rest built but not observable in automation — listed in the report).
 Deployed: commit `c50b791` on `main`, server HEAD `c50b791d`, portal BUILD_ID `dcdr8wKALjYz4kDPkOGfd`, agent-service rebuilt (healthy). Production checks: `GET /agent/api/extension/session` → 401 JSON when signed out; `/admin/agent-sites` → 307 to sign-in. The extension package itself is not deployed anywhere: load `extension/dist` unpacked or upload `clearway-ops-agent.zip`.
+
+## Stage 18 — Four fixes after the extension build (2026-09-27)
+
+1. **The rig has its own database.** Local Supabase stack under `rig/supabase/` (Postgres + PostgREST + GoTrue;
+   `rig/db.sh start|reset|stop`), migrations = `docs/supabase-*.sql`, reference tables cloned from production's
+   OpenAPI description and seeded read-only on typed opt-in (`rig/seed-from-production.mjs`), `.env.rig` with the
+   local keys only (`rig/make-env.mjs`), `rig/start.sh` loads nothing else. `lib/rig-guard.mjs` makes the agent
+   and the wall refuse to start (exit 78) and the portal answer 500 when the auth bypass is on and the Supabase
+   URL is not local, unless `RIG_ALLOW_PRODUCTION` holds the typed phrase. Proven on all three. The rig account
+   is now `rig-test@rig.invalid` / `00000000-7e57-4000-8000-000000000000` / "RIG TEST ACCOUNT (not a person)".
+   Rig rows already in production are counted in the report; the nine retrievable Knowledge-base documents are
+   retired by `rig/retire-rig-documents.mjs`, which a person runs with a typed phrase (not run by the agent).
+2. **Extension auth fallback**: sealed short-lived token exchanged from a console tab; see `docs/agent-extension.md`.
+3. **Reply mode on the server** (`pref:<userId>:replyMode`; `/api/settings/me`; console and extension read it).
+4. **Voice press-again everywhere, ⌥⇧Space default, no "hold" copy; Region button disabled where capture cannot work.**

@@ -2,8 +2,8 @@
 // carry the timers, and nothing here assumes it ran before. Wires Chrome's events to the modules.
 import { getInsert, getPending, getSession, getSettings, getThread, setFlag, setThread } from "~/shared/storage";
 import { hostOf, isChromePage } from "~/shared/sites";
-import { activeTab, panelOpen, ports, tabInfo, tellPanel } from "./state";
-import { disconnect, reconnect, refreshSession } from "./session";
+import { activeTab, captureWorks, noteGesture, panelOpen, ports, tabInfo, tellPanel } from "./state";
+import { disconnect, reconnect, refreshSession, refreshToken } from "./session";
 import { addPendingConfirmations, applyBadge, clearJobs, markSiteEnabled, pollBadge, prunePending, settleConfirmation } from "./badge";
 import { MENU, createMenus, updateMenus } from "./menus";
 import { installOmnibox } from "./omnibox";
@@ -33,11 +33,13 @@ chrome.alarms.onAlarm.addListener(async (a) => {
   else if (a.name === "pending-expiry") { await prunePending(); await applyBadge(); }
   else if (a.name === "insert-undo") { await insert.onUndoAlarm(); }
   else if (a.name === "voice-hide") { await voice.onHideAlarm(); }
+  else if (a.name === "token-refresh") { await refreshToken(); }
 });
 
 // ── Commands (§E15): the four Chrome shortcuts. Each is a user gesture. ───────────────────────────────
 chrome.commands.onCommand.addListener(async (command, tab) => {
   const t = tab ?? (await activeTab());
+  await noteGesture(t);
   const session = await getSession();
   if (session.status !== "signed-in") { await openPanel(t?.windowId); return; }
   if (command === "voice-toggle") await voice.toggle(t);
@@ -48,6 +50,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 // ── Context menus ────────────────────────────────────────────────────────────────────────────────────
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const t = tab ?? (await activeTab());
+  await noteGesture(t);
   switch (info.menuItemId) {
     case MENU.askSelection: try { await askAboutSelection(t, info.selectionText ?? null); } catch { await openPanel(t?.windowId); } break;
     case MENU.sendPage: case MENU.aSend: try { await sendPage(t); } catch { await openPanel(t?.windowId); tellPanel({ type: "notice", text: "This page can't be read." }); } break;
@@ -74,7 +77,7 @@ async function tabChanged(tabId: number | null, why: "activated" | "updated") {
   if (!tab) return;
   const act = await activeTab(); if (act?.id !== tab.id) return;
   const info = await tabInfo(tab);
-  tellPanel({ type: "tab", tab: info });
+  tellPanel({ type: "tab", tab: { ...info, captureWorks: await captureWorks(tab) } });
   await updateMenus(tab);
   if (why === "updated" && tab.status === "complete" && info.status === "approved") {
     const settings = await getSettings();
@@ -116,9 +119,10 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener(async (msg: Record<string, unknown>) => {
     const t = String(msg.type);
     if (t === "panel.ready") {
+      if (port.sender?.tab == null) await noteGesture(await activeTab()); // a real side panel, opened by the icon or the shortcut
       const session = await refreshSession();
       port.postMessage({ type: "session", session });
-      port.postMessage({ type: "tab", tab: await tabInfo(await activeTab(), session) });
+      { const at = await activeTab(); port.postMessage({ type: "tab", tab: { ...(await tabInfo(at, session)), captureWorks: await captureWorks(at) } }); }
       port.postMessage({ type: "pending", pending: await getPending() });
       port.postMessage({ type: "insert", insert: await getInsert() });
       port.postMessage({ type: "thread.changed", conversationId: (await getThread()).conversationId });
@@ -127,7 +131,7 @@ chrome.runtime.onConnect.addListener((port) => {
       if (cf && Date.now() - cf.at < 30_000) { await chrome.storage.local.remove("captureFailed"); port.postMessage({ type: "capture.failed", ...cf }); }
       await clearJobs();
     }
-    else if (t === "session.refresh") { const session = await refreshSession({ force: true }); port.postMessage({ type: "session", session }); port.postMessage({ type: "tab", tab: await tabInfo(await activeTab(), session) }); }
+    else if (t === "session.refresh") { const session = await refreshSession({ force: true }); tellPanel({ type: "session", session }); const at = await activeTab(); tellPanel({ type: "tab", tab: { ...(await tabInfo(at, session)), captureWorks: await captureWorks(at) } }); }
     else if (t === "session.reconnect") { port.postMessage({ type: "session", session: await reconnect() }); }
     else if (t === "session.disconnect") { await disconnect(); }
     else if (t === "panel.thread") { await setThread((msg.conversationId as string | null) ?? null); }
@@ -142,7 +146,7 @@ chrome.runtime.onConnect.addListener((port) => {
       if (action === "region") await beginCapture(tab);
       else if (action === "page") { try { await sendPage(tab); } catch { port.postMessage({ type: "notice", text: "This page can't be read." }); } }
       else if (action === "selection") { try { await askAboutSelection(tab); } catch { port.postMessage({ type: "notice", text: "This page can't be read." }); } }
-      else if (action === "tab") port.postMessage({ type: "tab", tab: await tabInfo(tab) });
+      else if (action === "tab") tellPanel({ type: "tab", tab: { ...(await tabInfo(tab)), captureWorks: await captureWorks(tab) } });
       else if (action === "site-enabled") { await markSiteEnabled(String(msg.host ?? "")); await refreshSession({ force: true }); port.postMessage({ type: "tab", tab: await tabInfo(tab) }); await tabChanged(tab?.id ?? null, "updated"); }
       else if (action === "pill-setting") { const on = Boolean(msg.enabled); for (const tb of await chrome.tabs.query({})) if (tb.id) void send(tb.id, { type: "pill.config", enabled: on }); }
       else if (action === "explained") await setFlag(String(msg.key), true);

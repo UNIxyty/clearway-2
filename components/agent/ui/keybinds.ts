@@ -14,7 +14,7 @@ export type BindSet = Record<BindAction, string>;
 export type KeybindConfig = { perPlatform: boolean; shared: BindSet; mac: BindSet; windows: BindSet };
 export type Platform = "mac" | "windows";
 
-export const BIND_DEFAULTS: BindSet = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Space" };
+export const BIND_DEFAULTS: BindSet = { open: "Mod+J", expand: "Mod+Shift+J", confirm: "Mod+Enter", voice: "Alt+Shift+Space" };
 export const DEFAULT_CONFIG: KeybindConfig = { perPlatform: false, shared: { ...BIND_DEFAULTS }, mac: { ...BIND_DEFAULTS }, windows: { ...BIND_DEFAULTS } };
 const CACHE_KEY = "cw-agent-keybinds";
 const EVENT = "cw-agent-keybinds";
@@ -39,7 +39,7 @@ export function parseBind(bind: string): Parsed {
 }
 
 /**
- * The physical key, from `code` first: on a Mac, ⌥ Space delivers a
+ * The physical key, from `code` first: on a Mac, ⌥⇧Space delivers a
  * non-breaking space as `key` and ⌥J delivers "∆", so `key` alone never
  * matches an Alt chord. `code` is layout-independent for letters and digits.
  */

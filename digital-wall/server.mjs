@@ -12,6 +12,8 @@ import {
   voiceEventsSecretMatches,
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
+import { assertRigSafe } from "./lib/rig-guard.mjs";
+assertRigSafe("digital-wall");
 import {
   announceDevice,
   approveDevice,

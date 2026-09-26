@@ -1,0 +1,20 @@
+import { launch, panelPage, shot, sleep, swEval, FIX } from "./harness.mjs";
+const { context, sw, extId } = await launch({ fresh: true, profile: "ext-profile-region" });
+await sleep(1500);
+await swEval(sw, () => chrome.storage.sync.set({ settings: { pill: true, notifications: true, firstRunDone: true, mic: "allowed" } }));
+const site = await context.newPage(); await site.goto(`${FIX}/white.html`, { waitUntil: "load" }); await sleep(600);
+const panel = await panelPage(context, extId); await sleep(2000);
+const refresh = async () => { await panel.evaluate(() => { const p = chrome.runtime.connect({ name: "sidepanel" }); p.postMessage({ type: "session.refresh" }); }); await sleep(1500); };
+await refresh();
+const regionState = () => panel.evaluate(() => { const b = [...document.querySelectorAll("[data-tab-bar] button")].find((x) => /Region/.test(x.textContent)); return { present: Boolean(b), disabled: b?.hasAttribute("disabled"), hint: document.querySelector("[data-tab-bar]")?.innerText.match(/Nothing on this page[^\n]*/)?.[0] }; });
+console.log("no gesture on this tab yet:", JSON.stringify(await regionState()), "| gestureTab:", JSON.stringify((await swEval(sw, () => chrome.storage.local.get("gestureTab"))).gestureTab ?? null));
+await shot(panel, "region-disabled");
+console.log("dispatch target:", JSON.stringify(await swEval(sw, async () => { const [t] = await chrome.tabs.query({ url: "http://127.0.0.1:3997/*" }); chrome.commands.onCommand.dispatch("capture-region", t); return t ? { id: t.id, url: t.url } : null; }))); await sleep(800);
+console.log("gestureTab after dispatch:", JSON.stringify((await swEval(sw, () => chrome.storage.local.get("gestureTab"))).gestureTab ?? null), "| tabs:", JSON.stringify(await swEval(sw, async () => (await chrome.tabs.query({})).map((t) => ({ id: t.id, url: (t.url || "").slice(0, 40), active: t.active, la: t.lastAccessed })))));
+await site.keyboard.press("Escape"); await sleep(300); // cancel the overlay the command opened
+await refresh();
+console.log("after a shortcut on this tab:", JSON.stringify(await regionState()));
+await shot(panel, "region-enabled");
+await site.goto("http://localhost:3997/white.html", { waitUntil: "load" }).catch(() => {}); await sleep(800); await refresh();
+console.log("after navigating that tab to another origin:", JSON.stringify(await regionState()), "(not on the list → no buttons is expected)");
+await context.close();

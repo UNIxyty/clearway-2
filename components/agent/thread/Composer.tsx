@@ -201,10 +201,10 @@ export default function Composer({
   const [value, setValue] = useState("");
   const kb = useKeybinds();
   const voiceOn = voiceEnabled && kb.caps.voice !== false;
-  // Voice (§4.23 docked, §6.9, §8): hold the voice key or the mic button. The
-  // live transcript streams into the docked bar; on release, after the final
-  // commit (never on a partial), the committed text is sent as a voice-
-  // originated message. While a confirmation is pending the composer stays
+  // Voice (§4.23 docked, §6.9, §8): press the voice key or the mic button to
+  // start, press again to send. The live transcript streams into the docked
+  // bar; on the sending press, after the final commit (never on a partial),
+  // the committed text is sent as a voice-originated message. While a confirmation is pending the composer stays
   // locked (§3 rule 7): voice listens, sends nothing, and a spoken "yes"
   // only earns "Please confirm on screen" (rule 9).
   const voice = useVoiceSession({
@@ -411,7 +411,7 @@ export default function Composer({
             {hint && !(nextTier && hint.startsWith("Your next message")) && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
         {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
 
-        {(vs === "permission" || vs === "blocked") && <MicPermissionCard v={voice.voice} panel={panel} holdLabel={voice.holdLabel} onTypeInstead={() => inputRef.current?.focus()} />}
+        {(vs === "permission" || vs === "blocked") && <MicPermissionCard v={voice.voice} panel={panel} keyLabel={voice.keyLabel} onTypeInstead={() => inputRef.current?.focus()} />}
         <DockedSpeaking s={voice} panel={panel} />
         {voice.reply.phase === "notice" && <div role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: C.warn, padding: "0 4px 6px" }}>{voice.reply.text}</div>}
         <div style={{ background: locked && !voiceActive ? C.sidebar : C.surface, border: `1px solid ${voiceActive && vs !== "error" ? C.primary : C.borderControl}`, borderRadius: boxRadius, boxShadow: voiceActive && vs !== "error" ? SHADOW.focus : panel ? "none" : SHADOW.composer }} className="ag-composer">
@@ -448,12 +448,11 @@ export default function Composer({
             <IconButton icon="at-sign" title="Mention" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}@`); inputRef.current?.focus(); }} disabled={Boolean(locked)} />
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />
             <span style={{ flex: 1 }} />
-            <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <>hold <span style={mono()}>{kb.label("voice")}</span></> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span>hold <span style={mono()}>{kb.label("voice")}</span> to talk</span></>}</span>
+            <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <><span style={mono()}>{kb.label("voice")}</span> talk · again to send</> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span><span style={mono()}>{kb.label("voice")}</span> talk · again to send</span></>}</span>
             {voiceOn && !offline && (
-              <button type="button" title={`Hold to talk · ${voice.holdLabel}`} aria-label="Hold to talk" aria-pressed={vs === "listening"} className="ag-hover ag-focus"
-                onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLButtonElement).setPointerCapture?.(e.pointerId); voice.press(); }}
-                onPointerUp={(e) => voice.release(e.shiftKey)} onPointerCancel={() => voice.voice.cancel()} onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); voice.press(); } }} onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") voice.release(e.shiftKey); }}
-                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${vs === "listening" ? C.primary : C.border}`, background: vs === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0, touchAction: "none" }}>
+              <button type="button" title={vs === "listening" ? `Send · ${voice.keyLabel}` : `Talk · ${voice.keyLabel} · again to send`} aria-label={vs === "listening" ? "Send what you said" : "Talk"} aria-pressed={vs === "listening"} className="ag-hover ag-focus"
+                onClick={(e) => voice.toggle(e.shiftKey)}
+                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${vs === "listening" ? C.primary : C.border}`, background: vs === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
                 {/* The composer voice button's orb: idle breathing (O1), live states while voice is active (O2–O5). */}
                 <Orb size={22} state={vs === "error" ? "error" : vs === "listening" || vs === "check" ? "listening" : voice.speaker.playing ? "speaking" : vs === "finalizing" || voice.working ? "thinking" : "idle"} level={vs === "listening" ? Math.max(0, ...voice.voice.levels) : voice.speaker.playing ? voice.speaker.level : 0} title="Voice" />
               </button>

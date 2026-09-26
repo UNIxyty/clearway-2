@@ -17,6 +17,7 @@
 // identify its caller has nothing safe to serve.
 
 import crypto from "node:crypto";
+import { cookieHeaderFor, isExtensionToken, openExtensionToken } from "./extension-session.mjs";
 
 const VERIFY_CACHE_TTL_MS = 60 * 1000;
 const verifyCache = new Map();
@@ -42,11 +43,13 @@ export function describeAuthPosture() {
   return "enabled (Supabase session required)";
 }
 
+// The rig's account. Unmistakable at a glance in the audit log and in conversation lists: nobody is called
+// this, the mail domain is reserved (.invalid), and the id spells TEST.
 export const MOCK_USER = {
-  userId: "00000000-0000-4000-8000-000000000001",
-  email: "local@clearway.aero",
-  name: "Local Operator",
-  initials: "LO",
+  userId: "00000000-7e57-4000-8000-000000000000",
+  email: "rig-test@rig.invalid",
+  name: "RIG TEST ACCOUNT (not a person)",
+  initials: "RT",
   role: "ADMIN",
 };
 
@@ -220,6 +223,7 @@ export async function authenticateRequest(req) {
       ...MOCK_USER,
       accessToken: null,
       cookieHeader: req.headers.cookie ?? null,
+      authPath: "bypass",
       // Local rigs stand in for whatever role is being exercised.
       agentRole: String(process.env.AGENT_TEST_ROLE || "developer"),
     };
@@ -228,16 +232,29 @@ export async function authenticateRequest(req) {
 
   const authHeader = String(req.headers.authorization || "");
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : "";
-  const token = bearer || extractAccessTokenFromCookies(req.headers.cookie);
-  if (!token) return null;
-  const user = await verifyAccessToken(token);
-  if (!user) return null;
-  return {
-    ...user,
-    accessToken: token,
-    // The caller's raw Cookie header, forwarded verbatim by the tool layer so
-    // upstream services authenticate THIS USER rather than the agent.
-    cookieHeader: req.headers.cookie ?? null,
-    agentRole: await resolveAgentRole(user),
-  };
+  // Cookie first (the console's own session); a sealed extension token second (the fallback path, see
+  // extension-session.mjs); a plain Supabase bearer last. Which path won is recorded on the user so the
+  // session route can log it.
+  const cookieToken = extractAccessTokenFromCookies(req.headers.cookie);
+  const sealed = isExtensionToken(bearer) ? openExtensionToken(bearer) : null;
+  const candidates = [];
+  if (cookieToken) candidates.push({ path: "cookie", token: cookieToken, cookieHeader: req.headers.cookie ?? null });
+  if (sealed) candidates.push({ path: "token", token: sealed.at, cookieHeader: cookieHeaderFor(sealed.at), sealed });
+  if (bearer && !isExtensionToken(bearer)) candidates.push({ path: "bearer", token: bearer, cookieHeader: req.headers.cookie ?? null });
+  if (!candidates.length) return null;
+  for (const c of candidates) {
+    const user = await verifyAccessToken(c.token);
+    if (!user) continue;
+    if (c.sealed && c.sealed.uid !== user.userId) continue; // a token is bound to the user it was minted for
+    return {
+      ...user,
+      accessToken: c.token,
+      // The caller's Cookie header (or one synthesised from the sealed token), forwarded verbatim by the
+      // tool layer so upstream services authenticate THIS USER rather than the agent.
+      cookieHeader: c.cookieHeader,
+      authPath: c.path,
+      agentRole: await resolveAgentRole(user),
+    };
+  }
+  return null;
 }

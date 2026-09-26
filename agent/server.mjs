@@ -15,6 +15,9 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
+import { assertRigSafe } from "../lib/rig-guard.mjs";
+import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
+assertRigSafe("agent");
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured, agentEnabled } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
@@ -338,10 +341,11 @@ async function handleRequest(req, res) {
       return sendJson(res, { ok: true, commands: await commandsFor(user) });
     }
 
-    // Personal preferences (any agent user): default model tier, skip confirmation for low-risk actions.
+    // Personal preferences (any agent user): default model tier, skip confirmation for low-risk actions, voice reply mode.
     if (pathname === "/api/settings/me" && req.method === "GET") {
       await assertMayUseAgent(user);
-      return sendJson(res, { ok: true, prefs: await userPrefs(user.userId), tiers: MANUAL_TIERS, lowRiskActions: lowRiskCatalogue() });
+      const prefs = await userPrefs(user.userId);
+      return sendJson(res, { ok: true, prefs, replyMode: prefs.replyMode, tiers: MANUAL_TIERS, lowRiskActions: lowRiskCatalogue() });
     }
     if (pathname === "/api/settings/me" && req.method === "PATCH") {
       await assertMayUseAgent(user);
@@ -354,9 +358,11 @@ async function handleRequest(req, res) {
           if (body.skipConfirm === true && current.skipLocked) return sendJson(res, { ok: false, error: "locked", message: current.skipLockedForAll ? "An admin has turned this off for everyone." : "An admin has turned this off for your account." }, 403);
           prefs = await setUserPref(user.userId, user.email, "skipConfirm", body.skipConfirm === true);
         }
+        if ("replyMode" in body) prefs = await setUserPref(user.userId, user.email, "replyMode", body.replyMode);
       } catch (e) { throw BadRequest(e.message); }
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { personal: body } });
-      return sendJson(res, { ok: true, prefs: prefs ?? await userPrefs(user.userId) });
+      prefs = prefs ?? await userPrefs(user.userId);
+      return sendJson(res, { ok: true, prefs, replyMode: prefs.replyMode });
     }
     // Admin: routing (tier → model, escalation rules) without a deploy, and the skip-confirmation lock.
     if (pathname === "/api/settings/routing" && req.method === "GET") {
@@ -430,6 +436,24 @@ async function handleRequest(req, res) {
     // ── Chrome extension (extension/PROTOCOL.md "Server") ────────────────────
     // A second front end for the same agent: same session, same gate, same
     // tools. Nothing here is reachable that the console could not reach.
+    // ── Extension token exchange (fallback auth; agent/lib/extension-session.mjs) ────────────────────
+    // Minted only for a cookie-authenticated caller (a console page, same origin). A token cannot mint a token.
+    if (pathname === "/api/extension/token" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (user.authPath !== "cookie" && user.authPath !== "bypass") throw Forbidden("A token is issued from the console's session only.");
+      if (!user.accessToken) throw Forbidden("No session to issue a token from.");
+      const issued = issueExtensionToken({ userId: user.userId, email: user.email, accessToken: user.accessToken });
+      await audit({ kind: "extension.token_issued", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { ttlMs: TOKEN_TTL_MS, expiresAt: issued.expiresAt } });
+      return sendJson(res, { ok: true, ...issued, ttlMs: TOKEN_TTL_MS });
+    }
+    // Refresh: the extension holds nothing long-lived, so it asks again before the token dies. Only a
+    // token-authenticated caller may refresh, and only while the sealed access token still verifies.
+    if (pathname === "/api/extension/token/refresh" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      if (user.authPath !== "token" && user.authPath !== "bypass") throw Forbidden("Refresh needs the current extension token.");
+      const issued = issueExtensionToken({ userId: user.userId, email: user.email, accessToken: user.accessToken });
+      return sendJson(res, { ok: true, ...issued, ttlMs: TOKEN_TTL_MS });
+    }
     if (pathname === "/api/extension/session" && req.method === "GET") {
       await assertMayUseAgent(user);
       const admin = isPrivilegedUser(user);
@@ -438,15 +462,21 @@ async function handleRequest(req, res) {
         listRequests(admin ? {} : { userEmail: user.email }).catch(() => []),
         extensionAdmins(),
       ]);
+      // Which path authenticated this session (cookie / token / bearer / bypass): logged when it changes for
+      // this user, so a silent change of browser behaviour shows up in the audit log, not as user reports.
+      const authPath = user.authPath ?? "cookie";
+      if (notePath(user.userId, authPath)) { process.stderr.write(`[agent] extension auth path for ${user.email}: ${authPath}\n`); await audit({ kind: "extension.auth_path", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { authPath } }); }
+      const replyPrefs = await userPrefs(user.userId).catch(() => ({ replyMode: "auto" }));
       return sendJson(res, {
         ok: true,
+        authPath,
         user: { userId: user.userId, name: user.name, email: user.email, initials: user.initials, role: user.agentRole },
         tools: toolNamesFor(user),
         admins: adminList,
         sites: { approved, requests, manageHref: "/admin/agent-sites" },
         quickActions: quickActions(user),
         consoleOrigin: consoleOrigin(),
-        replyMode: null,
+        replyMode: replyPrefs.replyMode ?? "auto",
       });
     }
     if (pathname === "/api/extension/badge" && req.method === "GET") {

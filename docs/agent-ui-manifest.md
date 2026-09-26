@@ -19,7 +19,7 @@ pattern in the spec to follow.
 |---|---|---|---|---|---|---|
 | A1 | Orb — canvas ring mark, geometry, DPR | 4.1 | idle · listening · thinking · speaking · error | O1–O6 | mic RMS / TTS level (`blocked:backend` for live levels; idle/thinking/error need none) | ✅ idle/thinking/error/listening (live mic level); speaking blocked:backend (no TTS) |
 | A2 | Orb — avatar 26px, still | 4.1 | idle still · thinking (streaming) | O3 | have | ✅ |
-| A3 | Orb — composer voice button 22px | 4.1 | idle breathing · live | O1, O2 | — | ✅ composer voice button 22px — hold to talk, live level |
+| A3 | Orb — composer voice button 22px | 4.1 | idle breathing · live | O1, O2 | — | ✅ composer voice button 22px — click to talk, click again to send, live level |
 | A4 | Orb — empty state 64px, overlay 120px, cards 30px | 4.1 | idle · error still | O1 | — | ✅ 64 empty state, 30 cards; 120 overlay blocked:backend |
 | A5 | Static ring mark (header, sidebar, chips) | 4.1 | — | — | — | ✅ |
 | A6 | Waveform — voice bar 56×18 / wall 48×16 / speaking 40×16 / short 32×14 / panel static | 4.2 | invoked · listening · low · speaking | W1 | mic bands / TTS (`blocked:backend` live) | ✅ bar variant 56×18 with live mic bands; speaking/wall variants blocked:backend |
@@ -195,9 +195,9 @@ pattern in the spec to follow.
 | E1 | ⌘J / Ctrl+J | anywhere | Toggle panel | ✅ editable in Agent settings (default Mod+J: ⌘J / Ctrl+J) |
 | E2 | ⌘⇧J | panel open | Expand to full page | ✅ editable (default Mod+Shift+J) |
 | E3 | ⌘K | anywhere | Command palette (1c only) | blocked:design (decision open) |
-| E4 | hold ⌥ Space | anywhere | Compact voice bar | ✅ hold the voice shortcut (default ⌥ Space; editable) — portal pages and the wall console |
-| E5 | double-tap ⌥ Space | anywhere | Overlay | blocked:backend |
-| E6 | ⇧ on release | voice | Flip reply mode | blocked:backend |
+| E4 | ⌥⇧Space | anywhere | Compact voice bar | ✅ press the voice shortcut (default ⌥⇧Space; editable), press again to send — portal pages and the wall console |
+| E5 | double-tap ⌥⇧Space | anywhere | Overlay | blocked:backend |
+| E6 | ⇧ on the sending press | voice | Flip reply mode | blocked:backend |
 | E7 | S / V | speaking / shown | Show instead / say instead | blocked:backend |
 | E8 | 1–3 | uncertain popover | Pick alternative | blocked:backend |
 | E9 | Esc | voice capture | Discard | ✅ Esc discards while recording |

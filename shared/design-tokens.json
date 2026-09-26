@@ -160,7 +160,12 @@
   },
   "voice": {
     "uncertainUnderline": "#d97706",
-    "uncertainBg": "#fef7e6"
+    "uncertainBg": "#fef7e6",
+    "overlayScrim": "rgba(23,24,28,.28)",
+    "readingHighlight": "#e8effe",
+    "popoverShadow": "0 6px 18px rgba(0,0,0,.2)",
+    "shortCardShadow": "0 6px 16px rgba(16,18,22,.16)",
+    "errorShadow": "0 8px 24px rgba(16,18,22,.1)"
   },
   "wall": {
     "bg": "#0f1420",

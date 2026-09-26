@@ -14,8 +14,10 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Icon, IconButton, Keycap } from "../ui/primitives";
 import Orb from "../ui/Orb";
-import { eventKey, useKeybinds } from "../ui/keybinds";
-import { MicPermissionCard, VoiceBar, useVoiceInput, type VoiceResult } from "./VoiceBar";
+import { useKeybinds } from "../ui/keybinds";
+import { DockedSpeaking, MicPermissionCard, VoiceBar, VoiceNote } from "./VoiceBar";
+import VoiceOverlay from "./VoiceOverlay";
+import { useVoiceSession, type VoiceThread } from "./useVoiceSession";
 import { AGENT_BASE, type AgentContext } from "../types";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
@@ -131,7 +133,7 @@ export type ActiveCommand = { command: Command; args: string[]; slot: number };
 
 // ── The composer ──────────────────────────────────────────────────────────────
 export default function Composer({
-  panel = false, context, streaming, locked = null, offline = false, voiceEnabled = true, onSend, onStop, onVoice, autoFocus = true, placeholderOverride,
+  panel = false, context, streaming, locked = null, offline = false, voiceEnabled = true, onSend, onStop, onVoice, autoFocus = true, placeholderOverride, voiceThread = null,
 }: {
   panel?: boolean;
   context: AgentContext | null;
@@ -145,30 +147,32 @@ export default function Composer({
   onVoice?: () => void;
   autoFocus?: boolean;
   placeholderOverride?: string;
+  /** The thread voice replies are read from (§4.25 delivery, Processing step). */
+  voiceThread?: VoiceThread | null;
 }) {
   const [value, setValue] = useState("");
   const kb = useKeybinds();
   const voiceOn = voiceEnabled && kb.caps.voice !== false;
-  // Push-to-talk (§4.23 docked, §8.1): the transcript is sent as a voice-
-  // originated message unless confidence was low — then it waits in the
-  // field for the dispatcher to check.
-  const voice = useVoiceInput({
-    onResult: (r: VoiceResult) => {
-      if (r.uncertain) { setValue(r.text); setHint("Low confidence — check what I heard, then press ⏎."); inputRef.current?.focus(); return; }
-      onSend(r.text, [], { mentions: [], command: null, voice: { language: r.language } });
-    },
+  // Voice (§4.23 docked, §6.9, §8): hold the voice key or the mic button. The
+  // live transcript streams into the docked bar; on release, after the final
+  // commit (never on a partial), the committed text is sent as a voice-
+  // originated message. While a confirmation is pending the composer stays
+  // locked (§3 rule 7): voice listens, sends nothing, and a spoken "yes"
+  // only earns "Please confirm on screen" (rule 9).
+  const voice = useVoiceSession({
+    enabled: voiceOn && !offline,
+    docked: true,
+    locked,
+    thread: voiceThread,
+    send: (text, meta) => onSend(text, [], { mentions: [], command: null, voice: { language: meta.language } }),
+    onStopReply: onStop,
+    onKeepText: (text) => { setValue(text); setTimeout(() => inputRef.current?.focus(), 0); },
     onTypeInstead: () => inputRef.current?.focus(),
   });
-  const voiceActive = voice.state === "invoked" || voice.state === "listening" || voice.state === "processing" || voice.state === "error";
-  // Hold the voice shortcut anywhere on the page (or the console forwards it): keydown starts, keyup ends, Esc discards.
-  useEffect(() => {
-    if (!voiceOn || locked || offline) return;
-    const down = (e: KeyboardEvent) => { if (e.repeat) return; if (kb.matches(e, "voice")) { e.preventDefault(); void voice.start(); } else if (e.key === "Escape" && voiceActive) { e.preventDefault(); voice.cancel(); } };
-    const up = (e: KeyboardEvent) => { if (voice.state === "idle" || voice.state === "error") return; const b = kb.binds.voice.split("+"); const key = b[b.length - 1]; if (eventKey(e) === key || ["Alt", "Meta", "Control", "Shift"].includes(e.key)) void voice.stop(); };
-    const forwarded = (e: Event) => { const on = (e as CustomEvent<{ on: boolean }>).detail?.on; if (on) void voice.start(); else void voice.stop(); };
-    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("cw-agent-voice", forwarded);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("cw-agent-voice", forwarded); };
-  }, [voiceOn, locked, offline, kb, voice, voiceActive]);
+  const vs = voice.voice.state;
+  const voiceActive = vs === "invoked" || vs === "listening" || vs === "finalizing" || vs === "check" || vs === "error";
+  // Text kept from a voice attempt made while the panel was closed (mic lost, low confidence).
+  useEffect(() => { try { const d = sessionStorage.getItem("cw-agent-voice-draft"); if (d) { sessionStorage.removeItem("cw-agent-voice-draft"); setValue(d); } } catch { /* private mode */ } }, []);
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
   const [menu, setMenu] = useState<"none" | "mention" | "command">("none");
   const [query, setQuery] = useState("");
@@ -289,7 +293,7 @@ export default function Composer({
   const boxRadius = panel ? 14 : 16;
 
   return (
-    <div style={{ padding: panel ? "10px 14px 14px" : "16px 24px 20px", borderTop: panel ? `1px solid ${C.divider}` : "none", background: panel ? C.surface : `linear-gradient(rgba(251,251,252,0), ${C.page} 30%)`, position: "relative" }}>
+    <div data-cw-agent-composer="" style={{ padding: panel ? "10px 14px 14px" : "16px 24px 20px", borderTop: panel ? `1px solid ${C.divider}` : "none", background: panel ? C.surface : `linear-gradient(rgba(251,251,252,0), ${C.page} 30%)`, position: "relative" }}>
       <div style={{ maxWidth: panel ? "none" : 800, margin: "0 auto", position: "relative" }}>
         {dragging && (
           <div className="ag-dropzone-in" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); setDragging(false); }} style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 8, height: 150, border: `2px dashed ${C.primary}`, background: C.primaryTint3, borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, zIndex: 5 }}>
@@ -340,8 +344,10 @@ export default function Composer({
         {hint && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
         {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
 
-        {(voice.state === "permission" || voice.state === "blocked") && <MicPermissionCard v={voice} panel={panel} holdLabel={kb.label("voice")} />}
-        <div style={{ background: locked ? C.sidebar : C.surface, border: `1px solid ${C.borderControl}`, borderRadius: boxRadius, boxShadow: panel ? "none" : SHADOW.composer }} className="ag-composer">
+        {(vs === "permission" || vs === "blocked") && <MicPermissionCard v={voice.voice} panel={panel} holdLabel={voice.holdLabel} onTypeInstead={() => inputRef.current?.focus()} />}
+        <DockedSpeaking s={voice} panel={panel} />
+        {voice.reply.phase === "notice" && <div role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: C.warn, padding: "0 4px 6px" }}>{voice.reply.text}</div>}
+        <div style={{ background: locked && !voiceActive ? C.sidebar : C.surface, border: `1px solid ${voiceActive && vs !== "error" ? C.primary : C.borderControl}`, borderRadius: boxRadius, boxShadow: voiceActive && vs !== "error" ? SHADOW.focus : panel ? "none" : SHADOW.composer }} className="ag-composer">
           {attachments.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 12px 0" }}>{attachments.map((a) => <AttachmentChipView key={a.localId} a={a} onRemove={() => setAttachments((l) => l.filter((x) => x.localId !== a.localId))} onRetry={() => { setAttachments((l) => l.map((x) => (x.localId === a.localId ? { ...x, state: "uploading", progress: 0 } : x))); startUpload(a); }} />)}</div>}
           {command && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "10px 12px 0" : "12px 16px 0", flexWrap: "wrap" }}>
@@ -358,10 +364,13 @@ export default function Composer({
               <span style={{ fontSize: 12, color: C.faint, marginLeft: "auto" }}>Tab next argument · ⌫ on empty removes command</span>
             </div>
           )}
-          {locked ? (
+          {voiceActive ? (
+            <>
+              <VoiceBar s={voice} variant="docked" panel={panel} />
+              <VoiceNote v={voice.voice} panel={panel} />
+            </>
+          ) : locked ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "11px 13px" : "14px 16px", fontSize: panel ? 13.5 : 14, color: C.muted }}><Icon name="lock" size={14} color={C.faint} />{locked}</div>
-          ) : voiceActive ? (
-            <VoiceBar v={voice} panel={panel} />
           ) : (
             <textarea ref={inputRef} rows={1} value={value} disabled={streaming && false} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} placeholder={placeholder} aria-label="Message"
               style={{ width: "100%", border: "none", outline: "none", resize: "none", padding: panel ? "11px 13px 4px" : "14px 16px 6px", fontFamily: "inherit", fontSize: panel ? 14 : 15, lineHeight: panel ? 1.5 : 1.6, color: C.ink, background: "transparent", minHeight: panel ? 38 : 48, maxHeight: 8 * 24, boxSizing: "border-box", overflowY: "auto" }} />
@@ -373,12 +382,13 @@ export default function Composer({
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <>hold <span style={mono()}>{kb.label("voice")}</span></> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span>hold <span style={mono()}>{kb.label("voice")}</span> to talk</span></>}</span>
-            {voiceOn && !locked && !offline && (
-              <button type="button" title={`Hold to talk · ${kb.label("voice")}`} aria-label="Hold to talk" aria-pressed={voice.state === "listening"} className="ag-hover ag-focus"
-                onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLButtonElement).setPointerCapture?.(e.pointerId); void voice.start(); }}
-                onPointerUp={() => void voice.stop()} onPointerCancel={() => voice.cancel()} onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); void voice.start(); } }} onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") void voice.stop(); }}
-                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${voice.state === "listening" ? C.primary : C.border}`, background: voice.state === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0, touchAction: "none" }}>
-                <Orb size={22} state={voice.state === "listening" ? "listening" : voice.state === "processing" ? "thinking" : "idle"} level={voice.state === "listening" ? Math.max(...voice.levels) : 0} title="Voice" />
+            {voiceOn && !offline && (
+              <button type="button" title={`Hold to talk · ${voice.holdLabel}`} aria-label="Hold to talk" aria-pressed={vs === "listening"} className="ag-hover ag-focus"
+                onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLButtonElement).setPointerCapture?.(e.pointerId); voice.press(); }}
+                onPointerUp={(e) => voice.release(e.shiftKey)} onPointerCancel={() => voice.voice.cancel()} onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); voice.press(); } }} onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") voice.release(e.shiftKey); }}
+                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${vs === "listening" ? C.primary : C.border}`, background: vs === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0, touchAction: "none" }}>
+                {/* The composer voice button's orb: idle breathing (O1), live states while voice is active (O2–O5). */}
+                <Orb size={22} state={vs === "error" ? "error" : vs === "listening" || vs === "check" ? "listening" : voice.speaker.playing ? "speaking" : vs === "finalizing" || voice.working ? "thinking" : "idle"} level={vs === "listening" ? Math.max(0, ...voice.voice.levels) : voice.speaker.playing ? voice.speaker.level : 0} title="Voice" />
               </button>
             )}
             {streaming ? (
@@ -393,6 +403,7 @@ export default function Composer({
           </div>
         </div>
       </div>
+      <VoiceOverlay s={voice} replyWhere={panel ? "panel" : "page"} />
     </div>
   );
 }

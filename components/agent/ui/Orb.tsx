@@ -21,6 +21,14 @@ function hexWithAlpha(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
+/** O6: blend two hex colours (state change, 200 ms ease-out). */
+function mixHex(a: string, b: string, t: number): string {
+  if (t >= 1 || a === b) return b;
+  const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+  const ch = (sh: number) => Math.round(((x >> sh) & 255) + (((y >> sh) & 255) - ((x >> sh) & 255)) * t);
+  return `#${((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, "0")}`;
+}
+const easeOut = (t: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
 export default function Orb({
   size = 26, state = "idle", level = 0, still = false, title,
@@ -36,6 +44,7 @@ export default function Orb({
   const ref = useRef<HTMLCanvasElement | null>(null);
   const levelRef = useRef(0);
   const targetRef = useRef(level);
+  const shownColour = useRef<string>(COLOUR[state]);
   targetRef.current = Math.max(0, Math.min(1, level));
 
   useEffect(() => {
@@ -49,12 +58,17 @@ export default function Orb({
     canvas.style.width = `${size}px`; canvas.style.height = `${size}px`;
 
     const cx = size / 2, R = size * 0.33, w = Math.max(1.6, size * 0.075), d = R * 0.36;
-    const colour = COLOUR[state];
+    const target = COLOUR[state];
+    const from = shownColour.current;
     const mounted = performance.now();
     let frame = 0;
 
     const draw = (now: number) => {
       const t = (now - mounted) / 1000;
+      // O6 — colour change 200 ms ease-out; instant under reduced motion.
+      const blend = reduced ? 1 : easeOut((now - mounted) / 200);
+      const colour = mixHex(from, target, blend);
+      shownColour.current = colour;
       // O2/W1 smoothing: level += (target − level) × 0.18 per frame.
       levelRef.current += (targetRef.current - levelRef.current) * 0.18;
       const level = reduced ? (state === "listening" || state === "speaking" ? 0.5 : levelRef.current) : levelRef.current;
@@ -128,7 +142,7 @@ export default function Orb({
         ctx.beginPath(); ctx.arc(cx, cx, d, 0, Math.PI * 2); ctx.fill();
       }
 
-      const animates = !reduced && state !== "error" && !(state === "idle" && still);
+      const animates = (!reduced && state !== "error" && !(state === "idle" && still)) || blend < 1;
       if (animates) frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);

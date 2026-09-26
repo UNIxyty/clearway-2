@@ -16,6 +16,7 @@ import { C, PANEL, SHADOW, mono } from "../ui/tokens";
 import { Button, Icon, IconButton, RingMark, hmZ, dayTimeZ } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
 import Composer from "../thread/Composer";
+import FloatingVoice from "../thread/FloatingVoice";
 import { ContextChip, NowOnChip, SuggestedQuestions, suggestionsFor, useLiveSuggestions } from "../thread/ContextChip";
 import { AgentReply, UserBubble } from "../thread/Message";
 import { OfflineCard } from "../thread/ErrorCard";
@@ -143,11 +144,18 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
     setTimeout(() => router.push(url), reduced ? 100 : 200);
   }
 
-  if (!open) return null;
+  // Panel closed: voice still works from anywhere — the floating compact bar
+  // (§4.23) asks into this same thread, so "needs room" opens the panel with
+  // the thread already in it (§6.9 C2). Not in the console iframe: there the
+  // host opens the panel on the voice key and forwards it in.
+  const openSelf = () => { setMinimised(null); window.dispatchEvent(new CustomEvent("cw-agent-open")); };
+  if (!open) return embedded ? null : <FloatingVoice thread={t} context={context} openPanel={openSelf} />;
 
   if (minimised) {
     const amber = minimised.state === "needs-you";
     return (
+      <>
+      {!embedded && <FloatingVoice thread={t} context={context} openPanel={openSelf} />}
       <button type="button" data-cw-agent-minimised="" onClick={() => setMinimised(null)} title={`Reopen the agent · ${kb.label("open")}`} aria-label="Reopen the agent"
         style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
         {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${C.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? C.warn : C.ink} />}
@@ -156,6 +164,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
         </span>
         <span className={minimised.state === "working" ? "ag-pulse-1200" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: amber ? C.warnDot : minimised.state === "done" ? C.ink : C.primary }} />
       </button>
+      </>
     );
   }
 
@@ -226,7 +235,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
           </div>
         )}
 
-        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
+        {view === "thread" && <Composer panel context={activeContext} streaming={t.streaming} locked={composerLocked} offline={t.offline} voiceThread={t} onSend={(text, ids, meta) => void t.send(text, { attachmentIds: ids, attachments: meta.attachments, command: meta.command, ...(meta.voice ? { voice: true, language: meta.voice.language } : {}) })} onStop={t.stop} />}
       </aside>
     </>
   );

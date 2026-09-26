@@ -5,6 +5,12 @@ import path from "node:path";
 import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
+import {
+  normaliseVoiceReadout,
+  VoiceReadoutStore,
+  voiceEventsSecretConfigured,
+  voiceEventsSecretMatches,
+} from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import {
   announceDevice,
@@ -157,6 +163,9 @@ const aipSend = new AipSendService({ sseHub });
 
 // Leon webhooks (Phase 2): JWT-verified push events -> re-pull triggers.
 const leonWebhooks = new LeonWebhookService({ timelineService, sseHub });
+// Voice readout (item 6): sanitised by the agent service, one per console
+// session, TTL'd in memory, pushed to display streams only.
+const voiceReadouts = new VoiceReadoutStore({ broadcast: (event) => sseHub.broadcastToDisplays(event) });
 await leonWebhooks.load();
 if (process.env.LEON_WEBHOOK_AUTOREGISTER === "true") {
   // Optional boot reconciliation (idempotent by label; safe re: the 10-cap
@@ -573,6 +582,46 @@ const server = http.createServer(async (req, res) => {
           lastError: leonStatus.lastError ?? null,
         },
       });
+      return;
+    }
+
+    // ── Voice readout relay (item 6; docs/agent-wall-voice-readout.md) ──
+    // Server-to-server only: the agent service POSTs already-sanitised voice
+    // activity with the dedicated AGENT_WALL_EVENTS_SECRET. Not under /api/,
+    // so no user session is involved; the public gateway also refuses
+    // /digital-wall/internal/* (deploy/digital-wall/nginx-gateway.conf).
+    // Unset secret = the route does not exist.
+    if (pathname === "/internal/voice-activity") {
+      if (!voiceEventsSecretConfigured()) {
+        sendJson(res, { ok: false, error: "Not found." }, 404);
+        return;
+      }
+      if (req.method !== "POST") {
+        sendJson(res, { ok: false, error: "Method not allowed." }, 405);
+        return;
+      }
+      if (!voiceEventsSecretMatches(req.headers["x-agent-events-secret"])) {
+        sendJson(res, { ok: false, error: "Unauthorized." }, 401);
+        return;
+      }
+      if (Number(req.headers["content-length"] || 0) > 16 * 1024) {
+        sendJson(res, { ok: false, error: "Too large." }, 413);
+        return;
+      }
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch {
+        sendJson(res, { ok: false, error: "Invalid JSON." }, 400);
+        return;
+      }
+      const readout = normaliseVoiceReadout(body);
+      if (!readout) {
+        sendJson(res, { ok: false, error: "Not a voice readout." }, 400);
+        return;
+      }
+      voiceReadouts.upsert(readout);
+      sendJson(res, { ok: true });
       return;
     }
 

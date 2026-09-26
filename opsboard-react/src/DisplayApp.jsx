@@ -15,6 +15,7 @@ import { WallColorsProvider } from './theme/WallColorsContext';
 import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/device';
 import useViewport from './hooks/useViewport';
 import ResponsiveWall from './components/mobile/ResponsiveWall';
+import VoiceReadout from './components/VoiceReadout';
 
 import { WALL_FONT } from './theme/wallFont';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
@@ -319,6 +320,9 @@ export default function DisplayApp() {
         <UpcomingTable scale={upcomingTable.scale} widthPct={upcomingTable.widthPct} />
       )}
       </div>
+      {/* Read-only voice readout (item 6): bottom centre, room wall only —
+          the phone/tablet views are personal screens and don't show it. */}
+      <VoiceReadout scale={sidebarScale} />
       {debugViewport && <ViewportDebug />}
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}

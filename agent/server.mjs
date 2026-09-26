@@ -34,6 +34,7 @@ import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
 import { languageDirective, normaliseLanguage } from "./lib/voice/language.mjs";
 import { sttConfigured, transcribe } from "./lib/voice/stt.mjs";
+import { relayVoiceActivity, sanitiseVoiceActivity, wallEventsSecret } from "./lib/voice/wall-readout.mjs";
 import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
@@ -337,6 +338,23 @@ const server = http.createServer(async (req, res) => {
         await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length } });
         return sendJson(res, { ok: false, error: "stt_failed", message: String(error?.message ?? error) }, 502);
       }
+    }
+
+    // ── Voice readout on the wall (item 6; docs/agent-wall-voice-readout.md) ──
+    // The console's voice flow reports its phases here; the SANITISER in
+    // lib/voice/wall-readout.mjs decides what a room screen may show, and the
+    // result is relayed server-to-server to the wall backend, which broadcasts
+    // it on its SSE channel. Best effort by design: an unconfigured secret, a
+    // switched-off Voice capability or an unreachable wall never errors the
+    // user's voice turn — the route answers ok with relayed:false.
+    if (pathname === "/api/voice/activity" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      if (capsNow.voice === false || !wallEventsSecret()) return sendJson(res, { ok: true, relayed: false });
+      const payload = sanitiseVoiceActivity(body, user);
+      if (!payload) throw BadRequest("A sessionId and a known phase are required.");
+      const { relayed, coalesced } = relayVoiceActivity(payload);
+      return sendJson(res, { ok: true, relayed, coalesced });
     }
 
     // ── Attachment bytes (viewer E3): the owner only ─────────────────────

@@ -137,6 +137,10 @@ services:
     environment:
       PORT: 5174
       NODE_ENV: production
+      # Voice readout relay (item 6): the shared secret agent-service sends on
+      # POST /internal/voice-activity. Value lives ONLY in the server's .env
+      # (same value for both services); unset = readout disabled, no errors.
+      AGENT_WALL_EVENTS_SECRET: ${AGENT_WALL_EVENTS_SECRET:-}
     command: node server.mjs
     expose:
       - "5174"
@@ -191,6 +195,9 @@ services:
       # Part 1 pins every tier to one model; see agent/config/models.json.
       # AGENT_ACTIVE_TIER=none hands routing back to the caller (Part 10).
       BEDROCK_REGION: ${BEDROCK_REGION:-eu-north-1}
+      # Voice readout relay to the wall (item 6) — see digital-wall-backend.
+      # Relayed to DIGITAL_WALL_INTERNAL_URL (default http://digital-wall-backend:5174).
+      AGENT_WALL_EVENTS_SECRET: ${AGENT_WALL_EVENTS_SECRET:-}
     expose:
       - "5175"
     ports:

@@ -1430,8 +1430,8 @@ approved text from a superseded source quoted word for word and flagged in the f
 with revision from a real reply, cited-revision mismatch banner, the two banners side by side, and the
 four previously untested cases (document card → viewer, sent attachment chip → viewer, passage across a
 page break, second citation into an open document). Production after deploy, no session: `/api/aip/
-resolve`, `/api/aip/gen/pdf/exists`, `/agent/api/documents/aip/EVRA` → 401; `/files/aip/ead-pdf/
-EVRA.meta.json` → 307 to `/login`.
+resolve` and `/api/aip/gen/pdf/exists` → 307 to `/login`; `/agent/api/documents/aip/EVRA` → 401;
+`/files/aip/ead-pdf/EVRA.meta.json` → 307 to `/login`.
 Backfill run on the server (`docker compose exec aip-sync node scripts/tools/backfill-aip-revisions.mjs`):
 **266 cached AIP copies (156 EAD AD 2, 31 scraper, 67 USA, 1 ASECNA, 10 GEN, 1 scraper GEN) → 266
 unknown, 0 current, 0 not yet effective, 0 superseded.** No dated source copy survives on the server

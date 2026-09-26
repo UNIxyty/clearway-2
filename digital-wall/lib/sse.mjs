@@ -91,6 +91,20 @@ export class SseHub {
     }
   }
 
+  // Room-screen-only events (the voice readout, item 6): consoles already see
+  // their own agent activity, so the event goes to display streams only.
+  broadcastToDisplays(event) {
+    const frame = eventFrame(event);
+    for (const [id, client] of this.clients.entries()) {
+      if (client.surface === "console") continue;
+      try {
+        client.res.write(frame);
+      } catch {
+        this.removeClient(id);
+      }
+    }
+  }
+
   presenceUsers() {
     const byUser = new Map();
     for (const client of this.clients.values()) {

@@ -290,7 +290,7 @@ export const PdfView = forwardRef<PdfHandle, {
         });
       };
       // approved clauses quoted in the thread (violet, §V7) — below search and citations in meaning, drawn first
-      quoteHits.forEach((q) => { if (q.page !== n) return; const drawn = draw(q.hit, "cw-quote-hit"); const first = drawn[0]; if (first) { const mk = document.createElement("span"); mk.className = "cw-quote-marker"; mk.setAttribute("aria-hidden", "true"); mk.title = "Quoted verbatim in the conversation"; mk.style.top = first.style.top; host.append(mk); } });
+      const quoteTops = new Set<string>(); quoteHits.forEach((q) => { if (q.page !== n) return; const drawn = draw(q.hit, "cw-quote-hit"); const first = drawn[0]; if (first && !quoteTops.has(first.style.top)) { quoteTops.add(first.style.top); const mk = document.createElement("span"); mk.className = "cw-quote-marker"; mk.setAttribute("aria-hidden", "true"); mk.title = "Quoted verbatim in the conversation"; mk.style.top = first.style.top; host.append(mk); } });
       // search hits on this page
       matches.forEach((m, i) => { if (m.page === n) draw(m.hit, i === matchIndex ? "cw-search-hit cw-search-current" : "cw-search-hit"); });
       // citations on this page

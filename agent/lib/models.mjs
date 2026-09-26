@@ -50,6 +50,13 @@ export function currentTimeLine(now = new Date()) {
 export const TIERS = ["router", "fast", "standard", "reasoning", "extraction", "embeddings", "rerank"];
 
 let cached = null;
+// Runtime override from the admin routing settings (agent_settings row `routing`), applied without a
+// deploy. Shape: { fast: { id, fallbackId }, ... }. Env BEDROCK_MODEL_<TIER> still wins.
+let runtimeOverride = null;
+export function setRuntimeOverride(tiers) {
+  const next = tiers && typeof tiers === "object" ? tiers : null;
+  if (JSON.stringify(next) !== JSON.stringify(runtimeOverride)) { runtimeOverride = next; cached = null; }
+}
 
 export function loadModelConfig({ reload = false } = {}) {
   if (cached && !reload) return cached;
@@ -60,10 +67,12 @@ export function loadModelConfig({ reload = false } = {}) {
     // Per-tier env override wins over the file, so an operator can swap a model
     // without editing a file inside the image.
     const override = process.env[`BEDROCK_MODEL_${tier.toUpperCase()}`];
+    const admin = runtimeOverride?.[tier] ?? null;
     tiers[tier] = {
       tier,
-      id: (override || entry.id) ?? null,
-      fallbackId: entry.fallbackId ?? null,
+      id: (override || admin?.id || entry.id) ?? null,
+      fallbackId: (admin && "fallbackId" in admin ? admin.fallbackId : entry.fallbackId) ?? null,
+      source: override ? "env" : admin?.id ? "settings" : "file",
       maxTokens: entry.maxTokens ?? null,
       purpose: entry.purpose ?? "",
     };
@@ -74,6 +83,7 @@ export function loadModelConfig({ reload = false } = {}) {
     activeTier: process.env.AGENT_ACTIVE_TIER === "none" ? null : (process.env.AGENT_ACTIVE_TIER || raw.activeTier || null),
     region: process.env.BEDROCK_REGION || process.env.AWS_REGION || raw.region || "eu-north-1",
     tiers,
+    pricing: raw.pricing ?? {},
   };
   return cached;
 }

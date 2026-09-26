@@ -54,7 +54,7 @@ function resultLine(row, kind) {
   return { text: "ok", tone: "ok" };
 }
 export async function listActivity(user, { filter = "all", person = null, tool = null, date = null, limit = 60, before = null } = {}) {
-  const parts = ["kind=in.(tool.call,citation.check,verbatim.check)", "select=id,created_at,user_id,user_email,tool_name,tool_args,tool_result,confirmation_status,success,error,latency_ms,conversation_id,detail", "order=created_at.desc", `limit=${Math.min(Number(limit) || 60, 200)}`];
+  const parts = ["kind=in.(tool.call,citation.check,verbatim.check,chat.response,action.auto_confirmed)", "select=id,created_at,kind,user_id,user_email,tool_name,tool_args,tool_result,confirmation_status,success,error,latency_ms,conversation_id,detail,model_id,model_tier,input_tokens,output_tokens", "order=created_at.desc", `limit=${Math.min(Number(limit) || 60, 200)}`];
   if (!isPrivileged(user)) parts.push(`user_id=eq.${encodeURIComponent(user.userId)}`);
   else if (person) parts.push(`user_email=eq.${encodeURIComponent(person)}`);
   if (tool) parts.push(`tool_name=eq.${encodeURIComponent(tool)}`);
@@ -62,9 +62,24 @@ export async function listActivity(user, { filter = "all", person = null, tool =
   if (before) parts.push(`created_at=lt.${encodeURIComponent(before)}`);
   const rows = (await rest(`agent_audit_log?${parts.join("&")}`)) ?? [];
   const mapped = rows.map((row) => {
+    // Every answer is a row too (item 3): which tier and model answered, why, what it cost.
+    if (row.kind === "chat.response") {
+      const d = row.detail ?? {};
+      const model = modelShortName(row.model_id);
+      const esc = (d.escalations ?? []).map((e) => `${e.from}→${e.to}`).join(", ");
+      const text = `${model} · ${row.model_tier ?? "?"}${esc ? ` · escalated ${esc}` : ""}${d.route?.source === "manual" ? " · /model" : d.route?.source === "user-default" ? " · your default" : ""}`;
+      return {
+        id: row.id, at: row.created_at, who: row.user_email ?? "—", kind: "ANSWER", tool: "answer", args: { tier: row.model_tier, model: row.model_id },
+        result: { text, tone: row.success === false ? "danger" : "ok" }, confirmed: { text: "—", tone: "faint" }, conversationId: row.conversation_id ?? null, latencyMs: row.latency_ms ?? null,
+        hasRecord: true,
+        routing: { startTier: d.route?.tier ?? null, finalTier: row.model_tier ?? null, modelId: row.model_id ?? null, source: d.route?.source ?? null, reason: d.route?.reason ?? null, confidence: d.route?.confidence ?? null, routerTier: d.route?.routerTier ?? null, escalations: d.escalations ?? [], inputTokens: row.input_tokens ?? null, outputTokens: row.output_tokens ?? null, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null },
+        full: { args: { tier: row.model_tier, model: row.model_id }, result: { route: d.route ?? null, escalations: d.escalations ?? [], inputTokens: row.input_tokens, outputTokens: row.output_tokens, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null }, error: row.error ?? null, confirmationStatus: null, level: null },
+      };
+    }
     const kind = KIND_OF(row.tool_name, row);
     const result = resultLine(row, kind);
-    const confirmed = row.confirmation_status === "confirmed" ? { text: `Confirmed ${hms(row.created_at)}`, tone: "ok" }
+    const confirmed = row.confirmation_status === "auto_confirmed" || row.kind === "action.auto_confirmed" ? { text: `Auto-confirmed ${hms(row.created_at)}`, tone: "warn" }
+      : row.confirmation_status === "confirmed" ? { text: `Confirmed ${hms(row.created_at)}`, tone: "ok" }
       : row.confirmation_status === "rejected" ? { text: `Declined ${hms(row.created_at)}`, tone: "muted" }
       : row.confirmation_status === "pending" ? { text: "Awaiting", tone: "warn" }
       : kind === "READ" ? { text: "Not required", tone: "faint" } : { text: "—", tone: "faint" };
@@ -75,11 +90,12 @@ export async function listActivity(user, { filter = "all", person = null, tool =
       full: { args: row.tool_args ?? {}, result: row.tool_result ?? null, error: row.error ?? null, confirmationStatus: row.confirmation_status ?? null, level: row.detail?.level ?? null },
     };
   });
-  const filtered = mapped.filter((r) => filter === "changes" ? r.kind === "WRITE" : filter === "sent" ? r.kind === "SEND" : filter === "denied" ? /Denied|Not run/.test(r.result.text) || r.confirmed.text.startsWith("Declined") : true);
+  const filtered = mapped.filter((r) => filter === "changes" ? r.kind === "WRITE" : filter === "sent" ? r.kind === "SEND" : filter === "answers" ? r.kind === "ANSWER" : filter === "denied" ? /Denied|Not run/.test(r.result.text) || r.confirmed.text.startsWith("Declined") : true);
   const people = isPrivileged(user) ? [...new Set(mapped.map((r) => r.who))].sort() : [user.email];
   const tools = [...new Set(mapped.map((r) => r.tool))].sort();
   return { rows: filtered, people, tools, nextBefore: rows.length ? rows[rows.length - 1].created_at : null };
 }
+const modelShortName = (id) => { const s = String(id ?? ""); const m = /(haiku|sonnet|opus|nova)[-_]?(\d(?:[-.]\d)?)?/i.exec(s); return m ? `${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()}${m[2] ? ` ${m[2].replace("-", ".")}` : ""}` : s || "model?"; };
 const hms = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? "" : `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}:${String(d.getUTCSeconds()).padStart(2, "0")}Z`; };
 
 /** The request behind a record: the last user message before it in that thread. */

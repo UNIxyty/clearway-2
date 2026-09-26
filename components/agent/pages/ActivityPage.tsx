@@ -14,13 +14,14 @@ import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 
-type Row = { id: number; at: string; who: string; kind: "READ" | "WRITE" | "SEND" | "FILE"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
-const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: C.neutral, bg: C.neutralTint }, WRITE: { fg: C.primaryHover, bg: C.primaryTint2 }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: C.ok, bg: C.okTint } };
+type Routing = { startTier: string | null; finalTier: string | null; modelId: string | null; source: string | null; reason: string | null; confidence: number | null; routerTier: string | null; escalations: { from: string; to: string; reason: string }[]; inputTokens: number | null; outputTokens: number | null; cacheReadTokens: number; costUsd: number | null };
+type Row = { routing?: Routing; id: number; at: string; who: string; kind: "READ" | "WRITE" | "SEND" | "FILE" | "ANSWER"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
+const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: C.neutral, bg: C.neutralTint }, WRITE: { fg: C.primaryHover, bg: C.primaryTint2 }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: C.ok, bg: C.okTint }, ANSWER: { fg: C.info, bg: C.infoTint } };
 const TONE: Record<string, string> = { ok: C.okDot, muted: C.faint, danger: C.dangerBadge, warn: C.warnDot, faint: C.faint };
 const GRID = "110px 150px 90px 190px minmax(0,1fr) 170px 150px";
 
 export default function ActivityPage() {
-  const [filter, setFilter] = useState<"all" | "changes" | "sent" | "denied">("all");
+  const [filter, setFilter] = useState<"all" | "answers" | "changes" | "sent" | "denied">("all");
   const [person, setPerson] = useState<string>("");
   const [tool, setTool] = useState<string>("");
   const [date, setDate] = useState<string>("");
@@ -56,7 +57,7 @@ export default function ActivityPage() {
       <div style={{ padding: "30px 32px", display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div role="tablist" style={{ display: "flex", background: C.divider, borderRadius: 10, padding: 3 }}>
-            {(["all", "changes", "sent", "denied"] as const).map((f) => <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === f ? C.surface : "transparent", color: filter === f ? C.ink : C.muted, boxShadow: filter === f ? "0 1px 2px rgba(0,0,0,.06)" : "none" }}>{f[0].toUpperCase() + f.slice(1)}</button>)}
+            {(["all", "answers", "changes", "sent", "denied"] as const).map((f) => <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === f ? C.surface : "transparent", color: filter === f ? C.ink : C.muted, boxShadow: filter === f ? "0 1px 2px rgba(0,0,0,.06)" : "none" }}>{f[0].toUpperCase() + f.slice(1)}</button>)}
           </div>
           <Dropdown value={person} onChange={setPerson} options={[{ value: "", label: "Person: anyone" }, ...people.map((p) => ({ value: p, label: p }))]} />
           <Dropdown value={tool} onChange={setTool} options={[{ value: "", label: "Tool: any" }, ...tools.map((t) => ({ value: t, label: t }))]} />
@@ -81,7 +82,8 @@ export default function ActivityPage() {
                   <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: TONE[r.result.tone] ?? C.body }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: TONE[r.result.tone] ?? C.body }} />{r.result.text}</span>
                   <span style={{ fontSize: 12.5, fontWeight: r.confirmed.tone === "faint" ? 500 : 600, color: TONE[r.confirmed.tone] ?? C.body }}>{r.confirmed.text}</span>
                 </button>
-                {open === r.id && (
+                {open === r.id && r.routing && <RoutingRecord r={r.routing} />}
+                {open === r.id && !r.routing && (
                   <div style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: C.rowRecord }}>
                     <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>REQUEST</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{request[r.id] === undefined && r.conversationId ? "…" : request[r.id]?.text ? `“${request[r.id]?.text}”` : "Direct call — no message."}</div>{request[r.id]?.title && r.conversationId && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Thread <a href={`/agent/t/${encodeURIComponent(r.conversationId)}`} style={{ color: C.primary }}>{request[r.id]?.title}</a></div>}</div>
                     <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>ARGUMENTS · RESULT</div><div style={{ ...mono({ fontSize: 12 }), lineHeight: 1.6, background: C.sidebar, borderRadius: 8, padding: "9px 11px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{Object.entries(r.full.args).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")}{r.full.result ? `\n→ ${typeof r.full.result === "object" ? JSON.stringify(r.full.result).slice(0, 600) : String(r.full.result)}` : ""}{r.full.error ? `\n→ ${r.full.error}` : ""}</div></div>
@@ -95,5 +97,17 @@ export default function ActivityPage() {
         )}
       </div>
     </PortalShell>
+  );
+}
+
+/** Which model answered, and why (item 3). */
+function RoutingRecord({ r }: { r: Routing }) {
+  const cell = (label: string, value: React.ReactNode) => <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, lineHeight: 1.55 }}>{value}</div></div>;
+  return (
+    <div data-routing-record style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: C.rowRecord }}>
+      {cell("ANSWERED BY", <><span style={mono({ fontSize: 12.5 })}>{r.modelId ?? "—"}</span><br />tier <b>{r.finalTier}</b>{r.startTier && r.startTier !== r.finalTier ? <> (started on {r.startTier})</> : null}</>)}
+      {cell("WHY", <>{r.source === "manual" ? "Chosen with /model" : r.source === "user-default" ? "Your default in Settings" : r.source === "care" ? "You asked for care" : r.source === "low-confidence" ? "Router unsure — raised one tier" : r.source === "floor" ? "A change request never runs on the fast tier" : "Router"}{r.routerTier ? ` · router said ${r.routerTier}${r.confidence != null ? ` (${Math.round(r.confidence * 100)}%)` : ""}` : ""}{r.reason ? <><br /><span style={{ color: C.muted }}>{r.reason}</span></> : null}{r.escalations.map((e, i) => <div key={i} style={{ color: C.warn }}>Escalated {e.from} → {e.to}: {e.reason}</div>)}</>)}
+      {cell("TOKENS · COST", <span style={mono({ fontSize: 12.5 })}>{r.inputTokens ?? "—"} in · {r.outputTokens ?? "—"} out{r.cacheReadTokens ? ` · ${r.cacheReadTokens} cached` : ""}<br />{r.costUsd != null ? `$${r.costUsd.toFixed(4)}` : "—"}</span>)}
+    </div>
   );
 }

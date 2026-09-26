@@ -25,7 +25,7 @@ import {
 } from "./lib/conversations.mjs";
 import {
   approveTier1Record, classifyDocument, extractText, indexDocument,
-  readDocumentFile, storeDocument,
+  readDocumentFile, storeDocument, documentFileExists, replaceDocumentFile,
 } from "./lib/knowledge/ingest.mjs";
 import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
 import { readGeneratedFile, sweepGeneratedFiles } from "./lib/files/store.mjs";
@@ -53,7 +53,26 @@ const MAX_BODY_BYTES = 256 * 1024;
 // Org capability switches, refreshed every 30 s and updated in place on a PATCH.
 let capsNow = {};
 
+// A person must never see `{"ok":false,...}`. When a browser NAVIGATES to an agent URL (a Download link,
+// a copied file link) and it fails, answer with a small readable page instead of JSON. fetch() callers
+// send Accept */* or application/json and keep getting JSON.
+function wantsHtml(req) {
+  const accept = String(req?.headers?.accept ?? "");
+  return req?.method === "GET" && /text\/html/.test(accept) && !/application\/json/.test(accept);
+}
+function errorPage(payload, status) {
+  const title = status === 404 ? (payload?.error === "file_missing" ? "This file is missing" : "Not found") : status === 401 ? "Sign in first" : status === 403 ? "You don't have access" : "Something went wrong";
+  const message = String(payload?.message ?? "The request could not be completed.").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
+  const action = payload?.error === "file_missing" ? `<p>The record is still in the Knowledge base. Open it there and use <b>Re-upload file</b> to restore it.</p><p><a href="/agent/knowledge">Open the Knowledge base</a></p>` : status === 401 ? `<p><a href="/login">Sign in</a></p>` : `<p><a href="/agent">Back to the Ops Agent</a></p>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title} · Clearway</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fbfbfc;color:#17181c}main{max-width:460px;padding:28px;border:1px solid #e6e7ea;border-radius:14px;background:#fff}h1{font-size:18px;margin:0 0 8px}p{margin:8px 0;color:#3a3d44}a{color:#1d4ed8}</style></head><body><main><h1>${title}</h1><p>${message}</p>${action}</main></body></html>`;
+}
+
 function sendJson(res, payload, status = 200, extraHeaders = {}) {
+  if (status >= 400 && res.__wantsHtml) {
+    res.writeHead(status, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...extraHeaders });
+    res.end(errorPage(payload, status));
+    return;
+  }
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
@@ -61,6 +80,16 @@ function sendJson(res, payload, status = 200, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(body);
+}
+
+// A test rig (DISABLE_AUTH_FOR_TESTING) talks to the same Supabase project as production but keeps files on
+// its own disk. Every knowledge row it wrote pointed at bytes production could not read — that is how 22 of
+// 23 Knowledge base rows came to answer "file missing" on the server. Writes are refused on a rig unless
+// explicitly allowed for a run whose files will be copied to the server's volume.
+function assertRigMayWriteKnowledge() {
+  if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true" && process.env.AGENT_RIG_KB_WRITES !== "1") {
+    throw BadRequest("This is a test environment sharing the production database: knowledge-base writes are disabled here (set AGENT_RIG_KB_WRITES=1 only if the files will be copied to the server).");
+  }
 }
 
 function sendError(res, error) {
@@ -90,6 +119,8 @@ function sanitiseAttachments(raw) {
 
 import { wallGet as wallGetForServer, portalGet as portalGetForServer } from "./lib/tools/http.mjs";
 import { documentRevision, loadSiblings, publicRevision, revisionFromPortal } from "./lib/knowledge/revision.mjs";
+import { lowRiskCatalogue } from "./lib/tools/framework.mjs";
+import { routingSettings, setRoutingSettings, userPrefs, setUserPref, setSkipConfirmLock, escalationAfterRound, asksForCare, atLeast, oneUp, costUsd, MANUAL_TIERS } from "./lib/routing.mjs";
 
 /** Raw bytes for an upload, bounded. Anything past the cap ends the request. */
 async function readRawBody(req, maxBytes) {
@@ -176,6 +207,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = normalizePath(url.pathname);
   if (!pathname.startsWith("/api/") && pathname !== "/api") return passToPortal(req, res);
+  res.__wantsHtml = wantsHtml(req);
 
   try {
     // ── Health: the only unauthenticated route. Shaped like the wall's and the
@@ -272,6 +304,49 @@ const server = http.createServer(async (req, res) => {
       const [caps, enabled, binds] = await Promise.all([capabilities(), agentEnabled(), keybinds()]);
       return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), keybinds: binds, keybindActions: KEYBIND_ACTIONS, keybindDefaults: KEYBIND_DEFAULTS, killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
     }
+    // Personal preferences (any agent user): default model tier, skip confirmation for low-risk actions.
+    if (pathname === "/api/settings/me" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, prefs: await userPrefs(user.userId), tiers: MANUAL_TIERS, lowRiskActions: lowRiskCatalogue() });
+    }
+    if (pathname === "/api/settings/me" && req.method === "PATCH") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      let prefs;
+      try {
+        if ("defaultTier" in body) prefs = await setUserPref(user.userId, user.email, "tier", body.defaultTier);
+        if ("skipConfirm" in body) {
+          const current = await userPrefs(user.userId);
+          if (body.skipConfirm === true && current.skipLocked) return sendJson(res, { ok: false, error: "locked", message: current.skipLockedForAll ? "An admin has turned this off for everyone." : "An admin has turned this off for your account." }, 403);
+          prefs = await setUserPref(user.userId, user.email, "skipConfirm", body.skipConfirm === true);
+        }
+      } catch (e) { throw BadRequest(e.message); }
+      await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { personal: body } });
+      return sendJson(res, { ok: true, prefs: prefs ?? await userPrefs(user.userId) });
+    }
+    // Admin: routing (tier → model, escalation rules) without a deploy, and the skip-confirmation lock.
+    if (pathname === "/api/settings/routing" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const r = await routingSettings({ reload: true });
+      return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation, override: r.override, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
+    }
+    if (pathname === "/api/settings/routing" && req.method === "PUT") {
+      await assertMayUseAgent(user);
+      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      const body = await readJsonBody(req);
+      let r; try { r = await setRoutingSettings(body, user); } catch (e) { throw BadRequest(e.message); }
+      await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { routing: body } });
+      return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation });
+    }
+    if (pathname === "/api/settings/skip-confirm-lock" && req.method === "PUT") {
+      await assertMayUseAgent(user);
+      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      const body = await readJsonBody(req);
+      await setSkipConfirmLock({ all: body.all === true, userIds: body.userIds ?? [] }, user);
+      await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { skipConfirmLock: body } });
+      return sendJson(res, { ok: true });
+    }
+
     if (pathname === "/api/settings" && req.method === "PATCH") {
       await assertMayUseAgent(user);
       if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
@@ -388,6 +463,8 @@ const server = http.createServer(async (req, res) => {
           revision: viewerRevision(documentRevision(d, await loadSiblings(d)), (id) => `/agent/doc?source=knowledge&id=${id}`),
           approval: approved ? { status: "authoritative", by: d.approved_by_email ?? null, at: d.approved_at ?? null } : pending ? { status: "awaiting", uploadedBy: d.uploaded_by_email ?? null, at: d.created_at } : d.status === "rejected" ? { status: "rejected" } : { status: "reference" },
           canApprove: user.agentRole === "developer",
+          fileMissing: !(await documentFileExists(d.storage_key)),
+          record: { title: d.title, source: d.source ?? null, version: d.version ?? null, effectiveDate: d.effective_date ?? null, icao: d.icao ?? null, country: d.country ?? null, tags: d.tags ?? [], tier: d.tier ?? null, status: d.status },
         } });
       }
       if (source === "generated") {
@@ -550,10 +627,58 @@ const server = http.createServer(async (req, res) => {
       const rows = await knowledgeRest(`agent_documents?select=*${filter}&order=created_at.desc&limit=200`);
       // Revision words per row (siblings = the same listing): unknown is stated, never blank.
       const all = rows ?? [];
-      return sendJson(res, { ok: true, documents: all.map((d) => ({ ...d, revision: publicRevision(documentRevision(d, all)) })) });
+      // A row whose bytes are not on the persistent volume must not look healthy (file missing → re-upload).
+      const present = await Promise.all(all.map((d) => documentFileExists(d.storage_key)));
+      return sendJson(res, { ok: true, documents: all.map((d, i) => ({ ...d, fileMissing: !present[i], revision: publicRevision(documentRevision(d, all)) })) });
+    }
+
+    // Re-upload the original for an existing row whose file is missing (or replace it with the same content).
+    if (/^\/api\/knowledge\/documents\/[^/]+\/file$/.test(pathname) && req.method === "PUT") {
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to replace a document's file." }, 403);
+      assertRigMayWriteKnowledge();
+      const id = pathname.split("/")[4];
+      const document = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`))?.[0];
+      if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      const buffer = await readRawBody(req, 100 * 1024 * 1024 + 1024);
+      if (buffer.length === 0) throw BadRequest("The file is empty.");
+      const sha256 = await replaceDocumentFile(document.storage_key, buffer);
+      // The approved text was read from the ORIGINAL; a different file under the same record would silently
+      // change what an approved clause's source is. Say so instead of hiding it.
+      const sameContent = !document.sha256 || document.sha256 === sha256;
+      await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ bytes: buffer.length, sha256, updated_at: new Date().toISOString() }) });
+      await audit({ kind: "knowledge.file_replaced", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: "knowledge.file_replaced", toolArgs: { documentId: id, filename: document.filename }, success: true, confirmationStatus: "not_required", detail: { bytes: buffer.length, sameContent } });
+      return sendJson(res, { ok: true, sameContent, message: sameContent ? "File restored." : "File replaced. It differs from the original that was approved — review its approved clauses." });
+    }
+
+    // Edit the document's RECORD (not the file): title, tags, version, effective date, source, scope.
+    if (/^\/api\/knowledge\/documents\/[^/]+$/.test(pathname) && req.method === "PATCH") {
+      await assertMayUseAgent(user);
+      if (user.agentRole !== "developer") return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to edit a document's record." }, 403);
+      assertRigMayWriteKnowledge();
+      const id = pathname.split("/")[4];
+      const before = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`))?.[0];
+      if (!before) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      const body = await readJsonBody(req);
+      const patch = {};
+      const str = (v, max = 200) => (v == null || String(v).trim() === "" ? null : String(v).trim().slice(0, max));
+      if ("title" in body) { const t = str(body.title); if (!t) throw BadRequest("A title is required."); patch.title = t; }
+      if ("source" in body) patch.source = str(body.source);
+      if ("version" in body) patch.version = str(body.version, 40);
+      if ("effectiveDate" in body) { const d = str(body.effectiveDate, 10); if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw BadRequest("Effective date must be YYYY-MM-DD."); patch.effective_date = d; }
+      if ("icao" in body) { const v = str(body.icao, 4); if (v && !/^[A-Za-z0-9]{4}$/.test(v)) throw BadRequest("ICAO must be four characters."); patch.icao = v ? v.toUpperCase() : null; }
+      if ("country" in body) patch.country = str(body.country, 80);
+      if ("tags" in body) patch.tags = Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 20) : [];
+      if (!Object.keys(patch).length) throw BadRequest("Nothing to change.");
+      patch.updated_at = new Date().toISOString();
+      const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(patch) });
+      const changed = Object.keys(patch).filter((k) => k !== "updated_at");
+      await audit({ kind: "knowledge.edited", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: "knowledge.edited", toolArgs: { documentId: id, fields: changed }, success: true, confirmationStatus: "not_required", detail: { before: Object.fromEntries(changed.map((k) => [k, before[k] ?? null])), after: Object.fromEntries(changed.map((k) => [k, patch[k] ?? null])) } });
+      return sendJson(res, { ok: true, document: rows?.[0] ?? null });
     }
 
     if (pathname === "/api/knowledge/documents" && req.method === "POST") {
+      assertRigMayWriteKnowledge();
       // Uploading to the knowledge base is a DEVELOPER action while the agent
       // is a build in progress — same reasoning as the allowlist.
       await assertMayUseAgent(user);
@@ -623,6 +748,7 @@ const server = http.createServer(async (req, res) => {
     // the record. Tier 2 approval simply indexes.
     if (/^\/api\/knowledge\/documents\/[^/]+\/approve$/.test(pathname) && req.method === "POST") {
       await assertMayUseAgent(user);
+      assertRigMayWriteKnowledge();
       if (user.agentRole !== "developer") {
         return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to approve documents." }, 403);
       }
@@ -673,6 +799,7 @@ const server = http.createServer(async (req, res) => {
 
     if (/^\/api\/knowledge\/documents\/[^/]+\/reject$/.test(pathname) && req.method === "POST") {
       await assertMayUseAgent(user);
+      assertRigMayWriteKnowledge();
       if (user.agentRole !== "developer") {
         return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required." }, 403);
       }
@@ -700,7 +827,7 @@ const server = http.createServer(async (req, res) => {
       if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
       let buffer;
       try { buffer = await readDocumentFile(document.storage_key); }
-      catch (error) { if (error?.code === "ENOENT") return sendJson(res, { ok: false, error: "file_missing", message: "The stored file is missing from storage." }, 404); throw error; }
+      catch (error) { if (error?.code === "ENOENT") return sendJson(res, { ok: false, error: "file_missing", message: `The record for ${document.title ?? document.filename} exists, but its file is not in storage.` }, 404); throw error; }
       return sendFileBytes(req, res, { buffer: buffer, mime: document.mime, filename: document.filename, inline: url.searchParams.get("inline") === "1" });
     }
 
@@ -809,10 +936,19 @@ async function handleChat(req, res, user) {
   // The caller may pin a tier; otherwise the router classifies. The router
   // NEVER answers — it returns a tier and a reason, both of which are audited,
   // because "which model answered" is not reviewable without "and why".
-  const pinnedTier = body.tier ? String(body.tier) : null;
-  const route = pinnedTier
-    ? { tier: pinnedTier, reason: "pinned by caller", source: "pinned", routerLatencyMs: 0, routerModelId: null }
-    : await routeTurn({ question, hasHistory: history.length > 0, allowReasoning: capsNow.reasoning_routing !== false });
+  // Manual choice first: `/model <tier>` for this turn, else the user's Settings default. A manual tier is a
+  // FLOOR for the whole turn — escalation may still raise it, nothing lowers it.
+  const routing = await routingSettings();
+  const prefs = await userPrefs(user.userId).catch(() => ({ defaultTier: null, skipConfirm: false }));
+  const commandTier = MANUAL_TIERS.includes(String(body.tier ?? "")) ? String(body.tier) : null;
+  const pinnedTier = commandTier ?? prefs.defaultTier ?? null;
+  let route = pinnedTier
+    ? { tier: pinnedTier, reason: commandTier ? "chosen with /model for this turn" : "your default in Settings", source: commandTier ? "manual" : "user-default", routerLatencyMs: 0, routerModelId: null }
+    : await routeTurn({ question, hasHistory: history.length > 0, allowReasoning: capsNow.reasoning_routing !== false, lowConfidenceBelow: routing.escalation.lowConfidenceBelow });
+  // The user asked for care ("check carefully", "are you sure") → at least the configured tier.
+  if (asksForCare(question, routing.escalation) && atLeast(route.tier, routing.escalation.careTo) !== route.tier) {
+    route = { ...route, tier: atLeast(route.tier, routing.escalation.careTo), reason: `${route.reason}; raised because you asked for care`, source: route.source === "manual" ? "manual" : "care" };
+  }
 
   const { requested, effective } = resolveTier(route.tier);
 
@@ -876,18 +1012,39 @@ async function handleChat(req, res, user) {
   let done = null;
   let answer = "";
   const toolCalls = [];
+  const thinking = [];
+  const escalations = [];
+  let retried = null;
   try {
-    for await (const chunk of streamConversationWithTools({
-      tier: route.tier,
-      system,
-      messages: [...history, { role: "user", content: question }],
-      user,
-      conversationId,
-      inputMode,
-    })) {
+    const onRound = ({ tier, toolCalls: calls }) => escalationAfterRound({ tier, toolCalls: calls, escalation: routing.escalation });
+    const run = (tier) => streamConversationWithTools({ tier, system, messages: [...history, { role: "user", content: question }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
+    let stream = run(route.tier);
+    // A failed first attempt is retried once, one tier up — only if nothing was shown yet, so the reply
+    // is never a splice of two models.
+    const iterate = async function* () {
+      try { for await (const c of stream) yield c; }
+      catch (error) {
+        const up = oneUp(route.tier);
+        if (!routing.escalation.retryOnFailure || answer || toolCalls.length || up === route.tier || error?.code === "kill_switch" || error?.status === 401 || error?.status === 403) throw error;
+        retried = { from: route.tier, to: up, reason: `first attempt failed: ${String(error?.message ?? error).slice(0, 120)}` };
+        escalations.push({ ...retried, round: -1 });
+        send("escalated", retried);
+        stream = run(up);
+        for await (const c of stream) yield c;
+      }
+    };
+    for await (const chunk of iterate()) {
       if (chunk.type === "delta") {
         answer += chunk.text;
         send("delta", { text: chunk.text });
+      } else if (chunk.type === "thought") {
+        // The round's text was thinking aloud before a tool call: take it back out of the answer.
+        if (answer.endsWith(chunk.text)) answer = answer.slice(0, answer.length - chunk.text.length);
+        thinking.push({ text: chunk.text, ms: chunk.ms });
+        send("thought", { text: chunk.text, ms: chunk.ms });
+      } else if (chunk.type === "escalated") {
+        escalations.push({ from: chunk.from, to: chunk.to, reason: chunk.reason, round: chunk.round });
+        send("escalated", { from: chunk.from, to: chunk.to, reason: chunk.reason });
       } else if (chunk.type === "tool") {
         toolCalls.push(chunk);
         send("tool", { name: chunk.name, input: chunk.input, ok: chunk.ok, error: chunk.error, startedAt: chunk.startedAt ? new Date(chunk.startedAt).toISOString() : null, durationMs: chunk.durationMs ?? null, confirmationRequired: chunk.result?.confirmationRequired === true });
@@ -922,12 +1079,18 @@ async function handleChat(req, res, user) {
       write: Boolean(c.result?.actionId || c.result?.confirmationRequired),
     }));
 
+    const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
+    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0 });
+    const thinkingBlock = thinking.length ? { text: thinking.map((t) => t.text.trim()).join("\n\n"), ms: thinking.reduce((n, t) => n + t.ms, 0) } : null;
+    const routingBlock = { startTier: route.tier, finalTier, source: route.source, reason: route.reason, confidence: route.confidence ?? null, escalations, modelId: done?.modelId ?? null, costUsd: turnCost };
     await appendMessage({
       conversationId,
       role: "assistant",
       content: answer,
-      blocks: verbatim.length || flights.length || actions.length || mono.length || documents.length || files.length || airports.length || confirmations.length
+      blocks: true
         ? {
+            routing: routingBlock,
+            ...(thinkingBlock ? { thinking: thinkingBlock } : {}),
             ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}),
             ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
             ...(confirmations.length ? { confirmations } : {}),
@@ -936,7 +1099,7 @@ async function handleChat(req, res, user) {
       sources,
       toolActivity,
       modelId: done?.modelId ?? null,
-      modelTier: requested,
+      modelTier: finalTier,
       inputTokens: done?.inputTokens ?? null,
       outputTokens: done?.outputTokens ?? null,
     });
@@ -944,7 +1107,9 @@ async function handleChat(req, res, user) {
     send("done", {
       conversationId,
       modelId: done?.modelId ?? null,
-      modelTier: effective ?? requested ?? null,
+      modelTier: finalTier,
+      routing: routingBlock,
+      thinking: thinkingBlock,
       routeSource: route.source ?? null,
       routeReason: route.reason ?? null,
       stopReason: done?.stopReason ?? null,
@@ -972,7 +1137,7 @@ async function handleChat(req, res, user) {
       userId: user.userId,
       userEmail: user.email,
       conversationId,
-      modelTier: requested,
+      modelTier: finalTier,
       modelId: done?.modelId ?? null,
       success: true,
       latencyMs: Date.now() - startedAt,
@@ -990,9 +1155,14 @@ async function handleChat(req, res, user) {
           tier: route.tier,
           source: route.source,
           reason: route.reason,
+          confidence: route.confidence ?? null,
+          routerTier: route.routerTier ?? null,
           routerModelId: route.routerModelId,
           routerLatencyMs: route.routerLatencyMs,
         },
+        finalTier,
+        escalations,
+        costUsd: turnCost,
         // Cache hits are billed differently from fresh input; counted apart so
         // the saving is visible in the log used to prove it.
         cacheReadTokens: done?.cacheReadTokens ?? 0,

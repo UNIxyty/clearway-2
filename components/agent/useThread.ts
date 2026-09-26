@@ -97,6 +97,8 @@ export function useThread({ context, initialConversationId = null, initials = nu
       if (!response.ok || !response.body) { const b = await response.json().catch(() => null); throw new Error(b?.message || `The assistant is unavailable (HTTP ${response.status}).`); }
       markUser({ sending: false });
       const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
+      let thoughtText = ""; let thoughtMs = 0; const escalations: { from: string; to: string; reason: string }[] = [];
+      const currentBlocks = () => { let found: Record<string, unknown> = {}; setMessages((list) => { for (let i = list.length - 1; i >= 0; i -= 1) if (list[i].role === "assistant") { found = (list[i].blocks ?? {}) as Record<string, unknown>; break; } return list; }); return found; };
       for (;;) {
         const { done: end, value } = await reader.read(); if (end) break;
         buffer += decoder.decode(value, { stream: true });
@@ -107,6 +109,13 @@ export function useThread({ context, initialConversationId = null, initials = nu
           const payload = JSON.parse(data);
           if (event === "start") { setConversationId(payload.conversationId); if (payload.title) setTitle(payload.title); }
           else if (event === "delta") { answer += payload.text; setActivity(null); patchAssistant({ content: answer }); }
+          else if (event === "thought") {
+            // Item 8a: that round's text was thinking aloud before a tool call — move it out of the reply.
+            if (answer.endsWith(payload.text)) answer = answer.slice(0, answer.length - String(payload.text).length);
+            thoughtText += (thoughtText ? "\n\n" : "") + String(payload.text).trim(); thoughtMs += Number(payload.ms) || 0;
+            patchAssistant({ content: answer, blocks: { ...(currentBlocks()), thinking: { text: thoughtText, ms: thoughtMs } } as never });
+          }
+          else if (event === "escalated") { escalations.push(payload); patchAssistant({ routeSource: `escalated ${payload.from}→${payload.to}` }); }
           else if (event === "tool") {
             tools.push({ name: payload.name, ok: payload.ok, error: payload.error ?? null, startedAt: payload.startedAt ?? null, durationMs: payload.durationMs ?? null, args: payload.input ?? null, state: "done", write: Boolean(payload.confirmationRequired) });
             setActivity(payload.name);
@@ -128,6 +137,8 @@ export function useThread({ context, initialConversationId = null, initials = nu
         blocks: {
           verbatim: (d.verbatim as never) ?? [], flights: (d.flights as never) ?? [], actions: (d.actions as never) ?? [], mono: (d.mono as never) ?? [],
           documents: (d.documents as never) ?? [], files: (d.files as never) ?? [], airports: (d.airports as never) ?? [], tables: (d.tables as never) ?? [], confirmations,
+          ...(d.thinking ? { thinking: d.thinking as never } : thoughtText ? { thinking: { text: thoughtText, ms: thoughtMs } as never } : {}),
+          ...(d.routing ? { routing: d.routing as never } : {}),
         },
       });
       if (confirmations.length) setPendingConfirmation(confirmations[0]);

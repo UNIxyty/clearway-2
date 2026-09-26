@@ -28,36 +28,26 @@ import { converseOnce } from "./bedrock.mjs";
 
 export const TIERS_BY_COST = ["fast", "standard", "reasoning"];
 
-const CLASSIFIER = `You classify a flight dispatcher's request for a routing system. You never answer the request.
+const CLASSIFIER = `You route a flight dispatcher's request to one of three models. You never answer the request.
 
-Reply with ONE word, nothing else: fast, standard, or reasoning.
+Reply with exactly one line: the tier, a space, and your confidence from 0.0 to 1.0.
+Example replies: "fast 0.9", "standard 0.7", "reasoning 0.8".
 
-fast — ONLY a single factual lookup with one obvious source and no judgement:
-       "what's the METAR for EVRA", "show today's flights", "is the wall up",
-       "list the limitations", "where is YL-ABC".
+fast — a direct lookup or a simple list; one source, no judgement. Most everyday questions are fast:
+  "what's the METAR for EVRA" · "show today's flights" · "flights for ABC tomorrow" · "is the wall up" ·
+  "list the limitations for EVRA" · "where is YL-ABC" · "open the AD 2 for LFPG" · "NOTAMs for EGLL" ·
+  "what time is it in UTC" · "what does GEN 1.2 say about permits for Latvia" (one document, read out)
 
-standard — the normal case. Standard whenever the request:
-       - changes, adds, deletes, restores or undoes ONE thing
-       - is vague, incomplete, or you are not sure what it refers to
-       - needs two sources, or a simple comparison between them
-       - asks what something MEANS or what to worry about, not just what it says
-       - involves one document, manual, AIP section, briefing or file
+standard — a normal task that needs a few steps or some interpretation:
+  combining two or three sources ("weather and NOTAMs for tomorrow's EVRA departures"),
+  explaining what a rule MEANS for a flight, a single change to a record (add, edit, remove, show on the wall),
+  a short briefing for one flight, drafting an email, comparing two things.
 
-reasoning — ONLY when the task is genuinely heavy and a wrong answer would be
-       costly. Examples:
-       - a full briefing or report that must combine MANY sources (several
-         airports, NOTAMs + weather + limitations + documents together)
-       - reconciling conflicting sources, regulations or manuals and saying
-         which applies and why
-       - a change that touches MANY records, or a plan with several dependent
-         steps
-       - safety or legality questions where the answer must be argued, not
-         looked up
-       - the dispatcher explicitly asks for a thorough, careful or "think hard"
-         answer
+reasoning — heavy work where a wrong answer would mislead a dispatcher:
+  a full briefing across many flights or airports, reconciling sources that disagree, changes to MANY records,
+  legality or safety questions that must be argued, or the user explicitly asks for a careful or thorough answer.
 
-If you hesitate between fast and standard, answer standard. Reasoning is a
-claim that the request is heavy; make that claim only when it plainly is.`;
+Pick the lowest tier that will answer correctly. Confidence is how sure you are of the tier.`;
 
 // Tools whose mere possibility should keep a turn off the cheap tier. Matched
 // on the REQUEST, not the model's plan, because the point is to decide before
@@ -70,15 +60,24 @@ claim that the request is heavy; make that claim only when it plainly is.`;
 // thing standing between a destructive request and the weakest model.
 const NOT_TRIVIAL = new RegExp(
   [
-    "delet", "remov", "purge", "destroy", "undo", "restore", "revert",
-    "add ", "creat", "updat", "chang", "edit", "set ", "disable", "enable",
-    "hide", "show .* on the wall", "send", "email", "export", "generate",
-    "удали", "добав", "измен", "восстанов", "отмени", "отправ",
+    // Imperative write requests, at the start of the request or after a polite lead-in.
+    "^(please |pls |can you |could you |kindly )?(delete|remove|purge|destroy|undo|restore|revert|add|create|update|change|edit|set|disable|enable|hide|send|email|export|generate|mark|approve|reject|retire)\\b",
+    "\\b(show|put|display|hide) .{0,40}\\bon the wall\\b",
+    "^(удали|добав|измен|восстанов|отмени|отправ)",
   ].join("|"),
   "i",
 );
 
 /** Keep the classifier's answer inside the set it was asked for. */
+/** "fast 0.9" → { tier: "fast", confidence: 0.9 }. Confidence null when the router gave none. */
+export function parseRoute(text, allowReasoning) {
+  const t = String(text ?? "").toLowerCase();
+  const tier = parseTier(t, allowReasoning);
+  const m = /([01](?:\.\d+)?|\.\d+)/.exec(t.replace(tier ?? "", ""));
+  const confidence = m ? Math.max(0, Math.min(1, Number(m[1]))) : null;
+  return { tier, confidence };
+}
+
 function parseTier(text, allowReasoning) {
   // Part 10 measured that a classifier allowed to reach for reasoning made
   // routing 43% dearer than flat Sonnet on the 69-query reference set. The
@@ -94,7 +93,7 @@ function parseTier(text, allowReasoning) {
  * Returns the decision AND why, because both go in the audit log: "which model
  * answered" is not reviewable without "and what made us pick it".
  */
-export async function routeTurn({ question, hasHistory = false, allowReasoning = true }) {
+export async function routeTurn({ question, hasHistory = false, allowReasoning = true, lowConfidenceBelow = 0.6 }) {
   const started = Date.now();
 
   const text = String(question ?? "").trim();
@@ -115,15 +114,19 @@ export async function routeTurn({ question, hasHistory = false, allowReasoning =
       tier: "router",
       system: CLASSIFIER,
       messages: [{ role: "user", content: `${hasHistory ? "[continuing a conversation] " : ""}${text.slice(0, 2000)}` }],
-      maxTokens: 8,
+      maxTokens: 12,
       temperature: 0,
     });
-    const tier = parseTier(result?.text, allowReasoning);
+    const { tier, confidence } = parseRoute(result?.text, allowReasoning);
     if (!tier) return decision("standard", `router returned "${String(result?.text ?? "").slice(0, 40)}"`, "unparsed", started);
-    if (tier === "fast" && notReadOnly) {
-      return decision("standard", "router said fast, but the request is not read-only", "floor", started, result?.modelId);
+    let chosen = tier; let reason = tier === "reasoning" ? "classified by router as heavy" : "classified by router"; let source = "router";
+    // Low confidence: go one step up (never down) rather than trust a guess.
+    if (confidence != null && confidence < lowConfidenceBelow && allowReasoning !== false) {
+      const up = { fast: "standard", standard: "reasoning", reasoning: "reasoning" }[tier];
+      if (up !== tier) { chosen = up; reason = `router said ${tier} with low confidence ${confidence}`; source = "low-confidence"; }
     }
-    return decision(tier, tier === "reasoning" ? "classified by router as heavy" : "classified by router", "router", started, result?.modelId);
+    if (chosen === "fast" && notReadOnly) { chosen = "standard"; reason = "router said fast, but the request asks for a change"; source = "floor"; }
+    return { ...decision(chosen, reason, source, started, result?.modelId), routerTier: tier, confidence };
   } catch (error) {
     // An outage must not change what the dispatcher gets, only what it costs.
     return decision("standard", `router unavailable: ${String(error?.message ?? error).slice(0, 80)}`, "fallback", started);

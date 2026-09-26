@@ -6,7 +6,7 @@
 // in front of them clause by clause — and the uploader cannot approve their
 // own document. Approvals and rejections land in the Activity log.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import { EmptyState, FieldLabel, LoadingRows, TextArea, TextInput } from "@/components/console-kit";
 import { C, mono } from "../ui/tokens";
@@ -20,7 +20,7 @@ import { useOpenDocument } from "../viewer/useOpenDocument";
 
 type Doc = {
   id: string; title: string; filename: string; mime: string | null; bytes: number | null; source: string | null; version: string | null;
-  effective_date: string | null; country: string | null; icao: string | null; tier: "tier1" | "tier2" | null; proposed_tier: "tier1" | "tier2" | null; revision?: RevisionInfo | null;
+  effective_date: string | null; country: string | null; icao: string | null; tier: "tier1" | "tier2" | null; proposed_tier: "tier1" | "tier2" | null; revision?: RevisionInfo | null; fileMissing?: boolean;
   proposed_reason: string | null; status: "uploaded" | "classified" | "awaiting_approval" | "approved" | "rejected" | "indexed" | "failed";
   uploaded_by: string | null; uploaded_by_email: string | null; approved_by_email: string | null; approved_at: string | null; rejected_reason: string | null; created_at: string; updated_at: string | null;
 };
@@ -108,6 +108,7 @@ export default function KnowledgePage() {
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
                       <span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{d.id.slice(0, 8).toUpperCase()}{d.bytes ? ` · ${kb(d.bytes)}` : ""}</span>
+                      {d.fileMissing && <span data-file-missing style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.danger, background: C.dangerTint, border: `1px solid ${C.dangerBorder}`, borderRadius: 5, padding: "1px 6px" }}>File missing</span>}
                     </span>
                   </span>
                   <span>{tier === "auth" ? <Tag fg={C.surface} bg={C.ink}>AUTHORITATIVE</Tag> : tier === "requested" ? <Tag fg={C.ink} bg={C.surface} style={{ border: `1px solid ${C.ink}` }}>AUTH · REQUESTED</Tag> : <Tag fg={C.body} bg={C.surface} style={{ border: `1px solid ${C.borderControl}` }}>REFERENCE</Tag>}</span>
@@ -196,6 +197,7 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
         <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 7, columnGap: 8, fontSize: 13 }}>
           <span style={{ color: C.muted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ?? "—"}</span>
           <span style={{ color: C.muted }}>Applies to</span><span style={mono({ fontSize: 12.5 })}>{doc.icao ?? doc.country ?? "—"}</span>
+          {doc.fileMissing && <span style={{ gridColumn: "1 / -1" }}><MissingFile doc={doc} canFix={canApprove} onFixed={onDecided ? () => onDecided(decision as never) : undefined} /></span>}
           <span style={{ color: C.muted }}>Revision</span><span><RevisionTag revision={doc.revision} showCurrent /></span>
           {doc.effective_date && <><span style={{ color: C.muted }}>Effective</span><span style={mono({ fontSize: 12.5 })}>{dateShort(doc.effective_date)}</span></>}
           {doc.source && <><span style={{ color: C.muted }}>Source</span><span>{doc.source}{doc.version ? ` · ${doc.version}` : ""}</span></>}
@@ -309,6 +311,34 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
         <Button variant="primary" size="md" spinning={busy} disabled={busy || !file} onClick={() => void upload()}>Upload and classify</Button>
         <Button variant="ghost" size="md" onClick={onCancel}>Cancel</Button>
       </div>
+    </div>
+  );
+}
+
+/** The record exists but its bytes are not in storage (§15): say so, and let a developer put the file back. */
+function MissingFile({ doc, canFix, onFixed }: { doc: Doc; canFix: boolean; onFixed?: () => void }) {
+  const input = useRef<HTMLInputElement | null>(null);
+  const [state, setState] = useState<{ busy: boolean; message: string | null; error: boolean }>({ busy: false, message: null, error: false });
+  async function upload(file: File) {
+    setState({ busy: true, message: null, error: false });
+    try {
+      const r = await fetch(`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(doc.id)}/file`, { method: "PUT", credentials: "same-origin", headers: { "content-type": file.type || "application/octet-stream" }, body: file });
+      const b = await r.json().catch(() => null);
+      if (!r.ok || !b?.ok) { setState({ busy: false, message: b?.message ?? "The file could not be restored.", error: true }); return; }
+      setState({ busy: false, message: b.message ?? "File restored.", error: !b.sameContent });
+      onFixed?.();
+    } catch { setState({ busy: false, message: "The file could not be uploaded — check the connection and try again.", error: true }); }
+  }
+  return (
+    <div role="alert" style={{ display: "flex", flexDirection: "column", gap: 6, background: C.dangerTint, border: `1px solid ${C.dangerBorder}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: C.body }}>
+      <span><b style={{ color: C.danger }}>File missing.</b> The record is here but its file is not in storage, so it cannot be opened or downloaded. The approved clauses still show, but they cannot be checked against the source until the file is back.</span>
+      {canFix ? (
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input ref={input} type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ""; }} />
+          <Button variant="secondary" size="xs" icon="upload" disabled={state.busy} onClick={() => input.current?.click()}>{state.busy ? "Uploading…" : `Re-upload ${doc.filename}`}</Button>
+          {state.message && <span style={{ color: state.error ? C.danger : C.ok }}>{state.message}</span>}
+        </span>
+      ) : <span style={{ color: C.muted }}>Ask a developer to re-upload it.</span>}
     </div>
   );
 }

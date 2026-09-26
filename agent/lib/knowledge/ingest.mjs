@@ -6,7 +6,7 @@
 // the schema makes not-nullable so the rule survives a future code change.
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, access } from "node:fs/promises";
 import path from "node:path";
 import { converseOnce } from "../bedrock.mjs";
 import { embed, activeEmbeddingModel } from "./embeddings.mjs";
@@ -64,6 +64,19 @@ export async function storeDocument({ filename, mime, buffer, metadata, user }) 
     }]),
   });
   return rows?.[0] ?? null;
+}
+
+/** Whether the stored original exists on the persistent volume (a row without its bytes is "file missing"). */
+export async function documentFileExists(storageKey) {
+  try { await access(documentPath(storageKey)); return true; } catch { return false; }
+}
+
+/** Put the bytes back for an existing row (re-upload of a missing file). Same key, so every link keeps working. */
+export async function replaceDocumentFile(storageKey, buffer) {
+  const target = documentPath(storageKey);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, buffer);
+  return createHash("sha256").update(buffer).digest("hex");
 }
 
 export async function readDocumentFile(storageKey) {

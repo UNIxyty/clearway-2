@@ -13,7 +13,7 @@
 
 import { validate, SchemaError } from "./schema.mjs";
 import { ToolError, InvalidInput, Timeout } from "./errors.mjs";
-import { audit } from "../store.mjs";
+import { audit, agentEnabled } from "../store.mjs";
 import { requireConfirmation, consumeConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
 
 /** Permission levels, least to most privileged. */
@@ -68,6 +68,39 @@ export const CONFIRM_LEVELS = {
   purge_deleted_limitation: "destructive",
 };
 const WRITE_HINT = /^(create_|update_|delete_|restore_|purge_|set_|send_|email_|undo_|remember$|forget$)/;
+
+/**
+ * Item 4 — which confirmations a user may choose to skip. The rule: a confirmation may be skipped ONLY for an
+ * action that can be undone, where undo_action restores a recorded before-state (tools/undo.mjs `restore`),
+ * and that is scoped (one record / one setting). Everything else always confirms, whatever the setting.
+ * Voice never skips (§3 rule 9). The kill switch is re-checked on every auto-confirmed call.
+ */
+export const LOW_RISK = {
+  update_display_settings: "Wall display settings (colours, clock). Undo puts the previous settings back.",
+  create_limitation: "Adding a limitation. Undo removes it.",
+  update_limitation: "Editing a limitation. Undo restores the previous version from the snapshot.",
+  create_important: "Adding an IMPORTANT entry. Undo removes it.",
+  create_report: "Raising a report. Undo removes it.",
+};
+export const ALWAYS_CONFIRM = {
+  purge_deleted_limitation: "Destructive (§4.15 level 3) — cannot be undone.",
+  delete_limitation: "A deletion — always confirmed.",
+  delete_important: "Deletes an IMPORTANT entry — always confirmed.",
+  delete_report: "A deletion — always confirmed.",
+  restore_limitation: "Undoing a restore is a deletion, which always confirms.",
+  restore_important: "Undoing a restore is a deletion, which always confirms.",
+  restore_report: "Undoing a restore is a deletion, which always confirms.",
+  show_flight_on_wall: "Changes what the wall shows to the room.",
+  close_flight_on_wall: "Changes what the wall shows to the room.",
+  set_aircraft_visible: "Changes what the wall shows to the room (hides or shows an aircraft).",
+  set_operator_active: "Changes what the wall shows to the room (an operator's flights).",
+  send_email: "Email leaves the system — no undo.",
+  email_document: "Email leaves the system — no undo.",
+  undo_action: "An undo cannot itself be undone.",
+};
+export function lowRiskCatalogue() {
+  return { qualified: Object.entries(LOW_RISK).map(([tool, why]) => ({ tool, why })), alwaysConfirm: Object.entries(ALWAYS_CONFIRM).map(([tool, why]) => ({ tool, why })) };
+}
 export function confirmLevelFor(tool) {
   if (CONFIRM_LEVELS[tool.name]) return CONFIRM_LEVELS[tool.name];
   if (tool.name === "remember" || tool.name === "forget") return null; // the user's own notes, not operational data
@@ -208,7 +241,7 @@ async function describeChange(tool, input, user) {
   return { what: String(what).replace(/\s+/g, " ").trim(), target };
 }
 
-export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui" }) {
+export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui", skipConfirm = false }) {
   const startedAt = Date.now();
   const tool = getTool(name);
 
@@ -275,7 +308,14 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       await record(result, false, "CONFIRMATION_FROM_MODEL");
       return result;
     }
-    if (!confirmationToken || origin !== "ui") {
+    // Item 4: the user turned on "skip confirmation for low-risk actions", this action qualifies (reversible,
+    // scoped, with a working undo), it was TYPED (never voice), and the agent is enabled. Then it runs now and
+    // is recorded as AUTO-CONFIRMED with the setting's state, and the reply carries an Undo.
+    const autoOk = !confirmationToken && skipConfirm === true && inputMode !== "voice" && level !== "destructive" && Object.prototype.hasOwnProperty.call(LOW_RISK, name) && !ALWAYS_CONFIRM[name] && !tool.destructive;
+    if (autoOk && (await agentEnabled()).enabled === true) {
+      validInput = bare;
+      confirmationEntry = { auto: true, token: null };
+    } else if (!confirmationToken || origin !== "ui") {
       // A tool may check its inputs BEFORE the user is asked to confirm — an
       // attachment that does not exist, a recipient that is not allowed — so a
       // prompt is never shown for a send that would fail after "Confirm".
@@ -298,6 +338,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       await audit({ kind: "tool.call", userId: user.userId, userEmail: user.email, conversationId, toolName: name, toolArgs: bare, toolResult: { confirmationRequired: true, level, token: issued.token }, confirmationStatus: "pending", success: true, latencyMs: Date.now() - startedAt, detail: { permission: tool.permission, role: user.agentRole, level } });
       return result;
     }
+    if (!confirmationEntry?.auto) {
     const begun = beginConfirmation({ token: confirmationToken, user, toolName: name, input: bare });
     if (begun.error) {
       const why = { unknown: "That confirmation is not one of yours, or this service restarted since it was issued.", mismatch: "The confirmation does not match this action's arguments.", cancelled: "That confirmation was cancelled.", expired: "That confirmation expired — the wall may have changed since. Ask again." }[begun.error];
@@ -309,6 +350,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
     if (begun.inFlight) return await begun.entry.executing;     // a racing second click waits for the first
     confirmationEntry = begun.entry;
     validInput = bare;
+    }
   }
 
   // ── Voice is the exception to the no-confirmation rule ──────────────────
@@ -362,7 +404,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
     }
   };
   try {
-    if (confirmationEntry) {
+    if (confirmationEntry && !confirmationEntry.auto) {
       // Racing confirms share this one promise; see beginConfirmation.
       confirmationEntry.executing = execute();
       output = await confirmationEntry.executing;
@@ -370,7 +412,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       output = await execute();
     }
   } catch (toolError) {
-    if (confirmationEntry) failConfirmation(confirmationEntry);
+    if (confirmationEntry && !confirmationEntry.auto) failConfirmation(confirmationEntry);
     const result = toolError.toResult();
     await record(result, false, `${toolError.code}: ${toolError.message}`);
     return result;
@@ -394,12 +436,14 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   // object with a field quietly missing.
   try {
     const validated = validate(output, tool.output, `${name} result`);
-    const result = { ok: true, ...validated, ...(confirmationEntry ? { confirmedAt: new Date().toISOString(), confirmationToken: confirmationEntry.token } : {}) };
-    if (confirmationEntry) settleConfirmation(confirmationEntry, result);
+    const auto = confirmationEntry?.auto === true;
+    const result = { ok: true, ...validated, ...(auto ? { autoConfirmed: true, message: `Done without a confirmation card (your setting: skip confirmation for low-risk actions). It can be undone${validated.actionId ? ` — action ${validated.actionId}` : ""}.` } : confirmationEntry ? { confirmedAt: new Date().toISOString(), confirmationToken: confirmationEntry.token } : {}) };
+    if (confirmationEntry && !auto) settleConfirmation(confirmationEntry, result);
+    if (auto) await audit({ kind: "action.auto_confirmed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, conversationId, toolName: name, toolArgs: validInput, toolResult: { actionId: validated.actionId ?? null }, confirmationStatus: "auto_confirmed", success: true, detail: { setting: { skipConfirm: true, at: new Date().toISOString() }, level, undoActionId: validated.actionId ?? null } });
     await audit({ kind: "tool.call", userId: user?.userId ?? null, userEmail: user?.email ?? null, conversationId, toolName: name, toolArgs: validInput ?? null,
       toolResult: byteSize(result) > 32 * 1024 ? { truncatedForAudit: true, bytes: byteSize(result) } : result,
-      confirmationStatus: confirmationEntry ? "confirmed" : "not_required", success: true, error: null, latencyMs: Date.now() - startedAt,
-      detail: { permission: tool?.permission ?? null, role: user?.agentRole ?? null, ...(confirmationEntry ? { level, confirmedToken: confirmationEntry.token } : {}) } });
+      confirmationStatus: auto ? "auto_confirmed" : confirmationEntry ? "confirmed" : "not_required", success: true, error: null, latencyMs: Date.now() - startedAt,
+      detail: { permission: tool?.permission ?? null, role: user?.agentRole ?? null, ...(auto ? { level, autoConfirmed: true, skipConfirmSetting: true } : confirmationEntry ? { level, confirmedToken: confirmationEntry.token } : {}) } });
     return result;
   } catch (error) {
     const message = error instanceof SchemaError ? error.errors.join("; ") : String(error?.message || error);
@@ -579,6 +623,7 @@ export function actionsFromToolCalls(calls) {
     if (!id) continue;
     out.push({
       actionId: String(id),
+      autoConfirmed: call.result.autoConfirmed === true,
       what: describe(call.result),
       targetKind: call.name.replace(/^(create|update|set)_/, "").replace(/_active|_visible$/, ""),
       target: call.result.id ?? call.result.registration ?? call.result.operatorId ?? null,

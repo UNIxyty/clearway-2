@@ -51,6 +51,8 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   useEffect(() => { const f = () => setNarrow(window.innerWidth - (document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248) < VIEWER.panelNarrowBelow); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
   useEffect(() => { if (docContext) t.setPinnedContext(docContext); }, [docContext?.label, docContext?.page]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Selection actions in the viewer hand a prepared request to the open agent surface (item 15).
+  useEffect(() => { const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (d?.text && d.send) void t.send(d.text); }; window.addEventListener("cw-agent-compose", compose); return () => window.removeEventListener("cw-agent-compose", compose); }, [t]);
   const live = useLiveSuggestions(null);
   const empty = useMemo(() => suggestionsFor(null, live, true), [live]);
 

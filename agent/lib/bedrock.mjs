@@ -158,9 +158,14 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
  *    and returns the standard error vocabulary. The model never gets to run
  *    anything the framework has not approved.
  */
-export async function* streamConversationWithTools({ tier = "standard", system, messages, user, conversationId, inputMode = "text" }) {
-  const { requested, effective, config } = resolveTier(tier);
-  const candidates = modelCandidates(tier);
+export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false }) {
+  // The tier may RISE during the turn (escalation after a tool round, item 3); it never falls.
+  let tier = startTier;
+  let { requested, effective, config } = resolveTier(tier);
+  let candidates = modelCandidates(tier);
+  const escalations = [];
+  const roundResults = [];
+  const thoughts = [];
   if (candidates.length === 0) throw ModelUnavailable(`No model is configured for tier "${effective}".`);
 
   const toolSpecs = toolSpecsFor(user);
@@ -174,6 +179,8 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const lastRound = round === MAX_TOOL_ROUNDS;
+    const roundStarted = Date.now();
+    let roundText = "";
     let assistantBlocks = [];
     let stopReason = null;
 
@@ -208,6 +215,7 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
             const existing = blocks.get(idx) ?? { type: "text", text: "" };
             existing.text = (existing.text ?? "") + chunk;
             blocks.set(idx, existing);
+            roundText += chunk;
             yield { type: "delta", text: chunk };
           }
           if (event.contentBlockDelta?.delta?.toolUse?.input != null) {
@@ -253,6 +261,9 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
         modelId: usedModelId,
         requestedTier: requested,
         effectiveTier: effective,
+        startTier,
+        escalations,
+        thoughts,
         stopReason,
         inputTokens: totalIn,
         outputTokens: totalOut,
@@ -264,6 +275,13 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
     }
 
     conversation.push({ role: "assistant", content: assistantBlocks });
+    // Text written in a round that ends by calling tools is the model thinking aloud, not the answer
+    // (item 8a): it is moved out of the reply into the collapsed "Thought for Ns" disclosure.
+    if (roundText.trim()) {
+      const thought = { text: roundText, ms: Date.now() - roundStarted };
+      thoughts.push(thought);
+      yield { type: "thought", ...thought };
+    }
 
     // Tool calls in one round are independent, so they run together.
     const results = await Promise.all(
@@ -271,7 +289,7 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
         const startedAt = Date.now();
         // origin: "model" -- a confirmation token in a model tool call is refused
         // by executeTool; only the console's confirm endpoint may spend one.
-        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model" });
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice" });
         return { call, result, startedAt, durationMs: Date.now() - startedAt };
       })
     );
@@ -296,6 +314,22 @@ export async function* streamConversationWithTools({ tier = "standard", system, 
       });
     }
     conversation.push({ role: "user", content: toolResultBlocks });
+
+    // Escalation (one-way): the caller reads what the tools returned and may raise the tier for the rest
+    // of the turn. A lower answer is ignored here as well as in the caller.
+    for (const { call, result } of results) roundResults.push({ name: call.name, result });
+    if (onRound) {
+      const next = await onRound({ tier, toolCalls: roundResults, round });
+      const order = ["fast", "standard", "reasoning"];
+      if (next?.to && order.indexOf(next.to) > order.indexOf(tier)) {
+        const from = tier; tier = next.to;
+        ({ requested, effective, config } = resolveTier(tier));
+        candidates = modelCandidates(tier);
+        const e = { from, to: tier, reason: next.reason ?? "escalated", round };
+        escalations.push(e);
+        yield { type: "escalated", ...e };
+      }
+    }
 
     // One round left: tell the model so, rather than letting it discover the
     // cliff by having its next tool request silently ignored. Without this the

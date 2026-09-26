@@ -32,6 +32,10 @@ export type DocRef = {
   revision?: { label: string; state?: "current" | "future" | "superseded" | "unknown"; words?: string; reason?: string | null; superseded?: boolean; currentHref?: string | null; effectiveFrom?: string | null; validUntil?: string | null; fetchedAt?: string | null; revision?: string | null; previous?: { revision: string | null; effectiveDate: string | null; airac: string | null; fetchedAt: string | null }[] } | null;
   approval?: DocApproval | null;
   canApprove?: boolean;
+  /** Knowledge documents: the record exists but its file is not in storage. */
+  fileMissing?: boolean;
+  /** Knowledge documents: the editable record (title, source, version, …). */
+  record?: { title: string; source: string | null; version: string | null; effectiveDate: string | null; icao: string | null; country: string | null; tags: string[]; tier: string | null; status: string } | null;
   /** Agent table results open as a Table tab (§V8). */
   table?: TableData | null;
   /** Filled in as the file loads. */

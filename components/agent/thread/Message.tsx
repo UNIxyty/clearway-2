@@ -6,8 +6,11 @@
 // reading → sources; a confirmation is the whole reply when the agent needs
 // one. Every block is drawn from what the backend returned.
 
+import { useMemo } from "react";
 import { C, TYPE, mono } from "../ui/tokens";
 import { Button, Icon, hmZ, hmsZ, kb } from "../ui/primitives";
+import { AutoConfirmedActions, Thinking, type ThinkingBlock } from "./Thinking";
+import { splitStructured } from "./structuredProse";
 import Orb from "../ui/Orb";
 import Markdown from "../panel/Markdown";
 import { ToolSummary, LiveSteps } from "./ToolActivity";
@@ -16,7 +19,7 @@ import { VerbatimFrame, AgentsReading } from "./Verbatim";
 import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, TableResult, MonoBlock } from "./Cards";
 import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
 import { ErrorCard, kindFor } from "./ErrorCard";
-import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData } from "../types";
+import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData, PerformedAction } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 
 function SentAttachments({ items }: { items: { id: string; name: string; bytes?: number | null }[] }) {
@@ -88,10 +91,22 @@ export function AgentReply({
   const live = m.streaming && steps.some((s) => s.state === "running" || s.state === "queued");
   const proseStyle = panel ? TYPE.bodyPanel : TYPE.body;
 
-  const prose = m.content ? (
-    b.claims && b.claims.length ? <div style={proseStyle}><ClaimedProse text={m.content} spans={b.claims} sources={sources} hot={hot} setHot={setHot} panel={panel} /></div>
-      : <div style={{ ...proseStyle, color: verbatim.length ? C.body : C.ink }}><Markdown text={m.content} />{m.streaming && <StreamingCaret panel={panel} />}</div>
+  // Item 8b: components carry the data; the prose frames it. Anything the prose repeats is dropped, and a
+  // markdown table becomes a §4.13 table result (never a markdown table).
+  const componentKeys = [
+    ...flights.flatMap((f) => [f.callsign, (f as { registration?: string | null }).registration, f.flightId]),
+    ...airports.map((a) => a.icao), ...documents.map((d) => d.title), ...files.map((f) => f.filename),
+  ].filter(Boolean) as string[];
+  const hasComponents = flights.length + airports.length + documents.length + files.length + tables.length + verbatim.length > 0;
+  const split = useMemo(() => splitStructured(m.content ?? "", componentKeys), [m.content, componentKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownText = split.prose;
+  const mdTables = hasComponents ? [] : split.tables;
+  const prose = shownText ? (
+    b.claims && b.claims.length && !split.tables.length && !split.droppedLines ? <div style={proseStyle}><ClaimedProse text={m.content} spans={b.claims} sources={sources} hot={hot} setHot={setHot} panel={panel} /></div>
+      : <div style={{ ...proseStyle, color: verbatim.length ? C.body : C.ink }}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</div>
   ) : null;
+  const thinking = (b as { thinking?: ThinkingBlock | null }).thinking ?? null;
+  const performed = (b.actions ?? []) as (PerformedAction & { autoConfirmed?: boolean })[];
 
   return (
     <div style={{ display: "flex", gap: panel ? 0 : 14 }}>
@@ -102,6 +117,7 @@ export function AgentReply({
         )}
         {!m.streaming && (m.modelId || m.modelTier) && <ModelLine m={m} panel={panel} />}
 
+        <Thinking block={thinking} running={Boolean(m.streaming) && !m.content && (Boolean(thinking) || Boolean(live))} panel={panel} />
         {live ? <LiveSteps steps={steps} panel={panel} /> : steps.length > 0 && <ToolSummary steps={steps} elapsedMs={m.latencyMs ?? null} panel={panel} defaultOpen={false} />}
 
         {failed.map((s, i) => {
@@ -123,12 +139,14 @@ export function AgentReply({
         {airports.map((a) => <AirportSummary key={a.icao} airport={a} panel={panel} />)}
         {flights.length > 2 ? <FlightRows flights={flights} panel={panel} /> : flights.map((f) => <FlightCard key={f.flightId} flight={f} panel={panel} />)}
         {tables.map((t) => <TableResult key={t.id} table={t} panel={panel} />)}
+        {mdTables.map((t) => <TableResult key={t.id} table={t} panel={panel} />)}
+        <AutoConfirmedActions actions={performed} panel={panel} onUndo={(a) => window.dispatchEvent(new CustomEvent("cw-agent-compose", { detail: { text: `Undo the change "${a.what}" (action ${a.actionId}).`, send: true } }))} />
         {mono_.map((x) => <MonoBlock key={x.id} block={x} panel={panel} onShowOnPage={onShowOnPage} />)}
         {documents.map((d) => <DocumentResult key={`${d.kind}-${d.href ?? d.documentId ?? d.title}`} doc={d} panel={panel} onEmail={onEmailDocument} />)}
         {files.map((f) => <GeneratedFile key={f.id} file={f} panel={panel} onSend={onSendFile} />)}
 
         {verbatim.map((r) => <VerbatimFrame key={`${r.kind ?? "limitation"}-${r.id}`} record={r} panel={panel} />)}
-        {verbatim.length > 0 && m.content && <AgentsReading panel={panel}><Markdown text={m.content} />{m.streaming && <StreamingCaret panel={panel} />}</AgentsReading>}
+        {verbatim.length > 0 && shownText && <AgentsReading panel={panel}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</AgentsReading>}
 
         {m.streaming && !m.content && !live && (
           <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 6 }}><div style={{ height: 12, width: "80%", borderRadius: 4, background: C.hover }} /><div style={{ height: 12, width: "60%", borderRadius: 4, background: C.hover }} /></div>

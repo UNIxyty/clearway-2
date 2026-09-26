@@ -581,6 +581,7 @@ function PortalShellInner({
         <AgentPanel open={agentOpen && !viewer.panelClosed} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
       )}
       {hasAgent && <DocumentViewer onAskAbout={() => setAgentOpen(true)} />}
+      {hasAgent && <ComposeOpensPanel onOpen={() => setAgentOpen(true)} />}
     </div>
   );
 }
@@ -590,4 +591,10 @@ function PortalShellInner({
 // share one viewer with the shell and the panel.
 export default function PortalShell(props: Parameters<typeof PortalShellInner>[0]) {
   return <PortalShellInner {...props} />;
+}
+
+/** A prepared request from the viewer (selection actions) opens the panel if it is closed. */
+function ComposeOpensPanel({ onOpen }: { onOpen: () => void }) {
+  useEffect(() => { const f = () => { if (!document.querySelector("[data-cw-thread-column]")) onOpen(); }; window.addEventListener("cw-agent-compose", f); return () => window.removeEventListener("cw-agent-compose", f); }, [onOpen]);
+  return null;
 }

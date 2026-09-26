@@ -1400,6 +1400,7 @@ model again. Config, not code — no rebuild of logic, just a restart.
 | 13 — shortcuts match on the physical key (⌥ chords on macOS); recorder feedback | f87d947 | yes | yes — 2026-09-25 01:35Z (portal build U2JcgdeZ7Ga-xZE5VUqKP; agent-service + digital-wall-frontend rebuilt) |
 | 4 — manifest statuses + report | e456898 | yes | yes — 2026-09-24 22:48Z (portal build CPLTeU4bq1NEBEAikfRlQ2, agent-service healthy) |
 | 14 — document viewer: citation → document (exact match only, not-found = no highlight + red banner + logged), verbatim check, tabs, five entry points, file types, states, `/agent/doc` for the wall | 97086f5 | yes | yes — 2026-09-26 (portal build Wm3l1mh8wU5hJ3MkEp8LT, was U2JcgdeZ7Ga-xZE5VUqKP; agent-service + digital-wall-frontend rebuilt `--no-cache`; server HEAD 97086f5) |
+| 15 — document revisions: unknown is not current — AIP sidecars from the EAD table/dated filenames, AIRAC calendar, four states in tools / answer / chips / cards / verbatim frame / viewer, cited-revision mismatch, revision on citation audits; `docs/supabase-agent-revisions.sql` (not yet run) | 077d717 | yes | yes — 2026-09-26 (portal build QIm87ZESJfWr70dVdoNQt, was Wm3l1mh8wU5hJ3MkEp8LT; agent-service + aip-sync + digital-wall-frontend rebuilt `--no-cache`; server HEAD 077d717) |
 
 Verified in a browser on the production build (Playwright, standalone server + agent in local test mode):
 39 screenshots; console clean apart from the rig's own 401s. §3 rules verifier 15/15 on the final code.
@@ -1421,6 +1422,26 @@ file, document, attachment and citation route → 401; `/agent/api/health` 200; 
 `pdf.worker.min.mjs` are served from the new build. Manifest: `docs/agent-viewer-manifest.md`; report §8k.
 Blocked (backend): revision/superseded metadata, cached offline copies, AIP citation spans, server-side
 DOCX rendering, portal deep-link format.
+
+**Stage 15 (revisions) verification and migration.** Production build on the rig, Playwright,
+screenshots `rv1`–`rv13`: the four viewer states (current / not yet effective / superseded with Open
+current / unknown), an answer citing a superseded document that says so in the prose and on the chip,
+approved text from a superseded source quoted word for word and flagged in the frame, document cards
+with revision from a real reply, cited-revision mismatch banner, the two banners side by side, and the
+four previously untested cases (document card → viewer, sent attachment chip → viewer, passage across a
+page break, second citation into an open document). Production after deploy, no session: `/api/aip/
+resolve`, `/api/aip/gen/pdf/exists`, `/agent/api/documents/aip/EVRA` → 401; `/files/aip/ead-pdf/
+EVRA.meta.json` → 307 to `/login`.
+Backfill run on the server (`docker compose exec aip-sync node scripts/tools/backfill-aip-revisions.mjs`):
+**266 cached AIP copies (156 EAD AD 2, 31 scraper, 67 USA, 1 ASECNA, 10 GEN, 1 scraper GEN) → 266
+unknown, 0 current, 0 not yet effective, 0 superseded.** No dated source copy survives on the server
+(the containers' download folders are ephemeral), so no effective date could be recovered for any of
+them; every copy now carries a sidecar with its real fetch time and no date. They become known as each
+ICAO is re-synced. Knowledge base: 18 pre-existing documents, none with a version or effective date →
+18 unknown; the 5 fixtures added by this job carry revisions (3 current, 1 not yet effective, 1
+superseded). Revision data written from this point on: every new EAD/scraper download.
+Design decision open: a copy fetched before the cycle in force is reported unknown, not current, and
+there is no scheduled per-cycle re-check (EAD blocks datacenter IPs).
 
 ## Deferred items (all parts)
 

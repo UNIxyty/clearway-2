@@ -276,7 +276,7 @@ export const PdfView = forwardRef<PdfHandle, {
       const hl = host.querySelector<HTMLDivElement>(":scope > .cw-hl-layer"); if (!hl) continue;
       // reset (the text layer is never touched)
       hl.replaceChildren();
-      host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag").forEach((m) => m.remove());
+      host.querySelectorAll(":scope > .cw-cite-marker, :scope > .cw-cite-tag, :scope > .cw-quote-marker").forEach((m) => m.remove());
       const origin = host.getBoundingClientRect();
       if (!origin.width || !origin.height) continue; // not laid out (viewer hidden): redrawn when shown
       const text = textCache.current.get(n); if (!text) continue;

@@ -1463,3 +1463,12 @@ there is no scheduled per-cycle re-check (EAD blocks datacenter IPs).
 | 0 | Remove duplicate `AWS_REGION` line in server `.env` | Needs server access | With the first deploy |
 
 **Stage 16 notes.** Report: `docs/agent-fifteen-fixes.md`. Routing benchmark (69 queries, routing only): fast 11 · standard 46 · reasoning 12; 82.6% correct entry; 1 under-route; 0 writes on the fast tier. Production before: 203/218 answers on standard. `agent/node_modules` was committed by mistake in aabecb9 and untracked in 148a053 (history keeps it; no secrets). Sonnet 5 / Opus 5 remain AWS-gated: the standard and reasoning tiers run Sonnet 4.6 and Opus 4.6. Cohere Rerank is not offered in eu-north-1.
+
+## Stage 17 — Chrome extension (2026-09-27)
+
+Built: `extension/` (MV3; side panel, worker, offscreen mic, four on-demand content scripts), server routes
+`/api/extension/*` + `pageContext` on `/api/chat` + request client on every audit row, console Activity log
+`From` column, Agent settings Sites card, `/admin/agent-sites`. Report, permission model and packaging:
+`docs/agent-extension.md`; screenshots `docs/agent-extension-shots/`. Verified in Chromium with the unpacked
+build (44 of 49 items seen working; the rest built but not observable in automation — listed in the report).
+Deployed: see the commit hash and BUILD_ID recorded below once pushed.

@@ -119,6 +119,8 @@ export type ConfirmationLevel = "low" | "standard" | "destructive";
 export type ConfirmationStatus = "pending" | "applied" | "cancelled" | "expired" | "partial";
 export type PendingConfirmation = {
   token: string;
+  /** Client-added rows (label, text) shown under the arguments — the extension's "Wall — not from here" row. */
+  extraRows?: [string, string][];
   level: ConfirmationLevel;
   toolName: string;
   input: Record<string, unknown>;
@@ -136,7 +138,11 @@ export type Attachment = { name: string; text: string; chars: number; id?: strin
 
 export type SentAttachment = { id: string; name: string; bytes?: number | null; mime?: string | null; readStatus?: "read" | "partial" | "unreadable"; readMode?: string | null; readReason?: string | null; readNote?: string | null; truncatedChars?: number };
 
+/** Content the user sent from a web page through the extension (§E6): shown as a card above the bubble, cited as Web. */
+export type PageContextBlock = { kind: "selection" | "capture" | "page"; title: string; url: string; host: string; sentAt: string; text?: string; attachmentId?: string; chars?: number; words?: number; headings?: number; tables?: number; trimmed?: boolean; bytes?: number; width?: number; height?: number; dataUrl?: string };
+
 export type MessageBlocks = {
+  pageContext?: PageContextBlock;
   // readStatus/readReason: whether the agent could READ the file (§4.18). Absent on messages sent before it was recorded.
   attachments?: SentAttachment[];
   verbatim?: VerbatimRecord[];

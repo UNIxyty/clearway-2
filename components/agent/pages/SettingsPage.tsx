@@ -19,6 +19,7 @@ import { AGENT_BASE } from "../types";
 type Capability = { key: string; label: string; description: string; enabled: boolean };
 type Person = { userId: string; email: string; name: string; read: string; wall: string; sendEmail: string; approveKb: string };
 type BindActionRow = { key: BindAction; label: string; description: string };
+type SiteCounts = { approved: number; pending: number };
 type Usage = { month: string; spendEur: number; capEur: number; replies: number; toolCalls: number; heaviest: { email: string; eur: number } | null; model: string | null; voice: boolean };
 
 const AVATAR = [C.primary, C.ok, C.warn, C.neutral, C.info, C.danger];
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [people, setPeople] = useState<Person[] | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [sites, setSites] = useState<SiteCounts | null>(null);
   const [binds, setBinds] = useState<KeybindConfig | null>(null);
   const [bindActions, setBindActions] = useState<BindActionRow[]>([]);
   const [bindError, setBindError] = useState<string | null>(null);
@@ -39,12 +41,14 @@ export default function SettingsPage() {
 
   const load = useCallback(async () => {
     const get = (p: string) => fetch(`${AGENT_BASE}${p}`, { credentials: "same-origin", cache: "no-store" }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) })).catch(() => ({ status: 0, body: null }));
-    const [s, p, u] = await Promise.all([get("/api/settings"), get("/api/settings/permissions"), get("/api/usage")]);
+    const [s, p, u, x] = await Promise.all([get("/api/settings"), get("/api/settings/permissions"), get("/api/usage"), get("/api/extension/sites/admin")]);
     if (s.status === 401 || s.status === 403) { setForbidden(true); return; }
     if (!s.body?.ok) { setError(s.body?.message || "Could not load settings."); return; }
     setCaps(s.body.capabilities); setCanEdit(Boolean(s.body.canEdit)); if (s.body.keybinds) setBinds(s.body.keybinds); if (s.body.keybindActions) setBindActions(s.body.keybindActions);
     if (p.status === 403 || u.status === 403) setForbidden(true);
     setPeople(p.body?.ok ? p.body.people : []); setUsage(u.body?.ok ? u.body.usage : null);
+    // Extension site list (§E14 item 8): admins only; a 403 simply leaves the card out.
+    setSites(x.body?.ok ? { approved: (x.body.approved ?? []).length, pending: (x.body.requests ?? []).filter((r: { status: string }) => r.status === "pending").length } : null);
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -161,6 +165,19 @@ export default function SettingsPage() {
               </>
             )}
           </section>
+
+          {/* Sites the Chrome extension may read (§E14 item 8) — admins only; managed in Admin → Agent sites */}
+          {sites && (
+            <section style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }} aria-label="Sites">
+              <Eyebrow>Sites</Eyebrow>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>{sites.approved}</span>
+                <span style={{ fontSize: 13, color: C.muted }}>{sites.approved === 1 ? "site approved" : "sites approved"} for the Chrome extension</span>
+                {sites.pending > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: C.warn }}>· {sites.pending} request{sites.pending === 1 ? "" : "s"} waiting</span>}
+              </div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted }}>On an approved site the extension can read a selection or the page when someone sends it. Requests from the extension land here. <a href="/admin/agent-sites" style={{ color: C.primary, fontWeight: 600 }}>Manage in Admin → Agent sites</a></div>
+            </section>
+          )}
         </div>
       </div>
     </PortalShell>

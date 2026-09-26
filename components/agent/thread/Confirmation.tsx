@@ -47,7 +47,8 @@ function rows(c: PendingConfirmation): Array<[string, React.ReactNode]> {
     const codeLike = /^(icao|airportIcaos|registration|operatorId|to|startDate|endDate|filename)$/.test(k);
     out.push([label, <span style={codeLike ? mono() : undefined}>{text}</span>]);
   }
-  return out.slice(0, 8);
+  for (const [k, v] of c.extraRows ?? []) out.push([k, <span>{v}</span>]);
+  return out.slice(0, 9);
 }
 
 export function ConfirmationCard({

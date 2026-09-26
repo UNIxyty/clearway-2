@@ -15,10 +15,11 @@ import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 
 type Routing = { startTier: string | null; finalTier: string | null; modelId: string | null; source: string | null; reason: string | null; confidence: number | null; routerTier: string | null; escalations: { from: string; to: string; reason: string }[]; inputTokens: number | null; outputTokens: number | null; cacheReadTokens: number; costUsd: number | null };
-type Row = { routing?: Routing; id: number; at: string; who: string; kind: "READ" | "WRITE" | "SEND" | "FILE" | "ANSWER"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
-const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: C.neutral, bg: C.neutralTint }, WRITE: { fg: C.primaryHover, bg: C.primaryTint2 }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: C.ok, bg: C.okTint }, ANSWER: { fg: C.info, bg: C.infoTint } };
+type Row = { routing?: Routing; id: number; at: string; who: string; from: string; kind: "READ" | "WRITE" | "SEND" | "FILE" | "ANSWER" | "INSERT"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
+const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: C.neutral, bg: C.neutralTint }, WRITE: { fg: C.primaryHover, bg: C.primaryTint2 }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: C.ok, bg: C.okTint }, ANSWER: { fg: C.info, bg: C.infoTint }, INSERT: { fg: C.body, bg: C.hover } };
 const TONE: Record<string, string> = { ok: C.okDot, muted: C.faint, danger: C.dangerBadge, warn: C.warnDot, faint: C.faint };
-const GRID = "110px 150px 90px 190px minmax(0,1fr) 170px 150px";
+// FROM (§E14 item 7): Console, or Extension · {host} — added after WHO ASKED.
+const GRID = "96px 140px 150px 78px 160px minmax(0,1fr) 150px 140px";
 
 export default function ActivityPage() {
   const [filter, setFilter] = useState<"all" | "answers" | "changes" | "sent" | "denied">("all");
@@ -69,13 +70,14 @@ export default function ActivityPage() {
         {rows !== null && rows.length > 0 && (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
             <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "10px 18px", background: C.page, borderBottom: `1px solid ${C.divider}` }}>
-              {["TIME", "WHO ASKED", "KIND", "TOOL", "ARGUMENTS", "RESULT", "CONFIRMED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint }}>{h}</span>)}
+              {["TIME", "WHO ASKED", "FROM", "KIND", "TOOL", "ARGUMENTS", "RESULT", "CONFIRMED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint }}>{h}</span>)}
             </div>
             {rows.map((r) => (
               <div key={r.id} style={{ borderBottom: `1px solid ${C.dividerRow}` }}>
                 <button type="button" onClick={() => void toggle(r)} aria-expanded={open === r.id} className="ag-row-hover ag-focus" style={{ width: "100%", display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "11px 18px", alignItems: "center", cursor: "pointer", border: "none", fontFamily: "inherit", textAlign: "left", background: open === r.id ? C.rowExpanded : "transparent" }}>
                   <span style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{hmsZ(r.at)}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.who}</span>
+                  <span title={r.from} style={{ fontSize: 12.5, color: r.from === "Console" ? C.muted : C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from ?? "Console"}</span>
                   <span><Tag fg={KIND[r.kind].fg} bg={KIND[r.kind].bg} style={{ letterSpacing: "0.04em" }}>{r.kind}</Tag></span>
                   <span style={mono({ fontSize: 12.5, fontWeight: 600 })}>{r.tool}</span>
                   <span style={{ ...mono({ fontSize: 12 }), color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{JSON.stringify(r.args)}</span>

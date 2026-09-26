@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Quick actions for the Chrome extension (spec §E7). CONFIG, NOT CODE: a rule matches the tab's ADDRESS ONLY — the page is never read — and extracts one entity from the URL (the capture group named by `$1`).",
+    "An action is shown only to users who have EVERY tool in `requires` (the same per-user tool list the model is offered); the server filters, so a write action a role cannot perform never reaches the panel.",
+    "`kind` read: clicking sends `message` as the user's message with the entity attached. `kind` write: `compose` is put into the composer and focused, nothing is sent. Placeholders: {callsign} {date} {adep} {ades} {key} for leon-flight, {icao} for icao.",
+    "`Save to Knowledge base…` from an AIP portal (the design's third AD 2 action) is NOT offered: no tool can save a document from a URL — knowledge uploads take a file through the Knowledge base page."
+  ],
+  "rules": [
+    {
+      "id": "leon-flight",
+      "pattern": "^https?://[^/]*\\.?leon\\.aero/.*?/flights?/(\\d+)",
+      "flags": "i",
+      "entity": { "kind": "leon-flight", "id": "$1" },
+      "actions": [
+        { "id": "limitations", "label": "Limitations for this flight", "icon": "triangle-alert", "kind": "read", "requires": ["get_flight_state"], "message": "Limitations for {callsign} ({date}, {adep} → {ades})" },
+        { "id": "notams", "label": "NOTAMs {adep} → {ades}", "icon": "file-check", "kind": "read", "requires": ["get_notams"], "message": "NOTAMs for {callsign}: {adep} and {ades}" },
+        { "id": "add-limitation", "label": "Add a limitation…", "icon": "plus", "kind": "write", "requires": ["create_limitation"], "compose": "Add a limitation for {callsign}: " }
+      ]
+    },
+    {
+      "id": "icao-ad2",
+      "pattern": "(?:AD[-_ ]?2[-_/.]|/ad-?2/|[?&]icao=)([A-Z]{4})(?![A-Z])",
+      "flags": "i",
+      "entity": { "kind": "icao", "id": "$1" },
+      "actions": [
+        { "id": "aip", "label": "AIP for {icao}", "icon": "file-text", "kind": "read", "requires": ["get_aip_document"], "message": "Open the AIP AD 2 document for {icao}." },
+        { "id": "notams", "label": "NOTAMs for {icao}", "icon": "file-check", "kind": "read", "requires": ["get_notams"], "message": "What NOTAMs are current at {icao}?" }
+      ]
+    }
+  ]
+}

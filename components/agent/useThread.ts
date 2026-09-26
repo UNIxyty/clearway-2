@@ -7,9 +7,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
-import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
+import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PageContextBlock, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
 
-export type SendOptions = { tier?: string | null; attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null };
+export type SendOptions = { tier?: string | null; attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null; pageContext?: PageContextBlock | null; system?: string | null };
 
 export function useThread({ context, initialConversationId = null, initials = null }: { context: AgentContext | null; initialConversationId?: string | null; initials?: string | null }) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -79,7 +79,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
     setPinnedContext(pinned);
     lastQuestion.current = { text, opts };
     const userId = `local-${Date.now()}`;
-    setMessages((m) => [...m, { id: userId, role: "user", content: text, createdAt: new Date().toISOString(), sending: true, voice: Boolean(opts.voice), initials, blocks: opts.attachments?.length ? { attachments: opts.attachments } : undefined }, { id: "streaming", role: "assistant", content: "", streaming: true, createdAt: new Date().toISOString(), toolActivity: [] }]);
+    setMessages((m) => [...m, { id: userId, role: "user", content: text, createdAt: new Date().toISOString(), sending: true, voice: Boolean(opts.voice), initials, blocks: opts.attachments?.length || opts.pageContext ? { ...(opts.attachments?.length ? { attachments: opts.attachments } : {}), ...(opts.pageContext ? { pageContext: opts.pageContext } : {}) } : undefined }, { id: "streaming", role: "assistant", content: "", streaming: true, createdAt: new Date().toISOString(), toolActivity: [] }]);
     setStreaming(true); setActivity(null);
 
     const controller = new AbortController(); abortRef.current = controller;
@@ -92,7 +92,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}) }),
+        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}), ...(opts.pageContext ? { pageContext: { ...opts.pageContext, dataUrl: undefined } } : {}), ...(opts.system ? { system: opts.system } : {}) }),
       });
       if (!response.ok || !response.body) { const b = await response.json().catch(() => null); throw new Error(b?.message || `The assistant is unavailable (HTTP ${response.status}).`); }
       markUser({ sending: false });

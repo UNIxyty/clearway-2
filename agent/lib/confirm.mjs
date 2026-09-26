@@ -87,7 +87,24 @@ export function publicView(e) {
     expiresAt: new Date(e.expiresAt).toISOString(), appliedAt: e.appliedAt ? new Date(e.appliedAt).toISOString() : null,
     cancelledAt: e.cancelledAt ? new Date(e.cancelledAt).toISOString() : null,
     result: e.status === "applied" ? e.result : null,
+    // Added for the extension badge: which thread the prompt belongs to.
+    conversationId: e.conversationId ?? null,
   };
+}
+
+/**
+ * Every prompt still waiting for THIS user, unexpired, as public views. The
+ * extension's badge polls this; it is a read, and reading it changes nothing.
+ */
+export function listPendingFor(user) {
+  const now = Date.now();
+  sweep(now);
+  const out = [];
+  for (const e of byToken.values()) {
+    if (e.userId !== user?.userId || e.status !== "pending" || e.expiresAt <= now) continue;
+    out.push(publicView(e));
+  }
+  return out.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
 }
 
 /**

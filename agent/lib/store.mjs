@@ -2,6 +2,8 @@
 // Service-role key, used only AFTER the caller has been authenticated — the
 // same arrangement as the Help Centre store (RLS denies PostgREST outright).
 
+import { currentClient } from "./request-context.mjs";
+
 const REST_TIMEOUT_MS = 10_000;
 
 function supabaseUrl() {
@@ -134,6 +136,12 @@ export async function revokeAccess({ userId, actorId, actorEmail }) {
  * down, but it must be visible, so it goes to stderr.
  */
 export async function audit(entry) {
+  // Which front end the request came from (console or the Chrome extension,
+  // with the page host) rides in `detail.client`, taken from the request
+  // context unless the entry already says so itself.
+  const client = currentClient();
+  const detail = entry.detail ?? null;
+  const detailWithClient = client && !(detail && typeof detail === "object" && detail.client) ? { ...(detail ?? {}), client } : detail;
   const row = {
     kind: entry.kind,
     user_id: entry.userId ?? null,
@@ -152,7 +160,7 @@ export async function audit(entry) {
     latency_ms: entry.latencyMs ?? null,
     input_tokens: entry.inputTokens ?? null,
     output_tokens: entry.outputTokens ?? null,
-    detail: entry.detail ?? null,
+    detail: detailWithClient,
   };
   try {
     await rest("agent_audit_log", { method: "POST", prefer: "return=minimal", body: [row] });

@@ -89,7 +89,7 @@ const FALLBACK_NOTE =
  * key, date, from, to, oprId, operator, icao, adep, ades, registration,
  * callsign, status, trip, window ("board" | null), limit.
  */
-async function fetchRecords(user, params = {}) {
+export async function fetchRecords(user, params = {}) {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v != null && v !== "") qs.set(k, String(v));
   let data = null;

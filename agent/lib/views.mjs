@@ -29,13 +29,17 @@ const isPrivileged = (user) => user.agentRole === "admin" || user.agentRole === 
 // developers see everyone's. The KIND badge is derived from what the tool
 // does, not from its name alone, so a new tool lands in the right column.
 const KIND_OF = (toolName, row) => {
+  if (toolName === "page.insert") return "INSERT"; // extension: text put into a page field, local to the browser (§E9)
   if (/^(send_email|email_document)$/.test(toolName)) return "SEND";
   if (/^generate_file$/.test(toolName)) return "FILE";
   if (row.confirmation_status === "pending" || row.confirmation_status === "confirmed" || row.confirmation_status === "rejected") return "WRITE";
   if (/^(create_|update_|delete_|restore_|purge_|set_|undo_)/.test(toolName)) return "WRITE";
   return "READ";
 };
+/** Where a request came from (§E14 item 7): the console, or the extension on a page host. */
+const fromOf = (row) => { const c = row.detail?.client; return c?.kind === "extension" ? `Extension · ${c.host ?? "?"}` : "Console"; };
 function resultLine(row, kind) {
+  if (row.tool_name === "page.insert") { const v = row.tool_result?.result; return v === "inserted" ? { text: "Inserted", tone: "ok" } : v === "undone" ? { text: "Undone", tone: "muted" } : { text: "Cancelled", tone: "muted" }; }
   if (row.tool_name === "citation.check") return row.success ? { text: "Citation verified", tone: "ok" } : { text: "Citation not found", tone: "danger" };
   if (row.tool_name === "verbatim.check") return row.success ? { text: "Quoted text matches", tone: "ok" } : { text: "Data error · text differs", tone: "danger" };
   const r = row.tool_result ?? {};
@@ -70,7 +74,7 @@ export async function listActivity(user, { filter = "all", person = null, tool =
       const esc = (d.escalations ?? []).map((e) => `${e.from}→${e.to}`).join(", ");
       const text = `${model} · ${row.model_tier ?? "?"}${esc ? ` · escalated ${esc}` : ""}${d.route?.source === "manual" ? " · /model" : d.route?.source === "user-default" ? " · your default" : ""}`;
       return {
-        id: row.id, at: row.created_at, who: row.user_email ?? "—", kind: "ANSWER", tool: "answer", args: { tier: row.model_tier, model: row.model_id },
+        id: row.id, at: row.created_at, who: row.user_email ?? "—", from: fromOf(row), kind: "ANSWER", tool: "answer", args: { tier: row.model_tier, model: row.model_id },
         result: { text, tone: row.success === false ? "danger" : "ok" }, confirmed: { text: "—", tone: "faint" }, conversationId: row.conversation_id ?? null, latencyMs: row.latency_ms ?? null,
         hasRecord: true,
         routing: { startTier: d.route?.tier ?? null, finalTier: row.model_tier ?? null, modelId: row.model_id ?? null, source: d.route?.source ?? null, reason: d.route?.reason ?? null, confidence: d.route?.confidence ?? null, routerTier: d.route?.routerTier ?? null, escalations: d.escalations ?? [], inputTokens: row.input_tokens ?? null, outputTokens: row.output_tokens ?? null, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null },
@@ -85,7 +89,7 @@ export async function listActivity(user, { filter = "all", person = null, tool =
       : row.confirmation_status === "pending" ? { text: "Awaiting", tone: "warn" }
       : kind === "READ" ? { text: "Not required", tone: "faint" } : { text: "—", tone: "faint" };
     return {
-      id: row.id, at: row.created_at, who: row.user_email ?? "—", kind, tool: row.tool_name, args: row.tool_args ?? {},
+      id: row.id, at: row.created_at, who: row.user_email ?? "—", from: fromOf(row), kind, tool: row.tool_name, args: row.tool_args ?? {},
       result, confirmed, conversationId: row.conversation_id ?? null, latencyMs: row.latency_ms ?? null,
       hasRecord: kind !== "READ" || row.success === false,
       full: { args: row.tool_args ?? {}, result: row.tool_result ?? null, error: row.error ?? null, confirmationStatus: row.confirmation_status ?? null, level: row.detail?.level ?? null },
@@ -109,7 +113,7 @@ export async function requestBehind(conversationId, at, user) {
 }
 export function activityCsv(rows) {
   const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  return ["time,who,kind,tool,arguments,result,confirmed", ...rows.map((r) => [r.at, r.who, r.kind, r.tool, JSON.stringify(r.args), r.result.text, r.confirmed.text].map(esc).join(","))].join("\n");
+  return ["time,who,kind,tool,arguments,result,confirmed,from", ...rows.map((r) => [r.at, r.who, r.kind, r.tool, JSON.stringify(r.args), r.result.text, r.confirmed.text, r.from ?? "Console"].map(esc).join(","))].join("\n");
 }
 
 // ── Settings (§12) ────────────────────────────────────────────────────────────

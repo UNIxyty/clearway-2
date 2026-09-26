@@ -103,6 +103,7 @@ export const NAV_TOPICS: NavTopic[] = [
     roles: ["admin"],
     items: [
       { id: "adm-users", label: "Users", icon: "users", href: "/admin/users" },
+      { id: "adm-agent-sites", label: "Agent sites", icon: "globe", href: "/admin/agent-sites" }, // Chrome extension site list: approve requests, add, revoke
       { id: "adm-maint", label: "Maintenance", icon: "wrench", href: "/admin/maintenance" },
       { id: "adm-email", label: "Email tools", icon: "mail", href: "/admin/email-tools" },
       { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },

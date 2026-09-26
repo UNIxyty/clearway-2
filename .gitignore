@@ -80,3 +80,8 @@ digital-wall/data/geo-airports.json
 
 # Agent service dependencies (installed in its image; never tracked)
 agent/node_modules/
+
+# Chrome extension build outputs
+extension/node_modules/
+extension/dist/
+extension/*.zip

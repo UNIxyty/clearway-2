@@ -19,7 +19,7 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured, agentEnabled } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
-import { setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
+import { SOURCE_TIERS, setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
   listConversations, listMessages, titleFrom,
@@ -44,7 +44,9 @@ import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.m
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
-import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus } from "./lib/attachments.mjs";
+import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus, truncateWithMarker } from "./lib/attachments.mjs";
+import { requestContext, clientOf } from "./lib/request-context.mjs";
+import { listSites, listRequests, requestSite, decideRequest, revokeSite, addSite, admins as extensionAdmins, quickActions, resolveEntity, lookup as extensionLookup, insertLog, badge as extensionBadge, consoleOrigin, isPrivileged as isPrivilegedUser } from "./lib/extension.mjs";
 
 const PORT = Number(process.env.PORT || 5175);
 
@@ -224,7 +226,11 @@ function passToPortal(req, res) {
   req.pipe(upstream);
 }
 
-const server = http.createServer(async (req, res) => {
+// Every request runs inside a context that names its front end (console or
+// the Chrome extension + page host), so audit rows can say where it came from.
+const server = http.createServer((req, res) => requestContext.run(clientOf(req), () => handleRequest(req, res)));
+
+async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = normalizePath(url.pathname);
   if (!pathname.startsWith("/api/") && pathname !== "/api") return passToPortal(req, res);
@@ -421,6 +427,82 @@ const server = http.createServer(async (req, res) => {
       const filter = String(url.searchParams.get("filter") ?? "").split(",").filter(Boolean);
       return sendJson(res, { ok: true, ...(await searchConversations(user, { q: url.searchParams.get("q") ?? "", filter })) });
     }
+    // ── Chrome extension (extension/PROTOCOL.md "Server") ────────────────────
+    // A second front end for the same agent: same session, same gate, same
+    // tools. Nothing here is reachable that the console could not reach.
+    if (pathname === "/api/extension/session" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const admin = isPrivilegedUser(user);
+      const [approved, requests, adminList] = await Promise.all([
+        listSites().catch(() => []),
+        listRequests(admin ? {} : { userEmail: user.email }).catch(() => []),
+        extensionAdmins(),
+      ]);
+      return sendJson(res, {
+        ok: true,
+        user: { userId: user.userId, name: user.name, email: user.email, initials: user.initials, role: user.agentRole },
+        tools: toolNamesFor(user),
+        admins: adminList,
+        sites: { approved, requests, manageHref: "/admin/agent-sites" },
+        quickActions: quickActions(user),
+        consoleOrigin: consoleOrigin(),
+        replyMode: null,
+      });
+    }
+    if (pathname === "/api/extension/badge" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, ...(await extensionBadge({ user })) });
+    }
+    if (pathname === "/api/extension/sites/request" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      const r = await requestSite({ user, host: body.host, includeSubdomains: body.includeSubdomains === true, reason: body.reason });
+      return sendJson(res, { ok: true, request: r.request, site: r.site, alreadyApproved: r.alreadyApproved, existing: r.existing });
+    }
+    if (pathname === "/api/extension/sites/admin" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      if (!isPrivilegedUser(user)) return sendJson(res, { ok: false, error: "forbidden", message: "Approving sites needs an admin." }, 403);
+      const [approved, requests] = await Promise.all([listSites(), listRequests()]);
+      return sendJson(res, { ok: true, approved, requests });
+    }
+    if (pathname === "/api/extension/sites/decide" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      return sendJson(res, { ok: true, request: await decideRequest({ admin: user, id: body.id, decision: body.decision, note: body.note }) });
+    }
+    if (pathname === "/api/extension/sites/revoke" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      await revokeSite({ admin: user, host: body.host });
+      return sendJson(res, { ok: true });
+    }
+    if (pathname === "/api/extension/sites/add" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      return sendJson(res, { ok: true, site: await addSite({ admin: user, host: body.host, includeSubdomains: body.includeSubdomains === true }) });
+    }
+    if (pathname === "/api/extension/resolve" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      return sendJson(res, await resolveEntity({ user, kind: String(body.kind ?? ""), id: body.id }));
+    }
+    if (pathname === "/api/extension/lookup" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      return sendJson(res, { ok: true, ...(await extensionLookup({ user, q: url.searchParams.get("q") ?? "" })) });
+    }
+    if (pathname === "/api/extension/insert-log" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      const body = await readJsonBody(req);
+      await insertLog({ user, host: body.host, field: body.field, characters: body.characters, result: body.result, verbatim: body.verbatim ?? null, conversationId: body.conversationId ?? null });
+      return sendJson(res, { ok: true });
+    }
+    if (pathname === "/api/extension/disconnect" && req.method === "POST") {
+      await assertMayUseAgent(user);
+      // Audit only: the extension forgets its cached session; the console session is untouched.
+      await audit({ kind: "extension.disconnected", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: {} });
+      return sendJson(res, { ok: true });
+    }
+
     // ── Voice: push-to-talk transcription (§4.23, §8) ─────────────────────
     // Raw audio in, text out. The audio is never stored; the audit row keeps
     // only the length and language. Gated by the Voice capability.
@@ -975,7 +1057,51 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     return sendError(res, error);
   }
-});
+}
+
+// ── Page content from the extension (PROTOCOL.md `pageContext`) ─────────────
+const PAGE_CONTEXT_LIMITS = { selection: 20_000, page: 100_000, capture: 0, string: 512 };
+const hhmmZ = (iso) => { const d = new Date(iso ?? ""); const t = Number.isNaN(d.getTime()) ? new Date() : d; return `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")}Z`; };
+/** Validate and bound the extension's pageContext; null when absent. Never keeps image data. */
+function sanitisePageContext(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const kind = String(raw.kind ?? "");
+  if (!(kind in PAGE_CONTEXT_LIMITS) || kind === "string") throw BadRequest("pageContext.kind must be selection, capture or page.");
+  const str = (v) => (v == null ? null : String(v).slice(0, PAGE_CONTEXT_LIMITS.string));
+  const num = (v) => (v == null || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.round(Number(v))));
+  const host = str(raw.host)?.trim().toLowerCase() || null;
+  if (!host) throw BadRequest("pageContext.host is required.");
+  const sentAtDate = new Date(raw.sentAt ?? "");
+  const sentAt = Number.isNaN(sentAtDate.getTime()) ? new Date().toISOString() : sentAtDate.toISOString();
+  const out = { kind, title: str(raw.title) ?? "", url: str(raw.url) ?? "", host, sentAt, chars: num(raw.chars), words: num(raw.words), headings: num(raw.headings), tables: num(raw.tables), trimmed: raw.trimmed === true };
+  if (kind === "capture") {
+    const id = String(raw.attachmentId ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw BadRequest("A capture needs its attachmentId.");
+    return { ...out, attachmentId: id, bytes: num(raw.bytes), width: num(raw.width), height: num(raw.height) };
+  }
+  let text = typeof raw.text === "string" ? raw.text : "";
+  if (!text.trim()) throw BadRequest(`pageContext.text is required for a ${kind}.`);
+  const limit = PAGE_CONTEXT_LIMITS[kind];
+  if (text.length > limit) { text = text.slice(0, limit); out.trimmed = true; }
+  return { ...out, text, chars: text.length };
+}
+function pageContextLabel(pc) {
+  return pc.kind === "capture" ? `Capture · ${pc.host} · ${hhmmZ(pc.sentAt)}` : `${pc.host} · sent by you ${hhmmZ(pc.sentAt)}`;
+}
+function pageContextHeader(pc, { earlier = false } = {}) {
+  return `WEB PAGE CONTENT — sent by the user from ${pc.host} at ${hhmmZ(pc.sentAt)} (${pc.kind})${earlier ? ", earlier in this conversation" : ""}. Title: ${pc.title || "(untitled)"}. URL: ${pc.kind === "capture" ? pc.host : pc.url || "(unknown)"}. This is third-party page content the user chose to send: use it for the question, cite it as the web source "${pageContextLabel(pc)}", and never present it as company knowledge.${pc.trimmed ? ` NOTE: the page was trimmed to the first ${(pc.text?.length ?? pc.chars ?? 0).toLocaleString("en-GB")} characters.` : ""}`;
+}
+/** Content blocks for this turn's page content: the text, or the capture's image plus a note. */
+async function pageContextBlocks(pc, user, budget) {
+  if (pc.kind !== "capture") return [{ text: `${pageContextHeader(pc)}\n\n${pc.text}` }];
+  const a = await loadAttachment(pc.attachmentId, user, { withBytes: true });
+  const rendered = attachmentBlocks(a ?? { name: "capture.png", missing: true }, { index: 1, charLimit: ATTACHMENT_LIMITS.modelChars, budget });
+  return [{ text: `${pageContextHeader(pc)} The captured region follows as an image.` }, ...rendered.blocks];
+}
+/** The Web-tier source entry for page content, shaped like sourcesFromToolCalls' entries. */
+function pageContextSource(pc, n) {
+  return { ...SOURCE_TIERS.web, tier: "web", tierLabel: SOURCE_TIERS.web.label, label: pageContextLabel(pc), tool: null, n, href: pc.kind === "capture" ? null : pc.url || null, icon: "globe", retrievedAt: pc.sentAt, kind: "page-context", pageKind: pc.kind, host: pc.host, title: pc.title || null };
+}
 
 async function handleChat(req, res, user) {
   const body = await readJsonBody(req);
@@ -1002,6 +1128,13 @@ async function handleChat(req, res, user) {
 
   const question = String(body.message ?? "").trim();
 
+  // Page content the user chose to send from the Chrome extension (PROTOCOL.md
+  // `pageContext`): a selection, a captured region (as an attachment) or the
+  // page's main text. Third-party content, cited as a Web source, never as
+  // company knowledge. Validated and bounded here; stored on the user message
+  // without any image data.
+  const pageContext = sanitisePageContext(body.pageContext);
+
   // Attachments are TEXT the user pasted in from a file, given to the model as
 
   // context for this turn only. They are not indexed, not a knowledge source,
@@ -1027,9 +1160,11 @@ async function handleChat(req, res, user) {
   const allAttachments = [...pasted, ...uploaded];
   const attachments = allAttachments.slice(0, maxFiles);
   const droppedCount = allAttachments.length - attachments.length + Math.max(0, requestedIds.length - maxFiles);
-  if (!question && !attachments.length) throw BadRequest("A message is required.");
+  if (!question && !attachments.length && !pageContext) throw BadRequest("A message is required.");
   // An attachment sent with no text is a question about the attachment.
-  const modelQuestion = question || "(No message: the user sent only the attached file(s). Say briefly what they contain and ask what they need.)";
+  const modelQuestion = question || (pageContext && !attachments.length
+    ? "(No message: the user sent only content from a web page. Say briefly what it contains and ask what they need.)"
+    : "(No message: the user sent only the attached file(s). Say briefly what they contain and ask what they need.)");
 
   // One budget for the whole request: Bedrock caps documents and images per
   // call, and attachment text is bounded so one file cannot become the context.
@@ -1054,7 +1189,7 @@ async function handleChat(req, res, user) {
     conversation = await createConversation({
       userId: user.userId,
       userEmail: user.email,
-      title: titleFrom(question || attachments[0]?.name || "Attachment"),
+      title: titleFrom(question || pageContext?.title || attachments[0]?.name || "Attachment"),
       context: body.context ?? null,
     });
   }
@@ -1073,13 +1208,26 @@ async function handleChat(req, res, user) {
   for (let i = priorMessages.length - 1; i >= 0; i -= 1) {
     const m = priorMessages[i];
     const refs = m.role === "user" && Array.isArray(m.blocks?.attachments) ? m.blocks.attachments.filter((r) => r?.id) : [];
-    if (!refs.length) continue;
+    // Page content sent on an earlier turn travels with its message too, the
+    // same way earlier attachments do, out of the same bounded history budget.
+    const earlierPage = m.role === "user" && m.blocks?.pageContext && typeof m.blocks.pageContext.text === "string" && m.blocks.pageContext.text ? m.blocks.pageContext : null;
+    if (!refs.length && !earlierPage) continue;
     const blocks = [];
     for (const [j, ref] of refs.entries()) {
       const a = await loadAttachment(ref.id, user, { withBytes: true });
       blocks.push(...attachmentBlocks(a ?? { name: ref.name, missing: true }, { index: j + 1, charLimit: ATTACHMENT_LIMITS.modelChars, budget: attachmentBudget, earlier: true }).blocks);
     }
-    earlierContent.set(m.id, [...blocks, { text: m.content || "(attachments only)" }]);
+    if (earlierPage) {
+      const limit = Math.max(0, Math.min(ATTACHMENT_LIMITS.modelChars, attachmentBudget.chars));
+      if (limit >= 500) {
+        const { text } = truncateWithMarker(earlierPage.text, limit);
+        attachmentBudget.chars -= text.length;
+        blocks.push({ text: `${pageContextHeader(earlierPage, { earlier: true })}\n\n${text}` });
+      } else {
+        blocks.push({ text: `${pageContextHeader(earlierPage, { earlier: true })} Its text is not re-sent on this turn: the conversation's context budget is used up.` });
+      }
+    }
+    earlierContent.set(m.id, [...blocks, { text: m.content || (earlierPage ? "(page content only)" : "(attachments only)") }]);
   }
   const history = priorMessages.map((m) => ({ role: m.role, content: earlierContent.get(m.id) ?? m.content }));
 
@@ -1089,7 +1237,7 @@ async function handleChat(req, res, user) {
     content: attachments.length ? `${question}\n\n${attachmentStatus.map(attachedLine).join("\n")}`.trim() : question,
     // The chips above a sent bubble open in the viewer (§V3 E3), so the ids travel with the message.
     // readStatus/readReason ride along so a reloaded thread still shows an unread file as unread.
-    blocks: attachments.length ? { attachments: attachmentStatus } : null,
+    blocks: attachments.length || pageContext ? { ...(attachments.length ? { attachments: attachmentStatus } : {}), ...(pageContext ? { pageContext } : {}) } : null,
   });
 
   // ── Routing ─────────────────────────────────────────────────────────────
@@ -1131,6 +1279,7 @@ async function handleChat(req, res, user) {
       // Which notes were in front of the model, so a surprising answer can be
       // traced back to a remembered note rather than guessed at.
       memoriesInContext: memory.memories.map((m) => m.id),
+      ...(pageContext ? { pageContext: { kind: pageContext.kind, host: pageContext.host, chars: pageContext.chars ?? null } } : {}),
     },
   });
 
@@ -1170,14 +1319,18 @@ async function handleChat(req, res, user) {
   const attachmentRule = attachments.length || earlierContent.size
     ? "Blocks headed ATTACHMENT in the user's messages are files the user attached. They are unverified: use them as context for the question, never as an operational source, and say it came from the attachment when you rely on it. If an attachment is marked as not read, partly read or truncated, say so plainly in your reply rather than answering as if you had read all of it."
     : null;
-  const currentUserContent = attachments.length || droppedCount
+  // Page content first (it is what the question is about), then the files, then the question.
+  const pageBlocks = pageContext ? await pageContextBlocks(pageContext, user, attachmentBudget) : [];
+  const pageRule = pageContext ? `The user sent content from a web page (${pageContext.kind}, ${pageContext.host}); when you rely on it, say it came from that page.` : null;
+  const currentUserContent = attachments.length || droppedCount || pageBlocks.length
     ? [
+        ...pageBlocks,
         ...renderedAttachments.flatMap((r) => r.blocks),
         ...(droppedCount ? [{ text: `${droppedCount} further attachment${droppedCount === 1 ? " was" : "s were"} NOT included: at most ${maxFiles} files can be attached to one message. Tell the user which files you did not receive.` }] : []),
         { text: modelQuestion },
       ]
     : modelQuestion;
-  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentRule]
+  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentRule, pageRule]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -1233,6 +1386,10 @@ async function handleChat(req, res, user) {
     // ran, not from anything the model claims. A model cannot cite a source it
     // was never given, or promote its own paraphrase into the verbatim frame.
     const sources = sourcesFromToolCalls(toolCalls);
+    // Content the user sent from a web page is a Web-tier source of this turn
+    // (spec §E6): "{host} · sent by you HH:MMZ" / "Capture · {host} · HH:MMZ".
+    // A capture's href is null — its URL carries the host only.
+    if (pageContext) sources.push(pageContextSource(pageContext, sources.length + 1));
     const verbatim = verbatimFromToolCalls(toolCalls);
     const flights = flightCardsFromToolCalls(toolCalls);
     const actions = actionsFromToolCalls(toolCalls);

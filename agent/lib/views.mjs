@@ -10,6 +10,7 @@ import { listAccess, agentEnabled } from "./store.mjs";
 import { wallGet } from "./tools/http.mjs";
 import { loadModelConfig } from "./models.mjs";
 import { extractText } from "./knowledge/ingest.mjs";
+import { ATTACHMENT_LIMITS, AttachmentRejected, KIND_LABELS, assertAcceptable, extractAttachment } from "./attachments.mjs";
 
 const url = () => String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const key = () => String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -304,33 +305,53 @@ export async function suggestions(user, context) {
 
 // ── Attachments (§4.18) ───────────────────────────────────────────────────────
 //
-// Real uploads: bytes on the agent's storage volume, metadata in a sidecar,
-// text extracted for the formats the platform can read. A PDF or image is
-// attached to the question by name only -- honestly, with no text -- until
-// the platform's PDF pipeline is wired to it.
-const ATTACH_MAX = 25 * 1024 * 1024;
-const ATTACH_TYPES = /\.(pdf|png|jpe?g|gif|webp|csv|xlsx|txt|md|json)$/i;
+// Real uploads: bytes on the agent's storage volume, metadata in a sidecar.
+// How the file reaches the model is decided HERE, once, by
+// lib/attachments.mjs (extracted text, an image block, or the PDF as a
+// document the model reads visually) and recorded in meta.json as
+// readStatus / readMode / readReason, so the upload response, the sent chip
+// and the chat turn all say the same thing about whether it was read.
 export async function storeAttachment({ name, buffer, mime, user }) {
-  if (!ATTACH_TYPES.test(name)) throw new Error("Only PDF, images, CSV, XLSX and TXT can be attached.");
-  if (buffer.length > ATTACH_MAX) throw new Error(`${name} is ${(buffer.length / 1048576).toFixed(1)} MB — over the 25 MB limit.`);
-  const id = randomUUID();
   const safe = String(name).replace(/[^\w.\- ()]/g, "_").slice(0, 120);
+  assertAcceptable(safe, buffer.length); // AttachmentRejected -> 4xx before anything is written
+  const read = await extractAttachment(buffer, safe);
+  const id = randomUUID();
   const dir = path.resolve(process.env.STORAGE_ROOT || "/storage", "attachments", id);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, safe), buffer);
-  const text = extractText(buffer, mime, safe);
-  const meta = { id, name: safe, mime: mime ?? null, bytes: buffer.length, sha256: createHash("sha256").update(buffer).digest("hex"), userId: user.userId, uploadedAt: new Date().toISOString(), hasText: Boolean(text), chars: text ? text.length : 0 };
+  const text = read.text ?? null;
+  const stored = text ? text.slice(0, ATTACHMENT_LIMITS.storedChars) : null;
+  const meta = {
+    id, name: safe, mime: mime ?? null, bytes: buffer.length, sha256: createHash("sha256").update(buffer).digest("hex"), userId: user.userId, uploadedAt: new Date().toISOString(),
+    hasText: Boolean(text), chars: text ? text.length : 0,
+    // Added (§4.18 read states): what the model will get from this file.
+    kind: read.kind, readStatus: read.status, readMode: read.mode, readReason: read.reason ?? null, readNote: read.note ?? null,
+    format: read.format ?? null, pages: read.pages ?? null, width: read.width ?? null, height: read.height ?? null,
+    textTruncatedAtStore: Boolean(text && stored.length < text.length),
+  };
   await writeFile(path.join(dir, "meta.json"), JSON.stringify(meta));
-  if (text) await writeFile(path.join(dir, "text.txt"), text.slice(0, 200_000));
+  if (stored) await writeFile(path.join(dir, "text.txt"), stored);
   return meta;
 }
-export async function loadAttachment(id, user) {
+export async function loadAttachment(id, user, { withBytes = false } = {}) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
   const dir = path.resolve(process.env.STORAGE_ROOT || "/storage", "attachments", id);
   try {
-    const meta = JSON.parse(await readFile(path.join(dir, "meta.json"), "utf8"));
+    let meta = JSON.parse(await readFile(path.join(dir, "meta.json"), "utf8"));
     if (meta.userId !== user.userId) return null;
+    // Uploaded before files were read (no readStatus): read it now, once, so
+    // a PDF attached last week is not "unreadable" merely for its age.
+    if (!meta.readStatus) {
+      const read = await readFile(path.join(dir, meta.name))
+        .then((buf) => extractAttachment(buf, meta.name))
+        .catch((error) => ({ kind: meta.kind ?? null, mode: "none", status: "unreadable", reason: error instanceof AttachmentRejected ? error.message : "the stored file could not be opened", text: null }));
+      const stored = read.text ? read.text.slice(0, ATTACHMENT_LIMITS.storedChars) : null;
+      meta = { ...meta, hasText: Boolean(read.text), chars: read.text ? read.text.length : 0, kind: read.kind, readStatus: read.status, readMode: read.mode, readReason: read.reason ?? null, readNote: read.note ?? null, format: read.format ?? null, pages: read.pages ?? null, width: read.width ?? null, height: read.height ?? null, textTruncatedAtStore: Boolean(read.text && stored.length < read.text.length) };
+      if (stored) await writeFile(path.join(dir, "text.txt"), stored).catch(() => {});
+      await writeFile(path.join(dir, "meta.json"), JSON.stringify(meta)).catch(() => {});
+    }
     const text = meta.hasText ? await readFile(path.join(dir, "text.txt"), "utf8").catch(() => null) : null;
-    return { ...meta, text };
+    const buffer = withBytes && (meta.readMode === "image" || meta.readMode === "pdf") ? await readFile(path.join(dir, meta.name)).catch(() => null) : null;
+    return { ...meta, text, buffer, imageFormat: meta.readMode === "image" ? meta.format : null, kindLabel: KIND_LABELS[meta.kind] ?? null };
   } catch { return null; }
 }

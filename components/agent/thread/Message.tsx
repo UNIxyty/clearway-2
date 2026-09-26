@@ -19,19 +19,28 @@ import { VerbatimFrame, AgentsReading } from "./Verbatim";
 import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, TableResult, MonoBlock } from "./Cards";
 import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
 import { ErrorCard, kindFor } from "./ErrorCard";
-import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData, PerformedAction } from "../types";
+import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData, PerformedAction, SentAttachment } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 
-function SentAttachments({ items }: { items: { id: string; name: string; bytes?: number | null }[] }) {
+// A file the agent could not read (or read only in part) is drawn in the
+// warning style with the reason, so a reply that ignored it does not look fine.
+function SentAttachments({ items }: { items: SentAttachment[] }) {
   const od = useOpenDocument();
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-      {items.map((a) => (
-        <button key={a.id} type="button" onClick={(e) => void od.openAttachment(a.id, a.name, e.currentTarget)} className="ag-sent-chip ag-focus" title={`Open ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 10px 6px 6px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-          <span style={{ width: 30, height: 30, borderRadius: 7, background: C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 9, fontWeight: 700 }), color: C.muted }}>{(a.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</span>
-          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.ink, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span><span className="ag-sent-chip-sub" style={{ fontSize: 11, color: C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}><span className="ag-sent-chip-size">{a.bytes != null ? kb(a.bytes) : "attachment"}</span><span className="ag-sent-chip-open" style={{ display: "none", color: C.primaryHover, fontWeight: 600, alignItems: "center", gap: 4 }}><Icon name="eye" size={11} color={C.primaryHover} />Open</span></span></span>
+      {items.map((a, i) => {
+        const unread = a.readStatus === "unreadable";
+        const partial = a.readStatus === "partial" || (a.readStatus === "read" && (a.truncatedChars ?? 0) > 0);
+        const status = unread ? `Not read · ${a.readReason ?? "no content could be extracted"}`
+          : a.readStatus === "partial" ? `Partly read · ${a.readReason ?? ""}`
+          : partial ? `Read in part · ${(a.truncatedChars ?? 0).toLocaleString("en-GB")} characters not shown to the agent` : null;
+        return (
+        <button key={a.id ?? `${a.name}-${i}`} type="button" onClick={(e) => { if (a.id) void od.openAttachment(a.id, a.name, e.currentTarget); }} className="ag-sent-chip ag-focus" title={status ? `${a.name} — ${status}` : `Open ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: unread || partial ? C.warnWashSoft : C.surface, border: `1px solid ${unread || partial ? C.warnBorder : C.border}`, borderRadius: 10, padding: "6px 10px 6px 6px", cursor: a.id ? "pointer" : "default", fontFamily: "inherit", textAlign: "left" }}>
+          <span style={{ width: 30, height: 30, borderRadius: 7, background: unread || partial ? C.warnTint : C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 9, fontWeight: 700 }), color: unread || partial ? C.warn : C.muted }}>{unread ? <Icon name="file-warning" size={14} color={C.warn} /> : (a.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</span>
+          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.ink, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>{status && <span role="status" style={{ fontSize: 11, color: C.warn, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status}</span>}<span className="ag-sent-chip-sub" style={{ fontSize: 11, color: C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}><span className="ag-sent-chip-size">{a.bytes != null ? kb(a.bytes) : "attachment"}</span><span className="ag-sent-chip-open" style={{ display: "none", color: C.primaryHover, fontWeight: 600, alignItems: "center", gap: 4 }}><Icon name="eye" size={11} color={C.primaryHover} />Open</span></span></span>
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

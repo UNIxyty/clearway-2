@@ -134,8 +134,11 @@ export type PendingConfirmation = {
 
 export type Attachment = { name: string; text: string; chars: number; id?: string };
 
+export type SentAttachment = { id: string; name: string; bytes?: number | null; mime?: string | null; readStatus?: "read" | "partial" | "unreadable"; readMode?: string | null; readReason?: string | null; readNote?: string | null; truncatedChars?: number };
+
 export type MessageBlocks = {
-  attachments?: { id: string; name: string; bytes?: number | null; mime?: string | null }[];
+  // readStatus/readReason: whether the agent could READ the file (§4.18). Absent on messages sent before it was recorded.
+  attachments?: SentAttachment[];
   verbatim?: VerbatimRecord[];
   flights?: FlightCardData[];
   actions?: PerformedAction[];

@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "Chat attachment limits (design spec 4.18). THE ONE PLACE these live: the agent enforces them at upload (agent/lib/attachments.mjs) and the composer (components/agent/thread/Composer.tsx) imports this file for its too-large state, so the two cannot drift.",
+    "maxBytes per kind is what the agent can actually READ, not just store. Images go to the model as Bedrock image blocks, whose hard limit is 3.75 MB per image (and 8000 px per side), so an image over that could be stored but never seen. PDFs with a text layer are read as extracted text and may be up to the 25 MB upload cap; a PDF with pages that have no text layer (a scan) is sent as a Bedrock document block so the model reads the page images, and that block is limited to 4.5 MB and, here, 50 pages (each page is ~1.5-3k input tokens, re-sent on every later turn of the conversation).",
+    "modelChars bounds how much extracted text one attachment puts in front of the model on one turn (~15k tokens); anything past it is cut with an explicit marker saying how much was omitted. historyChars is the total re-sent for attachments from EARLIER turns of the same conversation."
+  ],
+  "maxUploadBytes": 26214400,
+  "maxFilesPerMessage": 3,
+  "modelChars": 60000,
+  "historyChars": 150000,
+  "storedChars": 5000000,
+  "kinds": {
+    "pdf": { "label": "PDF", "extensions": ["pdf"], "maxBytes": 26214400, "visualMaxBytes": 4718592, "visualMaxPages": 50 },
+    "image": { "label": "Image", "extensions": ["png", "jpg", "jpeg", "gif", "webp"], "maxBytes": 3932160, "maxPixels": 8000 },
+    "docx": { "label": "Word", "extensions": ["docx"], "maxBytes": 26214400 },
+    "sheet": { "label": "Spreadsheet", "extensions": ["xlsx", "csv"], "maxBytes": 26214400 },
+    "text": { "label": "Text", "extensions": ["txt", "md", "json"], "maxBytes": 26214400 }
+  },
+  "bedrock": { "maxDocumentsPerRequest": 5, "maxImagesPerRequest": 20 }
+}

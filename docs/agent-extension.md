@@ -178,3 +178,19 @@ extension's own event objects; the microphone was a fake device playing a record
 raw logs: session scratchpad `ext-t1…t11`. Rig rows written to the production database (`extsite:127.0.0.1`,
 `extsite:localhost`, one request for `vno-handling.example`) were revoked; audit rows for `local@clearway.aero`
 and the rig's conversations remain, as with earlier rigs.
+
+## Icons (2026-09-27)
+
+The first icons were a preview thumbnail of a hand-drawn SVG (mostly blank at 16 px) and `action.default_icon`
+declared only 16 and 32. Now `extension/scripts/make-icons.mjs` renders each size separately with Chromium
+from the repo's vector sources — nothing is scaled down from a bitmap — into `extension/public/icons/`:
+`app-{16,32,48,128}.png` and a pale signed-out set `app-off-*.png` (40 %). Both `icons` and
+`action.default_icon` declare all four sizes; the worker switches sets with `chrome.action.setIcon`.
+Two candidates were compared (`icon-candidates.png`): the Clearway emblem from `public/clearway-logo.svg`, and
+the agent ring from `public/icons/ring-mark.svg`. The emblem's inner lines merge at 16 px; the ring stays
+crisp, and the spec names it (§E10), so the ring is used at every size (`node … make-icons.mjs emblem` switches).
+The mark sits on a white disc so it holds on a dark Chrome theme. Evidence: `chrome-extensions-row.png`
+(real page), `toolbar-composite-100.png` / `-200.png` (the exact PNG Chrome uses at each scale on Chrome's
+light and dark toolbar colours; the real toolbar could not be screen-captured without macOS Screen Recording
+permission). The sign-in / sign-out switch was confirmed in Chrome: title "Clearway — signed out" and both
+sets load through `setIcon` without error.

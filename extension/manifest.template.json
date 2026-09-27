@@ -5,22 +5,86 @@
   "version": "0.1.0",
   "description": "The Clearway Ops Agent in any tab. It sees only what you send it: a selection, a captured region, or a page on request.",
   "minimum_chrome_version": "116",
-  "icons": { "16": "icons/app-16.png", "32": "icons/app-32.png", "48": "icons/app-48.png", "128": "icons/app-128.png" },
-  "action": { "default_title": "Clearway Ops Agent", "default_icon": { "16": "icons/app-16.png", "32": "icons/app-32.png" } },
-  "side_panel": { "default_path": "sidepanel.html" },
-  "background": { "service_worker": "background.js", "type": "module" },
-  "omnibox": { "keyword": "cw" },
-  "commands": {
-    "_execute_action": { "suggested_key": { "default": "Alt+Shift+C" }, "description": "Open or close the Clearway side panel" },
-    "voice-toggle": { "suggested_key": { "default": "Alt+Shift+Space" }, "description": "Talk to Clearway (press again to send)" },
-    "capture-region": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Capture a region of the page" },
-    "ask-selection": { "suggested_key": { "default": "Alt+Shift+E" }, "description": "Ask Clearway about the selected text" }
+  "icons": {
+    "16": "icons/app-16.png",
+    "32": "icons/app-32.png",
+    "48": "icons/app-48.png",
+    "128": "icons/app-128.png"
   },
-  "permissions": ["sidePanel", "storage", "scripting", "activeTab", "contextMenus", "tabs", "notifications", "offscreen", "alarms"],
-  "host_permissions": ["__CONSOLE_ORIGIN__/*"],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
-  "web_accessible_resources": [
-    { "resources": ["fonts/*"], "matches": ["<all_urls>"] }
+  "action": {
+    "default_title": "Clearway Ops Agent",
+    "default_icon": {
+      "16": "icons/app-16.png",
+      "32": "icons/app-32.png",
+      "48": "icons/app-48.png",
+      "128": "icons/app-128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "omnibox": {
+    "keyword": "cw"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Open or close the Clearway side panel"
+    },
+    "voice-toggle": {
+      "suggested_key": {
+        "default": "Alt+Shift+Space"
+      },
+      "description": "Talk to Clearway (press again to send)"
+    },
+    "capture-region": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Capture a region of the page"
+    },
+    "ask-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+E"
+      },
+      "description": "Ask Clearway about the selected text"
+    }
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "scripting",
+    "activeTab",
+    "contextMenus",
+    "tabs",
+    "notifications",
+    "offscreen",
+    "alarms"
   ],
-  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'; connect-src __CONSOLE_ORIGIN__ wss://api.elevenlabs.io https://api.elevenlabs.io; img-src 'self' data: blob: __CONSOLE_ORIGIN__; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:" }
+  "host_permissions": [
+    "__CONSOLE_ORIGIN__/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "fonts/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src __CONSOLE_ORIGIN__ wss://api.elevenlabs.io https://api.elevenlabs.io; img-src 'self' data: blob: __CONSOLE_ORIGIN__; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+  }
 }

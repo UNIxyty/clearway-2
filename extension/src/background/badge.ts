@@ -5,34 +5,20 @@ import type { PendingConfirmation } from "~/shared/protocol";
 import { getPending, getSession, setPending } from "~/shared/storage";
 import { tellPanel } from "./state";
 
+const ICONS_ON = { 16: "icons/app-16.png", 32: "icons/app-32.png", 48: "icons/app-48.png", 128: "icons/app-128.png" };
+const ICONS_OFF = { 16: "icons/app-off-16.png", 32: "icons/app-off-32.png", 48: "icons/app-off-48.png", 128: "icons/app-off-128.png" };
 const COLOURS = { confirm: "#d97706", notam: "#e5484d", job: "#2563eb", site: "#2563eb" } as const;
-let paleCache: Record<number, ImageData> | null = null;
-
-async function paleIcons(): Promise<Record<number, ImageData> | null> {
-  if (paleCache) return paleCache;
-  try {
-    const out: Record<number, ImageData> = {};
-    for (const size of [16, 32]) {
-      const blob = await (await fetch(chrome.runtime.getURL(`icons/app-${size}.png`))).blob();
-      const bmp = await createImageBitmap(blob);
-      const c = new OffscreenCanvas(size, size); const ctx = c.getContext("2d")!;
-      ctx.globalAlpha = 0.4; ctx.drawImage(bmp, 0, 0, size, size);
-      out[size] = ctx.getImageData(0, 0, size, size);
-    }
-    paleCache = out; return out;
-  } catch { return null; }
-}
-
 export async function applyBadge() {
   const session = await getSession();
   const pending = await prunePending();
   if (session.status !== "signed-in") {
     await chrome.action.setBadgeText({ text: "" });
     await chrome.action.setTitle({ title: session.status === "disconnected" ? "Clearway — disconnected" : "Clearway — signed out" });
-    const pale = await paleIcons(); if (pale) await chrome.action.setIcon({ imageData: pale as never }).catch(() => {});
+    // The pale set (icons/app-off-*.png, 40 % opacity), generated with the normal set by extension/scripts/make-icons.mjs.
+    await chrome.action.setIcon({ path: ICONS_OFF }).catch(() => {});
     return;
   }
-  await chrome.action.setIcon({ path: { 16: "icons/app-16.png", 32: "icons/app-32.png" } }).catch(() => {});
+  await chrome.action.setIcon({ path: ICONS_ON }).catch(() => {});
   await chrome.action.setTitle({ title: "Clearway Ops Agent" });
   const badge = pending.confirmations.some((c) => c.fromThisBrowser) ? { text: "!", color: COLOURS.confirm }
     : pending.notamReview > 0 ? { text: pending.notamReview > 9 ? "9+" : String(pending.notamReview), color: COLOURS.notam }

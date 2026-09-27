@@ -133,6 +133,7 @@ Storage: `agent_settings` rows `extsite:<host>` and `extreq:<id>` (no DDL). Ever
 | `tabs` | The tab bar needs the active tab's URL, title and favicon, and quick actions match the URL. Nothing else about tabs is read. |
 | `notifications` | "Confirmation waiting" and "job finished" when Chrome isn't focused (switchable). |
 | `offscreen` | Microphone and speaker when the panel is closed — so the mic belongs to the extension, never to a site. |
+| `favicon` | The tab bar shows the visited site's favicon from Chrome's own favicon cache (`/_favicon/` on the extension origin), so the panel never loads an image from the site and `img-src` stays `'self'` + the console. |
 | `alarms` | Session poll, badge poll, the pending-confirmation expiry and the insert undo window — timers that survive a worker restart. |
 | `host_permissions: https://clearway.verxyl.com/*` | The console: API calls carry the console's own session cookies (Chrome attaches them because the origin is a host permission). The extension stores no token. |
 | `optional_host_permissions: https://*/*, http://*/*` | Approved sites, granted one at a time by the user in Chrome's prompt after an admin approved the host. Nothing is granted at install. |
@@ -194,3 +195,26 @@ The mark sits on a white disc so it holds on a dark Chrome theme. Evidence: `chr
 light and dark toolbar colours; the real toolbar could not be screen-captured without macOS Screen Recording
 permission). The sign-in / sign-out switch was confirmed in Chrome: title "Clearway — signed out" and both
 sets load through `setIcon` without error.
+
+## Console-clean fixes (2026-09-27)
+
+1. **Voice worklet** — was a `blob:` module, refused by the extension CSP (`script-src 'self'`); the code fell
+   back silently to the deprecated `ScriptProcessorNode`. Now a real file, `public/voice-worklet.js`, served by
+   the console at `/voice-worklet.js` and shipped at the extension root (`chrome.runtime.getURL`). No fallback:
+   if it cannot load, voice shows "Voice unavailable" and logs why (`voice-unavailable-card.png`).
+2. **Missing assets** — `scan.svg` and `link.svg` did not exist (added from lucide-static 0.469.0); the content
+   scripts asked for font files under names the package does not have. The build stages every asset into
+   Vite's public directory (no "didn't resolve" warnings remain) and fails on any reference — paths, font
+   files, and every icon name used in source — not in `dist/`. Proven with a deliberately missing icon and font.
+3. **Blocked image** — the visited site's favicon in the tab bar (third-party). Policy not widened: it now comes
+   from Chrome's favicon cache on the extension origin (`favicon` permission).
+4. **Issues panel** — form fields without id or name (composer, file input, command arguments, history search,
+   the site request form): named.
+5. **Rig console build** — a plain `npm run build` compiled the production Supabase URL and anon key into the
+   console and copied `.env` (all production secrets) into `.next/standalone`, loaded at runtime. The rig now
+   builds with `rig/build-portal.sh` (from `.env.rig`, `.env*` stripped, fetch cache cleared) and
+   `rig/check-portal-build.sh` refuses any build with a `.env` file or a production Supabase host.
+
+Verification rule from now on: the side panel's console, its DevTools Issues, and a content script's console
+on a real page must be clean — `rig/ext/t-console.mjs` and `rig/ext/t-issues.mjs` exit 1 on any finding;
+`rig/ext/t-devtools-shot.mjs` screenshots the real DevTools console.

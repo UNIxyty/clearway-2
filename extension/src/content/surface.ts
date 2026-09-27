@@ -18,9 +18,9 @@ function fontUrl(file: string): string | null {
 // with unique family names (the page's CSS never refers to them). Missing files fall through to the system stacks.
 function ensureFonts(): void {
   if (document.getElementById(FONT_STYLE_ID)) return;
-  const sans = fontUrl("PublicSans-Variable.woff2");
-  const mono = fontUrl("IBMPlexMono-Regular.woff2");
-  const monoBold = fontUrl("IBMPlexMono-SemiBold.woff2");
+  const sans = fontUrl("PublicSans-400_800.woff2");
+  const mono = fontUrl("IBMPlexMono-400.woff2");
+  const monoBold = fontUrl("IBMPlexMono-600.woff2");
   const rules: string[] = [];
   if (sans) rules.push(`@font-face{font-family:"CW Public Sans";src:url("${sans}") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}`);
   if (mono) rules.push(`@font-face{font-family:"CW Plex Mono";src:url("${mono}") format("woff2");font-weight:400;font-style:normal;font-display:swap}`);

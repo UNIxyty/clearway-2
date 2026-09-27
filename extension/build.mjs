@@ -3,6 +3,7 @@
 // manifest with the console origin stamped in, icons and fonts. `--zip` also writes clearway-ops-agent.zip.
 import { build } from "vite";
 import { cpSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
+import { createLogger } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
@@ -15,7 +16,22 @@ const CONTENT = ["pill", "capture", "insert", "voicebar"];
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 
-await build({ configFile: path.join(here, "vite.config.mts"), logLevel: "warn" });
+// Everything the package references is staged into ONE public directory that Vite serves and copies:
+// the extension's own files, the console's icon masks, and the voice worklet. Vite then resolves every
+// absolute /icons, /fonts reference itself — and any it cannot resolve is a build failure below.
+const stage = path.join(here, ".stage-public");
+rmSync(stage, { recursive: true, force: true });
+cpSync(path.join(here, "public"), stage, { recursive: true });
+cpSync(path.join(here, "..", "public", "icons"), path.join(stage, "icons"), { recursive: true, force: false, errorOnExist: false });
+cpSync(path.join(here, "..", "public", "voice-worklet.js"), path.join(stage, "voice-worklet.js"));
+
+// Vite's "didn't resolve at build time" is a warning; here it is an error.
+const unresolved = [];
+const logger = createLogger("warn");
+const warn = logger.warn.bind(logger);
+logger.warn = (msg, opts) => { if (/didn't resolve at build time/.test(msg)) unresolved.push(msg.trim()); else warn(msg, opts); };
+
+await build({ configFile: path.join(here, "vite.config.mts"), logLevel: "warn", publicDir: stage, customLogger: logger });
 
 for (const name of CONTENT) {
   await build({
@@ -54,6 +70,35 @@ for (const f of walk(dist).filter((p) => p.endsWith(".js"))) {
   const s = readFileSync(f, "utf8");
   if (/\beval\(|new Function\(/.test(s)) throw new Error(`${f}: eval/new Function is not allowed in MV3`);
 }
+// ── Asset check: every icon, font, image and script the package refers to must be in dist/. ─────────
+const missing = new Set(unresolved.map((m) => `vite: ${m}`));
+const has = (rel) => existsSync(path.join(dist, rel.replace(/^\.?\//, "").split("?")[0]));
+const files = walk(dist);
+for (const f of files.filter((p) => /\.(html|css|js)$/.test(p))) {
+  const src = readFileSync(f, "utf8"); const rel = path.relative(dist, f);
+  const refs = [
+    ...[...src.matchAll(/(?:src|href)=["']([^"']+)["']/g)].map((m) => m[1]),
+    ...[...src.matchAll(/url\(\s*["']?([^"')\s]+)["']?\s*\)/g)].map((m) => m[1]),
+    ...[...src.matchAll(/getURL\(\s*["'`]([^"'`$]+)["'`]/g)].map((m) => m[1]),
+    ...[...src.matchAll(/["'`](\/?(?:icons|fonts|assets|content)\/[\w.@-]+\.(?:svg|png|woff2|js|css))["'`]/g)].map((m) => m[1]),
+  ].filter((r) => r && !/^(data:|https?:|blob:|chrome|#|mailto:)/.test(r) && !r.includes("${") && !r.startsWith("/_favicon"));
+  for (const r of refs) if (/\.(svg|png|woff2|js|css|html)$/.test(r.split("?")[0]) && !has(r)) missing.add(`${rel} → ${r}`);
+  for (const m of src.matchAll(/["'`]([\w.-]+\.woff2)["'`]/g)) if (!has(`fonts/${m[1]}`)) missing.add(`${rel} → fonts/${m[1]}`);
+}
+// Icons are CSS masks named at runtime (url(/icons/${name}.svg)), so their names are checked from source.
+const ICON_SRC = [path.join(here, "..", "components", "agent"), path.join(here, "src"), path.join(here, "..", "agent", "config")];
+const iconNames = new Set();
+for (const dir of ICON_SRC) for (const f of walk(dir).filter((p) => /\.(tsx?|json)$/.test(p))) {
+  const src = readFileSync(f, "utf8");
+  for (const m of src.matchAll(/<(?:Icon|IconButton|IconTile|Pill|Eyebrow|HeaderPill|Title|Button)\b[^>]*?\b(?:name|icon)=\{?["']([a-z0-9-]+)["']/g)) iconNames.add(m[1]);
+  for (const m of src.matchAll(/\b(?:name|icon)=\{([^}]*)\}/g)) for (const q of m[1].matchAll(/(?<![=!]==\s*)["']([a-z][a-z0-9-]+)["']/g)) iconNames.add(q[1]); // results of a ternary, not the values it compares
+  for (const m of src.matchAll(/\bicon:\s*["']([a-z0-9-]+)["']/g)) iconNames.add(m[1]);
+  for (const m of src.matchAll(/"icon":\s*"([a-z0-9-]+)"/g)) iconNames.add(m[1]);
+}
+for (const n of iconNames) if (!has(`icons/${n}.svg`)) missing.add(`icon "${n}" → icons/${n}.svg`);
+if (missing.size) { console.error(`BUILD FAILED — ${missing.size} referenced asset(s) not in dist/:\n  ${[...missing].join("\n  ")}`); process.exit(1); }
+console.log(`assets: every reference resolves (${iconNames.size} icon names, ${files.length} files)`);
+
 if (process.argv.includes("--zip")) {
   const zip = path.join(here, "clearway-ops-agent.zip");
   rmSync(zip, { force: true });

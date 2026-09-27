@@ -1,0 +1,11 @@
+import { launch, panelPage, shot, sleep, swEval, FIX, S } from "./harness.mjs";
+const { context, sw, extId } = await launch({ fresh: true, profile: "ext-profile-nowl", audioFile: `${S}/voice-2plus2.wav` });
+await sleep(1000); await swEval(sw, () => chrome.storage.sync.set({ settings: { pill: true, notifications: true, firstRunDone: true, mic: "allowed" } }));
+const site = await context.newPage(); await site.goto(`${FIX}/white.html`); await sleep(500);
+const panel = await panelPage(context, extId); const logs = []; panel.on("console", (m) => logs.push(`${m.type()}: ${m.text().slice(0, 200)}`));
+await sleep(2500);
+await panel.getByRole("button", { name: "Talk", exact: false }).first().click(); await sleep(2500);
+await shot(panel, "voice-unavailable-card");
+console.log("card:", await panel.evaluate(() => document.body.innerText.match(/Voice unavailable[^\n]*\n?[^\n]*/)?.[0] ?? "(no card)"));
+console.log("deprecated path used:", logs.some((l) => /ScriptProcessorNode/.test(l)), "| logged:", logs.filter((l) => /voice/i.test(l)).slice(0, 2));
+await context.close();

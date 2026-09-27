@@ -92,3 +92,4 @@ rig/.scratch/
 rig/supabase/.temp/
 rig/supabase/.branches/
 .env.rig-auth
+extension/.stage-public/

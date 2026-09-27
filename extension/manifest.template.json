@@ -65,7 +65,8 @@
     "tabs",
     "notifications",
     "offscreen",
-    "alarms"
+    "alarms",
+    "favicon"
   ],
   "host_permissions": [
     "__CONSOLE_ORIGIN__/*"

@@ -1,0 +1,11 @@
+import { launch, panelPage, sleep, swEval, FIX } from "./harness.mjs";
+const { context, sw, extId } = await launch({ fresh: true, profile: "ext-profile-issues" });
+await sleep(800); await swEval(sw, () => chrome.storage.sync.set({ settings: { pill: true, notifications: true, firstRunDone: true, mic: "allowed" } }));
+const site = await context.newPage(); await site.goto(`${FIX}/white.html`); await sleep(400);
+const panel = await panelPage(context, extId);
+const cdp = await context.newCDPSession(panel); const issues = [];
+cdp.on("Audits.issueAdded", ({ issue }) => issues.push(JSON.stringify(issue).slice(0, 600)));
+await cdp.send("Audits.enable"); await sleep(3000);
+await panel.getByRole("button", { name: "Talk", exact: false }).first().click().catch(() => {}); await sleep(1500);
+console.log(issues.length ? issues.join("\n") : "no issues");
+await context.close();

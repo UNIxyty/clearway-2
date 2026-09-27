@@ -53,7 +53,9 @@ function failClosed(request: NextRequest, pathname: string) {
 
 export async function middleware(request: NextRequest) {
   // The test rig must never reach the production database (lib/rig-guard.mjs).
-  { const why = rigViolation(); if (why) return new NextResponse(`REFUSING: ${why}`, { status: 500 }); }
+  // Checked twice: against the runtime env, and against the URL compiled into this build (Next.js inlines the
+  // literal process.env.NEXT_PUBLIC_SUPABASE_URL at build time — a build made from .env carries production).
+  { const why = rigViolation() ?? rigViolation({ ...process.env, NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL }); if (why) return new NextResponse(`REFUSING: ${why}`, { status: 500 }); }
 
   const { pathname, search } = request.nextUrl;
   const disableAuthForTesting = String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true";

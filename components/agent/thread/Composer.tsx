@@ -423,7 +423,7 @@ export default function Composer({
                 <button type="button" onClick={() => setCommand(null)} aria-label="Remove command" style={{ width: 15, height: 15, borderRadius: 4, background: "rgba(255,255,255,.14)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={9} color={C.surface} /></button>
               </span>
               {command.args.map((arg, i) => (
-                <input key={i} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? (command.command.args.split(" ")[0] || "optional") : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
+                <input key={i} name={`command-arg-${i}`} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? (command.command.args.split(" ")[0] || "optional") : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
                   onChange={(e) => setCommand((c) => c ? { ...c, args: c.args.map((a, j) => (j === i ? e.target.value : a)) } : c)}
                   onKeyDown={(e) => { if (e.key === "Tab" && i < command.args.length - 1) { e.preventDefault(); slotRefs.current[i + 1]?.focus(); } if (e.key === "Backspace" && !arg && i === 0) { e.preventDefault(); setCommand(null); inputRef.current?.focus(); } if (e.key === "Enter") { e.preventDefault(); submit(); } if (e.key === "Escape") { setCommand(null); inputRef.current?.focus(); } }}
                   style={{ ...mono({ fontSize: 13.5 }), color: i === 0 || arg ? C.primaryHover : C.faint, background: i === 0 || arg ? C.primaryTint3 : "transparent", border: i === 0 || arg ? `1px solid ${C.primary}` : `1px dashed ${C.borderControl}`, borderRadius: 7, padding: "2px 8px", outline: "none", minWidth: 90 }} />
@@ -439,11 +439,11 @@ export default function Composer({
           ) : locked ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "11px 13px" : "14px 16px", fontSize: panel ? 13.5 : 14, color: C.muted }}><Icon name="lock" size={14} color={C.faint} />{locked}</div>
           ) : (
-            <textarea ref={inputRef} rows={1} value={value} disabled={streaming && false} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} placeholder={placeholder} aria-label="Message"
+            <textarea name="message" ref={inputRef} rows={1} value={value} disabled={streaming && false} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} placeholder={placeholder} aria-label="Message"
               style={{ width: "100%", border: "none", outline: "none", resize: "none", padding: panel ? "11px 13px 4px" : "14px 16px 6px", fontFamily: "inherit", fontSize: panel ? 14 : 15, lineHeight: panel ? 1.5 : 1.6, color: C.ink, background: "transparent", minHeight: panel ? 38 : 48, maxHeight: 8 * 24, boxSizing: "border-box", overflowY: "auto" }} />
           )}
           <div style={{ display: "flex", alignItems: "center", gap: panel ? 2 : 4, padding: panel ? "4px 6px 6px" : "6px 8px 8px" }}>
-            <input ref={fileRef} type="file" accept={ACCEPT} multiple style={{ display: "none" }} onChange={(e) => { addFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }} />
+            <input name="attachments" ref={fileRef} type="file" accept={ACCEPT} multiple style={{ display: "none" }} onChange={(e) => { addFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }} />
             <IconButton icon="paperclip" title="Attach" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => fileRef.current?.click()} disabled={Boolean(locked)} />
             <IconButton icon="at-sign" title="Mention" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}@`); inputRef.current?.focus(); }} disabled={Boolean(locked)} />
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />

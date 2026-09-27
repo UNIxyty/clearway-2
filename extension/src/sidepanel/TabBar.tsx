@@ -16,6 +16,10 @@ const STATUS: Record<SiteStatus, { label: string; icon: string; fg: string; bg: 
   unknown: { label: "Chrome page", icon: "circle-off", fg: C.muted, bg: C.hover, border: C.border },
 };
 
+/** The tab's favicon from Chrome's own favicon cache, served on the extension's origin ("favicon" permission):
+ *  the panel never loads an image from the visited site, and img-src stays 'self' + the console. */
+const faviconFor = (pageUrl: string) => { const u = new URL(chrome.runtime.getURL("/_favicon/")); u.searchParams.set("pageUrl", pageUrl); u.searchParams.set("size", "32"); return u.toString(); };
+
 export type QuickRow = { eyebrow: string; entity: string; actions: QuickAction[]; onAction: (a: QuickAction) => void } | null;
 
 export function TabBar({ tab, selectionHas, requestedAt, onSend, quick, blockedNote }: { tab: TabInfo; selectionHas: boolean; requestedAt?: string | null; onSend: (kind: "selection" | "region" | "page") => void; quick: QuickRow; blockedNote?: string | null }) {
@@ -33,7 +37,7 @@ export function TabBar({ tab, selectionHas, requestedAt, onSend, quick, blockedN
   return (
     <div data-tab-bar style={{ background: C.page, borderBottom: `1px solid ${C.divider}`, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 9 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, opacity: fade ? 0.4 : 1, transition: "opacity 100ms cubic-bezier(0.2,0,0,1)" }}>
-        {tab.favIconUrl && !tab.favIconUrl.startsWith("chrome") ? <img src={tab.favIconUrl} alt="" width={15} height={15} style={{ borderRadius: 3, flex: "none" }} /> : <span style={{ width: 15, height: 15, borderRadius: 3, background: C.hover, flex: "none" }} />}
+        {/^https?:/.test(tab.url) ? <img src={faviconFor(tab.url)} alt="" width={15} height={15} style={{ borderRadius: 3, flex: "none" }} /> : <span style={{ width: 15, height: 15, borderRadius: 3, background: C.hover, flex: "none" }} />}
         <span title={tab.url} style={{ ...mono({ fontSize: 12 }), color: C.body, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tab.host || tab.url}{tab.path}</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: st.fg, background: st.bg, border: `1px solid ${st.border}`, borderRadius: 999, padding: "2px 8px 2px 6px", whiteSpace: "nowrap", flex: "none" }}><Icon name={st.icon} size={11} color={st.fg} />{label}</span>
       </div>

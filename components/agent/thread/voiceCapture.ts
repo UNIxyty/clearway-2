@@ -8,7 +8,7 @@
 //    minted by the agent service: POST /api/voice/realtime-token. The API key
 //    never reaches the page.
 //  - Audio: the mic is resampled here to 16 kHz mono PCM16 (an AudioWorklet,
-//    ScriptProcessor where worklets are unavailable) and sent in 250 ms
+//    no fallback: voice is unavailable without it) and sent in 250 ms
 //    chunks — inside the API's 0.1–1 s window.
 //  - partial_transcript REWRITES the live tail; committed_transcript is
 //    final. Only committed text ever leaves this file as something sendable.
@@ -43,11 +43,15 @@ const CHUNK_SECONDS = 0.25;
 const FINAL_COMMIT_TIMEOUT_MS = 3500;
 const FATAL = new Set(["error", "auth_error", "quota_exceeded", "unaccepted_terms", "rate_limited", "queue_overflow", "resource_exhausted", "session_time_limit_exceeded", "input_error", "invalid_request", "chunk_size_exceeded", "transcriber_error"]);
 
-// Posts Float32 frames in ~2048-sample batches; resampling happens on the main thread.
-const WORKLET = `class CwPcm extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(2048);this.n=0}process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.b[this.n++]=c[k];if(this.n===this.b.length){this.port.postMessage(this.b.slice(0));this.n=0}}}return true}}registerProcessor('cw-pcm',CwPcm);`;
-
-let workletUrl: string | null = null;
-const workletModule = () => (workletUrl ??= URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" })));
+// The PCM tap is a real file (public/voice-worklet.js), loaded by URL: the console serves it at
+// /voice-worklet.js and the Chrome extension ships it at its root. Never a blob: an extension's CSP
+// (script-src 'self') refuses blob worklets, and a silent fallback hid that. There is no fallback: if the
+// worklet cannot load, voice is unavailable and says so (VoiceUnavailable → a visible card).
+const workletUrl = () => {
+  const rt = (globalThis as { chrome?: { runtime?: { id?: string; getURL?: (p: string) => string } } }).chrome?.runtime;
+  return rt?.id && rt.getURL ? rt.getURL("voice-worklet.js") : "/voice-worklet.js";
+};
+export class VoiceUnavailable extends Error { constructor(why: string) { super(why); this.name = "VoiceUnavailable"; } }
 
 let wordSeq = 0;
 function wordsOf(text: string, raw?: Array<{ text: string; type: string; logprob?: number }> | null, threshold = -2): HeardWord[] {
@@ -124,18 +128,12 @@ export class VoiceCapture {
     const mute = ctx.createGain(); mute.gain.value = 0; mute.connect(ctx.destination);
     this.nodes.push(src, analyser, mute);
     const onFrame = (f: Float32Array) => this.push(f);
-    try {
-      if (!ctx.audioWorklet) throw new Error("no worklet");
-      await ctx.audioWorklet.addModule(workletModule());
-      const node = new AudioWorkletNode(ctx, "cw-pcm", { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 });
-      node.port.onmessage = (e: MessageEvent<Float32Array>) => onFrame(e.data);
-      src.connect(node); node.connect(mute); this.nodes.push(node);
-    } catch {
-      // ScriptProcessor fallback (deprecated but universal).
-      const sp = ctx.createScriptProcessor(4096, 1, 1);
-      sp.onaudioprocess = (e) => onFrame(e.inputBuffer.getChannelData(0).slice(0));
-      src.connect(sp); sp.connect(mute); this.nodes.push(sp);
-    }
+    if (!ctx.audioWorklet) throw new VoiceUnavailable("this browser has no AudioWorklet");
+    try { await ctx.audioWorklet.addModule(workletUrl()); }
+    catch (e) { throw new VoiceUnavailable(`the audio processor could not load (${workletUrl()}): ${String((e as Error)?.message ?? e)}`); }
+    const node = new AudioWorkletNode(ctx, "cw-pcm", { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1 });
+    node.port.onmessage = (e: MessageEvent<Float32Array>) => onFrame(e.data);
+    src.connect(node); node.connect(mute); this.nodes.push(node);
 
     const data = new Uint8Array(analyser.frequencyBinCount);
     const tick = () => {

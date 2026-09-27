@@ -12,7 +12,8 @@ stop() { for p in 3998 3999 5175 5199 3997; do pid=$(lsof -tiTCP:$p -sTCP:LISTEN
 if [ "${1:-}" = "stop" ]; then stop; exit 0; fi
 stop >/dev/null 2>&1 || true
 cd "$ROOT"
-[ -f .next/standalone/server.js ] || { echo "no portal build: run npm run build, then copy .next/static and public into .next/standalone"; exit 2; }
+[ -f .next/standalone/server.js ] || { echo "no console build: run rig/build-portal.sh"; exit 2; }
+"$RIG/check-portal-build.sh" || exit 78   # a plain npm run build bakes in production values: refuse it
 rm -rf .next/standalone/.next/static .next/standalone/public && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public
 ( env -i PATH="$PATH" HOME="$HOME" PORT=3998 HOSTNAME=127.0.0.1 node --env-file="$ENV" .next/standalone/server.js > "$SCR/portal.out" 2>&1 & )
 ( cd agent && env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )

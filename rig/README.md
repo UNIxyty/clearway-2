@@ -23,6 +23,14 @@ again only when typed: `RIG_ALLOW_PRODUCTION_READ="yes, read production to seed 
 It clones the schema of the non-agent tables from production's OpenAPI description and copies up to 5,000 rows
 each. Agent tables are never copied — the rig starts with none.
 
+## Console build
+
+`rig/build-portal.sh`, never a plain `npm run build`. Next.js compiles `NEXT_PUBLIC_*` values into the build and
+copies `.env*` into `.next/standalone`, where the server loads them at runtime; a plain build therefore carries
+the production Supabase URL and anon key, and every production secret in `.env`. The rig build exports
+`.env.rig` first, deletes every `.env*` from the standalone output, and `rig/check-portal-build.sh` (also run by
+`rig/start.sh`) refuses a build that has either.
+
 ## Every session
 
 ```
@@ -53,3 +61,9 @@ files are executed automatically; production still runs them by hand.
 `rig/ext/harness.mjs` launches Playwright's Chromium with the unpacked extension (build it with
 `cd extension && CW_CONSOLE_ORIGIN=http://127.0.0.1:3999 CW_TEST_HOSTS="http://127.0.0.1/*" node build.mjs`).
 Fixture pages are in `rig/fixtures/`.
+
+## Verification rule
+
+After any change to the extension or the agent UI, `rig/ext/t-console.mjs` (side panel and content-script
+consoles; exits 1 on any error, warning, CSP violation or failed request) and `rig/ext/t-issues.mjs` (DevTools
+Issues) must both be clean. Any message is a finding.

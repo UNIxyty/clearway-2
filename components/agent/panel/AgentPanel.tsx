@@ -258,7 +258,7 @@ function PanelHistory({ conversations, query, setQuery, currentId, context, onOp
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "10px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, height: 38, border: `1px solid ${C.borderControl}`, borderRadius: 10, padding: "0 12px" }}><Icon name="search" size={14} color={C.faint} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search threads" aria-label="Search threads" style={{ flex: 1, border: "none", outline: "none", fontFamily: "inherit", fontSize: 13.5, background: "transparent" }} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, height: 38, border: `1px solid ${C.borderControl}`, borderRadius: 10, padding: "0 12px" }}><Icon name="search" size={14} color={C.faint} /><input name="history-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search threads" aria-label="Search threads" style={{ flex: 1, border: "none", outline: "none", fontFamily: "inherit", fontSize: 13.5, background: "transparent" }} /></div>
       </div>
       {conversations === null && <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 8 }}>{[0, 1, 2].map((i) => <div key={i} style={{ height: 44, borderRadius: 10, background: C.hover }} />)}</div>}
       {conversations !== null && filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 13, color: C.muted }}>{query ? "No threads match." : "No earlier conversations."}</div>}

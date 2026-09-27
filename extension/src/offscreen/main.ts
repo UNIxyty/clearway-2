@@ -183,6 +183,7 @@ async function voiceStart(language: string | null) {
     const name = (e as DOMException)?.name;
     if (gen !== mine) return;
     if (name === "NotAllowedError" || name === "SecurityError") sendError(ERR.blocked.title, ERR.blocked.detail);
+    else if (name === "VoiceUnavailable") { console.error("[voice]", (e as Error).message); sendError("Voice unavailable", "the audio processor could not load — type in the panel instead"); }
     else sendError(ERR.noMic.title, ERR.noMic.detail);
     return;
   }

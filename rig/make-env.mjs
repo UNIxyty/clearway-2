@@ -20,6 +20,7 @@ const lines = [
   "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3999",
   "PORTAL_SITE_URL=http://127.0.0.1:3999",
   "PORTAL_BASE_URL=http://127.0.0.1:3999",
+  "APP_BASE_URL=http://127.0.0.1:3999",
   "DIGITAL_WALL_INTERNAL_URL=http://127.0.0.1:5199",
   "AGENT_WALL_EVENTS_SECRET=rig-local-wall-events-secret",
   `STORAGE_ROOT=${path.join(here, ".scratch", "storage")}`,

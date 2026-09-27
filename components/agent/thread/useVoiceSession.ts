@@ -135,6 +135,7 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
       capture.close();
       const name = (e as DOMException)?.name;
       if (name === "NotAllowedError" || name === "SecurityError") { set("blocked"); return; }
+      if (name === "VoiceUnavailable") { console.error("[voice]", (e as Error).message); fail({ title: "Voice unavailable", detail: "the audio processor could not load — type instead", action: "type", hold: 8000 }); return; }
       fail({ title: "No microphone", detail: "none connected to this PC", action: "type" }); return;
     }
     if (gen.current !== mine || (stateRef.current !== "invoked" && stateRef.current !== "listening")) { capture.close(); return; } // released / Esc before the mic warmed up

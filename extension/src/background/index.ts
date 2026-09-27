@@ -16,6 +16,24 @@ import { inject, send } from "./inject";
 // The toolbar icon does one thing: it opens the panel. No popup (§E1).
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
+// ── Opening the panel inside a gesture ────────────────────────────────────────────────────────────────
+// Chrome honours sidePanel.open() only when it is called synchronously in the event handler of the gesture
+// (a shortcut, a menu click, an omnibox Enter, a notification click, a message from a click in the page):
+// after the first `await` the gesture is gone and the call is refused. So every handler that needs the
+// panel calls openNow() FIRST, before anything asynchronous, from values it already has. The session state
+// and the last focused window are mirrored here synchronously for that purpose (the worker is ephemeral:
+// both are reloaded on every start and kept current by listeners).
+let sessionStatus: string = "unknown";
+let lastWindowId: number | null = null;
+void chrome.storage.local.get("session").then((r) => { sessionStatus = (r.session as { status?: string } | undefined)?.status ?? "unknown"; });
+chrome.storage.onChanged.addListener((c, area) => { if (area === "local" && c.session) sessionStatus = (c.session.newValue as { status?: string } | undefined)?.status ?? "unknown"; });
+void chrome.windows.getLastFocused().then((w) => { if (w?.id != null) lastWindowId = w.id; }).catch(() => {});
+chrome.windows.onFocusChanged.addListener((id) => { if (id !== chrome.windows.WINDOW_ID_NONE) lastWindowId = id; });
+function openNow(windowId?: number | null, tabId?: number | null): void {
+  const target = windowId != null ? { windowId } : tabId != null ? { tabId } : lastWindowId != null ? { windowId: lastWindowId } : null;
+  if (target) chrome.sidePanel.open(target as chrome.sidePanel.OpenOptions).catch(() => {});
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   await createMenus();
   await chrome.alarms.create("session", { periodInMinutes: 1 });
@@ -38,6 +56,9 @@ chrome.alarms.onAlarm.addListener(async (a) => {
 
 // ── Commands (§E15): the four Chrome shortcuts. Each is a user gesture. ───────────────────────────────
 chrome.commands.onCommand.addListener(async (command, tab) => {
+  // Synchronously, before any await: open the panel when this command will need it.
+  const signedIn = sessionStatus === "signed-in" || sessionStatus === "unknown";
+  if (!signedIn || command === "ask-selection" || command === "capture-region" || (command === "voice-toggle" && isChromePage(tab?.url ?? ""))) openNow(tab?.windowId);
   const t = tab ?? (await activeTab());
   await noteGesture(t);
   const session = await getSession();
@@ -49,6 +70,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 // ── Context menus ────────────────────────────────────────────────────────────────────────────────────
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  openNow(tab?.windowId); // every item ends in the panel; open it inside the click
   const t = tab ?? (await activeTab());
   await noteGesture(t);
   switch (info.menuItemId) {
@@ -62,10 +84,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // ── Omnibox ──────────────────────────────────────────────────────────────────────────────────────────
-installOmnibox(async (text) => { const t = await activeTab(); await openPanel(t?.windowId); await pushDraft({ text }); });
+installOmnibox(async (text) => { openNow(lastWindowId); await pushDraft({ text }); });
 
 // ── Notifications ────────────────────────────────────────────────────────────────────────────────────
 onNotificationClick(async (id) => {
+  openNow(lastWindowId);
   const w = await chrome.windows.getLastFocused().catch(() => null);
   if (w?.id) { await chrome.windows.update(w.id, { focused: true }).catch(() => {}); await openPanel(w.id); }
   tellPanel({ type: "focus", kind: id.startsWith("cw-confirm-") ? "confirmation" : "job", token: id.replace(/^cw-(confirm|job)-/, "") });
@@ -97,6 +120,7 @@ chrome.windows.onFocusChanged.addListener(() => void tabChanged(null, "activated
 chrome.runtime.onMessage.addListener((msg: Record<string, unknown>, sender, reply) => {
   if (!msg || typeof msg.type !== "string" || msg.target === "offscreen") return false;
   const tabId = sender.tab?.id ?? null;
+  if (msg.type === "pill.ask") openNow(sender.tab?.windowId, tabId); // the pill click is the gesture; open before any await
   (async () => {
     const t = String(msg.type);
     if (t === "pill.ask" && sender.tab) { await askAboutSelection(sender.tab, String(msg.text ?? "")); }

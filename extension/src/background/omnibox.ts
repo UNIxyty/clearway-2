@@ -43,6 +43,9 @@ export function installOmnibox(onAsk: (text: string) => void) {
   chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
     let target: string | null = null;
     if (text.startsWith("cw-ask:")) { onAsk(text.slice(7)); return; }
+    // A free-text entry is an "Ask Clearway" row: open the panel synchronously, inside the Enter gesture.
+    const cachedFirst = cache.get(text.trim().toLowerCase())?.[0];
+    if (!/^https?:\/\//.test(text) && (!cachedFirst || cachedFirst.ask != null)) { onAsk(cachedFirst?.ask ?? text); return; }
     if (/^https?:\/\//.test(text)) target = text;
     else { const [first] = await lookup(text); if (first.ask != null) { onAsk(first.ask); return; } target = first.url; }
     if (!target) { onAsk(text); return; }

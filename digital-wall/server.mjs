@@ -1417,6 +1417,17 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: false, error: "deviceId is required" }, 400);
         return;
       }
+      const receivedAt = Date.now();
+      const c = body.clock && typeof body.clock === "object" ? body.clock : null;
+      const clockSample = c && Number.isFinite(Number(c.sentAt)) ? {
+        at: new Date(receivedAt).toISOString(),
+        offsetMs: Math.round(Number(c.sentAt) + (Number.isFinite(Number(c.rttMs)) ? Number(c.rttMs) / 2 : 0) - receivedAt),
+        rttMs: Number.isFinite(Number(c.rttMs)) ? Number(c.rttMs) : null,
+        lineErrorMin: Number.isFinite(Number(c.lineErrorMin)) ? Number(c.lineErrorMin) : null,
+        pxPerHour: Number.isFinite(Number(c.pxPerHour)) ? Number(c.pxPerHour) : null,
+        visibility: typeof c.visibility === "string" ? c.visibility.slice(0, 12) : null,
+        userAgent: String(req.headers["user-agent"] || "").slice(0, 160),
+      } : null;
       const stored = await displayDevicesStore.read();
       const devices = stored.devices && typeof stored.devices === "object" ? stored.devices : {};
       const existing = devices[deviceId] ?? {};
@@ -1426,6 +1437,9 @@ const server = http.createServer(async (req, res) => {
         surface: typeof body.surface === "string" ? body.surface.slice(0, 20) : existing.surface ?? null,
         env: body.env && typeof body.env === "object" ? body.env : existing.env ?? null,
         computedFit: body.computedFit && typeof body.computedFit === "object" ? body.computedFit : existing.computedFit ?? null,
+        // Clock telemetry (now-line investigation): the display's clock vs this server's, and the now-line's
+        // error as the display measures it on screen. offsetMs > 0 = the display's clock is AHEAD of the server.
+        ...(clockSample ? { clock: clockSample, clockSamples: [...(Array.isArray(existing.clockSamples) ? existing.clockSamples : []), clockSample].slice(-720) } : {}),
         firstSeenAt: existing.firstSeenAt ?? new Date().toISOString(),
         lastSeenAt: new Date().toISOString(),
       };

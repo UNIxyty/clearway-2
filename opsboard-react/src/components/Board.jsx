@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { p2, clamp } from '../data';
 import FlightPill, { pillVerticalMetrics } from './FlightPill';
 import FlightInfoTab from './FlightInfoTab';
@@ -368,14 +368,43 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const timelinePx = timelineHours * pxPerHour;
   const nowStr = nowTimeStr(nowMs);
   const nowX = nowFracUtc(nowMs, windowStartMs, windowDurationMs) * timelinePx;
-  const nowMarkerLeft = AC_LABEL_W + BEFORE_NOW_HOURS * pxPerHour;
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-    return () => clearInterval(id);
+  // The now-line is anchored to the TIMELINE, not to the screen. It used to sit at a fixed screen x
+  // (AC_LABEL_W + BEFORE_NOW_HOURS * pxPerHour) and rely on the scroll to bring "now" under it — and the
+  // follow only corrected when it was 40 px off, so the line read up to ~30 min behind real time on the ops
+  // wall (82 px/h), then jumped. Now its screen x is derived every tick and every scroll from the wall clock
+  // and the actual scroll position: whatever the view is doing, the line marks the real time.
+  const nowGeomRef = useRef({ nowX: 0, acW: 0, viewW: 0 });
+  const nowLineRef = useRef(null);
+  const nowPinRef = useRef(null);
+  const placeNowLine = useCallback(() => {
+    const body = bodyScrollRef.current; const g = nowGeomRef.current;
+    const x = g.acW + g.nowX - (body ? body.scrollLeft : 0);
+    const inView = x >= g.acW - 1 && x <= g.acW + g.viewW + 1;
+    for (const el of [nowLineRef.current, nowPinRef.current]) {
+      if (!el) continue;
+      el.style.left = `${x}px`;               // fractional px: the line moves smoothly, not in whole-pixel jumps
+      el.style.visibility = inView ? 'visible' : 'hidden';
+    }
   }, []);
+  // Before paint, after every render: the geometry for this render, then the line from the live scroll.
+  useLayoutEffect(() => { nowGeomRef.current = { nowX, acW: AC_LABEL_W, viewW: visibleTimelineWidth }; placeNowLine(); });
+  const nowMarkerLeft = AC_LABEL_W + BEFORE_NOW_HOURS * pxPerHour; // first-paint estimate; corrected before paint
+
+  // ONE ticking source: the wall clock, read fresh each tick (never an accumulated offset). 1 s ticks keep the
+  // label's minute exact; the line itself moves by (px/h ÷ 3600) px per tick — sub-pixel, drawn fractionally.
+  // A hidden tab's timers are throttled or stopped, so waking (visibility, focus) re-reads the clock at once,
+  // and the watchdog in the follow monitor below forces a tick if this one has stalled.
+  const lastTickRef = useRef(0);
+  const tickNow = useCallback(() => { lastTickRef.current = Date.now(); setNowMs(lastTickRef.current); }, []);
+  useEffect(() => {
+    lastTickRef.current = Date.now();
+    const id = setInterval(tickNow, 1000);
+    const onWake = () => { if (document.visibilityState === 'visible') tickNow(); };
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    window.addEventListener('pageshow', onWake);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onWake); window.removeEventListener('focus', onWake); window.removeEventListener('pageshow', onWake); };
+  }, [tickNow]);
 
   useEffect(() => {
     const body = bodyScrollRef.current;
@@ -522,11 +551,15 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       lastInteractionAt = Date.now();
     };
     const onScroll = () => {
+      placeNowLine(); // the line follows the timeline as it scrolls
       if (autoScrolling) return; // our own animation — not user interaction
       lastInteractionAt = Date.now();
     };
 
     const monitor = setInterval(() => {
+      // Tick watchdog (same monitor as the scroll-latch fix): if the clock tick has stalled for more than 5 s
+      // — throttled or suspended timers — read the clock now instead of waiting for it.
+      if (lastTickRef.current && Date.now() - lastTickRef.current > 5000) tickNow();
       if (autoScrolling) {
         // Stall watchdog: an animation that outlived its duration (rAF was
         // suspended mid-flight) finishes instantly instead of latching.
@@ -539,9 +572,13 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       }
       if (Date.now() - lastInteractionAt < AUTO_RETURN_TO_NOW_MS) return;
       const target = nowScrollRef.current.target;
-      // 40px dead-band: minute-hand drift re-centres in one gentle nudge
-      // every ~10-15 min instead of a constant micro-scroll.
-      if (Math.abs(body.scrollLeft - target) < 40) return;
+      // Follow "now" continuously: the view keeps it at the same place on screen, re-aligned whenever it is a
+      // pixel or more off (at 82 px/h that is a 1 px step every ~45 s, too small to see). Big differences — a
+      // return after the user scrolled away — still animate. (The old 40 px dead-band let the view, and the
+      // screen-fixed line with it, run up to ~30 min behind before one visible jump.)
+      const diff = Math.abs(body.scrollLeft - target);
+      if (diff < 1) return;
+      if (diff < 40) { snapTo(target); return; }
       animateReturn(target);
     }, 1000);
 
@@ -552,8 +589,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       if (document.visibilityState !== 'visible') return;
       animStartedAt = 0;
       cancelAnimationFrame(animationFrame);
+      tickNow(); // the clock first, so the target below is computed from the real time, not the last tick
       const target = nowScrollRef.current.target;
-      if (Math.abs(body.scrollLeft - target) >= 40 && Date.now() - lastInteractionAt >= AUTO_RETURN_TO_NOW_MS) {
+      if (Math.abs(body.scrollLeft - target) >= 1 && Date.now() - lastInteractionAt >= AUTO_RETURN_TO_NOW_MS) {
         snapTo(target);
       } else {
         autoScrolling = false; // clear any latch either way
@@ -579,7 +617,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         el.removeEventListener('scroll', onScroll);
       }
     };
-  }, []);
+  }, [placeNowLine, tickNow]); // both stable (useCallback with no deps): the monitor is set up once
 
   useEffect(() => {
     const header = headerScrollRef.current;
@@ -681,7 +719,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         {/* Timeline tick header */}
         <div style={{ ...s.timeHeader, height: timeHeaderH }}>
           <div style={s.acSpacer} />
-          <div className="timeline-scroll timeline-scroll--header" style={s.timeScroll} ref={headerScrollRef}>
+          <div className="timeline-scroll timeline-scroll--header" data-window-start={windowStartMs} style={s.timeScroll} ref={headerScrollRef}>
             <div style={{ ...s.timeInner, width: timelinePx + END_PAD_PX }}>
               {Array.from({ length: timelineHours }, (_, i) => {
                 const tick = new Date(windowStartMs + i * 60 * 60 * 1000);
@@ -700,7 +738,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
             </div>
           </div>
           {showNow && (
-            <div style={{ ...s.nowHeaderPin, left: nowMarkerLeft }}>
+            <div ref={nowPinRef} data-now-pin style={{ ...s.nowHeaderPin, left: nowMarkerLeft }}>
               <div style={s.nowTimeLabel}>{nowStr}</div>
               <div style={s.nowTriangle} />
             </div>
@@ -877,7 +915,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
             <div style={s.emptyState}>No flights available for the selected period.</div>
           )}
         </div>
-        {showNow && <div style={{ ...s.nowFixedLine, left: nowMarkerLeft }} />}
+        {showNow && <div ref={nowLineRef} data-now-line style={{ ...s.nowFixedLine, left: nowMarkerLeft, transform: 'translateX(-1px)' }} />}
       </div>
     </div>
   );

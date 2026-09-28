@@ -345,12 +345,15 @@ export async function resetProfile(account) {
 }
 
 /** Item 1: report this screen's rendering environment (fire-and-forget). */
+let lastRttMs = null;
 export function reportDisplayEnv(body) {
+  const started = performance.now();
+  const payload = body.clock ? { ...body, clock: { ...body.clock, sentAt: Date.now(), rttMs: lastRttMs } } : body;
   fetch(buildApiUrl('/api/display/env'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  }).catch(() => {});
+    body: JSON.stringify(payload),
+  }).then(() => { lastRttMs = Math.round(performance.now() - started); }).catch(() => {});
 }
 
 /** Console Reports (bug report item 13). */

@@ -10,6 +10,7 @@ import {
   fetchTimelineAircraft,
   reportDisplayEnv,
 } from './services/timelineApi';
+import { measureNowLine } from './services/nowLineProbe';
 import { subscribeWallStream } from './services/wallStream';
 import { WallColorsProvider } from './theme/WallColorsContext';
 import { collectViewportEnv, defaultDeviceLabel, getDeviceId } from './services/device';
@@ -213,6 +214,11 @@ export default function DisplayApp() {
     // Item 1: report this screen's real rendering environment (and again on
     // resize) so the console shows what the wall actually has to work with.
     reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', label: undefined, env: collectViewportEnv() });
+    // Clock + now-line telemetry, every minute: the display's clock vs the server's, and the line's error on
+    // screen. Read in the console (display devices) and by the operator — measurement only.
+    const clockTimer = setInterval(() => {
+      reportDisplayEnv({ deviceId: deviceIdRef.current, surface: 'wall', clock: { visibility: document.visibilityState, ...(measureNowLine() || {}) } });
+    }, 60_000);
     let envTimer;
     const onResize = () => {
       clearTimeout(envTimer);
@@ -222,7 +228,7 @@ export default function DisplayApp() {
       }, 1500);
     };
     window.addEventListener('resize', onResize);
-    return () => { clearInterval(id); clearTimeout(envTimer); window.removeEventListener('resize', onResize); };
+    return () => { clearInterval(id); clearInterval(clockTimer); clearTimeout(envTimer); window.removeEventListener('resize', onResize); };
   }, []);
 
   // Live pushes from the Console: limitations edits repaint the sidebar and

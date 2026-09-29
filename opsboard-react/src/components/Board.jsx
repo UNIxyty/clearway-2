@@ -436,19 +436,13 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const body = bodyScrollRef.current;
     if (!header || !body) return;
 
-    let syncing = false;
-    const syncFromHeader = () => {
-      if (syncing) return;
-      syncing = true;
-      body.scrollLeft = header.scrollLeft;
-      requestAnimationFrame(() => { syncing = false; });
-    };
-    const syncFromBody = () => {
-      if (syncing) return;
-      syncing = true;
-      header.scrollLeft = body.scrollLeft;
-      requestAnimationFrame(() => { syncing = false; });
-    };
+    // The hour header and the rows scroll together. The echo guard used to be a flag cleared in a
+    // requestAnimationFrame callback — the same trap as the scroll latch (bug report 6): when a blanked or
+    // occluded kiosk never runs that frame, the flag stays set and the header stops following the rows for
+    // good, so the hours on top no longer match the flights (and the now-line) below. Comparing positions
+    // needs no flag: writing an equal scrollLeft fires no event, so the echo ends by itself.
+    const syncFromHeader = () => { if (body.scrollLeft !== header.scrollLeft) body.scrollLeft = header.scrollLeft; };
+    const syncFromBody = () => { if (header.scrollLeft !== body.scrollLeft) header.scrollLeft = body.scrollLeft; };
 
     header.addEventListener('scroll', syncFromHeader, { passive: true });
     body.addEventListener('scroll', syncFromBody, { passive: true });
@@ -516,9 +510,12 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     // the monitor force-finishes any animation that has stalled past its
     // duration, and regaining visibility snaps to now immediately.
     let animStartedAt = 0;
+    // Our own scroll writes move the header too, directly: scroll EVENTS are dispatched with rendering, so a
+    // page that is not painting (blanked, occluded) may not deliver them until it paints again.
+    const setScroll = (x) => { body.scrollLeft = x; header.scrollLeft = x; };
     const snapTo = (target) => {
       autoScrolling = true; // suppress the scroll-echo → not user interaction
-      body.scrollLeft = target;
+      setScroll(target);
       clearTimeout(settleTimer);
       settleTimer = setTimeout(() => { autoScrolling = false; }, 150);
     };
@@ -531,11 +528,11 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       const step = (now) => {
         if (!autoScrolling) return; // user gesture aborted the return
         const t = Math.min(1, (now - startedAt) / RETURN_ANIMATION_MS);
-        body.scrollLeft = from + (target - from) * easeInOutCubic(t);
+        setScroll(from + (target - from) * easeInOutCubic(t));
         if (t < 1) {
           animationFrame = requestAnimationFrame(step);
         } else {
-          body.scrollLeft = target;
+          setScroll(target);
           // brief settle so the trailing scroll/sync events don't read as
           // user interaction, then hand control back to the monitor.
           clearTimeout(settleTimer);
@@ -560,6 +557,10 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       // Tick watchdog (same monitor as the scroll-latch fix): if the clock tick has stalled for more than 5 s
       // — throttled or suspended timers — read the clock now instead of waiting for it.
       if (lastTickRef.current && Date.now() - lastTickRef.current > 5000) tickNow();
+      // Header/rows watchdog: whatever happened to the scroll events, the hours on top must match the rows
+      // underneath, and the line must sit where "now" is — re-assert both every second.
+      if (header.scrollLeft !== body.scrollLeft) header.scrollLeft = body.scrollLeft;
+      placeNowLine();
       if (autoScrolling) {
         // Stall watchdog: an animation that outlived its duration (rAF was
         // suspended mid-flight) finishes instantly instead of latching.

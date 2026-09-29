@@ -2,10 +2,13 @@
 # Does the CNAIR flight-dispatcher portal open a Genero session from THIS machine's IP?
 # Read-only: one login, one session start, then stop. Credentials are read from the environment (never passed
 # as arguments, never printed). Usage:
-#   read -r -p "user: " CNAIR_USER; read -r -s -p "password: " CNAIR_PASSWORD; echo
-#   CNAIR_USER="$CNAIR_USER" CNAIR_PASSWORD="$CNAIR_PASSWORD" bash login-check.sh
+#   bash rig/cnair/login-check.sh          (from the repo root; reads CNAIR_USER / CNAIR_PASSWORD from .env)
 set -euo pipefail
-: "${CNAIR_USER:?set CNAIR_USER}"; : "${CNAIR_PASSWORD:?set CNAIR_PASSWORD}"
+# Not in the environment? Read just these two lines from the repo's .env (no sourcing: values may contain # or $).
+ENVF="$(cd "$(dirname "$0")/../.." && pwd)/.env"
+if [ -z "${CNAIR_USER:-}" ] && [ -f "$ENVF" ]; then CNAIR_USER="$(grep -m1 '^CNAIR_USER=' "$ENVF" | cut -d= -f2- | sed -E 's/^["\x27]|["\x27]$//g')"; fi
+if [ -z "${CNAIR_PASSWORD:-}" ] && [ -f "$ENVF" ]; then CNAIR_PASSWORD="$(grep -m1 '^CNAIR_PASSWORD=' "$ENVF" | cut -d= -f2- | sed -E 's/^["\x27]|["\x27]$//g')"; fi
+: "${CNAIR_USER:?CNAIR_USER not in the environment or in .env}"; : "${CNAIR_PASSWORD:?CNAIR_PASSWORD not in the environment or in .env}"
 BASE="https://cnair.efficens.es"; APP="$BASE/gas320/ua/r/cnair/flightdispatcher"
 UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; J="$W/cookies"

@@ -1,6 +1,7 @@
 // HTTP routes for the Flight intake page and the Agent mailbox. Wired from server.mjs after authentication:
 // every route here runs as the signed-in user, and the mailbox routes additionally require mailbox access.
 // Responses never carry personal data except the two reveal endpoints, which are audited.
+import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { cancelConfirmation, getConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
@@ -217,10 +218,38 @@ async function peopleFor(id, reveal) {
   const legs = (r.review?.legs ?? []).map((l) => ({ leg: l.index, crew: [], pax: [] }));
   for (const p of people) {
     const targets = p.leg == null ? legs : legs.filter((l) => l.leg === p.leg);
-    const row = { role: p.role ?? p.type ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null };
+    const row = { id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
     for (const t of targets) t[p.list].push(row);
   }
   return { legs, purged: !ex?.personal && !!r.current_extraction_id, masked: !reveal };
+}
+
+/**
+ * A person adds or removes a crew member / passenger by hand. Stored with the extracted people (masked by every
+ * endpoint, cleared by retention), marked with who added them; the audit row carries no values.
+ */
+async function editPeople(id, user, body) {
+  const r = (await rest(`intake_requests?select=id,message_id,current_extraction_id,review,status&id=eq.${id}`))?.[0];
+  if (!r?.current_extraction_id) throw err(409, "Nothing has been read from this request yet.");
+  if (r.status === "closed") throw err(409, "This request is closed.");
+  const ex = (await rest(`intake_extractions?select=id,personal&id=eq.${r.current_extraction_id}`))?.[0];
+  const people = [...(ex?.personal?.people ?? [])];
+  const me = who(user);
+  const clip = (v, n) => { const t = String(v ?? "").trim().replace(/\s+/g, " "); return t ? t.slice(0, n) : null; };
+  if (body.op === "add") {
+    const leg = Number(body.leg); if (!(r.review?.legs ?? []).some((l) => l.index === leg)) throw err(404, "No such leg.");
+    if (!["crew", "pax"].includes(body.list)) throw err(400, "Choose crew or passenger.");
+    const p = body.person ?? {}; const name = clip(p.name, 120); if (!name) throw err(400, "A name, please.");
+    people.push({ id: randomUUID(), leg, list: body.list, role: clip(p.role, 40), type: body.list === "pax" ? clip(p.role, 40) : null, name, dob: clip(p.dob, 24), nationality: clip(p.nationality, 40), passport: clip(p.passport, 24), expiry: clip(p.expiry, 24), source: `Added by ${me.name}`, added: { by: me.name, at: me.at } });
+  } else if (body.op === "remove") {
+    const i = people.findIndex((p) => p.id && p.id === body.personId);
+    if (i < 0) throw err(404, "No such person.");
+    if (!people[i].added) throw err(409, "Only people added by hand can be removed here. Edit the request instead, or re-read it.");
+    people.splice(i, 1);
+  } else throw err(400, "Unknown people edit.");
+  await rest(`intake_extractions?id=eq.${ex.id}`, { method: "PATCH", body: JSON.stringify({ personal: { ...(ex?.personal ?? {}), people } }) });
+  if (body.op === "add") await rest(`intake_messages?id=eq.${r.message_id}`, { method: "PATCH", body: JSON.stringify({ has_personal_data: true }) }).catch(() => {});
+  await audit({ kind: body.op === "add" ? "intake.person_added" : "intake.person_removed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: id, leg: body.leg ?? null, list: body.list ?? null } }).catch(() => {});
 }
 
 // ── Mailbox ────────────────────────────────────────────────────────────────────────────────────────────
@@ -337,6 +366,7 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)) });
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/reveal$/.exec(P)) && req.method === "POST") {
       const out = await peopleFor(m[1], true);
       await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 60 } }).catch(() => {});

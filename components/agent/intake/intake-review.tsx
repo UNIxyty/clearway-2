@@ -8,7 +8,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import { C, TONE, mono } from "../ui/tokens";
 import { Button, Icon, hmsZ, kb } from "../ui/primitives";
 import { Tag } from "./controls";
-import type { AttachmentRole, Leg, People, RequestDetail } from "./api";
+import type { AttachmentRole, Leg, People, RequestDetail, intakeApi } from "./api";
 import { CARD, EYEBROW, LeonPill, LegSquare, Notice, SectionHead, legDate, legDirection, legKeyOf, legNo, legRoute, plural } from "./intake-shared";
 import { ExtraRow, FieldHeader, FieldRow, SmallButton, TzBlock, type Apply } from "./intake-fields";
 import { Services, type Def } from "./intake-services";
@@ -24,6 +24,7 @@ export function legIssues(leg: Leg) {
 export type ReviewProps = {
   detail: RequestDetail; apply: Apply; defs: Def[] | null; legPos: number; setLegPos: (n: number) => void; closed: boolean;
   people: People | null; peopleError: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void;
+  editPeople: (body: Parameters<typeof intakeApi.editPeople>[1]) => Promise<void>;
   reprocess: (attachmentId: string | null) => Promise<void>; reprocessing: string | null; reprocessMsg: string | null;
   onPrepare: () => void; preparing: boolean; prepareError: string | null;
 };
@@ -128,7 +129,7 @@ export function ReviewCard(p: ReviewProps) {
                     </>
                   )}
                   {!scheduled && <Services leg={leg} editable={legEditable} apply={p.apply} defs={p.defs} />}
-                  <PeopleSection leg={leg} people={p.people} peopleError={p.peopleError} reveal={p.reveal} setReveal={p.setReveal} doReveal={p.doReveal} purged={detail.request.purged} retentionDays={detail.retention.days} />
+                  <PeopleSection leg={leg} people={p.people} peopleError={p.peopleError} reveal={p.reveal} setReveal={p.setReveal} doReveal={p.doReveal} purged={detail.request.purged} retentionDays={detail.retention.days} editPeople={detail.request.status === "closed" ? null : p.editPeople} />
                 </div>
               )}
             </div>

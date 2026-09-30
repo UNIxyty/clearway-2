@@ -235,7 +235,11 @@ export async function processMessage(messageId, opts = {}) {
   const tokens = personalTokens(people);
 
   // Store the version (fields without personal data; personal separately).
-  const prev = (await rest(`intake_extractions?select=version&request_id=eq.${req.id}&order=version.desc&limit=1`))?.[0]?.version ?? 0;
+  const prevRow = (await rest(`intake_extractions?select=version,personal&request_id=eq.${req.id}&order=version.desc&limit=1`))?.[0];
+  const prev = prevRow?.version ?? 0;
+  // People a person added by hand survive a re-read (they are not in the email, so the model cannot find them).
+  const addedByHand = (prevRow?.personal?.people ?? []).filter((p) => p.added && x.legs[p.leg]);
+  if (addedByHand.length) { x.personal.people = [...(x.personal.people ?? []), ...addedByHand]; people.push(...addedByHand); }
   const { personal, ...fields } = x;
   const ex = (await rest("intake_extractions", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([{ request_id: req.id, version: prev + 1, model_id: model.modelId, model_tier: model.tier, input_tokens: model.usage.inputTokens, output_tokens: model.usage.outputTokens, fields, personal: people.length ? personal : null, created_by: opts.actor?.email ?? "intake" }]) }))?.[0];
 

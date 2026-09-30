@@ -49,7 +49,7 @@ export type RequestDetail = {
   retention: { days: number };
 };
 export type ListRow = { id: string; type: "handling" | "scheduled"; statusKey: UiStatusKey; statusLabel: string; from: string; reference: string; referenceBuilt: boolean; route: string; firstStd: string | null; legs: { removed: boolean; state: "in" | "not" | "unknown" | "none" | "removed" }[]; stage: string; updatedAt: string; needsAttention: boolean };
-export type Person = { role: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
+export type Person = { id?: string | null; added?: { by: string; at: string } | null; role: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
 export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; revealedBy?: string; at?: string };
 export type Confirmation = { token: string; status: string; expiresAt: string; summary: string };
 export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
@@ -85,6 +85,7 @@ export const intakeApi = {
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),
   people: (id: string) => call<People>(`/api/intake/requests/${id}/people`),
   reveal: (id: string) => call<People>(`/api/intake/requests/${id}/people/reveal`, { json: {} }),
+  editPeople: (id: string, body: { op: "add"; leg: number; list: "crew" | "pax"; person: Partial<Record<"role" | "name" | "dob" | "nationality" | "passport" | "expiry", string>> } | { op: "remove"; personId: string }) => call<People>(`/api/intake/requests/${id}/people/edit`, { json: body }),
   prepare: (id: string) => call<Prepared>(`/api/intake/requests/${id}/prepare`, { json: {} }),
   confirm: (token: string) => call<{ accepted: true; requestId: string; already?: boolean }>(`/api/intake/send/${token}/confirm`, { json: {} }),
   sendStatus: (token: string) => call<{ status: string; result: SendResult | null }>(`/api/intake/send/${token}`),

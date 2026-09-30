@@ -55,7 +55,7 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
 
   // Masked people list, once per extraction.
   const extractionId = detail?.extractions[detail.extractions.length - 1]?.id ?? null;
-  const wantPeople = !!detail?.review && (detail.people.hasPersonal || Object.keys(detail.people.legs ?? {}).length > 0);
+  const wantPeople = !!detail?.review; // also when empty: people can be added by hand
   useEffect(() => {
     if (!wantPeople) { setPeople(null); return; }
     let live = true;
@@ -82,17 +82,20 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
     catch (e) { setReveal({ phase: "error", section, message: errText(e) }); }
   }, [id, setReveal]);
 
-  // Every edit: one at a time, the answer is the full new request.
+  // Every edit: shown at once (these are review edits, never Leon writes), saved one at a time in order.
+  // The server's answer replaces the page only when no later edit is still queued, so quick clicks don't
+  // flicker back; a failed save reloads what is really saved and says why.
   const apply = useCallback((body: Record<string, unknown>) => {
     pending.current += 1;
+    setDetail((d) => (d ? optimistic(d, body) : d));
     const run = chain.current.then(async () => {
-      try { const d = await intakeApi.edit(id, body); setDetail(d); setSaveError(null); onChanged(); return true; }
-      catch (e) { setSaveError(errText(e)); return false; }
+      try { const d = await intakeApi.edit(id, body); if (pending.current === 1) setDetail(d); setSaveError(null); onChanged(); return true; }
+      catch (e) { setSaveError(`Not saved: ${errText(e)}`); void load(); return false; }
       finally { pending.current -= 1; }
     });
     chain.current = run.catch(() => false);
     return run;
-  }, [id, onChanged]);
+  }, [id, onChanged, load]);
 
   const reprocess = useCallback(async (attachmentId: string | null) => {
     setReprocessing(attachmentId ?? "body"); setReprocessMsg(null);
@@ -189,7 +192,7 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
       <div style={{ display: "grid", gridTemplateColumns: "272px minmax(0,1fr)", gap: 14, alignItems: "start" }}>
         <Pipeline typeLabel={r.typeLabel} stageNames={detail.stageNames} stages={detail.stages} now={now} />
         <ReviewCard detail={detail} apply={apply} defs={defs} legPos={legPos} setLegPos={setLegPos} closed={closed}
-          people={people} peopleError={peopleError} reveal={reveal} setReveal={setReveal} doReveal={(s) => void doReveal(s)}
+          people={people} peopleError={peopleError} reveal={reveal} setReveal={setReveal} doReveal={(s) => void doReveal(s)} editPeople={async (b) => { const p = await intakeApi.editPeople(id, b); setPeople(p); setReveal({ phase: "off" }); onChanged(); }}
           reprocess={reprocess} reprocessing={reprocessing} reprocessMsg={reprocessMsg}
           onPrepare={() => void onPrepare()} preparing={preparing} prepareError={prepareError} />
       </div>
@@ -377,3 +380,31 @@ function Actions({ detail, closed, apply, reprocess, reprocessing }: { detail: R
   );
 }
 
+
+
+/** The same change the server will make, applied locally so the control moves on the click. */
+function optimistic(d: RequestDetail, body: Record<string, unknown>): RequestDetail {
+  if (!d.review) return d;
+  const op = String(body.op ?? ""); const legIdx = body.leg == null ? null : Number(body.leg);
+  const legs = d.review.legs.map((l) => {
+    if (legIdx !== null && l.index !== legIdx) return l;
+    if (op === "service" || (op === "looks_right" && body.serviceId)) {
+      return { ...l, services: l.services.map((sv) => {
+        if (sv.id !== body.serviceId) return sv;
+        if (op === "looks_right") return { ...sv, lowConfidence: false, checked: { by: "you", at: new Date().toISOString() } };
+        return { ...sv,
+          ...(typeof body.decision === "string" ? { decision: body.decision as typeof sv.decision } : {}),
+          ...(typeof body.answer === "string" ? { answer: body.answer } : {}),
+          ...(typeof body.noteOnChecklist === "boolean" ? { noteOnChecklist: body.noteOnChecklist } : {}),
+          ...(body.checklistNid !== undefined ? { checklistNid: (body.checklistNid as number | null) ?? null } : {}),
+        };
+      }) };
+    }
+    if (op === "looks_right" && body.key) return { ...l, fields: l.fields.map((f) => (f.key === body.key ? { ...f, state: "checked" as const, checked: { by: "you", at: new Date().toISOString() } } : f)) };
+    if (op === "field" && body.key) return { ...l, fields: l.fields.map((f) => (f.key === body.key ? { ...f, value: String(body.value ?? "") } : f)) };
+    if (op === "leg_remove") return { ...l, removed: { by: "you", at: new Date().toISOString() } };
+    if (op === "leg_restore") return { ...l, removed: false as const };
+    return l;
+  });
+  return { ...d, review: { ...d.review, legs } };
+}

@@ -52,7 +52,7 @@ export type ListRow = { id: string; type: "handling" | "scheduled"; statusKey: U
 export type Person = { role: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
 export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; revealedBy?: string; at?: string };
 export type Confirmation = { token: string; status: string; expiresAt: string; summary: string };
-export type Prepared = { ok: true; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
+export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
 export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean }[]; checklist: { items: ChecklistResult[]; filled: number; total: number }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
 
 // Mailbox
@@ -67,7 +67,7 @@ export type MailMessage = {
   attachments: { id: string; name: string; type: string; declared: string | null; bytes: number; purged: boolean; role: string | null; why: string | null; personal: boolean; url: string }[];
   sent?: { kind: string; resendId: string | null; delivery: string | null; events: { event: string; at: string; detail: string | null }[]; detail: string | null };
 };
-export type MailBody = { purged?: boolean; purgedAt?: string; mode: "html" | "text"; html?: string; text?: string; masks: number; remoteImages?: { host: string; name: string }[]; links?: { text: string; url: string; host: string }[]; hasHtml?: boolean; hasText?: boolean };
+export type MailBody = { unavailable?: string; purged?: boolean; purgedAt?: string; mode: "html" | "text"; html?: string; text?: string; masks: number; remoteImages?: { host: string; name: string }[]; links?: { text: string; url: string; host: string }[]; hasHtml?: boolean; hasText?: boolean };
 export type MailOverview = { counts: { received: number; sent: number; needs: number; processed: number; replies: number; ignored: number; sentNeeds: number; waiting: number }; health: { addresses: { address: string; ok: boolean; lastAt: string | null; why: string | null }[]; resend: { ok: boolean; delayed: number } }; queue: number; notifyTo: string[]; mailMode: string };
 
 export class ApiError extends Error { status: number; blockers?: string[]; constructor(status: number, message: string, blockers?: string[]) { super(message); this.status = status; this.blockers = blockers; } }

@@ -150,6 +150,8 @@ export async function processMessage(messageId, opts = {}) {
   try { ({ parsed } = await loadParsed(message)); }
   catch (e) { await patchMessage(message.id, { status: "failed", status_reason: `Could not read the stored message: ${e.message}`, understood: { kind: "failed", title: "Failed: the message could not be read", body: String(e.message), checks: [] } }); return { failed: e.message }; }
 
+  // The stored message is the truth about subject and sender (the webhook carried only Resend's metadata).
+  if (parsed.subject && (parsed.subject !== message.subject || parsed.from?.text !== message.from_addr)) { message.subject = parsed.subject; message.from_addr = parsed.from?.text ?? message.from_addr; await patchMessage(message.id, { subject: message.subject, from_addr: message.from_addr }); }
   const automatic = opts.forceHandling ? null : classifyAutomatic(parsed);
   if (automatic) {
     await patchMessage(message.id, { status: "ignored", status_reason: automatic.reason, understood: { kind: "ignored", title: automatic.title, body: "Not a request, so the agent took no action on it.", checks: automatic.checks }, search_text: `${message.from_addr ?? ""}\n${message.subject ?? ""}` });

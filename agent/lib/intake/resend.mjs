@@ -83,7 +83,7 @@ async function receive(emailId, data, audit) {
   if (!Array.isArray(rows) || rows.length === 0) return { outcome: "duplicate_message", emailId };
   const message = rows[0];
   const stored = await fetchAndStore(message).catch(async (e) => {
-    await rest(`intake_messages?id=eq.${message.id}`, { method: "PATCH", body: JSON.stringify({ fetch_status: "failed", fetch_error: String(e.message).slice(0, 300) }) }).catch(() => null);
+    await rest(`intake_messages?id=eq.${message.id}`, { method: "PATCH", body: JSON.stringify({ fetch_status: "failed", fetch_error: String(e.message).slice(0, 300), status: "failed", status_reason: "Could not fetch the message from Resend", understood: { kind: "failed", title: "Failed: the message could not be fetched from Resend", body: `Only the envelope arrived. ${String(e.message).slice(0, 160)}`, checks: [] } }) }).catch(() => null);
     return { error: String(e.message) };
   });
   // 3. Reading happens off the response path; one request per message is enforced there (unique key).

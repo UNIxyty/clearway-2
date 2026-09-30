@@ -64,6 +64,8 @@ async function sendAll(id, { twice = false } = {}) {
 // ── reset ──
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
+execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+await sleep(1500);
 // Variants built from the redacted fixtures (test inputs, not templates): no timezone; another week + callsign.
 const amq = readFileSync("rig/fixtures/intake/amq5v-lybe-plus364.eml", "latin1");
 const b64 = (s) => Buffer.from(s, "latin1").toString("base64").replace(/.{76}/g, "$&\r\n");

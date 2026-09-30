@@ -28,6 +28,7 @@ export function IntakeStyles() {
       @keyframes cwflashr { from { background-color: ${INTAKE.flashRed} } }
       .cw-hatch { background: repeating-linear-gradient(135deg, ${INTAKE.hatchA} 0 6px, ${INTAKE.hatchB} 6px 12px); }
       .cw-row:hover { background: ${C.hover}; }
+      .cw-input:focus-within { border-color: ${C.primary} !important; box-shadow: ${SHADOW.focus}; }
       .cw-opt[aria-selected="true"], .cw-opt:hover, .cw-opt[data-active="true"] { background: ${C.hover}; }
       .cw-img-blocked { display: inline-block; border: 1.5px dashed ${C.disabledFill}; border-radius: 6px; padding: 6px 9px; color: ${C.muted}; font-size: 12px; }
       @media (prefers-reduced-motion: reduce) {
@@ -255,7 +256,7 @@ export function TextInput({ value, onCommit, placeholder, monoText = true, suffi
   const [v, setV] = useState(value); useEffect(() => setV(value), [value]);
   const commit = useCallback(() => { if (v !== value) onCommit(v); }, [v, value, onCommit]);
   return (
-    <span className="cw-t-field" style={{ display: "inline-flex", alignItems: "stretch", height, width: width ?? "100%", borderRadius: 7, border: `${invalid || dashed ? 1.5 : 1}px ${dashed ? "dashed" : "solid"} ${borderColor ?? (invalid ? C.dangerBadge : C.borderControl)}`, background: background ?? (readOnly ? C.page : C.surface), overflow: "hidden", ...style }}>
+    <span className="cw-t-field cw-input" style={{ display: "inline-flex", alignItems: "stretch", height, width: width ?? "100%", borderRadius: 7, border: `${invalid || dashed ? 1.5 : 1}px ${dashed ? "dashed" : "solid"} ${borderColor ?? (invalid ? C.dangerBadge : C.borderControl)}`, background: background ?? (readOnly ? C.page : C.surface), overflow: "hidden", ...style }}>
       <input type="text" aria-label={ariaLabel} aria-invalid={invalid || undefined} value={v} readOnly={readOnly} placeholder={placeholder} spellCheck={false} autoComplete="off"
         onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } else if (e.key === "Escape") { setV(value); } onKeyDown?.(e); }}
         style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", padding: "0 10px", fontFamily: monoText ? "var(--font-mono, 'IBM Plex Mono', monospace)" : "inherit", ...(monoText ? mono({ fontSize: 13.5, fontWeight: 600 }) : { fontSize: 13.5, fontWeight: 500 }), color: C.ink }} />

@@ -188,7 +188,8 @@ export async function normalise(raw) {
 /** Our reference for the thread: the sender's, or {callsign}-{DDMONYY} of the first leg (said so on the page). */
 export function referenceFor(x, subject) {
   const r = x.reference?.value ? String(x.reference.value).trim().toUpperCase() : null;
-  if (r) return { reference: r, built: false };
+  // A reference is a short token (CIMOG1, BJD-2610-044), never a sentence or a subject line.
+  if (r && /^[A-Z0-9][A-Z0-9\-\/.]{2,23}$/.test(r) && /\d/.test(r)) return { reference: r, built: false };
   const leg = x.legs[0];
   const cs = leg?.flightNumber?.value ?? String(leg?.registration?.value ?? "").replace(/-/g, "");
   const d = leg?.std?.value?.utc ?? (leg?.std?.value?.date ? `${leg.std.value.date}T00:00:00Z` : null);

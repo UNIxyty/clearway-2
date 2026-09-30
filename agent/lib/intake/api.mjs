@@ -97,7 +97,7 @@ async function requestDetail(id) {
   const allWrites = (await rest(`intake_leon_writes?select=id,leg_index,state,leon_flight_nid,leon_trip_nid,leon_error,checklist,http_status,answered_ms,payload,created_at,updated_at,sent_by_email,resolved_by,resolved_note&request_id=eq.${id}&order=created_at.asc`)) ?? [];
   const ws = legStates(allWrites);
   const review = r.review ? structuredClone(r.review) : null;
-  if (review) for (const l of review.legs) { const w = ws[l.index]; l.leon = w ? { state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, at: w.updated_at } : { state: "not_sent" }; l.inLeon = w?.state === "in_leon"; if (l.fields.some((f) => f.state === "tz_unknown")) l.tz = tzOptions(l); }
+  if (review) for (const l of review.legs) { const w = ws[l.index]; l.leon = w ? { state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, at: w.updated_at } : { state: "not_sent" }; l.inLeon = w?.state === "in_leon"; if (l.fields.some((f) => f.state === "tz_unknown") || l.tzChoice) l.tz = tzOptions(l); }
   const { blockers, warnings } = review ? blockersFor(review, r, { lookups: { aircraftNidByRegistration: new Map(review.legs.flatMap((l) => l.fields.filter((f) => f.key === "registration" && f.aircraft?.nid).map((f) => [String(f.value).toUpperCase().replace(/[^A-Z0-9]/g, ""), f.aircraft.nid]))) } }) : { blockers: [], warnings: [] };
   const extractions = (await rest(`intake_extractions?select=id,version,model_id,created_at,created_by,input_tokens,output_tokens&request_id=eq.${id}&order=version.desc`)) ?? [];
   const sent = (await rest(`intake_messages?select=id,sent_kind,subject,received_at,to_addrs,delivery_status&request_id=eq.${id}&direction=eq.outbound&order=received_at.asc`)) ?? [];
@@ -239,7 +239,7 @@ async function mailboxRows({ box = "received", view = "needs", q = "", days = 7,
   if (q) {
     const needle = q.trim().toLowerCase();
     // A search that looks like personal data returns nothing, on purpose (§M4.4): it is not in the index.
-    if (/^(?=[a-z0-9]{6,12}$)(?=(?:[a-z]*\d){6})[a-z]{0,3}\d/i.test(needle) || /^\d{1,2}[ .\/-](\d{1,2}|[a-z]{3})[ .\/-]\d{2,4}$/i.test(needle)) { personalQuery = true; rows = []; }
+    if ((/^(?=[a-z0-9]{6,12}$)(?=(?:[a-z]*\d){6})[a-z]{0,3}\d/i.test(needle) && !/^\d{1,2}(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\d{2,4}$/i.test(needle)) || /^\d{1,2}[ .\/-](\d{1,2}|[a-z]{3})[ .\/-]\d{2,4}$/i.test(needle)) { personalQuery = true; rows = []; }
     else rows = rows.filter((r) => String(r.search_text ?? "").toLowerCase().includes(needle)).map((r) => ({ ...r, matched: matchReason(r, needle) }));
   }
   const reqIds = [...new Set(rows.map((r) => r.request_id).filter(Boolean))];
@@ -312,7 +312,9 @@ async function renderBody(id, { mode = "html", images = false }) {
   const m = (await rest(`intake_messages?select=*&id=eq.${id}`))?.[0]; if (!m) throw err(404, "No such message.");
   if (m.direction === "outbound") return { out: { mode: "html", html: sanitizeEmailHtml(m.sent_html ?? "", {}).html, text: m.delivery_detail?.text ?? "", masks: 0, remoteImages: [], links: [] }, values: [] };
   if (m.purged_at) return { out: { purged: true, purgedAt: m.purged_at }, values: [] };
-  const { parsed } = await loadParsed(m);
+  let parsed;
+  try { ({ parsed } = await loadParsed(m)); }
+  catch (e) { return { out: { mode: "text", text: "", masks: 0, unavailable: m.fetch_status === "failed" ? `The message was never fetched from Resend (${m.fetch_error ?? "unknown error"}). Only the envelope is stored.` : `The stored message could not be read (${e.code === "ENOENT" ? "the file is missing" : e.message}).` }, values: [] }; }
   const people = await peopleForMessage(m);
   const values = [];
   const maskText = (t) => { const r = maskForReader(t, people, (i) => `\u0000M${values.length + i}\u0000`); values.push(...r.values); return r.text; };
@@ -389,7 +391,7 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
       if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/raw$/.exec(P)) && req.method === "GET") {
         const msg = (await rest(`intake_messages?select=*&id=eq.${m[1]}`))?.[0]; if (!msg) throw err(404, "No such message.");
         if (msg.direction === "outbound") return send({ ok: true, headers: [["From", msg.from_addr], ["To", (msg.to_addrs ?? []).join(", ")], ["Subject", msg.subject], ["Date", msg.received_at]], raw: msg.sent_html ?? "", auth: null });
-        if (msg.purged_at || !msg.raw_key) throw err(410, "Removed by retention.");
+        if (msg.purged_at || !msg.raw_key) return send({ ok: true, headers: [["From", msg.from_addr ?? ""], ["To", (msg.to_addrs ?? []).join(", ")], ["Subject", msg.subject ?? ""], ["Date", msg.received_at]], raw: "", auth: msg.auth ?? null, unavailable: msg.purged_at ? `Removed by retention on ${fmtDate(msg.purged_at)}.` : `The raw message was never stored (${msg.fetch_error ?? "fetch failed"}). Only the envelope above is kept.` });
         const raw = await readKey(msg.raw_key);
         if (url.searchParams.has("download")) { await audit({ kind: "mailbox.raw_downloaded", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { messageId: m[1] } }).catch(() => {}); res.writeHead(200, { "content-type": "message/rfc822", "content-disposition": `attachment; filename="message-${m[1].slice(0, 8)}.eml"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" }); res.end(raw); return true; }
         const { parsed } = await loadParsed(msg); const people = await peopleForMessage(msg);

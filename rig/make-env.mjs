@@ -48,7 +48,7 @@ function intakeLines() {
   return ["# intake: local mock Resend, captured mail, .invalid addresses",
     `RESEND_WEBHOOK_SECRET=whsec_${Buffer.from(execSync("head -c 24 /dev/urandom")).toString("base64")}`,
     "RESEND_API_BASE=http://127.0.0.1:3996", "RESEND_API_KEY=rig-mock-resend-key", "INTAKE_MAIL_MODE=capture",
-    "INTAKE_NOTIFY_TO=ops@intake.rig.invalid", "INTAKE_ADDRESSES=handling@intake.rig.invalid", "AGENT_EMAIL_FROM=Clearway AI Agent <agent@intake.rig.invalid>",
+    "INTAKE_NOTIFY_TO=ops@intake.rig.invalid", "INTAKE_ADDRESSES=handling@intake.rig.invalid", `AGENT_EMAIL_FROM="Clearway AI Agent <agent@intake.rig.invalid>"`,
     `INTAKE_ROOT=${path.join(here, ".scratch", "intake")}`, "INTAKE_CHECKLIST_RETRY_MS=2000", "INTAKE_LEON_TRIP_STATUS=OPTION", "INTAKE_LEON_TIMEOUT_MS=8000"];
 }
 // Leon (cwy-cwy) is PRODUCTION. The rig gets its key only when a PERSON types this phrase, for a run that is

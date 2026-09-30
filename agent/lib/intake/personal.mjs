@@ -7,7 +7,8 @@
 export const MASK = "••••••••";
 export const REMOVED = "[personal data]";
 
-const PASSPORTISH = /\b(?=[A-Z0-9]{6,12}\b)(?=(?:[A-Z]*\d){6})[A-Z]{0,3}\d[A-Z0-9]{5,11}\b/g;       // letters + ≥6 digits
+// Dates written as 29SEP2027 / 29SEP27 are flight dates, not document numbers: excluded.
+const PASSPORTISH = /\b(?!\d{1,2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{2,4}\b)(?=[A-Z0-9]{6,12}\b)(?=(?:[A-Z]*\d){6})[A-Z]{0,3}\d[A-Z0-9]{5,11}\b/g;       // letters + ≥6 digits
 const DOB_WITH_AGE = /\b\d{1,2}[ .\/-](?:[A-Za-z]{3}|\d{1,2})[ .\/-](?:19|20)\d{2}\s*\(\d{1,3}\)/g; // "03 Feb 1981 (45)"
 const DOB_WORDED = /\b(?:DOB|D\.O\.B\.?|date of birth|born)\s*[:\-]?\s*\d{1,2}[ .\/-](?:[A-Za-z]{3,9}|\d{1,2})[ .\/-](?:19|20)?\d{2}/gi;
 

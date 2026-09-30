@@ -89,9 +89,9 @@ export async function prepareSend(requestId, user) {
   const resend = Object.values(writes).some((w) => w.state === "in_leon" || w.state === "not_in_leon");
   const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, checklist: argsHash(l.checklist) })) };
   const conf = issueConfirmation({ user, toolName: TOOL, input, level: "write", summary: `${resend ? "Resend" : "Create"} ${legs.length} flight${legs.length === 1 ? "" : "s"} in Leon for ${req.reference}`, targetId: requestId, targetLabel: req.reference });
-  const edited = review.legs.flatMap((l) => l.fields.filter((f) => f.edited && !l.removed).map((f) => ({ leg: l.index, label: f.label, value: f.value })));
+  const edited = review.legs.flatMap((l) => l.fields.filter((f) => f.edited && !l.removed).map((f) => ({ leg: l.index, label: f.label, value: f.value || (f.state === "unknown" ? "Unknown (TBA)" : "not given") })));
   const notChecked = review.legs.flatMap((l) => l.fields.filter((f) => f.state === "low_confidence" && !l.removed).map((f) => ({ leg: l.index, label: f.label, value: f.value })));
-  return { ok: true, confirmation: conf, resend, warnings, legs: legs.map((l) => ({ index: l.index, payload: l.payload, checklist: l.checklist, skipped: l.skipped })), edited, notChecked, tripStatus: tripStatus() };
+  return { ok: true, runsAs: user.name || user.email, confirmation: conf, resend, warnings, legs: legs.map((l) => ({ index: l.index, payload: l.payload, checklist: l.checklist, skipped: l.skipped })), edited, notChecked, tripStatus: tripStatus() };
 }
 
 /** Leon's refusal, in plain words, and which review field it points at. */
@@ -186,6 +186,7 @@ async function run(entry, user) {
     if (dup?.error) throw Object.assign(new Error(`Could not check Leon for duplicates just before sending: ${dup.error}. Nothing was sent.`), { status: 503 });
     if (dup) { await rest(`intake_requests?id=eq.${requestId}`, { method: "PATCH", body: JSON.stringify({ duplicate: dup, status: "needs_you", status_reason: "Stopped: possible duplicate found just before sending", updated_at: new Date().toISOString() }) }); throw Object.assign(new Error(`Leon now has matching flight${dup.leonIds.length === 1 ? "" : "s"} ${dup.leonIds.join(", ")}. Nothing was sent. The page shows the match.`), { status: 409 }); }
   }
+  { const aw = stages.find((x) => x.name === "Awaiting review"); if (aw && aw.state !== "done") setStage(stages, "Awaiting review", "done", `${aw.note ?? ""}`.trim() || null, at); }
   setStage(stages, "Reviewed and confirmed", "done", `Confirmed by ${who}`, at);
   setStage(stages, "Building Leon request", "done", null, at);
   setStage(stages, "Leon request built", "done", `${legs.length} flight${legs.length === 1 ? "" : "s"} · built by code from the reviewed values`, at);

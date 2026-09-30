@@ -155,11 +155,35 @@ export async function confirmSend(token, user) {
   if (!pending || pending.toolName !== TOOL) throw Object.assign(new Error("No such confirmation for you. It may have expired."), { status: 404 });
   const begun = beginConfirmation({ token, user, toolName: TOOL, input: pending.input });
   if (begun.error) throw Object.assign(new Error(begun.error === "expired" ? "This confirmation expired. Nothing was sent. Review and confirm again." : begun.error === "cancelled" ? "This confirmation was cancelled." : "This confirmation does not match."), { status: 409 });
-  if (begun.replay) return begun.entry.result;
-  if (begun.inFlight) return begun.entry.executing;
+  const requestId = pending.input.requestId;
+  if (begun.replay || begun.inFlight) return { accepted: true, requestId, already: true };
   const entry = begun.entry;
-  entry.executing = run(entry, user).then((result) => { settleConfirmation(entry, result); return result; }, (e) => { failConfirmation(entry); throw e; });
-  return entry.executing;
+  // The request shows "Sending to Leon" at once; the page does not wait for Leon (it polls the request).
+  await rest(`intake_requests?id=eq.${requestId}`, { method: "PATCH", body: JSON.stringify({ status: "in_progress", status_reason: "Sending to Leon · waiting for Leon", updated_at: new Date().toISOString(), updated_by: user.email }) }).catch(() => {});
+  entry.executing = run(entry, user).then(
+    (result) => { settleConfirmation(entry, result); return result; },
+    async (e) => { failConfirmation(entry); await sendFailed(requestId, user, e); return { failed: String(e.message) }; },
+  );
+  return { accepted: true, requestId };
+}
+
+/** The send stopped (before Leon, or crashed during it): say so on the request; unfinished legs become unknown. */
+async function sendFailed(requestId, user, e) {
+  const msg = String(e?.message ?? e).slice(0, 300);
+  const stuck = await rest(`intake_leon_writes?request_id=eq.${requestId}&state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: `The send stopped: ${msg}`, updated_at: new Date().toISOString() }) }).catch(() => []);
+  const req = (await rest(`intake_requests?select=stages&id=eq.${requestId}`).catch(() => []))?.[0];
+  const stages = (req?.stages ?? []).map((x) => ({ ...x }));
+  if ((stuck ?? []).length) setStage(stages, "Sent to Leon", "fail", `Stopped during the send: ${msg}. Check Leon before resending.`);
+  else setStage(stages, "Reviewed and confirmed", "fail", `Not sent to Leon: ${msg}`);
+  await rest(`intake_requests?id=eq.${requestId}`, { method: "PATCH", body: JSON.stringify({ stages, status: "needs_you", status_reason: (stuck ?? []).length ? "Leon did not answer · a leg's result is unknown · check Leon" : `Not sent to Leon · ${msg}`.slice(0, 200), updated_at: new Date().toISOString() }) }).catch(() => {});
+  await audit({ kind: "intake.send_failed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, success: false, error: msg, confirmationStatus: "confirmed", detail: { requestId, unknownLegs: (stuck ?? []).map((w) => w.leg_index) } }).catch(() => {});
+}
+
+/** Where a confirmed send stands, for callers that want the outcome (tests; the page reads the request). */
+export function sendStatus(token, user) {
+  const e = getConfirmation(token, user);
+  if (!e || e.toolName !== TOOL) return null;
+  return { status: e.status === "applied" ? "done" : e.executing ? "running" : e.status, result: e.status === "applied" ? e.result : null };
 }
 
 async function run(entry, user) {

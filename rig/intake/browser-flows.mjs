@@ -56,12 +56,23 @@ ok((await page.getByText(/Expires in \d:\d\d/).count()) > 0, "dialog shows the e
 ok(!(await page.evaluate(() => /XX000000\d|01 Jan 1980/.test(document.querySelector('[role="dialog"]').innerText))), "no personal data in the confirmation dialog");
 const before = creates();
 const create = page.locator('[role="dialog"]').getByRole("button", { name: /^(Create in Leon|Send to Leon)$/ });
+faults({ hangFlightNo: ["YULSA"], hangMs: 6000 }); // Leon answers slowly, so the waiting state is visible
+const t0 = Date.now();
 await create.dblclick().catch(() => {}); await create.click({ timeout: 500 }).catch(() => {});
-await page.waitForSelector("text=/Leon confirmed|In Leon ·/", { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(1500);
-await page.screenshot({ path: `${OUT}/flow-4-created.png` });
-ok(creates() - before === 2, "double/triple click → exactly one Leon create per leg", `${creates() - before} creates`);
-await page.keyboard.press("Escape"); await page.locator('[role="dialog"]').getByRole("button", { name: /Close/ }).click().catch(() => {}); await page.waitForTimeout(1500);
+await page.waitForSelector('[role="dialog"]', { state: "detached", timeout: 5000 }).catch(() => {});
+ok((await page.locator('[role="dialog"]').count()) === 0 && Date.now() - t0 < 5000, "dialog closes at once after confirm (no overlay while Leon works)", `${Date.now() - t0} ms`);
+await page.waitForTimeout(800);
+ok((await page.locator('span.ag-spin[aria-label="Working"]').count()) > 0, "spinner next to the request while it is sent");
+ok((await page.getByText(/Sending to Leon\. No leg is shown as created/).count()) > 0, "banner says it is sending, nothing shown as created yet");
+await page.screenshot({ path: `${OUT}/flow-4-sending.png`, fullPage: false });
+await page.getByRole("button", { name: /^Mailbox/ }).first().click().catch(() => page.goto(`${BASE}/agent/mailbox`));
+await page.waitForTimeout(1500);
+ok(/\/agent\/mailbox/.test(page.url()), "the rest of the portal is usable meanwhile (went to the Mailbox)");
+for (let i = 0; i < 40 && creates() - before < 2; i += 1) await page.waitForTimeout(500);
+faults({});
+for (let i = 0; i < 60; i += 1) { const st = (await db(`intake_requests?select=status&id=eq.${yu}`))[0]?.status; if (st && st !== "in_progress") break; await page.waitForTimeout(500); }
 await go(yu); await page.screenshot({ path: `${OUT}/flow-5-loaded.png`, fullPage: true });
+ok(creates() - before === 2, "double/triple click → exactly one Leon create per leg", `${creates() - before} creates`);
 ok((await page.getByText(/Loaded\. Both legs are in Leon/).count()) > 0, "banner: Loaded. Both legs are in Leon…");
 
 // 2. SP-OVO: Leon refuses leg 2 → partly loaded banner, chips, pipeline, email.
@@ -69,9 +80,7 @@ faults({ refuseFlightNo: ["AMQ5V"], refuseLegOnAdes: ["LFMN"] });
 await go(amq);
 await page.getByRole("button", { name: /Review and create in Leon/i }).first().click(); await page.waitForSelector('[role="dialog"]'); await page.waitForTimeout(500);
 await page.locator('[role="dialog"]').getByRole("button", { name: /^Create in Leon$/ }).click();
-await page.waitForSelector("text=/NOT in Leon/", { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(1000);
-await page.screenshot({ path: `${OUT}/flow-6-partial-dialog.png` });
-await page.locator('[role="dialog"]').getByRole("button", { name: /Close/ }).click().catch(() => {});
+await page.waitForTimeout(8000);
 await go(amq); await page.screenshot({ path: `${OUT}/flow-7-partial.png`, fullPage: true });
 ok((await page.getByText(/Partly loaded\. 1 of 2 legs are in Leon\. Leg 2 is NOT\./).count()) > 0, "banner: Partly loaded. 1 of 2 legs are in Leon. Leg 2 is NOT.");
 ok((await page.getByText(/NOT in Leon/).count()) > 0, "NOT in Leon chip / pill shown");

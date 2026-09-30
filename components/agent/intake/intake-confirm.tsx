@@ -1,7 +1,8 @@
 "use client";
 
 // Confirmation dialog (§I10, base §4.15). Shows exactly what will be written, runs as the signed-in person,
-// and never shows a leg as created until Leon answered with a flight ID. While waiting it cannot be closed.
+// and never shows a leg as created until Leon answered with a flight ID. Confirming only hands the send to the
+// server: the dialog closes at once and the request row shows a spinner until Leon has answered (the page polls).
 
 import { useId, useRef, useState } from "react";
 import { C, TONE, mono } from "../ui/tokens";
@@ -28,7 +29,7 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
   const confirm = async () => {
     if (fired.current || expired) return; // double-click must not matter; the server also runs it once
     fired.current = true; phaseRef.current = "sending"; setPhase({ k: "sending" });
-    try { const r = await intakeApi.confirm(prepared.confirmation.token); setPhase({ k: "done", result: r.result }); }
+    try { await intakeApi.confirm(prepared.confirmation.token); onFinished(true); }
     catch (e) { setPhase({ k: "error", message: errText(e) }); }
   };
   // The dialog's focus trap keeps the first close handler it was given, so every close decision reads the
@@ -104,7 +105,7 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
           </>
         )}
         {phase.k === "sending" && (
-          <span role="status" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.body, flex: 1 }}><PulseDot color={C.primary} />Waiting for Leon. No leg is shown as created until Leon confirms it with a flight ID.</span>
+          <span role="status" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.body, flex: 1 }}><PulseDot color={C.primary} />Handing the send to the agent…</span>
         )}
         {phase.k === "error" && (
           <>

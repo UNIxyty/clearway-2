@@ -57,8 +57,11 @@ async function sendAll(id, { twice = false } = {}) {
   const p = await api(`/api/intake/requests/${id}/prepare`, {});
   if (p.status !== 200) return { prepared: p };
   const token = p.json.confirmation.token;
-  const runs = twice ? await Promise.all([api(`/api/intake/send/${token}/confirm`, {}), api(`/api/intake/send/${token}/confirm`, {})]) : [await api(`/api/intake/send/${token}/confirm`, {})];
-  return { prepared: p, runs };
+  const accepted = twice ? await Promise.all([api(`/api/intake/send/${token}/confirm`, {}), api(`/api/intake/send/${token}/confirm`, {})]) : [await api(`/api/intake/send/${token}/confirm`, {})];
+  // Confirm answers 202 at once; the send runs in the background. Poll its outcome.
+  let st = null; for (let i = 0; i < 120; i += 1) { st = (await api(`/api/intake/send/${token}`)).json; if (st?.status === "done" || st?.status === "pending") break; await sleep(500); }
+  const runs = accepted.map((a) => ({ status: a.status === 202 && st?.status === "done" ? 200 : a.status, json: { ...a.json, result: st?.result ?? null } }));
+  return { prepared: p, runs, accepted };
 }
 
 // ── reset ──
@@ -107,7 +110,8 @@ d = (await api(`/api/intake/requests/${cm.request_id}/edit`, { op: "conflict", l
 ok(d.blockers.length === 0, "choosing the email's value clears the blocker", JSON.stringify(d.blockers));
 const r3 = await sendAll(cm.request_id, { twice: true });
 ok(r3.prepared.status === 200, "prepare issues a confirmation", r3.prepared.json?.confirmation?.expiresAt);
-ok(r3.runs.every((r) => r.status === 200) && JSON.stringify(r3.runs[0].json.result.legs) === JSON.stringify(r3.runs[1].json.result.legs), "double-fire: both confirms get the same single result");
+ok(r3.accepted.every((a) => a.status === 202), "confirm answers at once (202): the send runs in the background", r3.accepted.map((a) => a.status).join(","));
+ok(r3.runs.every((r) => r.status === 200) && !!r3.runs[0].json.result, "double-fire: both confirms share one send");
 ok(creates().length === 2, "double-fire: Leon received exactly one create per leg", `${creates().length} create calls`);
 if (!r3.runs.every((r) => r.status === 200)) console.log("confirm answered:", JSON.stringify(r3.runs.map((r) => r.json)).slice(0, 400));
 const res3 = r3.runs[0].json.result;

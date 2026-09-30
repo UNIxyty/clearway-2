@@ -98,7 +98,7 @@ export const EXTRACTION_SCHEMA = {
     // (GenDec, crew/pax list, permit, form) or noise (logos, signature images) — with the reason.
     attachments: { type: "array", items: { type: "object", additionalProperties: false, required: ["name", "role", "kind", "why", "read", "facts"], properties: {
       name: { type: "string" }, role: { enum: ["request", "supporting", "noise", "unreadable"] },
-      kind: { enum: ["gendec", "crew_list", "pax_list", "permit", "form", "image", "schedule", "other"] },
+      kind: { enum: ["email", "gendec", "crew_list", "pax_list", "permit", "form", "image", "schedule", "other"] },
       why: { type: "string" }, read: { type: "boolean" },
       // What THIS attachment itself states, per flight it covers, copied as written. Code compares these with
       // the body; the model does not decide what counts as a conflict.

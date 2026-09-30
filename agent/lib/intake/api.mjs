@@ -6,7 +6,7 @@ import { audit } from "../store.mjs";
 import { cancelConfirmation, getConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
 import { readKey } from "./blobstore.mjs";
 import { STAGES, enqueue, processMessage, loadParsed, attachmentsOf, queueDepth } from "./pipeline.mjs";
-import { prepareSend, confirmSend, legStates, resolveUnknown, TOOL, checklistPlan } from "./send.mjs";
+import { prepareSend, confirmSend, sendStatus, legStates, resolveUnknown, TOOL, checklistPlan } from "./send.mjs";
 import { blockersFor, validateValue, recomputeTimes, applyTzChoice, tzOptions, CORE_FIELDS, fmtDate } from "./review.mjs";
 import { aircraftByRegistration, airport, checklistDefinitions } from "./leon-lookup.mjs";
 import { leonConfigured } from "./leon-client.mjs";
@@ -356,9 +356,10 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     }
     if ((m = /^\/api\/intake\/send\/([0-9a-f-]{36})\/(confirm|cancel)$/.exec(P)) && req.method === "POST") {
       if (m[2] === "cancel") { const c = cancelConfirmation(m[1], user); await audit({ kind: "intake.send_cancelled", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "rejected", detail: { token: m[1], requestId: c?.input?.requestId ?? null } }).catch(() => {}); return send({ ok: true }); }
-      const result = await confirmSend(m[1], user);
-      return send({ ok: true, result });
+      const accepted = await confirmSend(m[1], user);
+      return send({ ok: true, ...accepted }, 202);
     }
+    if ((m = /^\/api\/intake\/send\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") { const st = sendStatus(m[1], user); if (!st) throw err(404, "No such send."); return send({ ok: true, ...st }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/legs\/(\d+)\/(check|not_in_leon)$/.exec(P)) && req.method === "POST") { const out = await resolveUnknown(m[1], Number(m[2]), user, m[3]); return send({ ok: true, outcome: out, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/attachments\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") {
       const a = (await rest(`intake_attachments?select=id,message_id,storage_key,sniffed_type,declared_name,purged_at,bytes&id=eq.${m[1]}`))?.[0];

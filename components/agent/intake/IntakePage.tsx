@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import AgentStyles from "../ui/AgentStyles";
 import { C, SHADOW, TONE, mono } from "../ui/tokens";
-import { Icon, Keycap, hmZ } from "../ui/primitives";
+import { Icon, Keycap, Spinner, hmZ } from "../ui/primitives";
 import { IntakeStyles, Select, TabList, Tooltip, TypeChip, useHotkeys } from "./controls";
 import { intakeApi, type ListRow } from "./api";
 import { CARD, COLHEAD, LegSquare, RowStatusPill, STATUS, ago, ddMon, errText } from "./intake-shared";
@@ -77,7 +77,9 @@ export default function IntakePage() {
       setRows(next); setCounts(r.counts); setError(null);
     } catch (e) { if (my === seq.current) { setError(errText(e)); setRows((x) => x ?? []); } }
   }, [tab, q, type]);
-  useEffect(() => { void load(); const t = setInterval(() => void load(), POLL_MS); return () => clearInterval(t); }, [load]);
+  // While a request is being sent to Leon (or read), poll faster so the row's spinner clears as soon as Leon answers.
+  const busy = (rows ?? []).some((x) => x.statusKey === "in_progress");
+  useEffect(() => { void load(); const t = setInterval(() => void load(), busy ? 3000 : POLL_MS); return () => clearInterval(t); }, [load, busy]);
   useEffect(() => {
     const go = () => intakeApi.overview().then((o) => { setOverview(o); setOverviewError(false); }).catch(() => setOverviewError(true));
     void go(); const t = setInterval(go, 60000); return () => clearInterval(t);
@@ -171,7 +173,7 @@ export default function IntakePage() {
                     <span style={{ justifySelf: "start" }}><RowStatusPill k={r.statusKey} label={r.statusLabel} /></span>
                     <span style={{ justifySelf: "start" }}><TypeChip type={r.type} /></span>
                     <span style={{ fontSize: 13, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from}</span>
-                    <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), wordBreak: "break-all" }}>{r.reference}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, minWidth: 0 }}>{r.statusKey === "in_progress" && <Spinner color={C.primary} size={13} />}<span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), wordBreak: "break-all" }}>{r.reference}</span></span>
                     <span style={{ ...mono({ fontSize: 12.5 }), color: C.ink, lineHeight: 1.5 }}>{r.route || "—"}</span>
                     <span style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{ddMon(r.firstStd) || "—"}</span>
                     <span role="img" aria-label={legsLabel} style={{ display: "flex", alignItems: "center", gap: 7 }}>

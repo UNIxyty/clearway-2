@@ -241,8 +241,9 @@ function ConfirmBar({ detail, closed, onPrepare, preparing, error }: { detail: R
   const legs = detail.review?.legs ?? [];
   const { live, resend, items, scheduled } = confirmPlan(detail);
   if (closed || !detail.review) return null;
+  if (detail.request.status === "in_progress" || legs.some((l) => l.leon?.state === "sending")) return null; // a send is running: nothing to confirm until Leon answers
   if (live.length === 0 && (legs.some((l) => l.inLeon) || detail.blockers.length === 0)) return null; // nothing left to send
-  const unsettled = live.filter((l) => l.leon?.state === "unknown" || l.leon?.state === "sending").map(legNo);
+  const unsettled = live.filter((l) => l.leon?.state === "unknown").map(legNo);
   const blockers = [...detail.blockers, ...(unsettled.length && !detail.blockers.some((b) => /did not answer|Unknown/i.test(b)) ? [`${unsettled.length === 1 ? `Leg ${unsettled[0]}` : `Legs ${unsettled.join(", ")}`}: Leon did not answer. Settle it under What was sent to Leon first.`] : [])];
   const nums = live.map(legNo);
   const title = resend ? `Resends ${nums.length === 1 ? `leg ${nums[0]}` : `legs ${nums.join(", ")}`} to Leon` : scheduled ? `Sends ${plural(live.length, "flight")} to Leon` : `Creates ${plural(live.length, "flight")} in Leon${items ? ` and fills ${plural(items, "checklist item")}` : ""}`;

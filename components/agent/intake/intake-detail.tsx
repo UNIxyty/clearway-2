@@ -48,6 +48,9 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
   // Refetch when the list says the request changed (live updates), unless an edit or a send is in flight.
   useEffect(() => { if (pending.current === 0 && !prepared) void load(); }, [load, updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
+  // While the send runs (or the request is being read) refresh until it settles; nothing is shown before Leon answers.
+  const running = detail?.request.status === "in_progress" || detail?.request.status === "extracting";
+  useEffect(() => { if (!running) return; const t = setInterval(() => { if (pending.current === 0) void load(); }, 3000); return () => clearInterval(t); }, [running, load]);
   useEffect(() => { if (defsCache) return; intakeApi.definitions().then((r) => { defsCache = [...r.definitions].sort((a, b) => a.label.localeCompare(b.label)); setDefs(defsCache); }).catch(() => {}); }, []);
 
   // Masked people list, once per extraction.
@@ -222,7 +225,9 @@ function legDesc(l: Leg) { const std = fieldOf(l, "std")?.value; const d = legDa
 function legsWord(ns: number[]) { return ns.length === 1 ? `Leg ${ns[0]}` : `Legs ${listWords(ns)}`; }
 export function bannerFor(detail: RequestDetail, now: number, closed: boolean): B | null {
   const r = detail.request; const legs = (detail.review?.legs ?? []).filter((l) => !l.removed);
-  const inL = legs.filter((l) => l.leon?.state === "in_leon"), notL = legs.filter((l) => l.leon?.state === "not_in_leon"), unk = legs.filter((l) => l.leon?.state === "unknown" || l.leon?.state === "sending");
+  // A send in progress comes first: nothing is shown as created or failed until Leon answers.
+  if (r.status === "in_progress" && detail.review) return { tone: "blue", icon: "circle-dot", title: "Sending to Leon. No leg is shown as created until Leon confirms it with a flight ID.", body: "You can keep working anywhere in the portal: this page, the list and the email update when Leon answers." };
+  const inL = legs.filter((l) => l.leon?.state === "in_leon"), notL = legs.filter((l) => l.leon?.state === "not_in_leon"), unk = legs.filter((l) => l.leon?.state === "unknown");
   const N = legs.length;
   const both = N === 2 ? "Both flights are" : N === 1 ? "The flight is" : `All ${N} flights are`;
   if (unk.length) {

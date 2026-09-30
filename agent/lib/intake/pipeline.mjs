@@ -15,7 +15,8 @@ import { simpleParser } from "mailparser";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { extractAttachment } from "../attachments.mjs";
-import { readKey, sniff, sha256 } from "./blobstore.mjs";
+import { readKey, sniff, sha256, putContent } from "./blobstore.mjs";
+import { isEmailFile, unpackEmail, readableName } from "./unpack.mjs";
 import { enforce, normalise, preclassify, referenceFor, runModel } from "./extract.mjs";
 import { reviewFromExtraction } from "./review.mjs";
 import { flightsBetween, checklistDefinitions } from "./leon-lookup.mjs";
@@ -66,6 +67,33 @@ export async function attachmentsOf(message, parsed) {
     if (!a?.content?.length) continue;
     const h = sha256(a.content); const row = bySha.get(h);
     out.push({ id: row?.id ?? null, sha256: h, name: a.filename || row?.declared_name || "(no name)", content: a.content, bytes: a.content.length, sniffedType: row?.sniffed_type ?? sniff(a.content), declaredType: a.contentType, inline: a.contentDisposition === "inline" || (!!a.cid && !a.filename), cid: a.cid ?? null, related: !!a.related });
+  }
+  return expandEmails(message, out);
+}
+
+/**
+ * Opens attached emails (.msg / .eml), up to three deep. The attached email becomes a readable document (its
+ * header and body), and every file inside it is stored (content-addressed, under retention, openable like any
+ * attachment) and read like a top-level attachment, named "outer.msg › inner.pdf".
+ */
+async function expandEmails(message, list, depth = 0) {
+  const out = [];
+  for (const a of list) {
+    out.push(a);
+    if (depth >= 3 || !isEmailFile(a)) continue;
+    let u = null; try { u = await unpackEmail(a); } catch (e) { a.readNote = `Could not open the attached email: ${String(e.message).slice(0, 80)}`; }
+    if (!u) continue;
+    a.email = u.email;
+    const kids = [];
+    for (const c of u.children) {
+      const put = await putContent(c.content);
+      const name = `${a.name} › ${c.name}`.slice(0, 200);
+      const st = sniff(c.content);
+      const row = (await rest("intake_attachments?on_conflict=message_id,sha256", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify([{ message_id: message.id, sha256: put.sha256, bytes: put.bytes, sniffed_type: st, declared_type: c.declaredType, declared_name: name, storage_key: put.key }]) }).catch(() => []))?.[0]
+        ?? (await rest(`intake_attachments?select=id&message_id=eq.${message.id}&sha256=eq.${put.sha256}`).catch(() => []))?.[0];
+      kids.push({ id: row?.id ?? null, sha256: put.sha256, name, content: c.content, bytes: c.content.length, sniffedType: st, declaredType: c.declaredType, inline: c.inline, cid: c.cid, parent: a.name });
+    }
+    out.push(...(await expandEmails(message, kids, depth + 1)));
   }
   return out;
 }
@@ -177,10 +205,12 @@ export async function processMessage(messageId, opts = {}) {
   // Attachments: code-evident noise first; everything else read for the model.
   const atts = await attachmentsOf(message, parsed);
   const chosen = opts.requestAttachmentId ? atts.find((a) => a.id === opts.requestAttachmentId) : null;
+  const list = (a) => atts.filter((x) => x.parent === a.name).map((x) => x.name.split(" › ").pop()).join(", ") || "none";
   for (const a of atts) {
     a.pre = a === chosen ? null : preclassify(a);
     if (a.pre) continue;
-    const e = await extractAttachment(a.content, a.name).catch((err) => ({ status: "unreadable", readNote: err.message }));
+    if (a.email) { a.text = [`This attachment is an EMAIL (an attached or forwarded message).`, `From: ${a.email.from ?? "?"}`, `To: ${a.email.to ?? "?"}`, `Date: ${a.email.date ?? "?"}`, `Subject: ${a.email.subject ?? ""}`, "", a.email.text ?? "", "", `Files inside it (listed separately below as "${a.name} › …"): ${list(a)}`].join("\n"); a.readStatus = "read"; continue; }
+    const e = await extractAttachment(a.content, readableName(a)).catch((err) => ({ status: "unreadable", readNote: err.message }));
     a.text = e.text ?? null; a.pages = e.pages ?? null; a.readStatus = e.status; a.readNote = e.note ?? e.readNote ?? null;
     if (!a.text && a.sniffedType === "application/pdf" && a.bytes < 4_500_000) a.docBlock = { document: { format: "pdf", name: `attachment-${a.sha256.slice(0, 8)}`, source: { bytes: a.content } } };
     else if (!a.text && /^image\/(png|jpeg|gif|webp)$/.test(a.sniffedType) && a.bytes < 3_750_000) a.docBlock = { image: { format: a.sniffedType.split("/")[1], source: { bytes: a.content } } };
@@ -230,7 +260,7 @@ export async function processMessage(messageId, opts = {}) {
   const regs = [...new Set(review.legs.map((l) => l.fields.find((f) => f.key === "registration")?.value).filter(Boolean))];
   const calls = [...new Set(review.legs.map((l) => l.fields.find((f) => f.key === "flightNumber")?.value).filter(Boolean))];
   const apts = [...new Set(review.legs.flatMap((l) => ["departure", "arrival"].map((k) => l.fields.find((f) => f.key === k)).filter(Boolean).flatMap((f) => [f.value, f.airport?.iata]).filter(Boolean)))];
-  const search = searchTextFor({ from: `${sender ?? ""} ${message.from_addr ?? ""}`, subject: message.subject, reference, registrations: regs, callsigns: calls, airports: apts, bodyText, people });
+  const search = searchTextFor({ from: `${sender ?? ""} ${message.from_addr ?? ""}`, subject: message.subject, reference, registrations: regs, callsigns: calls, airports: apts, bodyText: [bodyText, ...atts.filter((a) => a.email).map((a) => `${a.email.subject ?? ""}\n${a.email.text ?? ""}`)].join("\n"), people });
 
   if (!handling || !legsN) {
     setStage(stages, "Reading request", "fail", scrubString(x.whyType, tokens));

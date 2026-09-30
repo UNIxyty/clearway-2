@@ -248,6 +248,23 @@ function PortalShellInner({
       .then((d) => setKbAwaiting(Number(d?.stats?.awaiting ?? 0)))
       .catch(() => {});
   }, [hasAgent, isDeveloper]);
+  // Flight intake / Agent mailbox (§I3, §M1): Needs attention counts, and whether the mailbox row shows at all.
+  const [intakeNeeds, setIntakeNeeds] = useState(0);
+  const [mailbox, setMailbox] = useState<{ allowed: boolean; needs: number }>({ allowed: false, needs: 0 });
+  useEffect(() => {
+    if (!hasAgent) return;
+    let stop = false;
+    const load = async () => {
+      const r = await fetch(`${AGENT_BASE}/api/intake/requests?tab=needs`, { credentials: "same-origin", cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (!stop && r?.counts) setIntakeNeeds(Number(r.counts.needs ?? 0));
+      const a = await fetch(`${AGENT_BASE}/api/mailbox/access`, { credentials: "same-origin", cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (stop || !a?.allowed) { if (!stop) setMailbox({ allowed: false, needs: 0 }); return; }
+      const o = await fetch(`${AGENT_BASE}/api/mailbox/overview`, { credentials: "same-origin", cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (!stop) setMailbox({ allowed: true, needs: Number(o?.counts?.needs ?? 0) });
+    };
+    void load(); const t = setInterval(load, 60_000);
+    return () => { stop = true; clearInterval(t); };
+  }, [hasAgent, pathname]);
   // "Open as side panel" from the full page (§7.2, ⌘⇧J) hands the thread over
   // through sessionStorage so the panel opens on the console page with it.
   const [agentOpenWith, setAgentOpenWith] = useState<string | null>(null);
@@ -342,7 +359,7 @@ function PortalShellInner({
               // are always shown, in the expanded sidebar AND in the 68px rail (icon + tooltip). Clicking the topic
               // row still opens/closes the panel (⌘J), so it never folds the list away.
               const open = isAgentTopic || openTopics.has(topic.id);
-              const items = (topic.items ?? []).filter((i) => (!i.adminOnly || role === "admin" || isDeveloper) && (!i.approverOnly || isDeveloper));
+              const items = (topic.items ?? []).filter((i) => (!i.adminOnly || role === "admin" || isDeveloper) && (!i.approverOnly || isDeveloper) && (!i.mailboxOnly || mailbox.allowed));
               const anyChildActive = items.some((i) => !i.external && isActive(i.href));
               return (
                 <div key={topic.id} className="mb-0.5">
@@ -378,11 +395,15 @@ function PortalShellInner({
                           label={item.label}
                           active={!item.external && (item.href === "/agent" ? pathname === "/agent" || pathname.startsWith("/agent/t/") : isActive(item.href))}
                           showLabel={labels}
-                          dot={item.badge === "kb-approvals" && isDeveloper && kbAwaiting > 0}
+                          dot={(item.badge === "kb-approvals" && isDeveloper && kbAwaiting > 0) || (item.badge === "intake-attention" && intakeNeeds > 0) || (item.badge === "mailbox-attention" && mailbox.needs > 0)}
                           onClick={() => (item.id === "acc-signout" ? void signOut() : go(item.href, item.external))}
                           trailing={
                             item.badge === "kb-approvals" && isDeveloper && kbAwaiting > 0 ? (
                               <span className="rounded-[5px] bg-cw-amberTint px-1.5 py-px text-[11px] font-bold text-cw-amberDeep">{kbAwaiting}</span>
+                            ) : (item.badge === "intake-attention" && intakeNeeds > 0) || (item.badge === "mailbox-attention" && mailbox.needs > 0) ? (
+                              <span className="inline-flex items-center gap-1">{item.mailboxOnly && <MaskIcon name="lock" size={12} color="#9aa0a8" />}<span className="rounded-full bg-cw-red px-1.5 py-px text-[11px] font-bold text-white">{item.badge === "intake-attention" ? intakeNeeds : mailbox.needs}</span></span>
+                            ) : item.mailboxOnly ? (
+                              <MaskIcon name="lock" size={12} color="#9aa0a8" />
                             ) : item.external ? (
                               <MaskIcon name="arrow-up-right" size={13} color="#9aa0a8" />
                             ) : item.deep ? (

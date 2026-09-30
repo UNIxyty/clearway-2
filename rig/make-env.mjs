@@ -6,6 +6,13 @@ import fs from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 const here = path.dirname(new URL(import.meta.url).pathname); const root = path.join(here, "..");
+// --intake-only: add / refresh ONLY the intake block in an existing .env.rig (keeps every other line).
+if (process.argv.includes("--intake-only")) {
+  const file = path.join(root, ".env.rig");
+  const keep = fs.readFileSync(file, "utf8").split("\n").filter((l) => l && !/^(RESEND_WEBHOOK_SECRET|RESEND_API_BASE|RESEND_API_KEY|INTAKE_[A-Z_]+|AGENT_EMAIL_FROM|LEON_API_BASE|LEON_REFRESH_TOKEN|LEON_OPR_ID)=/.test(l) && !/^# (intake|Leon|no Leon|for REAL Leon)/.test(l));
+  fs.writeFileSync(file, [...keep, ...intakeLines(), ...leonLines()].join("\n") + "\n", { mode: 0o600 });
+  console.log("refreshed the intake block in .env.rig"); process.exit(0);
+}
 const status = JSON.parse(execSync("npx --yes supabase@latest status --workdir . -o json", { cwd: here, stdio: ["ignore", "pipe", "ignore"] }).toString());
 const get = (...names) => { for (const n of names) if (status[n]) return status[n]; throw new Error(`supabase status lacks ${names.join("/")}`); };
 const lines = [
@@ -34,5 +41,26 @@ if (process.env.RIG_COPY_MODEL_KEYS === PHRASE && fs.existsSync(path.join(root, 
   for (const k of MODEL_KEYS) if (src[k]) lines.push(`${k}=${src[k]}`);
   lines.push("# model keys above copied from .env (service keys, not the database)");
 } else lines.push(`# no model keys: run with RIG_COPY_MODEL_KEYS="${PHRASE}" to copy Bedrock/ElevenLabs keys from .env`);
+lines.push(...intakeLines(), ...leonLines());
+// Intake (Resend inbound, the mailbox, the Leon write path). Resend is a LOCAL MOCK (rig/intake/mock-resend.mjs):
+// the webhook secret is generated here, mail is captured instead of sent, and the addresses are .invalid.
+function intakeLines() {
+  return ["# intake: local mock Resend, captured mail, .invalid addresses",
+    `RESEND_WEBHOOK_SECRET=whsec_${Buffer.from(execSync("head -c 24 /dev/urandom")).toString("base64")}`,
+    "RESEND_API_BASE=http://127.0.0.1:3996", "RESEND_API_KEY=rig-mock-resend-key", "INTAKE_MAIL_MODE=capture",
+    "INTAKE_NOTIFY_TO=ops@intake.rig.invalid", "INTAKE_ADDRESSES=handling@intake.rig.invalid", "AGENT_EMAIL_FROM=Clearway AI Agent <agent@intake.rig.invalid>",
+    `INTAKE_ROOT=${path.join(here, ".scratch", "intake")}`, "INTAKE_CHECKLIST_RETRY_MS=2000", "INTAKE_LEON_TRIP_STATUS=OPTION", "INTAKE_LEON_TIMEOUT_MS=8000"];
+}
+// Leon (cwy-cwy) is PRODUCTION. The rig gets its key only when a PERSON types this phrase, for a run that is
+// meant to write disposable test flights there (and delete them after).
+function leonLines() {
+  const LEON_PHRASE = "yes, let the rig write test flights to production Leon";
+  if (process.env.RIG_LEON_WRITES === LEON_PHRASE && fs.existsSync(path.join(root, ".env"))) {
+    const src = Object.fromEntries(fs.readFileSync(path.join(root, ".env"), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1)]; }));
+    return [...["LEON_REFRESH_TOKEN", "LEON_OPR_ID"].filter((k) => src[k]).map((k) => `${k}=${src[k]}`), "# Leon key above copied from .env: this rig can WRITE to production Leon (cwy-cwy). Refresh without the phrase to remove it."];
+  }
+  return ["LEON_API_BASE=http://127.0.0.1:3995", "LEON_REFRESH_TOKEN=rig-mock-leon-refresh-token", "LEON_OPR_ID=cwy-cwy", "# Leon above is the rig's MOCK (rig/intake/mock-leon.mjs, from a read-only snapshot).", `# for REAL Leon a person runs  RIG_LEON_WRITES="${LEON_PHRASE}" node rig/make-env.mjs --intake-only`];
+  return [`# no Leon key: a person runs  RIG_LEON_WRITES="${LEON_PHRASE}" node rig/make-env.mjs --intake-only  to let the rig reach production Leon`];
+}
 fs.writeFileSync(path.join(root, ".env.rig"), lines.join("\n") + "\n", { mode: 0o600 });
 console.log(`wrote .env.rig (${lines.length} lines) → ${get("API_URL")}`);

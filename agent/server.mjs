@@ -17,6 +17,10 @@ import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertRigSafe } from "../lib/rig-guard.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
+import { handleIntakeRoutes } from "./lib/intake/api.mjs";
+import { recoverOnStart as recoverIntakeSends } from "./lib/intake/send.mjs";
+import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
+import { sweep as sweepIntakeRetention } from "./lib/intake/retention.mjs";
 import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
 assertRigSafe("agent");
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
@@ -271,6 +275,13 @@ async function handleRequest(req, res) {
     const user = await authenticateRequest(req);
     if (!user) {
       return sendJson(res, { ok: false, error: "unauthorized", message: "Sign in through the Clearway portal first." }, 401);
+    }
+
+    // ── Flight intake and the agent mailbox (agent/lib/intake/api.mjs). Agent users only; the mailbox
+    // additionally checks mailbox access inside. ──
+    if (pathname.startsWith("/api/intake/") || pathname.startsWith("/api/mailbox/")) {
+      await assertMayUseAgent(user);
+      if (await handleIntakeRoutes({ req, res, url, pathname, user, sendJson, readJsonBody })) return;
     }
 
     // ── Availability: what the portal asks to decide whether the agent exists
@@ -1589,6 +1600,14 @@ refreshCaps(); setInterval(refreshCaps, 30_000).unref();
 setCapabilityGate(() => capsNow);
 
 sweepGeneratedFiles().catch(() => {});
+// Intake: a Leon send interrupted by a restart is UNKNOWN (a person checks Leon; nothing retries), messages
+// still waiting are read again, and retention runs daily.
+if (storeConfigured()) {
+  recoverIntakeSends().then((n) => { if (n) process.stderr.write(`[intake] ${n} Leon send(s) interrupted by a restart are now UNKNOWN — a person must check Leon.\n`); }).catch(() => {});
+  resumeIntakeQueue().catch(() => {});
+  const runSweep = () => sweepIntakeRetention().then((r) => { if (r.messages) process.stderr.write(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged\n`); }).catch((e) => process.stderr.write(`[intake] retention sweep failed: ${e.message}\n`));
+  setTimeout(runSweep, 60_000).unref(); setInterval(runSweep, 24 * 60 * 60 * 1000).unref();
+}
 setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 
 server.listen(PORT, () => {

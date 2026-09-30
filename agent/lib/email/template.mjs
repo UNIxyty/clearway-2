@@ -101,11 +101,27 @@ function verbatim({ reference, text, by }) {
     `</table>`;
 }
 
-function callout(title, text) {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${TH.callBg};border:1px solid ${TH.callB};border-radius:10px;"><tr>` +
-    `<td width="28" style="padding:12px 0 12px 14px;vertical-align:top;font-size:15px;font-weight:800;color:${TH.callInk};">!</td>` +
-    `<td style="padding:12px 14px 12px 4px;font-size:14px;line-height:1.55;color:${TH.callInk};">${title ? `<strong>${esc(title)}</strong> ` : ""}${esc(text)}</td>` +
+// Callout tones (intake emails): amber (default, unchanged), red (something is NOT in Leon), green (loaded).
+const TONES = { amber: [TH.callBg, TH.callB, TH.callInk, "!"], red: ["#fdecec", "#f7cfd0", "#b91c1c", "✕"], green: ["#e7f6ec", "#c7ead2", "#15803d", "✓"] };
+function callout(title, text, tone = "amber") {
+  const [bg, b, ink, mark] = TONES[tone] ?? TONES.amber;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${bg};border:1px solid ${b};border-radius:10px;"><tr>` +
+    `<td width="28" style="padding:12px 0 12px 14px;vertical-align:top;font-size:15px;font-weight:800;color:${ink};">${mark}</td>` +
+    `<td style="padding:12px 14px 12px 4px;font-size:14px;line-height:1.55;color:${ink};">${title ? `<strong>${esc(title)}</strong> ` : ""}${esc(text)}</td>` +
     `</tr></table>`;
+}
+
+// Leg list (intake emails): LEG n · route · when, and the leg's Leon state in the same words as the page.
+function legList(title, rows) {
+  const body = rows.map((r, i) => {
+    const bt = i ? `1px solid ${TH.rule}` : "none";
+    const st = r.state ? (r.stateTone === "bad" ? `<span style="display:inline-block;background:#b91c1c;color:#ffffff;font-size:11.5px;font-weight:700;border-radius:5px;padding:2px 7px;">${esc(r.state)}</span>` : `<span style="display:inline-block;background:#e7f6ec;color:#15803d;font-size:11.5px;font-weight:700;border-radius:5px;padding:2px 7px;">${esc(r.state)}</span>`) : "";
+    return `<tr><td width="54" style="padding:9px 0 9px 14px;border-top:${bt};font-family:${MONO};font-size:12px;font-weight:700;color:${TH.muted};vertical-align:top;">LEG ${esc(r.n)}</td>` +
+      `<td style="padding:9px 8px;border-top:${bt};vertical-align:top;"><div style="font-family:${MONO};font-size:13.5px;font-weight:600;color:${TH.ink};">${esc(r.route)}</div><div style="font-family:${MONO};font-size:12px;color:${TH.muted};margin-top:2px;">${esc(r.when)}</div></td>` +
+      `<td align="right" style="padding:9px 14px;border-top:${bt};vertical-align:top;white-space:nowrap;">${st}</td></tr>`;
+  }).join("");
+  return `<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:${TH.faint};margin-bottom:6px;">${esc(title ?? "LEGS")}</div>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border:1px solid ${TH.border};border-radius:10px;">${body}</table>`;
 }
 
 function fileList(title, files) {
@@ -146,7 +162,8 @@ const RENDERERS = {
   table: (b) => table(b.rows ?? []),
   mono: (b) => monoBlock(b.title, b.text),
   verbatim: (b) => verbatim(b),
-  callout: (b) => callout(b.title, b.text),
+  callout: (b) => callout(b.title, b.text, b.tone),
+  legs: (b) => legList(b.title, b.rows ?? []),
   files: (b) => fileList(b.title, b.files ?? []),
   sources: (b) => sources(b.sources ?? []),
   cta: (b) => cta(b.text, b.url),
@@ -162,7 +179,7 @@ export const BLOCK_TYPES = Object.keys(RENDERERS);
  * this", and a machine-sent mail with no named human behind it gets ignored or
  * escalated.
  */
-export function renderAgentEmail({ subject, tag, requester, requesterEmail, when, blocks = [], reference, consoleUrl }) {
+export function renderAgentEmail({ subject, tag, requester, requesterEmail, when, blocks = [], reference, consoleUrl, context }) {
   const base = assetBase();
   const firstName = String(requester ?? "").trim().split(/\s+/)[0] || "them";
 
@@ -193,7 +210,8 @@ export function renderAgentEmail({ subject, tag, requester, requesterEmail, when
     `<tr><td style="padding:14px 32px;background:${TH.reqBg};border-bottom:1px solid ${TH.rule};">` +
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
     `<td style="vertical-align:top;padding-right:10px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid ${TH.accent};margin-top:3px;"></span></td>` +
-    `<td style="font-size:13px;line-height:1.5;color:${TH.body};">Sent by the <strong style="color:${TH.ink};">Clearway Ops Agent</strong> at the request of <strong style="color:${TH.ink};">${esc(requester ?? "a dispatcher")}</strong>${when ? `, ${esc(when)}` : ""}. Reply to reach ${esc(firstName)} directly.</td>` +
+    (context ? `<td style="font-size:13px;line-height:1.5;color:${TH.body};">Sent by the <strong style="color:${TH.ink};">Clearway Ops Agent</strong> ${esc(context)}</td>` :
+    `<td style="font-size:13px;line-height:1.5;color:${TH.body};">Sent by the <strong style="color:${TH.ink};">Clearway Ops Agent</strong> at the request of <strong style="color:${TH.ink};">${esc(requester ?? "a dispatcher")}</strong>${when ? `, ${esc(when)}` : ""}. Reply to reach ${esc(firstName)} directly.</td>`) +
     `</tr></table></td></tr>` +
 
     body +
@@ -216,13 +234,13 @@ export function renderAgentEmail({ subject, tag, requester, requesterEmail, when
 }
 
 /** Plain-text alternative. Not optional: a mail with no text part scores as spam. */
-export function renderAgentEmailText({ subject, requester, when, blocks = [], reference }) {
+export function renderAgentEmailText({ subject, requester, when, blocks = [], reference, context }) {
   // Every field is coerced. The HTML renderer escapes through esc() and so
   // tolerates a missing field; this one indexed straight into b.text and threw
   // on a heading block with no text, which failed the WHOLE send with an
   // opaque "Cannot read properties of undefined".
   const t = (v) => String(v ?? "");
-  const lines = [t(subject), "", `Sent by the Clearway Ops Agent at the request of ${t(requester) || "a dispatcher"}${when ? `, ${t(when)}` : ""}.`, ""];
+  const lines = [t(subject), "", context ? `Sent by the Clearway Ops Agent ${t(context)}` : `Sent by the Clearway Ops Agent at the request of ${t(requester) || "a dispatcher"}${when ? `, ${t(when)}` : ""}.`, ""];
   for (const b of blocks) {
     if (b.type === "heading") lines.push(t(b.text).toUpperCase(), "");
     else if (b.type === "paragraph" || b.type === "note") lines.push(t(b.text), "");
@@ -234,6 +252,7 @@ export function renderAgentEmailText({ subject, requester, when, blocks = [], re
     else if (b.type === "files") { lines.push(b.title ?? "ATTACHED"); for (const f of b.files ?? []) lines.push(`  - ${f.filename}${f.size ? ` (${f.size})` : ""}`); lines.push(""); }
     else if (b.type === "sources") { lines.push("SOURCES"); for (const s of b.sources ?? []) lines.push(`  [${s.n}] ${s.tierLabel ?? s.tier} · ${s.label ?? s.name}`); lines.push(""); }
     else if (b.type === "cta") lines.push(`${t(b.text)}: ${t(b.url)}`, "");
+    else if (b.type === "legs") { lines.push(`${t(b.title)}:`); for (const r of b.rows ?? []) lines.push(`  LEG ${t(r.n)} · ${t(r.route)} · ${t(r.when)}${r.state ? ` · ${t(r.state)}` : ""}`); lines.push(""); }
   }
   lines.push("—", "Generated by the Clearway Ops Agent. Check operational content against the source before use.", t(reference));
   return lines.join("\n");

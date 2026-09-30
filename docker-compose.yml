@@ -198,6 +198,8 @@ services:
       # Voice readout relay to the wall (item 6) — see digital-wall-backend.
       # Relayed to DIGITAL_WALL_INTERNAL_URL (default http://digital-wall-backend:5174).
       AGENT_WALL_EVENTS_SECRET: ${AGENT_WALL_EVENTS_SECRET:-}
+      # Flight intake: raw mail and attachments (personal data) on the large disk, owner-only, under retention.
+      INTAKE_ROOT: /intake
     expose:
       - "5175"
     ports:
@@ -210,6 +212,9 @@ services:
       # database rows kept pointing at them (audit 2026-09, S3). On the SSD
       # cache like the other services, never the container's root filesystem.
       - /mnt/ssd-cache/agent:/storage
+      # Intake mailbox storage (agent/lib/intake/blobstore.mjs): raw/YYYY/MM/DD/<uuid>.eml and files/ab/cd/<sha256>.
+      # Not backed up off-site (none of /mnt/hdd-storage is today); retention deletes after the configured period.
+      - /mnt/hdd-storage/intake:/intake
 
   n8n:
     image: n8nio/n8n:latest

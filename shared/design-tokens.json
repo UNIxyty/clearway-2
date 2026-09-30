@@ -1,5 +1,5 @@
 {
-  "$comment": "THE shared Clearway design-token source (platform redesign Phase 1). Consumed by BOTH builds \u2014 the portal (tailwind.config.ts + lib/tokens.ts) and the console (opsboard-react ui.jsx t object). Edit here, never per-app. Values are the Clearway Platform design's.",
+  "$comment": "THE shared Clearway design-token source (platform redesign Phase 1). Consumed by BOTH builds — the portal (tailwind.config.ts + lib/tokens.ts) and the console (opsboard-react ui.jsx t object). Edit here, never per-app. Values are the Clearway Platform design's.",
   "color": {
     "page": "#fbfbfc",
     "card": "#ffffff",
@@ -224,5 +224,25 @@
     "progressivePages": 60,
     "maxTabs": 6,
     "cachedDocs": 20
+  },
+  "intake": {
+    "$comment": "Flight intake + Agent mailbox (agent-design-spec-intake.md, agent-design-spec-mailbox.md). Only values the shared colour list did not already have.",
+    "amberIcon": "#d97706",
+    "slateIcon": "#64748b",
+    "slateBorder": "#e2e6ec",
+    "unknownInk": "#334155",
+    "unknownDash": "#94a3b8",
+    "hatchA": "#f5f6f7",
+    "hatchB": "#eceef1",
+    "fieldRed": "#fff8f8",
+    "conditionalBg": "#e8eef6",
+    "answerBorder": "#c9d6e8",
+    "answerBg": "#fbfcfe",
+    "scrimDrawer": "rgba(16,18,22,.18)",
+    "scrimDialog": "rgba(16,18,22,.28)",
+    "drawerShadow": "-16px 0 40px rgba(16,18,22,.14)",
+    "flashBlue": "#eef4ff",
+    "flashRed": "#fdecec",
+    "pulse": "1100ms"
   }
 }

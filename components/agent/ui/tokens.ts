@@ -72,3 +72,14 @@ export const TYPE = {
 
 /** Mono rule (§2.2, §3 rule 14): anything read character by character. */
 export const mono = (extra: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: FONT.mono, fontVariantNumeric: "tabular-nums", ...extra });
+
+/** Flight intake + Agent mailbox (§I, §M): the extra values, and the five status tones built from shared names. */
+export const INTAKE = (tokens as unknown as { intake: Record<string, string> }).intake;
+export type Tone = { fg: string; bg: string; bd: string; ic: string };
+export const TONE: Record<"red" | "amber" | "green" | "blue" | "slate", Tone> = {
+  red: { fg: c.redDeep, bg: c.redTintSoft, bd: c.redBorder, ic: c.red },
+  amber: { fg: c.amberStrong, bg: c.amberTint, bd: c.amberBorder, ic: INTAKE.amberIcon },
+  green: { fg: c.greenDeep, bg: c.greenTint, bd: c.greenBorder, ic: c.green },
+  blue: { fg: c.primaryDeep, bg: c.primaryTint, bd: c.primaryLine, ic: c.primary },
+  slate: { fg: c.slate, bg: c.greyTint, bd: INTAKE.slateBorder, ic: INTAKE.slateIcon },
+};

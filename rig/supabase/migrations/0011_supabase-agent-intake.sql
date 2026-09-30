@@ -120,6 +120,56 @@ create table if not exists public.intake_leon_writes (
   unique (request_id, leg_index, payload_sha256)
 );
 
+
+-- ── Build 2 additions (pipeline, review screen, mailbox, send log). Idempotent. ─────────────────────────
+-- Mailbox status: what the agent did with the message (status before content, §M2).
+alter table public.intake_messages add column if not exists status text not null default 'waiting';
+alter table public.intake_messages add column if not exists status_reason text;       -- agent-written, never email text
+alter table public.intake_messages add column if not exists understood jsonb;         -- { kind, title, body, checks[], hint } — counts, never values
+alter table public.intake_messages add column if not exists search_text text;         -- PII-free: sender, subject, refs, regs, callsigns, routes, scrubbed body
+alter table public.intake_messages add column if not exists has_personal_data boolean not null default false;
+alter table public.intake_messages add column if not exists ignored_by text;
+alter table public.intake_messages add column if not exists ignored_reason text;
+alter table public.intake_messages add column if not exists ignored_note text;
+alter table public.intake_messages add column if not exists history jsonb not null default '[]';  -- earlier results on reprocess
+alter table public.intake_messages add column if not exists request_id uuid;
+alter table public.intake_messages add column if not exists sent_kind text;           -- outbound: E2 / E3 / E4 / Forward
+alter table public.intake_messages add column if not exists sent_html text;           -- outbound: as sent (no personal data by design)
+alter table public.intake_messages add column if not exists delivery_events jsonb not null default '[]';
+do $$ begin
+  alter table public.intake_messages drop constraint if exists intake_messages_status_check;
+  alter table public.intake_messages add constraint intake_messages_status_check check (status in ('waiting','processed','not_recognised','failed','reply','ignored','sent'));
+end $$;
+create index if not exists idx_intake_messages_status on public.intake_messages (status, received_at desc);
+
+-- Requests: the thread reference, the pipeline, the review working copy.
+alter table public.intake_requests add column if not exists reference text;
+alter table public.intake_requests add column if not exists reference_built boolean not null default false;
+alter table public.intake_requests add column if not exists stages jsonb not null default '[]';
+alter table public.intake_requests add column if not exists review jsonb;             -- current values after people's edits (non-personal)
+alter table public.intake_requests add column if not exists attachment_roles jsonb;   -- per attachment: role, why, override
+alter table public.intake_requests add column if not exists duplicate jsonb;          -- match evidence (Leon ids, fields that differ)
+alter table public.intake_requests add column if not exists duplicate_resolution jsonb;
+alter table public.intake_requests add column if not exists sender_name text;
+alter table public.intake_requests add column if not exists route text;
+alter table public.intake_requests add column if not exists registration text;
+alter table public.intake_requests add column if not exists first_std timestamptz;
+alter table public.intake_requests add column if not exists legs_count int;
+alter table public.intake_requests add column if not exists status_reason text;
+alter table public.intake_requests add column if not exists updated_by text;
+create index if not exists idx_intake_requests_updated on public.intake_requests (updated_at desc);
+create index if not exists idx_intake_requests_reference on public.intake_requests (reference);
+
+-- Send log: written BEFORE the Leon call (state 'sending' + the exact payload), updated after.
+-- A row still 'sending' after a restart is 'unknown': a person checks Leon; nothing retries it.
+alter table public.intake_leon_writes add column if not exists payload jsonb;
+alter table public.intake_leon_writes add column if not exists marker text;
+alter table public.intake_leon_writes add column if not exists leon_trip_nid text;
+alter table public.intake_leon_writes add column if not exists http_status int;
+alter table public.intake_leon_writes add column if not exists answered_ms int;
+alter table public.intake_leon_writes add column if not exists resolved_by text;
+alter table public.intake_leon_writes add column if not exists resolved_note text;
+
 alter table public.intake_messages enable row level security;
 alter table public.intake_events enable row level security;
 alter table public.intake_attachments enable row level security;

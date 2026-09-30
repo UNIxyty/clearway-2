@@ -1,0 +1,18 @@
+import path from "node:path";
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const { buildFlightCreate } = await import(path.join(root, "agent/lib/intake/leon-payload.mjs"));
+const F = (value, state = "extracted", said = null) => ({ value, said: said ?? (value == null ? null : String(value)), source: "Email · INBOUND", confidence: 0.95, state });
+const T = (utc, tz = "UTC", state = "extracted") => ({ value: { local: null, date: null, tzStated: tz, utc }, said: utc, source: "Email · INBOUND", confidence: 0.95, state });
+const good = { departure: F("EVRA"), arrival: F("EGLL"), std: T("2026-10-02T11:40:00Z"), sta: T("2026-10-02T14:10:00Z"), flightNumber: F("BTI472"), registration: F("YL-ABC"), aircraftType: F("A220"), flightType: F("scheduled"), crewCount: F(5), pax: { total: F(112), adults: F(null, "not_given"), children: F(null, "not_given"), infants: F(null, "not_given") }, services: [] };
+const lookups = { aircraftNidByRegistration: new Map([["YLABC", 4411]]) };
+const run = (label, leg, expect) => { const r = buildFlightCreate(leg, lookups, "CWY-INTAKE req/0"); const pass = expect === "ok" ? r.ok : !r.ok && r.reasons.some((x) => x.includes(expect)); console.log(`${pass ? "PASS" : "FAIL"} · ${label} → ${r.ok ? JSON.stringify(r.payload) : r.reasons.join("; ")}`); };
+run("clean leg builds", good, "ok");
+run("TBA passengers never becomes 0", { ...good, pax: { ...good.pax, total: F(null, "unknown", "TBA") } }, "Passengers: unknown");
+run("explicit zero passengers is 0", { ...good, pax: { ...good.pax, total: F(0, "zero", "NIL PAX") } }, "ok");
+run("time with no time zone blocks", { ...good, std: T(null, null, "tz_unknown") }, "STD: tz unknown");
+run("IATA code not converted blocks", { ...good, departure: F("RIX") }, "not an ICAO code");
+run("unknown registration blocks", { ...good, registration: F("YL-ZZZ") }, "not an aircraft of this operator");
+run("TBA registration blocks", { ...good, registration: F(null, "unknown", "TBA") }, "Registration: unknown");
+run("conflict between body and GenDec blocks", { ...good, pax: { ...good.pax, total: F(112, "conflict", "112 / GenDec 110") } }, "Passengers: conflict");
+run("STA before STD blocks", { ...good, sta: T("2026-10-02T10:00:00Z") }, "STA is not after STD");
+run("crew is not sent (Leon has no field)", good, "ok");

@@ -16,6 +16,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertRigSafe } from "../lib/rig-guard.mjs";
+import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
 assertRigSafe("agent");
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
@@ -253,6 +254,17 @@ async function handleRequest(req, res) {
         region: models.region,
         activeTier: models.activeTier,
       });
+    }
+
+    // ── Resend inbound webhook: the second unauthenticated route. Its authentication is the Svix signature;
+    // an unverified payload is refused with 401 and nothing is stored (agent/lib/intake/resend.mjs). ──
+    if (pathname === "/api/intake/resend-webhook" && req.method === "POST") {
+      const raw = (await readRawBody(req, 1024 * 1024)).toString("utf8");
+      const v = verifySvix({ id: req.headers["svix-id"], timestamp: req.headers["svix-timestamp"], signature: req.headers["svix-signature"], body: raw, secret: process.env.RESEND_WEBHOOK_SECRET });
+      if (!v.ok) { await audit({ kind: "intake.webhook_rejected", success: false, error: v.reason, confirmationStatus: "not_required", detail: { reason: v.reason } }).catch(() => {}); return sendJson(res, { ok: false, error: "invalid_signature" }, 401); }
+      let event; try { event = JSON.parse(raw); } catch { return sendJson(res, { ok: false, error: "invalid_json" }, 400); }
+      const result = await handleIntakeEvent({ svixId: String(req.headers["svix-id"]), event, audit: (e) => audit({ confirmationStatus: "not_required", ...e }) });
+      return sendJson(res, { ok: true, outcome: result.outcome });
     }
 
     // Everything below requires a signed-in caller.

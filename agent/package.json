@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Dispatcher agent service \u2014 acts as the signed-in user, backed by Amazon Bedrock.",
+  "description": "Dispatcher agent service — acts as the signed-in user, backed by Amazon Bedrock.",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --env-file=../.env server.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1138.0",
+    "@kenjiuno/msgreader": "^1.28.0",
+    "mailparser": "^3.9.32",
     "mammoth": "^1.12.3",
     "pdf-parse": "2.4.5",
     "playwright": "1.59.1",

@@ -86,16 +86,28 @@ like a passport number or a date of birth returns the "not searchable" state.
   The two test flights remain visible as cancelled on 10 Mar 2027.
 - A new flight gets Leon's auto-add checklist items (27 of 177 OPS definitions are auto-add).
 
-## Settings (server .env)
+## Settings (Agent settings → Flight intake, admins)
+
+Edited on the Agent settings page, stored in `agent_settings` (`intake:addresses`, `intake:notify_to`,
+`intake:mailbox_readers`, `intake:retention`), applied within 15 s, every save audited (`settings.changed`).
+
+| Setting | Meaning |
+|---|---|
+| Receiving addresses | the agent's addresses; each shows whether its domain can receive in Resend |
+| Send intake emails to | who gets E2 / E3 / E4; empty → the Notification stage fails, saying so |
+| Agent mailbox access | readers besides admins/developers |
+| Keep intake mail | retention in days (default 90) |
+
+Until a value is saved there, the server's `INTAKE_ADDRESSES` / `INTAKE_NOTIFY_TO` / `INTAKE_MAILBOX_READERS`
+are used (the page says "from the server's environment until saved here").
+
+Server-only environment:
 
 | Variable | Meaning |
 |---|---|
 | `RESEND_WEBHOOK_SECRET` | Svix signing secret of the Resend webhook (written by `scripts/intake-resend-setup.mjs`) |
-| `INTAKE_ADDRESSES` | the agent's receiving addresses, comma list (shown as health pills) |
-| `INTAKE_NOTIFY_TO` | where E2/E3/E4 go, comma list; unset → the Notification stage fails, saying so |
 | `INTAKE_ROOT` | storage root (compose sets `/intake`) |
 | `INTAKE_LEON_TRIP_STATUS` | CONFIRMED (default) / OPTION / OPPORTUNITY |
-| `INTAKE_MAILBOX_READERS` | extra mailbox readers (emails); admins/developers always have access |
 | `INTAKE_MAIL_MODE=capture` | rig only: store emails without sending |
 | `RESEND_API_BASE`, `LEON_API_BASE` | rig only: local mocks. Never set in production. |
 

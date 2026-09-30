@@ -14,6 +14,7 @@ import { maskForReader, MASK } from "./personal.mjs";
 import { sanitizeEmailHtml } from "./sanitize.mjs";
 import { retentionDays } from "./retention.mjs";
 import { notifyTo } from "./notify.mjs";
+import { intakeSettings, setIntakeSettings } from "./settings.mjs";
 import { agentFrom } from "../email/send.mjs";
 import { sendEmail as deliver } from "../../../digital-wall/lib/mailer.mjs";
 
@@ -23,10 +24,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const who = (user) => ({ name: user.name || user.email, at: new Date().toISOString() });
 
 // ── Mailbox access (§M3): ops leads and intake admins. Admins/developers, plus a list in agent_settings. ──
-async function mailboxReaders() {
-  const row = (await rest("agent_settings?id=eq.intake:mailbox_readers&select=reason").catch(() => []))?.[0];
-  return [...new Set([...String(row?.reason ?? "").split(","), ...String(process.env.INTAKE_MAILBOX_READERS || "").split(",")].map((s) => s.trim().toLowerCase()).filter(Boolean))];
-}
+async function mailboxReaders() { return (await intakeSettings()).mailboxReaders; }
 export async function mailboxAllowed(user) { return isPrivileged(user) || (await mailboxReaders()).includes(String(user.email ?? "").toLowerCase()); }
 
 // ── UI status for the intake list (§I3) ─────────────────────────────────────────────────────────────────
@@ -266,7 +264,7 @@ async function mailboxCounts(days = 7) {
 
 let resendDomains = { at: 0, value: null };
 async function addressHealth() {
-  const addrs = String(process.env.INTAKE_ADDRESSES || "handling@agent.verxyl.com").split(",").map((s) => s.trim()).filter(Boolean);
+  const addrs = (await intakeSettings()).addresses;
   if (Date.now() - resendDomains.at > 60_000) {
     try { const r = await fetch(`${String(process.env.RESEND_API_BASE || "https://api.resend.com").replace(/\/+$/, "")}/domains`, { headers: { authorization: `Bearer ${String(process.env.RESEND_API_KEY || "")}` }, signal: AbortSignal.timeout(8000) }); resendDomains = { at: Date.now(), value: r.ok ? (await r.json()).data ?? [] : { error: `HTTP ${r.status}` } }; }
     catch (e) { resendDomains = { at: Date.now(), value: { error: e.message } }; }
@@ -373,13 +371,24 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
       res.writeHead(200, { "content-type": inlineOk ? a.sniffed_type : "application/octet-stream", "content-length": buf.length, "content-disposition": `${inlineOk ? "inline" : "attachment"}; filename="${safeName}"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; plugin-types application/pdf" });
       res.end(buf); return true;
     }
+    // Intake settings (Agent settings page): admins and developers only, read and write.
+    if (P === "/api/intake/settings" && (req.method === "GET" || req.method === "PUT")) {
+      if (!isPrivileged(user)) throw err(403, "Intake settings are for admins.");
+      if (req.method === "PUT") {
+        const body = await readJsonBody(req); const before = await intakeSettings({ fresh: true });
+        const after = await setIntakeSettings(body, user);
+        await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { intake: Object.fromEntries(Object.keys(body).filter((k) => k in after).map((k) => [k, { from: before[k], to: after[k] }])) } }).catch(() => {});
+      }
+      const s = await intakeSettings({ fresh: true });
+      return send({ ok: true, settings: s, health: await addressHealth().catch(() => null) });
+    }
     if (P === "/api/intake/checklist-definitions" && req.method === "GET") return send({ ok: true, definitions: (await checklistDefinitions()).map((d) => ({ nid: d.nid, label: d.label, section: d.section })) });
 
     // ---- Agent mailbox (restricted) ----
     if (P.startsWith("/api/mailbox/")) {
       if (P === "/api/mailbox/access" && req.method === "GET") { const readers = await mailboxReaders(); return send({ ok: true, allowed: await mailboxAllowed(user), readersCount: readers.length }); }
       if (!(await mailboxAllowed(user))) { await audit({ kind: "mailbox.denied", userId: user.userId, userEmail: user.email, success: false, confirmationStatus: "not_required", detail: { path: P } }).catch(() => {}); throw err(403, "You don't have access to the agent mailbox."); }
-      if (P === "/api/mailbox/overview" && req.method === "GET") return send({ ok: true, counts: await mailboxCounts(Number(url.searchParams.get("days") || 7)), health: await addressHealth(), queue: queueDepth(), notifyTo: notifyTo(), mailMode: String(process.env.INTAKE_MAIL_MODE || "send") });
+      if (P === "/api/mailbox/overview" && req.method === "GET") return send({ ok: true, counts: await mailboxCounts(Number(url.searchParams.get("days") || 7)), health: await addressHealth(), queue: queueDepth(), notifyTo: await notifyTo(), mailMode: String(process.env.INTAKE_MAIL_MODE || "send") });
       if (P === "/api/mailbox/messages" && req.method === "GET") return send({ ok: true, ...(await mailboxRows({ box: url.searchParams.get("box") ?? "received", view: url.searchParams.get("view") ?? "needs", q: url.searchParams.get("q") ?? "", days: url.searchParams.get("days") ?? 7, address: url.searchParams.get("address") ?? "" })) });
       if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") { const out = await readerPayload(m[1], user); await audit({ kind: "mailbox.opened", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { messageId: m[1] } }).catch(() => {}); return send({ ok: true, message: out }); }
       if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/body$/.exec(P)) && req.method === "GET") {

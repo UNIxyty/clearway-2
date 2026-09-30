@@ -71,11 +71,19 @@ export function Tag({ tone, children, style }: { tone: { fg: string; bg: string 
 // ── Tooltip (hand-built; never the title attribute) ────────────────────────────────────────────────────
 export function Tooltip({ label, children, placement = "top" }: { label: ReactNode; children: (props: { "aria-describedby": string; onMouseEnter: () => void; onMouseLeave: () => void; onFocus: () => void; onBlur: () => void }) => ReactNode; placement?: "top" | "bottom" }) {
   const id = useId(); const [open, setOpen] = useState(false);
+  const tip = useRef<HTMLSpanElement>(null); const [shift, setShift] = useState(0);
   useEffect(() => { if (!open) return; const k = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setOpen(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [open]);
+  // Keep the tip inside the window (a tip under the right-most pill used to push the page wider).
+  useLayoutEffect(() => {
+    if (!open || !tip.current) { setShift(0); return; }
+    const r = tip.current.getBoundingClientRect(); const vw = document.documentElement.clientWidth;
+    setShift(r.right > vw - 8 ? vw - 8 - r.right : r.left < 8 ? 8 - r.left : 0);
+  }, [open]);
   return (
     <span style={{ position: "relative", display: "inline-flex" }}>
       {children({ "aria-describedby": id, onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false), onFocus: () => setOpen(true), onBlur: () => setOpen(false) })}
-      <span role="tooltip" id={id} style={{ position: "absolute", [placement === "top" ? "bottom" : "top"]: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", background: C.ink, color: C.surface, fontSize: 12, fontWeight: 500, lineHeight: 1.4, padding: "5px 8px", borderRadius: 6, whiteSpace: "nowrap", pointerEvents: "none", zIndex: 60, opacity: open ? 1 : 0, visibility: open ? "visible" : "hidden" }}>{label}</span>
+      {/* Always in the DOM for aria-describedby, but takes no space while hidden (display none). */}
+      <span ref={tip} role="tooltip" id={id} style={{ position: "absolute", [placement === "top" ? "bottom" : "top"]: "calc(100% + 6px)", left: "50%", transform: `translateX(calc(-50% + ${shift}px))`, background: C.ink, color: C.surface, fontSize: 12, fontWeight: 500, lineHeight: 1.4, padding: "5px 8px", borderRadius: 6, width: "max-content", maxWidth: 320, whiteSpace: "normal", pointerEvents: "none", zIndex: 60, display: open ? "block" : "none" }}>{label}</span>
     </span>
   );
 }

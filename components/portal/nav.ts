@@ -83,7 +83,7 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "agent-chat", label: "Chat", icon: "message-square", href: "/agent" },
       { id: "agent-history", label: "History", icon: "history", href: "/agent/history" },
       { id: "agent-knowledge", label: "Knowledge base", icon: "library", href: "/agent/knowledge", badge: "kb-approvals" },
-      { id: "agent-intake", label: "Flight intake", icon: "clipboard-list", href: "/agent/intake", badge: "intake-attention" },
+      { id: "agent-intake", label: "Flight intake", icon: "plane-landing", href: "/agent/intake", badge: "intake-attention" },
       { id: "agent-mailbox", label: "Mailbox", icon: "mail", href: "/agent/mailbox", badge: "mailbox-attention", mailboxOnly: true },
       { id: "agent-activity", label: "Activity log", icon: "scroll-text", href: "/agent/activity" },
       { id: "agent-settings", label: "Settings", icon: "settings-2", href: "/agent/settings" }, // personal settings for everyone; organisation sections are admin-only inside the page

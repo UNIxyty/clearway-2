@@ -2,7 +2,7 @@
 // could-not-read variants in E4b's structure). Counts only — never a name, date of birth or passport number.
 // Rule for Needs you subjects: they always say what is in Leon.
 //
-// Sent from the agent's own address through Resend, to INTAKE_NOTIFY_TO (comma list). Each send is stored
+// Sent from the agent's own address through Resend, to the recipients set in Agent settings → Flight intake. Each send is stored
 // as an outbound intake_messages row (the mailbox Sent tab), and Resend's delivery webhooks update it.
 // INTAKE_MAIL_MODE=capture stores the rendered email without calling Resend (the rig uses this: a rig run
 // must not send real mail); the row then says "Captured, not sent".
@@ -12,8 +12,10 @@ import { agentFrom } from "../email/send.mjs";
 import { sendEmail as deliver } from "../../../digital-wall/lib/mailer.mjs";
 import { rest } from "../knowledge/retrieval.mjs";
 import { fmtDate } from "./review.mjs";
+import { intakeSettings } from "./settings.mjs";
 
-export const notifyTo = () => String(process.env.INTAKE_NOTIFY_TO || "").split(",").map((s) => s.trim()).filter(Boolean);
+/** Who gets intake emails: Agent settings → Flight intake (falls back to INTAKE_NOTIFY_TO until saved there). */
+export const notifyTo = async () => (await intakeSettings()).notifyTo;
 const consoleBase = () => String(process.env.AGENT_CONSOLE_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://console.clearway.aero").replace(/\/+$/, "");
 const hm = (iso) => (iso ? new Date(iso).toISOString().slice(11, 16) : "--:--");
 const day = (iso) => (iso ? fmtDate(iso).slice(0, 6) : "");
@@ -105,12 +107,12 @@ export function composeStopped(req, { title, subject, what, stage }) {
 
 /** Renders, sends (or captures) and records one intake email. Returns { ok, messageId, providerId, mode, error }. */
 export async function sendIntakeEmail(req, mail) {
-  const to = notifyTo();
+  const to = await notifyTo();
   const footer = `intake ${req.reference}`;
   const html = renderAgentEmail({ subject: mail.subject, tag: "FLIGHT INTAKE", context: mail.context, blocks: mail.blocks, reference: footer });
   const text = renderAgentEmailText({ subject: mail.subject, context: mail.context, blocks: mail.blocks, reference: footer });
   const mode = String(process.env.INTAKE_MAIL_MODE || "").trim() === "capture" ? "capture" : "send";
-  if (!to.length && mode === "send") return { ok: false, error: "No notification address is set (INTAKE_NOTIFY_TO).", mode: "skipped" };
+  if (!to.length && mode === "send") return { ok: false, error: "No notification address is set (Agent settings → Flight intake).", mode: "skipped" };
   let providerId = null, error = null;
   if (mode === "send") { const r = await deliver({ to, from: agentFrom(), subject: mail.subject, html }); providerId = r.id ?? null; if (!r.ok) error = r.error; }
   const rows = await rest("intake_messages", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([{

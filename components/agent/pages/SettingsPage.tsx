@@ -15,6 +15,7 @@ import { PersonalSettings, RoutingSettings } from "./SettingsPersonal";
 import { BIND_DEFAULTS, DEFAULT_CONFIG, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE } from "../types";
+import IntakeSettingsCard from "../intake/IntakeSettingsCard";
 
 type Capability = { key: string; label: string; description: string; enabled: boolean };
 type Person = { userId: string; email: string; name: string; read: string; wall: string; sendEmail: string; approveKb: string };
@@ -179,6 +180,9 @@ export default function SettingsPage() {
             </section>
           )}
         </div>
+
+        {/* Flight intake (addresses, recipients, mailbox access, retention): full width under both columns — admins only; hides itself on 403 */}
+        <IntakeSettingsCard />
       </div>
     </PortalShell>
   );

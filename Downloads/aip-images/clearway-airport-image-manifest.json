@@ -1,0 +1,2320 @@
+{
+  "generatedFor": "Clearway airport sheet image sourcing",
+  "imageRequirements": {
+    "hero": {
+      "aspectRatio": "1.75:1",
+      "preferredMinimum": "1200x690",
+      "filename": "hero/<ICAO>.jpg"
+    },
+    "pax": {
+      "aspectRatio": "1.48:1",
+      "preferredMinimum": "800x540",
+      "filename": "pax/<ICAO>.jpg"
+    }
+  },
+  "summary": {
+    "airportCount": 104,
+    "requiredImageSlots": 208,
+    "heroCandidates": 104,
+    "paxCandidates": 104,
+    "slotsWithExplicitReusableLicense": 74,
+    "slotsNeedingLicenseVerification": 46,
+    "slotsRequiringPermission": 15,
+    "notes": [
+      "Wikimedia Commons was preferred because license information is usually explicit.",
+      "Non-Commons candidates with unclear rights are included for identification only and should not be published commercially until permission or a suitable license is confirmed.",
+      "Some small airports only had one usable airport image; in those cases the same candidate may be listed for both hero and pax.",
+      "A few candidates are below the preferred generator resolution or depict airport operations instead of a clean terminal view; these are flagged in notes."
+    ]
+  },
+  "airports": [
+    {
+      "icao": "LUKK",
+      "country": "Moldova",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ChisinauAeroport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ChisinauAeroport.jpg",
+        "license": "CC BY-SA 1.0/2.0/2.5/3.0 + GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1024x768",
+        "targetFilename": "hero/LUKK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Just_a_plane.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Just_a_plane.JPG",
+        "license": "GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "640x480",
+        "targetFilename": "pax/LUKK.jpg"
+      },
+      "notes": "PAX candidate is not a passenger-facility interior and is below preferred size; better source still desirable."
+    },
+    {
+      "icao": "LRBS",
+      "country": "Romania",
+      "airportName": "BUCUREŞTI / Băneasa - Aurel Vlaicu",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bucharestbaneasaairport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bucharestbaneasaairport.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2288x1712",
+        "targetFilename": "hero/LRBS.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Baneasanight.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Baneasanight.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2592x1944",
+        "targetFilename": "pax/LRBS.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LRSV",
+      "country": "Romania",
+      "airportName": "SUCEAVA / Ştefan cel Mare - Suceava",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:LRSV_new_TWR_and_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/LRSV_new_TWR_and_terminal.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1200x800",
+        "targetFilename": "hero/LRSV.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aeroportul_Suceava1.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aeroportul_Suceava1.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "886x599",
+        "targetFilename": "pax/LRSV.jpg"
+      },
+      "notes": "PAX candidate is older pre-renovation terminal."
+    },
+    {
+      "icao": "LROP",
+      "country": "Romania",
+      "airportName": "BUCUREŞTI / Henri Coandă",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Romania_bucharest_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Romania_bucharest_airport_terminal.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "7840x5229",
+        "targetFilename": "hero/LROP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Romania_bucharest_airport_terminal_inside.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Romania_bucharest_airport_terminal_inside.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "8192x5464",
+        "targetFilename": "pax/LROP.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LRTR",
+      "country": "Romania",
+      "airportName": "TIMIŞOARA / Traian Vuia",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_A_Flughafen_Timisoara.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_A_Flughafen_Timisoara.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4032x3024",
+        "targetFilename": "hero/LRTR.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_A_Flughafen_Timisoara.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_A_Flughafen_Timisoara.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4032x3024",
+        "targetFilename": "pax/LRTR.jpg"
+      },
+      "notes": "Same terminal image can fill both slots unless a better interior is found."
+    },
+    {
+      "icao": "LRCK",
+      "country": "Romania",
+      "airportName": "CONSTANŢA / Mihail Kogălniceanu-Constanţa",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ConstantaInternationalAirportTerminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ConstantaInternationalAirportTerminal.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048x1536",
+        "targetFilename": "hero/LRCK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ConstantaInternationalAirportTerminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ConstantaInternationalAirportTerminal.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048x1536",
+        "targetFilename": "pax/LRCK.jpg"
+      },
+      "notes": "Same terminal image can fill both slots unless a better PAX image is found."
+    },
+    {
+      "icao": "LYBE",
+      "country": "Serbia",
+      "airportName": "BEOGRAD/Nikola Tesla",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_of_Belgrade_airport_2025(1).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_of_Belgrade_airport_2025(1).jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4032x3024",
+        "targetFilename": "hero/LYBE.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:BEG-T1-Interior.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/BEG-T1-Interior.jpg",
+        "license": "CC BY-SA 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": null,
+        "targetFilename": "pax/LYBE.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LYNI",
+      "country": "Serbia",
+      "airportName": "NIŠ/Konstantin Veliki",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Nis_Airport_new_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Nis_Airport_new_terminal.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3024x2039",
+        "targetFilename": "hero/LYNI.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Nis_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Nis_airport_terminal.jpg",
+        "license": "CC BY-SA 3.0 / GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4288x3216",
+        "targetFilename": "pax/LYNI.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LYTV",
+      "country": "Montenegro",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tivat.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tivat.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1600x1200",
+        "targetFilename": "hero/LYTV.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Passanger_terminal_at_the_Tivat_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Passanger_terminal_at_the_Tivat_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3264x2448",
+        "targetFilename": "pax/LYTV.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LYPG",
+      "country": "Montenegro",
+      "airportName": "PODGORICA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Podgorica_airport_Montenegro.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_airport_Montenegro.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1758x1103",
+        "targetFilename": "hero/LYPG.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Podgorica_airport_Montenegro.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Podgorica_airport_Montenegro.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1758x1103",
+        "targetFilename": "pax/LYPG.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "LBSF",
+      "country": "Bulgaria",
+      "airportName": "ВАСИЛ ЛЕВСКИ - СОФИЯ/VASIL LEVSKI - SOFIA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aeroporto_di_sofia_terminal1.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aeroporto_di_sofia_terminal1.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3296x2472",
+        "targetFilename": "hero/LBSF.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Sofia_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sofia_Airport.jpg",
+        "license": "GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3072x2304",
+        "targetFilename": "pax/LBSF.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LBBG",
+      "country": "Bulgaria",
+      "airportName": "БУРГАС/BURGAS",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Burgas_Airport_New_Terminal.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Burgas_Airport_New_Terminal.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1465x1099",
+        "targetFilename": "hero/LBBG.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Flughafen_Burgas_Abflug_Terminal.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flughafen_Burgas_Abflug_Terminal.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2048x1536",
+        "targetFilename": "pax/LBBG.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LBWN",
+      "country": "Bulgaria",
+      "airportName": "ВАРНА/VARNA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:VarnaAirport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/VarnaAirport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4288x2848",
+        "targetFilename": "hero/LBWN.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Varna_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Varna_Airport.jpg",
+        "license": "GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "640x480",
+        "targetFilename": "pax/LBWN.jpg"
+      },
+      "notes": "PAX candidate is small; hero is preferred."
+    },
+    {
+      "icao": "LBPD",
+      "country": "Bulgaria",
+      "airportName": "ПЛОВДИВ/PLOVDIV",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Plovdiv_airport_-_New_terminal_building.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Plovdiv_airport_-_New_terminal_building.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "720x434",
+        "targetFilename": "hero/LBPD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Plovdiv_airport_-_New_terminal_building.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Plovdiv_airport_-_New_terminal_building.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "720x434",
+        "targetFilename": "pax/LBPD.jpg"
+      },
+      "notes": "Below preferred image dimensions; same image reused."
+    },
+    {
+      "icao": "LWSK",
+      "country": "Macedonia",
+      "airportName": "Skopje International Airport",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:SkopjeTerminalAirport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/SkopjeTerminalAirport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3264x2096",
+        "targetFilename": "hero/LWSK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:SkopjeTerminalAirport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/SkopjeTerminalAirport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3264x2096",
+        "targetFilename": "pax/LWSK.jpg"
+      },
+      "notes": "Image is the old terminal; same image reused."
+    },
+    {
+      "icao": "LATI",
+      "country": "Albania",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tirana_Airport,_terminal_building.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tirana_Airport,_terminal_building.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4608x2592",
+        "targetFilename": "hero/LATI.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tirana_Airport_Terminal_(88672).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tirana_Airport_Terminal_(88672).jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4080x3072",
+        "targetFilename": "pax/LATI.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LQSA",
+      "country": "Bosnia",
+      "airportName": "SARAJEVO INTERNATIONAL AIRPORT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Sarajevoairport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sarajevoairport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1280x960",
+        "targetFilename": "hero/LQSA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Sarajevoairport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sarajevoairport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1280x960",
+        "targetFilename": "pax/LQSA.jpg"
+      },
+      "notes": "Interior terminal image; same image reused."
+    },
+    {
+      "icao": "LDSP",
+      "country": "Croatia",
+      "airportName": "AIRPORT SPLIT / SAINT JEROME",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Split_Airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Split_Airport_terminal.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1024x683",
+        "targetFilename": "hero/LDSP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Split_Airport_new_terminal_inside.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Split_Airport_new_terminal_inside.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1260x840",
+        "targetFilename": "pax/LDSP.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LDZD",
+      "country": "Croatia",
+      "airportName": "AIRPORT ZADAR / Zemunik",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Zadar_airport_terminal_croatia.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zadar_airport_terminal_croatia.JPG",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3072x2304",
+        "targetFilename": "hero/LDZD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Zadar_airport_terminal_croatia.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zadar_airport_terminal_croatia.JPG",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3072x2304",
+        "targetFilename": "pax/LDZD.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "LDZA",
+      "country": "Croatia",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Zagreb_Airport_apron,_2026-08-24.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Airport_apron,_2026-08-24.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "7101x5326",
+        "targetFilename": "hero/LDZA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Zagreb_Airport_interior.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zagreb_Airport_interior.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "6000x4000",
+        "targetFilename": "pax/LDZA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LJLJ",
+      "country": "Slovenia",
+      "airportName": "LJUBLJANA/BRNIK",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Jože_Pučnik_Airport_and_Šenčur.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jo%C5%BEe_Pu%C4%8Dnik_Airport_and_%C5%A0en%C4%8Dur.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3648x2736",
+        "targetFilename": "hero/LJLJ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Jože_Pučnik_Airport_and_Šenčur.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jo%C5%BEe_Pu%C4%8Dnik_Airport_and_%C5%A0en%C4%8Dur.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3648x2736",
+        "targetFilename": "pax/LJLJ.jpg"
+      },
+      "notes": "Same image reused; no suitable still interior selected."
+    },
+    {
+      "icao": "LZIB",
+      "country": "Slovakia",
+      "airportName": "BRATISLAVA/M. R. Štefánik",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bratislava_Airport_new_terminal_BTS.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bratislava_Airport_new_terminal_BTS.jpg",
+        "license": "Attribution required",
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2592x2004",
+        "targetFilename": "hero/LZIB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:BTS-terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/BTS-terminal.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2048x1536",
+        "targetFilename": "pax/LZIB.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LZKZ",
+      "country": "Slovakia",
+      "airportName": "KOŠICE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kosice_International_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kosice_International_Airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4692x3128",
+        "targetFilename": "hero/LZKZ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Interior_view_of_new_Kosice_Airport_terminal.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Interior_view_of_new_Kosice_Airport_terminal.JPG",
+        "license": "CC BY-SA / GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": null,
+        "targetFilename": "pax/LZKZ.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LHBP",
+      "country": "Hungary",
+      "airportName": "BUDAPEST LISZT FERENC INTERNATIONAL AIRPORT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Budapest_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Budapest_airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3264x2448",
+        "targetFilename": "hero/LHBP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Budapest_Airport.jpeg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Budapest_Airport.jpeg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4032x3024",
+        "targetFilename": "pax/LHBP.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "LHDC",
+      "country": "Hungary",
+      "airportName": "DEBRECEN INTERNATIONAL AIRPORT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Debrecen-apt.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Debrecen-apt.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4096×2304",
+        "targetFilename": "hero/LHDC.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Flughafen_Debrecen,_Sumen_Stra%C3%9Fe,_2022_Debrecen.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flughafen_Debrecen,_Sumen_Stra%C3%9Fe,_2022_Debrecen.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1704×2272",
+        "targetFilename": "pax/LHDC.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EPWA",
+      "country": "Poland",
+      "airportName": "LOTNISKO CHOPINA W WARSZAWIE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Entrance_to_terminal_A_of_Warsaw_Chopin_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Entrance_to_terminal_A_of_Warsaw_Chopin_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4096x3072",
+        "targetFilename": "hero/EPWA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_A_Warsaw_Chopin_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_A_Warsaw_Chopin_Airport.JPG",
+        "license": "CC BY-SA 3.0 PL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4588x2914",
+        "targetFilename": "pax/EPWA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EPMO",
+      "country": "Poland",
+      "airportName": "WARSZAWA/Modlin",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Warsaw_Modlin_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Warsaw_Modlin_Airport.jpg",
+        "license": "CC BY",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048x1365",
+        "targetFilename": "hero/EPMO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Pol_modlin_airport_2.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Pol_modlin_airport_2.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2560x1920",
+        "targetFilename": "pax/EPMO.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EPKK",
+      "country": "Poland",
+      "airportName": "KRAKÓW/Balice",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal,_Kraków_Airport,_2024_(01).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal,_Krak%C3%B3w_Airport,_2024_(01).jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3860x2140",
+        "targetFilename": "hero/EPKK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kraków_Airport,_Terminal_T2_inside.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Krak%C3%B3w_Airport,_Terminal_T2_inside.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1024x768",
+        "targetFilename": "pax/EPKK.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EPKT",
+      "country": "Poland",
+      "airportName": "KATOWICE - PYRZOWICE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Katowice_International_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Katowice_International_Airport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4220x2734",
+        "targetFilename": "hero/EPKT.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Katowice_International_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Katowice_International_Airport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4220x2734",
+        "targetFilename": "pax/EPKT.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "EPGD",
+      "country": "Poland",
+      "airportName": "GDAŃSK IM. LECHA WAŁĘSY",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Passenger_terminal_at_Gdańsk_Airport,_Poland.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Passenger_terminal_at_Gda%C5%84sk_Airport,_Poland.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3648x2048",
+        "targetFilename": "hero/EPGD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Gdansk_Airport_New_Terminal.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Gdansk_Airport_New_Terminal.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4608x3456",
+        "targetFilename": "pax/EPGD.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EPRZ",
+      "country": "Poland",
+      "airportName": "RZESZÓW - JASIONKA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_Rzeszów-Jasionka_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_Rzesz%C3%B3w-Jasionka_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4208x3120",
+        "targetFilename": "hero/EPRZ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_Rzeszów-Jasionka_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_Rzesz%C3%B3w-Jasionka_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4208x3120",
+        "targetFilename": "pax/EPRZ.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "EYVI",
+      "country": "Lithuania",
+      "airportName": "VILNIUS/INTERNATIONAL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Vilnius_airport_terminal_building.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Vilnius_airport_terminal_building.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1510x1121",
+        "targetFilename": "hero/EYVI.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Vilnius_International_Airport_Departure_Terminal,_June_2026.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Vilnius_International_Airport_Departure_Terminal,_June_2026.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4032x3024",
+        "targetFilename": "pax/EYVI.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EYKA",
+      "country": "Lithuania",
+      "airportName": "KAUNAS/INTERNATIONAL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kaunas_Airport_Terminal_A.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kaunas_Airport_Terminal_A.JPG",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048x1536",
+        "targetFilename": "hero/EYKA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kaŭna_Flughaveno_(Kauno_oro_uostas)_forfluga_areo_1.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ka%C5%ADna_Flughaveno_(Kauno_oro_uostas)_forfluga_areo_1.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3648x2736",
+        "targetFilename": "pax/EYKA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EYSA",
+      "country": "Lithuania",
+      "airportName": "SIAULIAI/MILITARY/INTERNATIONAL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Airhub_Aviation_hangar_-_SQQ,_Siauliai,_Lithuania.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Airhub_Aviation_hangar_-_SQQ,_Siauliai,_Lithuania.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "5272×3948",
+        "targetFilename": "hero/EYSA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:%C5%A0iauliai_Airport_runway.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/%C5%A0iauliai_Airport_runway.jpg",
+        "license": "GFDL 1.2+ / VRT-confirmed",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1203×800",
+        "targetFilename": "pax/EYSA.jpg"
+      },
+      "notes": "Airport is dual military/international; hero uses a civil aviation hangar photo, PAX fallback is runway because no passenger-terminal image was verified."
+    },
+    {
+      "icao": "EYPA",
+      "country": "Lithuania",
+      "airportName": "PALANGA/INTERNATIONAL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Departure_Area_at_Palanga_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Departure_Area_at_Palanga_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3793x2844",
+        "targetFilename": "hero/EYPA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Check-in_Area_at_Palanga_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Check-in_Area_at_Palanga_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2048x1536",
+        "targetFilename": "pax/EYPA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EVRA",
+      "country": "Latvia",
+      "airportName": "RIGA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:RIX_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/RIX_Airport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "820x615",
+        "targetFilename": "hero/EVRA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:RIX_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/RIX_Airport.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "820x615",
+        "targetFilename": "pax/EVRA.jpg"
+      },
+      "notes": "Hero is below preferred size; same image reused pending better free-license source."
+    },
+    {
+      "icao": "EVLA",
+      "country": "Latvia",
+      "airportName": "LIEPAJA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Lidosta_iela_8_-_Liepajas_Lidosta_-_Liepaja_Airport_-_panoramio.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Lidosta_iela_8_-_Liepajas_Lidosta_-_Liepaja_Airport_-_panoramio.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "6000×3880",
+        "targetFilename": "hero/EVLA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Lidosta_iela_8_-_Liepajas_Lidosta_-_Liepaja_Airport_-_panoramio.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Lidosta_iela_8_-_Liepajas_Lidosta_-_Liepaja_Airport_-_panoramio.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "6000×3880",
+        "targetFilename": "pax/EVLA.jpg"
+      },
+      "notes": "Same exterior/tower airport photo reused; no dedicated passenger-facilities image verified in this pass."
+    },
+    {
+      "icao": "EVVA",
+      "country": "Latvia",
+      "airportName": "VENTSPILS",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Ventspils_Airport_01.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ventspils_Airport_01.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4290×2905",
+        "targetFilename": "hero/EVVA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Ventspils_Airport_01.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ventspils_Airport_01.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4290×2905",
+        "targetFilename": "pax/EVVA.jpg"
+      },
+      "notes": "Same airport image reused until a dedicated passenger-facilities image is found."
+    },
+    {
+      "icao": "EETN",
+      "country": "Estonia",
+      "airportName": "LENNART MERI TALLINN",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tallinn_Airport_passenger_terminal_and_runway.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tallinn_Airport_passenger_terminal_and_runway.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "9375x6250",
+        "targetFilename": "hero/EETN.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Airport_Tallinn.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Airport_Tallinn.JPG",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2304x1728",
+        "targetFilename": "pax/EETN.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EEKE",
+      "country": "Estonia",
+      "airportName": "KURESSAARE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kuressaare_lennujaam-saaremaa-andres_larin.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kuressaare_lennujaam-saaremaa-andres_larin.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4056×3040",
+        "targetFilename": "hero/EEKE.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kuressaare_lennujaam-saaremaa-andres_larin.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kuressaare_lennujaam-saaremaa-andres_larin.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4056×3040",
+        "targetFilename": "pax/EEKE.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "EEPU",
+      "country": "Estonia",
+      "airportName": "PÄRNU",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:P%C3%A4rnu_airport_terminal_20080610.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P%C3%A4rnu_airport_terminal_20080610.jpg",
+        "license": "CC BY 2.5",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1062×379",
+        "targetFilename": "hero/EEPU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:P%C3%A4rnu_airport_terminal_20080610.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P%C3%A4rnu_airport_terminal_20080610.jpg",
+        "license": "CC BY 2.5",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1062×379",
+        "targetFilename": "pax/EEPU.jpg"
+      },
+      "notes": "Only clear reusable terminal photo found in this pass; below preferred hero resolution and same image reused."
+    },
+    {
+      "icao": "EETU",
+      "country": "Estonia",
+      "airportName": "@eans.ee",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:U_S_Army,_Air_Force_and_Allies_Conduct_Rapid_Deployment_Exercise_in_the_Baltics_(9024663).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/U_S_Army,_Air_Force_and_Allies_Conduct_Rapid_Deployment_Exercise_in_the_Baltics_(9024663).jpg",
+        "license": "Public domain (US military)",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "6720×4480",
+        "targetFilename": "hero/EETU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:U_S_Army,_Air_Force_and_Allies_Conduct_Rapid_Deployment_Exercise_in_the_Baltics_(9024663).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/U_S_Army,_Air_Force_and_Allies_Conduct_Rapid_Deployment_Exercise_in_the_Baltics_(9024663).jpg",
+        "license": "Public domain (US military)",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "6720×4480",
+        "targetFilename": "pax/EETU.jpg"
+      },
+      "notes": "Tartu Airport image depicts a military exercise at the airport; same image reused pending a better civilian terminal image."
+    },
+    {
+      "icao": "EFHK",
+      "country": "Finland",
+      "airportName": "Helsinki - Vantaa",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Helsinki-Vantaa_Airport_new_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Helsinki-Vantaa_Airport_new_terminal.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "5712x4284",
+        "targetFilename": "hero/EFHK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_2_at_Helsinki-Vantaa_Airport_in_Vantaa,_Finland,_2024_July.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_2_at_Helsinki-Vantaa_Airport_in_Vantaa,_Finland,_2024_July.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3989x2661",
+        "targetFilename": "pax/EFHK.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EFRO",
+      "country": "Finland",
+      "airportName": ".info@finavia.fi",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Exterior_of_Rovaniemi_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Exterior_of_Rovaniemi_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4032x3024",
+        "targetFilename": "hero/EFRO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:EFRO_terminal_20120209_02.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/EFRO_terminal_20120209_02.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3648x2432",
+        "targetFilename": "pax/EFRO.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EFKT",
+      "country": "Finland",
+      "airportName": "@finavia.fi",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kittilä_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kittil%C3%A4_airport.jpg",
+        "license": "CC BY 2.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": null,
+        "targetFilename": "hero/EFKT.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kittilä.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kittil%C3%A4.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2560x1920",
+        "targetFilename": "pax/EFKT.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EFPO",
+      "country": "Finland",
+      "airportName": "PORI",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Porin_lentoasema.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Porin_lentoasema.JPG",
+        "license": "CC BY-SA 3.0 / GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": null,
+        "targetFilename": "hero/EFPO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Porin_lentoasema.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Porin_lentoasema.JPG",
+        "license": "CC BY-SA 3.0 / GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": null,
+        "targetFilename": "pax/EFPO.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "EFTU",
+      "country": "Finland",
+      "airportName": "TURKU",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Turku_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Turku_airport_terminal.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4940x2315",
+        "targetFilename": "hero/EFTU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Passenger_terminals_at_Turku_airport_001.png",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Passenger_terminals_at_Turku_airport_001.png",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1154x744",
+        "targetFilename": "pax/EFTU.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EFTP",
+      "country": "Finland",
+      "airportName": "TAMPERE-PIRKKALA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tampere_Pirkkala_Airport_Finland_Terminal_1.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tampere_Pirkkala_Airport_Finland_Terminal_1.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2048x1536",
+        "targetFilename": "hero/EFTP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tampere_Pirkkala_Airport_Departures_Finland.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tampere_Pirkkala_Airport_Departures_Finland.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2048x1536",
+        "targetFilename": "pax/EFTP.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ESSA",
+      "country": "Sweden",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ARNterm5.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ARNterm5.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3463×2305",
+        "targetFilename": "hero/ESSA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Stockholm-Arlanda_Airport_Terminal_5_inside.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stockholm-Arlanda_Airport_Terminal_5_inside.JPG",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4608×3456",
+        "targetFilename": "pax/ESSA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ESSB",
+      "country": "Sweden",
+      "airportName": "2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Stockholm_Bromma_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stockholm_Bromma_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3800x2045",
+        "targetFilename": "hero/ESSB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Stockholm_Bromma_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stockholm_Bromma_Airport.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3800x2045",
+        "targetFilename": "pax/ESSB.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "ENGM",
+      "country": "Norway",
+      "airportName": "OSLO/Gardermoen",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:2025-09-28-Flughafen-Oslo-Gardermoen-Terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2025-09-28-Flughafen-Oslo-Gardermoen-Terminal.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4216x3300",
+        "targetFilename": "hero/ENGM.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:2025-09-28-Flughafen-Oslo-Gardermoen-Terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2025-09-28-Flughafen-Oslo-Gardermoen-Terminal.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4216x3300",
+        "targetFilename": "pax/ENGM.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "ENTO",
+      "country": "Norway",
+      "airportName": "SANDEFJORD/Torp",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Sandefjord_Lufthavn_Torp_Norway_2015-05-27.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sandefjord_Lufthavn_Torp_Norway_2015-05-27.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2500x1874",
+        "targetFilename": "hero/ENTO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Sandefjord_Lufthavn_Torp_Norway_2015-05-27.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sandefjord_Lufthavn_Torp_Norway_2015-05-27.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2500x1874",
+        "targetFilename": "pax/ENTO.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "ENBR",
+      "country": "Norway",
+      "airportName": "BERGEN/Flesland",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Entrance_to_Bergen_Airport,_Flesland.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Entrance_to_Bergen_Airport,_Flesland.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "1024x768",
+        "targetFilename": "hero/ENBR.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bergen_Lufthavn,_Flesland_(Bergen_Airport,_BGO)_Terminal_3_avgangshall_departure_hall_NORWAY_2017-11-02_a.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bergen_Lufthavn,_Flesland_(Bergen_Airport,_BGO)_Terminal_3_avgangshall_departure_hall_NORWAY_2017-11-02_a.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4008x3006",
+        "targetFilename": "pax/ENBR.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENVA",
+      "country": "Norway",
+      "airportName": "TRONDHEIM/Værnes",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_A_at_Trondheim_Airport,_Værnes.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_A_at_Trondheim_Airport,_V%C3%A6rnes.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3872x2592",
+        "targetFilename": "hero/ENVA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_B_at_Trondheim_Airport,_Værnes.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_B_at_Trondheim_Airport,_V%C3%A6rnes.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3872x2592",
+        "targetFilename": "pax/ENVA.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENZV",
+      "country": "Norway",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Stavanger_Airport_terminal.JPEG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stavanger_Airport_terminal.JPEG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2830x1890",
+        "targetFilename": "hero/ENZV.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Stavanger_Airport_terminal.JPEG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Stavanger_Airport_terminal.JPEG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2830x1890",
+        "targetFilename": "pax/ENZV.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "ENCN",
+      "country": "Norway",
+      "airportName": "KRISTIANSAND/Kjevik",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:KRISTIANSAND_LUFTHAVN_KJEVIK_INTERNATIONAL_airside_stand_11.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KRISTIANSAND_LUFTHAVN_KJEVIK_INTERNATIONAL_airside_stand_11.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4032x2201",
+        "targetFilename": "hero/ENCN.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:KRS_Airport_Tarmac_and_Terminal_view.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KRS_Airport_Tarmac_and_Terminal_view.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": null,
+        "targetFilename": "pax/ENCN.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENHD",
+      "country": "Norway",
+      "airportName": "HAUGESUND/Karmøy",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Haugesund_Airport_2023.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Haugesund_Airport_2023.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3524×1875",
+        "targetFilename": "hero/ENHD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aeropuerto_Haugesund_01.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aeropuerto_Haugesund_01.jpg",
+        "license": "CC BY-SA 4.0 / GFDL",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "800×533",
+        "targetFilename": "pax/ENHD.jpg"
+      },
+      "notes": "PAX candidate is exterior and below preferred PAX resolution; hero is strong."
+    },
+    {
+      "icao": "ENBG",
+      "country": "Norway",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Fagernes_lufthavn_Leirin_2015.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Fagernes_lufthavn_Leirin_2015.JPG",
+        "license": "CC BY-SA (see source page)",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4608×3456",
+        "targetFilename": "hero/ENBG.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Fagernes_lufthavn_Leirin_2015.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Fagernes_lufthavn_Leirin_2015.JPG",
+        "license": "CC BY-SA (see source page)",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4608×3456",
+        "targetFilename": "pax/ENBG.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "ENAL",
+      "country": "Norway",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Alesund-lufthavn.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alesund-lufthavn.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3872×2176",
+        "targetFilename": "hero/ENAL.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Alesund-lufthavn-facade.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Alesund-lufthavn-facade.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3872×2176",
+        "targetFilename": "pax/ENAL.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENKB",
+      "country": "Norway",
+      "airportName": "KRISTIANSUND/Kvernberget",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:KRISTIANSUND_LUFTHAVN,_KVERNBERGET_Airport_Norway_2024-09-14_Avinor_Terminal_built_2017_etc_IMG_0106.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KRISTIANSUND_LUFTHAVN,_KVERNBERGET_Airport_Norway_2024-09-14_Avinor_Terminal_built_2017_etc_IMG_0106.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "7509x5632",
+        "targetFilename": "hero/ENKB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:KRISTIANSUND_LUFTHAVN,_KVERNBERGET_Airport_Norway_2024-09-14_Avinor_Terminal_built_2017_parking_parkering_etc_IMG_0111.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/KRISTIANSUND_LUFTHAVN,_KVERNBERGET_Airport_Norway_2024-09-14_Avinor_Terminal_built_2017_parking_parkering_etc_IMG_0111.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "7261x5394",
+        "targetFilename": "pax/ENKB.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENBO",
+      "country": "Norway",
+      "airportName": "BODØ",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bodo-lufthavn-terminal-exterior.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bodo-lufthavn-terminal-exterior.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3872x2176",
+        "targetFilename": "hero/ENBO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bodo-lufthavn-flight-timetable.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bodo-lufthavn-flight-timetable.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3118x2176",
+        "targetFilename": "pax/ENBO.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENDU",
+      "country": "Norway",
+      "airportName": "BARDUFOSS",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bardufoss_Airport_(2).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bardufoss_Airport_(2).jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3543x2689",
+        "targetFilename": "hero/ENDU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bardufoss_Lufthavn_Airport_Norway_UTSTILLING_Avinor_teknisk_utstyr_fra_kontrolltårnet_D8_KIKKERT_B6_B4_MIKROFON_(D2_oljebasert_banelys_Gooseneck)_etc_-_2022-05-13_IMG_9525.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bardufoss_Lufthavn_Airport_Norway_UTSTILLING_Avinor_teknisk_utstyr_fra_kontrollt%C3%A5rnet_D8_KIKKERT_B6_B4_MIKROFON_(D2_oljebasert_banelys_Gooseneck)_etc_-_2022-05-13_IMG_9525.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3943x2586",
+        "targetFilename": "pax/ENDU.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "ENTC",
+      "country": "Norway",
+      "airportName": "TROMSØ/Langnes",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tromsø_lufthavn_Langnes.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Troms%C3%B8_lufthavn_Langnes.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "4608x3456",
+        "targetFilename": "hero/ENTC.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tromsö_IMG_3231_Langnes_lufthavn.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Troms%C3%B6_IMG_3231_Langnes_lufthavn.JPG",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3949x2067",
+        "targetFilename": "pax/ENTC.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EKCH",
+      "country": "Denmark",
+      "airportName": "har ingen selvstændig kapacitet til at fjerne",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kastrup_Airport_(11).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kastrup_Airport_(11).jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "3543x2574",
+        "targetFilename": "hero/EKCH.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kastrup_Airport_CPH,_Copenhagen._Interior_of_terminal,_depature_hall._Departure_announcements_and_information_to_passengers.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kastrup_Airport_CPH,_Copenhagen._Interior_of_terminal,_depature_hall._Departure_announcements_and_information_to_passengers.jpg",
+        "license": null,
+        "licenseStatus": "verify_before_use",
+        "dimensions": "2559x3543",
+        "targetFilename": "pax/EKCH.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "EKBI",
+      "country": "Denmark",
+      "airportName": "Billund",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Denmark_billund_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Denmark_billund_airport_terminal.jpg",
+        "license": "CC BY-SA 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "7838x5228",
+        "targetFilename": "hero/EKBI.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Denmark_billund_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Denmark_billund_airport_terminal.jpg",
+        "license": "CC BY-SA 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "7838x5228",
+        "targetFilename": "pax/EKBI.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "EKOD",
+      "country": "Denmark",
+      "airportName": "Odense / Hans Christian Andersen Airport",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Odense_Lufthavn_2008.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Odense_Lufthavn_2008.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3888×2592",
+        "targetFilename": "hero/EKOD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Odense_Lufthavn_2008.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Odense_Lufthavn_2008.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3888×2592",
+        "targetFilename": "pax/EKOD.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "UGTB",
+      "country": "Georgia",
+      "airportName": "TBILISI/TBILISI",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Airoport_of_Tbilisi_gate_102.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Airoport_of_Tbilisi_gate_102.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3720×2872",
+        "targetFilename": "hero/UGTB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tbilisi_Airport,_Soviet-era_terminal_is_nowadays_VIP_lounge.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tbilisi_Airport,_Soviet-era_terminal_is_nowadays_VIP_lounge.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4608×3456",
+        "targetFilename": "pax/UGTB.jpg"
+      },
+      "notes": "PAX image specifically depicts the VIP lounge."
+    },
+    {
+      "icao": "UGSB",
+      "country": "Georgia",
+      "airportName": "BATUMI",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Batumi_Airport_(full_view).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Batumi_Airport_(full_view).jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "5312×2988",
+        "targetFilename": "hero/UGSB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Batumi_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Batumi_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2635×1013",
+        "targetFilename": "pax/UGSB.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UGKO",
+      "country": "Georgia",
+      "airportName": "KUTAISI/KOPITNARI",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kutaisi_airport_queue.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kutaisi_airport_queue.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2304×1538",
+        "targetFilename": "hero/UGKO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kutaisi_airport_interior_information.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kutaisi_airport_interior_information.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2304×1315",
+        "targetFilename": "pax/UGKO.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UDYZ",
+      "country": "Armenia",
+      "airportName": "YEREVAN / Zvartnots",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Zvartnots_New_Terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Zvartnots_New_Terminal.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3648x2736",
+        "targetFilename": "hero/UDYZ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Arrival_Zvartnots.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Arrival_Zvartnots.JPG",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4000x3000",
+        "targetFilename": "pax/UDYZ.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UBBB",
+      "country": "Azerbaijan",
+      "airportName": "HEYDAR ALIYEV INTERNATIONAL AIRPORT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Baku_Heydar_Aliyev_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Baku_Heydar_Aliyev_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2448×3264",
+        "targetFilename": "hero/UBBB.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Heydar_Aliyev_International_Airport._Domestic_terminal_at_night.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Heydar_Aliyev_International_Airport._Domestic_terminal_at_night.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2272×1704",
+        "targetFilename": "pax/UBBB.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UBBQ",
+      "country": "Azerbaijan",
+      "airportName": "GABALA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Qabala_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Qabala_airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1285×533",
+        "targetFilename": "hero/UBBQ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Qabala_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Qabala_airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1285×533",
+        "targetFilename": "pax/UBBQ.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "UBBG",
+      "country": "Azerbaijan",
+      "airportName": "GANJA",
+      "hero": {
+        "sourcePage": "https://nocomment.az/https-nocomment-az-gence-hava-limani-nizami-gencevinin-adini-dasiya-biler-video/",
+        "imageUrl": "https://nocomment.az/public/cloud/2021/02/nocomment_b7c54e7ee63f32f44e5aa8bbba00629d_livcuazr2njkq3t9h1xg.jpg",
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UBBG.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://nocomment.az/https-nocomment-az-gence-hava-limani-nizami-gencevinin-adini-dasiya-biler-video/",
+        "imageUrl": "https://nocomment.az/public/cloud/2021/02/nocomment_b7c54e7ee63f32f44e5aa8bbba00629d_livcuazr2njkq3t9h1xg.jpg",
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UBBG.jpg"
+      },
+      "notes": "Terminal photo found, but commercial reuse rights were not stated. Do not use on production site until permission/license is confirmed."
+    },
+    {
+      "icao": "UTAK",
+      "country": "Turkmenistan",
+      "airportName": "TURKMENBASHI",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:T%C3%BCrkmenba%C5%9Fy_%C5%9F%C3%A4heri%C5%88_halkara_aeroporty_03.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/T%C3%BCrkmenba%C5%9Fy_%C5%9F%C3%A4heri%C5%88_halkara_aeroporty_03.JPG",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3264×2448",
+        "targetFilename": "hero/UTAK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:T%C3%BCrkmenba%C5%9Fy_%C5%9F%C3%A4heri%C5%88_halkara_aeroporty_03.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/T%C3%BCrkmenba%C5%9Fy_%C5%9F%C3%A4heri%C5%88_halkara_aeroporty_03.JPG",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3264×2448",
+        "targetFilename": "pax/UTAK.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "UTAA",
+      "country": "Turkmenistan",
+      "airportName": "ASHGABAT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Ashgabat_-_Main_airport_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ashgabat_-_Main_airport_terminal.jpg",
+        "license": "CC BY 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3549×1970",
+        "targetFilename": "hero/UTAA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Ashgabat_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ashgabat_Airport.JPG",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2048×1536",
+        "targetFilename": "pax/UTAA.jpg"
+      },
+      "notes": "Hero is current main terminal; PAX candidate is an older apron/airport view."
+    },
+    {
+      "icao": "UZTP",
+      "country": "Uzbekistan",
+      "airportName": "TASHKENT-VOSTOCHNY/International",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Uzbekistan_Airways_gangway_in_Tashkent_International_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Uzbekistan_Airways_gangway_in_Tashkent_International_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "800×600",
+        "targetFilename": "hero/UZTP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Uzbekistan_Airways_gangway_in_Tashkent_International_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Uzbekistan_Airways_gangway_in_Tashkent_International_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "800×600",
+        "targetFilename": "pax/UZTP.jpg"
+      },
+      "notes": "Search result is associated with Tashkent/Vostochny but is below preferred dimensions; verify exact location before production."
+    },
+    {
+      "icao": "UZTT",
+      "country": "Uzbekistan",
+      "airportName": "TASHKENT ISLAM KARIMOV/International",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tashkent_IntAirport_202.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tashkent_IntAirport_202.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4032×1552",
+        "targetFilename": "hero/UZTT.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Tashkent_IntAirport_205.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tashkent_IntAirport_205.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1816×3620",
+        "targetFilename": "pax/UZTT.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UZSS",
+      "country": "Uzbekistan",
+      "airportName": "SAMARKAND/INTERNATIONAL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Samarqand_xalqaro_aeroporti.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Samarqand_xalqaro_aeroporti.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "8160×6144",
+        "targetFilename": "hero/UZSS.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Samarkand_Internation_Airport%27s_new_passenger_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Samarkand_Internation_Airport's_new_passenger_terminal.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3548×2534",
+        "targetFilename": "pax/UZSS.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UTDD",
+      "country": "Tajikistan",
+      "airportName": "DUSHANBE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Dushanbe_international_airport_2026.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dushanbe_international_airport_2026.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "6720×4480",
+        "targetFilename": "hero/UTDD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Dushanbe_Airport.jpeg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Dushanbe_Airport.jpeg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1400×938",
+        "targetFilename": "pax/UTDD.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UCFM",
+      "country": "Kyrgystan",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bishkek_03-2016_img51_Manas_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bishkek_03-2016_img51_Manas_Airport.jpg",
+        "license": "Free Art License",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4678×2632",
+        "targetFilename": "hero/UCFM.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Bishkek_03-2016_img51_Manas_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Bishkek_03-2016_img51_Manas_Airport.jpg",
+        "license": "Free Art License",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4678×2632",
+        "targetFilename": "pax/UCFM.jpg"
+      },
+      "notes": "Same terminal-side image reused."
+    },
+    {
+      "icao": "UCFK",
+      "country": "Kyrgystan",
+      "airportName": "KARAKOL",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Karakol_international_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Karakol_international_airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "554×300",
+        "targetFilename": "hero/UCFK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Karakol_international_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Karakol_international_airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "554×300",
+        "targetFilename": "pax/UCFK.jpg"
+      },
+      "notes": "Image is below preferred resolution; same image reused."
+    },
+    {
+      "icao": "UCFL",
+      "country": "Kyrgystan",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://www.planespotters.net/photo/1811227/tamchy-issyk-kul-international-terminal",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UCFL.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://www.azattyk.org/a/kyrgyzstan_ysyk_kol_tourism_lake/24257131.html",
+        "imageUrl": "https://gdb.rferl.org/7D6E341C-4024-4234-8B15-A5173F8A50CC_mw800.jpg",
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UCFL.jpg"
+      },
+      "notes": "Good terminal candidates found, but neither source states a reusable commercial license in the search result."
+    },
+    {
+      "icao": "UCFO",
+      "country": "Kyrgystan",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Osh_03-2016_img01_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Osh_03-2016_img01_airport.jpg",
+        "license": "Free Art License",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4000×2666",
+        "targetFilename": "hero/UCFO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Osh_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Osh_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1891×1094",
+        "targetFilename": "pax/UCFO.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UAAA",
+      "country": "Kazakhstan",
+      "airportName": "ALMATY",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_2_Almaty_International_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_2_Almaty_International_Airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1632×920",
+        "targetFilename": "hero/UAAA.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Almaty-Airport_business_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Almaty-Airport_business_terminal.jpg",
+        "license": "GFDL / CC BY-SA 2.5 and older",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1200×800",
+        "targetFilename": "pax/UAAA.jpg"
+      },
+      "notes": "PAX candidate is specifically the business terminal."
+    },
+    {
+      "icao": "UATT",
+      "country": "Kazakhstan",
+      "airportName": "AKTOBE",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aktobe_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aktobe_Airport.jpg",
+        "license": "CC BY 2.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2272×1704",
+        "targetFilename": "hero/UATT.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aktobe_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aktobe_Airport.jpg",
+        "license": "CC BY 2.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2272×1704",
+        "targetFilename": "pax/UATT.jpg"
+      },
+      "notes": "Same terminal image reused."
+    },
+    {
+      "icao": "UAII",
+      "country": "Kazakhstan",
+      "airportName": "SHYMKENT",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Shymkent_airport_new_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shymkent_airport_new_terminal.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1836×1141",
+        "targetFilename": "hero/UAII.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Shymkent_airport_new_terminal.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Shymkent_airport_new_terminal.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1836×1141",
+        "targetFilename": "pax/UAII.jpg"
+      },
+      "notes": "Same new-terminal image reused."
+    },
+    {
+      "icao": "UADD",
+      "country": "Kazakhstan",
+      "airportName": "TARAZ",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:TarazAeroport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/TarazAeroport.jpg",
+        "license": "CC0 1.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048×1154",
+        "targetFilename": "hero/UADD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:TarazAeroport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/TarazAeroport.jpg",
+        "license": "CC0 1.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048×1154",
+        "targetFilename": "pax/UADD.jpg"
+      },
+      "notes": "Same airport entrance image reused."
+    },
+    {
+      "icao": "UAKD",
+      "country": "Kazakhstan",
+      "airportName": "ZHEZKAZGAN",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Expedition_73_Landing_Preparations_(NHQ202512090012).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Expedition_73_Landing_Preparations_(NHQ202512090012).jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "7543×5383",
+        "targetFilename": "hero/UAKD.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Expedition_54_Soyuz_MS-06_Landing_(NHQ201802280028).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Expedition_54_Soyuz_MS-06_Landing_(NHQ201802280028).jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4153×2966",
+        "targetFilename": "pax/UAKD.jpg"
+      },
+      "notes": "Both are airport-operation/welcome scenes rather than clean terminal photos; manual replacement recommended."
+    },
+    {
+      "icao": "UATG",
+      "country": "Kazakhstan",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Atyrau_Airport.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Atyrau_Airport.JPG",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2148×1611",
+        "targetFilename": "hero/UATG.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Atma_Atyrau_Airport_Terminal_Building.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Atma_Atyrau_Airport_Terminal_Building.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1218×595",
+        "targetFilename": "pax/UATG.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UAKK",
+      "country": "Kazakhstan",
+      "airportName": "KARAGANDA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Expedition_73_Landing_Preparations_(NHQ202512060001).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Expedition_73_Landing_Preparations_(NHQ202512060001).jpg",
+        "license": "See source page / NASA-origin image",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "See source page",
+        "targetFilename": "hero/UAKK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Soyuz_TMA-07M_welcome_ceremony_at_the_Karaganda_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Soyuz_TMA-07M_welcome_ceremony_at_the_Karaganda_Airport.jpg",
+        "license": "See source page / NASA-origin image",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "3794×2459",
+        "targetFilename": "pax/UAKK.jpg"
+      },
+      "notes": "Airport-operation/welcome imagery; cleaner terminal architecture image not verified."
+    },
+    {
+      "icao": "UACK",
+      "country": "Kazakhstan",
+      "airportName": "KOKSHETAU",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Kokshetau_airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Kokshetau_airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "700×464",
+        "targetFilename": "hero/UACK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Terminal_building_interior_-_Departure_lounge_(Kokshetau_International_Airport;_2015).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Terminal_building_interior_-_Departure_lounge_(Kokshetau_International_Airport",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1024×683",
+        "targetFilename": "pax/UACK.jpg"
+      },
+      "notes": "Both candidates are below the preferred generator dimensions."
+    },
+    {
+      "icao": "UAUU",
+      "country": "Kazakhstan",
+      "airportName": "KOSTANAY",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Russian_Search_and_Rescue_helicopter_teams_wait_to_take_off_from_Kustanay,_Kazakhstan_to_support_the_Soyuz_TMA-13M_spacecraft_landing_with_Expedition_41.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Russian_Search_and_Rescue_helicopter_teams_wait_to_take_off_from_Kustanay,_Kazakhstan_to_support_the_Soyuz_TMA-13M_spacecraft_landing_with_Expedition_41.jpg",
+        "license": "See source page / NASA-origin image",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4688×3120",
+        "targetFilename": "hero/UAUU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Soyuz_TMA-06M_crew_members_sit_together_at_the_Kustanay_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Soyuz_TMA-06M_crew_members_sit_together_at_the_Kustanay_Airport.jpg",
+        "license": "See source page / NASA-origin image",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "4106×2540",
+        "targetFilename": "pax/UAUU.jpg"
+      },
+      "notes": "Commons has airport-operation images but no clean terminal photo in the category; web terminal candidates exist with unclear rights."
+    },
+    {
+      "icao": "UAOO",
+      "country": "Kazakhstan",
+      "airportName": "KYZYLORDA",
+      "hero": {
+        "sourcePage": "https://dknews.kz/en/articles-in-english/344119-a-new-terminal-of-the-korkyt-ata-airport-has-been",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UAOO.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://tirshilik-tynysy.kz/kogam/33030-yzylorda-alasynda-zhaa-uezhay-terminaly-ashyldy.html",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UAOO.jpg"
+      },
+      "notes": "Excellent 2024 new-terminal exterior/interior photos, but reuse license was not stated."
+    },
+    {
+      "icao": "UACC",
+      "country": "Kazakhstan",
+      "airportName": "ASTANA",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ASTANA_AIRPORT,KAZAKHSTAN_-_panoramio.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ASTANA_AIRPORT,KAZAKHSTAN_-_panoramio.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2856×2142",
+        "targetFilename": "hero/UACC.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:ASTANA_AIRPORT,KAZAKHSTAN_-_panoramio.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/ASTANA_AIRPORT,KAZAKHSTAN_-_panoramio.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2856×2142",
+        "targetFilename": "pax/UACC.jpg"
+      },
+      "notes": "Same image reused."
+    },
+    {
+      "icao": "UACP",
+      "country": "Kazakhstan",
+      "airportName": "PETROPAVLOVSK",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Petropavl_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Petropavl_Airport.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": null,
+        "targetFilename": "hero/UACP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://primeminister.kz/en/news/reviews/five-year-results-of-nurly-zhol-program-construction-of-toll-roads-creation-of-new-jobs-and-freight-traffic-growth",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UACP.jpg"
+      },
+      "notes": "Commons file name was surfaced in Commons results; government site provides a clear terminal exterior, but license must be confirmed."
+    },
+    {
+      "icao": "UASS",
+      "country": "Kazakhstan",
+      "airportName": "SEMEY",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Airport_Semey.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Airport_Semey.JPG",
+        "license": "CC BY-SA 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4608×2592",
+        "targetFilename": "hero/UASS.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Airport_Semey.JPG",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Airport_Semey.JPG",
+        "license": "CC BY-SA 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4608×2592",
+        "targetFilename": "pax/UASS.jpg"
+      },
+      "notes": "Same airport image reused."
+    },
+    {
+      "icao": "UASP",
+      "country": "Kazakhstan",
+      "airportName": "PAVLODAR",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Flughafen_pawlodar.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flughafen_pawlodar.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1024×768",
+        "targetFilename": "hero/UASP.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Flughafen_pawlodar.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flughafen_pawlodar.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "1024×768",
+        "targetFilename": "pax/UASP.jpg"
+      },
+      "notes": "Only one Commons airport image found; below preferred hero resolution and reused."
+    },
+    {
+      "icao": "UATE",
+      "country": "Kazakhstan",
+      "airportName": "AKTAU",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aktauair.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aktauair.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "1600×1000",
+        "targetFilename": "hero/UATE.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Aktau_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Aktau_Airport.jpg",
+        "license": "Public domain",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "2048×1536",
+        "targetFilename": "pax/UATE.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UASZ",
+      "country": "Kazakhstan",
+      "airportName": "ZAISAN",
+      "hero": {
+        "sourcePage": "https://ru.sputnik.kz/20260413/chetyre-novykh-aeroporta-postroyat-v-kazakhstane-do-2028-goda---pravitelstvo-62628267.html",
+        "imageUrl": null,
+        "license": "Rights unclear / architectural rendering",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UASZ.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://app.visiteast.kz/en/vazhno-znat/novosti/novyij-aeroport-zajsana-gotov-na-93%2C7-zavershit-stroitelstvo-planiruyut-do-koncza-2026-goda.html",
+        "imageUrl": null,
+        "license": "Rights unclear / construction-stage imagery",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UASZ.jpg"
+      },
+      "notes": "No suitable reusable current terminal photograph verified. The found hero is a rendering of the new Zaysan airport; replacement with an actual licensed photo is recommended after opening."
+    },
+    {
+      "icao": "UAAT",
+      "country": "Kazakhstan",
+      "airportName": null,
+      "hero": {
+        "sourcePage": "https://qazir.kz/article/Taldyqorgan_qalasy",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UAAT.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://zbordirect.com/en/airports/kazakhstan",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UAAT.jpg"
+      },
+      "notes": "Clear Taldykorgan terminal photos found, but commercial reuse rights are not stated."
+    },
+    {
+      "icao": "UASK",
+      "country": "Kazakhstan",
+      "airportName": "UST-KAMENOGORSK",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Ust%27-Kamenogorsk_070000,_Kazakhstan_-_panoramio_(6).jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Ust'-Kamenogorsk_070000,_Kazakhstan_-_panoramio_(6).jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4272×2848",
+        "targetFilename": "hero/UASK.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Flughaveno_Ust-Kamenogorsko_-_kafejo.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Flughaveno_Ust-Kamenogorsko_-_kafejo.jpg",
+        "license": "See source page",
+        "licenseStatus": "verify_license_on_source_page",
+        "dimensions": "2592×4608",
+        "targetFilename": "pax/UASK.jpg"
+      },
+      "notes": "Hero is verified CC BY 3.0; PAX candidate appears in the Commons airport category and depicts a café/interior."
+    },
+    {
+      "icao": "UARR",
+      "country": "Kazakhstan",
+      "airportName": "URALSK",
+      "hero": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:Uralsk_Airport.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Uralsk_Airport.jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "4080×3060",
+        "targetFilename": "hero/UARR.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://commons.wikimedia.org/wiki/File:%D0%90%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82_%D0%A3%D1%80%D0%B0%D0%BB%D1%8C%D1%81%D0%BA%D0%B0_-_panoramio.jpg",
+        "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/%D0%90%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82_%D0%A3%D1%80%D0%B0%D0%BB%D1%8C%D1%81%D0%BA%D0%B0_-_panoramio.jpg",
+        "license": "CC BY 3.0",
+        "licenseStatus": "reusable_subject_to_stated_license",
+        "dimensions": "3056×1444",
+        "targetFilename": "pax/UARR.jpg"
+      },
+      "notes": null
+    },
+    {
+      "icao": "UAAL",
+      "country": "Kazakhstan",
+      "airportName": "USHARAL",
+      "hero": {
+        "sourcePage": "https://kuda-pereehat.com/asia/kazaxstan/usharal/",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UAAL.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://www.zhetysuavia.kz/en/airports/usharal",
+        "imageUrl": null,
+        "license": "Official airport site; rights not explicitly stated",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UAAL.jpg"
+      },
+      "notes": "A clear terminal exterior photo was found on a third-party site. Official airport page can be used to source/confirm an image, but request/verify reuse rights."
+    },
+    {
+      "icao": "UASU",
+      "country": "Kazakhstan",
+      "airportName": "URDZHAR",
+      "hero": {
+        "sourcePage": "https://yvision.kz/post/ne-putevoditel-po-urdzharu-535495",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "hero/UASU.jpg"
+      },
+      "pax": {
+        "sourcePage": "https://aikyn.kz/253196/urzhar--uezhayynyn--u-shu-k-onu-zholag-yn-zhan-artty",
+        "imageUrl": null,
+        "license": "Rights unclear / permission required",
+        "licenseStatus": "permission_required",
+        "dimensions": null,
+        "targetFilename": "pax/UASU.jpg"
+      },
+      "notes": "Clear airport terminal photographs found, but commercial reuse rights are not stated."
+    }
+  ]
+}

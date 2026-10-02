@@ -8,7 +8,8 @@
 // There is no per-sender parser and no template: the two samples are examples, not formats.
 import { converseOnce } from "../bedrock.mjs";
 import { EXTRACTION_SCHEMA, UNKNOWN_WORDS, validateExtraction } from "./schema.mjs";
-import { airport, aircraftByRegistration, checklistDefinitions, localToUtc, offsetMinutes } from "./leon-lookup.mjs";
+import { airport, aircraftByRegistration, checklistDefinitions, localToUtcChecked, offsetMinutes } from "./leon-lookup.mjs";
+import { tzVersion } from "../tzdata.mjs";
 
 export const LOW_CONFIDENCE = 0.7;
 const TEXT_LIMIT = 60_000;
@@ -38,7 +39,7 @@ Rules, all mandatory:
 1. Copy, never invent. Every field has "said": the source's own words, verbatim. If the source does not mention something, state "not_given", value null, said null.
 2. "TBA", "TBC", "-----", "to be advised", "?" etc. mean UNKNOWN: state "unknown", value null, said = the words. Unknown is never 0 and never empty.
 3. An explicit zero ("PAX 0", "0 pax", "nil") is state "zero", value 0.
-4. Times: copy the clock reading into utcTime ONLY if the source marks it UTC/Z/GMT, itself or through a heading that covers it (e.g. "Schedule (all UTC times)"). Copy into localTime if it is marked local (LT/local) or has no zone at all. Put the exact zone words in zoneWords ("Z", "LT", "Schedule (all UTC times)"), or null when nothing states a zone. Do NOT convert between zones. date is YYYY-MM-DD for that time.
+4. Times: copy the clock reading into utcTime ONLY if the source marks it UTC/Z/GMT, itself or through a heading that covers it (e.g. "Schedule (all UTC times)"). Copy into localTime if it is marked local (LT/local) or has no zone at all. Put the exact zone words in zoneWords ("Z", "LT", "Schedule (all UTC times)"), or null when nothing states a zone. Do NOT convert between zones. If the source gives a time in UTC anywhere (even beside a local time), utcTime MUST carry it: a UTC time is used as it is, a local time has to be converted and is the last resort. date is YYYY-MM-DD for that time.
 5. Airports: value is the code exactly as given (ICAO or IATA). If both are given ("EYVI VNO"), put the ICAO in value and both in said.
 6. Aircraft type: if an ICAO designator is given, value = it; else the name as written.
 7. Registration: as written (e.g. "YU-LSA"). A callsign or flight number goes in flightNumber (e.g. "AMQ5V", "YULSA").
@@ -139,7 +140,11 @@ function timeField(f, apt, label) {
   if (u) {
     const utc = `${date}T${u}:00Z`; f.value = { ...v, utc };
     if (l && tz) {
-      const off = offsetMinutes(tz, utc); const expect = new Date(Date.parse(utc) + off * 60000).toISOString().slice(11, 16);
+      // The source gave UTC: that is the value. The local reading is only cross-checked, and only when this
+      // server's tz data is trusted; otherwise UTC stands and the note says the check was not made.
+      const off = offsetMinutes(tz, utc);
+      if (off == null) { f.note = `UTC as given. The local time beside it was not cross-checked: this server's time-zone data (${tzVersion()}) is out of date.`; lowConf(f); return f; }
+      const expect = new Date(Date.parse(utc) + off * 60000).toISOString().slice(11, 16);
       if (expect === l) { if (f.state !== "conflict") { f.state = "cross_checked"; f.note = `UTC and local agree (${city}, ${fmtOff(off)})`; } }
       else { f.state = "conflict"; f.note = `UTC ${u} and local ${l} do not agree for ${city} (${fmtOff(off)} there on that date).`; }
     } else if (f.state === "extracted" && /all\s+utc|utc\s+times/i.test(String(v.zoneWords ?? ""))) { f.note = `UTC, from "${v.zoneWords}"`; }
@@ -148,8 +153,12 @@ function timeField(f, apt, label) {
   }
   if (l && /\b(LT|local)\b/i.test(String(v.zoneWords ?? ""))) {
     if (!tz) { f.state = "tz_unknown"; f.value = { ...v, utc: null }; f.note = `Local time, but the time zone of ${city} is not known.`; return f; }
-    const utc = localToUtc(date, l, tz); const off = offsetMinutes(tz, utc);
-    f.value = { ...v, utc }; if (f.state !== "conflict") { f.state = "converted"; f.note = `${city} local, ${fmtOff(off)} → UTC`; }
+    // Last resort: the source gave only a local time. Converted by code, marked as converted, with the tz data
+    // it was done with; refused (and blocking) when the answer is not certain.
+    const c = localToUtcChecked(date, l, tz, city);
+    if (!c.utc) { f.state = "invalid"; f.value = { ...v, utc: null }; f.note = c.note; return f; }
+    const off = offsetMinutes(tz, c.utc);
+    f.value = { ...v, utc: c.utc }; if (f.state !== "conflict") { f.state = "converted"; f.note = `${city} local, ${fmtOff(off)} → UTC · converted by code (tz data ${tzVersion()})`; }
     lowConf(f);
     return f;
   }

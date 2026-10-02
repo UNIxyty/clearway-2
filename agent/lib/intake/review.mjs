@@ -6,7 +6,8 @@
 //   value is the DISPLAY value the input holds: codes, "HH:MM" (UTC) for times, "DD Mon YYYY" for the date.
 //   utc (times) is the ISO instant the value means. States follow the design table (§I6.2).
 import { buildFlightCreate } from "./leon-payload.mjs";
-import { localToUtc, offsetMinutes } from "./leon-lookup.mjs";
+import { localToUtc, localToUtcChecked, offsetMinutes } from "./leon-lookup.mjs";
+import { tzVersion } from "../tzdata.mjs";
 import { BLOCKING } from "./schema.mjs";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -31,7 +32,9 @@ const SENT = new Set(["flightNumber", "departure", "arrival", "date", "std", "st
 function fieldFrom(src, key, label, kind, required) {
   const f = src ?? { value: null, said: null, source: null, confidence: null, state: "not_given" };
   let value = f.value;
-  if (kind === "time") value = f.value?.utc ? fmtTime(f.value.utc) : (f.value?.localTime ?? f.value?.utcTime ?? "");
+  // A local time the code refused to convert (stale tz data, or a time that happens twice or never) shows an
+  // EMPTY UTC value: the person types the UTC time; the local reading stays visible under "the source said".
+  if (kind === "time") value = f.value?.utc ? fmtTime(f.value.utc) : f.state === "invalid" ? "" : (f.value?.localTime ?? f.value?.utcTime ?? "");
   const out = { key, label, kind, value: value == null ? "" : String(value), said: f.said ?? null, source: f.source ?? null, state: f.state ?? "extracted", note: f.note ?? null, confidence: f.confidence ?? null, required, sent: SENT.has(key) };
   if (kind === "time") { out.utc = f.value?.utc ?? null; out.date = f.value?.date ?? null; out.localTime = f.value?.localTime ?? null; out.zoneWords = f.value?.zoneWords ?? null; }
   if (f.airport) out.airport = f.airport;
@@ -115,13 +118,14 @@ export function applyTzChoice(leg, choice, who) {
     const t = f[k]; const clock = t.localTime ?? t.value; if (!clock || !day) continue;
     const apt = (k === "std" ? f.departure : f.arrival)?.airport;
     const d = k === "sta" && t.date ? t.date : day;
-    const utc = choice === "utc" ? `${d}T${clock}:00Z` : apt?.tz ? localToUtc(d, clock, apt.tz) : null;
-    if (!utc) continue;
+    const conv = choice === "utc" ? { utc: `${d}T${clock}:00Z`, note: null } : apt?.tz ? localToUtcChecked(d, clock, apt.tz, apt.city ?? apt.icao) : { utc: null, note: null };
+    const utc = conv.utc;
+    if (!utc) { if (conv.note) t.note = conv.note; continue; }   // not converted: the field stays blocking, with the reason
     t.edited = { was: `${clock} (${t.state === "tz_unknown" ? "timezone unknown" : t.state})`, by: who.name, at: who.at };
     t.state = "edited"; t.utc = utc; t.value = fmtTime(utc);
-    t.note = choice === "utc" ? "Set as UTC by a person" : `Set as local time (${apt?.city ?? apt?.icao}, UTC${offsetMinutes(apt.tz, utc) >= 0 ? "+" : "−"}${Math.abs(offsetMinutes(apt.tz, utc) / 60)}) by a person`;
+    t.note = choice === "utc" ? "Set as UTC by a person" : `Set as local time (${apt?.city ?? apt?.icao}, UTC${offsetMinutes(apt.tz, utc) >= 0 ? "+" : "−"}${Math.abs(offsetMinutes(apt.tz, utc) / 60)}) by a person · converted by code (tz data ${tzVersion()})`;
   }
-  leg.tzChoice = { choice, by: who.name, at: who.at };
+  if (["std", "sta"].some((k) => f[k]?.state === "edited" && f[k]?.edited?.at === who.at)) leg.tzChoice = { choice, by: who.name, at: who.at };
 }
 
 /** Options for the timezone block: the UTC reading and the local reading of each time, with departs-in. */

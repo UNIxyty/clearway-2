@@ -78,7 +78,7 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
   return j as T;
 }
 export const intakeApi = {
-  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; note: string } }; queue: number }>("/api/intake/overview"),
+  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),

@@ -29,6 +29,32 @@ Server code: `agent/lib/intake/*`. Schema: `docs/supabase-agent-intake.sql` (run
   put outside `personal`.
 - `leon-payload.mjs` builds `FlightCreate` from the REVIEWED values. It refuses on any blocking state.
 
+## Time zones
+
+Where the source gives UTC, that is the value: it is never converted, and a local time beside it is only
+cross-checked. A local-only time is the last resort: code converts it (`agent/lib/tzdata.mjs`), the field is marked
+CONVERTED and its note names the tz data used. The model never converts.
+
+Node resolves zones with the tz data bundled in its ICU, which is frozen at the Node release, while countries change
+rules with weeks of notice (2026: Morocco to UTC+0 in September; British Columbia and Alberta stop changing clocks in
+November). Stale data means a flight loaded one hour wrong with nothing looking wrong. So:
+
+- **The image runs on current data.** `agent/Dockerfile` installs `tzdata-icu` at every build and sets
+  `ICU_TIMEZONE_FILES_DIR`; the build runs `rig/intake/test-timezones.mjs` and fails if the runtime is too old.
+- **The runtime proves itself before converting.** On start (`startTzWatch`) and before the first conversion: tz
+  version ≥ `TZ_MINIMUM`, and the `TRICKY` conversions come out right. If not, the log says so in capitals, the intake
+  page shows a red "Time zones" pill, `/api/health` reports `tzdata.ok: false`, and **nothing is converted**: local-only
+  times become a blocking field with an empty UTC value for a person to type.
+- **A local time that happens twice or never** (the night the clocks change) is refused the same way, naming the two
+  UTC readings.
+- **Once a day** the agent reads IANA's current release name; a newer one than the runtime's is a warning (log line and
+  an amber pill). It does not block. The fix is a rebuild: `docker compose up -d --build agent-service`.
+- **When IANA changes rules:** raise `TZ_MINIMUM`, add a `TRICKY` case for the change, rebuild.
+- Check the server: `docker exec agent-service node -p process.versions.tz`.
+- Audit of what was already sent: `python3 scripts/intake-tz-audit.py .env` (read only; recomputes every local-derived
+  time in the send log with the machine's own tz database).
+- Rig: `rig/tzdata.sh` fetches the same data for the local Node; `rig/start.sh` points the agent at it.
+
 ## Attachments
 
 Classified by content, never by name: `request` (it is the request), `supporting` (GenDec, crew/pax list, permit, form),

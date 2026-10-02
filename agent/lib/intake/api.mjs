@@ -1,6 +1,7 @@
 // HTTP routes for the Flight intake page and the Agent mailbox. Wired from server.mjs after authentication:
 // every route here runs as the signed-in user, and the mailbox routes additionally require mailbox access.
 // Responses never carry personal data except the two reveal endpoints, which are audited.
+import { tzStatus } from "../tzdata.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
@@ -47,6 +48,13 @@ function stageText(r, s) {
   return r.status_reason ?? "";
 }
 
+/** Time-zone data: trusted or not, and whether IANA has published something newer. Shown as a pill on the page. */
+function tzHealth() {
+  const t = tzStatus();
+  return { ok: t.ok, version: t.version, minimum: t.minimum, latest: t.latest, behind: t.behind,
+    note: !t.ok ? `Local times are NOT converted: ${t.failures[0]}${t.failures.length > 1 ? ` (and ${t.failures.length - 1} more)` : ""}. Rebuild the agent image.`
+      : t.behind ? `IANA has published ${t.latest}; this server runs ${t.version}. Rebuild the agent image to pick it up.` : `tz data ${t.version}; check conversions correct.` };
+}
 async function health() {
   const last = (await rest("intake_messages?select=received_at&direction=eq.inbound&order=received_at.desc&limit=1").catch(() => []))?.[0]?.received_at ?? null;
   const lastLeon = (await rest("intake_leon_writes?select=state,updated_at&order=updated_at.desc&limit=1").catch(() => []))?.[0] ?? null;
@@ -54,6 +62,7 @@ async function health() {
     mailbox: { ok: Boolean(process.env.RESEND_WEBHOOK_SECRET), lastAt: last, note: process.env.RESEND_WEBHOOK_SECRET ? null : "No Resend webhook secret is set on the server, so nothing can arrive." },
     leon: { ok: leonConfigured(), lastWrite: lastLeon },
     portals: { built: false, note: "Provider-portal collection is not built. Scheduled flights (type 1) are not collected." },
+    timezones: tzHealth(),
   };
 }
 

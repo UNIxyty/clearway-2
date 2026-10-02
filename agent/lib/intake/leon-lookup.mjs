@@ -27,29 +27,8 @@ export async function airport(code) {
   });
 }
 
-/** Offset in minutes of an IANA zone at an instant (DST-correct), using the platform's tz database. */
-export function offsetMinutes(tz, atIso) {
-  if (!tz) return null;
-  const d = new Date(atIso);
-  if (Number.isNaN(d.getTime())) return null;
-  try {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(d).map((p) => [p.type, p.value]));
-    const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
-    return Math.round((asUtc - Math.floor(d.getTime() / 1000) * 1000) / 60000);
-  } catch { return null; }
-}
-
-/** Local wall-clock (date YYYY-MM-DD + HH:MM) in a zone → UTC ISO, trying the offset at that instant. */
-export function localToUtc(dateYmd, hhmm, tz) {
-  const guess = Date.parse(`${dateYmd}T${hhmm}:00Z`);
-  if (!Number.isFinite(guess)) return null;
-  let off = offsetMinutes(tz, new Date(guess).toISOString());
-  if (off == null) return null;
-  let utc = guess - off * 60000;
-  const off2 = offsetMinutes(tz, new Date(utc).toISOString());
-  if (off2 != null && off2 !== off) utc = guess - off2 * 60000;
-  return new Date(utc).toISOString().replace(/\.000Z$/, "Z");
-}
+// Offsets and local → UTC live in ../tzdata.mjs: guarded by the tz-data self-test, and refusing ambiguous times.
+export { offsetMinutes, localToUtc, localToUtcChecked } from "../tzdata.mjs";
 
 /** Operator aircraft by registration: { nid, registration, type } or null. */
 export async function aircraftByRegistration(reg) {

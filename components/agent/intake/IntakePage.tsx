@@ -224,6 +224,7 @@ function Health({ overview, failed }: { overview: Overview | null; failed: boole
       {pill("mail", "Intake mailbox", h.mailbox.ok ? "ok" : "down", h.mailbox.ok ? "Reachable" : `Not responding${h.mailbox.lastAt ? ` since ${hmZ(h.mailbox.lastAt)}` : ""}`, h.mailbox.note ?? undefined)}
       {pill("leon", "Leon API", h.leon.ok ? "ok" : "down", h.leon.ok ? "Reachable" : "Not responding")}
       {pill("portals", "Provider portals", "neutral", "not built", h.portals.note || "Provider-portal collection is not built.")}
+      {h.timezones && (!h.timezones.ok || h.timezones.behind) && pill("timezones", "Time zones", h.timezones.ok ? "neutral" : "down", h.timezones.ok ? `${h.timezones.version} · newer data published` : "Out of date · local times not converted", h.timezones.note)}
     </div>
   );
 }

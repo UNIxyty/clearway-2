@@ -13,12 +13,28 @@
 # Bumping one without the other breaks PDF generation and nothing else.
 FROM mcr.microsoft.com/playwright:v1.59.1-noble
 
+# CURRENT TIME-ZONE DATA. Node converts local times with the tz data bundled in its ICU, which is frozen at the
+# Node release (this base image: 2025c) while countries change their rules with weeks of notice. Intake turns
+# local times into UTC for Leon, so stale data means a flight loaded an hour wrong with nothing looking wrong.
+# tzdata-icu is Ubuntu's ICU build of the IANA database, updated in noble-updates; ICU_TIMEZONE_FILES_DIR makes
+# Node's ICU read it instead of its own copy. Installed at every build, so a rebuild picks up the latest release.
+# The build then PROVES it: the test fails the build if the runtime is older than agent/lib/tzdata.mjs requires.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tzdata tzdata-icu \
+ && rm -rf /var/lib/apt/lists/*
+ENV ICU_TIMEZONE_FILES_DIR=/usr/share/zoneinfo-icu/44/le
+
 WORKDIR /app
 
 COPY agent/package*.json ./
 RUN npm install --omit=dev
 
 COPY agent/ ./
+
+# Fail the build, not a flight: stale or broken tz data stops here.
+COPY rig/intake/test-timezones.mjs /tmp/tzcheck/rig/intake/test-timezones.mjs
+RUN mkdir -p /tmp/tzcheck/agent/lib && cp /app/lib/tzdata.mjs /tmp/tzcheck/agent/lib/tzdata.mjs \
+ && node /tmp/tzcheck/rig/intake/test-timezones.mjs && rm -rf /tmp/tzcheck
 
 # The platform's single Resend client, not a copy of one. Kept at the path the
 # agent imports it from (../../digital-wall/lib/mailer.mjs) so the module reads

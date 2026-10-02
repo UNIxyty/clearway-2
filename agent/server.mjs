@@ -20,6 +20,7 @@ import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resen
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { recoverOnStart as recoverIntakeSends } from "./lib/intake/send.mjs";
 import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
+import { startTzWatch, tzStatus } from "./lib/tzdata.mjs";
 import { sweep as sweepIntakeRetention } from "./lib/intake/retention.mjs";
 import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
 assertRigSafe("agent");
@@ -257,6 +258,7 @@ async function handleRequest(req, res) {
         store: storeConfigured() ? "configured" : "misconfigured",
         region: models.region,
         activeTier: models.activeTier,
+        tzdata: (() => { const t = tzStatus(); return { version: t.version, minimum: t.minimum, ok: t.ok, latest: t.latest }; })(),
       });
     }
 
@@ -1604,6 +1606,7 @@ sweepGeneratedFiles().catch(() => {});
 // still waiting are read again, and retention runs daily.
 if (storeConfigured()) {
   recoverIntakeSends().then((n) => { if (n) process.stderr.write(`[intake] ${n} Leon send(s) interrupted by a restart are now UNKNOWN — a person must check Leon.\n`); }).catch(() => {});
+  startTzWatch();   // before anything is read: stale tz data must be said out loud, and blocks local → UTC conversion
   resumeIntakeQueue().catch(() => {});
   const runSweep = () => sweepIntakeRetention().then((r) => { if (r.messages) process.stderr.write(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged\n`); }).catch((e) => process.stderr.write(`[intake] retention sweep failed: ${e.message}\n`));
   setTimeout(runSweep, 60_000).unref(); setInterval(runSweep, 24 * 60 * 60 * 1000).unref();

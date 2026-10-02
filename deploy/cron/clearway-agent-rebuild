@@ -1,0 +1,9 @@
+# Monthly full rebuild of agent-service, so its time-zone data cannot quietly go stale between deploys
+# (agent/Dockerfile fetches the newest IANA release at build; a cached build does not refresh it).
+# It rebuilds what is ALREADY deployed: no git pull, and it refuses if the checkout is not on main or has moved
+# since the last deploy (scripts/deploy.sh --no-pull). 03:30 server time on the 1st.
+# Install:  install -m 644 deploy/cron/clearway-agent-rebuild /etc/cron.d/clearway-agent-rebuild
+# Log:      /var/log/clearway-agent-rebuild.log
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 3 1 * * root cd /root/clearway-2 && scripts/deploy.sh --no-pull --no-cache agent-service >> /var/log/clearway-agent-rebuild.log 2>&1

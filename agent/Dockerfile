@@ -13,6 +13,11 @@
 # Bumping one without the other breaks PDF generation and nothing else.
 FROM mcr.microsoft.com/playwright:v1.59.1-noble
 
+# BRANCH GUARD: refuses to build unless the checkout is on main (scripts/branch-guard.sh says why).
+ARG ALLOW_NON_MAIN_BUILD=0
+COPY scripts/branch-guard.sh .git/HEAD /tmp/branch-guard/
+RUN sh /tmp/branch-guard/branch-guard.sh /tmp/branch-guard/HEAD "$ALLOW_NON_MAIN_BUILD" && rm -rf /tmp/branch-guard
+
 # CURRENT TIME-ZONE DATA. Node converts local times with the tz data bundled in its ICU, which is frozen at the
 # Node release (this base image: 2025c) while countries change their rules with weeks of notice. Intake turns
 # local times into UTC for Leon, so stale data means a flight loaded an hour wrong with nothing looking wrong.

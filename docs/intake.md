@@ -52,6 +52,9 @@ November). Stale data means a flight loaded one hour wrong with nothing looking 
   UTC readings.
 - **Once a day** the agent reads IANA's current release name; a newer one than the runtime's is a warning (log line and
   an amber pill). It does not block. The fix is a rebuild: `docker compose up -d --build agent-service`.
+- **This makes the agent's builds non-reproducible, deliberately.** Two builds of the same commit can carry different
+  tz data, and a build can fail when the download is unavailable and the fallback is too old. A cached build does not
+  refresh the data, so a monthly `--no-cache` rebuild is scheduled. Details and the trade-off: `docs/deploy.md`.
 - **When IANA changes rules:** raise `TZ_MINIMUM`, add a `TRICKY` case for the change, rebuild.
 - Check the server: `docker exec agent-service node -p process.versions.tz`.
 - Audit of what was already sent: `python3 scripts/intake-tz-audit.py .env` (read only; recomputes every local-derived

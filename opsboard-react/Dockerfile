@@ -5,6 +5,11 @@
 # definition, no per-app copies).
 FROM node:22-alpine AS builder
 
+# BRANCH GUARD: refuses to build unless the checkout is on main (scripts/branch-guard.sh says why).
+ARG ALLOW_NON_MAIN_BUILD=0
+COPY scripts/branch-guard.sh .git/HEAD /tmp/branch-guard/
+RUN sh /tmp/branch-guard/branch-guard.sh /tmp/branch-guard/HEAD "$ALLOW_NON_MAIN_BUILD" && rm -rf /tmp/branch-guard
+
 WORKDIR /app/opsboard-react
 
 COPY opsboard-react/package*.json ./

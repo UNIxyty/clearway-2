@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     image: clearway-selfhosted:latest
     command: node server.js
     env_file:
@@ -34,6 +36,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     image: clearway-pickem:latest
     command: node server.js
     env_file:
@@ -75,6 +79,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker-runner
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     image: clearway-selfhosted-worker:latest
     command: node scripts/notam-sync-server.mjs
     env_file:
@@ -94,6 +100,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker-runner
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     image: clearway-selfhosted-worker:latest
     command: sh -c "SYNC_SERVER_MODE=weather node scripts/notam-sync-server.mjs"
     env_file:
@@ -113,6 +121,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker-runner
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     image: clearway-selfhosted-worker:latest
     command: node scripts/aip-sync-server.mjs
     env_file:
@@ -130,6 +140,11 @@ services:
     build:
       context: ./digital-wall
       dockerfile: Dockerfile
+      # The branch guard needs .git/HEAD and its script from the repo root.
+      additional_contexts:
+        repo: .
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     container_name: digital-wall-backend
     restart: unless-stopped
     env_file:
@@ -157,6 +172,7 @@ services:
       context: .
       dockerfile: opsboard-react/Dockerfile
       args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
         VITE_BASE_PATH: /digital-wall/timeline/
         VITE_API_BASE_URL: /digital-wall
     container_name: digital-wall-frontend
@@ -185,6 +201,8 @@ services:
       # as digital-wall-frontend, which uses a root context to share shared/.
       context: .
       dockerfile: agent/Dockerfile
+      args:
+        ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
     container_name: agent-service
     restart: unless-stopped
     env_file:

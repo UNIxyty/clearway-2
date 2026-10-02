@@ -11,6 +11,10 @@ RUN npm run build
 
 FROM node:20-bookworm-slim AS base-runtime
 WORKDIR /app
+# BRANCH GUARD: refuses to build unless the checkout is on main (scripts/branch-guard.sh says why).
+ARG ALLOW_NON_MAIN_BUILD=0
+COPY scripts/branch-guard.sh .git/HEAD /tmp/branch-guard/
+RUN sh /tmp/branch-guard/branch-guard.sh /tmp/branch-guard/HEAD "$ALLOW_NON_MAIN_BUILD" && rm -rf /tmp/branch-guard
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \

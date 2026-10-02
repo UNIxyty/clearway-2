@@ -93,3 +93,6 @@ rig/supabase/.temp/
 rig/supabase/.branches/
 .env.rig-auth
 extension/.stage-public/
+
+# what scripts/deploy.sh last deployed, per service (server only)
+.deploy-state/

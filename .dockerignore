@@ -1,6 +1,8 @@
 node_modules
 .next
 .git
+# the branch guard reads this one file (scripts/branch-guard.sh)
+!.git/HEAD
 .cursor
 downloads
 test-results

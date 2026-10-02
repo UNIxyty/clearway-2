@@ -253,7 +253,7 @@ on 2026-10-02 under the same redaction rules (fixture `2614050-notified-by-invit
 | Invite | Portal | Result |
 |---|---|---|
 | `#Ref: 2614050` | Quote Nº 2614050 (also Flight Order Nº) | exact match, one record |
-| Sender `ec-nqs@` | Aircraft EC-NQS | match (usable as a reject-on-mismatch check) |
+| Sender `ec-nqs@` | Aircraft EC-NQS | match. A confidence signal only: a forwarded or relayed notification will not carry it, so it must never decide or reject anything |
 | Subject `LEBL-GMMN-LEBL` | leg 1 LEBL→GMMN, leg 2 GMMN→LEBL | match |
 | `#DATE: 05/10/26` | Flight Date 05/10/2026 = leg 1's date; leg 2 is on 06/10 | **first leg's date**, not the trip's span |
 | `#ETD: 17:00:00-LEBL` | leg 1: LT 17:00, Z 15:00 | **local time** at the departure airport |
@@ -291,10 +291,13 @@ rig: `rig/fixtures/cnair/invite-{request,update,cancel}.eml`):
 | Cancellation (`METHOD:CANCEL`) | "Not recognised: a calendar cancellation". Nothing links it to the request it cancels |
 
 The timezone block means nothing reaches Leon without a person, but a person could set the zone and confirm, and
-flights would then be built from the invite's ten lines instead of the portal. Needed before go-live, as a rule
-in code and not a judgement by the model: a message with a `text/calendar` part and a `#Ref:` line from the
-provider's domain is type 1, never type 2; a second message with the same UID or `#Ref` attaches to the existing
-request; `METHOD:CANCEL` marks it cancelled-by-provider for a person to act on.
+flights would then be built from the invite's ten lines instead of the portal. Needed before go-live (corrected on 03 Oct: an earlier version of this paragraph keyed the rule on the
+provider's sender domain, which is wrong; notifications can arrive from any address). The type is decided by
+content: a message is type 1 when it carries a reference that **resolves to a record in the provider's system**;
+the `#Ref` / `#ETD` / `#Pax` block, a route-shaped subject, a calendar part and a known sender are supporting
+evidence only. A reference that does not resolve (a record can appear in the list days after its quote date) is
+"ask a person", never type 2. A second message with the same calendar `UID` or the same resolved reference
+attaches to the existing request; `METHOD:CANCEL` marks it cancelled-by-provider for a person to act on.
 
 Not proven: that Resend's inbound delivers a real Exchange invite with the calendar part. By design it should
 (we store the raw message as received and parse from that), but it needs one real invite sent to the intake

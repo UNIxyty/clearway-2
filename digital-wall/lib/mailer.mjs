@@ -55,7 +55,56 @@ export async function renderTemplateFile(templatePath, vars = {}) {
   return fillTemplate(template, vars);
 }
 
+// NO CALENDAR RESPONSES, EVER. Meeting invites reach the agent's mailbox (a
+// provider notifies flights as Outlook invites). Accepting, declining or
+// changing one is a person's action in their own calendar; this process must
+// not be able to do it even by accident. It has no calendar or mailbox API, so
+// the only way it could answer an invite is by mailing iCalendar content, and
+// this is the one function that puts mail on the wire. Therefore:
+//   - the provider payload is built from a fixed set of fields: an HTML body
+//     and attachments. No custom headers, no alternative parts, so the body
+//     can never be a text/calendar part;
+//   - an attachment that is an iCalendar object (by name or by content) is
+//     refused, whatever its method;
+//   - an attached message (.eml) is refused when it carries a calendar part
+//     with a response method. Forwarding an invite as received (METHOD:REQUEST
+//     inside the original message) stays possible: that is evidence passed on
+//     by a person, not an answer.
+// A refusal throws; sendEmail turns it into { ok: false, error } like any
+// other failed send, so the caller sees it and nothing leaves.
+const CALENDAR_FILENAME = /\.(ics|ical|icalendar|ifb|vcs)$/i;
+const RESPONSE_METHOD = /METHOD\s*[:=]\s*"?(REPLY|COUNTER|DECLINECOUNTER|REFRESH)\b/i;
+
+function isMimeMessage(text) {
+  const end = text.search(/\r?\n\r?\n/);
+  const head = end === -1 ? "" : text.slice(0, end);
+  return /^[A-Za-z][\w-]*:[ \t]/.test(text) && /^(content-type|mime-version|from|received):/im.test(head) && !/BEGIN:VCALENDAR/i.test(head);
+}
+
+export function calendarRefusal({ html, attachments } = {}) {
+  if (/BEGIN:VCALENDAR/i.test(String(html ?? ""))) return "the body contains iCalendar content";
+  for (const a of Array.isArray(attachments) ? attachments : []) {
+    const name = String(a?.filename ?? "");
+    if (CALENDAR_FILENAME.test(name)) return `attachment "${name}" is a calendar file`;
+    const bytes = Buffer.isBuffer(a?.content) ? a.content : Buffer.from(String(a?.content ?? ""), "base64");
+    const text = bytes.toString("latin1");
+    if (!isMimeMessage(text)) {
+      if (/BEGIN:VCALENDAR/i.test(text)) return `attachment "${name}" contains iCalendar content`;
+      continue;
+    }
+    // An attached message: look at each calendar part, decoded if it is base64.
+    for (const part of text.matchAll(/content-type:\s*text\/calendar([\s\S]*?)\r?\n\r?\n([\s\S]*?)(?=\r?\n--|$)/gi)) {
+      const body = /content-transfer-encoding:\s*base64/i.test(part[1]) ? Buffer.from(part[2].replace(/\s+/g, ""), "base64").toString("latin1") : part[2];
+      if (RESPONSE_METHOD.test(part[1]) || RESPONSE_METHOD.test(body)) return `attachment "${name}" carries a calendar response`;
+    }
+    if (RESPONSE_METHOD.test(text)) return `attachment "${name}" carries a calendar response`;
+  }
+  return null;
+}
+
 async function deliverViaResend({ from, to, subject, html, attachments }) {
+  const refusal = calendarRefusal({ html, attachments });
+  if (refusal) throw new Error(`Refused: this system never sends calendar content (${refusal}). Nothing was sent.`);
   const payload = { from, to, subject, html };
   if (Array.isArray(attachments) && attachments.length > 0) {
     payload.attachments = attachments.map((a) => ({

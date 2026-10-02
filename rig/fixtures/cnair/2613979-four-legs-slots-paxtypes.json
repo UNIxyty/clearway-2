@@ -1,0 +1,220 @@
+{
+ "listRow": {
+  "id_vuelo2": "2613979",
+  "fecpres2": "29/09/2026",
+  "fecha2": "30/09/2026",
+  "id_avion2": "EC-OMU",
+  "id_tvuelo2": "IP"
+ },
+ "protocolMessages": 3,
+ "legClickChanged": {
+  "protocolMessages": 1,
+  "snapshotChanged": false
+ },
+ "header": {
+  "quote": "2613979",
+  "quoteDate": "29/09/2026",
+  "typeOfFlightCode": "IP",
+  "aircraft": "EC-OMU",
+  "flightDate": "30/09/2026"
+ },
+ "schedule": {
+  "size": 4,
+  "pageSize": 67,
+  "totalEstimatedHours": "4,20",
+  "rows": [
+   {
+    "zDate": "30/09/2026",
+    "ltDate": "30/09/2026",
+    "zTime": " 05:20:00",
+    "ltTime": "07:20:00",
+    "pax": "0",
+    "dep": "LEBL",
+    "depName": "Barcelona",
+    "arr": "LEGE",
+    "arrName": "Girona",
+    "estHours": "0,42"
+   },
+   {
+    "zDate": "30/09/2026",
+    "ltDate": "30/09/2026",
+    "zTime": " 06:30:00",
+    "ltTime": "08:30:00",
+    "pax": "2",
+    "dep": "LEGE",
+    "depName": "Girona",
+    "arr": "LDZA",
+    "arrName": "Zagreb",
+    "estHours": "1,68"
+   },
+   {
+    "zDate": "30/09/2026",
+    "ltDate": "30/09/2026",
+    "zTime": " 16:00:00",
+    "ltTime": "18:00:00",
+    "pax": "2",
+    "dep": "LDZA",
+    "depName": "Zagreb",
+    "arr": "LEGE",
+    "arrName": "Girona",
+    "estHours": "1,68"
+   },
+   {
+    "zDate": "30/09/2026",
+    "ltDate": "30/09/2026",
+    "zTime": " 18:30:00",
+    "ltTime": "20:30:00",
+    "pax": "0",
+    "dep": "LEGE",
+    "depName": "Girona",
+    "arr": "LEBL",
+    "arrName": "Barcelona",
+    "estHours": "0,42"
+   }
+  ]
+ },
+ "hoursCheck": [
+  {
+   "hours": "0,42",
+   "stdZ": "05:20:00",
+   "arrivalIfDecimalHours": "05:45Z",
+   "arrivalIfHmm": "06:02Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "1,68",
+   "stdZ": "06:30:00",
+   "arrivalIfDecimalHours": "08:11Z",
+   "arrivalIfHmm": "08:38Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "1,68",
+   "stdZ": "16:00:00",
+   "arrivalIfDecimalHours": "17:41Z",
+   "arrivalIfHmm": "18:08Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "0,42",
+   "stdZ": "18:30:00",
+   "arrivalIfDecimalHours": "18:55Z",
+   "arrivalIfHmm": "19:12Z",
+   "decimalArrivalQuotedInRemarks": true,
+   "hmmArrivalQuotedInRemarks": false
+  }
+ ],
+ "legDetails": {
+  "flightOrder": "2613979",
+  "registration": "EC-OMU",
+  "aircraftName": "Citation CJ4",
+  "mtow": "empty",
+  "captain": "present",
+  "firstOfficer": "present",
+  "flightAttendant": "empty"
+ },
+ "legs": {
+  "size": 4,
+  "rows": [
+   {
+    "leg": "1",
+    "dep": "LEBL",
+    "arr": "LEGE",
+    "flightNumber": "ORO2151",
+    "ppr": "empty"
+   },
+   {
+    "leg": "2",
+    "dep": "LEGE",
+    "arr": "LDZA",
+    "flightNumber": "ORO2152",
+    "ppr": "empty"
+   },
+   {
+    "leg": "3",
+    "dep": "LDZA",
+    "arr": "LEGE",
+    "flightNumber": "ORO2153",
+    "ppr": "empty"
+   },
+   {
+    "leg": "4",
+    "dep": "LEGE",
+    "arr": "LEBL",
+    "flightNumber": "ORO2154",
+    "ppr": "empty"
+   }
+  ]
+ },
+ "cabin": {
+  "cabinConfig": "Pax",
+  "seats": "8",
+  "stretcher": "No"
+ },
+ "remarks": {
+  "present": true,
+  "mentionsSlot": true,
+  "zTimesQuoted": 3
+ },
+ "paxByLeg": {
+  "size": 8,
+  "rowsPerLeg": {
+   "1": 1,
+   "2": 3
+  },
+  "typeCodesUsed": [
+   "",
+   "PAX",
+   "PAP"
+  ],
+  "genderFilled": false
+ },
+ "airports": {
+  "size": 4,
+  "rows": [
+   {
+    "leg": "3",
+    "icao": "LDZA",
+    "supplierIsClearway": true,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "1",
+    "icao": "LEBL",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "2",
+    "icao": "LEGE",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "3",
+    "icao": "LDZA",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   }
+  ]
+ },
+ "_fixture": {
+  "source": "CNAIR flightdispatcher portal, captured 2026-10-01 (authorised, read only)",
+  "redaction": "projection written at capture; crew names/ids, passenger rows, contacts, phones, e-mails and remark text were never serialised. Presence markers (present/empty) stand in for them."
+ }
+}

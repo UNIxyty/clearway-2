@@ -1,0 +1,146 @@
+{
+ "listRow": {
+  "id_vuelo2": "2612398",
+  "fecpres2": "31/08/2026",
+  "fecha2": "30/10/2026",
+  "id_avion2": "EC-OMU",
+  "id_tvuelo2": "NPE"
+ },
+ "protocolMessages": 2,
+ "legClickChanged": {
+  "protocolMessages": 1,
+  "snapshotChanged": false
+ },
+ "header": {
+  "quote": "2612398",
+  "quoteDate": "31/08/2026",
+  "typeOfFlightCode": "NPE",
+  "aircraft": "EC-OMU",
+  "flightDate": "30/10/2026"
+ },
+ "schedule": {
+  "size": 2,
+  "pageSize": 67,
+  "totalEstimatedHours": "6,22",
+  "rows": [
+   {
+    "zDate": "30/10/2026",
+    "ltDate": "30/10/2026",
+    "zTime": " 16:00:00",
+    "ltTime": "17:00:00",
+    "pax": "4",
+    "dep": "LEBL",
+    "depName": "Barcelona",
+    "arr": "GCLP",
+    "arrName": "Gran Canaria",
+    "estHours": "3,12"
+   },
+   {
+    "zDate": "01/11/2026",
+    "ltDate": "01/11/2026",
+    "zTime": " 13:00:00",
+    "ltTime": "13:00:00",
+    "pax": "4",
+    "dep": "GCLP",
+    "depName": "Gran Canaria",
+    "arr": "LEBL",
+    "arrName": "Barcelona",
+    "estHours": "3,10"
+   }
+  ]
+ },
+ "hoursCheck": [
+  {
+   "hours": "3,12",
+   "stdZ": "16:00:00",
+   "arrivalIfDecimalHours": "19:07Z",
+   "arrivalIfHmm": "19:12Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "3,10",
+   "stdZ": "13:00:00",
+   "arrivalIfDecimalHours": "16:06Z",
+   "arrivalIfHmm": "16:10Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  }
+ ],
+ "legDetails": {
+  "flightOrder": "2612398",
+  "registration": "EC-OMU",
+  "aircraftName": "Citation CJ4",
+  "mtow": "empty",
+  "captain": "present",
+  "firstOfficer": "present",
+  "flightAttendant": "empty"
+ },
+ "legs": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "dep": "LEBL",
+    "arr": "GCLP",
+    "flightNumber": "ORO2151",
+    "ppr": "empty"
+   },
+   {
+    "leg": "2",
+    "dep": "GCLP",
+    "arr": "LEBL",
+    "flightNumber": "ORO2152",
+    "ppr": "empty"
+   }
+  ]
+ },
+ "cabin": {
+  "cabinConfig": "",
+  "seats": "",
+  "stretcher": ""
+ },
+ "remarks": {
+  "present": false,
+  "mentionsSlot": false,
+  "zTimesQuoted": 0
+ },
+ "paxByLeg": {
+  "size": 2,
+  "rowsPerLeg": {
+   "1": 1,
+   "2": 1
+  },
+  "typeCodesUsed": [
+   ""
+  ],
+  "genderFilled": false
+ },
+ "airports": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "2",
+    "icao": "GCLP",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "1",
+    "icao": "LEBL",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   }
+  ]
+ },
+ "_fixture": {
+  "source": "CNAIR flightdispatcher portal, captured 2026-10-01 (authorised, read only)",
+  "redaction": "projection written at capture; crew names/ids, passenger rows, contacts, phones, e-mails and remark text were never serialised. Presence markers (present/empty) stand in for them."
+ }
+}

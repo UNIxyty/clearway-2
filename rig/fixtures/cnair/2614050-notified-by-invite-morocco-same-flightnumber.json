@@ -1,0 +1,148 @@
+{
+ "listRow": {
+  "id_vuelo2": "2614050",
+  "fecpres2": "01/10/2026",
+  "fecha2": "05/10/2026",
+  "id_avion2": "EC-NQS",
+  "id_tvuelo2": "EP"
+ },
+ "protocolMessages": 3,
+ "legClickChanged": {
+  "protocolMessages": 1,
+  "snapshotChanged": false
+ },
+ "header": {
+  "quote": "2614050",
+  "quoteDate": "01/10/2026",
+  "typeOfFlightCode": "EP",
+  "aircraft": "EC-NQS",
+  "flightDate": "05/10/2026"
+ },
+ "schedule": {
+  "size": 2,
+  "pageSize": 67,
+  "totalEstimatedHours": "4,25",
+  "rows": [
+   {
+    "zDate": "05/10/2026",
+    "ltDate": "05/10/2026",
+    "zTime": " 15:00:00",
+    "ltTime": "17:00:00",
+    "pax": "2",
+    "dep": "LEBL",
+    "depName": "Barcelona",
+    "arr": "GMMN",
+    "arrName": "Mohammed V Intl",
+    "estHours": "2,25"
+   },
+   {
+    "zDate": "06/10/2026",
+    "ltDate": "06/10/2026",
+    "zTime": " 17:30:00",
+    "ltTime": "17:30:00",
+    "pax": "2",
+    "dep": "GMMN",
+    "depName": "Mohammed V Intl",
+    "arr": "LEBL",
+    "arrName": "Barcelona",
+    "estHours": "2,00"
+   }
+  ]
+ },
+ "hoursCheck": [
+  {
+   "hours": "2,25",
+   "stdZ": "15:00:00",
+   "arrivalIfDecimalHours": "17:15Z",
+   "arrivalIfHmm": "17:25Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "2,00",
+   "stdZ": "17:30:00",
+   "arrivalIfDecimalHours": "19:30Z",
+   "arrivalIfHmm": "19:30Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  }
+ ],
+ "legDetails": {
+  "flightOrder": "2614050",
+  "registration": "EC-NQS",
+  "aircraftName": "Citation CJ4",
+  "mtow": "empty",
+  "captain": "present",
+  "firstOfficer": "present",
+  "flightAttendant": "empty"
+ },
+ "legs": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "dep": "LEBL",
+    "arr": "GMMN",
+    "flightNumber": "ORO 1041",
+    "ppr": "empty"
+   },
+   {
+    "leg": "2",
+    "dep": "GMMN",
+    "arr": "LEBL",
+    "flightNumber": "ORO 1041",
+    "ppr": "empty"
+   }
+  ]
+ },
+ "cabin": {
+  "cabinConfig": "Pax",
+  "seats": "7",
+  "stretcher": "No"
+ },
+ "remarks": {
+  "present": false,
+  "mentionsSlot": false,
+  "zTimesQuoted": 0
+ },
+ "paxByLeg": {
+  "size": 6,
+  "rowsPerLeg": {
+   "1": 3,
+   "2": 1
+  },
+  "typeCodesUsed": [
+   "",
+   "PAX"
+  ],
+  "genderFilled": false
+ },
+ "airports": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "icao": "LEBL",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "2",
+    "icao": "GMMN",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   }
+  ]
+ },
+ "_fixture": {
+  "source": "CNAIR flightdispatcher portal, captured 2026-10-02 (authorised, read only)",
+  "why": "the record a notification invite pointed to (#Ref); Morocco leg where Z = LT; same flight number on both legs",
+  "redaction": "projection written at capture; crew names/ids, passenger rows, contacts, phones, e-mails and remark text were never serialised."
+ }
+}

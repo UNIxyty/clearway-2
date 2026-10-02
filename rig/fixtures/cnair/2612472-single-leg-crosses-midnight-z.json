@@ -1,0 +1,116 @@
+{
+ "listRow": {
+  "id_vuelo2": "2612472",
+  "fecpres2": "01/09/2026",
+  "fecha2": "04/10/2026",
+  "id_avion2": "EC-OMU",
+  "id_tvuelo2": "NP"
+ },
+ "protocolMessages": 1,
+ "legClickChanged": null,
+ "header": {
+  "quote": "2612472",
+  "quoteDate": "01/09/2026",
+  "typeOfFlightCode": "NP",
+  "aircraft": "EC-OMU",
+  "flightDate": "04/10/2026"
+ },
+ "schedule": {
+  "size": 1,
+  "pageSize": 67,
+  "totalEstimatedHours": "0,72",
+  "rows": [
+   {
+    "zDate": "03/10/2026",
+    "ltDate": "04/10/2026",
+    "zTime": " 23:30:00",
+    "ltTime": "01:30:00",
+    "pax": "2",
+    "dep": "LEBL",
+    "depName": "Barcelona",
+    "arr": "LEIB",
+    "arrName": "Ibiza",
+    "estHours": "0,72"
+   }
+  ]
+ },
+ "hoursCheck": [
+  {
+   "hours": "0,72",
+   "stdZ": "23:30:00",
+   "arrivalIfDecimalHours": "00:13Z",
+   "arrivalIfHmm": "00:42Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  }
+ ],
+ "legDetails": {
+  "flightOrder": "2612472",
+  "registration": "EC-OMU",
+  "aircraftName": "Citation CJ4",
+  "mtow": "empty",
+  "captain": "present",
+  "firstOfficer": "present",
+  "flightAttendant": "empty"
+ },
+ "legs": {
+  "size": 1,
+  "rows": [
+   {
+    "leg": "1",
+    "dep": "LEBL",
+    "arr": "LEIB",
+    "flightNumber": "ORO2151",
+    "ppr": "empty"
+   }
+  ]
+ },
+ "cabin": {
+  "cabinConfig": "Pax",
+  "seats": "8",
+  "stretcher": "No"
+ },
+ "remarks": {
+  "present": true,
+  "mentionsSlot": true,
+  "zTimesQuoted": 6
+ },
+ "paxByLeg": {
+  "size": 2,
+  "rowsPerLeg": {
+   "1": 1,
+   "2": 1
+  },
+  "typeCodesUsed": [
+   ""
+  ],
+  "genderFilled": false
+ },
+ "airports": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "icao": "LEBL",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "2",
+    "icao": "LEIB",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   }
+  ]
+ },
+ "_fixture": {
+  "source": "CNAIR flightdispatcher portal, captured 2026-10-01 (authorised, read only)",
+  "redaction": "projection written at capture; crew names/ids, passenger rows, contacts, phones, e-mails and remark text were never serialised. Presence markers (present/empty) stand in for them."
+ }
+}

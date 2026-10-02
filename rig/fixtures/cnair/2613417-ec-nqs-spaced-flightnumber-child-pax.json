@@ -1,0 +1,147 @@
+{
+ "listRow": {
+  "id_vuelo2": "2613417",
+  "fecpres2": "18/09/2026",
+  "fecha2": "15/10/2026",
+  "id_avion2": "EC-NQS",
+  "id_tvuelo2": "NP"
+ },
+ "protocolMessages": 2,
+ "legClickChanged": {
+  "protocolMessages": 1,
+  "snapshotChanged": false
+ },
+ "header": {
+  "quote": "2613417",
+  "quoteDate": "18/09/2026",
+  "typeOfFlightCode": "NP",
+  "aircraft": "EC-NQS",
+  "flightDate": "15/10/2026"
+ },
+ "schedule": {
+  "size": 2,
+  "pageSize": 67,
+  "totalEstimatedHours": "1,00",
+  "rows": [
+   {
+    "zDate": "15/10/2026",
+    "ltDate": "15/10/2026",
+    "zTime": " 09:45:00",
+    "ltTime": "11:45:00",
+    "pax": "0",
+    "dep": "LEBL",
+    "depName": "Barcelona",
+    "arr": "LEPA",
+    "arrName": "Son Sant Joan",
+    "estHours": "0,50"
+   },
+   {
+    "zDate": "15/10/2026",
+    "ltDate": "15/10/2026",
+    "zTime": " 11:00:00",
+    "ltTime": "13:00:00",
+    "pax": "4",
+    "dep": "LEPA",
+    "depName": "Son Sant Joan",
+    "arr": "LEBL",
+    "arrName": "Barcelona",
+    "estHours": "0,50"
+   }
+  ]
+ },
+ "hoursCheck": [
+  {
+   "hours": "0,50",
+   "stdZ": "09:45:00",
+   "arrivalIfDecimalHours": "10:15Z",
+   "arrivalIfHmm": "10:35Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  },
+  {
+   "hours": "0,50",
+   "stdZ": "11:00:00",
+   "arrivalIfDecimalHours": "11:30Z",
+   "arrivalIfHmm": "11:50Z",
+   "decimalArrivalQuotedInRemarks": false,
+   "hmmArrivalQuotedInRemarks": false
+  }
+ ],
+ "legDetails": {
+  "flightOrder": "2613417",
+  "registration": "EC-NQS",
+  "aircraftName": "Citation CJ4",
+  "mtow": "empty",
+  "captain": "present",
+  "firstOfficer": "present",
+  "flightAttendant": "empty"
+ },
+ "legs": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "dep": "LEBL",
+    "arr": "LEPA",
+    "flightNumber": "ORO 1041",
+    "ppr": "empty"
+   },
+   {
+    "leg": "2",
+    "dep": "LEPA",
+    "arr": "LEBL",
+    "flightNumber": "ORO 1042",
+    "ppr": "empty"
+   }
+  ]
+ },
+ "cabin": {
+  "cabinConfig": "Pax",
+  "seats": "7",
+  "stretcher": "No"
+ },
+ "remarks": {
+  "present": false,
+  "mentionsSlot": false,
+  "zTimesQuoted": 0
+ },
+ "paxByLeg": {
+  "size": 6,
+  "rowsPerLeg": {
+   "1": 1,
+   "2": 3
+  },
+  "typeCodesUsed": [
+   "",
+   "CHI"
+  ],
+  "genderFilled": false
+ },
+ "airports": {
+  "size": 2,
+  "rows": [
+   {
+    "leg": "1",
+    "icao": "LEBL",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   },
+   {
+    "leg": "2",
+    "icao": "LEPA",
+    "supplierIsClearway": false,
+    "supplier": "present",
+    "phone": "present",
+    "contact": "present",
+    "email": "present"
+   }
+  ]
+ },
+ "_fixture": {
+  "source": "CNAIR flightdispatcher portal, captured 2026-10-01 (authorised, read only)",
+  "redaction": "projection written at capture; crew names/ids, passenger rows, contacts, phones, e-mails and remark text were never serialised. Presence markers (present/empty) stand in for them."
+ }
+}

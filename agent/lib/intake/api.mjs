@@ -282,7 +282,9 @@ async function mailboxRows({ box = "received", view = "needs", q = "", days = 7,
   const reqs = reqIds.length ? new Map(((await rest(`intake_requests?select=id,reference,status,status_reason,review,first_std,closed_reason,updated_at,sender_name,request_type,message_id,route,legs_count,registration&id=in.(${reqIds.join(",")})`)) ?? []).map((x) => [x.id, x])) : new Map();
   const attCounts = new Map();
   if (rows.length) for (const a of (await rest(`intake_attachments?select=message_id&message_id=in.(${rows.slice(0, 200).map((r) => r.id).join(",")})`)) ?? []) attCounts.set(a.message_id, (attCounts.get(a.message_id) ?? 0) + 1);
-  const all = rows.map((r) => { const req = r.request_id ? reqs.get(r.request_id) : null; return { id: r.id, direction: r.direction, at: r.received_at, from: r.from_addr, to: r.to_addrs, subject: r.subject, status: r.status, what: r.direction === "outbound" ? `${r.sent_kind ?? "Email"}` : r.status === "ignored" && r.ignored_by ? `Marked by ${r.ignored_by} · ${r.ignored_reason}` : r.status_reason ?? "", ref: req?.reference ?? null, requestId: r.request_id, requestState: req ? uiStatus(req).label : null, attachments: attCounts.get(r.id) ?? 0, delivery: r.delivery_status, matched: r.matched ?? null }; });
+  // A message that was not recognised keeps an internal request row (for "Process as handling request"), but
+  // there is no request for ops to open: no reference, no link.
+  const all = rows.map((r) => { const req0 = r.request_id ? reqs.get(r.request_id) : null; const req = req0 && req0.status !== "not_recognised" ? req0 : null; return { id: r.id, direction: r.direction, at: r.received_at, from: r.from_addr, to: r.to_addrs, subject: r.subject, status: r.status, what: r.direction === "outbound" ? `${r.sent_kind ?? "Email"}` : r.status === "ignored" && r.ignored_by ? `Marked by ${r.ignored_by} · ${r.ignored_reason}` : r.status_reason ?? "", ref: req?.reference ?? null, requestId: r.request_id, requestState: req ? uiStatus(req).label : null, attachments: attCounts.get(r.id) ?? 0, delivery: r.delivery_status, matched: r.matched ?? null }; });
   return { rows: all, personalQuery };
 }
 function matchReason(r, needle) {
@@ -321,7 +323,8 @@ async function addressHealth() {
 async function readerPayload(id, user) {
   if (!UUID.test(id)) throw err(404, "No such message.");
   const m = (await rest(`intake_messages?select=*&id=eq.${id}`))?.[0]; if (!m) throw err(404, "No such message.");
-  const req = m.request_id ? (await rest(`intake_requests?select=id,reference,status,status_reason,first_std,closed_reason,current_extraction_id,request_type,message_id&id=eq.${m.request_id}`))?.[0] : null;
+  const req0 = m.request_id ? (await rest(`intake_requests?select=id,reference,status,status_reason,first_std,closed_reason,current_extraction_id,request_type,message_id&id=eq.${m.request_id}`))?.[0] : null;
+  const req = req0 && req0.status !== "not_recognised" ? req0 : null; // nothing to open for a message that was not recognised
   const days = await retentionDays();
   const deleteAt = new Date(Date.parse(m.received_at) + days * 86400000);
   const base = { id: m.id, direction: m.direction, subject: m.subject, from: m.from_addr, to: m.to_addrs, cc: m.cc_addrs, at: m.received_at, status: m.status, statusReason: m.status_reason, understood: m.understood, history: m.history ?? [], request: req ? { id: req.id, reference: req.reference, state: uiStatus(req).label } : null, hasPersonal: m.has_personal_data, purged: !!m.purged_at, retention: m.purged_at ? `Removed by retention on ${fmtDate(m.purged_at)}` : `Kept ${days} days · ${m.has_personal_data ? "personal data and attachments " : ""}deleted ${fmtDate(deleteAt.toISOString())}`, ignored: m.ignored_by ? { by: m.ignored_by, reason: m.ignored_reason, note: m.ignored_note } : null, auth: m.auth ?? null, rfcMessageId: m.rfc_message_id };

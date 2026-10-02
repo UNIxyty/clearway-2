@@ -14,7 +14,8 @@ export function rowIsNeeds(r: MailRow) { return r.direction === "outbound" ? del
 
 export function MailListRow({ r, selected, flash, isNew, addresses, onSelect, setRef }: { r: MailRow; selected: boolean; flash: boolean; isNew: boolean; addresses: string[]; onSelect: () => void; setRef: (el: HTMLDivElement | null) => void }) {
   const out = r.direction === "outbound";
-  const meta = out ? deliveryMeta(r.delivery) : statusMeta(r.status);
+  const meta0 = out ? deliveryMeta(r.delivery) : statusMeta(r.status);
+  const meta = r.label ? { ...meta0, label: r.label } : meta0;   // "Not for us", "Needs a decision": what the agent decided, not only the status
   const needs = rowIsNeeds(r);
   const sender = out ? `To ${r.to.join(", ")}` : parseAddr(r.from).name;
   const addr = out ? parseAddr(r.from).addr : r.to.find((a) => addresses.includes(a)) ?? r.to[0] ?? null;

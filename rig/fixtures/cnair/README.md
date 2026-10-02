@@ -25,3 +25,6 @@ flights; they identify no person.
   of the provider's notification (Exchange meeting request, `text/calendar` part, ten `#Key:` lines in the
   body). Invented registration, reference, initials and addresses; written by `rig/cnair/make-invite-fixtures.mjs`.
   The update has the same UID with SEQUENCE 1; the cancel is `METHOD:CANCEL`.
+- `portal-fixture.json`: **rig only**, stands in for the provider's portal when the agent looks a reference up
+  (`INTAKE_PROVIDER_FIXTURE`, ignored unless the database is local). Fictional references; `foundAfter` makes a
+  record appear on a later attempt.

@@ -74,6 +74,11 @@ export const EXTRACTION_SCHEMA = {
   properties: {
     requestType: { enum: ["handling", "scheduled", "other"] },
     whyType: { type: "string" },               // one sentence: why this is (or is not) a handling request
+    // How sure the model is of requestType, and the words that ASK us to provide something, verbatim (null
+    // when the message asks for nothing). Not in `required`: a missing value is treated as "not sure" by
+    // classify.mjs, which also checks that the quoted words really are in the message.
+    typeConfidence: { type: ["number", "null"], minimum: 0, maximum: 1 },
+    ask: { type: ["object", "null"], additionalProperties: false, required: ["said", "source"], properties: { said: { type: ["string", "null"] }, source: { type: ["string", "null"] } } },
     reference: FIELD,                          // the sender's own reference, if any ("Ref: CIMOG1")
     requester: { type: "object", additionalProperties: false, required: ["company", "contact"], properties: { company: FIELD, contact: FIELD } },
     operator: FIELD,

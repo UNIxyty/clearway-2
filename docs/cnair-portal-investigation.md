@@ -281,6 +281,15 @@ production send log was audited and nothing had been sent to Leon at all; the fi
 a self-test that refuses to convert on stale data, refusal of ambiguous local times) is described in
 `docs/intake.md`, "Time zones".
 
+**Built on 03 Oct (see `docs/intake.md`, "What a message is" and "Type 1"):** classification by content with
+"ask a person" between two positive tests; type 1 requests keyed by `#Ref`; update / copy / cancellation linked by
+calendar `UID` and method; the reference looked up in the portal as the first pipeline step, with retries, then a
+person. The look-up was checked once against the real portal (one login, list only): reference 2614050 found in
+10 s. **The calendar handling is UNVERIFIED against real mail**: it was built against the fictional invites below.
+Whether a real Exchange invite keeps its calendar part through Resend, and whether the provider's changes arrive
+as updates with the same UID, stays unproven until a real invite has come through. The table that follows is how
+the pipeline behaved BEFORE that work, kept as the record of why it was needed.
+
 **How the pipeline handles an invite today** (three fictional invites in the provider's shape, run through the
 rig: `rig/fixtures/cnair/invite-{request,update,cancel}.eml`):
 

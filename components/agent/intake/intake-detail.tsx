@@ -12,6 +12,7 @@ import { intakeApi, type Leg, type People, type Prepared, type RequestDetail } f
 import { CARD, LeonPill, dateRange, errText, fieldOf, fmtMin, legDate, legKeyOf, legNo, legRoute, listWords, plural } from "./intake-shared";
 import { Pipeline } from "./intake-pipeline";
 import { ReviewCard } from "./intake-review";
+import { NotificationCard } from "./intake-notification";
 import { SentSection, EmailsSection, latestWrites } from "./intake-sent";
 import { OriginalEmailDrawer } from "./intake-drawer";
 import { ConfirmDialog } from "./intake-confirm";
@@ -185,16 +186,18 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
             {r.duplicateResolution.action === "not_duplicate" ? "Marked not a duplicate" : "Closed as a revision to update in Leon by hand"} by {r.duplicateResolution.by}, <span style={mono()}>{hmZ(r.duplicateResolution.at)}</span>.
           </div>
         )}
-        <Actions detail={detail} closed={closed} apply={apply} reprocess={reprocess} reprocessing={reprocessing} />
+        <Actions detail={detail} closed={closed} apply={apply} reprocess={reprocess} reprocessing={reprocessing} lookupNow={async () => { try { setDetail(await intakeApi.lookup(id)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The look-up did not run."); } }} />
         {saveError && <div role="alert" style={{ fontSize: 13, color: C.danger, display: "flex", gap: 8, alignItems: "center" }}><Icon name="circle-alert" size={14} color={C.dangerBadge} />Not saved: {saveError}</div>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "272px minmax(0,1fr)", gap: 14, alignItems: "start" }}>
         <Pipeline typeLabel={r.typeLabel} stageNames={detail.stageNames} stages={detail.stages} now={now} />
+{r.type === "scheduled" ? <NotificationCard detail={detail} /> : (
         <ReviewCard detail={detail} apply={apply} defs={defs} legPos={legPos} setLegPos={setLegPos} closed={closed}
           people={people} peopleError={peopleError} reveal={reveal} setReveal={setReveal} doReveal={(s) => void doReveal(s)} editPeople={async (b) => { const p = await intakeApi.editPeople(id, b); setPeople(p); setReveal({ phase: "off" }); onChanged(); }}
           reprocess={reprocess} reprocessing={reprocessing} reprocessMsg={reprocessMsg}
           onPrepare={() => void onPrepare()} preparing={preparing} prepareError={prepareError} />
+        )}
       </div>
 
       <SentSection detail={detail} rawOpen={rawOpen} setRawOpen={setRawOpen} resolveLeg={resolveLeg} />
@@ -228,6 +231,11 @@ function legDesc(l: Leg) { const std = fieldOf(l, "std")?.value; const d = legDa
 function legsWord(ns: number[]) { return ns.length === 1 ? `Leg ${ns[0]}` : `Legs ${listWords(ns)}`; }
 export function bannerFor(detail: RequestDetail, now: number, closed: boolean): B | null {
   const r = detail.request; const legs = (detail.review?.legs ?? []).filter((l) => !l.removed);
+  // A scheduled flight (type 1): where the reference look-up stands. Nothing is ever in Leon from this path yet.
+  if (r.type === "scheduled" && !closed) {
+    const st = detail.stages.find((x) => x.name === "Collecting data");
+    return { tone: st?.state === "fail" || st?.state === "hold" ? "red" : st?.state === "prog" ? "blue" : "amber", icon: st?.state === "prog" ? "circle-dot" : st?.state === "hold" ? "clipboard-check" : "circle-help", title: `${r.statusReason ?? "Flight notification"}. Nothing is in Leon.`, body: st?.note ?? null };
+  }
   // A send in progress comes first: nothing is shown as created or failed until Leon answers.
   if (r.status === "in_progress" && detail.review) return { tone: "blue", icon: "circle-dot", title: "Sending to Leon. No leg is shown as created until Leon confirms it with a flight ID.", body: "You can keep working anywhere in the portal: this page, the list and the email update when Leon answers." };
   const inL = legs.filter((l) => l.leon?.state === "in_leon"), notL = legs.filter((l) => l.leon?.state === "not_in_leon"), unk = legs.filter((l) => l.leon?.state === "unknown");
@@ -347,7 +355,9 @@ function DuplicateBox({ detail, apply }: { detail: RequestDetail; apply: (b: Rec
 }
 
 // ── Actions row (§I4) ──────────────────────────────────────────────────────────────────────────────────
-function Actions({ detail, closed, apply, reprocess, reprocessing }: { detail: RequestDetail; closed: boolean; apply: (b: Record<string, unknown>) => Promise<boolean>; reprocess: (a: string | null) => Promise<void>; reprocessing: string | null }) {
+function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow }: { detail: RequestDetail; closed: boolean; apply: (b: Record<string, unknown>) => Promise<boolean>; reprocess: (a: string | null) => Promise<void>; reprocessing: string | null; lookupNow: () => Promise<void> }) {
+  const [looking, setLooking] = useState(false);
+  const scheduled = detail.request.type === "scheduled";
   const [ask, setAsk] = useState<null | "handled_manually" | "cancelled" | "reextract">(null);
   const [busy, setBusy] = useState(false);
   if (closed || detail.request.ui.key === "loaded") return null;
@@ -365,7 +375,8 @@ function Actions({ detail, closed, apply, reprocess, reprocessing }: { detail: R
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {!anyInLeon && <Button variant="secondary" size="sm" icon="refresh-cw" disabled={reprocessing !== null} onClick={() => setAsk("reextract")}>Re-extract</Button>}
+        {scheduled && <Button variant="secondary" size="sm" icon="search" disabled={looking} onClick={() => { setLooking(true); void lookupNow().finally(() => setLooking(false)); }}>{looking ? "Looking up…" : "Look up now"}</Button>}
+        {!scheduled && !anyInLeon && <Button variant="secondary" size="sm" icon="refresh-cw" disabled={reprocessing !== null} onClick={() => setAsk("reextract")}>Re-extract</Button>}
         <Button variant="secondary" size="sm" icon="check" onClick={() => setAsk("handled_manually")}>Mark handled manually</Button>
         {!anyInLeon && <Button variant="ghost" size="sm" icon="x" style={{ color: C.danger }} onClick={() => setAsk("cancelled")}>Cancel request</Button>}
       </div>

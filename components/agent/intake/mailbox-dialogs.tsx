@@ -6,11 +6,11 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { C, TONE, mono } from "../ui/tokens";
 import { Button, Icon, dateLong, hmZ } from "../ui/primitives";
-import { Dialog, Segmented, Tooltip, useCountdown } from "./controls";
+import { Dialog, Segmented, useCountdown } from "./controls";
 import { ApiError, mailboxApi, type Confirmation, type MailMessage } from "./api";
 import { FieldArea, FieldInput, LinkAsButton, parseAddr } from "./mailbox-shared";
 
-type Kind = "process" | "ignore" | "unignore" | "reprocess" | "forward";
+type Kind = "process" | "notification" | "ignore" | "unignore" | "reprocess" | "forward";
 const REASONS = ["Not for us", "Spam", "Newsletter", "Duplicate", "Handled elsewhere", "Other"] as const;
 
 function DialogHead({ id, children, primary, right }: { id: string; children: ReactNode; primary?: boolean; right?: ReactNode }) {
@@ -100,6 +100,62 @@ function ProcessDialog({ message, runAs, onClose, onDone }: { message: MailMessa
           <>
             <Button size="sm" variant="secondary" disabled={phase === "working"} onClick={onClose}>Cancel</Button>
             <Button size="sm" variant="primary" data-autofocus disabled={!conf || expired || phase !== "confirm"} spinning={phase === "working" || phase === "issuing"} onClick={() => void confirm()}>Create handling request</Button>
+          </>
+        )}
+      </DialogFoot>
+    </Dialog>
+  );
+}
+
+// ── Process as flight notification ───────────────────────────────────────────────────────────────────────
+// A person says the message is a provider's notification. The reference is the key the agent looks up in the
+// provider's portal; it is taken from the message when it has one, typed here when it has not.
+function NotificationDialog({ message, runAs, onClose, onDone }: { message: MailMessage; runAs: string; onClose: () => void; onDone: () => void }) {
+  const hid = useId();
+  const u = message.understood;
+  const inMessage = (u?.classification?.evidence ?? []).find((e) => e.signal === "reference" && e.found)?.detail.match(/\d{6,8}/)?.[0] ?? "";
+  const [reference, setReference] = useState(inMessage);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ requestId?: string } | null>(null);
+  const valid = /^\d{6,8}$/.test(reference.trim());
+  const go = async () => {
+    setBusy(true); setError(null);
+    try {
+      const body = { reference: reference.trim() };
+      const c = await mailboxApi.action(message.id, "process-notification", body); if (!c.confirmation) throw new ApiError(500, "The server did not issue a confirmation.");
+      const r = await mailboxApi.action(message.id, "process-notification", { ...body, token: c.confirmation.token });
+      const out = (r.result ?? {}) as { requestId?: string; failed?: string; refused?: string };
+      if (out.failed || out.refused) throw new ApiError(409, out.failed ?? out.refused ?? "");
+      setResult(out); onDone();
+    } catch (e) { setError(errText(e)); } finally { setBusy(false); }
+  };
+  const from = parseAddr(message.from);
+  return (
+    <Dialog open onClose={busy ? null : onClose} labelledBy={hid} accent="primary">
+      <DialogHead id={hid} primary>Process as flight notification</DialogHead>
+      <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <Rows rows={[
+          ["Email", message.subject ?? "(no subject)"],
+          ["From", <span key="f">{from.name}{from.addr && from.addr !== from.name && <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}> {from.addr}</span>}</span>],
+        ]} />
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: C.body }}>Provider reference <span style={{ color: C.muted, fontWeight: 400 }}>· the quote number, 6 to 8 digits{inMessage ? " · read from the message" : " · the message has none the agent could read"}</span></span>
+          <FieldInput value={reference} onChange={setReference} ariaLabel="Provider reference" invalid={reference.length > 0 && !valid} />
+        </label>
+        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: C.body }}>The agent treats this email as a provider&apos;s notification that a flight exists and looks the reference up in the provider&apos;s portal. Nothing is built from the text of the email, and nothing goes to Leon.</p>
+        {error && <Err>{error}</Err>}
+        {result && <Done>Created a scheduled-flight request for {reference.trim()}. This email is now linked to it.</Done>}
+      </div>
+      <DialogFoot note={result ? null : `Runs as ${runAs}. Creates a request, not a flight.`}>
+        {result ? (
+          <>
+            {result.requestId && <LinkAsButton href={`/agent/intake?r=${encodeURIComponent(result.requestId)}`} icon="arrow-right">Open request {reference.trim()}</LinkAsButton>}
+            <Button size="sm" variant="primary" data-autofocus onClick={onClose}>Close</Button>
+          </>
+        ) : (
+          <>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
+            <Button size="sm" variant="primary" disabled={!valid || busy} spinning={busy} onClick={() => void go()}>Create scheduled-flight request</Button>
           </>
         )}
       </DialogFoot>
@@ -211,20 +267,12 @@ function ForwardDialog({ message, capture, onClose, onDone }: { message: MailMes
 function Act({ children, icon, primary, onClick }: { children: ReactNode; icon: string; primary?: boolean; onClick: () => void }) {
   return <Button size="sm" variant={primary ? "primary" : "secondary"} icon={icon} onClick={onClick} style={{ borderRadius: 9, padding: primary ? "7px 12px" : "6px 11px" }}>{children}</Button>;
 }
-function NotBuilt({ children, icon }: { children: ReactNode; icon: string }) {
-  return (
-    <Tooltip label="Provider-portal requests are not built yet">
-      {(p) => <Button size="sm" variant="secondary" icon={icon} aria-disabled="true" onClick={(e) => e.preventDefault()} {...p} style={{ borderRadius: 9, padding: "6px 11px", opacity: 0.5, cursor: "not-allowed" }}>{children}</Button>}
-    </Tooltip>
-  );
-}
-
 export function MailActions({ message, runAs, capture, onChanged }: { message: MailMessage; runAs: string; capture: boolean; onChanged: (m?: MailMessage) => void }) {
   const [open, setOpen] = useState<Kind | null>(null);
   const s = message.status; const req = message.request;
   const openReq = req ? <LinkAsButton key="open" href={`/agent/intake?r=${encodeURIComponent(req.id)}`} icon="arrow-right" primary>Open request {req.reference}</LinkAsButton> : null;
   const process = <Act key="p" icon="clipboard-list" primary onClick={() => setOpen("process")}>Process as handling request</Act>;
-  const notif = <NotBuilt key="n" icon="plane">Process as flight notification</NotBuilt>;
+  const notif = <Act key="n" icon="plane" onClick={() => setOpen("notification")}>Process as flight notification</Act>;
   const ignore = <Act key="i" icon="circle-minus" onClick={() => setOpen("ignore")}>Mark as ignored…</Act>;
   const fwd = <Act key="f" icon="forward" onClick={() => setOpen("forward")}>Forward to a person…</Act>;
   const repro = <Act key="r" icon="rotate-ccw" onClick={() => setOpen("reprocess")}>Reprocess</Act>;
@@ -233,7 +281,7 @@ export function MailActions({ message, runAs, capture, onChanged }: { message: M
   if (s === "not_recognised") acts = [process, notif, ignore, fwd];
   else if (s === "failed") acts = req ? [openReq, repro, fwd] : [process, notif, ignore, fwd, repro];
   else if (s === "processed" || s === "reply") acts = [openReq, repro, fwd];
-  else if (s === "ignored") acts = [unign, fwd];
+  else if (s === "ignored") acts = message.understood?.kind === "notforus" && !message.ignored ? [process, notif, fwd] : [unign, fwd];   // "not for us" was the agent's call: a person can still say what it is
   else acts = [fwd];
   const close = () => setOpen(null);
   const done = (m?: MailMessage) => onChanged(m);
@@ -241,6 +289,7 @@ export function MailActions({ message, runAs, capture, onChanged }: { message: M
     <>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{acts.filter(Boolean)}</div>
       {open === "process" && <ProcessDialog message={message} runAs={runAs} onClose={close} onDone={() => onChanged()} />}
+      {open === "notification" && <NotificationDialog message={message} runAs={runAs} onClose={close} onDone={() => onChanged()} />}
       {open === "ignore" && <IgnoreDialog message={message} onClose={close} onDone={done} />}
       {(open === "reprocess" || open === "unignore") && <ReprocessDialog message={message} verb={open} onClose={close} onDone={done} />}
       {open === "forward" && <ForwardDialog message={message} capture={capture} onClose={close} onDone={done} />}

@@ -35,10 +35,14 @@ export type ChecklistItem = { defNid: number; label: string; decision: "provide"
 export type ChecklistResult = ChecklistItem & { leg: number; filled: boolean; reason: string | null; wasOnFlight?: boolean };
 export type Write = { leg: number; state: LeonLegState["state"]; flightNid: string | null; tripNid: string | null; error: string | null; httpStatus: number | null; ms: number | null; at: string; updatedAt: string; by: string | null; resolvedBy: string | null; checklist: ChecklistResult[] | null; payload: Record<string, unknown> | null };
 export type UiStatusKey = "needs_you" | "needs_review" | "waiting" | "stuck" | "in_progress" | "loaded" | "skipped" | "cancelled" | "handled";
+export type Notification = { provider: string; providerName: string; reference: string | null; route: string[]; date: string | null; etd: { time: string; airport: string }[]; pax: string | null; client: string | null; crewNamed: number; calendar: { method: string | null; uid: string | null; sequence: number | null; status: string | null } | null };
 export type RequestDetail = {
   request: { id: string; type: "handling" | "scheduled"; typeLabel: string; reference: string; referenceBuilt: boolean; status: string; ui: { key: UiStatusKey; label: string; escalated?: boolean }; statusReason: string | null; sender: string | null; fromAddr: string | null; toAddrs: string[] | null; subject: string | null; receivedAt: string | null; messageId: string; route: string | null; firstStd: string | null; legsCount: number | null; closedReason: string | null; duplicate: Duplicate | null; duplicateResolution: { action: string; by: string; at: string } | null; purged: boolean; hasPersonal: boolean };
   stageNames: string[]; stages: Stage[];
-  review: { legs: Leg[]; notes: { text: string; source: string | null }[]; conflicts: unknown[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null; version: number } | null;
+  review: { legs: Leg[]; notes: { text: string; source: string | null }[]; conflicts: unknown[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null; version: number;
+    // Type 1 (scheduled flight): the provider's notification and the look-ups of its reference. No legs: they are the provider's record, not this message.
+    kind?: "notification"; notification?: Notification; lookup?: { attempts: { at: string; state: "found" | "not_found" | "unavailable"; why: string | null; listed: number | null; by: string | null }[]; nextAt: string | null; found?: { at: string; row: { quote: string; quoteDate: string; flightDate: string; aircraft: string; typeCode: string } } };
+    updates?: { at: string; sequence: number | null; changes: string[]; matchedBy: string }[]; copies?: number; cancelled?: { at: string; matchedBy: string } } | null;
   blockers: string[]; warnings: string[];
   attachments: AttachmentRole[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null;
   sent: { writes: Write[]; firstAt: string | null; lastMs: number | null };
@@ -57,8 +61,10 @@ export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leo
 
 // Mailbox
 export type MailStatus = "waiting" | "processed" | "not_recognised" | "failed" | "reply" | "ignored" | "sent";
-export type MailRow = { id: string; direction: "inbound" | "outbound"; at: string; from: string | null; to: string[]; subject: string | null; status: MailStatus; what: string; ref: string | null; requestId: string | null; requestState: string | null; attachments: number; delivery: string | null; matched: string | null };
-export type Understood = { kind: "processed" | "notrec" | "failed" | "reply" | "replybad" | "ignored" | "wait"; title: string; body?: string; ref?: string; refState?: string; checks: [string, "yes" | "no" | "maybe" | "none", string][]; hint?: string };
+export type MailRow = { id: string; direction: "inbound" | "outbound"; at: string; from: string | null; to: string[]; subject: string | null; status: MailStatus; what: string; ref: string | null; requestId: string | null; requestState: string | null; attachments: number; delivery: string | null; matched: string | null; label?: string | null };
+/** How the type was decided: by the message's content or by a person, how sure, and on what evidence. */
+export type Classification = { type: "scheduled" | "handling" | "not_for_us" | "ask"; confidence: number; decidedBy: "content" | "person"; reason: string; evidence: { test: string; signal: string; found: boolean; detail: string }[]; by?: string | null; at?: string };
+export type Understood = { kind: "processed" | "notrec" | "failed" | "reply" | "replybad" | "ignored" | "notforus" | "wait"; title: string; body?: string; ref?: string | null; refState?: string; checks: [string, "yes" | "no" | "maybe" | "none", string][]; hint?: string; classification?: Classification; calendar?: { uid: string | null; method: string | null; sequence: number | null } | null };
 export type MailMessage = {
   id: string; direction: "inbound" | "outbound"; subject: string | null; from: string | null; to: string[]; cc?: string[]; at: string; status: MailStatus; statusReason: string | null;
   understood: Understood | null; history: { at: string; status?: string; reason?: string; by: string; action: string; to?: string }[]; request: { id: string; reference: string; state: string } | null;
@@ -81,6 +87,7 @@ export const intakeApi = {
   overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
+  lookup: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/lookup`, { json: {} }),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),
   people: (id: string) => call<People>(`/api/intake/requests/${id}/people`),
@@ -102,5 +109,5 @@ export const mailboxApi = {
   reveal: (id: string, mode: "html" | "text", images: boolean) => call<{ values: string[]; revealedBy: string }>(`/api/mailbox/messages/${id}/reveal?mode=${mode}${images ? "&images=1" : ""}`, { json: {} }),
   raw: (id: string) => call<{ headers: [string, string][]; raw: string; auth: MailMessage["auth"] }>(`/api/mailbox/messages/${id}/raw`),
   rawDownloadUrl: (id: string) => `${AGENT_BASE}/api/mailbox/messages/${id}/raw?download=1`,
-  action: (id: string, verb: "ignore" | "unignore" | "reprocess" | "forward" | "process-handling", body: Record<string, unknown> = {}) => call<{ message?: MailMessage; confirmation?: Confirmation; result?: { requestId?: string; reference?: string; status?: string; failed?: string } }>(`/api/mailbox/messages/${id}/${verb}`, { json: body }),
+  action: (id: string, verb: "ignore" | "unignore" | "reprocess" | "forward" | "process-handling" | "process-notification", body: Record<string, unknown> = {}) => call<{ message?: MailMessage; confirmation?: Confirmation; result?: { requestId?: string; reference?: string; status?: string; failed?: string } }>(`/api/mailbox/messages/${id}/${verb}`, { json: body }),
 };

@@ -16,10 +16,12 @@ cd "$ROOT"
 "$RIG/check-portal-build.sh" || exit 78   # a plain npm run build bakes in production values: refuse it
 rm -rf .next/standalone/.next/static .next/standalone/public && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public
 ( env -i PATH="$PATH" HOME="$HOME" PORT=3998 HOSTNAME=127.0.0.1 node --env-file="$ENV" .next/standalone/server.js > "$SCR/portal.out" 2>&1 & )
+# The provider portal is a fixture file on the rig (never the real portal), and reference look-ups retry within
+# a minute instead of over 24 h so the tests can watch them.
 # Current tz data for the agent (rig/tzdata.sh fetches it). Without it the agent runs on Node's frozen copy, its
 # self-test fails, and local → UTC conversion is refused: loud, by design.
 [ -f "$SCR/icu-tz/zoneinfo64.res" ] || echo "NOTE: no rig/.scratch/icu-tz — run rig/tzdata.sh, or the agent will refuse to convert local times"
-( cd agent && env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )
+( cd agent && env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off INTAKE_PROVIDER_FIXTURE="$RIG/fixtures/cnair/portal-fixture.json" INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )
 [ -d "$SCR/wall/upstream" ] || cp -R "$ROOT/164.92.164.35" "$SCR/wall/upstream"   # the wall's static timeline copy
 ( cd "$SCR/wall" && env -i PATH="$PATH" HOME="$HOME" PORT=5199 node --env-file="$ENV" "$ROOT/digital-wall/server.mjs" > "$SCR/wall.out" 2>&1 & )
 ( cd "$RIG" && env -i PATH="$PATH" HOME="$HOME" RIG_SCRATCH="$SCR" node proxy.mjs > "$SCR/proxy.out" 2>&1 & )

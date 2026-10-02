@@ -3,9 +3,13 @@
 //   Request received → Reading request → Data extracted → Awaiting review → Reviewed and confirmed →
 //   Building Leon request → Leon request built → Sent to Leon → Filling checklist → Checklist filled → Notification sent
 //
-// Stages are data (one list per type); the page draws whatever list it is given. Type 1 (provider portal)
-// has its own nine-stage list, defined here so the page and the list can show it, but nothing collects from
-// a portal: a message routed to type 1 stops at "Collecting data" as NOT BUILT, said so in plain words.
+// WHAT A MESSAGE IS is decided by its content (classify.mjs), never by its sender, and never by default:
+//   a provider's flight notification → type 1 (notification.mjs: link by calendar UID, look the reference up,
+//     then stop: collecting from the portal is NOT BUILT and the stage says so);
+//   a message that asks us to provide something and carries its own flight details → type 2 (below);
+//   neither → "not for us": stored, calm, no request;
+//   not sure → "needs a decision": the agent does nothing and a person chooses the type in the mailbox.
+// No request row exists until the type is known. Stages are data (one list per type); the page draws the list.
 //
 // Processing runs off the webhook's response path, one message at a time, in this process. A message still
 // "waiting" after a restart is picked up again on start (idempotent: one request per message, extraction
@@ -22,6 +26,8 @@ import { reviewFromExtraction } from "./review.mjs";
 import { flightsBetween, checklistDefinitions } from "./leon-lookup.mjs";
 import { personalTokens, scrubString, searchTextFor } from "./personal.mjs";
 import { composeReview, composeStopped, sendIntakeEmail } from "./notify.mjs";
+import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMailSystemSender } from "./classify.mjs";
+import { handleNotification } from "./notification.mjs";
 
 export const STAGES = {
   handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Filling checklist", "Checklist filled", "Notification sent"],
@@ -98,17 +104,6 @@ async function expandEmails(message, list, depth = 0) {
   return out;
 }
 
-function classifyAutomatic(parsed) {
-  const h = parsed.headers; const get = (k) => String(h.get(k) ?? "");
-  const ct = h.get("content-type"); const ctv = typeof ct === "object" ? `${ct.value}; ${JSON.stringify(ct.params ?? {})}` : String(ct ?? "");
-  const from = String(parsed.from?.value?.[0]?.address ?? "").toLowerCase();
-  if (/multipart\/report/i.test(ctv) && /delivery-status/i.test(ctv) || /^(mailer-daemon|postmaster)@/.test(from)) return { kind: "bounce", title: "Ignored as a bounce", reason: "Bounce", checks: [["Bounce", "yes", "Delivery Status Notification"]] };
-  const auto = get("auto-submitted");
-  if (auto && !/^no$/i.test(auto) || /^(auto|automatic) ?reply|out of (the )?office/i.test(parsed.subject ?? "")) return { kind: "auto", title: "Ignored: automatic reply", reason: "Out of office", checks: [["Auto-Submitted header", auto ? "yes" : "maybe", auto || "subject reads as an automatic reply"]] };
-  if (h.has("list-unsubscribe") || /^bulk|list$/i.test(get("precedence"))) return { kind: "newsletter", title: "Ignored: newsletter", reason: "Newsletter", checks: [["List-Unsubscribe", "yes", ""]] };
-  return null;
-}
-
 async function patchMessage(id, patch) { await rest(`intake_messages?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) }); }
 async function patchRequest(id, patch) { await rest(`intake_requests?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) }); }
 
@@ -168,7 +163,8 @@ function peopleLine(people, review) {
 
 /**
  * Processes one inbound message. Options: { actor, requestAttachmentId (ops: "use this file instead"),
- * forceHandling (mailbox: "Process as handling request") }.
+ * forceHandling (mailbox: "Process as handling request"), forceType: "scheduled" + reference (mailbox:
+ * "Process as flight notification") }. A forced type is recorded as decided by a person.
  */
 export async function processMessage(messageId, opts = {}) {
   const message = (await rest(`intake_messages?select=*&id=eq.${messageId}`))?.[0];
@@ -180,27 +176,21 @@ export async function processMessage(messageId, opts = {}) {
 
   // The stored message is the truth about subject and sender (the webhook carried only Resend's metadata).
   if (parsed.subject && (parsed.subject !== message.subject || parsed.from?.text !== message.from_addr)) { message.subject = parsed.subject; message.from_addr = parsed.from?.text ?? message.from_addr; await patchMessage(message.id, { subject: message.subject, from_addr: message.from_addr }); }
-  const automatic = opts.forceHandling ? null : classifyAutomatic(parsed);
+  const forced = !!opts.forceHandling || opts.forceType === "scheduled";
+  const automatic = forced ? null : classifyAutomatic(parsed);
   if (automatic) {
     await patchMessage(message.id, { status: "ignored", status_reason: automatic.reason, understood: { kind: "ignored", title: automatic.title, body: "Not a request, so the agent took no action on it.", checks: automatic.checks }, search_text: `${message.from_addr ?? ""}\n${message.subject ?? ""}` });
     return { ignored: automatic.kind };
   }
 
-  // One request per message; a re-run reuses it.
+  // A re-run reuses the message's request; a new message has NO request until its type is known.
   const existing = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
   if (existing) {
     const sent = (await rest(`intake_leon_writes?select=id&request_id=eq.${existing.id}&state=in.(sending,in_leon,unknown)&limit=1`)) ?? [];
     if (sent.length) return { refused: "This request already has legs in Leon (or a send in progress); it is not read again." };
   }
-  const req = existing ?? (await rest("intake_requests?on_conflict=message_id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify([{ message_id: message.id, request_type: "handling", status: "extracting", stages: freshStages("handling") }]) }))?.[0]
-    ?? (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
-  let stages = existing?.stages?.length ? existing.stages.map((s) => ({ ...s })) : freshStages("handling");
-  if (existing) for (const s of stages) if (s.name !== "Request received") { s.state = "none"; s.at = null; s.ms = null; s.note = null; }
-  setStage(stages, "Request received", "done", `From ${parsed.from?.value?.[0]?.name ? `${parsed.from.value[0].name} · ` : ""}${parsed.from?.value?.[0]?.address ?? message.from_addr ?? "unknown sender"}`, message.received_at);
-  setStage(stages, "Reading request", "prog", opts.requestAttachmentId ? "Re-reading with the file ops chose as the request" : null);
   const sender = parsed.from?.value?.[0]?.name || message.from_addr;
-  await patchRequest(req.id, { status: "extracting", stages, sender_name: sender, status_reason: "Reading request" });
-  await patchMessage(message.id, { request_id: req.id });
+  const fromAddress = parsed.from?.value?.[0]?.address ?? "";
 
   // Attachments: code-evident noise first; everything else read for the model.
   const atts = await attachmentsOf(message, parsed);
@@ -216,6 +206,28 @@ export async function processMessage(messageId, opts = {}) {
     else if (!a.text && /^image\/(png|jpeg|gif|webp)$/.test(a.sniffedType) && a.bytes < 3_750_000) a.docBlock = { image: { format: a.sniffedType.split("/")[1], source: { bytes: a.content } } };
   }
   const bodyText = parsed.text || (parsed.html ? String(parsed.html).replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ") : "");
+
+  // ── Test 1, offline: is it a provider's flight notification? (content only; the sender is a hint) ────────
+  const signals = notificationSignals({ subject: message.subject, texts: [bodyText, ...atts.filter((a) => a.email).map((a) => a.email.text ?? "")], calendars: calendarsFrom(atts), fromAddr: fromAddress, attachedSubjects: atts.filter((a) => a.email).map((a) => a.email.subject ?? "") });
+  if (!opts.forceHandling && !chosen && (signals.confident || opts.forceType === "scheduled")) {
+    if (opts.forceType === "scheduled" && !signals.reference) {
+      const ref = String(opts.reference ?? "").trim();
+      if (!signals.provider.refPattern.test(ref)) return { failed: `A ${signals.provider.name} reference is needed to look the flight up, and the message has none the agent could read.` };
+      signals.reference = ref; signals.notification.reference = ref;
+    }
+    const decision = opts.forceType === "scheduled"
+      ? { type: "scheduled", confidence: 1, decidedBy: "person", reason: `Chosen by ${opts.actor?.name ?? "a person"} in the mailbox.`, evidence: signals.evidence.map((e) => ({ test: "notification", signal: e.signal, found: e.found, detail: e.detail })) }
+      : decideType({ signals });
+    return handleNotification({ message, signals, decision, senderName: sender, actor: opts.forceType === "scheduled" ? opts.actor ?? null : null });
+  }
+
+  // ── Test 2 needs the message read. The request row is only touched when one already exists (a re-run). ───
+  let req = existing ?? null;
+  let stages = existing?.stages?.length && existing.request_type === "handling" ? existing.stages.map((s) => ({ ...s })) : freshStages("handling");
+  if (existing) for (const s of stages) if (s.name !== "Request received") { s.state = "none"; s.at = null; s.ms = null; s.note = null; }
+  setStage(stages, "Request received", "done", `From ${parsed.from?.value?.[0]?.name ? `${parsed.from.value[0].name} · ` : ""}${fromAddress || message.from_addr || "unknown sender"}`, message.received_at);
+  setStage(stages, "Reading request", "prog", opts.requestAttachmentId ? "Re-reading with the file ops chose as the request" : null);
+  if (req) { await patchRequest(req.id, { request_type: "handling", status: "extracting", stages, sender_name: sender, status_reason: "Reading request" }); await patchMessage(message.id, { request_id: req.id }); }
   const extraNote = [chosen ? `A PERSON (ops) HAS CHOSEN the attachment "${chosen.name}" as the request itself. Read the schedule and services from it; the body is secondary.` : null, opts.forceHandling ? "A PERSON (ops) HAS ASKED for this email to be read as a handling request. Pre-fill what you can find; set confidence at or below 0.6 for everything you are unsure of." : null].filter(Boolean).join("\n");
 
   let model, x;
@@ -226,13 +238,39 @@ export async function processMessage(messageId, opts = {}) {
   } catch (e) {
     const why = e.schemaErrors ? `${e.message}` : `The model could not read it: ${String(e.message).slice(0, 200)}`;
     setStage(stages, "Reading request", "fail", why);
-    await patchRequest(req.id, { status: "needs_you", status_reason: "Reading request · could not read", stages });
+    if (req) await patchRequest(req.id, { status: "needs_you", status_reason: "Reading request · could not read", stages });
     await patchMessage(message.id, { status: "failed", status_reason: `Could not read the request: ${String(e.message).slice(0, 120)}`, understood: { kind: "failed", title: "Failed: the request could not be read", body: why, checks: [] } });
-    await audit({ kind: "intake.extraction_failed", success: false, error: String(e.message).slice(0, 200), confirmationStatus: "not_required", detail: { requestId: req.id, messageId: message.id } }).catch(() => {});
+    await audit({ kind: "intake.extraction_failed", success: false, error: String(e.message).slice(0, 200), confirmationStatus: "not_required", detail: { requestId: req?.id ?? null, messageId: message.id } }).catch(() => {});
     return { failed: e.message };
   }
   const people = x.personal.people ?? [];
   const tokens = personalTokens(people);
+
+  // ── The decision: two positive tests with "ask" between them. Nothing is a handling request by default. ──
+  let decision = opts.forceHandling || chosen
+    ? { type: "handling", confidence: 1, decidedBy: "person", reason: `Chosen by ${opts.actor?.name ?? "a person"}${chosen ? " (a file was chosen as the request)" : " in the mailbox"}.`, evidence: [] }
+    : decideType({ signals, model: model.raw, sourceTexts: [bodyText, ...atts.map((a) => a.text ?? "")], mailSystemSender: isMailSystemSender(fromAddress) });
+  if (decision.type === "handling" && !x.legs.length && !opts.forceHandling) decision = { ...decision, type: "ask", confidence: Math.min(decision.confidence, 0.5), reason: "Asks for something, but carries no schedule the agent could read." };
+  const classification = { type: decision.type, confidence: decision.confidence, decidedBy: decision.decidedBy, reason: scrubString(decision.reason, tokens), evidence: decision.evidence.map((e) => ({ ...e, detail: scrubString(e.detail, tokens) })), model: { type: model.raw?.requestType ?? null, confidence: model.raw?.typeConfidence ?? null, id: model.modelId }, at: now(), by: opts.actor?.name ?? null };
+  const evidenceChecks = classification.evidence.map((e) => [({ reference: "Provider reference", block: "Notification block", calendar: "Calendar part", subject: "Subject", sender: "Sender", asks: "Asks us for something", schedule: "Own schedule", reading: "The agent's reading" })[e.signal] ?? e.signal, e.found ? "yes" : "none", e.detail]);
+  if (decision.type !== "handling") {
+    const calm = decision.type === "not_for_us";
+    const plainSearch = searchTextFor({ from: `${sender ?? ""} ${message.from_addr ?? ""}`, subject: message.subject, reference: null, registrations: [], callsigns: [], airports: [], bodyText, people });
+    if (req) { setStage(stages, "Reading request", "fail", classification.reason); await patchRequest(req.id, { status: "not_recognised", status_reason: classification.reason, stages }); }
+    await patchMessage(message.id, calm
+      ? { status: "ignored", status_reason: `Not for us: ${classification.reason}`.slice(0, 140), search_text: plainSearch, has_personal_data: people.length > 0,
+          understood: { kind: "notforus", title: `Not for us: ${classification.reason}`, body: "Not a handling request and not a flight notification, so the agent took no action. Nothing is needed.", checks: evidenceChecks, classification } }
+      : { status: "not_recognised", status_reason: classification.reason.slice(0, 140), search_text: plainSearch, has_personal_data: people.length > 0,
+          understood: { kind: "notrec", title: `Needs a decision: ${classification.reason}`, body: "The agent could not tell what this is with enough confidence, so it did nothing. Choose what it is.", checks: evidenceChecks, classification, hint: "Process it as a handling request or as a flight notification, or mark it as ignored. Nothing was created." } });
+    await audit({ kind: calm ? "intake.not_for_us" : "intake.needs_decision", success: true, confirmationStatus: "not_required", detail: { messageId: message.id, confidence: classification.confidence, modelType: classification.model.type } }).catch(() => {});
+    return calm ? { notForUs: true } : { needsDecision: true };
+  }
+  // Type 2, on positive evidence (or because a person chose it): the request exists from here.
+  if (!req) {
+    req = (await rest("intake_requests?on_conflict=message_id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify([{ message_id: message.id, request_type: "handling", status: "extracting", stages, sender_name: sender, status_reason: "Reading request" }]) }))?.[0]
+      ?? (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
+    await patchMessage(message.id, { request_id: req.id });
+  }
 
   // Store the version (fields without personal data; personal separately).
   const prevRow = (await rest(`intake_extractions?select=version,personal&request_id=eq.${req.id}&order=version.desc&limit=1`))?.[0];
@@ -251,7 +289,6 @@ export async function processMessage(messageId, opts = {}) {
   });
   const requestSource = chosen ? { attachment: chosen.name, attachmentId: chosen.id, why: `Chosen by ${opts.actor?.name ?? "ops"}.`, by: opts.actor?.name ?? null } : { ...x.requestSource, attachmentId: atts.find((a) => a.name === x.requestSource?.attachment)?.id ?? null };
 
-  const handling = x.requestType === "handling" || opts.forceHandling || chosen;
   const defs = model.defs ?? (await checklistDefinitions().catch(() => []));
   const review = reviewFromExtraction(x, defs);
   review.requestSource = requestSource;
@@ -265,14 +302,6 @@ export async function processMessage(messageId, opts = {}) {
   const calls = [...new Set(review.legs.map((l) => l.fields.find((f) => f.key === "flightNumber")?.value).filter(Boolean))];
   const apts = [...new Set(review.legs.flatMap((l) => ["departure", "arrival"].map((k) => l.fields.find((f) => f.key === k)).filter(Boolean).flatMap((f) => [f.value, f.airport?.iata]).filter(Boolean)))];
   const search = searchTextFor({ from: `${sender ?? ""} ${message.from_addr ?? ""}`, subject: message.subject, reference, registrations: regs, callsigns: calls, airports: apts, bodyText: [bodyText, ...atts.filter((a) => a.email).map((a) => `${a.email.subject ?? ""}\n${a.email.text ?? ""}`)].join("\n"), people });
-
-  if (!handling || !legsN) {
-    setStage(stages, "Reading request", "fail", scrubString(x.whyType, tokens));
-    await patchRequest(req.id, { status: "not_recognised", status_reason: scrubString(x.whyType, tokens), stages, review, attachment_roles: roles, current_extraction_id: ex?.id, reference, reference_built: built });
-    const checks = [["Schedule block", legsN ? "maybe" : "no", legsN ? `${legsN} leg${legsN === 1 ? "" : "s"}, but not read as a handling request` : "No airport code with a date and time"], ["Registration", regs.length ? "yes" : "no", regs.join(", ")], ["People", people.length ? "yes" : "none", people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} named (not shown)` : ""], ["Attachments", atts.length ? "yes" : "none", atts.length ? `${atts.length}` : ""]];
-    await patchMessage(message.id, { status: "not_recognised", status_reason: scrubString(x.whyType, tokens).slice(0, 140), understood: { kind: "notrec", title: `Not recognised: ${scrubString(x.whyType, tokens)}`, body: "The agent did nothing with it.", checks, hint: regs.length || legsN ? "Process as handling request: the agent pre-fills what it found, all marked low confidence, and you complete the rest on the review screen." : "Forward it to a person, or mark it as ignored." }, search_text: search, has_personal_data: people.length > 0 });
-    return { notRecognised: true, requestId: req.id };
-  }
 
   setStage(stages, "Reading request", "done", `${atts.filter((a) => !a.pre).length ? `Body and ${atts.filter((a) => !a.pre).length} attachment${atts.filter((a) => !a.pre).length === 1 ? "" : "s"}` : "Body"} · ${model.modelId.replace(/^eu\.anthropic\./, "")} · ${Math.round((Date.now() - started) / 1000)} s`);
   const sCount = review.legs.reduce((n, l) => n + l.services.filter((s) => !s.isNote).length, 0);
@@ -303,7 +332,7 @@ export async function processMessage(messageId, opts = {}) {
     ["Attachments", atts.length ? "yes" : "none", atts.length ? roles.map((r) => `${r.name}: ${r.role}`).join(" · ") : ""],
     ["Timezone", tz ? "no" : "yes", tz ? "Not stated anywhere" : "Stated"],
   ];
-  await patchMessage(message.id, { status: "processed", status_reason: "Handling request", understood: { kind: "processed", title: "Read as a handling request", ref: reference, refState: reason, body: `${legsN} leg${legsN === 1 ? "" : "s"}, ${sCount} service lines${people.length ? `, ${people.length} people` : ""}.${lowN ? ` ${lowN} value${lowN === 1 ? "" : "s"} low confidence.` : ""}${tz ? " Times have no timezone, so the request is waiting for someone to set it." : ""}${duplicate && !duplicate.error ? " Stopped as a possible duplicate of flights already in Leon." : ""}`, checks }, search_text: search, has_personal_data: people.length > 0 || roles.some((r) => r.personal) });
+  await patchMessage(message.id, { status: "processed", status_reason: "Handling request", understood: { kind: "processed", classification, title: "Read as a handling request", ref: reference, refState: reason, body: `${legsN} leg${legsN === 1 ? "" : "s"}, ${sCount} service lines${people.length ? `, ${people.length} people` : ""}.${lowN ? ` ${lowN} value${lowN === 1 ? "" : "s"} low confidence.` : ""}${tz ? " Times have no timezone, so the request is waiting for someone to set it." : ""}${duplicate && !duplicate.error ? " Stopped as a possible duplicate of flights already in Leon." : ""}`, checks }, search_text: search, has_personal_data: people.length > 0 || roles.some((r) => r.personal) });
   await audit({ kind: "intake.extracted", success: true, confirmationStatus: "not_required", detail: { requestId: req.id, messageId: message.id, version: prev + 1, model: model.modelId, legs: legsN, people: people.length, duplicate: !!(duplicate && !duplicate.error), tzUnknown: tz, actor: opts.actor?.email ?? null, requestAttachmentOverride: chosen ? chosen.id : null } }).catch(() => {});
 
   // Notification: review (E2), or needs-you variants. Recorded on the stage note; the last stage is post-send.

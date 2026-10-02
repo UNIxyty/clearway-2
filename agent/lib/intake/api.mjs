@@ -2,6 +2,7 @@
 // every route here runs as the signed-in user, and the mailbox routes additionally require mailbox access.
 // Responses never carry personal data except the two reveal endpoints, which are audited.
 import { tzStatus } from "../tzdata.mjs";
+import { runLookup, lookupState } from "./notification.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
@@ -61,7 +62,7 @@ async function health() {
   return {
     mailbox: { ok: Boolean(process.env.RESEND_WEBHOOK_SECRET), lastAt: last, note: process.env.RESEND_WEBHOOK_SECRET ? null : "No Resend webhook secret is set on the server, so nothing can arrive." },
     leon: { ok: leonConfigured(), lastWrite: lastLeon },
-    portals: { built: false, note: "Provider-portal collection is not built. Scheduled flights (type 1) are not collected." },
+    portals: { built: false, lookup: lookupState().on, note: `Flight notifications are recognised and their reference is ${lookupState().on ? "looked up in the provider's portal" : "NOT looked up (the look-up is switched off on this server)"}. Collecting the legs and loading them into Leon is not built.` },
     timezones: tzHealth(),
   };
 }
@@ -69,7 +70,8 @@ async function health() {
 function listRow(r, messages, writes) {
   const s = uiStatus(r); const m = messages.get(r.message_id);
   const ws = writes.get(r.id) ?? {};
-  const legs = (r.review?.legs ?? []).map((l) => ({ removed: !!l.removed, state: l.removed ? "removed" : ws[l.index]?.state === "in_leon" ? "in" : ws[l.index]?.state === "not_in_leon" ? "not" : ws[l.index]?.state === "unknown" || ws[l.index]?.state === "sending" ? "unknown" : "none" }));
+  // A scheduled flight has no legs of its own yet (they are the provider's record): show the count the notification gives, all "not sent".
+  const legs = r.request_type === "scheduled" && !(r.review?.legs ?? []).length ? Array.from({ length: r.legs_count ?? 0 }, () => ({ removed: false, state: "none" })) : (r.review?.legs ?? []).map((l) => ({ removed: !!l.removed, state: l.removed ? "removed" : ws[l.index]?.state === "in_leon" ? "in" : ws[l.index]?.state === "not_in_leon" ? "not" : ws[l.index]?.state === "unknown" || ws[l.index]?.state === "sending" ? "unknown" : "none" }));
   return { id: r.id, type: r.request_type, statusKey: s.key, statusLabel: s.label, from: r.sender_name ?? m?.from_addr ?? "", reference: r.reference ?? "—", referenceBuilt: r.reference_built, route: r.route ?? "", firstStd: r.first_std, legs, stage: stageText(r, s), updatedAt: r.updated_at, needsAttention: TABS.needs.includes(s.key) };
 }
 
@@ -270,7 +272,7 @@ async function mailboxRows({ box = "received", view = "needs", q = "", days = 7,
   if (box === "sent") { if (view === "needs") filter += "&delivery_status=in.(delivery_delayed,bounced,complained,failed)"; }
   else if (VIEW[view]) filter += `&${VIEW[view]}`;
   if (address) filter += `&to_addrs=cs.{${encodeURIComponent(address)}}`;
-  let rows = (await rest(`intake_messages?select=id,direction,received_at,from_addr,to_addrs,subject,status,status_reason,request_id,has_personal_data,delivery_status,sent_kind,ignored_by,ignored_reason,search_text&${filter}&order=received_at.desc&limit=500`)) ?? [];
+  let rows = (await rest(`intake_messages?select=kind:understood->>kind,classified:understood->classification->>type,id,direction,received_at,from_addr,to_addrs,subject,status,status_reason,request_id,has_personal_data,delivery_status,sent_kind,ignored_by,ignored_reason,search_text&${filter}&order=received_at.desc&limit=500`)) ?? [];
   let personalQuery = false;
   if (q) {
     const needle = q.trim().toLowerCase();
@@ -284,7 +286,7 @@ async function mailboxRows({ box = "received", view = "needs", q = "", days = 7,
   if (rows.length) for (const a of (await rest(`intake_attachments?select=message_id&message_id=in.(${rows.slice(0, 200).map((r) => r.id).join(",")})`)) ?? []) attCounts.set(a.message_id, (attCounts.get(a.message_id) ?? 0) + 1);
   // A message that was not recognised keeps an internal request row (for "Process as handling request"), but
   // there is no request for ops to open: no reference, no link.
-  const all = rows.map((r) => { const req0 = r.request_id ? reqs.get(r.request_id) : null; const req = req0 && req0.status !== "not_recognised" ? req0 : null; return { id: r.id, direction: r.direction, at: r.received_at, from: r.from_addr, to: r.to_addrs, subject: r.subject, status: r.status, what: r.direction === "outbound" ? `${r.sent_kind ?? "Email"}` : r.status === "ignored" && r.ignored_by ? `Marked by ${r.ignored_by} · ${r.ignored_reason}` : r.status_reason ?? "", ref: req?.reference ?? null, requestId: r.request_id, requestState: req ? uiStatus(req).label : null, attachments: attCounts.get(r.id) ?? 0, delivery: r.delivery_status, matched: r.matched ?? null }; });
+  const all = rows.map((r) => { const req0 = r.request_id ? reqs.get(r.request_id) : null; const req = req0 && req0.status !== "not_recognised" ? req0 : null; return { id: r.id, direction: r.direction, at: r.received_at, from: r.from_addr, to: r.to_addrs, subject: r.subject, status: r.status, label: r.direction === "inbound" && r.status === "ignored" && r.kind === "notforus" && !r.ignored_by ? "Not for us" : r.direction === "inbound" && r.status === "not_recognised" && r.classified ? "Needs a decision" : null, what: r.direction === "outbound" ? `${r.sent_kind ?? "Email"}` : r.status === "ignored" && r.ignored_by ? `Marked by ${r.ignored_by} · ${r.ignored_reason}` : r.status_reason ?? "", ref: req?.reference ?? null, requestId: r.request_id, requestState: req ? uiStatus(req).label : null, attachments: attCounts.get(r.id) ?? 0, delivery: r.delivery_status, matched: r.matched ?? null }; });
   return { rows: all, personalQuery };
 }
 function matchReason(r, needle) {
@@ -375,6 +377,10 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if (P === "/api/intake/overview" && req.method === "GET") return send({ ok: true, health: await health(), queue: queueDepth() });
     if (P === "/api/intake/requests" && req.method === "GET") return send({ ok: true, ...(await requestRows({ tab: url.searchParams.get("tab") ?? "all", q: url.searchParams.get("q") ?? "", type: url.searchParams.get("type") ?? "" })) });
     let m;
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/lookup$/.exec(P)) && req.method === "POST") {
+      const out = await runLookup(m[1], { manual: true, actor: { email: user.email, name: who(user).name } });
+      return send({ ok: true, lookup: out, ...(await requestDetail(m[1])) });
+    }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)) });
@@ -464,7 +470,7 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
         if (!r.ok || !/^image\/(png|jpeg|gif|webp)/.test(ct) || buf.length > 5_000_000) throw err(404, "Not an image.");
         res.writeHead(200, { "content-type": ct, "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" }); res.end(buf); return true;
       }
-      if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/(ignore|unignore|reprocess|forward|process-handling)$/.exec(P)) && req.method === "POST") {
+      if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/(ignore|unignore|reprocess|forward|process-handling|process-notification)$/.exec(P)) && req.method === "POST") {
         const body = await readJsonBody(req); const id = m[1]; const msg = (await rest(`intake_messages?select=*&id=eq.${id}`))?.[0]; if (!msg) throw err(404, "No such message.");
         const me = who(user); const hist = [...(msg.history ?? []), { at: me.at, status: msg.status, reason: msg.status_reason, by: me.name, action: m[2] }];
         if (m[2] === "ignore") {
@@ -482,6 +488,19 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
           settleConfirmation(b.entry, out);
           if (out?.failed) failConfirmation(b.entry);
           await audit({ kind: "mailbox.process_as_handling", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: !out?.failed, error: out?.failed ?? null, confirmationStatus: "confirmed", detail: { messageId: id, requestId: out?.requestId ?? null } }).catch(() => {});
+          return send({ ok: !out?.failed, result: out, message: out?.failed ?? null });
+        } else if (m[2] === "process-notification") {
+          // A person says: this is a provider's flight notification. Creates a type 1 request (no Leon write),
+          // confirmed with the same server-verified token as "Process as handling request".
+          const reference = String(body.reference ?? "").trim();
+          if (!body.token) { const c = issueConfirmation({ user, toolName: "intake.process_as_notification", input: { messageId: id, reference }, level: "write", summary: "Treat this email as a provider's flight notification", targetId: id, targetLabel: msg.subject }); return send({ ok: true, confirmation: { token: c.token, expiresAt: c.expiresAt } }); }
+          const b = beginConfirmation({ token: body.token, user, toolName: "intake.process_as_notification", input: { messageId: id, reference } }); if (b.error) throw err(409, b.error === "expired" ? "This confirmation expired. Nothing was created." : "This confirmation does not match."); if (b.replay) return send({ ok: true, result: b.entry.result });
+          await rest(`intake_messages?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ status: "waiting", status_reason: "In the queue · process as flight notification", history: hist }) });
+          const out = await processMessage(id, { actor: { email: user.email, name: me.name }, forceType: "scheduled", reference }).catch((e) => ({ failed: e.message }));
+          if (out?.failed) await rest(`intake_messages?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ status: msg.status, status_reason: msg.status_reason }) });
+          settleConfirmation(b.entry, out);
+          if (out?.failed) failConfirmation(b.entry);
+          await audit({ kind: "mailbox.process_as_notification", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: !out?.failed, error: out?.failed ?? null, confirmationStatus: "confirmed", detail: { messageId: id, requestId: out?.requestId ?? null } }).catch(() => {});
           return send({ ok: !out?.failed, result: out, message: out?.failed ?? null });
         } else if (m[2] === "forward") {
           const to = String(body.to ?? "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw err(400, "A valid address, please.");

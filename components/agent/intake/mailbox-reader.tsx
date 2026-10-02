@@ -19,6 +19,7 @@ const KIND: Record<Understood["kind"], { tone: Tone; icon: string; red?: boolean
   reply: { tone: TONE.blue, icon: "reply" },
   replybad: { tone: TONE.amber, icon: "message-circle-question" },
   ignored: { tone: TONE.slate, icon: "circle-minus" },
+  notforus: { tone: TONE.slate, icon: "circle-minus" },   // routine: nothing is wanted from anyone
   wait: { tone: TONE.amber, icon: "hourglass" },
 };
 const FALLBACK_KIND: Record<string, Understood["kind"]> = { processed: "processed", not_recognised: "notrec", failed: "failed", reply: "reply", ignored: "ignored", waiting: "wait" };
@@ -45,6 +46,11 @@ function UnderstoodBlock({ message }: { message: MailMessage }) {
             {(u.refState ?? message.request?.state) && <span style={{ fontSize: 12.5, fontWeight: 600, color: C.body }}>{u.refState ?? message.request?.state}</span>}
           </div>
           {u.body && <div style={{ fontSize: 13, lineHeight: 1.5, color: C.body }}>{u.body}</div>}
+          {u.classification && (
+            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted }}>
+              {u.classification.decidedBy === "person" ? `Type chosen by ${u.classification.by ?? "a person"}.` : `Decided from the message's content, not its sender · confidence ${u.classification.confidence.toFixed(2)}.`}
+            </div>
+          )}
           {ignoredBy && <div style={{ fontSize: 13, lineHeight: 1.5, color: C.body }}>Marked by {ignoredBy.by} · {ignoredBy.reason}{ignoredBy.note ? ` · “${ignoredBy.note}”` : ""}</div>}
         </div>
       </div>
@@ -199,7 +205,7 @@ function RawSection({ message, open, onToggle }: { message: MailMessage; open: b
   );
 }
 
-const ACTION_WORDS: Record<string, string> = { ignore: "Marked as ignored", unignore: "Not ignored · reprocess", reprocess: "Reprocessed", "process-handling": "Processed as handling request" };
+const ACTION_WORDS: Record<string, string> = { ignore: "Marked as ignored", unignore: "Not ignored · reprocess", reprocess: "Reprocessed", "process-handling": "Processed as handling request", "process-notification": "Processed as flight notification" };
 
 // ── The reader ───────────────────────────────────────────────────────────────────────────────────────────
 function Grid({ rows }: { rows: [string, ReactNode][] }) {

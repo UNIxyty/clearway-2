@@ -8,7 +8,7 @@
 //
 // THE RULES HERE
 //   1. Where the source gives UTC, callers use it and never come here. Conversion is the last resort.
-//   2. The runtime must run on current tz data (the image installs tzdata-icu and points ICU at it).
+//   2. The runtime must run on current tz data (the image fetches the newest release at build; scripts/fetch-tzdata.mjs).
 //   3. Before converting anything, the runtime proves itself: its tz version is at least TZ_MINIMUM, and a set
 //      of deliberately tricky conversions comes out right. If not, nothing is converted: the caller gets a
 //      reason and the field blocks until a person enters the UTC time.
@@ -18,8 +18,12 @@
 // Raising TZ_MINIMUM: when IANA publishes a release that changes rules, set it here and add a TRICKY case for
 // the change (expected value from a current tz database, e.g. `zdump` or Python's zoneinfo), then rebuild.
 
-/** The oldest tz release this code accepts. 2026c: Morocco to UTC+0 (Sep 2026), British Columbia and Alberta stop changing clocks (Nov 2026). */
-export const TZ_MINIMUM = "2026c";
+/**
+ * The oldest tz release this code accepts.
+ * 2026c: Morocco to UTC+0 (Sep 2026); British Columbia and Alberta stop changing clocks (Nov 2026).
+ * 2026d: Northwest Territories (America/Inuvik) stay on -06.  2026e: Manitoba (America/Winnipeg) stays on -05.
+ */
+export const TZ_MINIMUM = "2026e";
 
 /** [zone, local date, local time, expected UTC]. Each one is a rule change or an odd offset that stale or broken data gets wrong. */
 export const TRICKY = [
@@ -28,6 +32,8 @@ export const TRICKY = [
   ["Africa/El_Aaiun", "2026-12-01", "12:00", "2026-12-01T12:00:00Z"],     // follows Morocco
   ["America/Vancouver", "2026-12-15", "12:00", "2026-12-15T19:00:00Z"],   // no fall-back in Nov 2026
   ["America/Edmonton", "2026-12-15", "12:00", "2026-12-15T18:00:00Z"],    // no fall-back in Nov 2026
+  ["America/Inuvik", "2026-12-15", "12:00", "2026-12-15T18:00:00Z"],      // 2026d: no fall-back in Nov 2026
+  ["America/Winnipeg", "2026-12-15", "12:00", "2026-12-15T17:00:00Z"],    // 2026e: no fall-back in Nov 2026
   ["America/Mexico_City", "2026-07-01", "12:00", "2026-07-01T18:00:00Z"], // DST abolished 2022
   ["Asia/Tehran", "2026-07-01", "12:00", "2026-07-01T08:30:00Z"],         // DST abolished 2022, half-hour offset
   ["Asia/Amman", "2026-01-15", "12:00", "2026-01-15T09:00:00Z"],          // permanent +3 since 2022
@@ -132,7 +138,7 @@ async function refreshLatest() {
 export function startTzWatch(log = (line) => process.stderr.write(line + "\n")) {
   const s = tzStatus();
   if (s.ok) log(`[tzdata] ${s.version} (minimum ${s.minimum}); ${TRICKY.length} check conversions correct.`);
-  else { log(`[tzdata] ERROR: TIME-ZONE DATA NOT TRUSTED. LOCAL TIMES WILL NOT BE CONVERTED TO UTC.`); for (const f of s.failures) log(`[tzdata]   ${f}`); log(`[tzdata]   Fix: rebuild the image (it installs tzdata-icu) and check ICU_TIMEZONE_FILES_DIR. See docs/intake.md, "Time zones".`); }
+  else { log(`[tzdata] ERROR: TIME-ZONE DATA NOT TRUSTED. LOCAL TIMES WILL NOT BE CONVERTED TO UTC.`); for (const f of s.failures) log(`[tzdata]   ${f}`); log(`[tzdata]   Fix: rebuild the image (it fetches current tz data) and check ICU_TIMEZONE_FILES_DIR. See docs/intake.md, "Time zones".`); }
   if (String(process.env.TZDATA_LATEST_CHECK || "").trim() === "off") return s;
   const check = async () => { const l = await refreshLatest(); if (l.release && tzOlder(tzVersion(), l.release)) log(`[tzdata] WARNING: IANA has published ${l.release}; this server runs ${tzVersion()}. Rebuild the image to pick it up.`); };
   void check(); setInterval(check, 24 * 3600 * 1000).unref();

@@ -39,8 +39,11 @@ Node resolves zones with the tz data bundled in its ICU, which is frozen at the 
 rules with weeks of notice (2026: Morocco to UTC+0 in September; British Columbia and Alberta stop changing clocks in
 November). Stale data means a flight loaded one hour wrong with nothing looking wrong. So:
 
-- **The image runs on current data.** `agent/Dockerfile` installs `tzdata-icu` at every build and sets
-  `ICU_TIMEZONE_FILES_DIR`; the build runs `rig/intake/test-timezones.mjs` and fails if the runtime is too old.
+- **The image runs on current data.** Every build of `agent/Dockerfile` installs Ubuntu's `tzdata-icu` as the
+  baseline, then `agent/scripts/fetch-tzdata.mjs` replaces it with the newest IANA release from the ICU project
+  (Ubuntu's package can trail IANA by weeks: on 2 Oct 2026 it had 2026c while IANA was at 2026e, which changes
+  Manitoba and the Northwest Territories from 1 Nov). `ICU_TIMEZONE_FILES_DIR` points Node at those files. The build
+  then runs `rig/intake/test-timezones.mjs` and fails if the runtime is too old.
 - **The runtime proves itself before converting.** On start (`startTzWatch`) and before the first conversion: tz
   version ≥ `TZ_MINIMUM`, and the `TRICKY` conversions come out right. If not, the log says so in capitals, the intake
   page shows a red "Time zones" pill, `/api/health` reports `tzdata.ok: false`, and **nothing is converted**: local-only

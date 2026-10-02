@@ -16,13 +16,15 @@ FROM mcr.microsoft.com/playwright:v1.59.1-noble
 # CURRENT TIME-ZONE DATA. Node converts local times with the tz data bundled in its ICU, which is frozen at the
 # Node release (this base image: 2025c) while countries change their rules with weeks of notice. Intake turns
 # local times into UTC for Leon, so stale data means a flight loaded an hour wrong with nothing looking wrong.
-# tzdata-icu is Ubuntu's ICU build of the IANA database, updated in noble-updates; ICU_TIMEZONE_FILES_DIR makes
-# Node's ICU read it instead of its own copy. Installed at every build, so a rebuild picks up the latest release.
-# The build then PROVES it: the test fails the build if the runtime is older than agent/lib/tzdata.mjs requires.
+# ICU_TIMEZONE_FILES_DIR makes Node's ICU read the files in /opt/tzdata-icu instead of its own copy. They come
+# from two places: Ubuntu's tzdata-icu package as the baseline (here), then the newest IANA release from the ICU
+# project (scripts/fetch-tzdata.mjs, below), because the package can trail IANA by weeks. Every build refreshes
+# both, and then PROVES it: the test fails the build if the runtime is older than agent/lib/tzdata.mjs requires.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends tzdata tzdata-icu \
- && rm -rf /var/lib/apt/lists/*
-ENV ICU_TIMEZONE_FILES_DIR=/usr/share/zoneinfo-icu/44/le
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /opt/tzdata-icu && cp /usr/share/zoneinfo-icu/44/le/*.res /opt/tzdata-icu/
+ENV ICU_TIMEZONE_FILES_DIR=/opt/tzdata-icu
 
 WORKDIR /app
 
@@ -30,6 +32,9 @@ COPY agent/package*.json ./
 RUN npm install --omit=dev
 
 COPY agent/ ./
+
+# The newest published tz data over the baseline (keeps the baseline if the fetch fails; the test below decides).
+RUN node scripts/fetch-tzdata.mjs /opt/tzdata-icu
 
 # Fail the build, not a flight: stale or broken tz data stops here.
 COPY rig/intake/test-timezones.mjs /tmp/tzcheck/rig/intake/test-timezones.mjs

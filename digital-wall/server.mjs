@@ -202,7 +202,7 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, unconfirmedOutline: true, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {} };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, unconfirmedOutline: true, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {}, font: "nunito" };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -378,6 +378,10 @@ function sanitizeDisplaySettings(input = {}) {
     }
     cleanColors[key] = hex;
   }
+  // Font tab: the wall's text font, one id from the client-side registry (theme/wallFont.js), per account like
+  // the colours. The server stores a slug; the display resolves an unknown one to the default (dotted Nunito).
+  const font = input.font === undefined || input.font === null || input.font === "" ? DEFAULT_DISPLAY_SETTINGS.font : String(input.font).trim().toLowerCase();
+  if (!/^[a-z][a-z0-9-]{0,30}$/.test(font)) throw new Error("font must be a short font id (letters, digits, dashes).");
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
@@ -412,6 +416,7 @@ function sanitizeDisplaySettings(input = {}) {
     upcomingTableScale: Math.round(upcomingTableScale * 100) / 100,
     upcomingTableWidthPct: Math.round(upcomingTableWidthPct),
     colors: cleanColors,
+    font,
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };

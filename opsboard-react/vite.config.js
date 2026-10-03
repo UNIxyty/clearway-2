@@ -8,7 +8,16 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5174',
+        target: process.env.VITE_API_PROXY || 'http://localhost:5174',
+        changeOrigin: true,
+      },
+    },
+  },
+  // `vite preview` serves the built dist (what nginx serves) with the same API proxy — the rig's screen checks.
+  preview: {
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY || 'http://localhost:5174',
         changeOrigin: true,
       },
     },

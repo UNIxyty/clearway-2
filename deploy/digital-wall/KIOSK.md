@@ -108,3 +108,23 @@ back on the wall in seconds with no sign-in.
 4. The key issued to the screen is read-only: it can fetch wall data and the
    stream, and nothing else. Revoking the device in the same card stops the
    screen immediately and returns it to the waiting state.
+
+## 5. Fonts: nothing from a CDN
+
+Every font the wall and the console use is served by our own nginx (`opsboard-react/public/fonts`, declared in
+`opsboard-react/src/fonts.css`): the dotted-zero Nunito the wall ships with, Public Sans, Roboto, IBM Plex Sans and
+IBM Plex Mono. There is no request to `fonts.googleapis.com` or `fonts.gstatic.com`; a kiosk with no outbound
+network renders exactly the same as one with it.
+
+The wall's **text font** is a per-account setting (console → Settings → Font), stored and applied exactly like the
+Colours tab: `settings.font` in `display-settings.json`, `PUT /api/display/settings`, and the `config.changed`
+event that repaints the running wall in seconds, no reload. The options (`opsboard-react/src/theme/wallFont.js`):
+Nunito (dotted zero — the default, so an unset wall is unchanged), Public Sans, Roboto, Avenir / Helvetica,
+Arial, System sans-serif. The last three are commercial fonts we can only name: a Linux kiosk has none of them and
+renders its generic sans-serif (usually Liberation Sans or DejaVu Sans) instead — the settings page measures the
+machine it runs on and says so. To add a hosted font: `node opsboard-react/tools/fetch-fonts.mjs` fetches OFL files,
+then add the `@font-face` lines to `fonts.css` and the option to `wallFont.js`.
+
+Numbers: the wall renders times, codes and callsigns in the same text font (the dotted zero was patched into
+Nunito for that reason; there is no IBM Plex Mono on the wall). `font-variant-numeric: tabular-nums` on the wall
+shell keeps digits equal-width in every option, so the columns under the now line do not shift as the clock ticks.

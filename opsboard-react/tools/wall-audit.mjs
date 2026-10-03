@@ -26,6 +26,8 @@ const argvOf = (name, dflt) => {
 const OUT = path.resolve(argvOf("out", "audit-out"));
 const BASE = argvOf("base", "http://127.0.0.1:4173").replace(/\/$/, "");
 const VIEWS_ARG = argvOf("views", "all");
+// --font <id>: the wall text font to audit (settings.font in the fixture); default = the shipped default.
+const FONT = argvOf("font", "");
 
 const DESKTOP_VIEWS = [
   { name: "wall-1920", url: "/timeline", width: 1920, height: 1080 },
@@ -99,6 +101,7 @@ async function overlapAudit(page) {
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const fixtures = buildFixtures();
+  if (FONT) fixtures["/api/display/settings"].settings.font = FONT;
   const browser = await chromium.launch();
   const report = [];
 
@@ -141,8 +144,19 @@ async function main() {
     await page.screenshot({ path: path.join(OUT, `${view.name}.png`), fullPage: false });
     writeFileSync(path.join(OUT, `${view.name}.dom.html`), await page.content());
     const audit = await overlapAudit(page);
-    report.push({ view: view.name, width: view.width, height: view.height, ...audit });
-    console.log(`${view.name}: ${audit.textNodes} text nodes, ${audit.overlaps.length} overlaps`);
+    // Clipping: leaf text in an overflow-hidden/ellipsis box that is wider than the box, and text past the viewport.
+    const clip = await page.evaluate(() => {
+      const bad = [];
+      for (const e of document.querySelectorAll("span,div")) {
+        if (e.children.length || !e.textContent?.trim()) continue;
+        const cs = getComputedStyle(e);
+        if ((cs.overflow === "hidden" || cs.textOverflow === "ellipsis") && e.scrollWidth > e.clientWidth + 1) bad.push(`${e.textContent.trim().slice(0, 30)} (${e.scrollWidth}>${e.clientWidth}px)`);
+      }
+      return { clipped: bad, scrollW: document.documentElement.scrollWidth, scrollH: document.documentElement.scrollHeight, font: getComputedStyle(document.documentElement).getPropertyValue("--wall-font-sans").trim().slice(0, 30) };
+    });
+    report.push({ view: view.name, width: view.width, height: view.height, ...audit, clipped: clip.clipped, font: clip.font });
+    console.log(`${view.name} [${clip.font}]: ${audit.textNodes} text nodes, ${audit.overlaps.length} overlaps, ${clip.clipped.length} clipped${clip.scrollW > view.width ? `, page wider than viewport (${clip.scrollW})` : ""}`);
+    for (const c of clip.clipped.slice(0, 6)) console.log(`   ✂ ${c}`);
     for (const o of audit.overlaps.slice(0, 8)) console.log(`   ✗ "${o.a}" × "${o.b}" (${o.w}×${o.h}px)`);
     await context.close();
   }

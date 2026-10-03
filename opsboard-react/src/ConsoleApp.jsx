@@ -1011,7 +1011,7 @@ const s = {
     opacity: 0.85,
   },
   footerBrand: {
-    fontFamily: "'IBM Plex Mono',monospace",
+    fontFamily: t.mono,
     fontSize: 12,
     fontWeight: 700,
     letterSpacing: '2.5px',

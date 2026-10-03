@@ -91,7 +91,7 @@ function PreviewPill({ c }) {
         display: 'flex',
         flexDirection: 'column',
         gap: 9,
-        fontFamily: "'IBM Plex Mono',monospace",
+        fontFamily: t.mono,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -217,7 +217,7 @@ function ContrastChip({ hex, against }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        fontFamily: "'IBM Plex Mono',monospace",
+        fontFamily: t.mono,
         fontSize: 11.5,
         fontWeight: 700,
         color: low ? '#b45309' : t.greenDeep,
@@ -376,7 +376,7 @@ export default function ColoursCard({ deviceId }) {
             <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, fontWeight: 600, color: t.body, cursor: 'pointer' }}>
               <Toggle on={onlyOverridden} onToggle={() => setOnlyOverridden((v) => !v)} size="sm" />
               Show only overridden
-              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11.5, color: t.faint }}>
+              <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint }}>
                 {overriddenKeys.length}
               </span>
             </label>
@@ -427,7 +427,7 @@ export default function ColoursCard({ deviceId }) {
                         ))}
                       </span>
                     )}
-                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: t.faint }}>
+                    <span style={{ fontFamily: t.mono, fontSize: 11, color: t.faint }}>
                       {group.tokens.length}
                     </span>
                     <Icon name={open ? 'chevron-up' : 'chevron-down'} size={15} color={t.faint} />
@@ -462,7 +462,7 @@ export default function ColoursCard({ deviceId }) {
                             <span style={{ fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {token.label}
                             </span>
-                            <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: t.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontFamily: t.mono, fontSize: 11, color: t.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {token.key}
                             </span>
                           </div>
@@ -478,7 +478,7 @@ export default function ColoursCard({ deviceId }) {
                               spellCheck={false}
                               aria-label={`${token.label} hex value`}
                               style={{
-                                fontFamily: "'IBM Plex Mono',monospace",
+                                fontFamily: t.mono,
                                 fontSize: 12.5,
                                 padding: '5px 8px',
                                 borderRadius: 7,
@@ -546,7 +546,7 @@ export default function ColoursCard({ deviceId }) {
                 >
                   <Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} color={t.faint} />
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{group.label}</span>
-                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11.5, color: t.faint }}>
+                  <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint }}>
                     {group.tokens.length}
                   </span>
                   <span style={{ flex: 1 }} />
@@ -617,7 +617,7 @@ export default function ColoursCard({ deviceId }) {
                             spellCheck={false}
                             aria-label={`${token.label} hex value`}
                             style={{
-                              fontFamily: "'IBM Plex Mono',monospace",
+                              fontFamily: t.mono,
                               fontSize: 12.5,
                               padding: '5px 8px',
                               borderRadius: 7,

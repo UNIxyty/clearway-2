@@ -294,7 +294,7 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
           aria-invalid={!draftValid}
           style={{
             flex: 1,
-            fontFamily: "'IBM Plex Mono',monospace",
+            fontFamily: t.mono,
             fontSize: 13,
             padding: '7px 10px',
             borderRadius: 8,

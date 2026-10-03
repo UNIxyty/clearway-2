@@ -102,7 +102,9 @@
   },
   "font": {
     "sans": "'Public Sans', system-ui, sans-serif",
-    "mono": "'IBM Plex Mono', monospace"
+    "mono": "'IBM Plex Mono', monospace",
+    "$wallComment": "The wall display's DEFAULT text font (console Settings → Font can change it per account; opsboard-react/src/theme/wallFont.js lists the options). It is the wall's own dotted-zero Nunito build, so an unset wall renders exactly as before the setting existed.",
+    "wallSans": "'Nunito', Roboto, Avenir, Helvetica, Arial, sans-serif"
   },
   "sidebar": {
     "width": 248,

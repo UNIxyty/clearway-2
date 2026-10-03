@@ -18,7 +18,7 @@ import useViewport from './hooks/useViewport';
 import ResponsiveWall from './components/mobile/ResponsiveWall';
 import VoiceReadout from './components/VoiceReadout';
 
-import { WALL_FONT } from './theme/wallFont';
+import { WALL_FONT, applyWallFont } from './theme/wallFont';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -129,6 +129,9 @@ export default function DisplayApp() {
   // same settings fetch as the sizing knobs, so the config.changed SSE
   // (section 'settings' → loadSettings) live-updates colours too.
   const [wallColorOverrides, setWallColorOverrides] = useState({});
+  // Before the first settings fetch answers, the wall renders in the default text font (the variable's fallback
+  // is the same stack, so nothing flashes between fonts unless a different one is saved).
+  useEffect(() => { applyWallFont(undefined); }, []);
   const loadingRef = useRef(false);
   const deviceIdRef = useRef(getDeviceId());
   const accountRef = useRef(''); // this screen's signed-in account (profile key)
@@ -176,6 +179,9 @@ export default function DisplayApp() {
       accountRef.current = String(payload.account || '').toLowerCase();
       const colors = payload.settings?.colors;
       setWallColorOverrides(colors && typeof colors === 'object' ? colors : {});
+      // The text font travels with the same fetch as the colours and takes the same live route
+      // (config.changed → loadSettings): one CSS variable on <html>, no reload.
+      applyWallFont(payload.settings?.font);
       setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
       if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);

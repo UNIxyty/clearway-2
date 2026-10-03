@@ -1,15 +1,102 @@
-// Bug report 6 item 6 (THIRD font report): the wall's reading font.
+// Wall text font — the ONE source every wall surface reads, built like the colour tokens (wallColors.js):
+// a registry of options here, the chosen id stored per account in display settings (`settings.font`, next to
+// `settings.colors`), resolved by the display and applied LIVE through the config.changed refetch.
 //
-// What was actually deployed before this: NOTHING self-hosted. The app pulled
-// IBM Plex Mono from the Google Fonts CDN; on the offline/slow kiosk that
-// request fails and the browser falls back to the system monospace — on the
-// wall box that fallback has the dotted-but-blurry zero ops photographed.
-// Report 5's "self-hosted Nunito with slashed zero" never landed in the repo.
+// The font reaches components as a CSS variable, `--wall-font-sans`, set on <html> by applyWallFont(); every
+// `fontFamily: WALL_FONT` therefore follows the setting without a reload. Its default is the shared design
+// token font.wallSans: the wall's own dotted-zero Nunito build (bug 6 item 6), so a wall with no saved choice
+// renders exactly as it did before this setting existed.
 //
-// This ships the requested stack, self-hosted, with a REAL dotted zero:
-// Nunito has no `zero` OpenType feature at all (dotted or slashed), so the
-// glyph itself is patched — a filled ellipse added inside the counter of
-// U+0030 in each shipped weight (public/fonts/Nunito-dotted-*.woff2, built
-// from the OFL Nunito variable font). Verified 0 8 O 6 9 distinguishable
-// down to the wall's smallest configured sizes.
-export const WALL_FONT = "'Nunito', Roboto, Avenir, Helvetica, Arial, sans-serif";
+// Numbers: the wall renders times, codes and callsigns in this same text font (there is no IBM Plex Mono on the
+// wall; the dotted zero was patched into Nunito for exactly that reason), so the setting moves them too. The wall
+// shell sets font-variant-numeric: tabular-nums (index.css), which makes Public Sans's digits equal-width (its
+// default figures are proportional); Nunito, Roboto and Avenir are tabular already; tabularDigits() measures it.
+import sharedTokens from '../../../shared/design-tokens.json';
+
+export const WALL_FONT_VAR = '--wall-font-sans';
+/** The one monospace surface on the wall (LimToast's tiny code label): the shared mono token, never the setting. */
+export const MONO_FONT = sharedTokens.font.mono;
+
+/**
+ * The options, in the order the settings page shows them. `stack` always ends in sans-serif: a missing font
+ * falls back to another sans, never a serif. `hosted` = served from our own nginx (public/fonts); the others are
+ * commercial fonts we can only name — the settings page measures whether the machine has them.
+ */
+export const WALL_FONTS = [
+  { id: 'nunito', label: 'Nunito (dotted zero)', stack: sharedTokens.font.wallSans, hosted: true, local: [], note: 'The wall’s own build, with a dotted zero. The default.' },
+  { id: 'public-sans', label: 'Public Sans', stack: "'Public Sans', sans-serif", hosted: true, local: [], note: 'The console’s font.' },
+  { id: 'roboto', label: 'Roboto', stack: "'Roboto', sans-serif", hosted: true, local: [] },
+  { id: 'avenir', label: 'Avenir / Helvetica', stack: "'Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica', sans-serif", hosted: false, local: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica'] },
+  { id: 'arial', label: 'Arial', stack: "'Arial', 'Liberation Sans', sans-serif", hosted: false, local: ['Arial', 'Liberation Sans'] },
+  { id: 'system', label: 'System sans-serif', stack: 'sans-serif', hosted: false, local: [] },
+];
+export const DEFAULT_WALL_FONT_ID = 'nunito';
+const BY_ID = new Map(WALL_FONTS.map((f) => [f.id, f]));
+
+/** The option for a saved id; unknown or missing → the default (never a serif, never nothing). */
+export function resolveWallFont(id) {
+  return BY_ID.get(String(id ?? '').trim()) ?? BY_ID.get(DEFAULT_WALL_FONT_ID);
+}
+
+/**
+ * What components put in `fontFamily`: the variable, with the default stack as the fallback so a surface rendered
+ * before applyWallFont() ran (or outside the display, e.g. a console preview) still gets the default font.
+ */
+export const WALL_FONT = `var(${WALL_FONT_VAR}, ${sharedTokens.font.wallSans})`;
+
+/** Sets the variable on <html>; the whole wall re-renders in the new font with no reload. */
+export function applyWallFont(id, root = typeof document !== 'undefined' ? document.documentElement : null) {
+  const font = resolveWallFont(id);
+  if (root) root.style.setProperty(WALL_FONT_VAR, font.stack);
+  return font;
+}
+
+// ── What actually renders (settings preview) ────────────────────────────────────────────────────────────────
+// A font-family that the machine does not have falls through to the next name in the stack, silently. For the
+// licensed options the settings page must say so: each name is measured against a known fallback — the width
+// of a test string in "<name>, monospace" differs from plain "monospace" only when <name> exists. No library.
+const PROBE_TEXT = 'CWY101 EVRA→EGGW 14:35Z 0123456789';
+function widthIn(doc, fontFamily, weight = 400) {
+  const span = doc.createElement('span');
+  span.textContent = PROBE_TEXT;
+  Object.assign(span.style, { position: 'absolute', left: '-9999px', top: '0', fontSize: '48px', fontFamily, fontWeight: String(weight), whiteSpace: 'nowrap' });
+  doc.body.appendChild(span);
+  const w = span.getBoundingClientRect().width;
+  span.remove();
+  return w;
+}
+/** Is a locally installed font with this family name available to this browser? */
+export function localFontAvailable(name, doc = typeof document !== 'undefined' ? document : null) {
+  if (!doc) return false;
+  const mono = widthIn(doc, 'monospace'), serif = widthIn(doc, 'serif');
+  return widthIn(doc, `'${name}', monospace`) !== mono || widthIn(doc, `'${name}', serif`) !== serif;
+}
+/**
+ * Will a clock reading keep its width as the digits change, in this stack as the wall renders it (tabular-nums
+ * on, kerning on)? "00:00" … "99:99" are measured at 64px after the font has loaded (self-hosted faces load
+ * lazily); a spread above 4px there is under 1px at the wall's sizes and is tolerated (Arial's "11" kerning),
+ * anything more (Public Sans without tabular-nums: proportional "1") would make the now-line columns jitter.
+ */
+export async function tabularDigits(stack, doc = typeof document !== 'undefined' ? document : null) {
+  if (!doc) return null;
+  try { await doc.fonts?.load?.(`700 64px ${stack}`, '0123456789:'); } catch { /* measured anyway */ }
+  const span = doc.createElement('span');
+  Object.assign(span.style, { position: 'absolute', left: '-9999px', top: '0', fontSize: '64px', fontFamily: stack, fontWeight: '700', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' });
+  doc.body.appendChild(span);
+  const widths = [];
+  for (const d of '0123456789') { span.textContent = `${d}${d}:${d}${d}`; widths.push(span.getBoundingClientRect().width); }
+  span.remove();
+  return Math.max(...widths) - Math.min(...widths) <= 4;
+}
+/**
+ * For one option: which family will render on THIS machine, and whether that is the one asked for.
+ * → { rendered: name | null, fallback: boolean, message }
+ */
+export function wallFontProbe(font, doc = typeof document !== 'undefined' ? document : null) {
+  if (!doc) return { rendered: null, fallback: false, message: '' };
+  if (font.hosted) return { rendered: font.id === 'nunito' ? 'Nunito' : font.stack.split(',')[0].replace(/'/g, ''), fallback: false, message: 'Served from our own server; renders the same on every screen.' };
+  if (font.id === 'system') return { rendered: 'the system’s sans-serif', fallback: false, message: 'Whatever this machine’s default sans-serif is; it differs from screen to screen.' };
+  const present = font.local.find((name) => localFontAvailable(name, doc)) ?? null;
+  if (present) return { rendered: present, fallback: present !== font.local[0], message: present === font.local[0] ? `${present} is on this machine.` : `${font.local[0]} not found on this machine; ${present} renders instead.` };
+  return { rendered: null, fallback: true, message: `${font.local.join(', ')}: none found on this machine. The system’s sans-serif renders instead (on a Linux kiosk usually Liberation Sans or DejaVu Sans).` };
+}

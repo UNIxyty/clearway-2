@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { MONO_FONT } from '../theme/wallFont';
 
 const BADGE_COLORS = {
   AOG:  { bg: 'rgba(239,106,106,.15)', color: '#ef6a6a' },
@@ -51,7 +52,7 @@ const s = {
     padding: '2px 7px', borderRadius: 99,
   },
   ac: {
-    fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#6e7894',
+    fontFamily: MONO_FONT, fontSize: 10, color: '#6e7894',
   },
   msg: { fontSize: 11, color: '#6e7894', lineHeight: 1.55 },
 };

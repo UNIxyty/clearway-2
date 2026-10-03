@@ -29,6 +29,7 @@ const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
 import Icon from './icons';
 import ColoursCard from './ColoursCard';
+import FontCard from './FontCard';
 import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';
 import { Stepper } from './mobile';
@@ -1688,6 +1689,7 @@ export default function SettingsPage() {
   const SECTION_OPTIONS = [
     { value: 'display', label: 'Display & sizing' },
     { value: 'colours', label: 'Colours' },
+    { value: 'font', label: 'Font' },
     { value: 'wall', label: 'Wall content' },
     { value: 'checks', label: 'NOTAM, alerts & WX' },
   ];
@@ -1759,6 +1761,16 @@ export default function SettingsPage() {
             </DeviceCtx.Provider>
           </>
         )}
+        {section === 'font' && (
+          <>
+            <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+            <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+              <div key={selectedAccount ?? 'own'}>
+                <FontCard deviceId={selectedAccount} />
+              </div>
+            </DeviceCtx.Provider>
+          </>
+        )}
         {section === 'wall' && (
           <>
             {group(
@@ -1797,6 +1809,7 @@ export default function SettingsPage() {
           options={[
             { value: 'display', label: 'Display & sizing' },
             { value: 'colours', label: 'Colours' },
+            { value: 'font', label: 'Font' },
             { value: 'wall', label: 'Wall content' },
             { value: 'checks', label: 'NOTAM, alerts & WX' },
           ]}
@@ -1825,6 +1838,17 @@ export default function SettingsPage() {
           <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
             <div key={selectedAccount ?? 'own'}>
               <ColoursCard deviceId={selectedAccount} />
+            </div>
+          </DeviceCtx.Provider>
+        </>
+      )}
+      {section === 'font' && (
+        <>
+          {/* The wall's text font: same per-account model and save route as the colours. */}
+          <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
+          <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
+            <div key={selectedAccount ?? 'own'}>
+              <FontCard deviceId={selectedAccount} />
             </div>
           </DeviceCtx.Provider>
         </>

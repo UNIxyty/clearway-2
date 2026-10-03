@@ -1,13 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-/* Bug 6 item 6: the wall's dotted-zero Nunito — SELF-HOSTED (no CDN).
-   Relative ../fonts/ URLs resolve from the bundled assets/ dir to
-   {base}/fonts/ so the /digital-wall base path works unchanged. */
-@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Nunito'; src: url('../fonts/Nunito-dotted-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
-
+/* Every font is self-hosted (src/fonts.css, files in public/fonts): no CDN, so the kiosk's appearance does not
+   depend on anyone's uptime or on outbound network. The wall's text font is the CSS variable --wall-font-sans,
+   set on <html> by applyWallFont() (src/theme/wallFont.js) from the saved setting; its default is the shared
+   design token font.wallSans (the dotted-zero Nunito). */
+@import './fonts.css';
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -33,6 +28,9 @@ html, body, #root {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   font-size: 13px;
   overflow: hidden;
+  /* Equal-width digits whatever the wall font: Public Sans's default figures are proportional and would make
+     the times under the now line shift as the clock ticks. No effect on the default Nunito (already tabular). */
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes toastIn {

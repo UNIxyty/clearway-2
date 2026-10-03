@@ -9,14 +9,12 @@
     <link rel="apple-touch-icon" href="/PFP.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clearway Display Console</title>
-    <!-- Console design system fonts (approved Claude Design); the UI falls
-         back to system-ui / ui-monospace when offline. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Fonts are self-hosted (src/fonts.css, public/fonts): no Google Fonts, no CDN. Preloaded: only the wall's
+         default text font in the four weights the wall uses; every other option loads when chosen. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="%BASE_URL%fonts/Nunito-dotted-400.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="%BASE_URL%fonts/Nunito-dotted-600.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="%BASE_URL%fonts/Nunito-dotted-700.woff2" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="%BASE_URL%fonts/Nunito-dotted-800.woff2" />
   </head>
   <body>
     <div id="root"></div>

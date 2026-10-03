@@ -27,11 +27,11 @@ import { flightsBetween, checklistDefinitions } from "./leon-lookup.mjs";
 import { personalTokens, scrubString, searchTextFor } from "./personal.mjs";
 import { composeReview, composeStopped, sendIntakeEmail } from "./notify.mjs";
 import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMailSystemSender } from "./classify.mjs";
-import { handleNotification } from "./notification.mjs";
+import { handleNotification, handleApprovalReply } from "./notification.mjs";
 
 export const STAGES = {
   handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Filling checklist", "Checklist filled", "Notification sent"],
-  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Building Leon request", "Leon request built", "Sent to Leon", "Notification sent"],
+  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Notification sent"],
 };
 export const freshStages = (type) => STAGES[type].map((name) => ({ name, state: "none", at: null, ms: null, note: null }));
 export function setStage(stages, name, state, note = null, at = new Date().toISOString()) {
@@ -182,6 +182,9 @@ export async function processMessage(messageId, opts = {}) {
     await patchMessage(message.id, { status: "ignored", status_reason: automatic.reason, understood: { kind: "ignored", title: automatic.title, body: "Not a request, so the agent took no action on it.", checks: automatic.checks }, search_text: `${message.from_addr ?? ""}\n${message.subject ?? ""}` });
     return { ignored: automatic.kind };
   }
+
+  // A reply to the E1 "Process?" question is an answer, never a request: it is applied (or asked again) and stops here.
+  if (!forced && !opts.requestAttachmentId) { const answered = await handleApprovalReply(message, parsed); if (answered) return answered; }
 
   // A re-run reuses the message's request; a new message has NO request until its type is known.
   const existing = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];

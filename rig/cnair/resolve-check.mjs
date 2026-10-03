@@ -5,7 +5,7 @@
 import fs from "node:fs"; import path from "node:path";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 for (const l of fs.readFileSync(path.join(root, ".env"), "utf8").split("\n")) { const m = /^(CNAIR_USER|CNAIR_PASSWORD)=(.*)$/.exec(l); if (m) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, ""); }
-process.env.INTAKE_CNAIR_LOOKUP = "on"; delete process.env.INTAKE_PROVIDER_FIXTURE;
+process.env.INTAKE_CNAIR_LOOKUP = "on"; delete process.env.CNAIR_PORTAL_BASE;
 const { resolveReference, lookupState } = await import("../../agent/lib/intake/providers/cnair.mjs");
 console.log("look-up:", JSON.stringify(lookupState()));
 const t0 = Date.now(); const r = await resolveReference(process.argv[2] ?? "");

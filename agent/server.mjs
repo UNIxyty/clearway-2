@@ -21,7 +21,7 @@ import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { recoverOnStart as recoverIntakeSends } from "./lib/intake/send.mjs";
 import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
 import { startTzWatch, tzStatus } from "./lib/tzdata.mjs";
-import { startLookupTicker } from "./lib/intake/notification.mjs";
+import { startLookupTicker, peekAnswer, answerByToken } from "./lib/intake/notification.mjs";
 import { sweep as sweepIntakeRetention } from "./lib/intake/retention.mjs";
 import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
 assertRigSafe("agent");
@@ -272,6 +272,16 @@ async function handleRequest(req, res) {
       let event; try { event = JSON.parse(raw); } catch { return sendJson(res, { ok: false, error: "invalid_json" }, 400); }
       const result = await handleIntakeEvent({ svixId: String(req.headers["svix-id"]), event, audit: (e) => audit({ confirmationStatus: "not_required", ...e }) });
       return sendJson(res, { ok: true, outcome: result.outcome });
+    }
+
+    // ── E1 answer page (§I13): the third unauthenticated route. Its authentication is the single-use token in
+    // the email, bound to one request, one recipient and one answer; it reveals no personal data and nothing
+    // but that answer can be done with it (agent/lib/intake/notification.mjs). ──
+    if (pathname === "/api/intake/answer" && (req.method === "GET" || req.method === "POST")) {
+      const t = req.method === "GET" ? url.searchParams.get("t") : (await readJsonBody(req).catch(() => ({})))?.t;
+      const out = req.method === "GET" ? await peekAnswer(t) : await answerByToken(t);
+      if (req.method === "POST") await audit({ kind: "intake.answer_page", success: out.state === "recorded", confirmationStatus: out.state === "recorded" ? "confirmed" : "not_required", detail: { state: out.state, requestId: out.requestId ?? null, answer: out.answer ?? null } }).catch(() => {});
+      return sendJson(res, { ok: true, ...out }, out.state === "invalid" ? 404 : 200);
     }
 
     // Everything below requires a signed-in caller.

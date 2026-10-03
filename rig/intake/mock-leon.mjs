@@ -11,6 +11,9 @@ import path from "node:path";
 const PORT = Number(process.env.PORT || 3995);
 const SCR = path.resolve(process.env.RIG_SCRATCH || "../.scratch");
 const snap = JSON.parse(readFileSync(path.join(SCR, "leon-snapshot.json"), "utf8"));
+// Airports and aircraft the snapshot lacks but the CNAIR fixtures need (rig/fixtures/intake/leon-extra.json).
+{ const extraPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../fixtures/intake/leon-extra.json");
+  if (existsSync(extraPath)) { const extra = JSON.parse(readFileSync(extraPath, "utf8")); Object.assign(snap.airports, extra.airports ?? {}); for (const a of extra.aircraft ?? []) if (!snap.aircraft.some((x) => x.registration === a.registration)) snap.aircraft.push(a); } }
 const faults = () => { try { return JSON.parse(readFileSync(path.join(SCR, "leon-mock-faults.json"), "utf8")); } catch { return {}; } };
 const log = (e) => appendFileSync(path.join(SCR, "leon-mock-log.jsonl"), JSON.stringify({ at: new Date().toISOString(), ...e }) + "\n");
 const airportByCode = (c) => { const k = String(c).toUpperCase(); const hit = snap.airports[k] ?? Object.values(snap.airports).find((a) => a && (a.code.icao === k || a.code.iata === k)); return hit ?? null; };

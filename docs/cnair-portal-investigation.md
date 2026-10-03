@@ -31,6 +31,37 @@ scraper depends on, from an authorised read-only capture of all eleven records v
 
 ---
 
+## 0. Built (2026-10-03): the reader and the pipeline
+
+`agent/lib/intake/providers/cnair.mjs` is the reader this report asked for, and `agent/lib/intake/notification.mjs`
+the pipeline around it (eleven stages, approval gate first; runbook in `docs/intake.md`, "Type 1").
+
+- **No browser.** Login is the plain form post; bootstrap and every read are the protocol (`meta Client`, one
+  `ConfigureEvent` for the list, one `currentRow` select per record). Sign-out sends the program's own
+  `cerrarsesion` action; the session is dropped in a `finally` either way. One session, one pass, no pauses.
+- **Keyed on column names.** `EXPECT` in the reader lists the program, window, the five tables with their column
+  lists, the form fields and the actions; `checkStructure` runs before any value is read and any difference refuses
+  the import with the exact mismatch (the rig proves it with a renamed `horas_etv`). Numeric node ids are not
+  trusted.
+- **Projection only.** `readRecord` returns dates, times, ICAO codes, counts, Estimated Hours, registration, the
+  model name and flight numbers; crew, passenger and contact fields come back as present / empty markers. Each value
+  is checked against its format and the leg hours against the printed total; a mismatch refuses the import.
+- **Outages are ordinary failures.** The "No se ha podido iniciar sesión" refusal, a refused login, a network
+  error: `{ state: "unavailable" }`, retried on the schedule, a person alerted after the last try.
+- **Not built, by decision:** change detection (the import is one-shot; the request page and the completion email
+  say so). The calendar-UID linking of later invites is kept and still **unverified against real mail**.
+- **Verified:** on the rig against `rig/intake/mock-cnair.mjs` (a recorded-protocol mock from
+  `rig/fixtures/cnair/portal-structure.json` and the redacted records), and once against the live portal
+  (2026-10-03 00:05Z: login → list → record 2614050 → sign-out, 2.8 s, the record equal to the fixture; nothing
+  sent to Leon). Three things the live GAS needs that the mock had not demanded, now in both:
+  1. every message **ends with a newline** (without it the GAS never answers an event; the first `meta Client`
+     message is the one exception, which is why the earlier curl check passed);
+  2. the headers `X-FourJs-Client-Features: prompt` and `X-FourJs-Client: GBC/1.00.68-…` on every message;
+  3. an **empty `Cookie:` header** makes their front proxy answer 400 "Proxy encountered error", so it is sent only
+     once a cookie exists. Sign-out is `{ActionEvent 0{{idRef "<id of the Button named cerrarsesion>"}}}`, which
+     is what the browser client sends (verified by capturing its own request); the Action node of that name is
+     the fallback. The list showed 12 records on 3 Oct (11 on 1 Oct).
+
 ## 1. `Estimated Hours` means decimal hours
 
 Three independent checks, all from the captured records (`rig/.scratch/cnair/out2/records.json`, redacted):

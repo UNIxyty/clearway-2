@@ -1,0 +1,450 @@
+{
+ "_comment": "The CNAIR flight-dispatcher screen as recorded on 2026-10-01: node ids, table columns and field names from the program itself (no data). Used by rig/intake/mock-cnair.mjs to speak the portal's protocol.",
+ "program": "ProgramacionCnair",
+ "window": "cn_clearway",
+ "tables": {
+  "scr_vuelos": {
+   "id": "759",
+   "columns": [
+    {
+     "id": "758",
+     "colName": "id_vuelo2",
+     "label": "Quote N.",
+     "varType": "INTEGER"
+    },
+    {
+     "id": "756",
+     "colName": "fecpres2",
+     "label": "Quote Date",
+     "varType": "DATE"
+    },
+    {
+     "id": "754",
+     "colName": "fecha2",
+     "label": "Flight Date",
+     "varType": "DATE"
+    },
+    {
+     "id": "750",
+     "colName": "id_avion2",
+     "label": "Aircraft",
+     "varType": "CHAR(10)"
+    },
+    {
+     "id": "748",
+     "colName": "id_tvuelo2",
+     "label": "Type of Flight",
+     "varType": "CHAR(5)"
+    }
+   ]
+  },
+  "scr_legs": {
+   "id": "711",
+   "columns": [
+    {
+     "id": "710",
+     "colName": "print",
+     "label": "View",
+     "varType": null
+    },
+    {
+     "id": "708",
+     "colName": "fechainiutc",
+     "label": "Z Departure nDate",
+     "varType": null
+    },
+    {
+     "id": "706",
+     "colName": "fechaini",
+     "label": "LT Departure nDate",
+     "varType": null
+    },
+    {
+     "id": "704",
+     "colName": "horiniutc",
+     "label": "Z Departure nHour",
+     "varType": null
+    },
+    {
+     "id": "702",
+     "colName": "horini",
+     "label": "LT DeparturenHour",
+     "varType": null
+    },
+    {
+     "id": "700",
+     "colName": "pax",
+     "label": "PAX",
+     "varType": null
+    },
+    {
+     "id": "698",
+     "colName": "id_oaci_ori",
+     "label": "Departure nAirport ID",
+     "varType": null
+    },
+    {
+     "id": "696",
+     "colName": "oaci_ori",
+     "label": "DeparturenAirport",
+     "varType": null
+    },
+    {
+     "id": "694",
+     "colName": "id_oaci_dest",
+     "label": "ArrivalnAirport ID",
+     "varType": null
+    },
+    {
+     "id": "692",
+     "colName": "oaci_dest",
+     "label": "ArrivalnAirport",
+     "varType": null
+    },
+    {
+     "id": "686",
+     "colName": "horas_etv",
+     "label": "Estimated nHours",
+     "varType": null
+    }
+   ]
+  },
+  "scr_detov": {
+   "id": "643",
+   "columns": [
+    {
+     "id": "642",
+     "colName": "id_leg3",
+     "label": "LEG",
+     "varType": null
+    },
+    {
+     "id": "640",
+     "colName": "id_oaci_ori3",
+     "label": "OACI1",
+     "varType": null
+    },
+    {
+     "id": "638",
+     "colName": "id_oaci_dest3",
+     "label": "OACI2",
+     "varType": null
+    },
+    {
+     "id": "636",
+     "colName": "fnumber3",
+     "label": "Flight Number",
+     "varType": null
+    },
+    {
+     "id": "634",
+     "colName": "ppr3",
+     "label": "PPR",
+     "varType": null
+    }
+   ]
+  },
+  "scr_pasajeros_leg": {
+   "id": "592",
+   "columns": [
+    {
+     "id": "591",
+     "colName": "id_leg32",
+     "label": "Leg",
+     "varType": null
+    },
+    {
+     "id": "581",
+     "colName": "tipo32",
+     "label": "Type",
+     "varType": null
+    },
+    {
+     "id": "571",
+     "colName": "genero",
+     "label": "Gender",
+     "varType": null
+    }
+   ]
+  },
+  "scr_oaci": {
+   "id": "568",
+   "columns": [
+    {
+     "id": "567",
+     "colName": "id_leg33",
+     "label": "Leg",
+     "varType": null
+    },
+    {
+     "id": "565",
+     "colName": "id_oaci33",
+     "label": "OACI",
+     "varType": null
+    },
+    {
+     "id": "561",
+     "colName": "proveedor33",
+     "label": "Supplier",
+     "varType": null
+    },
+    {
+     "id": "559",
+     "colName": "telefo33",
+     "label": "Handling Phonen",
+     "varType": null
+    },
+    {
+     "id": "555",
+     "colName": "nombre33",
+     "label": "Contact",
+     "varType": null
+    },
+    {
+     "id": "551",
+     "colName": "email",
+     "label": "Email",
+     "varType": null
+    }
+   ]
+  }
+ },
+ "formFields": [
+  {
+   "id": "767",
+   "colName": "var_filtrorapido",
+   "varType": "STRING"
+  },
+  {
+   "id": "764",
+   "colName": "var_fecini",
+   "varType": "DATE"
+  },
+  {
+   "id": "762",
+   "colName": "var_fecfin",
+   "varType": "DATE"
+  },
+  {
+   "id": "737",
+   "colName": "id_vuelo1",
+   "varType": null
+  },
+  {
+   "id": "734",
+   "colName": "fecpres1",
+   "varType": null
+  },
+  {
+   "id": "731",
+   "colName": "id_tvuelo1",
+   "varType": null
+  },
+  {
+   "id": "726",
+   "colName": "id_avion1",
+   "varType": null
+  },
+  {
+   "id": "723",
+   "colName": "fecha1",
+   "varType": null
+  },
+  {
+   "id": "675",
+   "colName": "id_vuelo3",
+   "varType": null
+  },
+  {
+   "id": "671",
+   "colName": "id_avion3",
+   "varType": null
+  },
+  {
+   "id": "669",
+   "colName": "avion3",
+   "varType": null
+  },
+  {
+   "id": "665",
+   "colName": "id_cap",
+   "varType": null
+  },
+  {
+   "id": "663",
+   "colName": "cap3",
+   "varType": null
+  },
+  {
+   "id": "659",
+   "colName": "id_foff",
+   "varType": null
+  },
+  {
+   "id": "657",
+   "colName": "foff",
+   "varType": null
+  },
+  {
+   "id": "652",
+   "colName": "mtow3",
+   "varType": null
+  },
+  {
+   "id": "648",
+   "colName": "id_att",
+   "varType": null
+  },
+  {
+   "id": "646",
+   "colName": "att",
+   "varType": null
+  },
+  {
+   "id": "627",
+   "colName": "cabconf",
+   "varType": null
+  },
+  {
+   "id": "623",
+   "colName": "seats",
+   "varType": null
+  },
+  {
+   "id": "619",
+   "colName": "stretcher",
+   "varType": null
+  },
+  {
+   "id": "607",
+   "colName": "notdisp",
+   "varType": null
+  }
+ ],
+ "actions": [
+  {
+   "name": "actualizar",
+   "text": "Actualizar",
+   "accelerator": "Alt-F5",
+   "hidden": false
+  },
+  {
+   "name": "cerrarsesion",
+   "text": null,
+   "accelerator": null,
+   "hidden": false
+  },
+  {
+   "name": "cancel",
+   "text": "Cancelar",
+   "accelerator": "Escape",
+   "hidden": false
+  },
+  {
+   "name": "filtrorapido",
+   "text": "FiltroRapido",
+   "accelerator": "Alt-X",
+   "hidden": false
+  }
+ ],
+ "typeOfFlight": [
+  {
+   "value": "EC",
+   "text": "N"
+  },
+  {
+   "value": "EH",
+   "text": "X"
+  },
+  {
+   "value": "EM",
+   "text": "X"
+  },
+  {
+   "value": "EP",
+   "text": "N"
+  },
+  {
+   "value": "ET",
+   "text": "X"
+  },
+  {
+   "value": "IC",
+   "text": "N"
+  },
+  {
+   "value": "IH",
+   "text": "X"
+  },
+  {
+   "value": "IM",
+   "text": "X"
+  },
+  {
+   "value": "IP",
+   "text": "N"
+  },
+  {
+   "value": "IT",
+   "text": "X"
+  },
+  {
+   "value": "NC",
+   "text": "N"
+  },
+  {
+   "value": "NH",
+   "text": "X"
+  },
+  {
+   "value": "NM",
+   "text": "X"
+  },
+  {
+   "value": "NP",
+   "text": "N"
+  },
+  {
+   "value": "NPE",
+   "text": "N"
+  },
+  {
+   "value": "NT",
+   "text": "X"
+  },
+  {
+   "value": "NTR",
+   "text": "X"
+  }
+ ],
+ "stretcher": [
+  {
+   "value": "S\u00ed (Single)",
+   "text": "Yes (Single)"
+  },
+  {
+   "value": "S\u00ed (Dual)",
+   "text": "Yes (Dual)"
+  },
+  {
+   "value": "S\u00ed",
+   "text": "Yes"
+  },
+  {
+   "value": "Si",
+   "text": "Yes"
+  },
+  {
+   "value": "S",
+   "text": "Yes"
+  },
+  {
+   "value": "N",
+   "text": "No"
+  },
+  {
+   "value": "No",
+   "text": "No"
+  }
+ ]
+}

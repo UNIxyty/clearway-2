@@ -186,19 +186,22 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
             {r.duplicateResolution.action === "not_duplicate" ? "Marked not a duplicate" : "Closed as a revision to update in Leon by hand"} by {r.duplicateResolution.by}, <span style={mono()}>{hmZ(r.duplicateResolution.at)}</span>.
           </div>
         )}
-        <Actions detail={detail} closed={closed} apply={apply} reprocess={reprocess} reprocessing={reprocessing} lookupNow={async () => { try { setDetail(await intakeApi.lookup(id)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The look-up did not run."); } }} />
+        <Actions detail={detail} closed={closed} apply={apply} reprocess={reprocess} reprocessing={reprocessing}
+          lookupNow={async () => { try { setDetail(await intakeApi.lookup(id)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The look-up did not run."); } }}
+          answer={async (v) => { try { setDetail(await (v === "yes" ? intakeApi.approve(id) : intakeApi.decline(id))); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The answer was not recorded."); } }} />
         {saveError && <div role="alert" style={{ fontSize: 13, color: C.danger, display: "flex", gap: 8, alignItems: "center" }}><Icon name="circle-alert" size={14} color={C.dangerBadge} />Not saved: {saveError}</div>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "272px minmax(0,1fr)", gap: 14, alignItems: "start" }}>
         <Pipeline typeLabel={r.typeLabel} stageNames={detail.stageNames} stages={detail.stages} now={now} />
-{r.type === "scheduled" ? <NotificationCard detail={detail} /> : (
+{r.type === "scheduled" && !liveLegs.length ? <NotificationCard detail={detail} /> : (
         <ReviewCard detail={detail} apply={apply} defs={defs} legPos={legPos} setLegPos={setLegPos} closed={closed}
           people={people} peopleError={peopleError} reveal={reveal} setReveal={setReveal} doReveal={(s) => void doReveal(s)} editPeople={async (b) => { const p = await intakeApi.editPeople(id, b); setPeople(p); setReveal({ phase: "off" }); onChanged(); }}
           reprocess={reprocess} reprocessing={reprocessing} reprocessMsg={reprocessMsg}
           onPrepare={() => void onPrepare()} preparing={preparing} prepareError={prepareError} />
         )}
       </div>
+      {r.type === "scheduled" && liveLegs.length > 0 && <NotificationCard detail={detail} compact />}
 
       <SentSection detail={detail} rawOpen={rawOpen} setRawOpen={setRawOpen} resolveLeg={resolveLeg} />
       <EmailsSection detail={detail} />
@@ -231,8 +234,13 @@ function legDesc(l: Leg) { const std = fieldOf(l, "std")?.value; const d = legDa
 function legsWord(ns: number[]) { return ns.length === 1 ? `Leg ${ns[0]}` : `Legs ${listWords(ns)}`; }
 export function bannerFor(detail: RequestDetail, now: number, closed: boolean): B | null {
   const r = detail.request; const legs = (detail.review?.legs ?? []).filter((l) => !l.removed);
-  // A scheduled flight (type 1): where the reference look-up stands. Nothing is ever in Leon from this path yet.
-  if (r.type === "scheduled" && !closed) {
+  // A scheduled flight (type 1) before its record is read: the approval gate, then the portal read.
+  if (r.type === "scheduled" && !legs.length) {
+    const ap = detail.review?.approval;
+    if (r.status === "awaiting_approval") return { tone: "amber", icon: "circle-help", title: `Awaiting approval. Nothing has been read from the provider and nothing is in Leon.`, body: `Ops were asked by email at ${ap?.askedAt ? hmZ(ap.askedAt) : "—"} whether to process this schedule${ap?.deadlineAt ? `; the question closes at ${hmZ(ap.deadlineAt)}` : ""}. Answer from the email, or here with Process / Skip.` };
+    if (r.closedReason === "expired") return { tone: "slate", icon: "circle-minus", title: "Expired: nobody answered by the deadline. Nothing was read from the provider and nothing is in Leon.", body: "The request is closed. Anyone can still process it: Process anyway reads the record from the portal, as a yes would have." };
+    if (r.closedReason === "declined") return { tone: "slate", icon: "circle-minus", title: `Declined${ap?.answer ? ` by ${ap.answer.by} at ${hmZ(ap.answer.at)}` : ""}. Nothing was read from the provider and nothing is in Leon.`, body: null };
+    if (closed) return { tone: "slate", icon: "circle-minus", title: `${r.ui.label}. Nothing was sent to Leon.`, body: r.statusReason };
     const st = detail.stages.find((x) => x.name === "Collecting data");
     return { tone: st?.state === "fail" || st?.state === "hold" ? "red" : st?.state === "prog" ? "blue" : "amber", icon: st?.state === "prog" ? "circle-dot" : st?.state === "hold" ? "clipboard-check" : "circle-help", title: `${r.statusReason ?? "Flight notification"}. Nothing is in Leon.`, body: st?.note ?? null };
   }
@@ -355,11 +363,23 @@ function DuplicateBox({ detail, apply }: { detail: RequestDetail; apply: (b: Rec
 }
 
 // ── Actions row (§I4) ──────────────────────────────────────────────────────────────────────────────────
-function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow }: { detail: RequestDetail; closed: boolean; apply: (b: Record<string, unknown>) => Promise<boolean>; reprocess: (a: string | null) => Promise<void>; reprocessing: string | null; lookupNow: () => Promise<void> }) {
+function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow, answer }: { detail: RequestDetail; closed: boolean; apply: (b: Record<string, unknown>) => Promise<boolean>; reprocess: (a: string | null) => Promise<void>; reprocessing: string | null; lookupNow: () => Promise<void>; answer: (v: "yes" | "no") => Promise<void> }) {
   const [looking, setLooking] = useState(false);
   const scheduled = detail.request.type === "scheduled";
   const [ask, setAsk] = useState<null | "handled_manually" | "cancelled" | "reextract">(null);
   const [busy, setBusy] = useState(false);
+  const r = detail.request;
+  // E1 from the page: a person's yes or no here is the same answer as from the email. An expired question can
+  // still be processed; the portal is read only after that yes.
+  if (scheduled && (r.status === "awaiting_approval" || r.closedReason === "expired") && !(detail.review?.legs ?? []).length) {
+    const expired = r.closedReason === "expired";
+    return (
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Button variant="primary" size="sm" icon="check" disabled={looking} onClick={() => { setLooking(true); void answer("yes").finally(() => setLooking(false)); }}>{looking ? "Recording…" : expired ? "Process anyway" : "Process it"}</Button>
+        {!expired && <Button variant="secondary" size="sm" icon="x" disabled={looking} onClick={() => { setLooking(true); void answer("no").finally(() => setLooking(false)); }}>Skip it</Button>}
+      </div>
+    );
+  }
   if (closed || detail.request.ui.key === "loaded") return null;
   const legs = detail.review?.legs ?? [];
   const anyInLeon = legs.some((l) => l.inLeon);
@@ -375,7 +395,7 @@ function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow }: 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {scheduled && <Button variant="secondary" size="sm" icon="search" disabled={looking} onClick={() => { setLooking(true); void lookupNow().finally(() => setLooking(false)); }}>{looking ? "Looking up…" : "Look up now"}</Button>}
+        {scheduled && r.status === "collecting" && <Button variant="secondary" size="sm" icon="search" disabled={looking} onClick={() => { setLooking(true); void lookupNow().finally(() => setLooking(false)); }}>{looking ? "Looking up…" : "Look up now"}</Button>}
         {!scheduled && !anyInLeon && <Button variant="secondary" size="sm" icon="refresh-cw" disabled={reprocessing !== null} onClick={() => setAsk("reextract")}>Re-extract</Button>}
         <Button variant="secondary" size="sm" icon="check" onClick={() => setAsk("handled_manually")}>Mark handled manually</Button>
         {!anyInLeon && <Button variant="ghost" size="sm" icon="x" style={{ color: C.danger }} onClick={() => setAsk("cancelled")}>Cancel request</Button>}

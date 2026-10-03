@@ -1,0 +1,15 @@
+{
+  "_comment": "RIG ONLY. Airports and aircraft the mock Leon adds to its snapshot so the CNAIR fixtures (rig/fixtures/cnair) can be reviewed and sent. Public airport data; the aircraft are the fixtures' registrations (EC-ZZL is fictional).",
+  "airports": {
+    "LEBL": { "name": "Josep Tarradellas Barcelona-El Prat", "city": "Barcelona", "code": { "icao": "LEBL", "iata": "BCN" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },
+    "LEGE": { "name": "Girona-Costa Brava", "city": "Girona", "code": { "icao": "LEGE", "iata": "GRO" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },
+    "LEIB": { "name": "Ibiza", "city": "Ibiza", "code": { "icao": "LEIB", "iata": "IBZ" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },
+    "LDZA": { "name": "Zagreb Franjo Tuđman", "city": "Zagreb", "code": { "icao": "LDZA", "iata": "ZAG" }, "timezone": { "name": "Zagreb", "nativeTimezoneName": "Europe/Zagreb" } },
+    "GMMN": { "name": "Mohammed V", "city": "Casablanca", "code": { "icao": "GMMN", "iata": "CMN" }, "timezone": { "name": "Casablanca", "nativeTimezoneName": "Africa/Casablanca" } },
+    "EGJJ": { "name": "Jersey", "city": "Jersey", "code": { "icao": "EGJJ", "iata": "JER" }, "timezone": { "name": "Jersey", "nativeTimezoneName": "Europe/Jersey" } },
+    "GCLP": { "name": "Gran Canaria", "city": "Las Palmas", "code": { "icao": "GCLP", "iata": "LPA" }, "timezone": { "name": "Canary", "nativeTimezoneName": "Atlantic/Canary" } }
+  },
+  "aircraft": [
+    { "acftNid": 990001, "registration": "EC-ZZL", "acftType": { "icao": "LJ60" } }
+  ]
+}

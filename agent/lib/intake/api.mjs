@@ -2,7 +2,7 @@
 // every route here runs as the signed-in user, and the mailbox routes additionally require mailbox access.
 // Responses never carry personal data except the two reveal endpoints, which are audited.
 import { tzStatus } from "../tzdata.mjs";
-import { runLookup, lookupState } from "./notification.mjs";
+import { lookupNow, lookupState, recordAnswer, peekAnswer, answerByToken } from "./notification.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
@@ -35,11 +35,13 @@ function uiStatus(r, now = Date.now()) {
   const soon = r.first_std && Date.parse(r.first_std) - now < 2 * 3600_000;
   switch (r.status) {
     case "extracting": return { key: "in_progress", label: "In progress" };
+    case "awaiting_approval": return { key: "waiting", label: "Awaiting approval" };
+    case "collecting": return { key: "in_progress", label: "Collecting" };
     case "needs_review": return soon ? { key: "needs_you", label: "Needs you", escalated: true } : { key: "needs_review", label: "Needs review" };
     case "needs_you": case "partly_loaded": return { key: "needs_you", label: "Needs you" };
     case "in_progress": return { key: "in_progress", label: "In progress" };
     case "loaded": return { key: "loaded", label: "Loaded" };
-    case "closed": return r.closed_reason === "cancelled" ? { key: "cancelled", label: "Cancelled" } : r.closed_reason === "skipped" ? { key: "skipped", label: "Skipped" } : { key: "handled", label: "Handled manually" };
+    case "closed": return r.closed_reason === "cancelled" ? { key: "cancelled", label: "Cancelled" } : r.closed_reason === "skipped" ? { key: "skipped", label: "Skipped" } : r.closed_reason === "declined" ? { key: "skipped", label: "Declined" } : r.closed_reason === "expired" ? { key: "skipped", label: "Expired · no answer" } : { key: "handled", label: "Handled manually" };
     default: return { key: "in_progress", label: "In progress" };
   }
 }
@@ -62,7 +64,7 @@ async function health() {
   return {
     mailbox: { ok: Boolean(process.env.RESEND_WEBHOOK_SECRET), lastAt: last, note: process.env.RESEND_WEBHOOK_SECRET ? null : "No Resend webhook secret is set on the server, so nothing can arrive." },
     leon: { ok: leonConfigured(), lastWrite: lastLeon },
-    portals: { built: false, lookup: lookupState().on, note: `Flight notifications are recognised and their reference is ${lookupState().on ? "looked up in the provider's portal" : "NOT looked up (the look-up is switched off on this server)"}. Collecting the legs and loading them into Leon is not built.` },
+    portals: { built: true, lookup: lookupState().on, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
     timezones: tzHealth(),
   };
 }
@@ -378,8 +380,14 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if (P === "/api/intake/requests" && req.method === "GET") return send({ ok: true, ...(await requestRows({ tab: url.searchParams.get("tab") ?? "all", q: url.searchParams.get("q") ?? "", type: url.searchParams.get("type") ?? "" })) });
     let m;
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/lookup$/.exec(P)) && req.method === "POST") {
-      const out = await runLookup(m[1], { manual: true, actor: { email: user.email, name: who(user).name } });
+      const out = await lookupNow(m[1], { email: user.email, name: who(user).name });
       return send({ ok: true, lookup: out, ...(await requestDetail(m[1])) });
+    }
+    // E1 answered from the intake page: the person's name is the answer's author.
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/(approve|decline)$/.exec(P)) && req.method === "POST") {
+      const out = await recordAnswer(m[1], { value: m[2] === "approve" ? "yes" : "no", by: who(user).name, how: "intake page" });
+      if (out.state === "invalid") throw err(404, "Not a scheduled-flight request.");
+      return send({ ok: true, answer: out, ...(await requestDetail(m[1])) });
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }

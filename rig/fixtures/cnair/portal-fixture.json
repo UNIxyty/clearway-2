@@ -1,6 +1,0 @@
-{
-  "_comment": "RIG ONLY. Stands in for the provider's portal when the agent looks a reference up (INTAKE_PROVIDER_FIXTURE). Fictional references. foundAfter = the attempt on which the record first appears (a record can show up days after its quote date).",
-  "9914050": { "foundAfter": 1, "row": { "quote": "9914050", "quoteDate": "01/10/2026", "flightDate": "05/10/2026", "aircraft": "EC-ZZZ", "typeCode": "EP" } },
-  "9914051": { "foundAfter": 3, "row": { "quote": "9914051", "quoteDate": "25/09/2026", "flightDate": "04/10/2026", "aircraft": "EC-ZZZ", "typeCode": "EP" } },
-  "9914059": { "foundAfter": 1, "row": { "quote": "9914059", "quoteDate": "02/10/2026", "flightDate": "09/10/2026", "aircraft": "EC-ZZY", "typeCode": "NP" } }
-}

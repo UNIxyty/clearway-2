@@ -61,9 +61,9 @@ export async function renderTemplateFile(templatePath, vars = {}) {
 // not be able to do it even by accident. It has no calendar or mailbox API, so
 // the only way it could answer an invite is by mailing iCalendar content, and
 // this is the one function that puts mail on the wire. Therefore:
-//   - the provider payload is built from a fixed set of fields: an HTML body
-//     and attachments. No custom headers, no alternative parts, so the body
-//     can never be a text/calendar part;
+//   - the provider payload is built from a fixed set of fields: an HTML body,
+//     an optional plain-text body and attachments. No custom headers, no other
+//     parts, so the body can never be a text/calendar part;
 //   - an attachment that is an iCalendar object (by name or by content) is
 //     refused, whatever its method;
 //   - an attached message (.eml) is refused when it carries a calendar part
@@ -81,8 +81,8 @@ function isMimeMessage(text) {
   return /^[A-Za-z][\w-]*:[ \t]/.test(text) && /^(content-type|mime-version|from|received):/im.test(head) && !/BEGIN:VCALENDAR/i.test(head);
 }
 
-export function calendarRefusal({ html, attachments } = {}) {
-  if (/BEGIN:VCALENDAR/i.test(String(html ?? ""))) return "the body contains iCalendar content";
+export function calendarRefusal({ html, text, attachments } = {}) {
+  if (/BEGIN:VCALENDAR/i.test(String(html ?? "")) || /BEGIN:VCALENDAR/i.test(String(text ?? ""))) return "the body contains iCalendar content";
   for (const a of Array.isArray(attachments) ? attachments : []) {
     const name = String(a?.filename ?? "");
     if (CALENDAR_FILENAME.test(name)) return `attachment "${name}" is a calendar file`;
@@ -102,10 +102,11 @@ export function calendarRefusal({ html, attachments } = {}) {
   return null;
 }
 
-async function deliverViaResend({ from, to, subject, html, attachments }) {
-  const refusal = calendarRefusal({ html, attachments });
+async function deliverViaResend({ from, to, subject, html, text, attachments }) {
+  const refusal = calendarRefusal({ html, text, attachments });
   if (refusal) throw new Error(`Refused: this system never sends calendar content (${refusal}). Nothing was sent.`);
-  const payload = { from, to, subject, html };
+  // `text` is the plain-text alternative (mail clients with images or HTML off; the intake answer links live there too).
+  const payload = text ? { from, to, subject, html, text } : { from, to, subject, html };
   if (Array.isArray(attachments) && attachments.length > 0) {
     payload.attachments = attachments.map((a) => ({
       filename: a.filename,
@@ -137,7 +138,7 @@ async function deliverViaResend({ from, to, subject, html, attachments }) {
  * Buffer|base64}]). Never throws — returns { ok, id?, error? } so callers
  * can report failures without crashing the wall.
  */
-export async function sendEmail({ to, subject, html, from = defaultFrom(), attachments }) {
+export async function sendEmail({ to, subject, html, text, from = defaultFrom(), attachments }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
   if (recipients.length === 0) {
     console.error(`[mailer] NOT sending "${subject}": no recipients configured.`);
@@ -149,7 +150,7 @@ export async function sendEmail({ to, subject, html, from = defaultFrom(), attac
   }
   console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
   try {
-    const result = await deliverViaResend({ from, to: recipients, subject, html, attachments });
+    const result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });
     console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
     return { ok: true, id: result?.id ?? null };
   } catch (error) {

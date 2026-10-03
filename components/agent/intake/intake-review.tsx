@@ -42,8 +42,9 @@ export function ReviewCard(p: ReviewProps) {
   const [addBusy, setAddBusy] = useState(false);
   const [removeBusy, setRemoveBusy] = useState(false);
 
+  const rec = detail.review?.record ?? null;
   const sub = [
-    ex ? `Read from the email${nAtt ? ` and ${plural(nAtt, "attachment")}` : ""} at ${hmsZ(ex.at)}${ex.version > 1 ? ` · extraction ${ex.version}` : ""}` : "Not read yet",
+    scheduled && rec ? `Read once from the ${detail.review?.notification?.providerName ?? "provider"} portal at ${hmsZ(rec.readAt)} · record ${rec.quote}` : ex ? `Read from the email${nAtt ? ` and ${plural(nAtt, "attachment")}` : ""} at ${hmsZ(ex.at)}${ex.version > 1 ? ` · extraction ${ex.version}` : ""}` : "Not read yet",
     plural(legs.filter((l) => !l.removed).length, "leg"),
     "all times UTC",
   ].join(" · ");
@@ -65,7 +66,15 @@ export function ReviewCard(p: ReviewProps) {
         {editableReq && legs.length > 0 && <span style={{ fontSize: 12, color: C.muted, paddingTop: 2 }}>Every value is editable. People&apos;s changes stay marked.</span>}
       </div>
 
-      <Sources detail={detail} anyInLeon={anyInLeon} closed={p.closed} reprocess={p.reprocess} reprocessing={p.reprocessing} msg={p.reprocessMsg} />
+      {scheduled && rec ? (
+        <div role="note" style={{ margin: "0 18px 14px", border: `1.5px solid ${TONE.amber.ic}`, background: TONE.amber.bg, borderRadius: 10, padding: "10px 12px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <Icon name="circle-alert" size={16} color={TONE.amber.ic} style={{ marginTop: 2 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 12.5, lineHeight: 1.5, color: C.body }}>
+            <span style={{ fontWeight: 700, color: TONE.amber.fg }}>Changes the provider makes after this import are not detected.</span>
+            <span>The portal was read once, at {hmsZ(rec.readAt)}. If the provider changes the flight afterwards, nobody is told: check the portal yourself before and after confirming. Arrival times are computed from the portal&apos;s Estimated Hours; crew count, passenger names and services are not in the portal and must be entered here.</span>
+          </div>
+        </div>
+      ) : <Sources detail={detail} anyInLeon={anyInLeon} closed={p.closed} reprocess={p.reprocess} reprocessing={p.reprocessing} msg={p.reprocessMsg} />}
 
       {legs.length === 0 ? (
         <div style={{ padding: "0 18px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -128,7 +137,7 @@ export function ReviewCard(p: ReviewProps) {
                       {leg.extra.map((x) => <ExtraRow key={x.key} x={x} leg={leg} />)}
                     </>
                   )}
-                  {!scheduled && <Services leg={leg} editable={legEditable} apply={p.apply} defs={p.defs} />}
+                  <Services leg={leg} editable={legEditable} apply={p.apply} defs={p.defs} />
                   <PeopleSection leg={leg} people={p.people} peopleError={p.peopleError} reveal={p.reveal} setReveal={p.setReveal} doReveal={p.doReveal} purged={detail.request.purged} retentionDays={detail.retention.days} editPeople={detail.request.status === "closed" ? null : p.editPeople} />
                 </div>
               )}

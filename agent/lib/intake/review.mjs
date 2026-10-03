@@ -181,6 +181,8 @@ export function blockersFor(review, request, { lookups } = {}) {
       if (x.state === "low_confidence") warnings.push(`Leg ${n}: ${x.label}`);
     }
     for (const s of leg.services) if (s.lowConfidence && !s.checked && s.decision !== "decline") warnings.push(`Leg ${n}: service ${s.name}`);
+    // A scheduled flight's portal record names no services: a person chooses them, at least one, before Leon.
+    if (request.request_type === "scheduled" && !leg.services.some((s) => !s.isNote && s.decision !== "decline" && s.decision !== "note")) out.push(`Leg ${n}: services are not given. Add at least one.`);
     const built = buildFlightCreate(builderLeg(leg), lookups ?? {}, "x");
     const KEY = { Departure: "departure", Arrival: "arrival", "Flight number": "flightNumber", STD: "std", STA: "sta", Registration: "registration", Passengers: "paxTotal" };
     if (!built.ok) for (const r of built.reasons) { const k = KEY[r.split(":")[0]]; if (k && said.has(k)) continue; if (/^STA is (not after|more than)/.test(r) && (said.has("std") || said.has("sta"))) continue; out.push(`Leg ${n}: ${r}.`.replace(/\.\.$/, ".")); }

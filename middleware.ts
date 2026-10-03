@@ -90,6 +90,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // The flight-intake answer page (one tap on "Yes, process it" / "No, skip it" from the E1 email) needs no
+  // sign-in: the single-use token in the link is the authentication, and the agent service checks it.
+  if (pathname === "/intake/answer") {
+    return NextResponse.next();
+  }
+
   // Static and asset routes
   if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || isPublicAsset) {
     return NextResponse.next();

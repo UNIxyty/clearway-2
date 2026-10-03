@@ -42,6 +42,10 @@ export type RequestDetail = {
   review: { legs: Leg[]; notes: { text: string; source: string | null }[]; conflicts: unknown[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null; version: number;
     // Type 1 (scheduled flight): the provider's notification and the look-ups of its reference. No legs: they are the provider's record, not this message.
     kind?: "notification"; notification?: Notification; lookup?: { attempts: { at: string; state: "found" | "not_found" | "unavailable"; why: string | null; listed: number | null; by: string | null }[]; nextAt: string | null; found?: { at: string; row: { quote: string; quoteDate: string; flightDate: string; aircraft: string; typeCode: string } } };
+    // E1: the question to ops and its answer (tokens are hashes; never shown).
+    approval?: { askedAt: string; deadlineAt: string; to: string[]; answer: { value: "yes" | "no"; by: string; at: string; how: string } | null; late?: { at: string; value: string; by: string; how: string }[] } | null;
+    // The portal record the legs were read from (non-personal values only).
+    record?: { quote: string; quoteDate: string | null; flightDate: string | null; registration: string | null; aircraftName: string | null; cabinConfig: string | null; seats: string | null; crewLinesFilled: number; paxRows: number; totalEstimatedHours: string | null; readAt: string } | null;
     updates?: { at: string; sequence: number | null; changes: string[]; matchedBy: string }[]; copies?: number; cancelled?: { at: string; matchedBy: string } } | null;
   blockers: string[]; warnings: string[];
   attachments: AttachmentRole[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null;
@@ -84,10 +88,12 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
   return j as T;
 }
 export const intakeApi = {
-  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
+  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
   lookup: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/lookup`, { json: {} }),
+  approve: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/approve`, { json: {} }),
+  decline: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/decline`, { json: {} }),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),
   people: (id: string) => call<People>(`/api/intake/requests/${id}/people`),

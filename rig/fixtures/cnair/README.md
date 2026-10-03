@@ -25,6 +25,8 @@ flights; they identify no person.
   of the provider's notification (Exchange meeting request, `text/calendar` part, ten `#Key:` lines in the
   body). Invented registration, reference, initials and addresses; written by `rig/cnair/make-invite-fixtures.mjs`.
   The update has the same UID with SEQUENCE 1; the cancel is `METHOD:CANCEL`.
-- `portal-fixture.json`: **rig only**, stands in for the provider's portal when the agent looks a reference up
-  (`INTAKE_PROVIDER_FIXTURE`, ignored unless the database is local). Fictional references; `foundAfter` makes a
-  record appear on a later attempt.
+- `portal-structure.json` (added 2026-10-03): the program's screen as the protocol describes it (node ids, the
+  five tables with their columns and types, form fields, actions, the type-of-flight and stretcher lists), no data.
+  `rig/intake/mock-cnair.mjs` serves the records above through it, speaking the recorded protocol, so the agent's
+  reader is exercised unchanged on the rig; the mock also adds two synthetic records (2619001, an aircraft name the
+  agent must not guess; 2619002, hidden from the list on demand).

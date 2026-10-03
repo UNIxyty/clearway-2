@@ -1,4 +1,4 @@
-# Flight intake (type 2: handling requests) and the Agent mailbox
+# Flight intake (type 1: scheduled flights, type 2: handling requests) and the Agent mailbox
 
 Runbook and reference for the intake build. Pages: `/agent/intake` (Flight intake) and `/agent/mailbox` (Agent mailbox).
 Server code: `agent/lib/intake/*`. Schema: `docs/supabase-agent-intake.sql` (run in Supabase; safe to re-run).
@@ -40,32 +40,37 @@ Rules that follow:
   `mailer-daemon@` / `postmaster@` sender: a request relayed through such an address is read like any other.
 - Tests: `node rig/intake/test-classify.mjs` (pure), `node --env-file=.env.rig rig/intake/e2e-classify.mjs` (rig).
 
-## Type 1: flight notifications (`notification.mjs`)
+## Type 1: scheduled flights (`notification.mjs`, `providers/cnair.mjs`)
 
 The notification is a trigger and a key. Its lines (local times, no date per leg, no arrival time, no crew count)
-are never turned into flights; the flight is the provider's record.
+are never turned into flights; the flight is the provider's record, read from the CNAIR portal **once, after ops
+approve**. Eleven stages:
 
-1. **Link by calendar UID and method.** A message whose calendar `UID` (or reference) belongs to a request we
-   already have is an **update** (changed lines or a higher `SEQUENCE`: the changes are listed, the reference is
-   looked up again), **another copy** (nothing changes), or a **cancellation** (`METHOD:CANCEL`: the request closes
-   as cancelled by the provider, or, if legs are in Leon, asks a person to cancel them there). Never a second
-   request. The same UID with a different reference is not linked: the reference is the key.
-   **UNVERIFIED AGAINST REAL MAIL.** This is built and tested against fictional invites
-   (`rig/fixtures/cnair/invite-*.eml`). It is not proven that a real Exchange invite keeps its calendar part
-   through Resend, or that the provider sends updates with the same UID. Do not treat it as proven until a real
-   invite has come through the intake address.
-2. **Look the reference up** in the provider's portal (`providers/cnair.mjs`: one login, the flight list only, no
-   record opened). This is the first step of the pipeline ("Collecting data"), not part of classification, so stray
-   mail never causes a portal login. Not found is a legitimate answer (records appear days after their quote date):
-   it is retried at 15 min, 1 h, 3 h, 6 h, 12 h and 24 h, then a person is asked. **It never falls through to type 2.**
-   The screen is checked before it is read (program, window, table, columns); an unexpected screen is
-   "could not look", never "not found".
-3. **Stop.** Collecting the legs, the "Process?" email (E1) and loading into Leon are NOT BUILT. The stage says so
-   and the request waits for a person ("Needs you").
+| # | Stage | What happens |
+|---|---|---|
+| 1 | Request received | Classified as a notification (above). The request row is created with status `awaiting_approval`. |
+| 2 | Confirmation sent | **E1 "Process? `<ref>` · route · date · N legs"** to every notification address, one email each: what arrived, **Yes, process it** / **No, skip it** buttons, "Or just reply yes or no", the deadline (`INTAKE_APPROVAL_HOURS`, default 4 h). The plain-text part carries both URLs. |
+| 3 | Confirmation received | A person answers: a tap on the **answer page** (`/intake/answer?t=…`, no sign-in; L1 question → L2 recorded, L3 already answered, L4 expired), an **email reply** whose first non-quoted line is yes or no (only from an address that received E1; anything else → **E1c** "was that a yes or a no?"), or **Process it / Skip it on the intake page**. A second answer → **E1a**; an answer after the deadline → **E1b**. **No** closes the request (`declined`). **No answer by the deadline** closes it (`expired`), visibly, and it can still be processed from the page: that tap is the approval. **Nothing contacts the portal before a yes** (`intake.portal_login` audit rows and the rig's mock log prove it). |
+| 4 | Collecting data | One session: log in, read the list, open the record, sign out. Keyed on the program's own column names; the screen (program, window, tables, columns, fields, actions) is checked before anything is read and any difference **refuses the import** and alerts (`structural`). The portal being down ("No se ha podido iniciar sesión") or unreachable is an ordinary failure: recorded, retried on `INTAKE_LOOKUP_SCHEDULE_MIN`, then a person is alerted. Not found is legitimate (records appear days after their quote date) and retried the same way. **Never type 2.** |
+| 5 | Data collected | The record becomes the same extraction shape as a type 2 reading, so the same review, blockers, payload and send apply. Arrival = Z departure + round(Estimated Hours × 60), stored as **converted** with the sum in its note. The Z and LT columns are cross-checked against tz data. Aircraft model name → ICAO through `AIRCRAFT_TYPES` (Citation CJ4 → C25C); an unknown name is **invalid** and blocks, never guessed. Crew count, passenger names and services are not in the portal: each is a blocking "not given" on the review screen (a scheduled request needs at least one service per leg). |
+| 6 | Review requested | **"Review: `<ref>` …"** email: ops are told to open Flight intake and confirm. |
+| 7 | Reviewed and confirmed | The review screen behaves as for type 2 (every value editable, edits marked). |
+| 8–11 | Building Leon request → Leon request built → Sent to Leon → Notification sent | **The type 2 path, unchanged** (`send.mjs`): same confirmation token, same send-log-before-Leon ordering, same partial-success handling, same checklist, same E3 / E4. |
+
+**One-shot, by design.** Change detection is not built: the portal is read once at import. The request page says
+so above the legs, and the completion email (E3) carries the same line. A later invite with the same calendar
+UID still links (update / copy / cancellation, as before) and still only asks a person; it never re-reads the
+portal on its own. **That linking is UNVERIFIED AGAINST REAL MAIL**: built on fictional invites
+(`rig/fixtures/cnair/invite-*.eml`); whether a real Exchange invite keeps its calendar part through Resend is not
+proven. The same UID with a different reference is not linked: the reference (quote number) is the key.
 
 The look-up is **off by default**: it runs only with `INTAKE_CNAIR_LOOKUP=on` and `CNAIR_USER` / `CNAIR_PASSWORD`
-in the server's environment. Off, a notification still becomes a type 1 request and says "reference not checked".
-Do not point provider invites at the intake address before deciding whether to turn it on.
+in the server's environment (or against a local mock, `CNAIR_PORTAL_BASE=http://127.0.0.1:…`, rig only). Off, an
+approved request waits for a person ("portal look-up is off on this server"). The reader drives the Genero
+protocol, not the DOM; details and the column map are in `docs/cnair-portal-investigation.md`.
+
+Tests: `node --env-file=.env.rig rig/intake/e2e-scheduled.mjs` (decline / no answer / approve → Leon on the mock
+/ reply path / unknown aircraft / altered structure / portal down), `e2e-classify.mjs`, `rig/.scratch/reader-check`.
 
 ## Where the model stops and code starts (THE LINE)
 
@@ -193,10 +198,17 @@ Server-only environment:
 | `INTAKE_MAIL_MODE=capture` | rig only: store emails without sending |
 | `INTAKE_CNAIR_LOOKUP` | `on` to look references up in the CNAIR portal (needs `CNAIR_USER`, `CNAIR_PASSWORD`). Default off |
 | `INTAKE_LOOKUP_SCHEDULE_MIN` | minutes after the first look-up at which it is retried (default `0,15,60,180,360,720,1440`) |
-| `RESEND_API_BASE`, `LEON_API_BASE`, `INTAKE_PROVIDER_FIXTURE` | rig only: local mocks (the provider fixture is ignored unless the database is local). Never set in production. |
+| `INTAKE_APPROVAL_HOURS` | how long ops have to answer E1 before the request closes as expired (default 4) |
+| `AGENT_CONSOLE_URL` | base of the links in intake emails (answer page, request page); falls back to `NEXT_PUBLIC_SITE_URL` |
+| `RESEND_API_BASE`, `LEON_API_BASE`, `CNAIR_PORTAL_BASE` | rig only: local mocks (the portal mock is only honoured for a loopback address). Never set in production. |
 
 ## Rig
 
-`rig/intake/mock-resend.mjs` and `rig/intake/mock-leon.mjs` (from a read-only snapshot, `leon-snapshot.mjs`) replace
-Resend and Leon. `rig/intake/e2e.mjs` runs the scenarios. Real Leon from the rig needs a person to type the phrase in
+`rig/intake/mock-resend.mjs`, `rig/intake/mock-leon.mjs` (from a read-only snapshot, `leon-snapshot.mjs`, plus
+`rig/fixtures/intake/leon-extra.json`) and `rig/intake/mock-cnair.mjs` (the provider portal, speaking the recorded
+Genero protocol from `rig/fixtures/cnair/portal-structure.json` and the redacted records; every login is written to
+`rig/.scratch/cnair-mock-log.jsonl`; faults through `<log>.break` = `columns | total | down | login`, a record hidden
+for N list reads through `<log>.hide`) replace Resend, Leon and CNAIR. The rig never reaches the live portal: the
+agent runs under `env -i` with `.env.rig` only, so the production `CNAIR_*` credentials are not in its environment.
+`rig/intake/e2e.mjs` and `e2e-scheduled.mjs` run the scenarios. Real Leon from the rig needs a person to type the phrase in
 `rig/make-env.mjs --intake-only`.

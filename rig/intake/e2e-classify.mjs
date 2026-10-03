@@ -1,5 +1,6 @@
 // End to end on the RIG: a message's type is decided by its content, never by its sender and never by default.
-// Local DB, mock Resend, the provider portal is a fixture file (rig/fixtures/cnair/portal-fixture.json).
+// Local DB, mock Resend, the provider portal is the recorded-protocol mock on :3994 (rig/intake/mock-cnair.mjs).
+// The approval gate (E1) is proven in e2e-scheduled.mjs; here every scheduled request is approved from the page.
 //   node --env-file=.env.rig rig/intake/e2e-classify.mjs
 // The calendar invites are FICTIONAL (rig/fixtures/cnair/invite-*.eml): this proves the code's handling of a
 // calendar part, UID and METHOD, not that a real Exchange invite survives Resend.
@@ -26,6 +27,7 @@ const write = (name, text) => { const f = path.join(SCR, name); writeFileSync(f,
 const plain = (name, from, subject, body, extra = "") => write(name, `From: ${from}\nTo: handling@intake.rig.invalid\nSubject: ${subject}\nDate: Fri, 02 Oct 2026 09:00:00 +0000\nMessage-ID: <${name}-${Date.now()}@test.example>\nMIME-Version: 1.0\n${extra}Content-Type: text/plain; charset=utf-8\n\n${body}\n`);
 const requestOf = async (id) => (await db(`intake_requests?select=*&id=eq.${id}`))[0];
 const scheduledFor = async (ref) => db(`intake_requests?select=id,status,status_reason,request_type,closed_reason,review,stages&request_type=eq.scheduled&reference=eq.${ref}`);
+const approve = (id) => api(`/api/intake/requests/${id}/approve`, {});
 const until = async (fn, ms = 120000) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) return null; await sleep(3000); } };
 const BLOCK = (ref, etd1 = "17:00:00") => `#Pax:      2/2\n#Cliente:  (Extracomunitario Pasaje)\n#1:        XXA\n#2:        XXB\n#TCP:\n#Fra:\n#Ref:      ${ref}\n#Otros:\n#DATE:     05/10/26\n#ETD:      ${etd1}-LEBL 17:30:00-GMMN\n`;
 const HANDLING = `Dear Handling Team,\n\nOn behalf of Northline Aviation Ltd please arrange handling at EYVI for the flight below.\n\nRegistration   9H-ZWX\nType           Cessna Citation XLS+ (C56X)\n\nFlight         NLX21\nFrom           EGKB (BQH) London Biggin Hill\nETD            Thu 08 Oct 2026 14:00Z\nTo             EYVI (VNO) Vilnius\nETA            Thu 08 Oct 2026 16:30Z\nCrew 2 / Pax 2\n\nSERVICES\n- Handling\n- Fuel Jet A-1\n\nKind regards,\nOps Desk, Northline Aviation Ltd`;
@@ -39,9 +41,9 @@ ok(m.status === "processed" && m.status_reason === "Flight notification", "invit
 ok(c?.type === "scheduled" && c.decidedBy === "content" && c.confidence >= 0.7 && c.evidence?.length >= 4, "classification, confidence and evidence are recorded", `confidence ${c?.confidence}, ${c?.evidence?.length} evidence rows`);
 ok(c.evidence.find((e) => e.signal === "sender")?.found === false, "the sender (provider.example) did not decide it");
 ok(m.understood?.calendar?.uid && m.understood.calendar.method === "REQUEST", "calendar UID and method stored with the message");
-const first = await until(async () => { const r = await requestOf(m.request_id); return r.status !== "collecting" ? r : null; });
+const first = await requestOf(m.request_id);
 ok(first?.request_type === "scheduled" && first.reference === "9914050", "a type 1 request, keyed by the provider reference", `${first?.request_type} · ${first?.reference}`);
-ok(first.status === "needs_you" && /Reference found/.test(first.status_reason) && first.review.lookup.found?.row?.aircraft === "EC-ZZZ", "the reference resolved in the (fixture) portal; the pipeline then stops and says collection is not built", first.status_reason);
+ok(first.status === "awaiting_approval" && first.review.lookup.attempts.length === 0, "the request waits for ops' approval; the portal was not touched", first.status_reason);
 ok(!(first.review.legs ?? []).length && (await db(`intake_extractions?select=id&request_id=eq.${first.id}`)).length === 0, "no legs were built from the invite's body and the model was not run");
 ok(!JSON.stringify(first.review).includes("XXA") && !JSON.stringify(m.understood).includes("XXA"), "crew initials are not stored with the request or the classification");
 
@@ -52,7 +54,6 @@ ok(all.length === 1 && m.request_id === first.id && /Update to 9914050/.test(m.s
 ok(all[0].review.updates?.[0]?.changes?.join() === "ETD leg 1: 17:00-LEBL → 18:00-LEBL" && all[0].review.updates[0].matchedBy === "calendar UID", "the change is named and it was matched by calendar UID", all[0].review.updates?.[0]?.changes?.join("; "));
 m = await deliver(FX + "invite-update.eml");
 ok(/Another copy/.test(m.status_reason) && (await scheduledFor("9914050")).length === 1, "the same update again is 'another copy', not a third thing", m.status_reason);
-await until(async () => ((await requestOf(first.id)).status !== "collecting"));
 m = await deliver(FX + "invite-cancel.eml");
 all = await scheduledFor("9914050");
 ok(all.length === 1 && all[0].status === "closed" && all[0].closed_reason === "cancelled" && /Cancellation of 9914050/.test(m.status_reason), "a cancellation (METHOD:CANCEL, same UID) closes that request as cancelled by the provider", `${all[0].status}/${all[0].closed_reason} · ${m.status_reason}`);
@@ -67,15 +68,18 @@ execSync(`node rig/intake/wrap-forward.mjs ${late} ${path.join(SCR, "late-fwd.em
 m = await deliver(path.join(SCR, "late-fwd.eml"));
 ok(m.status_reason === "Flight notification" && m.understood.classification.type === "scheduled", "forwarded by ops as an attachment: still a flight notification", m.status_reason);
 let r = await requestOf(m.request_id);
-ok(r.status === "collecting" && /not in the portal yet/.test(r.status_reason) && r.review.lookup.nextAt, "reference not in the portal yet → it will look again (not a handling request, not a failure)", r.status_reason);
-r = await until(async () => { const x = await requestOf(m.request_id); return x.review.lookup.found ? x : null; }, 150000);
-ok(!!r && r.review.lookup.attempts.length === 3 && r.review.lookup.attempts.map((a) => a.state).join() === "not_found,not_found,found", "…and it is found on the third try", r?.review.lookup.attempts.map((a) => a.state).join(" → "));
+ok(r.status === "awaiting_approval", "…awaiting approval", r.status);
+await approve(r.id);
+r = await until(async () => { const x = await requestOf(m.request_id); return x.review.lookup.attempts.length ? x : null; }, 60000);
+ok(!!r && r.status === "collecting" && /not in the portal yet/.test(r.status_reason) && r.review.lookup.nextAt, "approved; the reference is not in the portal yet → it will look again (not a handling request, not a failure)", r?.status_reason);
+r = await until(async () => { const x = await requestOf(m.request_id); return x.status === "needs_you" ? x : null; }, 150000);
+ok(!!r && r.review.lookup.attempts.length === 3 && r.review.lookup.attempts.every((a) => a.state === "not_found") && r.stages.find((s) => s.name === "Collecting data")?.state === "fail", "…never found (a fictional reference) → after the retries a person is asked", r?.review.lookup.attempts.map((a) => a.state).join(" → "));
 
 // ── 4. Relayed as plain text by someone else; the reference never resolves ───────────────────────────────────
 m = await deliver(plain("never.eml", "Someone Else <relay@elsewhere.example>", "FW: LEBL-GMMN-LEBL", `Forwarding.\n\n-----Original Message-----\n${BLOCK("9914052").split("\n").map((l) => `> ${l}`).join("\n")}`));
 ok(m.understood.classification.type === "scheduled" && !m.understood.calendar, "quoted block, no calendar part, unknown sender: a notification by content");
-r = await until(async () => { const x = await requestOf(m.request_id); return x.status === "needs_you" ? x : null; }, 150000);
-ok(!!r && /not found/.test(r.status_reason) && r.request_type === "scheduled" && r.stages.find((s) => s.name === "Collecting data")?.state === "fail", "never found → after the retries a person is asked; it stays type 1", r?.status_reason);
+r = await requestOf(m.request_id);
+ok(r.request_type === "scheduled" && r.status === "awaiting_approval", "…a type 1 request awaiting approval; it never falls through to type 2", r.status);
 ok((await db(`intake_requests?select=id&request_type=eq.handling`)).length === 0, "no handling request exists anywhere so far: nothing fell through to type 2");
 
 m = await deliver(invite("sameuid.eml", "9914059", "LATE-UID-0001"));

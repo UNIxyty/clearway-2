@@ -25,10 +25,12 @@ await refused({ attachments: [{ filename: "accepted.eml", content: Buffer.from(e
 await refused({ attachments: [{ filename: "accepted.eml", content: Buffer.from(eml("REPLY", true)) }] }, "attached message carrying a base64 REPLY part");
 await refused({ attachments: [{ filename: "counter.eml", content: Buffer.from(eml("COUNTER", true)) }] }, "attached message carrying METHOD:COUNTER");
 await refused({ html: `<pre>${ics("REPLY")}</pre>` }, "iCalendar text in the body");
+await refused({ text: ics("REPLY") }, "iCalendar text in the plain-text body");
+await allowed({ text: "plain text alternative" }, "a plain-text alternative part");
 await allowed({ attachments: [{ filename: "original-message.eml", content: Buffer.from(eml("REQUEST", true)) }] }, "forward of an invite as received (REQUEST inside the original message)");
 const inv = "rig/.scratch/cnair-invite/invite-request.eml";
 if (existsSync(inv)) await allowed({ attachments: [{ filename: "original-message.eml", content: readFileSync(inv) }] }, "forward of the fictional provider invite");
-ok(captured.every((p) => Object.keys(p).every((k) => ["from", "to", "subject", "html", "attachments"].includes(k))), "provider payload has only from, to, subject, html, attachments (no headers, no text part)");
+ok(captured.every((p) => Object.keys(p).every((k) => ["from", "to", "subject", "html", "text", "attachments"].includes(k))), "provider payload has only from, to, subject, html, text, attachments (no headers, no other parts)");
 ok(captured.every((p) => (p.attachments ?? []).every((a) => Object.keys(a).every((k) => ["filename", "content"].includes(k)))), "attachments carry only filename and content (no content type override)");
 ok(calendarRefusal({ html: "<p>x</p>", attachments: [] }) === null, "calendarRefusal is null for ordinary mail");
 server.close();

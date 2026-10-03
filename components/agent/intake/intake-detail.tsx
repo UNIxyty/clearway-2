@@ -267,10 +267,9 @@ export function bannerFor(detail: RequestDetail, now: number, closed: boolean): 
     const missing = items.filter((c) => !c.filled).length;
     const ids = inL.map((l) => l.leon?.flightNid).filter(Boolean) as string[];
     const at = inL.map((l) => l.leon?.at).filter(Boolean).sort()[0];
-    if (missing) return { tone: "red", icon: "circle-alert", title: `${both} in Leon. The checklist is incomplete: ${missing} of ${items.length} items were not filled.`, body: "The flights exist and are correct. Only the checklist needs finishing, from this page or in Leon." };
-    const scheduled = r.type === "scheduled";
-    return { tone: "green", icon: "circle-check", title: scheduled || !items.length ? `Loaded. ${N === 2 ? "Both legs are" : N === 1 ? "The leg is" : `All ${N} legs are`} in Leon.` : `Loaded. ${N === 2 ? "Both legs are" : N === 1 ? "The leg is" : `All ${N} legs are`} in Leon and the checklist is complete.`,
-      body: `Created${at ? ` at ${hmZ(at)}` : ""} as flight${ids.length === 1 ? "" : "s"} ${listWords(ids)}.${items.length ? ` ${items.length} of ${items.length} checklist items filled.` : ""}` };
+    if (missing) return { tone: "red", icon: "circle-alert", title: `${both} in Leon. The checklist is incomplete: ${missing} of ${items.length} items were not filled.`, body: "An older request: the agent used to set checklist statuses. It no longer does; finish the checklist in Leon." };
+    return { tone: "green", icon: "circle-check", title: `Loaded. ${N === 2 ? "Both legs are" : N === 1 ? "The leg is" : `All ${N} legs are`} in Leon.`,
+      body: `Created${at ? ` at ${hmZ(at)}` : ""} as flight${ids.length === 1 ? "" : "s"} ${listWords(ids)}. The client's request is in each flight's OPS notes, unactioned; no checklist status was set.` };
   }
   // Nothing in Leon.
   if (closed) return { tone: "slate", icon: "circle-minus", title: `${r.ui.label}. Nothing was sent to Leon.`, body: r.statusReason };

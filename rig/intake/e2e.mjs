@@ -108,6 +108,17 @@ ok(pax2.state === "conflict", "body (PAX 2) vs GenDec (0) surfaced as a conflict
 ok(d.blockers.some((b) => /Pax differs/.test(b)), "the pax conflict blocks confirm", d.blockers.join(" | "));
 d = (await api(`/api/intake/requests/${cm.request_id}/edit`, { op: "conflict", leg: 1, key: "paxTotal", use: "body" })).json;
 ok(d.blockers.length === 0, "choosing the email's value clears the blocker", JSON.stringify(d.blockers));
+// A person changes a service decision: marked permanently with who and when, the agent's original kept, and it survives a reload.
+{ const leg0 = d.review.legs[0]; const target = leg0.services.find((x) => !x.isNote && x.decision === "provide");
+  const after = (await api(`/api/intake/requests/${cm.request_id}/edit`, { op: "service", leg: 0, serviceId: target.id, decision: "decline" })).json;
+  const changed = after.review.legs[0].services.find((x) => x.id === target.id);
+  ok(changed.decision === "decline" && changed.decided?.by && changed.decided.was === "provide" && changed.agentDecision === "provide", "a decision changed by a person is marked: who, when, what it was, and the agent's original", JSON.stringify(changed.decided));
+  const reloaded = (await detail(cm.request_id)).review.legs[0].services.find((x) => x.id === target.id);
+  ok(reloaded.decided?.by === changed.decided.by && reloaded.agentDecision === "provide", "…and the mark survives a reload");
+  ok(after.review.legs[0].services.filter((x) => !x.isNote && x.id !== target.id).every((x) => !x.decided && x.agentDecision), "…while the other decisions are still visibly the agent's");
+  const party = leg0.services.find((x) => /^Handler:/i.test(x.said ?? ""));
+  ok(!!party && party.isNote && party.kind === "party" && leg0.services.filter((x) => !x.isNote && /handling/i.test(x.name)).length === 1, "\"Handler: Clearway\" names a party, not a service: it does not share a row with \"Handling\"", `${party?.kind} · ${leg0.services.filter((x) => !x.isNote && /handling/i.test(x.name)).map((x) => x.name).join(",")}`);
+  d = await detail(cm.request_id); }
 const r3 = await sendAll(cm.request_id, { twice: true });
 ok(r3.prepared.status === 200, "prepare issues a confirmation", r3.prepared.json?.confirmation?.expiresAt);
 ok(r3.accepted.every((a) => a.status === 202), "confirm answers at once (202): the send runs in the background", r3.accepted.map((a) => a.status).join(","));
@@ -116,10 +127,26 @@ ok(creates().length === 2, "double-fire: Leon received exactly one create per le
 if (!r3.runs.every((r) => r.status === 200)) console.log("confirm answered:", JSON.stringify(r3.runs.map((r) => r.json)).slice(0, 400));
 const res3 = r3.runs[0].json.result;
 ok(res3.legs.every((l) => l.state === "in_leon"), "both legs In Leon with flight ids", res3.legs.map((l) => `leg ${l.index + 1} → ${l.flightNid}`).join(", "));
-ok(res3.checklist.total > 0 && res3.checklist.filled === res3.checklist.total, "checklist filled", `${res3.checklist.filled}/${res3.checklist.total} · e.g. ${res3.checklist.items.slice(0, 3).map((i) => `${i.label}=${i.statusCaption}${i.wasOnFlight ? " (was auto-added)" : ""}`).join(", ")}`);
-ok(res3.email.ok && /Loaded/.test(res3.email.kind), "Loaded email captured", res3.email.kind);
+// Services: never a checklist status (ops' call); the request goes into each flight's OPS notes, unactioned.
+ok(res3.checklist.total === 0 && res3.checklist.statusesLeftToOps === true && !mockLog().some((e) => /addOrUpdateOpsItems|opsItemStatusUpdate|opsItemNoteUpdate/.test(e.q)), "no checklist status was written to Leon: every item stays at its default", `${mockLog().filter((e) => /checklist/.test(e.q)).length} checklist mutations`);
+const flightsNow = await (await fetch(`${process.env.LEON_API_BASE}/_rig/flights`)).json().catch(() => null);
+const chkItems = (flightsNow ?? []).filter((f) => res3.legs.some((l) => String(l.flightNid) === String(f.flightNid))).flatMap((f) => f.checklist.allItems);
+const defsNow = (await (await fetch(`${process.env.LEON_API_BASE}/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: "query{ checklist{ getAvailableDefinitions(groupId: OPS){ nid defaultStatus{ checklistStatusId } } } }" }) })).json()).data.checklist.getAvailableDefinitions;
+const defaultOf = new Map(defsNow.map((d) => [d.nid, d.defaultStatus?.checklistStatusId ?? "QSM"]));
+ok(chkItems.length > 0 && chkItems.every((i) => i.csId === defaultOf.get(i.cdNid) && i.comment == null), "on the created flights every checklist item is at Leon's own default, untouched (only Leon's auto-added items exist)", `${chkItems.length} items · statuses ${[...new Set(chkItems.map((i) => i.csId))].join(",")}`);
 const writes3 = await db(`intake_leon_writes?select=leg_index,state,payload_sha256,payload,leon_flight_nid&request_id=eq.${cm.request_id}`);
 ok(writes3.length === 2 && writes3.every((w) => w.payload && w.payload_sha256), "send log: one row per leg, payload + hash stored");
+const notes3 = writes3.map((w) => String(w.payload.opsNotes ?? ""));
+ok(notes3.every((n) => /^CWY-INTAKE /.test(n) && /CLIENT'S REQUEST, recorded by the Clearway Ops Agent/.test(n) && /NOT ACTIONED/.test(n)), "each flight's OPS notes: our marker, then the client's request marked NOT ACTIONED", notes3[0].split("\n").slice(0, 3).join(" | "));
+const svc3 = d.review.legs.flatMap((l) => l.services);
+ok(svc3.filter((x) => !x.isNote).every((x) => notes3.some((n) => n.includes(`"${String(x.said ?? x.name).replace(/\s+/g, " ").trim()}"`))), "…every requested service, in the requester's own words", `${svc3.filter((x) => !x.isNote).length} services`);
+ok(svc3.filter((x) => x.conditional && x.condition).every((x) => notes3.some((n) => n.includes(`condition: ${x.condition}`))), "…every condition", svc3.filter((x) => x.condition).map((x) => x.condition).join(" | "));
+ok(svc3.filter((x) => x.isNote).every((x) => notes3.some((n) => n.includes(`"${String(x.said ?? x.name).replace(/\s+/g, " ").trim()}"`))), "…and every free-text remark, marked not a service", `${svc3.filter((x) => x.isNote).length} remarks`);
+ok(notes3[0].includes("Parties the request names (not services):") && /DECLINED · by RIG TEST ACCOUNT/.test(notes3[0]), "…the named party under its own heading, and the person's decision with their name", notes3[0].split("\n").filter((l) => /DECLINED|Parties/.test(l)).join(" | "));
+ok(!/\b(arranged|ordered|confirmed by the agent|done|requested from)\b/i.test(notes3.join("\n").replace(/nothing below has been arranged, ordered or confirmed by the agent/gi, "")), "nothing in the note reads as though an action was taken");
+ok(res3.email.ok && /Loaded/.test(res3.email.kind), "Loaded email captured", res3.email.kind);
+const e3 = (await db(`intake_messages?select=subject,delivery_detail&request_id=eq.${cm.request_id}&direction=eq.outbound&sent_kind=eq.E3%20%C2%B7%20Loaded&limit=1`))[0];
+ok(!!e3 && !/SERVICES ACCEPTED|accepted:|To confirm:/.test(e3.delivery_detail?.text ?? "") && /NOT ACTIONED|unactioned/i.test(e3.delivery_detail?.text ?? "") && /checklist left to ops/.test(e3.subject), "the completion email claims nothing about services; it says they are noted, unactioned, and the checklist is left to ops", e3?.subject);
 const again = await api(`/api/intake/requests/${cm.request_id}/prepare`, {});
 ok(again.status === 409 && again.json.blockers.includes("No legs left to create."), "a loaded request has nothing left to send");
 
@@ -179,7 +206,8 @@ else {
   ok(mid.length === 1 && mid[0].state === "sending", "the attempt row exists BEFORE Leon answers", mid.map((w) => w.state).join(","));
   const creates7 = creates().length;
   execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
-  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
+  // Restarted with the same environment rig/start.sh gives it (tz data, the mock portal); otherwise the next run is a different agent.
+  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
   await sleep(1500);
   const after = await db(`intake_leon_writes?select=state,leon_error&request_id=eq.${mr.request_id}`);

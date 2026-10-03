@@ -70,10 +70,22 @@ export function SentSection({ detail, rawOpen, setRawOpen, resolveLeg }: { detai
         })}
       </div>
 
+      {writes.some((w) => w.state === "in_leon" && typeof w.payload?.opsNotes === "string") && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+            <span style={EYEBROW}>The request in Leon · OPS notes of each flight</span>
+            <span style={{ fontSize: 12.5, color: C.muted }}>Word for word, marked NOT ACTIONED. No checklist status was set: every item is at Leon&apos;s default (?).</span>
+          </div>
+          {writes.filter((w) => w.state === "in_leon" && typeof w.payload?.opsNotes === "string").map((w) => (
+            <pre key={w.leg} style={{ margin: 0, ...mono({ fontSize: 12 }), lineHeight: 1.5, color: C.body, background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>LEG {w.leg + 1}{"\n"}{String(w.payload!.opsNotes)}</pre>
+          ))}
+        </div>
+      )}
+
       {checklist.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-            <span style={EYEBROW}>Leon checklist</span>
+            <span style={EYEBROW}>Leon checklist (older requests)</span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: notFilled ? C.danger : C.ok }}>{filled} of {checklist.length} items filled{notFilled ? ` · ${notFilled} not filled` : ""}</span>
           </div>
           <div role="table" aria-label="Leon checklist" style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>

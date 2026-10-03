@@ -16,7 +16,7 @@ Server code: `agent/lib/intake/*`. Schema: `docs/supabase-agent-intake.sql` (run
    No request row exists until the type is known.
 3. **Review** on the intake page: every value editable, edits append to `intake_field_edits` and keep EDITED marks.
 4. **Send** (`send.mjs`) through a server-verified, expiring, single-use confirmation bound to the payload hashes.
-5. **Checklist**, then the E3 / E4 email.
+5. **The request in Leon as a note** (each flight's OPS notes, unactioned; no checklist status is ever set), then the E3 / E4 email.
 
 ## What a message is: decided by content, never by sender
 
@@ -171,10 +171,20 @@ like a passport number or a date of birth returns the "not searchable" state.
 - Duplicate check before review and again just before sending: same registration or flight number, same route (or
   one shared airport when both match), STD within ±3 h, not cancelled; or our own earlier request with the same
   reference that has legs in Leon. A match stops the pipeline; "Not a duplicate" is recorded with who and when.
-- Checklist: definitions read live (`getAvailableDefinitions(OPS)`, cached 10 min); the flight's existing items are
-  read first (Leon auto-adds some); existing ones are updated, the rest added. Status per decision is the first status
-  the definition itself offers from: Provide → RQS, YES, CNF…; To confirm → QSM ("?"), PND…; Note → QSM. Declined
-  services are not added. Checklist state never changes a leg's Leon state.
+- **Checklist statuses are never set by the agent** (ops' decision, 2026-10-03): every item on a created flight stays
+  at Leon's own default; a status would claim work that has not happened. The client's request reaches ops as a
+  **note in each flight's OPS notes** (`opsNotes` in `FlightCreate`, the field Leon shows on the flight; it also
+  carries our marker on the first line). Chosen over a checklist-item note because every service is one block,
+  needs no status to exist, and is part of the create itself (no second write). The note (`servicesNote` in
+  `send.mjs`) carries, per leg: every requested service in the requester's own words, the review decision
+  (PROVIDE / TO CONFIRM / DECLINED) with the name of the person who decided when it was not the agent, any
+  "Our answer", the detail that would otherwise be lost (quantities, conditions), the free-text remarks, and the
+  parties the request names (`Handler: Clearway` is a party, not a service, and never shares a row with
+  "Handling"). It is headed CLIENT'S REQUEST, recorded by the agent, and NOT ACTIONED. Stages 9–10 are "Services
+  noted" and "Checklist left to ops"; the E3 email says the same and claims nothing about services.
+- **Service decisions carry their author.** The agent's reading is kept (`agentDecision`); a person's change is
+  marked permanently (`decided`: who, when, what it was) and shown on the row like a field edit, so a declined
+  service can always be traced to whoever declined it.
 
 ### Facts confirmed on a disposable test flight (2026-09-30, trip 7755133, deleted)
 

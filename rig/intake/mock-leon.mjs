@@ -37,6 +37,7 @@ const reply = (res, status, body) => { res.writeHead(status, { "content-type": "
 http.createServer(async (req, res) => {
   let b = ""; for await (const c of req) b += c;
   if (req.url.startsWith("/access_token/refresh")) { res.writeHead(200, { "content-type": "text/plain" }); return res.end("rig-mock-leon-access-token-" + "x".repeat(40)); }
+  if (req.url === "/_rig/flights") return reply(res, 200, created.map(toFlight));   // tests: what the mock holds, checklist included
   if (!req.url.startsWith("/api/graphql")) return reply(res, 404, { errors: [{ message: "not in the mock" }] });
   const { query = "", variables = {} } = JSON.parse(b || "{}");
   const q = query.replace(/\s+/g, " ");

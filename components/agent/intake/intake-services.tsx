@@ -1,13 +1,15 @@
 "use client";
 
 // Services per leg (§I7). The agent proposes, ops decide: Provide · To confirm · Decline, an "Our answer" for
-// conditional lines, note rows, a Leon checklist item per service, and "Add a service the agent missed".
+// conditional lines, note rows, and "Add a service the agent missed". A person's choice is marked permanently
+// (who, when, what it was) so an agent decision and a human one can be told apart at a glance. Nothing here
+// touches a Leon checklist status: the request goes to Leon as a note in the flight's OPS notes, unactioned.
 // Keys 1 2 3 on a focused service row set the decision (§I15).
 
 import { useState, type KeyboardEvent } from "react";
 import { C, INTAKE, TONE, mono } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
-import { Checkbox, LinkButton, Segmented, Select, Tag, TextInput } from "./controls";
+import { LinkButton, Segmented, Tag, TextInput } from "./controls";
 import type { Leg, Service } from "./api";
 import { COLHEAD, SectionHead, legNo, sourceLabel } from "./intake-shared";
 import type { Apply } from "./intake-fields";
@@ -25,8 +27,8 @@ const DWORD: Record<Service["decision"], string> = { provide: "Provide", to_conf
 
 export function servicesSummary(leg: Leg) {
   const s = leg.services; const c = (d: Service["decision"]) => s.filter((x) => !x.isNote && x.decision === d).length;
-  const notes = s.filter((x) => x.isNote).length;
-  return `${s.filter((x) => !x.isNote).length} requested · ${c("provide")} provide · ${c("to_confirm")} to confirm · ${c("decline")} declined · ${notes} note${notes === 1 ? "" : "s"}`;
+  const notes = s.filter((x) => x.isNote).length; const byPeople = s.filter((x) => !x.isNote && x.decided).length;
+  return `${s.filter((x) => !x.isNote).length} requested · ${c("provide")} provide · ${c("to_confirm")} to confirm · ${c("decline")} declined · ${notes} note${notes === 1 ? "" : "s"} · ${byPeople ? `${byPeople} decided by people, the rest the agent's` : "all decisions the agent's"}`;
 }
 
 export function Services({ leg, editable, apply, defs }: { leg: Leg; editable: boolean; apply: Apply; defs: Def[] | null }) {
@@ -38,7 +40,7 @@ export function Services({ leg, editable, apply, defs }: { leg: Leg; editable: b
       {leg.services.length === 0 && <div style={{ padding: "4px 18px 10px", fontSize: 13, color: C.muted }}>The request lists no services for this leg.</div>}
       {rows.length > 0 && (
         <div aria-hidden style={{ display: "grid", gridTemplateColumns: SGRID, gap: 12, padding: "4px 18px 6px", ...COLHEAD }}>
-          <span /><span>The request said</span><span>The agent read it as</span><span>We will</span>
+          <span /><span>The request said</span><span>The agent read it as</span><span>We will · decided by</span>
         </div>
       )}
       {rows.map((s) => <ServiceRow key={s.id} s={s} leg={leg} editable={editable} apply={apply} defs={defs} />)}
@@ -64,15 +66,15 @@ function ServiceRow({ s, leg, editable, apply, defs }: { s: Service; leg: Leg; e
   const tags: { l: string; fg: string; bg: string; note: string | null }[] = [];
   if (s.conditional) tags.push({ l: "CONDITIONAL", fg: C.primaryOnTint, bg: INTAKE.conditionalBg, note: s.condition ? cap(s.condition) : "Asks us to confirm" });
   if (s.requested === "decline") tags.push({ l: "NOT REQUESTED", fg: C.neutral, bg: C.neutralTint, note: "The request says none is needed" });
-  if (s.lowConfidence && !s.checked) tags.push({ l: "LOW CONFIDENCE", fg: TONE.amber.fg, bg: TONE.amber.bg, note: s.checklistLabel ? `Mapped to ${s.checklistLabel}. Check this is the right item.` : null });
+  if (s.lowConfidence && !s.checked) tags.push({ l: "LOW CONFIDENCE", fg: TONE.amber.fg, bg: TONE.amber.bg, note: "The agent is not sure it read this line right." });
   if (s.checked) tags.push({ l: "CHECKED", fg: C.ok, bg: C.okTint, note: `Checked by ${s.checked.by}` });
   const low = s.lowConfidence && !s.checked;
   const showAnswer = s.conditional && !declined;
-  const defOptions = [{ value: "", label: "No checklist item" }, ...(defs ?? []).map((d) => ({ value: String(d.nid), label: d.label, hint: d.section }))];
   const dc = DCOLORS[s.decision as Decision];
+  const byPerson = !!s.decided;
   return (
     <div tabIndex={editable ? 0 : -1} role="group" aria-label={`Service ${s.name}. Keys 1 2 3 set Provide, To confirm, Decline.`} onKeyDown={editable ? onKey : undefined} className="ag-focus"
-      style={{ display: "grid", gridTemplateColumns: SGRID, gap: 12, padding: "9px 18px 9px 15px", borderTop: `1px solid ${C.dividerRow}`, borderLeft: `3px solid ${low ? INTAKE.amberIcon : "transparent"}`, background: low ? C.warnWash : C.surface, alignItems: "start", outlineOffset: -2 }}>
+      style={{ display: "grid", gridTemplateColumns: SGRID, gap: 12, padding: "9px 18px 9px 15px", borderTop: `1px solid ${C.dividerRow}`, borderLeft: `3px solid ${byPerson ? C.primary : low ? INTAKE.amberIcon : "transparent"}`, background: low ? C.warnWash : C.surface, alignItems: "start", outlineOffset: -2 }}>
       <span style={{ ...mono({ fontSize: 12 }), color: C.faint, paddingTop: 2 }}>{s.no || "•"}</span>
       <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
         <span style={{ fontSize: 13, lineHeight: 1.45, fontStyle: s.added ? "normal" : "italic", color: C.body, overflowWrap: "anywhere" }}>{s.added ? "Added by you" : `"${s.said ?? s.name}"`}</span>
@@ -87,15 +89,6 @@ function ServiceRow({ s, leg, editable, apply, defs }: { s: Service; leg: Leg; e
             {s.detail && <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{s.detail}</span>}
           </div>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {editable && defs ? (
-            <>
-              <span style={{ fontSize: 11.5, color: C.faint }}>Leon checklist item:</span>
-              <Select<string> aria-label={`Leon checklist item for ${s.name}`} value={s.checklistNid != null ? String(s.checklistNid) : ""} options={defOptions} width={210} label={s.checklistLabel ?? "Choose an item"}
-                onChange={(v) => void apply({ op: "service", leg: leg.index, serviceId: s.id, checklistNid: v === "" ? null : Number(v) })} />
-            </>
-          ) : <span style={{ fontSize: 11.5, color: C.faint }}>Leon checklist item: {s.checklistLabel ?? (s.added ? "choose when saved" : "none")}</span>}
-        </div>
         {tags.map((t) => (
           <div key={t.l} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             <Tag tone={t}>{t.l}</Tag>{t.note && <span style={{ fontSize: 12, color: C.body }}>{t.note}</span>}
@@ -103,12 +96,18 @@ function ServiceRow({ s, leg, editable, apply, defs }: { s: Service; leg: Leg; e
         ))}
         {low && editable && <div><button type="button" className="ag-focus" onClick={() => void apply({ op: "looks_right", leg: leg.index, serviceId: s.id })} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer" }}>Looks right</button></div>}
       </div>
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {editable ? (
           <Segmented<Decision> label={`Decision for ${s.name}`} size="sm" value={(s.decision === "note" ? "provide" : s.decision) as Decision} options={DECISIONS} colors={DCOLORS} onChange={set} />
         ) : (
           <span style={{ display: "inline-flex", fontSize: 12, fontWeight: 700, color: dc?.fg ?? C.body, background: dc?.bg ?? C.hover, border: `1.5px solid ${dc?.inset ?? C.border}`, borderRadius: 8, padding: "5px 12px" }}>{DWORD[s.decision]}</span>
         )}
+        {byPerson ? (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <Tag tone={{ fg: C.primaryOnTint, bg: INTAKE.conditionalBg }}>DECIDED BY {s.decided!.by.toUpperCase()}</Tag>
+            <span style={{ fontSize: 11.5, color: C.muted }}>was {DWORD[(s.decided!.first || s.decided!.was) as Service["decision"]] ?? s.decided!.first} (the agent) · {new Date(s.decided!.at).toISOString().slice(11, 16)}Z</span>
+          </div>
+        ) : <span style={{ fontSize: 11.5, color: C.faint }}>{s.added ? "Added by a person" : "The agent's decision, unchanged"}</span>}
       </div>
       {showAnswer && (
         <div style={{ gridColumn: "2 / -1", display: "flex", alignItems: "center", gap: 10 }}>
@@ -116,24 +115,24 @@ function ServiceRow({ s, leg, editable, apply, defs }: { s: Service; leg: Leg; e
           {editable ? (
             <TextInput value={s.answer ?? ""} monoText={false} height={30} placeholder="e.g. Available, 28 V DC" ariaLabel={`Our answer for ${s.name}`} onCommit={(v) => void apply({ op: "service", leg: leg.index, serviceId: s.id, answer: v })} style={{ border: `1px solid ${INTAKE.answerBorder}`, background: INTAKE.answerBg, flex: 1 }} />
           ) : <span style={{ fontSize: 13, color: C.ink, flex: 1 }}>{s.answer || "No answer recorded"}</span>}
-          <span style={{ fontSize: 11.5, color: C.muted, width: 220, flex: "none" }}>{s.decision === "provide" ? "Goes on the checklist item as its note." : "Checklist item is created as To confirm, with this note."}</span>
+          <span style={{ fontSize: 11.5, color: C.muted, width: 220, flex: "none" }}>Goes into the flight&apos;s OPS notes in Leon, unactioned.</span>
         </div>
       )}
     </div>
   );
 }
 
-function NoteRow({ s, leg, editable, apply }: { s: Service; leg: Leg; editable: boolean; apply: Apply }) {
-  const on = s.noteOnChecklist !== false;
+function NoteRow({ s }: { s: Service; leg: Leg; editable: boolean; apply: Apply }) {
+  const party = s.kind === "party";
   return (
     <div style={{ display: "grid", gridTemplateColumns: SGRID, gap: 12, padding: "10px 18px 10px 15px", borderTop: `1px solid ${C.dividerRow}`, borderLeft: "3px solid transparent", background: C.page, alignItems: "start" }}>
-      <Icon name="sticky-note" size={14} color={C.faint} style={{ marginTop: 2 }} />
+      <Icon name={party ? "building-2" : "sticky-note"} size={14} color={C.faint} style={{ marginTop: 2 }} />
       <span style={{ fontSize: 13, lineHeight: 1.45, fontStyle: "italic", color: C.body, overflowWrap: "anywhere" }}>&quot;{s.said ?? s.name}&quot;</span>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <Tag tone={{ fg: C.neutral, bg: C.neutralTint }} style={{ alignSelf: "flex-start" }}>KEPT AS A NOTE · NOT A SERVICE</Tag>
-        <span style={{ fontSize: 12, color: C.muted }}>Too open to tick. Handled by whoever meets the crew.</span>
+        <Tag tone={{ fg: C.neutral, bg: C.neutralTint }} style={{ alignSelf: "flex-start" }}>{party ? "NAMES A PARTY · NOT A SERVICE" : "KEPT AS A NOTE · NOT A SERVICE"}</Tag>
+        <span style={{ fontSize: 12, color: C.muted }}>{party ? "Says who does it, not what is wanted. Recorded on the note; it never takes a service's place." : "Too open to tick. Handled by whoever meets the crew."}</span>
       </div>
-      <Checkbox checked={on} disabled={!editable} onChange={(v) => void apply({ op: "service", leg: leg.index, serviceId: s.id, noteOnChecklist: v })}>Put it on the Leon checklist as a note</Checkbox>
+      <span style={{ fontSize: 12, color: C.muted }}>Goes into the flight&apos;s OPS notes in Leon, word for word.</span>
     </div>
   );
 }

@@ -53,21 +53,15 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
     const type = rl ? fieldOf(rl, "aircraftType")?.value ?? "" : "";
     return [`LEG ${l.index + 1}`, `${p.adepCode ?? "····"} → ${p.adesCode ?? "····"}`, date, `${hm(std) || "--:--"} → ${hm(sta) || "--:--"} UTC`, [p.flightNo, type, reg].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
   };
-  const services = legs.map((l) => {
-    const names = l.checklist.filter((c) => c.decision !== "note").flatMap((c) => (c.services?.length ? c.services : [c.label]).map((n) => (c.decision === "to_confirm" ? `${n} (to confirm)` : n)));
-    return `Leg ${l.index + 1}: ${names.length ? names.join(", ") : "none"}`;
-  });
-  const checklist = legs.map((l) => {
-    const items = l.checklist.filter((c) => c.decision !== "note").length, notes = l.checklist.filter((c) => c.decision === "note").length, tc = l.checklist.filter((c) => c.decision === "to_confirm").length;
-    const caps = Object.entries(l.checklist.reduce<Record<string, number>>((m, c) => { m[c.statusCaption] = (m[c.statusCaption] ?? 0) + 1; return m; }, {})).map(([k, v]) => `${v} × ${k}`).join(", ");
-    return `Leg ${l.index + 1}: ${plural(items, "item")}${notes ? ` + ${plural(notes, "note")}` : ""} · ${tc} as To confirm · ${l.skipped.length} declined, not added${caps ? ` · Leon status ${caps}` : ""}`;
-  });
+  // What goes to Leon about services: the note in each flight's OPS notes, word for word; no checklist status.
+  const services = legs.map((l) => { const rl = detail.review?.legs.find((x) => x.index === l.index); const svc = (rl?.services ?? []).filter((s) => !s.isNote); const byPeople = svc.filter((s) => s.decided).length; return `Leg ${l.index + 1}: ${svc.length ? `${svc.length} requested · ${svc.filter((s) => s.decision === "provide").length} provide · ${svc.filter((s) => s.decision === "to_confirm").length} to confirm · ${svc.filter((s) => s.decision === "decline").length} declined${byPeople ? ` · ${byPeople} decided by people` : ""}` : "none requested"}`; });
+  const checklist = legs.map((l) => `Leg ${l.index + 1}: the request goes into the flight's OPS notes, unactioned${l.note ? ` (${l.note.split("\n").length} lines)` : ""}. No checklist status is set: every item stays at Leon's default (?).`);
 
   const rows: { k: string; lines: string[]; mono?: boolean; bg?: string; color?: string }[] = [
     { k: "Where", lines: [prepared.resend ? "Leon · flights not yet in Leon" : "Leon · new flights"] },
     { k: "Request", lines: [detail.request.reference], mono: true },
     { k: "Legs", lines: legs.map(legLine), mono: true },
-    ...(!scheduled ? [{ k: "Services", lines: services }, { k: "Checklist", lines: checklist }] : []),
+    { k: "Services", lines: services }, { k: "In Leon", lines: checklist },
     { k: "People", lines: ["Crew and passenger details go to Leon. Not shown here."] },
     ...(prepared.edited.length ? [{ k: "Changed", lines: prepared.edited.map((e) => `Leg ${e.leg + 1} · ${e.label} → ${e.value}`), bg: C.primaryTint3, color: C.primaryHover }] : []),
     ...(prepared.notChecked.length ? [{ k: "Not checked", lines: prepared.notChecked.map((e) => `Leg ${e.leg + 1} · ${e.label} · ${e.value}`), bg: TONE.amber.bg, color: TONE.amber.fg }] : []),

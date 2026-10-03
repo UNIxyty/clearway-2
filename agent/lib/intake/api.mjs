@@ -115,7 +115,7 @@ async function requestDetail(id) {
   const sent = (await rest(`intake_messages?select=id,sent_kind,subject,received_at,to_addrs,delivery_status&request_id=eq.${id}&direction=eq.outbound&order=received_at.asc`)) ?? [];
   const firstSend = allWrites[0]; const lastAnswer = allWrites.filter((w) => w.answered_ms != null).slice(-1)[0];
   const defs = await checklistDefinitions().catch(() => []);
-  const plans = review ? review.legs.filter((l) => !l.removed).map((l) => ({ leg: l.index, ...checklistPlan(l, defs) })) : [];
+  const plans = review ? review.legs.filter((l) => !l.removed).map((l) => ({ leg: l.index, ...checklistPlan(l, defs, { reference: r.reference, receivedAt: r.created_at, requester: r.sender_name ?? null }) })) : [];
   return {
     request: { id: r.id, type: r.request_type, typeLabel: r.request_type === "scheduled" ? "Scheduled flight" : "Handling request", reference: r.reference, referenceBuilt: r.reference_built, status: r.status, ui: uiStatus(r), statusReason: r.status_reason, sender: r.sender_name, fromAddr: m?.from_addr, toAddrs: m?.to_addrs, subject: m?.subject, receivedAt: m?.received_at, messageId: r.message_id, route: r.route, firstStd: r.first_std, legsCount: r.legs_count, closedReason: r.closed_reason, duplicate: r.duplicate, duplicateResolution: r.duplicate_resolution, purged: !!m?.purged_at, hasPersonal: !!m?.has_personal_data },
     stageNames: STAGES[r.request_type], stages: r.stages ?? [],
@@ -184,7 +184,12 @@ async function editRequest(id, user, body) {
     case "tz": { if (!["utc", "local"].includes(body.choice)) throw err(400, "Choose utc or local."); applyTzChoice(leg, body.choice, me); edits.push({ path: `legs.${leg.index}.tz`, previous: null, value: { choice: body.choice } }); auditDetail.choice = body.choice; break; }
     case "service": {
       const s = leg?.services.find((x) => x.id === body.serviceId); if (!s) throw err(404, "No such service.");
-      if (body.decision && ["provide", "to_confirm", "decline"].includes(body.decision)) { auditDetail.from = s.decision; s.decision = body.decision; auditDetail.decision = body.decision; }
+      if (body.decision && ["provide", "to_confirm", "decline"].includes(body.decision) && body.decision !== s.decision) {
+        // A person's choice is marked permanently, as a field edit is: who, when, what it was, and the agent's original.
+        auditDetail.from = s.decision; s.agentDecision ??= s.decided?.first ?? s.decision;
+        s.decided = { by: me.name, at: me.at, was: s.decision, first: s.decided?.first ?? s.decision };
+        s.decision = body.decision; auditDetail.decision = body.decision;
+      }
       if (typeof body.answer === "string") { s.answer = body.answer.slice(0, 300); auditDetail.answer = true; }
       if (typeof body.noteOnChecklist === "boolean") { s.noteOnChecklist = body.noteOnChecklist; auditDetail.noteOnChecklist = body.noteOnChecklist; }
       if (body.checklistNid !== undefined) { const defs = await checklistDefinitions(); const d = defs.find((x) => x.nid === Number(body.checklistNid)); if (body.checklistNid !== null && !d) throw err(400, "Not a Leon checklist item."); s.checklistNid = d?.nid ?? null; s.checklistLabel = d?.label ?? null; auditDetail.checklistNid = s.checklistNid; }

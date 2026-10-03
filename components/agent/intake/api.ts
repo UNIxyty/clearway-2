@@ -18,6 +18,8 @@ export type Service = {
   id: string; no: string; said: string | null; source: string | null; name: string; detail: string | null;
   conditional: boolean; condition: string | null; isNote: boolean; requested: "provide" | "to_confirm" | "decline" | "unclear";
   decision: "provide" | "to_confirm" | "decline" | "note"; answer: string; noteOnChecklist?: boolean;
+  // Who decided: the agent's original reading, and the person's change (kept permanently, like a field edit).
+  agentDecision?: "provide" | "to_confirm" | "decline" | "note"; decided?: { by: string; at: string; was: string; first: string } | null; kind?: "party" | null;
   checklistNid: number | null; checklistLabel: string | null; lowConfidence: boolean; checked?: { by: string; at: string } | null;
   added: false | { by: string; at: string };
 };
@@ -50,7 +52,7 @@ export type RequestDetail = {
   blockers: string[]; warnings: string[];
   attachments: AttachmentRole[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null;
   sent: { writes: Write[]; firstAt: string | null; lastMs: number | null };
-  checklistPlan: { leg: number; plan: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[];
+  checklistPlan: { leg: number; plan: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[]; note: { text: string; lines: unknown[]; remarks: unknown[]; parties: unknown[] } }[];
   extractions: { id: string; version: number; model: string; at: string; by: string; tokens: number }[];
   emails: { id: string; kind: string; subject: string; at: string; to: string[]; delivery: string | null }[];
   people: { hasPersonal: boolean; count?: number; legs: Record<string, { crew: number; pax: number }> };
@@ -60,8 +62,8 @@ export type ListRow = { id: string; type: "handling" | "scheduled"; statusKey: U
 export type Person = { id?: string | null; added?: { by: string; at: string } | null; role: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
 export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; revealedBy?: string; at?: string };
 export type Confirmation = { token: string; status: string; expiresAt: string; summary: string };
-export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
-export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean }[]; checklist: { items: ChecklistResult[]; filled: number; total: number }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
+export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; note?: string; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
+export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean }[]; checklist: { items: ChecklistResult[]; filled: number; total: number; statusesLeftToOps?: boolean }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
 
 // Mailbox
 export type MailStatus = "waiting" | "processed" | "not_recognised" | "failed" | "reply" | "ignored" | "sent";

@@ -68,10 +68,11 @@ export function reviewFromExtraction(x, defs = []) {
     for (const k of ["adults", "children", "infants"]) { const f = leg.pax?.[k]; if (f && f.state !== "not_given") extra.push({ key: `pax.${k}`, label: k[0].toUpperCase() + k.slice(1), value: f.value == null ? "" : String(f.value), said: f.said, source: f.source, state: "extra", note: "Leon takes one passenger total" }); }
     const services = leg.services.map((s, j) => ({
       id: `s${i}-${j}`, no: String(j + 1), said: s.said, source: s.source, name: s.name, detail: s.detail, conditional: s.conditional, condition: s.condition, isNote: s.isNote,
-      requested: s.requested, decision: s.isNote ? "note" : s.requested === "decline" ? "decline" : s.conditional || s.requested === "to_confirm" || s.requested === "unclear" ? "to_confirm" : "provide",
+      requested: s.requested, decision: s.isNote ? "note" : s.requested === "decline" ? "decline" : s.conditional || s.requested === "to_confirm" || s.requested === "unclear" ? "to_confirm" : "provide", kind: s.kind ?? null,
       answer: "", noteOnChecklist: s.isNote ? true : undefined, checklistNid: s.checklistNid, checklistLabel: s.checklistNid ? defLabel.get(s.checklistNid) ?? null : null,
       lowConfidence: !!s.lowConfidence, added: false,
     }));
+    for (const s of services) s.agentDecision = s.decision;   // the agent's reading, kept so a person's change can be told apart
     return { index: i, direction: leg.direction ?? null, removed: false, added: false, fields, extra, services, tzChoice: null };
   });
   return { legs, notes: x.notes ?? [], conflicts: x.conflicts ?? [], requestSource: x.requestSource ?? null, version: 1 };

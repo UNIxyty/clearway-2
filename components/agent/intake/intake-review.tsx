@@ -244,8 +244,7 @@ export function confirmPlan(detail: RequestDetail) {
   const legs = detail.review?.legs ?? [];
   const live = legs.filter((l) => !l.removed && !l.inLeon);
   const resend = live.length > 0 && live.every((l) => l.leon?.state === "not_in_leon");
-  const items = detail.checklistPlan.filter((c) => live.some((l) => l.index === c.leg)).reduce((n, c) => n + c.plan.length, 0);
-  return { live, resend, items, scheduled: detail.request.type === "scheduled" };
+  return { live, resend, items: 0, scheduled: detail.request.type === "scheduled" };
 }
 function ConfirmBar({ detail, closed, onPrepare, preparing, error }: { detail: RequestDetail; closed: boolean; onPrepare: () => void; preparing: boolean; error: string | null }) {
   const legs = detail.review?.legs ?? [];
@@ -256,15 +255,15 @@ function ConfirmBar({ detail, closed, onPrepare, preparing, error }: { detail: R
   const unsettled = live.filter((l) => l.leon?.state === "unknown").map(legNo);
   const blockers = [...detail.blockers, ...(unsettled.length && !detail.blockers.some((b) => /did not answer|Unknown/i.test(b)) ? [`${unsettled.length === 1 ? `Leg ${unsettled[0]}` : `Legs ${unsettled.join(", ")}`}: Leon did not answer. Settle it under What was sent to Leon first.`] : [])];
   const nums = live.map(legNo);
-  const title = resend ? `Resends ${nums.length === 1 ? `leg ${nums[0]}` : `legs ${nums.join(", ")}`} to Leon` : scheduled ? `Sends ${plural(live.length, "flight")} to Leon` : `Creates ${plural(live.length, "flight")} in Leon${items ? ` and fills ${plural(items, "checklist item")}` : ""}`;
+  const title = resend ? `Resends ${nums.length === 1 ? `leg ${nums[0]}` : `legs ${nums.join(", ")}`} to Leon` : scheduled ? `Sends ${plural(live.length, "flight")} to Leon` : `Creates ${plural(live.length, "flight")} in Leon, the request in their OPS notes`;
   const btn = resend ? `Review and resend ${nums.length === 1 ? `leg ${nums[0]}` : "the legs"}` : scheduled ? "Review and send to Leon" : "Review and create in Leon";
   const svc = live.flatMap((l) => l.services);
   const c = (d: string) => svc.filter((s) => !s.isNote && s.decision === d).length;
-  const notes = svc.filter((s) => s.isNote && s.noteOnChecklist !== false).length;
+  const notes = svc.filter((s) => s.isNote).length;
   const edited = live.reduce((n, l) => n + l.fields.filter((f) => f.state === "edited" || !!f.edited).length, 0);
   const removed = legs.some((l) => l.removed);
   const sub = [
-    !scheduled ? `Services: ${c("provide")} provide · ${c("to_confirm")} to confirm · ${c("decline")} declined · ${notes} note${notes === 1 ? "" : "s"}.` : null,
+    `Services: ${c("provide")} provide · ${c("to_confirm")} to confirm · ${c("decline")} declined · ${notes} note${notes === 1 ? "" : "s"} — recorded in Leon as a note, unactioned; no checklist status is set.`,
     `${edited} value${edited === 1 ? "" : "s"} edited by people.`,
     removed ? "Legs removed on this page are not created." : null,
   ].filter(Boolean).join(" ");

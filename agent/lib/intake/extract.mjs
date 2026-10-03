@@ -44,7 +44,7 @@ Rules, all mandatory:
 6. Aircraft type: if an ICAO designator is given, value = it; else the name as written.
 7. Registration: as written (e.g. "YU-LSA"). A callsign or flight number goes in flightNumber (e.g. "AMQ5V", "YULSA").
 8. Legs in time order. direction: inbound (arriving at the handling station), outbound (leaving it), ferry (positioning / empty), or null.
-9. Services: one entry per requested line, per leg. If the email gives one service list for several legs, repeat it on each leg it covers ("SERVICES (INBOUND)" → the inbound leg). requested: "provide" for a plain request; "to_confirm" when the line asks us to confirm or is conditional ("if needed", "please confirm availability", "on request"); "decline" when the line says it is not needed ("none required"); set conditional and condition accordingly. A line that is too open to be a service ("Other services, if crew requests") is isNote true. Lines that are statements rather than services (billing, confidentiality, dangerous-goods declarations) are notes, not services. checklistNid: the nid from the Leon checklist list below that this service would be recorded under, or null if none fits; lower confidence when unsure.
+9. Services: one entry per requested line, per leg. If the email gives one service list for several legs, repeat it on each leg it covers ("SERVICES (INBOUND)" → the inbound leg). requested: "provide" for a plain request; "to_confirm" when the line asks us to confirm or is conditional ("if needed", "please confirm availability", "on request"); "decline" when the line says it is not needed ("none required"); set conditional and condition accordingly. A line that is too open to be a service ("Other services, if crew requests") is isNote true. Lines that are statements rather than services (billing, confidentiality, dangerous-goods declarations) are notes, not services. A line that names WHO does something ("Handler: Clearway", "Caterer: X", "FBO: Y") names a party, not a service: isNote true, never the same service as the thing itself. checklistNid: the nid from the Leon checklist list below that this service would be recorded under, or null if none fits; lower confidence when unsure.
 10. Attachments: classify EVERY attachment by what it contains, not by its name: "request" (it is itself the handling request, e.g. an attached original email), "supporting" (GenDec, crew/pax list, permit, form), "noise" (logo, signature image, disclaimer), "unreadable" (you could not read it). Say why in one sentence, naming what you saw. Attachments already classified as noise by code are listed; keep that classification. In facts, copy what the attachment ITSELF states for each flight it covers (airport codes, date YYYY-MM-DD, registration, UTC times HH:MM, the crew and passenger TOTALS it prints), null for anything it does not state. Copy totals exactly as printed, even when they look wrong.
 11. Reading order: read the email body first. For anything the request needs that the body does not give (schedule, aircraft, services, crew and passenger counts, people), look in the attachments: first an attached EMAIL (an Outlook .msg or .eml forwarded as an attachment — it is usually the original request), then the files inside it and the other files, and analyse them. When the body is only a cover note ("see attached", "FYI", a forward, a signature), the attached email or document IS the request: set requestSource.attachment to its exact name and read everything from it. Otherwise the body is the request and attachments only fill gaps and support it. Say which, and why, in requestSource. Never read values from the subject line alone when an attachment carries them.
 12. Conflicts: when the body and an attachment disagree about a value (a count, a time, a registration), set that field's state to "conflict", keep the BODY's value in value, and add an entry to conflicts with both versions and the attachment name. Do not silently prefer either.
@@ -166,6 +166,8 @@ function timeField(f, apt, label) {
   f.state = "not_given"; f.value = { ...v, utc: null }; f.note = `No ${label} time.`; return f;
 }
 
+/** A `Key: Value` line that names who does something (the handler, the caterer, the FBO) rather than asking for it. */
+const PARTY_LINE = /^\s*(handler|handling agent|handling company|agent|ground handler|ground agent|supplier|fbo|caterer|catering company|fueller|fuel supplier|fuel company|operator|broker|supervisor)\s*[:\-–]\s*\S/i;
 /** Turns a validated model answer into the reviewed-screen shape: code states set, notes in plain words. */
 export async function normalise(raw) {
   const x = structuredClone(raw);
@@ -188,7 +190,12 @@ export async function normalise(raw) {
     if (t && t.value && /^[A-Z][A-Z0-9]{1,3}$/.test(String(t.value)) && t.said && String(t.said).trim().toUpperCase() !== String(t.value).toUpperCase() && t.state === "extracted") { t.state = "converted"; t.note = "Name → ICAO type"; }
     for (const f of [leg.aircraftType, leg.flightNumber, leg.flightType]) lowConf(f);
     if (leg.flightNumber?.value) leg.flightNumber.value = String(leg.flightNumber.value).toUpperCase().replace(/\s+/g, "");
-    for (const s of leg.services) s.lowConfidence = s.confidence != null && s.confidence < LOW_CONFIDENCE;
+    for (const s of leg.services) {
+      s.lowConfidence = s.confidence != null && s.confidence < LOW_CONFIDENCE;
+      // "Handler: Clearway", "Caterer: X", "FBO: Y" name a PARTY, not a service: never a service row (it would
+      // collide with the service itself), kept as a named party on the note.
+      if (PARTY_LINE.test(String(s.said ?? s.name ?? ""))) { s.isNote = true; s.kind = "party"; s.checklistNid = null; }
+    }
   }
   for (const f of [x.reference, x.operator, x.requester?.company]) lowConf(f);
   return x;

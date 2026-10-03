@@ -1,7 +1,7 @@
 // The intake pipeline for type 2 (handling requests), from a stored message to "Awaiting review".
 //
 //   Request received → Reading request → Data extracted → Awaiting review → Reviewed and confirmed →
-//   Building Leon request → Leon request built → Sent to Leon → Filling checklist → Checklist filled → Notification sent
+//   Building Leon request → Leon request built → Sent to Leon → Services noted → Checklist left to ops → Notification sent
 //
 // WHAT A MESSAGE IS is decided by its content (classify.mjs), never by its sender, and never by default:
 //   a provider's flight notification → type 1 (notification.mjs: link by calendar UID, look the reference up,
@@ -30,7 +30,7 @@ import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMa
 import { handleNotification, handleApprovalReply } from "./notification.mjs";
 
 export const STAGES = {
-  handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Filling checklist", "Checklist filled", "Notification sent"],
+  handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Services noted", "Checklist left to ops", "Notification sent"],
   scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Notification sent"],
 };
 export const freshStages = (type) => STAGES[type].map((name) => ({ name, state: "none", at: null, ms: null, note: null }));

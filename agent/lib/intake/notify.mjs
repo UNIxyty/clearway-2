@@ -1,5 +1,6 @@
-// Intake emails (§I12): E2 review needed, E3 loaded, E4 needs you (a/b/c, plus the stopped / timezone /
-// could-not-read variants in E4b's structure). Counts only — never a name, date of birth or passport number.
+// Intake emails (§I12): E2 review needed, E3 loaded, E4 needs you (a/b, plus the stopped / timezone /
+// could-not-read variants in E4b's structure; E4c "checklist incomplete" no longer exists: the agent sets no
+// checklist status). Counts only — never a name, date of birth or passport number.
 // Rule for Needs you subjects: they always say what is in Leon.
 //
 // Sent from the agent's own address through Resend, to the recipients set in Agent settings → Flight intake. Each send is stored
@@ -110,33 +111,21 @@ export function composeOutcome(req, review, outcome) {
   const states = Object.fromEntries(outcome.legs.map((o) => [o.index, o.state === "in_leon" ? { label: `✓ In Leon · ${o.flightNid}`, tone: "ok" } : o.state === "unknown" ? { label: "? Unknown · checking", tone: "bad" } : { label: "✕ NOT in Leon", tone: "bad" }]));
   const inLeon = outcome.legs.filter((o) => o.state === "in_leon");
   const notIn = outcome.legs.filter((o) => o.state !== "in_leon");
-  const chk = outcome.checklist; const unfilled = chk.items.filter((i) => !i.filled);
+  const unfilled = [];   // checklist statuses are never set by the agent (2026-10-03), so nothing can be "not filled"
   const who = `${outcome.by} confirmed this request at ${hm(outcome.at)}Z.`;
   const legsBlock = { type: "legs", title: "EVERY LEG · TIMES IN UTC", rows: legRows(review, states) };
   const cta = { type: "cta", text: "Open the request", url: `${consoleBase()}/agent/intake?r=${req.id}` };
   // A scheduled flight was imported once: the completion email says so, as the request page does.
   const oneShot = scheduledOf(req) ? [{ type: "section", title: "AFTER IMPORT", text: NOT_DETECTED }] : [];
   if (!notIn.length && !unfilled.length) {
-    const accepted = legs.map((l) => { const ok = l.services.filter((s) => s.decision === "provide").map((s) => s.name); return ok.length ? `Leg ${l.index + 1}: ${ok.join(", ")}.` : null; }).filter(Boolean).join(" ");
-    const tc = legs.flatMap((l) => l.services.filter((s) => s.decision === "to_confirm").map((s) => `${s.name} on leg ${l.index + 1}`));
-    const dec = legs.flatMap((l) => l.services.filter((s) => s.decision === "decline").map((s) => `${s.name} on leg ${l.index + 1}`));
-    return { kind: "E3 · Loaded", subject: `Loaded: ${req.reference} · ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"} in Leon · checklist complete`, context: `. ${who}`, blocks: [
+    // Services are NOT claimed as requested or arranged: they sit in the flight's OPS notes, unactioned, for ops.
+    return { kind: "E3 · Loaded", subject: `Loaded: ${req.reference} · ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"} in Leon · checklist left to ops`, context: `. ${who}`, blocks: [
       { type: "heading", text: `Loaded into Leon: ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"}` }, { type: "mono", text: `${req.reference} · ${req.sender_name ?? ""}`.trim() },
-      { type: "callout", tone: "green", title: `${inLeon.length === 1 ? "The leg is" : inLeon.length === 2 ? "Both legs are" : `All ${inLeon.length} legs are`} in Leon. Checklist: ${chk.items.length} of ${chk.items.length} items filled.`, text: `Created at ${hm(outcome.at)}Z. Check them against the list below.` },
+      { type: "callout", tone: "green", title: `${inLeon.length === 1 ? "The leg is" : inLeon.length === 2 ? "Both legs are" : `All ${inLeon.length} legs are`} in Leon.`, text: `Created at ${hm(outcome.at)}Z. Check them against the list below.` },
       legsBlock,
-      { type: "section", title: "SERVICES ACCEPTED", text: [accepted, tc.length ? `To confirm: ${tc.join(", ")}.` : null, dec.length ? `Declined: ${dec.join(", ")}.` : null].filter(Boolean).join(" ") || "None." },
+      { type: "section", title: "SERVICES AND CHECKLIST", text: "The client's request is recorded in each flight's OPS notes in Leon, in the requester's own words with the review decisions, marked NOT ACTIONED: nothing has been arranged, ordered or confirmed. No checklist status was set; every item is at Leon's default (?) for ops to work through." },
       ...oneShot,
       cta,
-    ] };
-  }
-  if (!notIn.length && unfilled.length) {
-    return { kind: "E4 · Needs you", subject: `Needs you: ${req.reference} · ${inLeon.length === 2 ? "both flights" : `${inLeon.length} flight${inLeon.length === 1 ? "" : "s"}`} in Leon, ${unfilled.length} checklist item${unfilled.length === 1 ? "" : "s"} not filled`, context: `. ${who}`, blocks: [
-      { type: "heading", text: "Needs you: checklist incomplete" }, { type: "mono", text: req.reference },
-      { type: "callout", tone: "red", title: `${inLeon.length === 2 ? "Both flights are" : "The flights are"} in Leon. ${unfilled.length} checklist item${unfilled.length === 1 ? " is" : "s are"} not filled.`, text: "The flights exist and are correct. Only the checklist needs finishing." },
-      legsBlock,
-      { type: "section", title: "NOT FILLED", text: unfilled.map((i) => `Leg ${i.leg + 1} · ${i.label}: ${i.reason}`).join(" · ") },
-      { type: "section", title: "HOW FAR IT GOT", text: "Filling checklist, stage 9 of 11." },
-      { type: "section", title: "WHAT TO DO", text: "Retry the items from the request page, or fill them in Leon." }, ...oneShot, cta,
     ] };
   }
   const nothing = !inLeon.length;

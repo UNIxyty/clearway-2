@@ -23,13 +23,18 @@ export const MONO_FONT = sharedTokens.font.mono;
  * commercial fonts we can only name — the settings page measures whether the machine has them.
  */
 export const WALL_FONTS = [
-  { id: 'nunito', label: 'Nunito (dotted zero)', stack: sharedTokens.font.wallSans, hosted: true, local: [], note: 'The wall’s own build, with a dotted zero. The default.' },
-  { id: 'public-sans', label: 'Public Sans', stack: "'Public Sans', sans-serif", hosted: true, local: [], note: 'The console’s font.' },
-  { id: 'roboto', label: 'Roboto', stack: "'Roboto', sans-serif", hosted: true, local: [] },
-  { id: 'avenir', label: 'Avenir / Helvetica', stack: "'Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica', sans-serif", hosted: false, local: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica'] },
-  { id: 'arial', label: 'Arial', stack: "'Arial', 'Liberation Sans', sans-serif", hosted: false, local: ['Arial', 'Liberation Sans'] },
-  { id: 'system', label: 'System sans-serif', stack: 'sans-serif', hosted: false, local: [] },
+  // Dotted-zero fonts first: on these `0` carries a dot and cannot be read as `O` across the room (the Nunito build
+  // was patched by hand for bug 6; Roboto and Public Sans are patched the same way by tools/dotted-zero.py).
+  { id: 'nunito', label: 'Nunito (dotted zero)', stack: sharedTokens.font.wallSans, hosted: true, dottedZero: true, local: [], note: 'The wall’s own build. The default.' },
+  { id: 'roboto', label: 'Roboto (dotted zero)', stack: "'Roboto Dotted', sans-serif", hosted: true, dottedZero: true, local: [] },
+  { id: 'public-sans', label: 'Public Sans (dotted zero)', stack: "'Public Sans Dotted', sans-serif", hosted: true, dottedZero: true, local: [] },
+  // Licensed or machine-supplied: we cannot touch their glyphs, so their zero is plain.
+  { id: 'avenir', label: 'Avenir / Helvetica', stack: "'Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica', sans-serif", hosted: false, dottedZero: false, local: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica'] },
+  { id: 'arial', label: 'Arial', stack: "'Arial', 'Liberation Sans', sans-serif", hosted: false, dottedZero: false, local: ['Arial', 'Liberation Sans'] },
+  { id: 'system', label: 'System sans-serif', stack: 'sans-serif', hosted: false, dottedZero: false, local: [] },
 ];
+/** The line the settings card shows beside every plain-zero option, before it is applied. */
+export const PLAIN_ZERO_WARNING = 'Plain zero — 0 and O look alike at wall distance.';
 export const DEFAULT_WALL_FONT_ID = 'nunito';
 const BY_ID = new Map(WALL_FONTS.map((f) => [f.id, f]));
 
@@ -94,7 +99,7 @@ export async function tabularDigits(stack, doc = typeof document !== 'undefined'
  */
 export function wallFontProbe(font, doc = typeof document !== 'undefined' ? document : null) {
   if (!doc) return { rendered: null, fallback: false, message: '' };
-  if (font.hosted) return { rendered: font.id === 'nunito' ? 'Nunito' : font.stack.split(',')[0].replace(/'/g, ''), fallback: false, message: 'Served from our own server; renders the same on every screen.' };
+  if (font.hosted) return { rendered: font.stack.split(',')[0].replace(/'/g, '').replace(/ Dotted$/, ''), fallback: false, message: 'Served from our own server; renders the same on every screen.' };
   if (font.id === 'system') return { rendered: 'the system’s sans-serif', fallback: false, message: 'Whatever this machine’s default sans-serif is; it differs from screen to screen.' };
   const present = font.local.find((name) => localFontAvailable(name, doc)) ?? null;
   if (present) return { rendered: present, fallback: present !== font.local[0], message: present === font.local[0] ? `${present} is on this machine.` : `${font.local[0]} not found on this machine; ${present} renders instead.` };

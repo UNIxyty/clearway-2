@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchDisplaySettings, saveDisplaySettings, fetchTimelineAircraft } from '../../services/timelineApi';
-import { WALL_FONTS, DEFAULT_WALL_FONT_ID, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
+import { WALL_FONTS, DEFAULT_WALL_FONT_ID, PLAIN_ZERO_WARNING, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { Button, Card, ErrorBanner, LoadingState, t, useToast } from './ui';
 
@@ -82,8 +82,9 @@ export default function FontCard({ deviceId }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: t.ink }}>Wall font</div>
           <div style={{ fontSize: 12.5, color: t.muted, marginTop: 3, maxWidth: 620, lineHeight: 1.5 }}>
             The text font of the wall display, per profile like the colours. The wall changes within seconds, no reload.
-            Nunito, Public Sans and Roboto are served from our own server; Avenir / Helvetica and Arial are commercial fonts the
-            display machine has to have — the note under each says what this machine would actually render.
+            Nunito, Roboto and Public Sans are served from our own server with a dotted zero, so 0 and O cannot be confused across the
+            room. Avenir / Helvetica and Arial are commercial fonts the display machine has to have, and their zero is plain — the
+            notes under each option say what this machine would actually render.
           </div>
         </div>
         <Button size="sm" variant="soft" disabled={fontId === DEFAULT_WALL_FONT_ID} onClick={() => choose(DEFAULT_WALL_FONT_ID)}>Reset to default</Button>
@@ -112,7 +113,13 @@ export default function FontCard({ deviceId }) {
                 <span style={{ fontSize: 11.5, color: t.faint, fontFamily: t.mono }}>{f.stack}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                <span style={{ fontFamily: f.stack, fontSize: 18, fontWeight: 700, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sample.callsign} {sample.route} {sample.time} 0123456789</span>
+                <span style={{ fontFamily: f.stack, fontSize: 18, fontWeight: 700, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sample.callsign} {sample.route} {sample.time} 0O0O 0123456789</span>
+                {!f.dottedZero && (
+                  <span style={{ fontSize: 12, color: '#b91c1c', display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', padding: '1px 6px', borderRadius: 5, background: '#fee2e2', color: '#b91c1c' }}>PLAIN ZERO</span>
+                    <span>{PLAIN_ZERO_WARNING}</span>
+                  </span>
+                )}
                 {p && (
                   <span style={{ fontSize: 12, color: p.fallback ? '#92400e' : t.muted, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     {p.fallback && <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', padding: '1px 6px', borderRadius: 5, background: '#fef3e2', color: '#92400e' }}>FALLBACK</span>}

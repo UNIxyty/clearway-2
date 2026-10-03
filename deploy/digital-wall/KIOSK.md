@@ -119,11 +119,16 @@ network renders exactly the same as one with it.
 The wall's **text font** is a per-account setting (console → Settings → Font), stored and applied exactly like the
 Colours tab: `settings.font` in `display-settings.json`, `PUT /api/display/settings`, and the `config.changed`
 event that repaints the running wall in seconds, no reload. The options (`opsboard-react/src/theme/wallFont.js`):
-Nunito (dotted zero — the default, so an unset wall is unchanged), Public Sans, Roboto, Avenir / Helvetica,
-Arial, System sans-serif. The last three are commercial fonts we can only name: a Linux kiosk has none of them and
-renders its generic sans-serif (usually Liberation Sans or DejaVu Sans) instead — the settings page measures the
-machine it runs on and says so. To add a hosted font: `node opsboard-react/tools/fetch-fonts.mjs` fetches OFL files,
-then add the `@font-face` lines to `fonts.css` and the option to `wallFont.js`.
+Nunito (the default, so an unset wall is unchanged), Roboto and Public Sans — all three with a **dotted zero**
+(`tools/dotted-zero.py` patches a dot into the counter of `0` in the open fonts, as the Nunito build has, so `0`
+cannot be read as `O` across the room; the patched builds are `<Name>-dotted-<weight>.woff2`, registered as the
+families `Roboto Dotted` / `Public Sans Dotted` so the console's plain Public Sans is untouched) — then Avenir /
+Helvetica, Arial, System sans-serif. Those last three are licensed or machine-supplied: we cannot touch their
+glyphs, so the settings card says "Plain zero" beside each; a Linux kiosk has none of Avenir, Helvetica or Arial
+and renders its generic sans-serif (usually Liberation Sans or DejaVu Sans) — the card measures the machine it runs
+on and says which font is missing. To add a hosted font: `node opsboard-react/tools/fetch-fonts.mjs` fetches OFL
+files, `tools/dotted-zero.py` patches the zero, then add the `@font-face` lines to `fonts.css` and the option to
+`wallFont.js`.
 
 Numbers: the wall renders times, codes and callsigns in the same text font (the dotted zero was patched into
 Nunito for that reason; there is no IBM Plex Mono on the wall). `font-variant-numeric: tabular-nums` on the wall

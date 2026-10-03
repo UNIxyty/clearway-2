@@ -211,7 +211,10 @@ export async function processMessage(messageId, opts = {}) {
   const bodyText = parsed.text || (parsed.html ? String(parsed.html).replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ") : "");
 
   // ── Test 1, offline: is it a provider's flight notification? (content only; the sender is a hint) ────────
-  const signals = notificationSignals({ subject: message.subject, texts: [bodyText, ...atts.filter((a) => a.email).map((a) => a.email.text ?? "")], calendars: calendarsFrom(atts), fromAddr: fromAddress, attachedSubjects: atts.filter((a) => a.email).map((a) => a.email.subject ?? "") });
+  // The block may sit in the body, in an attached email, or only in a calendar part's DESCRIPTION (a
+  // cancellation). An attached .msg of a meeting carries its own calendar facts (method, UID) without an .ics.
+  const calendars = [...calendarsFrom(atts), ...atts.filter((a) => a.email?.calendar?.method).map((a) => ({ ...a.email.calendar, where: `inside ${a.name}` }))];
+  const signals = notificationSignals({ subject: message.subject, texts: [bodyText, ...atts.filter((a) => a.email).map((a) => a.email.text ?? "")], calendars, fromAddr: fromAddress, attachedSubjects: atts.filter((a) => a.email).map((a) => a.email.subject ?? "") });
   if (!opts.forceHandling && !chosen && (signals.confident || opts.forceType === "scheduled")) {
     if (opts.forceType === "scheduled" && !signals.reference) {
       const ref = String(opts.reference ?? "").trim();

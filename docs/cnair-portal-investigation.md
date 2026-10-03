@@ -373,6 +373,33 @@ decides" outcome stay the same. Until then §5 stands.
 - **Both legs of 2614050 carry the same flight number** (`ORO 1041`), so it does not even distinguish legs
   within a record.
 
+## 9. Four real messages read (2026-10-03): what the fictional invites got wrong
+
+Three new schedules and one cancellation, as Outlook `.msg` exports (facts, redacted, in
+`rig/fixtures/cnair/real-messages.json`; the `.msg` files are not in the repo).
+
+| | Assumed from the fictional invites | Real |
+|---|---|---|
+| Mailer | Exchange (112-hex GlobalObjectId UIDs, Exchange PRODID) | **Zimbra** (`…@JavaMail.zimbra@cnair.es`): UIDs are plain UUIDs, one per flight. In the `.msg` they survive as `vCal-Uid` inside the GlobalObjectId |
+| Crew keys | `#1:` / `#2:` | **`#1º:` / `#2º:`** (ordinal; some decoders turn it into U+FFFD). The old key regex dropped both lines, so the crew count would have been 0 on real mail: fixed |
+| `#Pax` | a string shown "per leg" | **one count per leg in leg order** (`0/5/5`, `3/0`): now parsed as such, and compared with the number of `#ETD` entries |
+| `#ETD` with three legs | untested | `10:00:00-LEBL 12:00:00-GMAZ 13:30:00-GMMZ`: parsed correctly, no change needed |
+| Cancellation body | the full block in `text/plain` | **one line** ("La siguiente reunión ha sido cancelada:"); the block, two leading spaces and trailing padding on every line, lives only in the appointment description. Over MIME that is the calendar part's DESCRIPTION, which the classifier now searches; from a `.msg` it is read out of the file's string streams |
+| Cancellation subject | `Cancelada:` | `Cancelado:` (both stripped; neither decides: the METHOD does) |
+| Cancellation match | by UID, reference as consistency check | **reference first, UID as a cross-check** (a difference is recorded, not fatal); UID only when there is no reference |
+| Calendar times | unused | still unused, rightly: DTSTART is the first `#ETD` read in Europe/Madrid; DTEND follows no single rule (the last ETD taken as UTC twice, 20:51Z once) |
+
+Verified on the rig both ways: the real `.msg` files forwarded as attachments (method, UID, reference, three
+legs, pax per leg, crew count, no initials stored; the cancellation of a flight the agent never saw asks a
+person) and the reconstructed MIME fixtures (invite → request; a cancellation in the real shape closes the
+request; a known reference with an unknown UID still matches by reference).
+
+**Still unproven until one message arrives through Resend:** the exact `text/calendar` layout Zimbra sends
+(property order, whether DESCRIPTION carries the block, folding and escaping), whether Resend's inbound
+parsing keeps the calendar part at all, and whether an *update* comes with the same UID and a higher
+SEQUENCE (no real update exists yet; that fixture stays fictional). Say "verified against real messages, not
+yet end to end through Resend".
+
 ## Method
 
 Authorised by the account holder on 2026-10-01 for a one-session, read-only capture of the eleven records.

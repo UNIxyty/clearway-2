@@ -21,10 +21,14 @@ flights; they identify no person.
 
 - `2614050-notified-by-invite-morocco-same-flightnumber.json`: the record a real notification pointed to
   (its `#Ref`). Same redaction as the others.
-- `invite-request.eml`, `invite-update.eml`, `invite-cancel.eml`: **fictional** calendar invites in the shape
-  of the provider's notification (Exchange meeting request, `text/calendar` part, ten `#Key:` lines in the
-  body). Invented registration, reference, initials and addresses; written by `rig/cnair/make-invite-fixtures.mjs`.
-  The update has the same UID with SEQUENCE 1; the cancel is `METHOD:CANCEL`.
+- `invite-*.eml` (rewritten 2026-10-03): calendar messages RECONSTRUCTED from four real CNAIR messages, see
+  `real-messages.json` (the facts, redacted: crew lines marked filled/empty, no addresses). Subjects, UIDs,
+  classes, blocks, dates and the `multipart/alternative` shape are real; the exact layout of Zimbra's
+  `text/calendar` part is assumed. `invite-request` = 2614050, `invite-request-2613767`, `invite-request-2614162`,
+  `invite-cancel` = the real three-leg cancellation 2613766 (one-line body, block only in DESCRIPTION).
+  FICTIONAL: `invite-update` (2614050 re-sent, SEQUENCE 1, no real update seen) and `invite-cancel-2614050`
+  (a cancellation of 2614050 in the real cancellation's shape). Written by `rig/cnair/make-invite-fixtures.mjs`.
+  Verified against real messages, not yet end to end through Resend.
 - `portal-structure.json` (added 2026-10-03): the program's screen as the protocol describes it (node ids, the
   five tables with their columns and types, form fields, actions, the type-of-flight and stretcher lists), no data.
   `rig/intake/mock-cnair.mjs` serves the records above through it, speaking the recorded protocol, so the agent's

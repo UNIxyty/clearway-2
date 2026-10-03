@@ -1,0 +1,24 @@
+{
+  "_comment": "Four REAL CNAIR notifications received by ops (Outlook .msg exports, read 2026-10-03), reduced to their non-personal facts. Crew lines are marked filled/empty (initials never written); addresses are not kept (sender is an address at cnair.es; the cancellation's display name is the registration). The .msg files themselves are not in the repo. The MIME shape Zimbra sends over SMTP is NOT in these files: see README.",
+  "mailer": "Zimbra (Message-IDs @JavaMail.zimbra@cnair.es); received by Clearway's Exchange via Hornetsecurity; SPF, DKIM and DMARC pass for cnair.es",
+  "mime": "Content-Type: multipart/alternative; boundary=\"----=_Part_<n>_<n>.<ms>\" (the text/calendar part is one of the alternatives; its exact layout is unverified)",
+  "blockKeys": ["Pax", "Cliente", "1º", "2º", "TCP", "Fra", "Ref", "Otros", "DATE", "ETD"],
+  "messages": [
+    { "file": "LEBL-GMMN-LEBL", "messageClass": "IPM.Schedule.Meeting.Request", "subject": "LEBL-GMMN-LEBL", "date": "Thu, 1 Oct 2026 17:41:48 +0200", "uid": "dcbf2633-b798-4e2d-8c7c-b6a4f2c29e16", "apptStartUtc": "2026-10-05T15:00:00Z", "apptEndUtc": "2026-10-06T17:30:00Z",
+      "block": { "Pax": "2/2", "Cliente": "(Extracomunitario Pasaje)", "1º": "filled", "2º": "filled", "TCP": "empty", "Fra": "empty", "Ref": "2614050", "Otros": "empty", "DATE": "05/10/26", "ETD": "17:00:00-LEBL 17:30:00-GMMN" }, "blockWhere": "text body (and the appointment description)" },
+    { "file": "LEBL-GMMZ-LEBL", "messageClass": "IPM.Schedule.Meeting.Request", "subject": "LEBL-GMMZ-LEBL", "date": "Thu, 1 Oct 2026 14:09:03 +0200", "uid": "41d7e71b-b2a6-4a9a-ac36-3527b38aee86", "apptStartUtc": "2026-10-04T07:00:00Z", "apptEndUtc": "2026-10-04T10:00:00Z",
+      "block": { "Pax": "0/5", "Cliente": "(Extracomunitario Pasaje)", "1º": "filled", "2º": "filled", "TCP": "filled", "Fra": "empty", "Ref": "2613767", "Otros": "empty", "DATE": "04/10/26", "ETD": "09:00:00-LEBL 10:00:00-GMMZ" }, "blockWhere": "text body (and the appointment description)" },
+    { "file": "LEBL-EGAA-LEBL", "messageClass": "IPM.Schedule.Meeting.Request", "subject": "LEBL-EGAA-LEBL", "date": "Sat, 3 Oct 2026 16:16:50 +0200", "uid": "9066bfdf-bf3a-4071-98d0-e46226d7c2bf", "apptStartUtc": "2026-10-03T16:00:00Z", "apptEndUtc": "2026-10-03T20:51:00Z",
+      "block": { "Pax": "3/0", "Cliente": "(Extracomunitario Pasaje)", "1º": "filled", "2º": "filled", "TCP": "empty", "Fra": "empty", "Ref": "2614162", "Otros": "empty", "DATE": "03/10/26", "ETD": "18:00:00-LEBL 20:30:00-EGAA" }, "blockWhere": "text body (and the appointment description)" },
+    { "file": "Cancelado_ LEBL-GMAZ-GMMZ-LEBL", "messageClass": "IPM.Schedule.Meeting.Canceled", "subject": "Cancelado: LEBL-GMAZ-GMMZ-LEBL", "date": "Sun, 27 Sep 2026 12:44:50 +0200", "uid": "45526411-0af3-4308-8264-cd75268732d8", "apptStartUtc": "2026-10-04T08:00:00Z", "apptEndUtc": "2026-10-04T13:30:00Z", "senderDisplayName": "EC-NQS",
+      "textBody": "La siguiente reunión ha sido cancelada:",
+      "block": { "Pax": "0/5/5", "Cliente": "(Extracomunitario Pasaje)", "1º": "filled", "2º": "filled", "TCP": "empty", "Fra": "empty", "Ref": "2613766", "Otros": "empty", "DATE": "04/10/26", "ETD": "10:00:00-LEBL 12:00:00-GMAZ 13:30:00-GMMZ" }, "blockWhere": "the appointment description only (two leading spaces, every line padded with trailing spaces); NOT in the text body" }
+  ],
+  "observations": [
+    "The UID is a plain UUID per flight, carried in the .msg's GlobalObjectId as \"vCal-Uid\" (an Outlook-converted third-party UID), i.e. Zimbra's iCalendar UID.",
+    "The crew keys are #1º: and #2º: (with the ordinal), not #1: / #2:.",
+    "#Pax is one count per leg in leg order (0/5/5 on the three-leg trip); #ETD is one HH:MM:SS-ICAO per leg in the same order.",
+    "The appointment's start is the first ETD read as Europe/Madrid local time; its end does not follow any one rule (the last ETD taken as UTC in two cases, 20:51Z in another). Calendar times are never used for the flight.",
+    "No SEQUENCE is visible in a .msg; whether Zimbra sends updates with the same UID and a higher SEQUENCE is still unknown (no real update has been seen)."
+  ]
+}

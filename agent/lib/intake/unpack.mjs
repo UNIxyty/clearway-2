@@ -40,7 +40,26 @@ export async function unpackEmail(att) {
     } catch { /* an embedded object msgreader cannot give back as bytes */ }
   }
   const from = d.senderName || d.senderEmail ? `${d.senderName ?? ""}${d.senderEmail ? ` <${d.senderSmtpAddress ?? d.senderEmail}>` : ""}`.trim() : null;
-  return { email: { from, to: (d.recipients ?? []).map((x) => x.smtpAddress ?? x.email ?? x.name).filter(Boolean).join(", ") || null, date: d.messageDeliveryTime ?? d.clientSubmitTime ?? null, subject: d.subject ?? null, text: d.body || htmlToText(html) }, children };
+  let text = d.body || htmlToText(html);
+  // A meeting message (an invite or its cancellation) saved as .msg: the calendar part is gone, but the message
+  // class says what it was and the GlobalObjectId keeps the organiser's iCalendar UID ("vCal-Uid"). A Zimbra
+  // cancellation's own body is one line; the appointment's description (the provider's #Key block) survives in
+  // a named property, so it is read from the file's UTF-16 string streams when the body does not carry it.
+  // Seen on four real CNAIR messages (2026-10-03); the shape of the same mail as MIME is still unverified.
+  const cls = String(d.messageClass ?? "");
+  let calendar = null;
+  if (/^IPM\.Schedule\.Meeting\./i.test(cls)) {
+    const method = /\.Canceled$/i.test(cls) ? "CANCEL" : /\.Request$/i.test(cls) ? "REQUEST" : /\.Resp\./i.test(cls) ? "REPLY" : null;
+    const uid = /vCal-Uid\x01\x00\x00\x00([!-~]{8,120})\x00/.exec(att.content.toString("latin1"))?.[1] ?? null;
+    calendar = { method, uid, sequence: null, status: method === "CANCEL" ? "CANCELLED" : null, summary: d.subject ?? null, messageClass: cls };
+    if (!/^[>\s]*#\s*[A-Za-z0-9]/m.test(text)) {
+      // The property is stored more than once and a copy can be cut by directory sectors: keep the fullest one.
+      const u16 = att.content.toString("utf16le");
+      const block = [...u16.matchAll(/(?:^|[\s\0])(#\s*[A-Za-z0-9]{1,12}[^\S\r\n]*:[^\0]*?#\s*ETD\s*:[^\r\n\0]*)/g)].map((m) => m[1]).sort((a, b) => (b.match(/^[ \t]*#/gm)?.length ?? 0) - (a.match(/^[ \t]*#/gm)?.length ?? 0))[0] ?? null;
+      if (block) text = `${text}\n\n${block.replace(/[ \t]+$/gm, "")}`;
+    }
+  }
+  return { email: { from, to: (d.recipients ?? []).map((x) => x.smtpAddress ?? x.email ?? x.name).filter(Boolean).join(", ") || null, date: d.messageDeliveryTime ?? d.clientSubmitTime ?? null, subject: d.subject ?? null, text, calendar }, children };
 }
 
 /** Name to give the text readers: keep the real name when its extension matches the content, else add one. */

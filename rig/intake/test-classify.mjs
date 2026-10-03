@@ -25,12 +25,13 @@ const leg = (withIds = true) => ({ std: { value: { date: "2026-10-08", utcTime: 
 
 // ── Notification, whoever sends it ───────────────────────────────────────────────────────────────────────────
 let r = await read(readFileSync(FX + "invite-request.eml"));
-ok(r.signals.confident && r.signals.reference === "9914050", "an invite from an address the agent has never seen is a notification", `confidence ${r.signals.confidence}`);
-ok(r.signals.evidence.find((e) => e.signal === "sender").found === false, "…and the sender did not contribute");
+ok(r.signals.confident && r.signals.reference === "2614050", "a real invite (reconstructed from the .msg) is a notification", `confidence ${r.signals.confidence}`);
+ok(r.signals.evidence.filter((e) => !e.hint && e.found).reduce((n, e) => n + e.weight, 0) >= 0.7 && r.signals.evidence.find((e) => e.signal === "sender").hint, "…confident without the sender, which is only a hint");
+ok(r.signals.notification.crewNamed === 2 && r.signals.notification.paxPerLeg?.join("/") === "2/2" && r.signals.notification.legs === 2, "the real crew keys (#1º: / #2º:) are read; #Pax is one count per leg", `crew ${r.signals.notification.crewNamed}, pax ${JSON.stringify(r.signals.notification.paxPerLeg)}`);
 ok(decideType({ signals: r.signals }).type === "scheduled", "decided as a scheduled flight without running the model");
-ok(r.calendars[0]?.method === "REQUEST" && /^0400/.test(r.calendars[0].uid) && r.calendars[0].sequence === 0, "calendar part read: method, UID, sequence");
+ok(r.calendars[0]?.method === "REQUEST" && r.calendars[0].uid === "dcbf2633-b798-4e2d-8c7c-b6a4f2c29e16" && r.calendars[0].sequence === 0, "calendar part read: method, the real UID (a plain UUID), sequence");
 r = await read(forwardAsAttachment(readFileSync(FX + "invite-request.eml"), "Ops Desk <ops@clearway.example>"));
-ok(r.signals.confident && r.signals.reference === "9914050" && r.calendars.length === 1, "forwarded by ops as an attachment: still a notification, calendar part found inside");
+ok(r.signals.confident && r.signals.reference === "2614050" && r.calendars.length === 1, "forwarded by ops as an attachment: still a notification, calendar part found inside");
 r = await read(mail("Someone Else <relay@elsewhere.example>", "FW: LEBL-GMMN-LEBL", `Forwarding this.\r\n\r\n-----Original Message-----\r\n${BLOCK.split("\r\n").map((l) => `> ${l}`).join("\r\n")}`));
 ok(r.signals.confident && !r.calendars.length, "forwarded inline (quoted block, no calendar part, another sender): still a notification");
 r = await read(mail("ec-zzz@cnair.es", "LEBL-GMMN-LEBL", BLOCK));
@@ -82,8 +83,13 @@ ok(classifyAutomatic(await simpleParser(relayed)) === null && isMailSystemSender
 ok(classifyAutomatic(await simpleParser(mail("a@b.example", "Automatic reply: away", "back monday")))?.kind === "auto", "auto-replies are still ignored");
 
 // ── Updates ───────────────────────────────────────────────────────────────────────────────────────────────────
-const a = (await read(readFileSync(FX + "invite-request.eml"))).signals.notification, b = (await read(readFileSync(FX + "invite-update.eml"))).signals.notification, c = (await read(readFileSync(FX + "invite-cancel.eml")));
-ok(a.calendar.uid === b.calendar.uid && b.calendar.sequence === 1 && notificationChanges(a, b).join() === "ETD leg 1: 17:00-LEBL → 18:00-LEBL", "an update has the same UID, a higher sequence, and the change is named", notificationChanges(a, b).join("; "));
-ok(c.signals.confident && c.signals.notification.calendar.method === "CANCEL" && c.signals.notification.calendar.uid === a.calendar.uid, "a cancellation is recognised by its method and carries the same UID");
-ok(!("crew" in a) && a.crewNamed === 2 && !JSON.stringify(a).includes("XXA"), "the parsed notification keeps a crew COUNT, not the initials");
+const a = (await read(readFileSync(FX + "invite-request.eml"))).signals.notification, b = (await read(readFileSync(FX + "invite-update.eml"))).signals.notification, c = (await read(readFileSync(FX + "invite-cancel-2614050.eml")));
+ok(a.calendar.uid === b.calendar.uid && b.calendar.sequence === 1 && notificationChanges(a, b).join() === "ETD leg 1: 17:00-LEBL → 18:00-LEBL", "an update (FICTIONAL: no real one seen) has the same UID, a higher sequence, and the change is named", notificationChanges(a, b).join("; "));
+ok(c.signals.confident && c.signals.notification.calendar.method === "CANCEL" && c.signals.notification.calendar.uid === a.calendar.uid && c.signals.reference === "2614050", "a cancellation in the real shape (block only in the calendar DESCRIPTION) is recognised by its method, with the reference and the same UID", `${c.signals.reference} · ${c.signals.notification.calendar?.method}`);
+// The real three-leg cancellation: the block read from DESCRIPTION with its padding, #Ref 2613766, three ETDs, pax 0/5/5.
+const rc = (await read(readFileSync(FX + "invite-cancel.eml"))).signals;
+ok(rc.confident && rc.reference === "2613766" && rc.notification.calendar.method === "CANCEL" && rc.notification.calendar.uid === "45526411-0af3-4308-8264-cd75268732d8", "the real cancellation: reference and UID read although the text body is one line", `${rc.reference} · ${rc.notification.calendar?.uid}`);
+ok(rc.notification.etd.map((e) => `${e.time}-${e.airport}`).join(" ") === "10:00-LEBL 12:00-GMAZ 13:30-GMMZ" && rc.notification.paxPerLeg?.join("/") === "0/5/5" && rc.notification.legs === 3 && rc.notification.paxLegsAgree === true, "…three ETDs in leg order, three pax counts in leg order", `${JSON.stringify(rc.notification.etd)} pax ${JSON.stringify(rc.notification.paxPerLeg)}`);
+ok(rc.notification.route.join("-") === "LEBL-GMAZ-GMMZ-LEBL" && rc.notification.crewNamed === 2, "…route from the subject (prefix Cancelado: stripped), two crew lines filled");
+ok(!("crew" in a) && a.crewNamed === 2 && !JSON.stringify(a).includes("AAA") && !JSON.stringify(rc).includes("AAA"), "the parsed notification keeps a crew COUNT, not the initials");
 console.log(failures ? `\n${failures} FAILED` : "\nall passed"); process.exit(failures ? 1 : 0);

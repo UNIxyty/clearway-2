@@ -58,11 +58,26 @@ approve**. Eleven stages:
 | 8–11 | Building Leon request → Leon request built → Sent to Leon → Notification sent | **The type 2 path, unchanged** (`send.mjs`): same confirmation token, same send-log-before-Leon ordering, same partial-success handling, same checklist, same E3 / E4. |
 
 **One-shot, by design.** Change detection is not built: the portal is read once at import. The request page says
-so above the legs, and the completion email (E3) carries the same line. A later invite with the same calendar
-UID still links (update / copy / cancellation, as before) and still only asks a person; it never re-reads the
-portal on its own. **That linking is UNVERIFIED AGAINST REAL MAIL**: built on fictional invites
-(`rig/fixtures/cnair/invite-*.eml`); whether a real Exchange invite keeps its calendar part through Resend is not
-proven. The same UID with a different reference is not linked: the reference (quote number) is the key.
+so above the legs, and the completion email (E3) carries the same line. A later message about the same flight
+still links (update / copy / cancellation) and only asks a person; it never re-reads the portal on its own.
+
+**Linking: the reference first, the calendar UID as a cross-check.** A real cancellation carries the full block
+including `#Ref`, so a message whose reference we have is that flight even if its UID was never seen (the UID
+difference is recorded); the UID is the way in only when a message has no reference. The same UID with a
+different reference is not linked. **Verified against real messages, not yet end to end through Resend:** four
+real CNAIR messages (three invites, one cancellation; facts in `rig/fixtures/cnair/real-messages.json`, `.eml`
+fixtures reconstructed from them) were read correctly both as forwarded `.msg` attachments and in the
+reconstructed MIME shape. What a real message looks like after Resend (whether the `text/calendar` part and its
+DESCRIPTION survive) is still unproven until one arrives at the intake address. The *update* case (same UID,
+higher SEQUENCE) has no real sample yet and stays fictional.
+
+What the real messages settled: CNAIR sends from Zimbra (plain-UUID UIDs, `multipart/alternative`); the crew
+keys are `#1º:` / `#2º:`; `#Pax` is one count per leg in leg order (`0/5/5`); `#ETD` is one `HH:MM:SS-ICAO` per
+leg; a cancellation's text body is one line ("La siguiente reunión ha sido cancelada") and the block lives only
+in the appointment description (→ the calendar part's DESCRIPTION), which the classifier now searches; the
+cancellation is recognised by `METHOD:CANCEL` (the `Cancelado:` prefix and the Spanish line are hints only).
+An attached `.msg` of a meeting yields its method (from the message class), its UID (from the GlobalObjectId's
+`vCal-Uid`) and the description block (`unpack.mjs`).
 
 The look-up is **off by default**: it runs only with `INTAKE_CNAIR_LOOKUP=on` and `CNAIR_USER` / `CNAIR_PASSWORD`
 in the server's environment (or against a local mock, `CNAIR_PORTAL_BASE=http://127.0.0.1:…`, rig only). Off, an

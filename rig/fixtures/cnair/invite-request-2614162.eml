@@ -1,0 +1,46 @@
+From: redacted@cnair.es
+To: handling@intake.rig.invalid, crew-a@cnair.example, crew-b@cnair.example
+Subject: LEBL-EGAA-LEBL
+Date: Sat, 3 Oct 2026 16:16:50 +0200
+Message-ID: <1791040919171.120422.JavaMail.zimbra@cnair.es>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_57505251_13017155.1791040919171"
+
+------=_Part_57505251_13017155.1791040919171
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+#Pax:	3/0
+#Cliente: (Extracomunitario Pasaje)
+#1º:	AAA
+#2º:	BBB
+#TCP:	
+#Fra:	
+#Ref:	2614162
+#Otros: 
+#DATE: 03/10/26
+#ETD:	18:00:00-LEBL 20:30:00-EGAA
+
+------=_Part_57505251_13017155.1791040919171
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<html><body><pre>#Pax:	3/0<br>#Cliente: (Extracomunitario Pasaje)<br>#1º:	AAA<br>#2º:	BBB<br>#TCP:	<br>#Fra:	<br>#Ref:	2614162<br>#Otros: <br>#DATE: 03/10/26<br>#ETD:	18:00:00-LEBL 20:30:00-EGAA<br></pre></body></html>
+
+------=_Part_57505251_13017155.1791040919171
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: base64
+
+QkVHSU46VkNBTEVOREFSDQpQUk9ESUQ6WmltYnJhLUNhbGVuZGFyLVByb3ZpZGVyDQpWRVJTSU9O
+OjIuMA0KTUVUSE9EOlJFUVVFU1QNCkJFR0lOOlZFVkVOVA0KVUlEOjkwNjZiZmRmLWJmM2EtNDA3
+MS05OGQwLWU0NjIyNmQ3YzJiZg0KU1VNTUFSWTpMRUJMLUVHQUEtTEVCTA0KT1JHQU5JWkVSO0NO
+PUVDLU5RUzptYWlsdG86cmVkYWN0ZWRAY25haXIuZXMNCkFUVEVOREVFO0NOPU9wcztST0xFPVJF
+US1QQVJUSUNJUEFOVDtQQVJUU1RBVD1ORUVEUy1BQ1RJT047UlNWUD1UUlVFOm1haWx0bzpoYW5k
+bGluZ0BpbnRha2UucmlnLmludmFsaWQNCkRUU1RBUlQ6MjAyNjEwMDNUMTYwMDAwWg0KRFRFTkQ6
+MjAyNjEwMDNUMjA1MTAwWg0KU1RBVFVTOkNPTkZJUk1FRA0KQ0xBU1M6UFVCTElDDQpUUkFOU1A6
+T1BBUVVFDQpTRVFVRU5DRTowDQpEVFNUQU1QOjIwMjYxMDAzVDE2MDAwMFoNCkRFU0NSSVBUSU9O
+OiNQYXg6CTMvMFxuI0NsaWVudGU6IChFeHRyYWNvbXVuaXRhcmlvIFBhc2FqZSlcbiMxwro6CUFB
+QVxuIzLCujoJDQogQkJCXG4jVENQOglcbiNGcmE6CVxuI1JlZjoJMjYxNDE2MlxuI090cm9zOiBc
+biNEQVRFOiAwMy8xMC8yNlxuI0VURDoJMTg6MDANCiA6MDAtTEVCTCAyMDozMDowMC1FR0FBXG4N
+CkVORDpWRVZFTlQNCkVORDpWQ0FMRU5EQVINCg==
+------=_Part_57505251_13017155.1791040919171--

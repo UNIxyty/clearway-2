@@ -2,8 +2,8 @@
 // Local DB, mock Resend, the provider portal is the recorded-protocol mock on :3994 (rig/intake/mock-cnair.mjs).
 // The approval gate (E1) is proven in e2e-scheduled.mjs; here every scheduled request is approved from the page.
 //   node --env-file=.env.rig rig/intake/e2e-classify.mjs
-// The calendar invites are FICTIONAL (rig/fixtures/cnair/invite-*.eml): this proves the code's handling of a
-// calendar part, UID and METHOD, not that a real Exchange invite survives Resend.
+// The invites are RECONSTRUCTED from four real CNAIR messages (rig/fixtures/cnair/real-messages.json; the
+// update is fictional): verified against real messages, not yet end to end through Resend.
 import { execSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -39,24 +39,34 @@ let m = await deliver(FX + "invite-request.eml");
 let c = m.understood?.classification;
 ok(m.status === "processed" && m.status_reason === "Flight notification", "invite → read as a flight notification", `${m.status} · ${m.status_reason}`);
 ok(c?.type === "scheduled" && c.decidedBy === "content" && c.confidence >= 0.7 && c.evidence?.length >= 4, "classification, confidence and evidence are recorded", `confidence ${c?.confidence}, ${c?.evidence?.length} evidence rows`);
-ok(c.evidence.find((e) => e.signal === "sender")?.found === false, "the sender (provider.example) did not decide it");
+ok(c.evidence.find((e) => e.signal === "reference")?.found && c.evidence.find((e) => e.signal === "block")?.found && /a hint only/.test(c.evidence.find((e) => e.signal === "sender")?.detail ?? ""), "decided by the reference and the block; the sender is recorded as a hint only");
 ok(m.understood?.calendar?.uid && m.understood.calendar.method === "REQUEST", "calendar UID and method stored with the message");
 const first = await requestOf(m.request_id);
-ok(first?.request_type === "scheduled" && first.reference === "9914050", "a type 1 request, keyed by the provider reference", `${first?.request_type} · ${first?.reference}`);
+ok(first?.request_type === "scheduled" && first.reference === "2614050", "a type 1 request, keyed by the provider reference", `${first?.request_type} · ${first?.reference}`);
 ok(first.status === "awaiting_approval" && first.review.lookup.attempts.length === 0, "the request waits for ops' approval; the portal was not touched", first.status_reason);
 ok(!(first.review.legs ?? []).length && (await db(`intake_extractions?select=id&request_id=eq.${first.id}`)).length === 0, "no legs were built from the invite's body and the model was not run");
-ok(!JSON.stringify(first.review).includes("XXA") && !JSON.stringify(m.understood).includes("XXA"), "crew initials are not stored with the request or the classification");
+ok(!JSON.stringify(first.review).includes("AAA") && !JSON.stringify(m.understood).includes("AAA") && first.review.notification.crewNamed === 2 && first.review.notification.paxPerLeg.join("/") === "2/2", "crew initials are not stored (a count is); pax is one count per leg");
 
-// ── 2. Update, copy, cancellation: by calendar UID and method ────────────────────────────────────────────────
+// ── 2. Update, copy, cancellation: the reference first, the calendar UID as a cross-check ───────────────────
 m = await deliver(FX + "invite-update.eml");
-let all = await scheduledFor("9914050");
-ok(all.length === 1 && m.request_id === first.id && /Update to 9914050/.test(m.status_reason), "an update (same UID, sequence 1) attaches to the SAME request", `${all.length} request(s) · ${m.status_reason}`);
-ok(all[0].review.updates?.[0]?.changes?.join() === "ETD leg 1: 17:00-LEBL → 18:00-LEBL" && all[0].review.updates[0].matchedBy === "calendar UID", "the change is named and it was matched by calendar UID", all[0].review.updates?.[0]?.changes?.join("; "));
+let all = await scheduledFor("2614050");
+ok(all.length === 1 && m.request_id === first.id && /Update to 2614050/.test(m.status_reason), "an update (FICTIONAL: same UID, sequence 1) attaches to the SAME request", `${all.length} request(s) · ${m.status_reason}`);
+ok(all[0].review.updates?.[0]?.changes?.join() === "ETD leg 1: 17:00-LEBL → 18:00-LEBL" && /^reference \(UID agrees\)/.test(all[0].review.updates[0].matchedBy), "the change is named; matched by reference, UID agreeing", `${all[0].review.updates?.[0]?.changes?.join("; ")} · ${all[0].review.updates?.[0]?.matchedBy}`);
 m = await deliver(FX + "invite-update.eml");
-ok(/Another copy/.test(m.status_reason) && (await scheduledFor("9914050")).length === 1, "the same update again is 'another copy', not a third thing", m.status_reason);
+ok(/Another copy/.test(m.status_reason) && (await scheduledFor("2614050")).length === 1, "the same update again is 'another copy', not a third thing", m.status_reason);
+m = await deliver(FX + "invite-cancel-2614050.eml");
+all = await scheduledFor("2614050");
+ok(all.length === 1 && all[0].status === "closed" && all[0].closed_reason === "cancelled" && /Cancellation of 2614050/.test(m.status_reason), "a cancellation in the real shape (one-line body, block in the calendar DESCRIPTION, METHOD:CANCEL) closes that request", `${all[0].status}/${all[0].closed_reason} · ${m.status_reason}`);
+// A cancellation whose reference we have but whose UID we have never seen: still that flight (reference first).
+m = await deliver(FX + "invite-request-2613767.eml"); const r67 = await requestOf(m.request_id);
+// Built in the real cancellation's shape: one-line text body, the padded block only in the calendar DESCRIPTION.
+const cancelShaped = (name, ref, uid, route, pax, etd) => { const desc = `  #Pax: ${pax}\\n#Cliente:  (Extracomunitario Pasaje)\\n#1º: AAA\\n#2º: BBB\\n#TCP:\\n#Fra:\\n#Ref: ${ref}                     \\n#Otros:\\n#DATE: 04/10/26\\n#ETD: ${etd}                     `; return write(name, ["From: EC-NQS <redacted@cnair.es>", "To: handling@intake.rig.invalid", `Subject: Cancelado: ${route}`, `Message-ID: <${Date.now()}.1.JavaMail.zimbra@cnair.es>`, "MIME-Version: 1.0", 'Content-Type: multipart/alternative; boundary="cb"', "", "--cb", "Content-Type: text/plain; charset=utf-8", "", "", "La siguiente reunión ha sido cancelada:", "", "--cb", "Content-Type: text/calendar; charset=utf-8; method=CANCEL", "", "BEGIN:VCALENDAR", "PRODID:Zimbra-Calendar-Provider", "VERSION:2.0", "METHOD:CANCEL", "BEGIN:VEVENT", `UID:${uid}`, `SUMMARY:${route}`, "STATUS:CANCELLED", "SEQUENCE:1", `DESCRIPTION:${desc}`, "END:VEVENT", "END:VCALENDAR", "--cb--", ""].join("\n")); };
+const cancelOtherUid = cancelShaped("cancel-2613767-other-uid.eml", "2613767", "00000000-0000-4000-8000-000000000000", "LEBL-GMMZ-LEBL", "0/5", "09:00:00-LEBL 10:00:00-GMMZ");
+m = await deliver(cancelOtherUid);
+ok(m.request_id === r67.id && (await requestOf(r67.id)).closed_reason === "cancelled" && /UID differs/.test((await requestOf(r67.id)).review.cancelled?.matchedBy ?? ""), "a cancellation with a known reference but an unknown UID is matched by the reference, and the UID difference is recorded", (await requestOf(r67.id)).review.cancelled?.matchedBy);
+// The REAL three-leg cancellation (2613766): no request for it → a person decides; the block was read from the DESCRIPTION.
 m = await deliver(FX + "invite-cancel.eml");
-all = await scheduledFor("9914050");
-ok(all.length === 1 && all[0].status === "closed" && all[0].closed_reason === "cancelled" && /Cancellation of 9914050/.test(m.status_reason), "a cancellation (METHOD:CANCEL, same UID) closes that request as cancelled by the provider", `${all[0].status}/${all[0].closed_reason} · ${m.status_reason}`);
+ok(m.status === "not_recognised" && !m.request_id && /no request for it/.test(m.status_reason) && m.understood.ref === "2613766", "the real three-leg cancellation for a flight we never saw: reference read from the calendar DESCRIPTION, a person decides", `${m.status_reason} · ref ${m.understood.ref}`);
 const orphanFile = write("orphan-cancel.eml", ["From: EC-ZZZ <ec-zzz@provider.example>", "To: handling@intake.rig.invalid", "Subject: Cancelada: LEBL-GMMN-LEBL", `Message-ID: <orphan-${Date.now()}@provider.example>`, "MIME-Version: 1.0", 'Content-Type: multipart/alternative; boundary="ob"', "", "--ob", "Content-Type: text/plain; charset=utf-8", "", BLOCK("9914077"), "--ob", 'Content-Type: text/calendar; charset="utf-8"; method=CANCEL', "", "BEGIN:VCALENDAR", "METHOD:CANCEL", "VERSION:2.0", "BEGIN:VEVENT", "UID:ORPHAN-UID-0001", "SEQUENCE:3", "STATUS:CANCELLED", "SUMMARY:LEBL-GMMN-LEBL", "END:VEVENT", "END:VCALENDAR", "--ob--", ""].join("\n"));
 m = await deliver(orphanFile);
 ok(m.status === "not_recognised" && !m.request_id && /no request for it/.test(m.status_reason), "a cancellation for a flight the agent never saw asks a person; no request is created", m.status_reason);

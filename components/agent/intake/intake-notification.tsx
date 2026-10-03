@@ -40,7 +40,7 @@ export function NotificationCard({ detail, compact = false }: { detail: RequestD
     ["Route", <span key="ro" style={mono({ fontSize: 13 })}>{n.route.join(" → ") || "not given"}</span>],
     ["Date", <span key="d">{n.date ? <span style={mono({ fontSize: 13 })}>{n.date}</span> : "not given"} <span style={{ color: C.muted }}>· the first leg&apos;s date</span></span>],
     ["Departures", <span key="e">{n.etd.length ? n.etd.map((e, i) => <span key={i} style={{ ...mono({ fontSize: 13 }), marginRight: 12 }}>{e.time} {e.airport}</span>) : "not given"} <span style={{ color: C.muted }}>· local time at each departure airport, no dates</span></span>],
-    ["Passengers", n.pax ? <span key="p"><span style={mono({ fontSize: 13 })}>{n.pax}</span> <span style={{ color: C.muted }}>· per leg</span></span> : "not given"],
+    ["Passengers", n.pax ? <span key="p">{n.paxPerLeg ? n.paxPerLeg.map((c, i) => <span key={i} style={{ ...mono({ fontSize: 13 }), marginRight: 12 }}>leg {i + 1}: {c}</span>) : <span style={mono({ fontSize: 13 })}>{n.pax}</span>} <span style={{ color: C.muted }}>· one count per leg, in leg order{n.paxLegsAgree === false ? ` · ${n.paxPerLeg?.length} counts for ${n.legs} departures: check the record` : ""}</span></span> : "not given"],
     ["Type of flight", n.client ?? "not given"],
     ["Crew", `${n.crewNamed} crew line${n.crewNamed === 1 ? "" : "s"} filled (initials not kept)`],
     ["Calendar", n.calendar ? `${n.calendar.method === "CANCEL" ? "Cancellation" : "Invite"}${n.calendar.sequence != null ? ` · sequence ${n.calendar.sequence}` : ""}` : "No calendar part in the message"],

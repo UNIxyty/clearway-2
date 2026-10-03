@@ -44,20 +44,27 @@ const sha = (s) => createHash("sha256").update(s).digest("hex");
 const stagesOf = (r) => (r.stages?.length ? r.stages : freshStages("scheduled")).map((s) => ({ ...s }));
 const isExpired = (r) => r.status === "closed" && r.closed_reason === "expired";
 
+/**
+ * The request a later message belongs to. The REFERENCE is the key and is tried first (a real cancellation
+ * carries the full block, reference included); the calendar UID is a cross-check, and the way in when the
+ * message has no reference. The same UID with a different reference is not linked.
+ */
 async function findExisting(message, notification) {
   const own = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
   if (own) return { request: own, by: "message" };
-  const uid = notification.calendar?.uid;
-  if (uid) {
-    const m = (await rest(`intake_messages?select=request_id&direction=eq.inbound&request_id=not.is.null&id=neq.${message.id}&understood->calendar->>uid=eq.${encodeURIComponent(uid)}&order=received_at.desc&limit=1`).catch(() => []))?.[0];
-    const r = m ? (await rest(`intake_requests?select=*&id=eq.${m.request_id}`))?.[0] : null;
-    // The reference is the key. The same calendar event with a DIFFERENT reference is not an update of that
-    // request: fall through to the reference (or a new request) rather than attach it to the wrong flight.
-    if (r && (!notification.reference || !r.reference || r.reference === notification.reference)) return { request: r, by: "calendar UID" };
-  }
+  const uid = notification.calendar?.uid ?? null;
+  const byUid = async () => { const m = (await rest(`intake_messages?select=request_id&direction=eq.inbound&request_id=not.is.null&id=neq.${message.id}&understood->calendar->>uid=eq.${encodeURIComponent(uid)}&order=received_at.desc&limit=1`).catch(() => []))?.[0]; return m ? (await rest(`intake_requests?select=*&id=eq.${m.request_id}`))?.[0] ?? null : null; };
   if (notification.reference) {
     const r = (await rest(`intake_requests?select=*&request_type=eq.scheduled&reference=eq.${encodeURIComponent(notification.reference)}&order=created_at.desc&limit=1`))?.[0];
-    if (r) return { request: r, by: "reference" };
+    if (r) {
+      const known = r.review?.notification?.calendar?.uid ?? null;
+      const uidCheck = !uid || !known ? "no UID to compare" : uid === known ? "UID agrees" : "UID differs from the one on file";
+      return { request: r, by: `reference (${uidCheck})`, uidDiffers: !!(uid && known && uid !== known) };
+    }
+  }
+  if (uid) {
+    const r = await byUid();
+    if (r && (!notification.reference || !r.reference || r.reference === notification.reference)) return { request: r, by: "calendar UID" };
   }
   return null;
 }

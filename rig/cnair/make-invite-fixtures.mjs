@@ -1,33 +1,47 @@
-// A FICTIONAL calendar invite in the shape of the provider's notification (an Exchange meeting request):
-// multipart/alternative with text/plain, text/html and text/calendar; method=REQUEST. Invented registration,
-// reference, crew initials and addresses. Variants: request (SEQUENCE 0), update (same UID, SEQUENCE 1, new
-// times), cancel (METHOD:CANCEL).   node make-invite.mjs  → invite-request.eml, invite-update.eml, invite-cancel.eml
-import { writeFileSync } from "node:fs";
-const UID = "040000008200E00074C5B7101A82E00800000000F1C7A0AA11F4DC01000000000000000010000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-const body = (etd1) => `#Pax:      2/2\r\n#Cliente:  (Extracomunitario Pasaje)\r\n#1:        XXA\r\n#2:        XXB\r\n#TCP:\r\n#Fra:\r\n#Ref:      9914050\r\n#Otros:\r\n#DATE:     05/10/26\r\n#ETD:      ${etd1}-LEBL 17:30:00-GMMN\r\n`;
-const ics = ({ method, seq, start, end, status }) => [
-  "BEGIN:VCALENDAR", `METHOD:${method}`, "PRODID:Microsoft Exchange Server 2010", "VERSION:2.0",
-  "BEGIN:VTIMEZONE", "TZID:Romance Standard Time", "BEGIN:STANDARD", "DTSTART:16010101T030000", "TZOFFSETFROM:+0200", "TZOFFSETTO:+0100", "RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=10", "END:STANDARD",
-  "BEGIN:DAYLIGHT", "DTSTART:16010101T020000", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0200", "RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=3", "END:DAYLIGHT", "END:VTIMEZONE",
-  "BEGIN:VEVENT", "ORGANIZER;CN=EC-ZZZ:mailto:ec-zzz@provider.example",
-  "ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Ops:mailto:handling@intake.rig.invalid",
-  "SUMMARY;LANGUAGE=es-ES:LEBL-GMMN-LEBL", `DTSTART;TZID=Romance Standard Time:${start}`, `DTEND;TZID=Romance Standard Time:${end}`,
-  `UID:${UID}`, "CLASS:PUBLIC", "PRIORITY:5", "DTSTAMP:20261001T101500Z", "TRANSP:OPAQUE", `STATUS:${status}`, `SEQUENCE:${seq}`,
-  "X-MICROSOFT-CDO-BUSYSTATUS:TENTATIVE", "X-MICROSOFT-DISALLOW-COUNTER:FALSE", "END:VEVENT", "END:VCALENDAR", ""].join("\r\n");
-function eml({ name, subject, method, seq, start, end, status, etd1, date }) {
-  const B = "_000_guideinvite_";
-  const text = body(etd1);
+// Calendar-invite fixtures RECONSTRUCTED from four real CNAIR messages (rig/fixtures/cnair/real-messages.json):
+// the subjects, UIDs, message classes, blocks (crew initials replaced by placeholders), dates and the
+// multipart/alternative shape are real; the exact layout of Zimbra's text/calendar part (property order,
+// VTIMEZONE, DESCRIPTION escaping) is ASSUMED from Zimbra's conventions and from what the .msg files keep, and
+// is unverified until one message has arrived through Resend. The "update" is FICTIONAL (no real update has
+// been seen): the 2614050 invite re-sent with SEQUENCE 1 and a later first departure.
+//   node rig/cnair/make-invite-fixtures.mjs  → rig/fixtures/cnair/invite-*.eml
+import { readFileSync, writeFileSync } from "node:fs";
+const facts = JSON.parse(readFileSync(new URL("../fixtures/cnair/real-messages.json", import.meta.url), "utf8"));
+const CREW = { "1º": "AAA", "2º": "BBB", TCP: "CCC" };   // placeholders where the real lines are filled
+const blockText = (b, { lead = "", pad = "" } = {}) => Object.entries(b).map(([k, v]) => `${lead}#${k}:${k.length < 4 ? "\t" : " "}${v === "filled" ? CREW[k] ?? "XXX" : v === "empty" ? "" : v}${pad}`).join("\r\n") + "\r\n";
+const fold = (line) => { const out = []; let s = line; while (s.length > 75) { out.push(s.slice(0, 75)); s = " " + s.slice(75); } out.push(s); return out.join("\r\n"); };
+const icsText = (s) => String(s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+const dt = (iso) => iso.replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+function ics({ method, uid, seq, summary, start, end, description, status }) {
+  return ["BEGIN:VCALENDAR", "PRODID:Zimbra-Calendar-Provider", "VERSION:2.0", `METHOD:${method}`,
+    "BEGIN:VEVENT", `UID:${uid}`, fold(`SUMMARY:${summary}`), `ORGANIZER;CN=EC-NQS:mailto:redacted@cnair.es`, "ATTENDEE;CN=Ops;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:handling@intake.rig.invalid",
+    `DTSTART:${dt(start)}`, `DTEND:${dt(end)}`, `STATUS:${status}`, "CLASS:PUBLIC", "TRANSP:OPAQUE", `SEQUENCE:${seq}`, `DTSTAMP:${dt(start)}`, fold(`DESCRIPTION:${icsText(description)}`), "END:VEVENT", "END:VCALENDAR", ""].join("\r\n");
+}
+function eml({ name, subject, date, method, uid, seq, start, end, status, text, description, from }) {
+  const B = `----=_Part_${Math.floor(Math.random() * 1e8)}_${Math.floor(Math.random() * 1e9)}.${Date.now()}`;
   const html = `<html><body><pre>${text.replace(/\r\n/g, "<br>")}</pre></body></html>`;
   const raw = [
-    `From: EC-ZZZ <ec-zzz@provider.example>`, `To: Ops Department <handling@intake.rig.invalid>, crew-a@provider.example, crew-b@provider.example`,
-    `Subject: ${subject}`, `Date: ${date}`, `Message-ID: <invite-${name}-${Date.now()}@provider.example>`,
-    `Thread-Topic: LEBL-GMMN-LEBL`, `Content-Language: es-ES`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${B}"`, ``,
-    `--${B}`, `Content-Type: text/plain; charset="utf-8"`, `Content-Transfer-Encoding: 8bit`, ``, text,
-    `--${B}`, `Content-Type: text/html; charset="utf-8"`, `Content-Transfer-Encoding: 8bit`, ``, html, ``,
-    `--${B}`, `Content-Type: text/calendar; charset="utf-8"; method=${method}`, `Content-Transfer-Encoding: base64`, ``, Buffer.from(ics({ method, seq, start, end, status })).toString("base64").replace(/.{76}/g, "$&\r\n"), ``,
+    `From: ${from}`, `To: handling@intake.rig.invalid, crew-a@cnair.example, crew-b@cnair.example`, `Subject: ${subject}`, `Date: ${date}`,
+    `Message-ID: <${Date.now()}.${Math.floor(Math.random() * 1e6)}.JavaMail.zimbra@cnair.es>`, `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${B}"`, ``,
+    `--${B}`, `Content-Type: text/plain; charset=utf-8`, `Content-Transfer-Encoding: 8bit`, ``, text,
+    `--${B}`, `Content-Type: text/html; charset=utf-8`, `Content-Transfer-Encoding: 8bit`, ``, html, ``,
+    `--${B}`, `Content-Type: text/calendar; charset=utf-8; method=${method}`, `Content-Transfer-Encoding: base64`, ``, Buffer.from(ics({ method, uid, seq, summary: subject.replace(/^Cancelado:\s*/, ""), start, end, description, status })).toString("base64").replace(/(.{76})/g, "$1\r\n"),
     `--${B}--`, ``].join("\r\n");
   writeFileSync(new URL(`../fixtures/cnair/invite-${name}.eml`, import.meta.url), raw); console.log("wrote", name, raw.length);
 }
-eml({ name: "request", subject: "LEBL-GMMN-LEBL", method: "REQUEST", seq: 0, start: "20261005T170000", end: "20261006T193000", status: "CONFIRMED", etd1: "17:00:00", date: "Thu, 01 Oct 2026 10:15:00 +0000" });
-eml({ name: "update", subject: "LEBL-GMMN-LEBL", method: "REQUEST", seq: 1, start: "20261005T180000", end: "20261006T193000", status: "CONFIRMED", etd1: "18:00:00", date: "Thu, 01 Oct 2026 14:40:00 +0000" });
-eml({ name: "cancel", subject: "Cancelada: LEBL-GMMN-LEBL", method: "CANCEL", seq: 2, start: "20261005T180000", end: "20261006T193000", status: "CANCELLED", etd1: "18:00:00", date: "Fri, 02 Oct 2026 08:05:00 +0000" });
+const by = Object.fromEntries(facts.messages.map((m) => [m.block.Ref, m]));
+const FROM = "redacted@cnair.es";
+// Three real invites (the block in the text body and in DESCRIPTION).
+for (const [name, ref] of [["request", "2614050"], ["request-2613767", "2613767"], ["request-2614162", "2614162"]]) {
+  const m = by[ref]; const text = blockText(m.block);
+  eml({ name, subject: m.subject, date: m.date, method: "REQUEST", uid: m.uid, seq: 0, start: m.apptStartUtc, end: m.apptEndUtc, status: "CONFIRMED", text, description: text, from: FROM });
+}
+// The real cancellation: the text body is one line; the block (padded, as the appointment keeps it) is only in DESCRIPTION.
+{ const m = by["2613766"]; const padded = blockText(m.block, { lead: "  ", pad: "                     " });
+  eml({ name: "cancel", subject: m.subject, date: m.date, method: "CANCEL", uid: m.uid, seq: 1, start: m.apptStartUtc, end: m.apptEndUtc, status: "CANCELLED", text: `\r\n${m.textBody}\r\n\r\n`, description: padded, from: `${m.senderDisplayName} <${FROM}>` }); }
+// FICTIONAL: an update of 2614050 (same UID, SEQUENCE 1, first ETD an hour later).
+{ const m = by["2614050"]; const block = { ...m.block, ETD: "18:00:00-LEBL 17:30:00-GMMN" }; const text = blockText(block);
+  eml({ name: "update", subject: m.subject, date: "Thu, 1 Oct 2026 18:40:00 +0200", method: "REQUEST", uid: m.uid, seq: 1, start: "2026-10-05T16:00:00Z", end: m.apptEndUtc, status: "CONFIRMED", text, description: text, from: FROM }); }
+// FICTIONAL: a cancellation of 2614050 in the real cancellation's shape (same UID as its invite).
+{ const m = by["2614050"]; const padded = blockText(m.block, { lead: "  ", pad: "                     " });
+  eml({ name: "cancel-2614050", subject: `Cancelado: ${m.subject}`, date: "Fri, 2 Oct 2026 09:00:00 +0200", method: "CANCEL", uid: m.uid, seq: 2, start: m.apptStartUtc, end: m.apptEndUtc, status: "CANCELLED", text: `\r\nLa siguiente reunión ha sido cancelada:\r\n\r\n`, description: padded, from: `EC-NQS <${FROM}>` }); }

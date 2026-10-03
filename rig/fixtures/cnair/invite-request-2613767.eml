@@ -1,0 +1,46 @@
+From: redacted@cnair.es
+To: handling@intake.rig.invalid, crew-a@cnair.example, crew-b@cnair.example
+Subject: LEBL-GMMZ-LEBL
+Date: Thu, 1 Oct 2026 14:09:03 +0200
+Message-ID: <1791040919171.253108.JavaMail.zimbra@cnair.es>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_Part_9877485_971169338.1791040919171"
+
+------=_Part_9877485_971169338.1791040919171
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+#Pax:	0/5
+#Cliente: (Extracomunitario Pasaje)
+#1º:	AAA
+#2º:	BBB
+#TCP:	CCC
+#Fra:	
+#Ref:	2613767
+#Otros: 
+#DATE: 04/10/26
+#ETD:	09:00:00-LEBL 10:00:00-GMMZ
+
+------=_Part_9877485_971169338.1791040919171
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<html><body><pre>#Pax:	0/5<br>#Cliente: (Extracomunitario Pasaje)<br>#1º:	AAA<br>#2º:	BBB<br>#TCP:	CCC<br>#Fra:	<br>#Ref:	2613767<br>#Otros: <br>#DATE: 04/10/26<br>#ETD:	09:00:00-LEBL 10:00:00-GMMZ<br></pre></body></html>
+
+------=_Part_9877485_971169338.1791040919171
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+Content-Transfer-Encoding: base64
+
+QkVHSU46VkNBTEVOREFSDQpQUk9ESUQ6WmltYnJhLUNhbGVuZGFyLVByb3ZpZGVyDQpWRVJTSU9O
+OjIuMA0KTUVUSE9EOlJFUVVFU1QNCkJFR0lOOlZFVkVOVA0KVUlEOjQxZDdlNzFiLWIyYTYtNGE5
+YS1hYzM2LTM1MjdiMzhhZWU4Ng0KU1VNTUFSWTpMRUJMLUdNTVotTEVCTA0KT1JHQU5JWkVSO0NO
+PUVDLU5RUzptYWlsdG86cmVkYWN0ZWRAY25haXIuZXMNCkFUVEVOREVFO0NOPU9wcztST0xFPVJF
+US1QQVJUSUNJUEFOVDtQQVJUU1RBVD1ORUVEUy1BQ1RJT047UlNWUD1UUlVFOm1haWx0bzpoYW5k
+bGluZ0BpbnRha2UucmlnLmludmFsaWQNCkRUU1RBUlQ6MjAyNjEwMDRUMDcwMDAwWg0KRFRFTkQ6
+MjAyNjEwMDRUMTAwMDAwWg0KU1RBVFVTOkNPTkZJUk1FRA0KQ0xBU1M6UFVCTElDDQpUUkFOU1A6
+T1BBUVVFDQpTRVFVRU5DRTowDQpEVFNUQU1QOjIwMjYxMDA0VDA3MDAwMFoNCkRFU0NSSVBUSU9O
+OiNQYXg6CTAvNVxuI0NsaWVudGU6IChFeHRyYWNvbXVuaXRhcmlvIFBhc2FqZSlcbiMxwro6CUFB
+QVxuIzLCujoJDQogQkJCXG4jVENQOglDQ0NcbiNGcmE6CVxuI1JlZjoJMjYxMzc2N1xuI090cm9z
+OiBcbiNEQVRFOiAwNC8xMC8yNlxuI0VURDoJMDkNCiA6MDA6MDAtTEVCTCAxMDowMDowMC1HTU1a
+XG4NCkVORDpWRVZFTlQNCkVORDpWQ0FMRU5EQVINCg==
+------=_Part_9877485_971169338.1791040919171--

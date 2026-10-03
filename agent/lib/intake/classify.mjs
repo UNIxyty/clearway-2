@@ -48,7 +48,10 @@ export function parseIcs(text) {
   const start = lines.findIndex((l) => /^BEGIN:VEVENT/i.test(l)); const end = lines.findIndex((l, i) => i > start && /^END:VEVENT/i.test(l));
   const ev = start >= 0 ? lines.slice(start, end > start ? end : undefined) : [];
   const seq = prop("SEQUENCE", ev);
-  return { method: (prop("METHOD") ?? "").toUpperCase() || null, uid: prop("UID", ev), sequence: seq != null && /^\d+$/.test(seq) ? Number(seq) : null, status: (prop("STATUS", ev) ?? "").toUpperCase() || null, summary: prop("SUMMARY", ev) };
+  // DESCRIPTION carries the organiser's text (Zimbra puts the invite body there, and it is the only place a
+  // cancellation keeps the provider's #Key block): unescaped, so the block can be read from it.
+  const description = prop("DESCRIPTION", ev)?.replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1") ?? null;
+  return { method: (prop("METHOD") ?? "").toUpperCase() || null, uid: prop("UID", ev), sequence: seq != null && /^\d+$/.test(seq) ? Number(seq) : null, status: (prop("STATUS", ev) ?? "").toUpperCase() || null, summary: prop("SUMMARY", ev), description };
 }
 /** Every calendar object in the message, at any depth (attachments is the expanded list: attached emails are opened). */
 export function calendarsFrom(attachments) {
@@ -64,10 +67,14 @@ export function calendarsFrom(attachments) {
 // ── Test 1: is it notification-shaped? ───────────────────────────────────────────────────────────────────────
 const stripPrefixes = (s) => String(s ?? "").replace(/^\s*((fw|fwd|re|tr|rv|canceled|cancelled|cancelada|cancelado|accepted|declined|aceptada|updated)\s*:\s*)+/i, "").trim();
 const ROUTE = /^[A-Z]{4}(\s*-\s*[A-Z]{4}){1,7}$/;
-/** `#Key: value` lines, tolerant of quoting ("> ") and indentation. Later duplicates do not overwrite the first. */
+/**
+ * `#Key: value` lines, tolerant of quoting ("> "), indentation, trailing padding and an ordinal after a numbered
+ * key (the real crew lines read `#1º:` / `#2º:`, and the º arrives as a replacement character from some
+ * decoders). Later duplicates do not overwrite the first.
+ */
 function hashBlock(text) {
   const out = new Map();
-  for (const line of String(text ?? "").split(/\r\n|\r|\n/)) { const m = /^[>\s]*#\s*([A-Za-z0-9]{1,12})\s*:\s*(.*?)\s*$/.exec(line); if (m && !out.has(m[1].toLowerCase())) out.set(m[1].toLowerCase(), m[2]); }
+  for (const line of String(text ?? "").split(/\r\n|\r|\n/)) { const m = /^[>\s]*#\s*([A-Za-z0-9]{1,12})[ºª°\uFFFD]?\s*:\s*(.*?)\s*$/.exec(line); if (m && !out.has(m[1].toLowerCase())) out.set(m[1].toLowerCase(), m[2]); }
   return out;
 }
 /**
@@ -79,7 +86,9 @@ export function notificationSignals({ subject, texts = [], calendars = [], fromA
   let best = null;
   for (const p of PROVIDERS) {
     let block = new Map(), src = null;
-    for (const t of texts) { const b = hashBlock(t); const n = p.blockKeys.filter((k) => b.has(k.toLowerCase())).length; if (n > p.blockKeys.filter((k) => block.has(k.toLowerCase())).length) { block = b; src = t; } }
+    // The block is searched for in every text AND in each calendar part's DESCRIPTION (a real cancellation keeps
+    // it only there); the fullest block wins.
+    for (const t of [...texts, ...calendars.map((c) => c.description ?? "")]) { const b = hashBlock(t); const n = p.blockKeys.filter((k) => b.has(k.toLowerCase())).length; if (n > p.blockKeys.filter((k) => block.has(k.toLowerCase())).length) { block = b; src = t; } }
     const keys = p.blockKeys.filter((k) => block.has(k.toLowerCase()));
     const refRaw = block.get(p.refKey.toLowerCase()) ?? null; const reference = refRaw && p.refPattern.test(refRaw) ? refRaw : null;
     const cal = calendars.find((c) => c.method === "REQUEST" || c.method === "CANCEL") ?? null;
@@ -96,8 +105,11 @@ export function notificationSignals({ subject, texts = [], calendars = [], fromA
     // Confident: the key AND the block. Shaped: enough to look like one, not enough to be sure.
     const confident = !!reference && keys.length >= 4;
     const shaped = !confident && evidence.filter((e) => !e.hint).reduce((n, e) => n + (e.found ? e.weight : 0), 0) >= 0.25;
+    // #ETD: one departure per leg, "HH:MM:SS-ICAO", in leg order (local time at that airport). #Pax: one count per
+    // leg, slash-separated, in the same order ("0/5/5" on a three-leg trip). Both seen on real messages.
     const etd = String(block.get("etd") ?? "").split(/\s+/).map((x) => /^(\d{1,2}:\d{2})(?::\d{2})?-([A-Z]{4})$/.exec(x)).filter(Boolean).map((m) => ({ time: m[1].padStart(5, "0"), airport: m[2] }));
-    const notification = { provider: p.id, providerName: p.name, reference, route: subj ? subj.split(/\s*-\s*/) : etd.map((e) => e.airport), date: block.get("date") ?? null, etd, pax: block.get("pax") ?? null, client: block.get("cliente") ?? null,
+    const paxRaw = block.get("pax") ?? null; const paxPerLeg = paxRaw && /^\d{1,3}(\/\d{1,3})*$/.test(paxRaw.trim()) ? paxRaw.trim().split("/").map(Number) : null;
+    const notification = { provider: p.id, providerName: p.name, reference, route: subj ? subj.split(/\s*-\s*/) : etd.map((e) => e.airport), date: block.get("date") ?? null, etd, pax: paxRaw, paxPerLeg, legs: etd.length || null, paxLegsAgree: paxPerLeg && etd.length ? paxPerLeg.length === etd.length : null, client: block.get("cliente") ?? null,
       crewNamed: ["1", "2", "tcp"].filter((k) => (block.get(k) ?? "").trim()).length,   // how many crew lines are filled; the initials themselves are not kept
       calendar: cal ? { method: cal.method, uid: cal.uid, sequence: cal.sequence, status: cal.status } : null };
     const cand = { provider: p, reference, notification, evidence, confidence: Math.round(confidence * 100) / 100, confident, shaped };

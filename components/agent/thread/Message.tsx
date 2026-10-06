@@ -155,7 +155,7 @@ export function AgentReply({
         {m.streaming && ((b as { building?: BuildingFile[] }).building ?? []).map((f) => <BuildingFileCard key={f.id} file={f} panel={panel} />)}
         {files.map((f) => (
           <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: panel ? 8 : 10 }}>
-            {f.manifest && <ManifestNotice manifest={f.manifest} panel={panel} />}
+            {f.manifest && <ManifestNotice manifest={f.manifest} panel={panel} notePath={`${f.downloadPath}/pax-note`} />}
             <GeneratedFile file={f} panel={panel} onSend={onSendFile} />
           </div>
         ))}

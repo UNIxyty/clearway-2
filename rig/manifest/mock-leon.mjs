@@ -12,6 +12,9 @@ const H = 3600_000;
 const base = Date.now();
 const at = (h) => new Date(Math.round((base + h * H) / 300_000) * 300_000).toISOString().replace(/\.\d+Z$/, "Z");
 const city = { LEBL: "Barcelona", LIML: "Milan", EGLF: "Farnborough", EVRA: "Riga", EYVI: "Vilnius", LSGG: "Geneva", EETN: "Tallinn", UACC: "Astana", UATG: "Atyrau", LFLL: "Lyon" };
+// The Clearway rig tenant is a guest sub-operator account in Leon (planMode "sub_operator"), like production's.
+const OWN = { "cwy-cwy": { name: "RIG_GUEST_ACCOUNT", planMode: "sub_operator", isGuest: true }, klj: { name: "KlasJet", planMode: "pro", isGuest: false }, artlw: { name: "ART-Line Wings LLC", planMode: "pro", isGuest: false }, tst: { name: "SAMPLE AVIATION UAB", planMode: "pro", isGuest: false } };
+const NOTE = "1. FAKENAME Alpha  P/N RIG000001  LV\n2. FAKENAME Beta  P/N RIG000002  LV\n(operator's note — fake, rig only)";
 const today19 = (() => { const d = new Date(base); d.setUTCHours(19, 40, 0, 0); return Math.max((d.getTime() - base) / H, 0.5); })();
 
 // [nid, flightNo, registration, adep, ades, hours from now, manifest fixture]
@@ -22,6 +25,8 @@ const FLIGHTS = {
     [880003, "KLJ7350", "LY-BGS", "EGLF", "EVRA", today19, () => flight({ pax: 68, nid: 880003, leonCount: 70, operator: "CWY_CWY" })],
     [880004, "KLJ7351", "LY-BGS", "EVRA", "EGLF", 26, () => flight({ pax: 4, nid: 880004, operator: "CWY_CWY", mutate: (c) => { c[1].contact.placeOfBirth = null; c[1].departurePassport.expiresDate = null; c[2].arrivalPassport = { ...c[2].departurePassport, number: "TEST99999" }; c[3].contact.surname = "Specimen-De-La-Placeholder-Testwood-Sampleton"; c[3].contact.name = "Maria Alexandra Josephine Konstantina Bernadette Wilhelmina Theodora Evangelina"; } })],
     [880005, "KLJ7352", "LY-BGS", "EVRA", "EYVI", 30, () => flight({ pax: 0, nid: 880005, crew: 2 })],
+    // Passengers only as the operator's free-text note in Leon.
+    [880006, "DLV240", "D-IMOI", "EVRA", "EETN", 9, () => { const f = flight({ pax: 0, nid: 880006, crew: 2 }); f.passengerList = { count: 2, realCount: 0, isDataSourceText: true, isDataSourceContact: false, passengerText: NOTE, passengerListAsText: "", fileList: [], passengerContactList: null }; return f; }],
   ],
   klj: [
     // The same callsign as cwy-cwy's 880004, held by KlasJet itself: two rows, two operators, different passengers.
@@ -36,9 +41,9 @@ const FLIGHTS = {
   ],
 };
 
-function flightRecord(row) {
+function flightRecord(row, opr) {
   const [nid, fn, reg, a, b, h, make] = row;
-  return { ...make(), flightNid: nid, flightNo: fn, startTimeUTC: at(h), acft: { registration: reg }, startAirport: { code: { icao: a }, name: `${city[a]} airport`, city: city[a] }, endAirport: { code: { icao: b }, name: `${city[b]} airport`, city: city[b] } };
+  return { ...make(), operator: OWN[opr], flightNid: nid, flightNo: fn, startTimeUTC: at(h), acft: { registration: reg }, startAirport: { code: { icao: a }, name: `${city[a]} airport`, city: city[a] }, endAirport: { code: { icao: b }, name: `${city[b]} airport`, city: city[b] } };
 }
 
 http.createServer((req, res) => {
@@ -58,13 +63,17 @@ http.createServer((req, res) => {
       res.writeHead(200, { "content-type": "application/json" });
       if (/^\s*mutation/i.test(query)) return res.end(JSON.stringify({ errors: [{ message: "mock: read-only" }] }));
       const rows = FLIGHTS[opr] ?? [];
+      if (/aircraftList/.test(query)) {
+        const regs = [...new Set(rows.map((r) => r[2]))];
+        return res.end(JSON.stringify({ data: { aircraftList: regs.map((reg) => ({ registration: reg, registrationWithoutSpecialChars: reg.replace(/[^A-Za-z0-9]/g, ""), operator: OWN[opr] })) } }));
+      }
       if (/flightList/.test(query)) {
-        return res.end(JSON.stringify({ data: { flightList: rows.map((r) => { const f = flightRecord(r); return { flightNid: f.flightNid, flightNo: f.flightNo, status: "CONFIRMED", startTimeUTC: f.startTimeUTC, iconType: null, isActive: true, isSimulator: false, flightType: "COMMERCIAL", startAirport: f.startAirport, endAirport: f.endAirport, acft: f.acft }; }) } }));
+        return res.end(JSON.stringify({ data: { flightList: rows.map((r) => { const f = flightRecord(r, opr); return { flightNid: f.flightNid, flightNo: f.flightNo, status: "CONFIRMED", startTimeUTC: f.startTimeUTC, iconType: null, isActive: true, isSimulator: false, flightType: "COMMERCIAL", startAirport: f.startAirport, endAirport: f.endAirport, acft: f.acft }; }) } }));
       }
       const nid = Number(/flightNid:\s*(\d+)/.exec(query)?.[1]);
       if (/unmaskedData/.test(query)) return res.end(JSON.stringify({ data: null, errors: [{ message: "Permission denied: unmask passport data" }] }));
       const row = rows.find((r) => r[0] === nid);
-      return res.end(JSON.stringify({ data: { flight: row ? flightRecord(row) : null } }));
+      return res.end(JSON.stringify({ data: { flight: row ? flightRecord(row, opr) : null } }));
     }
     res.writeHead(404); res.end();
   }, DELAY));

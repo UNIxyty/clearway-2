@@ -52,7 +52,7 @@ defineTool({
     const filename = blank ? "PAX-Manifest_blank.pdf" : "passenger manifest";
     // The generator reports its own step labels; each maps to a slot in the building card's step list (the
     // "Laying out N pages" label carries the real page count, the masked-passport read sits under "Reading").
-    const SLOT = blank ? [["Laying", 0], ["Saving", 1]] : [["Connecting", 0], ["Reading", 1], ["Asking", 1], ["Filling", 2], ["Laying", 3], ["Saving", 4]];
+    const SLOT = blank ? [["Laying", 0], ["Saving", 1]] : [["Connecting", 0], ["Reading", 1], ["Asking", 1], ["Finding", 1], ["Filling", 2], ["Laying", 3], ["Saving", 4]];
     const step = (label) => {
       if (signal?.aborted) throw InvalidInput("Cancelled — the manifest was not created.");
       const index = SLOT.find(([prefix]) => label.startsWith(prefix))?.[1] ?? 0;
@@ -83,7 +83,9 @@ defineTool({
     }
 
     step(steps[steps.length - 1]);
-    const file = await saveManifest({ pdf: made.pdf, filename: made.filename, title: made.title, user, conversationId });
+    // The operator's free-text note (personal data) goes beside the file — never into this result, which is audited
+    // and returned to the model.
+    const file = await saveManifest({ pdf: made.pdf, filename: made.filename, title: made.title, user, conversationId, paxNote: made.paxNote ?? null });
     return {
       file: { id: file.id, filename: file.filename, mime: file.mime, bytes: file.bytes, downloadPath: file.downloadPath },
       manifest: { ...made.result, filename: made.filename },

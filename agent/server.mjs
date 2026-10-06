@@ -39,7 +39,7 @@ import {
   readDocumentFile, storeDocument, documentFileExists, replaceDocumentFile,
 } from "./lib/knowledge/ingest.mjs";
 import { rest as knowledgeRest } from "./lib/knowledge/retrieval.mjs";
-import { readGeneratedFile, sweepGeneratedFiles } from "./lib/files/store.mjs";
+import { readGeneratedFile, readManifestNote, sweepGeneratedFiles } from "./lib/files/store.mjs";
 import { listSends, prepareEmail } from "./lib/email/send.mjs";
 import { memoryContext } from "./lib/memory-context.mjs";
 import { currentTimeLine, loadModelConfig, resolveTier, systemPrompt } from "./lib/models.mjs";
@@ -837,6 +837,15 @@ async function handleRequest(req, res) {
     // ── Generated files: download what the agent produced ─────────────────
     // Ownership is enforced in readGeneratedFile's query, so an id alone is not
     // enough to fetch another dispatcher's briefing.
+    // A passenger manifest's operator note — the free-text passenger list Leon holds when it has no records — shown
+    // in the chat beside the file. Owner-only like the file; never stored in the conversation, the audit or the model.
+    if (/^\/api\/files\/[^/]+\/pax-note$/.test(pathname) && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const note = await readManifestNote(decodeURIComponent(pathname.split("/")[3]), user);
+      if (note == null) return sendJson(res, { ok: false, error: "not_found", message: "No note." }, 404);
+      res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "private, no-store", "x-content-type-options": "nosniff" });
+      return res.end(note);
+    }
     if (/^\/api\/files\/[^/]+$/.test(pathname) && req.method === "GET") {
       await assertMayUseAgent(user);
       const id = decodeURIComponent(pathname.split("/").pop());

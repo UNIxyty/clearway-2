@@ -86,7 +86,7 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
           ref={inputRef} name="manifest-flight-search" type="text" role="combobox" aria-expanded="true" aria-controls={`${id}-list`} aria-activedescendant={optionId(highlight)} aria-autocomplete="list"
           autoComplete="off" autoCorrect="off" spellCheck={false} data-1p-ignore="" data-lpignore="true"
           value={query} onChange={(e) => { setQuery(e.target.value); setHighlight(e.target.value ? 1 : 0); }} onKeyDown={onKeyDown}
-          placeholder="Callsign, registration, route, operator or date — e.g. KLJ7350, LY-BGS, EVRA, KlasJet, tomorrow"
+          placeholder="Callsign, registration, route, operator or date — any of them, e.g. an ICAO code, or tomorrow"
           aria-label="Find the flight for the passenger manifest"
           style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: panel ? 13.5 : 14, color: C.ink, minWidth: 0 }}
         />

@@ -71,16 +71,42 @@ The reference's logo image is 213 × 43 px (≈ 94 dpi at 163.6 pt): a higher-re
 | `DOCUMENT_LEG` | `"departure"` | Which travel document fills PASSPORT No./EXPIRES. A differing other-leg document is a warning naming the row. |
 | `LOGO_SOURCE` | `"raster"` | The reference's image (see above); `"svg"` = the design's SVG. |
 
-## Data (Leon → form)
+## Data (Leon → form): every value exactly as Leon stores it
 
-`flight(flightNid)`: `operator.name`, `acft.registration`, `flightNo`, `startTimeUTC` (→ `DD-Mon-YYYY`, UTC),
-`startAirport/endAirport.code.icao`, `crewMemberList` (count), `passengerList.passengerContactList[]` in Leon's order:
-`contact.{surname,name,middleName,genderEnum,dateOfBirth,placeOfBirth,nationality}`, `departurePassport` /
-`arrivalPassport` `{number, expiresDate, neverExpires, isMasked, surname, name, nationality}`, travel documents and
-national IDs. A missing value is blank — never N/A or a dash. Masked passports (`isMasked`) are asked once more via
-`unmaskedData`, which Leon answers only if the operator's API account may unmask; otherwise blank + warning. Flights in
-the Clearway aggregator tenant are stored under `CWY_CWY`, not their operating carrier: Owner or Operator is left
-blank with a warning (`NOT_AN_OPERATOR` in `leon.mjs`).
+Only these transformations exist (`model.mjs`); everything else goes to the page untouched — no upper-casing, no
+hyphens added or removed, no whitespace tidying, no validation that rewrites a value:
+
+| Field | Leon source | Transformation |
+|---|---|---|
+| Date, date of birth, expiry | `startTimeUTC`, `dateOfBirth`, `expiresDate` | → `DD-Mon-YYYY` (UTC) — the only format applied |
+| Sex | `contact.genderEnum` (MALE / FEMALE / UNKNOWN) | enum → the form's `M` / `F`; UNKNOWN → blank + warning |
+| Surname and names | passport `surname`/`name`/`middleName`, else contact's | the three fields joined with single spaces (one cell) |
+| Registration, flight no, ICAO codes, place of birth, document no, nationality, operator | as named | none |
+
+A value the pinned font cannot draw is left blank with a warning (never printed as empty boxes). A blank is blank —
+never N/A or a dash.
+
+**Where Leon can hold a flight's passengers**, and what is read:
+
+| Place | Read? |
+|---|---|
+| Structured records: `passengerList.passengerContactList` (data source "contact") — contact + passports / travel documents per leg | **Yes — the only source of rows** |
+| `passengerContactListRaw`, `limitedPassengerContactList` | Checked in the survey: always the same records as the above (2026-10-07) |
+| The operator's free-text list: `passengerText` / `passengerListAsText` (data source "text") | **Never parsed into rows.** Returned separately, verbatim, and shown in the chat beside the file (owner-only route) — never in the result, the audit log, the conversation store or the model |
+| Files attached to the passenger list: `passengerList.fileList` | Counted; a warning says they exist (not read) |
+| Counts: `passengerList.count` (declared seats) vs `realCount` (records), flight-watch / journey-log `paxCount` | Compared with the rows; a difference is a warning |
+
+**Owner or Operator — one rule, no names** (`leon.mjs` `resolveOperator`):
+1. Leon's operator for the flight, when it is a real operator account.
+2. When Leon records the flight under a **guest sub-operator account** (`Operator.planMode` "sub_operator" /
+   `isGuest` — Leon's own marker for an account that is not the operator in its own right):
+   a. the trip's subcharter record (`QuoteRealization.subcharter.operator`);
+   b. else the configured operator whose own Leon fleet flies this aircraft (same registration, recorded there under a
+      real operator account) — that operator's name as its Leon stores it;
+   c. else (none, or more than one) blank, with a warning saying why.
+
+`scripts/manifest-survey.mjs` runs the generator in memory across every operator and checks the printed values
+against Leon's (registration, flight number), counts blank operators, empty rows and failures.
 
 ## Storage, privacy, retention
 

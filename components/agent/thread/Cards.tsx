@@ -227,7 +227,16 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
 // Shown ABOVE the file. Built from the generator's result (rows by number and page — the chat never carries a
 // passenger's name or document number): missing fields, a Persons-on-Board disagreement, a differing arrival
 // document, masked or truncated values. A manifest with no passengers says so plainly.
-export function ManifestNotice({ manifest: m, panel = false }: { manifest: ManifestInfo; panel?: boolean }) {
+export function ManifestNotice({ manifest: m, panel = false, notePath = null }: { manifest: ManifestInfo; panel?: boolean; notePath?: string | null }) {
+  // The operator's free-text passenger note, when Leon has one: fetched from the file's own owner-only route and shown
+  // verbatim — never part of the message text, the stored conversation or anything the model sees.
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!m.hasPaxNote || !notePath) return;
+    let alive = true;
+    fetch(notePath, { credentials: "same-origin", cache: "no-store" }).then((r) => (r.ok ? r.text() : null)).then((t) => { if (alive) setNote(t); }).catch(() => {});
+    return () => { alive = false; };
+  }, [m.hasPaxNote, notePath]);
   if (m.blank) return null;
   const items: { tone: "warn" | "info"; text: string }[] = [];
   for (const w of m.warnings) items.push({ tone: w.code === "no-passengers" ? "info" : "warn", text: w.message });
@@ -244,6 +253,7 @@ export function ManifestNotice({ manifest: m, panel = false }: { manifest: Manif
         <span style={mono({ fontSize: 14, fontWeight: 600 })}>{head}</span>
         <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{counts}</span>
       </div>
+      {m.operator?.name && m.operator.source && <span style={{ fontSize: 12.5, color: C.muted }}>Owner or Operator: <b style={{ color: C.ink }}>{m.operator.name}</b> — from {m.operator.source}.</span>}
       {items.length > 0 && (
         <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
           {items.map((it, i) => (
@@ -253,6 +263,12 @@ export function ManifestNotice({ manifest: m, panel = false }: { manifest: Manif
             </li>
           ))}
         </ul>
+      )}
+      {m.hasPaxNote && (
+        <div aria-label="The operator's own passenger note in Leon" style={{ border: `1px dashed ${C.warnBorder}`, borderRadius: 9, background: C.surface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.warn }}>THE OPERATOR&apos;S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS</span>
+          <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: C.ink }}>{note ?? "Loading the note…"}</pre>
+        </div>
       )}
     </div>
   );

@@ -55,7 +55,7 @@ function wordMatches(f: PickerFlight, w: string, now: number): boolean {
   if (flat(f.callsign).includes(fw) || flat(f.registration).includes(fw)) return true;
   if (f.adep.toLowerCase().startsWith(fw) || f.ades.toLowerCase().startsWith(fw)) return true;
   if (fw.length >= 3 && (flat(f.adepPlace).includes(fw) || flat(f.adesPlace).includes(fw))) return true;
-  // Operator: its configured name ("KlasJet") or its Leon id ("klj"), from two letters.
+  // Operator: its configured name or its Leon id (the key's prefix), from two letters.
   if (fw.length >= 2 && (flat(f.operator).includes(fw) || flat(f.key.split(":")[0]).startsWith(fw))) return true;
   if (f.std == null) return false;
   const d = new Date(f.std);

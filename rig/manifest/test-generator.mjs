@@ -25,7 +25,8 @@ for i, p in enumerate(fitz.open(sys.argv[1])):
             for s in l["spans"]: out.append({"page": i + 1, "text": s["text"], "x": s["origin"][0], "y": s["origin"][1], "size": s["size"], "font": s["font"]})
 print(json.dumps(out))`, f]).toString());
 }
-const gen = (f, extra = {}) => generatePassengerManifest({ flightId: "rig:101", leon: stubLeon(f, extra) });
+const noFleet = async () => ({ holders: [], unchecked: [] });
+const gen = (f, extra = {}) => generatePassengerManifest({ flightId: "rig:101", leon: stubLeon(f, extra), lookup: noFleet });
 
 // Strings, verbatim (spec §4), on the blank form.
 const blank = await generateBlankManifest();
@@ -39,7 +40,7 @@ const three = await gen(flight({ pax: 3, mutate: (c) => { c.reverse(); } }));
 const t3 = spans(three.pdf);
 // Leon returned the three contacts reversed (EXAMPLE, SAMPLE, SPECIMEN → SPECIMEN, SAMPLE, EXAMPLE): printed as returned.
 const names = t3.filter((s) => s.y > 190 && s.y < 410 && s.x < 212).map((s) => s.text);
-ok(names.join(" / ") === "SPECIMEN Greta / SAMPLE Dmitri / EXAMPLE Alice", `rows in Leon's order, not sorted: ${names.join(" / ")}`);
+ok(names.join(" / ") === "Specimen Greta / Sample Dmitri / Example Alice", `rows in Leon's order, not sorted, names as stored (no upper-casing): ${names.join(" / ")}`);
 ok(t3.some((s) => s.text === "Page 1 of 1"), "3 passengers: Page 1 of 1");
 ok(!t3.some((s) => /^(N\/A|-|—|TBC)$/.test(s.text)), "no N/A, dash or TBC anywhere");
 
@@ -68,12 +69,40 @@ ok((await w(flight({ pax: 1, mutate: (c) => { c[0].departurePassport.isMasked = 
 const masked = await gen(flight({ pax: 1, mutate: (c) => { c[0].departurePassport.isMasked = true; c[0].departurePassport.number = "*****"; } }));
 ok(!spans(masked.pdf).some((s) => s.text.includes("*")), "no masked characters on the page");
 ok((await w(flight({ pax: 0 }))).includes("no-passengers"), "zero passengers → still a document, and a plain 'no passengers' note");
-const textOnly = flight({ pax: 0 }); textOnly.passengerList = { count: 4, isDataSourceText: true, passengerContactList: [] };
-ok((await w(textOnly)).includes("pax-text-only"), "a free-text passenger list → warning, no invented rows");
-ok((await w(flight({ pax: 1, operator: "CWY_CWY" }))).includes("operator"), "aggregator tenant (CWY_CWY) → Owner or Operator blank + warning");
+const countOnly = flight({ pax: 0 }); countOnly.passengerList = { count: 4, isDataSourceText: true, passengerText: "", passengerContactList: null };
+const co = await gen(countOnly);
+ok(co.result.warnings.some((x) => x.code === "pax-count-only") && co.result.passengerCount === 0 && co.paxNote === null, "Leon has only a count → 'count only' warning, rows blank, no note");
+const NOTE = "1. Fakename Alpha  P/N TEST11111\n2. Fakename Beta  P/N TEST22222";
+const withNote = flight({ pax: 0 }); withNote.passengerList = { count: 2, isDataSourceText: true, passengerText: NOTE, passengerContactList: null };
+const wn = await gen(withNote);
+ok(wn.paxNote === NOTE && wn.result.hasPaxNote && wn.result.passengerCount === 0, "a free-text note → returned verbatim as paxNote, rows stay blank (never parsed)");
+ok(!JSON.stringify(wn.result).includes("Fakename") && !spans(wn.pdf).some((x) => /Fakename|TEST11111/.test(x.text)), "the note is in neither the result (audited, seen by the model) nor the page");
+
+// Values exactly as Leon stores them — no upper-casing, hyphens, stripping or tidying.
+const verb = async (patch) => { const f = flight({ pax: 1 }); patch(f); return spans((await gen(f)).pdf).map((x) => x.text); };
+ok((await verb((f) => { f.acft.registration = "N-868AV"; })).includes("N-868AV"), "registration \"N-868AV\" (as Leon stores it) prints as N-868AV");
+ok((await verb((f) => { f.acft.registration = "N868AV"; })).includes("N868AV"), "registration \"N868AV\" prints as N868AV — nothing inserted");
+ok((await verb((f) => { f.acft.registration = "ly-bgs"; })).includes("ly-bgs"), "a lower-case registration is not upper-cased");
+ok((await verb((f) => { f.startAirport.code.icao = "ksfo"; f.flightNo = "abc 12"; })).filter((t) => t === "ksfo" || t === "abc 12").length === 2, "ICAO and flight number pass through untouched");
+ok((await verb((f) => { f.passengerList.passengerContactList[0].contact.placeOfBirth = "São Paulo"; })).includes("São Paulo"), "accents pass through");
+const cjk = flight({ pax: 1, mutate: (c) => { c[0].contact.placeOfBirth = "北京"; } });
+const cj = await gen(cjk);
+ok(cj.result.warnings.some((x) => x.code === "unprintable" && x.row === 1) && !spans(cj.pdf).some((x) => x.text.includes("北")), "characters the font cannot draw → cell blank + warning (no empty boxes on the page)");
+
+// Owner or Operator — one rule, no names.
+const { resolveOperator } = await import("../../agent/lib/manifest/leon.mjs");
+const none = async () => ({ holders: [], unchecked: [] });
+ok((await resolveOperator({ operator: { name: "Any Air", planMode: "pro", isGuest: false } }, { lookup: none })).name === "Any Air", "a real operator account → Leon's operator name, as stored");
+const guest = (extra = {}) => ({ operator: { name: "GUEST_ACCT", planMode: "sub_operator", isGuest: true }, acft: { registration: "EC-OMU" }, ...extra });
+ok((await resolveOperator(guest({ trip: { quoteRealization: { subcharter: { operator: "Some Carrier S.A." } } } }), { lookup: none })).name === "Some Carrier S.A.", "guest sub-operator + a subcharter record → the subcharter's operator");
+ok((await resolveOperator(guest(), { lookup: async () => ({ holders: [{ oprId: "x", name: "Fleet Owner Air" }], unchecked: [] }) })).name === "Fleet Owner Air", "guest sub-operator + exactly one configured operator flying the aircraft → that operator");
+const two = await resolveOperator(guest(), { lookup: async () => ({ holders: [{ oprId: "a", name: "A Air" }, { oprId: "b", name: "B Air" }], unchecked: [] }) });
+ok(two.name === "" && /more than one/.test(two.note), "two candidate operators → blank + warning naming both (no guess)");
+const zero = await resolveOperator(guest(), { lookup: none });
+ok(zero.name === "" && /no configured operator's fleet holds EC-OMU/.test(zero.note), "no source → blank + a warning that says why");
 const trunc = await gen(flight({ pax: 1, mutate: (c) => { c[0].contact.surname = "X".repeat(60); c[0].contact.name = "Y ".repeat(60); } }));
 ok(trunc.result.warnings.some((x) => x.code === "truncated" && x.row === 1), "a name that must be cut → a truncation warning naming the row");
-ok(!JSON.stringify(trunc.result).includes("XXXX") && !JSON.stringify(big.result).match(/TEST\d{5}|EXAMPLE|Testville/), "the result object carries no passenger field");
+ok(!JSON.stringify(trunc.result).includes("XXXX") && !JSON.stringify(big.result).match(/TEST\d{5}|Example |Testville/), "the result object carries no passenger field");
 
 // The generator asks the user for nothing: its only input is the flight id (operator credentials come from the registry).
 ok(generatePassengerManifest.length === 1 && !/user|token|credential/i.test(String(generatePassengerManifest).split(")")[0]), "generatePassengerManifest takes the flight id only — no user, token or credential parameter");

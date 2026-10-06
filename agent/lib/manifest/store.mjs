@@ -10,7 +10,9 @@ import path from "node:path";
 import { generatedPath } from "../files/generate.mjs";
 import { recordGeneratedFile } from "../files/store.mjs";
 
-export async function saveManifest({ pdf, filename, title, user, conversationId = null, now = new Date() }) {
+export const PAX_NOTE_FILE = "pax-note.txt";
+
+export async function saveManifest({ pdf, filename, title, user, conversationId = null, paxNote = null, now = new Date() }) {
   const id = randomUUID();
   const key = path.posix.join("manifests", String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"), id, filename);
   const target = generatedPath(`intake:${key}`);
@@ -25,6 +27,14 @@ export async function saveManifest({ pdf, filename, title, user, conversationId 
   await writeFile(tmp, pdf, { mode: 0o600 });
   await chmod(tmp, 0o600);
   await rename(tmp, target);
+  // The operator's free-text passenger note (personal data), when Leon has one: beside the PDF, owner-only, deleted
+  // with it by retention, served only by the signed-in owner-only GET /api/files/:id/pax-note.
+  if (paxNote) {
+    const notePath = path.join(path.dirname(target), PAX_NOTE_FILE);
+    await writeFile(`${notePath}.tmp`, paxNote, { mode: 0o600 });
+    await chmod(`${notePath}.tmp`, 0o600);
+    await rename(`${notePath}.tmp`, notePath);
+  }
   const file = {
     id, filename, storageKey: `intake:${key}`, mime: "application/pdf", bytes: pdf.length,
     sha256: createHash("sha256").update(pdf).digest("hex"), downloadPath: `/agent/api/files/${id}`,

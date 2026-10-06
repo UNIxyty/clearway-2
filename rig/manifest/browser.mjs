@@ -113,7 +113,8 @@ const order = await page.evaluate(() => {
 ok(order === true, "the warnings card is ABOVE the file card");
 const notice = await page.locator('[aria-label="Passenger manifest — read before sending"]').last().innerText();
 await page.locator('[aria-label="Passenger manifest — read before sending"]').last().screenshot({ path: `${SHOTS}11-warnings-card.png` });
-ok(/row 2 on page 1: no place of birth, passport expiry/.test(notice) && /arrival document differs/.test(notice) && /cut short/.test(notice) && /CWY_CWY/.test(notice), "missing fields, differing arrival document, truncation and the operator note are all in the chat");
+ok(/row 2 on page 1: no place of birth, passport expiry/.test(notice) && /arrival document differs/.test(notice) && /cut short/.test(notice), "missing fields, differing arrival document and truncation are all in the chat");
+ok(/Owner or Operator: KlasJet — from KlasJet's own fleet in Leon/.test(notice), "a flight on a guest sub-operator account gets its operator from the operator whose fleet flies the aircraft");
 ok(!/Leon access|refresh token|link your|sign in to Leon/i.test(await page.locator("body").innerText()), "the whole flow asked for no Leon credential");
 ok(await page.getByRole("link", { name: /Download/ }).count() + await page.getByRole("button", { name: "Download" }).count() > 0, "a download is offered alongside");
 
@@ -123,6 +124,18 @@ ok(!PII.test(threadText), "no passenger name or document number anywhere in the 
 const convs = await (await page.request.get(`${BASE}/agent/api/conversations`)).json();
 const conv = await (await page.request.get(`${BASE}/agent/api/conversations/${convs.conversations?.[0]?.id}`)).json();
 ok(!PII.test(JSON.stringify(conv)), "no passenger detail in the stored conversation (text, blocks, tool activity)");
+
+// ── Passengers only as the operator's free-text note: rows blank, the note shown verbatim in the chat, stored nowhere
+await openPicker(); await search("DLV240"); await page.keyboard.press("Enter");
+await page.waitForSelector('[aria-label^="Generated file PAX-Manifest_DLV240"]', { timeout: 120_000 }).catch(() => {});
+await sleep(3000);
+const noteBox = page.locator("[data-pax-note]").last();
+const noteText = await noteBox.innerText().catch(() => "");
+ok(/FAKENAME Alpha  P\/N RIG000001/.test(noteText) && /FAKENAME Beta/.test(noteText), "the operator's free-text note is shown in the chat, verbatim (double spaces kept)");
+await page.locator('[aria-label="Passenger manifest — read before sending"]').last().screenshot({ path: `${SHOTS}12b-operator-note-in-chat.png` });
+const convNote = await (await page.request.get(`${BASE}/agent/api/conversations/${(await (await page.request.get(`${BASE}/agent/api/conversations`)).json()).conversations?.[0]?.id}`)).json();
+ok(!/FAKENAME|RIG00000/.test(JSON.stringify(convNote)), "the note is not in the stored conversation (fetched from the file's owner-only route)");
+ok(/blank — write it in by hand/.test(await page.locator('[aria-label="Passenger manifest — read before sending"]').last().innerText()), "an aircraft no configured operator flies → operator blank with the reason");
 
 // ── Zero passengers: still a document, and the agent says so plainly
 await openPicker(); await search("KLJ7352"); await page.keyboard.press("Enter");

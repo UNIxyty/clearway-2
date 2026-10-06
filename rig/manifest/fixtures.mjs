@@ -26,7 +26,7 @@ export function flight({ pax = 0, crew = 3, nid = 101, operator = "SAMPLE AVIATI
   return {
     flightNid: nid, flightNo: "TST101", isCnl: false, startTimeUTC: "2026-10-14T06:30:00Z",
     startAirport: { code: { icao: "EYVI" } }, endAirport: { code: { icao: "LSGG" } }, acft: { registration: "LY-TST" },
-    operator: { name: operator }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null },
+    operator: { name: operator, planMode: "pro", isGuest: false }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null },
     crewMemberList: Array.from({ length: crew }, (_, i) => ({ loginNid: i + 1 })),
     passengerList: pax || leonCount ? { count: leonCount ?? pax, isDataSourceText: false, isDataSourceContact: true, passengerContactList: contacts } : null,
   };

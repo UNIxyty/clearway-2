@@ -160,3 +160,46 @@ export async function searchFlightsAllOperators({ fromMs, toMs, timeoutMs = 20_0
   flights.sort((a, b) => Date.parse(a.flight.startTimeUTC) - Date.parse(b.flight.startTimeUTC));
   return { flights, operators };
 }
+
+// ── Which configured operators fly a given aircraft ────────────────────────────────────────────────────────────
+// Used for flights Leon records under a guest sub-operator account (Operator.planMode "sub_operator" / isGuest —
+// Leon's own marker for an account that is not the operator in its own right). Each configured operator's fleet is
+// read from its Leon (cached 10 min). A fleet counts only when Leon records the aircraft there under a real (non-guest)
+// operator. Registrations are COMPARED on Leon's own registrationWithoutSpecialChars, case-insensitively — that is
+// matching only; nothing here changes how a registration is printed.
+const FLEET_TTL_MS = 10 * 60 * 1000;
+const fleets = new Map(); // oprId → { at, rows }
+export const isGuestOperator = (op) => Boolean(op?.isGuest) || /sub[_-]?operator/i.test(String(op?.planMode ?? ""));
+const regKey = (r) => String(r ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+async function fleetOf(oprId) {
+  const hit = fleets.get(oprId);
+  if (hit && Date.now() - hit.at < FLEET_TTL_MS) return hit.rows;
+  const leon = await leonForOperator(oprId);
+  const r = await leon.graphql("query { aircraftList { registration registrationWithoutSpecialChars operator { name planMode isGuest } } }");
+  if (r.errors?.length || !Array.isArray(r.data?.aircraftList)) throw new OperatorUnavailable(oprId, leon.name, "its fleet could not be read");
+  const rows = r.data.aircraftList;
+  fleets.set(oprId, { at: Date.now(), rows });
+  return rows;
+}
+
+/**
+ * Configured operators (other than `excludeOprId`) whose own Leon fleet holds this aircraft under a real operator.
+ * Returns { holders: [{ oprId, name }], unchecked: [operator name…] } — `name` is the operator's name as its Leon
+ * stores it on that aircraft.
+ */
+export async function operatorsFlyingRegistration(registration, { excludeOprId = null } = {}) {
+  const want = regKey(registration);
+  const holders = []; const unchecked = [];
+  if (!want) return { holders, unchecked };
+  for (const op of await listOperators()) {
+    if (op.oprId === excludeOprId) continue;
+    try {
+      const hit = (await fleetOf(op.oprId)).find((a) => regKey(a.registrationWithoutSpecialChars ?? a.registration) === want);
+      if (hit && hit.operator?.name && !isGuestOperator(hit.operator)) holders.push({ oprId: op.oprId, name: String(hit.operator.name) });
+    } catch {
+      unchecked.push(op.name);
+    }
+  }
+  return { holders, unchecked };
+}

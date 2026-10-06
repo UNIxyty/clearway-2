@@ -115,6 +115,8 @@ export type FileData = { id: string; filename: string; mime: string | null; byte
 /** A passenger manifest's result (make_passenger_manifest): counts and warnings — rows by number, never a passenger's details. */
 export type ManifestInfo = {
   flight: { flightId: string; callsign: string; date: string; route: string } | null;
+  operator?: { name: string | null; source: string | null } | null;
+  hasPaxNote?: boolean;
   blank: boolean; pageCount: number | null; passengerCount: number; crewCount: number | null; personsOnBoard: number | null;
   warnings: { code: string; message: string; row: number | null }[];
   missing: { row: number; where: string; fields: string[] }[];

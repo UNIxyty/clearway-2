@@ -81,6 +81,15 @@ export async function readGeneratedFile(id, user) {
   }
 }
 
+/** A passenger manifest's operator note (stored beside the PDF) — owner-only, like the file itself. null if none. */
+export async function readManifestNote(id, user) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) return null;
+  const rows = await rest(`agent_generated_files?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.userId)}&kind=eq.pax-manifest&select=storage_key&limit=1`).catch(() => null);
+  const row = rows?.[0];
+  if (!row) return null;
+  try { return await readFile(path.join(path.dirname(generatedPath(row.storage_key)), "pax-note.txt"), "utf8"); } catch { return null; }
+}
+
 /**
  * Retention. Generated files are briefings and exports, not records: the
  * record of what was generated (who, when, from what) stays in

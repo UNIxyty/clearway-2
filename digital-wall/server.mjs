@@ -198,11 +198,39 @@ const DEFAULT_CLOCKS = [
   { label: "UTC", timeZone: "UTC" },
 ];
 const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_CLOCKS });
+// Bug report 7 item 2: which clock is LOCAL is picked in Settings (the clock's "Set local"), never inferred from
+// the browser or the server's own zone — a wall moved, or a server in another zone, must not change what is
+// highlighted. Until someone has picked (the saved list has never recorded a choice), the clock in the station's
+// zone is local: WALL_STATION_TIME_ZONE, default Europe/Riga (EVRA). A saved choice, including "no local clock",
+// always wins over the default.
+const STATION_TIME_ZONE = String(process.env.WALL_STATION_TIME_ZONE || "Europe/Riga").trim();
+function clocksWithLocal(stored) {
+  if (stored?.localChosen === true) {
+    const clocks = (stored.clocks ?? DEFAULT_CLOCKS).map((c) => ({ ...c, local: c.local === true || c.home === true }));
+    return { clocks, localSource: clocks.some((c) => c.local) ? "set" : "none" };
+  }
+  // No choice recorded yet. A legacy `home` flag is NOT a choice of local clock: it was written by the old "Home"
+  // button before "local" meant a highlight (production's saved list had home:true on UTC from 16 Sep, so the wall
+  // treated UTC as local, UTC's colour won, and only one clock was ever coloured — bug report 7 item 2). Until
+  // someone presses Set local, the station's zone is local.
+  const clocks = (stored?.clocks ?? DEFAULT_CLOCKS).map((c) => ({ ...c, local: false, home: false }));
+  const i = clocks.findIndex((c) => c.timeZone === STATION_TIME_ZONE);
+  if (i >= 0) clocks[i] = { ...clocks[i], local: true, home: true };
+  return { clocks, localSource: i >= 0 ? "station-default" : "none", stationTimeZone: STATION_TIME_ZONE };
+}
 
 // Display settings — global scale/density for ops-room legibility. The wall
 // multiplies its typography and pill metrics by `scale`, so the room can
 // dial text size up without a rebuild.
-const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, unconfirmedOutline: true, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {}, font: "nunito" };
+const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1, autoFitRows: false, overlayScale: 1.3, sidebarScale: 1.3, headerScale: 1.3, acColScale: 1, upcomingHorizonHours: 17, postLandingHours: 2, mvtThresholdMin: 15, mvtFlashSeconds: 1, unconfirmedOutline: true, upcomingTableEnabled: false, upcomingTableSide: "right", upcomingTableScale: 1, upcomingTableWidthPct: 30, colors: {}, font: "nunito", zeroStyle: "dotted",
+  // Bug report 7 item 5: per-chip visibility on the pills (IMP "!", CAA, NOTAM, WX), default all on.
+  chipImp: true, chipCaa: true, chipNtm: true, chipWx: true,
+  // Bug report 7 item 3: HORIZONTAL sizing. None of these touches the time axis (px per hour): they size the
+  // things that sit beside a pill on its lane. Every default (1 / 45 min) reproduces today's wall exactly.
+  callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1, autoFitHorizontal: false };
+// Horizontal knob ranges [min, max]. The absolute pixel floors live in the wall (horizontalMetrics in FlightPill):
+// callsign and route text never below 7 px, chip gap 1 px, pill inner padding 2 px, lane gap 2 px.
+const HORIZONTAL_RANGES = { callsignScale: [0.5, 1.5], routeScale: [0.5, 1.5], chipSpacing: [0.25, 2], minPillMinutes: [5, 45], pillPadding: [0.2, 2], laneGap: [0.15, 2] };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -382,6 +410,19 @@ function sanitizeDisplaySettings(input = {}) {
   // the colours. The server stores a slug; the display resolves an unknown one to the default (dotted Nunito).
   const font = input.font === undefined || input.font === null || input.font === "" ? DEFAULT_DISPLAY_SETTINGS.font : String(input.font).trim().toLowerCase();
   if (!/^[a-z][a-z0-9-]{0,30}$/.test(font)) throw new Error("font must be a short font id (letters, digits, dashes).");
+  // Bug report 7 item 4b: the zero on the fonts the wall builds (Nunito, Roboto, Public Sans).
+  const zeroStyle = input.zeroStyle === undefined || input.zeroStyle === null || input.zeroStyle === "" ? DEFAULT_DISPLAY_SETTINGS.zeroStyle : String(input.zeroStyle);
+  if (!["dotted", "slashed", "plain"].includes(zeroStyle)) throw new Error("zeroStyle must be dotted, slashed or plain.");
+  // Bug report 7 item 5: chip visibility. A missing key keeps the chip (default on); only an explicit false hides it.
+  const chips = Object.fromEntries(["chipImp", "chipCaa", "chipNtm", "chipWx"].map((k) => [k, input[k] === undefined ? DEFAULT_DISPLAY_SETTINGS[k] : input[k] !== false]));
+  // Bug report 7 item 3: horizontal knobs, each clamped-or-refused against HORIZONTAL_RANGES.
+  const horizontal = {};
+  for (const [k, [lo, hi]] of Object.entries(HORIZONTAL_RANGES)) {
+    const v = input[k] === undefined ? DEFAULT_DISPLAY_SETTINGS[k] : Number(input[k]);
+    if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`${k} must be a number between ${lo} and ${hi}.`);
+    horizontal[k] = k === "minPillMinutes" ? Math.round(v) : Math.round(v * 100) / 100;
+  }
+  const autoFitHorizontal = input.autoFitHorizontal === true;
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
@@ -417,6 +458,10 @@ function sanitizeDisplaySettings(input = {}) {
     upcomingTableWidthPct: Math.round(upcomingTableWidthPct),
     colors: cleanColors,
     font,
+    zeroStyle,
+    ...chips,
+    ...horizontal,
+    autoFitHorizontal,
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };
@@ -442,6 +487,7 @@ function sanitizeClocks(input) {
   if (input.length === 0 || input.length > 12) {
     throw new Error("Configure between 1 and 12 clocks.");
   }
+  let localTaken = false; // exactly one local clock at most: the first one flagged
   return input.map((row) => {
     const label = String(row?.label || "").trim().slice(0, 40);
     const timeZone = String(row?.timeZone || "").trim();
@@ -449,7 +495,8 @@ function sanitizeClocks(input) {
     if (!isValidTimeZone(timeZone)) {
       throw new Error(`Unknown IANA time zone: ${timeZone || "(empty)"}.`);
     }
-    const local = row?.local === true || row?.home === true;
+    const local = !localTaken && (row?.local === true || row?.home === true);
+    if (local) localTaken = true;
     // `home` kept in the payload for any cached older bundle; `local` is the
     // meaningful flag (bug 6 item 4 — the station-local clock highlight).
     return { label, timeZone, local, home: local };
@@ -1493,7 +1540,7 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/display/clocks" && req.method === "GET") {
       const stored = await clocksStore.read();
-      sendJson(res, { ok: true, clocks: stored.clocks ?? DEFAULT_CLOCKS });
+      sendJson(res, { ok: true, ...clocksWithLocal(stored) });
       return;
     }
 
@@ -1506,9 +1553,10 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: false, error: error.message }, 400);
         return;
       }
-      await clocksStore.write({ clocks, updatedAt: new Date().toISOString() });
+      // Saving the list IS a choice of local clock (or of none): the station default stops applying.
+      await clocksStore.write({ clocks, localChosen: true, updatedAt: new Date().toISOString() });
       sseHub.broadcast({ type: "config.changed", section: "clocks" });
-      sendJson(res, { ok: true, clocks });
+      sendJson(res, { ok: true, ...clocksWithLocal({ clocks, localChosen: true }) });
       return;
     }
 

@@ -23,24 +23,41 @@ export const MONO_FONT = sharedTokens.font.mono;
  * commercial fonts we can only name — the settings page measures whether the machine has them.
  */
 export const WALL_FONTS = [
-  // Dotted-zero fonts first: on these `0` carries a dot and cannot be read as `O` across the room (the Nunito build
-  // was patched by hand for bug 6; Roboto and Public Sans are patched the same way by tools/dotted-zero.py).
-  { id: 'nunito', label: 'Nunito (dotted zero)', stack: sharedTokens.font.wallSans, hosted: true, dottedZero: true, local: [], note: 'The wall’s own build. The default.' },
-  { id: 'roboto', label: 'Roboto (dotted zero)', stack: "'Roboto Dotted', sans-serif", hosted: true, dottedZero: true, local: [] },
-  { id: 'public-sans', label: 'Public Sans (dotted zero)', stack: "'Public Sans Dotted', sans-serif", hosted: true, dottedZero: true, local: [] },
+  // Zeros that cannot be read as O come first, so the default path is the safe one.
+  // Dotted (the wall's own construction; tools/dotted-zero.py for Roboto and Public Sans):
+  { id: 'nunito', label: 'Nunito', stack: sharedTokens.font.wallSans, hosted: true, dottedZero: true, zero: 'dotted', local: [], note: 'The wall’s own build. The default.',
+    zeroVariants: { dotted: sharedTokens.font.wallSans, slashed: "'Nunito Slashed', Roboto, Avenir, Helvetica, Arial, sans-serif", plain: "'Nunito Plain', Roboto, Avenir, Helvetica, Arial, sans-serif" } },
+  { id: 'roboto', label: 'Roboto', stack: "'Roboto Dotted', sans-serif", hosted: true, dottedZero: true, zero: 'dotted', local: [],
+    zeroVariants: { dotted: "'Roboto Dotted', sans-serif", slashed: "'Roboto Slashed', sans-serif", plain: "'Roboto Plain', sans-serif" } },
+  { id: 'public-sans', label: 'Public Sans', stack: "'Public Sans Dotted', sans-serif", hosted: true, dottedZero: true, zero: 'dotted', local: [],
+    zeroVariants: { dotted: "'Public Sans Dotted', sans-serif", slashed: "'Public Sans Slashed', sans-serif", plain: "'Public Sans Plain', sans-serif" } },
+  // Slashed — each font's own designed zero (bug report 7 item 4c; tools/slashed-zero.py freezes it in):
+  { id: 'atkinson', label: 'Atkinson Hyperlegible Next (slashed zero)', stack: "'Atkinson Hyperlegible Next', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Braille Institute: designed so 0/O and 1/l/I cannot be confused at low acuity.' },
+  { id: 'inter', label: 'Inter (slashed zero)', stack: "'Inter Slashed', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Built for screens; its own slashed zero.' },
+  { id: 'plex-sans', label: 'IBM Plex Sans (slashed zero)', stack: "'CW Slashed Sans P', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Modified build, served as “CW Slashed Sans P” (OFL reserved name).' },
+  { id: 'source-sans', label: 'Source Sans 3 (slashed zero)', stack: "'CW Slashed Sans S', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Holds up at small sizes. Modified build, served as “CW Slashed Sans S” (OFL reserved name).' },
+  // Plain zero:
+  { id: 'old-wall', label: 'Old Digital Wall', stack: "'Nunito Original', Roboto, Avenir, Helvetica, Arial, sans-serif", hosted: true, dottedZero: false, zero: 'plain', local: [], note: 'The previous wall’s exact chain — Nunito, Roboto, Avenir, Helvetica, Arial, sans-serif — with the plain Nunito 400 it loaded (its bold was synthesised).' },
   // Licensed or machine-supplied: we cannot touch their glyphs, so their zero is plain.
-  { id: 'avenir', label: 'Avenir / Helvetica', stack: "'Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica', sans-serif", hosted: false, dottedZero: false, local: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica'] },
-  { id: 'arial', label: 'Arial', stack: "'Arial', 'Liberation Sans', sans-serif", hosted: false, dottedZero: false, local: ['Arial', 'Liberation Sans'] },
-  { id: 'system', label: 'System sans-serif', stack: 'sans-serif', hosted: false, dottedZero: false, local: [] },
+  { id: 'avenir', label: 'Avenir / Helvetica', stack: "'Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica', sans-serif", hosted: false, dottedZero: false, zero: 'plain', local: ['Avenir Next', 'Avenir', 'Helvetica Neue', 'Helvetica'] },
+  { id: 'arial', label: 'Arial', stack: "'Arial', 'Liberation Sans', sans-serif", hosted: false, dottedZero: false, zero: 'plain', local: ['Arial', 'Liberation Sans'] },
+  { id: 'system', label: 'System sans-serif', stack: 'sans-serif', hosted: false, dottedZero: false, zero: 'plain', local: [] },
 ];
 /** The line the settings card shows beside every plain-zero option, before it is applied. */
 export const PLAIN_ZERO_WARNING = 'Plain zero — 0 and O look alike at wall distance.';
 export const DEFAULT_WALL_FONT_ID = 'nunito';
+/** Bug report 7 item 4b: the zero on the three fonts we build (Nunito, Roboto, Public Sans). Default: dotted. */
+export const ZERO_STYLES = [{ value: 'dotted', label: 'Dotted' }, { value: 'slashed', label: 'Slashed' }, { value: 'plain', label: 'Plain' }];
+export const DEFAULT_ZERO_STYLE = 'dotted';
 const BY_ID = new Map(WALL_FONTS.map((f) => [f.id, f]));
 
 /** The option for a saved id; unknown or missing → the default (never a serif, never nothing). */
-export function resolveWallFont(id) {
-  return BY_ID.get(String(id ?? '').trim()) ?? BY_ID.get(DEFAULT_WALL_FONT_ID);
+export function resolveWallFont(id, zeroStyle = DEFAULT_ZERO_STYLE) {
+  const font = BY_ID.get(String(id ?? '').trim()) ?? BY_ID.get(DEFAULT_WALL_FONT_ID);
+  // A font we build carries the chosen zero; any other font's zero is part of the font and the choice is moot.
+  const style = font.zeroVariants && font.zeroVariants[zeroStyle] ? zeroStyle : null;
+  if (!style) return font;
+  return { ...font, stack: font.zeroVariants[style], zero: style, dottedZero: style !== 'plain' };
 }
 
 /**
@@ -50,8 +67,8 @@ export function resolveWallFont(id) {
 export const WALL_FONT = `var(${WALL_FONT_VAR}, ${sharedTokens.font.wallSans})`;
 
 /** Sets the variable on <html>; the whole wall re-renders in the new font with no reload. */
-export function applyWallFont(id, root = typeof document !== 'undefined' ? document.documentElement : null) {
-  const font = resolveWallFont(id);
+export function applyWallFont(id, zeroStyle = DEFAULT_ZERO_STYLE, root = typeof document !== 'undefined' ? document.documentElement : null) {
+  const font = resolveWallFont(id, zeroStyle);
   if (root) root.style.setProperty(WALL_FONT_VAR, font.stack);
   return font;
 }
@@ -99,7 +116,7 @@ export async function tabularDigits(stack, doc = typeof document !== 'undefined'
  */
 export function wallFontProbe(font, doc = typeof document !== 'undefined' ? document : null) {
   if (!doc) return { rendered: null, fallback: false, message: '' };
-  if (font.hosted) return { rendered: font.stack.split(',')[0].replace(/'/g, '').replace(/ Dotted$/, ''), fallback: false, message: 'Served from our own server; renders the same on every screen.' };
+  if (font.hosted) return { rendered: font.label.replace(/ \((dotted|slashed) zero\)$/, ''), fallback: false, message: `Served from our own server; renders the same on every screen. Zero: ${font.zero}.` };
   if (font.id === 'system') return { rendered: 'the system’s sans-serif', fallback: false, message: 'Whatever this machine’s default sans-serif is; it differs from screen to screen.' };
   const present = font.local.find((name) => localFontAvailable(name, doc)) ?? null;
   if (present) return { rendered: present, fallback: present !== font.local[0], message: present === font.local[0] ? `${present} is on this machine.` : `${font.local[0]} not found on this machine; ${present} renders instead.` };

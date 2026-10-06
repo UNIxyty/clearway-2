@@ -123,6 +123,9 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // v4: takeOffUTC/landingUTC/ctotUTC on the mapped flight (2026-08-10).
 // v5: isFerry in the selection (IMP/CAA load matching, 2026-08-10).
 // v6: checklistAdepColor/checklistAdesColor (Upcoming Flight Table, 2026-08-23).
+// (Bug report 7 added eet/eetIso to the selection WITHOUT a bump: the horizon top-up runs on the first cycle after
+// a restart and re-reads everything the wall can show, and the movement refresh covers −24 h … +6 h, so cached
+// flights gain eetMin within one cycle — no full −7/+30-day re-sync of every operator at deploy.)
 const FLIGHT_CACHE_VERSION = 6;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
@@ -144,6 +147,15 @@ const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator
 // which Leon never delivers through the modified-list — reaches the wall.
 const MOVEMENT_REFRESH_EVERY_N_CYCLES = 2;
 
+// Horizon top-up (found with bug report 7): the full sync runs ONCE (−7 to +30 days from whenever the cache was
+// built); afterwards a flight only arrives when Leon marks it modified, or when the movement refresh's narrow
+// window (−24 h … +6 h) reaches it. A long-standing schedule nobody edits (KlasJet's LY51xx legs, created in
+// January) therefore appeared on the wall ~6 h ahead instead of the configured horizon. Every
+// HORIZON_TOPUP_EVERY_N_CYCLES-th cycle (~30 min at the 120 s poll, and on the first cycle) each operator gets
+// one flightList pull over [now, now + horizon + 12 h], UPSERT ONLY: it adds and refreshes, it never evicts
+// (eviction stays with the modified-list and the guarded movement refresh).
+const HORIZON_TOPUP_EVERY_N_CYCLES = 15;
+
 // Hard cap for one whole sync cycle (all operators). 9 operators with
 // stagger and a few requests each finish in well under 2 minutes; 5 min
 // means "hung", not "slow".
@@ -152,6 +164,8 @@ const SYNC_CYCLE_WATCHDOG_MS = 5 * 60 * 1000;
 const WANTED_FLIGHTWATCH_FIELDS = [
   "atd", "ata", "toIso", "ldgIso",
   "etd", "etdIso", "eta", "etaIso",
+  // EET: Leon's FlightWatch.eet (seconds) / eetIso ("HH:MM", described by Leon as "EET"). Bug report 7 item 6.
+  "eet", "eetIso",
   "ctot", "ctotIso", "tobt",
   "offBlock", "bloffIso", "blonIso",
 ];
@@ -499,8 +513,16 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
   const hasArrived = Boolean(ata);
   const isAirborne = Boolean(atd) && !hasArrived;
   const tripStatus = rawFlight.status ?? null;
+  // EET in minutes: flightWatch.eet is seconds; eetIso is "HH:MM[:SS]". null when Leon has none.
+  const eetMin = (() => {
+    const sec = Number(fw.eet);
+    if (Number.isFinite(sec) && sec > 0) return Math.round(sec / 60);
+    const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(fw.eetIso ?? "").trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) || null : null;
+  })();
 
   return {
+    eetMin,
     // ── Ops timing rules (bug report 7-9): the pill needs the raw chain ──
     // T/O and LDG are the ACTUAL schedule (display precedence: T/O beats
     // everything; CTOT vs ETD -> the LATER wins; BLOFF is never displayed —
@@ -1283,6 +1305,10 @@ export class LeonTimelineService {
           // Flight-watch writes never reach the modified-list, so every
           // second cycle re-pull the active window (see movementRefresh).
           // Skipped right after an initial sync — that already covered it.
+          if (hadCheckpoint && (this.syncCycleCount === 1 || this.syncCycleCount % HORIZON_TOPUP_EVERY_N_CYCLES === 0)) {
+            const topUp = await this.horizonTopUp(operator.oprId);
+            cycleStats.updated += topUp.updated ?? 0;
+          }
           if (hadCheckpoint && this.syncCycleCount % MOVEMENT_REFRESH_EVERY_N_CYCLES === 0) {
             const movementStats = await this.movementRefresh(operator.oprId);
             cycleStats.updated += movementStats.updated ?? 0;
@@ -1748,6 +1774,29 @@ export class LeonTimelineService {
         }
       }
     }
+    return stats;
+  }
+
+  /** Upsert-only pull of the coming horizon (see HORIZON_TOPUP_EVERY_N_CYCLES). Never evicts. */
+  async horizonTopUp(oprId) {
+    const vis = await (this.getVisibilitySettings?.() ?? Promise.resolve(null)).catch(() => null);
+    const horizonH = Number.isFinite(Number(vis?.upcomingHorizonHours)) ? Number(vis.upcomingHorizonHours) : 24;
+    const from = new Date();
+    const to = new Date(Date.now() + (horizonH + 12) * 3600_000);
+    const rawFlights = await this.fetchFlightsForOperatorRange(oprId, from, to);
+    const checklistDefs = await this.ensureChecklistDefs(oprId);
+    const stats = { updated: 0, added: 0 };
+    for (const rawFlight of rawFlights) {
+      const mapped = mapLeonFlight(rawFlight, checklistDefs);
+      if (!hasValidTripStatus(mapped) || isExcludedFlightKind(mapped)) continue;
+      mapped.oprId = oprId;
+      const nid = this.flightCacheKey(oprId, mapped.flightNid);
+      if (!this.flightsByNid.has(nid)) stats.added += 1;
+      this.flightsByNid.set(nid, mapped);
+      this.aircraftByFlightNid.set(nid, { oprId, aircraftNid: rawFlight.acft?.aircraftNid ?? null, registration: rawFlight.acft?.registration ?? "UNKNOWN" });
+      stats.updated += 1;
+    }
+    if (stats.added) console.log(`[leon-sync] horizon top-up ${oprId}: ${stats.added} flight(s) within the next ${horizonH + 12} h were missing from the cache and are now on the wall`);
     return stats;
   }
 

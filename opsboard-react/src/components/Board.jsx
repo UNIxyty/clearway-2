@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { p2, clamp } from '../data';
-import FlightPill, { pillVerticalMetrics } from './FlightPill';
+import FlightPill, { pillVerticalMetrics, horizontalMetrics } from './FlightPill';
+import { useWallDisplay } from '../theme/WallDisplayContext';
 import FlightInfoTab from './FlightInfoTab';
 import { useWallColors } from '../theme/WallColorsContext';
 import {
@@ -80,9 +81,39 @@ function toMs(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx, frontPadFracOf = null, minWidthFracOf = null }) {
-  const MIN_VISUAL_DURATION_MS = 45 * 60 * 1000;
-  const LANE_GAP_PX = 14; // visual breathing room between rounded pills
+// Front text (LIM circles + callsign + gap) and below-pill text (route + times) widths in px — ONE definition
+// used by the render path and by both auto-fits, so packing, fitting and drawing agree (bug report 7 item 3).
+function frontPadPx(fl, V, H, scale) {
+  const sz = (v) => Math.round(v * scale);
+  const limCircle = Math.max(10, V.fonts.id + sz(3));
+  const limW = ((fl.limitationIds || []).length) * (limCircle + sz(3));
+  return limW + String(fl.fn ?? '').length * V.fonts.id * 0.62 + H.frontSlack;
+}
+function belowPadPx(fl, V, H) {
+  const chars = String(fl.dep ?? '').length + String(fl.arr ?? '').length + 4
+    + String(fl.depHm ?? '').length + String(fl.arrHm ?? '').length + 10;
+  return chars * V.fonts.times * 0.62 + H.neighbourSafety;
+}
+/** Lanes per aircraft row for a given set of sizes — what both auto-fits measure. */
+function laneCountsFor(aircraft, { windowStartMs, windowDurationMs, timelinePx, scale, labelScale, markerScale, horizontal }) {
+  const V = pillVerticalMetrics(scale, 1, { labelScale, markerScale, callsignScale: horizontal.callsignScale, routeScale: horizontal.routeScale });
+  const H = horizontalMetrics(scale, horizontal, markerScale);
+  return aircraft.map((ac) => {
+    try {
+      return assignFlightLanes(ac.flights || [], {
+        windowStartMs, windowDurationMs, timelinePx, laneGapPx: H.laneGapPx, minVisualMs: H.minPillMs,
+        frontPadFracOf: (fl) => (timelinePx > 0 ? frontPadPx(fl, V, H, scale) / timelinePx : 0),
+        minWidthFracOf: (fl) => (timelinePx > 0 ? belowPadPx(fl, V, H) / timelinePx : 0),
+      }).lanes || 1;
+    } catch { return 1; }
+  });
+}
+
+function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelinePx, frontPadFracOf = null, minWidthFracOf = null, laneGapPx = 14, minVisualMs = 45 * 60 * 1000 }) {
+  // Reserved minimum length (shipped 45 min) and the breathing room between pills (shipped 14 px) are the
+  // horizontal section's "Minimum pill length" and "Gap to next flight" (bug report 7 item 3).
+  const MIN_VISUAL_DURATION_MS = minVisualMs;
+  const LANE_GAP_PX = laneGapPx; // visual breathing room between rounded pills
   const frac = (ms) => clamp((ms - windowStartMs) / windowDurationMs);
   const gapFrac = timelinePx > 0 ? (LANE_GAP_PX / timelinePx) : 0;
 
@@ -155,7 +186,7 @@ function assignFlightLanes(flights, { windowStartMs, windowDurationMs, timelineP
   };
 }
 
-export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null,
+export default function Board({ aircraft = [], limitations = [], windowStartUtc, windowEndUtc, scale = 1, timeZoom = 1, rowZoom = 1, pillHeight = 1, markerScale = 1, labelScale = 1, sidebarScale = 1.3, acColScale = 1, mvtThresholdMin = 15, mvtFlashSeconds = 1, autoFitRows = false, onAutoFitComputed = null, horizontalOverride = null,
   bodyContent = 'icao', bodyRight = null, belowText = null,
   showUnconfirmedRing = true,
   // ── Mobile/tablet additive props — every default reproduces today's
@@ -239,6 +270,49 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     return () => { ro.disconnect(); clearTimeout(timer); };
   }, []);
 
+  // ── Horizontal auto-fit (bug report 7 item 3) ─────────────────────────────────────────────────────────
+  // Labels never print over each other on this wall: a flight whose callsign / route / reserved length would
+  // collide with the previous one in its row drops to a NEW LANE, and extra lanes are what push rows off the
+  // screen. Auto-fit shrinks the horizontal knobs together (each = the manual value × one factor, clamped to its
+  // floor) to the LARGEST factor at which the board needs no more lanes than it would with every knob at its
+  // floor — i.e. labels stop forcing extra lanes, and stay as large as that allows. The time axis is not an input.
+  const display = useWallDisplay();
+  const hBase = horizontalOverride ?? display.horizontal;
+  const hFit = useMemo(() => {
+    if (!hBase.autoFitHorizontal || aircraft.length === 0) return { active: false, knobs: hBase };
+    const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const knobsFor = (f) => ({
+      ...hBase,
+      callsignScale: clampTo(hBase.callsignScale * f, 0.5, 1.5),
+      routeScale: clampTo(hBase.routeScale * f, 0.5, 1.5),
+      chipSpacing: clampTo(hBase.chipSpacing * f, 0.25, 2),
+      pillPadding: clampTo(hBase.pillPadding * f, 0.2, 2),
+      laneGap: clampTo(hBase.laneGap * f, 0.15, 2),
+      minPillMinutes: Math.round(clampTo(5 + (hBase.minPillMinutes - 5) * f, 5, 45)),
+    });
+    const ws = new Date(windowStartUtc || '').getTime();
+    const we = new Date(windowEndUtc || '').getTime();
+    const wStart = Number.isFinite(ws) ? ws : Date.now() - 6 * 3600_000;
+    const wDur = Number.isFinite(we) && we > wStart ? we - wStart : 24 * 3600_000;
+    const tPx = (wDur / 3600_000) * (visibleTimelineWidth / (10 / scale / timeZoom));
+    const counts = (f) => laneCountsFor(aircraft, { windowStartMs: wStart, windowDurationMs: wDur, timelinePx: tPx, scale, labelScale, markerScale, horizontal: knobsFor(f) });
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    // The BUSIEST row (most lanes at the manual sizes) decides: the largest factor at which its labels no longer
+    // force a lane beyond what its flights' own times need (its lane count at the floors). No further shrinking.
+    const manual = counts(1);
+    const busiest = manual.indexOf(Math.max(...manual));
+    const floorBusiest = counts(0.1)[busiest];
+    if (manual[busiest] <= floorBusiest) return { active: true, knobs: knobsFor(1), factor: 1, lanes: sum(manual), manualLanes: sum(manual), busiest: { row: aircraft[busiest]?.registration, lanes: manual[busiest], floor: floorBusiest } };
+    // Lane counts are NOT monotone in the factor (fonts round to whole px), so scan down in 0.01 steps: the first
+    // factor that reaches the target is the largest one.
+    let factor = 0.1;
+    for (let f = 0.99; f >= 0.1; f = Math.round((f - 0.01) * 100) / 100) { if (counts(f)[busiest] <= floorBusiest) { factor = f; break; } }
+    const fitted = counts(factor);
+    return { active: true, knobs: knobsFor(factor), factor, lanes: sum(fitted), manualLanes: sum(manual), busiest: { row: aircraft[busiest]?.registration, lanes: fitted[busiest], manualLanes: manual[busiest], floor: floorBusiest } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hBase, aircraft, scale, labelScale, markerScale, timeZoom, visibleTimelineWidth, windowStartUtc, windowEndUtc]);
+  const effHorizontal = hFit.knobs;
+
   const fit = useMemo(() => {
     const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const knobsFor = (f) => ({
@@ -261,19 +335,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const fitTimelinePx = (fitWindowDurationMs / 3600_000) * (visibleTimelineWidth / (10 / scale / timeZoom));
     // Lane counts are horizontal-overlap facts — independent of vertical
     // sizing, so they can be computed once per aircraft per window.
-    const laneCounts = aircraft.map((ac) => {
-      try {
-        const fitIdFont = Math.max(7, Math.round(12.5 * scale * labelScale));
-        return assignFlightLanes(ac.flights || [], {
-          windowStartMs: fitWindowStartMs,
-          windowDurationMs: fitWindowDurationMs,
-          timelinePx: fitTimelinePx,
-          frontPadFracOf: (fl) => fitTimelinePx > 0
-            ? (((fl.limitationIds || []).length) * (fitIdFont + 6) + String(fl.fn ?? '').length * fitIdFont * 0.62 + 12) / fitTimelinePx
-            : 0,
-        }).lanes || 1;
-      } catch { return 1; }
-    });
+    const laneCounts = laneCountsFor(aircraft, { windowStartMs: fitWindowStartMs, windowDurationMs: fitWindowDurationMs, timelinePx: fitTimelinePx, scale, labelScale, markerScale, horizontal: effHorizontal });
     const totalFor = (f) => {
       const k = knobsFor(f);
       const V = pillVerticalMetrics(scale, k.rowZoom, { pillHeight: k.pillHeight, markerScale: k.markerScale, labelScale: k.labelScale });
@@ -298,7 +360,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     const factor = Math.round(lo * 100) / 100;
     return { active: true, knobs: knobsFor(factor), factor, fits: true, requiredPx: totalFor(factor), availPx: rowsViewportH };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFitRows, rowsViewportH, aircraft, rowZoom, pillHeight, markerScale, labelScale, scale, timeZoom, visibleTimelineWidth, windowStartUtc, windowEndUtc]);
+  }, [autoFitRows, rowsViewportH, aircraft, rowZoom, pillHeight, markerScale, labelScale, scale, timeZoom, visibleTimelineWidth, windowStartUtc, windowEndUtc, effHorizontal]);
 
   const effRowZoom = fit.active ? fit.knobs.rowZoom : rowZoom;
   const effPillHeight = fit.active ? fit.knobs.pillHeight : pillHeight;
@@ -323,28 +385,18 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // rowZoom (vertical size slider) thins lane/pill HEIGHTS only — text stays
   // on the display scale. Metrics come from the pill so lane maths and the
   // rendered pill can never drift apart.
-  const pillV = pillVerticalMetrics(scale, effRowZoom, { pillHeight: effPillHeight, markerScale: effMarkerScale, labelScale: effLabelScale });
+  const pillV = pillVerticalMetrics(scale, effRowZoom, { pillHeight: effPillHeight, markerScale: effMarkerScale, labelScale: effLabelScale, callsignScale: effHorizontal.callsignScale, routeScale: effHorizontal.routeScale });
   const FLIGHT_PILL_HEIGHT = pillV.total;
   const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * effRowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;
   // Width of the LIM circles + callsign in front of a pill, as a fraction
   // of the timeline — mirrors FlightPill's own metrics so packing and
   // render agree.
-  const frontPadFrac = (fl) => {
-    if (!(timelinePx > 0)) return 0;
-    const limCircle = Math.max(10, pillV.fonts.id + sz(3));
-    const limW = ((fl.limitationIds || []).length) * (limCircle + sz(3));
-    const fnW = String(fl.fn ?? '').length * pillV.fonts.id * 0.62;
-    return (limW + fnW + sz(12)) / timelinePx;
-  };
+  const hMetrics = horizontalMetrics(scale, effHorizontal, effMarkerScale);
+  const frontPadFrac = (fl) => (timelinePx > 0 ? frontPadPx(fl, pillV, hMetrics, scale) / timelinePx : 0);
   // Below-text reservation (route + times + delta suffixes) so the always-
   // visible line has guaranteed room — mirrors FlightPill's formatting.
-  const belowPadFrac = (fl) => {
-    if (!(timelinePx > 0)) return 0;
-    const chars = String(fl.dep ?? '').length + String(fl.arr ?? '').length + 4
-      + String(fl.depHm ?? '').length + String(fl.arrHm ?? '').length + 10;
-    return (chars * pillV.fonts.times * 0.62 + sz(10)) / timelinePx;
-  };
+  const belowPadFrac = (fl) => (timelinePx > 0 ? belowPadPx(fl, pillV, hMetrics) / timelinePx : 0);
   const parsedStartMs = new Date(windowStartUtc || '').getTime();
   const parsedEndMs = new Date(windowEndUtc || '').getTime();
   const fallbackStart = Date.now() - 6 * 60 * 60 * 1000;
@@ -730,7 +782,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                 // The label font floors at 9px (legibility), and the
                 // rotation threshold derives from that floored size.
                 return (
-                  <div key={i} style={{ ...s.tick, width: pxPerHour, fontSize: tickFont, height: timeHeaderH, ...(ticksRotated ? { paddingLeft: 0, justifyContent: 'center' } : {}) }}>
+                  <div key={i} data-hour-ms={tick.getTime()} style={{ ...s.tick, width: pxPerHour, fontSize: tickFont, height: timeHeaderH, ...(ticksRotated ? { paddingLeft: 0, justifyContent: 'center' } : {}) }}>
                     <span style={ticksRotated ? { transform: 'rotate(-90deg)', fontSize: Math.min(tickFont, 10), letterSpacing: 0, whiteSpace: 'nowrap' } : undefined}>{hour}</span>
                   </div>
                 );
@@ -750,7 +802,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 
         <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
           <div style={{ width: AC_LABEL_W + timelinePx + END_PAD_PX, position: 'relative' }}>
-            <div style={s.board} ref={boardRef}>
+            <div style={s.board} ref={boardRef} data-hfit={JSON.stringify(hFit.active ? { factor: hFit.factor, lanes: hFit.lanes, manualLanes: hFit.manualLanes, busiest: hFit.busiest, knobs: hFit.knobs } : null)}>
               {aircraft.map((ac, acIndex) => {
                 const laneData = assignFlightLanes(ac.flights || [], {
                   frontPadFracOf: frontPadFrac,
@@ -758,6 +810,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                   windowStartMs,
                   windowDurationMs,
                   timelinePx,
+                  laneGapPx: hMetrics.laneGapPx,
+                  minVisualMs: hMetrics.minPillMs,
                 });
                 const openFlight = openInfoId ? laneData.flights.find((fl) => fl.id === openInfoId) : null;
                 const INFO_TAB_H = 210;
@@ -883,6 +937,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
                         pillHeight={effPillHeight}
                         markerScale={effMarkerScale}
                         labelScale={effLabelScale}
+                        horizontal={effHorizontal}
                         limIndices={(fl.limitationIds || []).map((id) => limIndexMap[id]).filter(Boolean)}
                         stickyLeftPx={AC_LABEL_W + (rowHeightPx ? 12 : 6)}
                         showUnconfirmedRing={showUnconfirmedRing}

@@ -142,15 +142,29 @@ function mapFlight(flight, group) {
   }
   const depDeltaMin = Math.round((depDisplayMs - stdMs) / 60_000);
 
-  // Arrival: explicit data wins; otherwise PROJECT the schedule's elapsed
-  // time (EET = STA - STD) onto the displayed departure, so a delayed or
-  // early flight keeps its real duration instead of being squashed against
-  // the old STA (the giant-hatch/sliver bug).
+  // ── Bar precedence (bug report 7 item 6), START and END, written out ──
+  // START (above): T/O if Leon has it; else the LATER of CTOT and ETD; else STD. Off-block never moves it.
+  // END, first that applies:
+  //   1. LDG — the actual landing.
+  //   2. departure + EET — when Leon's flight watch holds an EET (FlightWatch.eet, "EET" in Leon). The bar is
+  //      then exactly EET long from where it starts, so a changed EET changes its length.
+  //   3. ETA — Leon's flight-watch ETA, when it differs from STA (Leon derives it from T/O or ETD + EET).
+  //   4. STA moved by the departure's delta — a delayed or early flight keeps its scheduled duration.
+  //   5. STA.
+  // When STA and departure + EET disagree (STA 00:15, STD 23:30 + EET 02:00 = 01:30) EET wins: STA is the
+  // commercial schedule, EET is ops' current statement of how long the flight takes. The arrival LABEL uses the
+  // same instant as the bar's end and carries the signed difference from STA (+75), so the text never contradicts
+  // the bar and the change from the schedule stays visible.
+  const eetMin = Number(flight.eetMin);
+  const hasEet = Number.isFinite(eetMin) && eetMin > 0 && eetMin <= 24 * 60;
   let arrKind;
   let arrDisplayMs;
   if (ldgMs != null) {
     arrKind = 'LDG';
     arrDisplayMs = ldgMs;
+  } else if (hasEet) {
+    arrKind = 'ETA'; // an estimated arrival; arrBasis says it came from the EET
+    arrDisplayMs = depDisplayMs + eetMin * 60_000;
   } else if (etaMs !== staMs) {
     arrKind = 'ETA';
     arrDisplayMs = etaMs;
@@ -218,6 +232,8 @@ function mapFlight(flight, group) {
     arrKind,
     depHm: toHm(new Date(depDisplayMs)),
     arrHm: toHm(new Date(arrDisplayMs)),
+    eetMin: hasEet ? eetMin : null,
+    arrBasis: ldgMs != null ? 'LDG' : hasEet ? 'EET' : etaMs !== staMs ? 'ETA' : (toMs != null || depDeltaMin !== 0) ? 'STA+delta' : 'STA',
     depDeltaMin,
     arrDeltaMin,
     status: statusFromFlight(flight),
@@ -401,7 +417,9 @@ export async function fetchUpcomingFlights() {
         etdHm: toHm(flight.etd ?? flight.startTimeUTC),
         dly,
         atdHm: toHm(flight.atd),
-        etaHm: toHm(flight.eta ?? flight.endTimeUTC),
+        // The table's ETA follows the SAME rule as the bar's end (LDG > departure + EET > ETA > STA ± delay),
+        // so the table and the timeline never show two different arrivals for one flight (bug report 7 item 6).
+        etaHm: (() => { if (flight.ataHm || flight.ata) return toHm(flight.eta ?? flight.endTimeUTC); const m = mapFlight(flight, group); return m?.arrHm ?? toHm(flight.eta ?? flight.endTimeUTC); })(),
         ataHm: toHm(flight.ata),
         date: (() => { const d = new Date(stdMs); return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`; })(),
         flightColor: flight.checklistColor || null,

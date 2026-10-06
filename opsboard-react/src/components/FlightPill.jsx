@@ -18,6 +18,7 @@ import {
 } from '../theme/wallColors';
 
 import { WALL_FONT } from '../theme/wallFont';
+import { useWallDisplay } from '../theme/WallDisplayContext';
 // Static resolved defaults — for module-level exports and the shared
 // components when they render OUTSIDE the wall's WallColorsProvider (console
 // lists). Inside the provider every colour comes from useWallColors().
@@ -112,11 +113,14 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
   const pillHeight = Number.isFinite(opts.pillHeight) ? opts.pillHeight : 1;
   const markerScale = Number.isFinite(opts.markerScale) ? opts.markerScale : 1;
   const labelScale = Number.isFinite(opts.labelScale) ? opts.labelScale : 1;
+  // Bug report 7 item 3: the horizontal section's callsign and route/time sizes multiply on top of the label size.
+  const callsignScale = Number.isFinite(opts.callsignScale) ? opts.callsignScale : 1;
+  const routeScale = Number.isFinite(opts.routeScale) ? opts.routeScale : 1;
   const sz = (v) => Math.round(v * scale);
   const vz = (v, floor) => Math.max(floor, Math.round(v * scale * rowZoom));
-  const id = Math.max(7, Math.round(12.5 * scale * labelScale));
+  const id = Math.max(7, Math.round(12.5 * scale * labelScale * callsignScale));
   const icao = Math.max(7, Math.round(12 * scale * labelScale));
-  const times = Math.max(7, Math.round(11 * scale * labelScale));
+  const times = Math.max(7, Math.round(11 * scale * labelScale * routeScale));
   const markerH = Math.max(10, Math.round(16 * scale * markerScale));
   const body = Math.max(icao + sz(4), Math.round(30 * scale * rowZoom * pillHeight));
   // Old-DigitalWall layout: the callsign (+ LIM circles) sits IN FRONT of
@@ -128,6 +132,30 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
   // top offset 4 + band + 2 + times row (see render)
   const total = band + sz(2) + timesRow;
   return { band, body, timesRow, total, fonts: { id, icao, times }, markerH };
+}
+
+/**
+ * Horizontal metrics (bug report 7 item 3), shared by the Board's lane packer and the pill so packing and
+ * drawing can never disagree. NOTHING here touches the time axis: a flight's start x is always
+ * (start − windowStart) × pxPerHour; these size only what sits BESIDE a pill on its lane. Every value at the
+ * default knobs equals the constant the wall used before. Pixel floors: chip gap/lead/padding 1 px, pill inner
+ * padding 2 px, every gap 2 px; minimum pill length never below the pill's own height (and never under 6 px).
+ */
+export function horizontalMetrics(scale = 1, h = {}, markerScale = 1) {
+  const k = (name, d) => (Number.isFinite(Number(h?.[name])) ? Number(h[name]) : d);
+  const chip = k('chipSpacing', 1), pad = k('pillPadding', 1), gap = k('laneGap', 1);
+  const sz = (v) => v * scale;
+  return {
+    chipGap: Math.max(1, Math.round(4 * chip)),
+    chipLead: Math.max(1, Math.round(sz(6) * chip)),
+    chipPadX: Math.max(1, Math.round(4 * scale * markerScale * chip)),
+    pillPadX: Math.max(2, Math.round(sz(9) * pad)),
+    callsignGap: Math.max(2, Math.round(sz(6) * gap)),
+    frontSlack: Math.max(2, Math.round(sz(12) * gap)),
+    laneGapPx: Math.max(2, Math.round(14 * gap)),
+    neighbourSafety: Math.max(2, Math.round(sz(10) * gap)),
+    minPillMs: Math.max(1, k('minPillMinutes', 45)) * 60_000,
+  };
 }
 
 /**
@@ -210,8 +238,8 @@ function hmUtc(ms) {
 const MARKER_ORDER = { IMP: 0, NTM: 1, CAA: 2, WXD: 3, WXA: 4 };
 
 /** markerListOf, re-sorted into the fixed IMP > NTM > CAA > WX order. */
-export function orderedMarkersOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}) {
-  return markerListOf(flight, { wx, colors })
+export function orderedMarkersOf(flight, { wx = true, colors = DEFAULT_COLORS, show = null } = {}) {
+  return markerListOf(flight, { wx, colors, show })
     .slice()
     .sort((a, b) => (MARKER_ORDER[a.key] ?? 9) - (MARKER_ORDER[b.key] ?? 9));
 }
@@ -234,15 +262,18 @@ export function mvtOverdueOf(flight, nowMs, thresholdMin = 15) {
   );
 }
 
-export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}) {
+export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS, show = null } = {}) {
   const chips = markerChipsFor(colors);
   const wxColors = wxCategoryColorsFor(colors);
+  // Bug report 7 item 5: per-account chip visibility. A hidden chip is simply not in the list, so the row (and
+  // every width estimate built from it) closes up — no gap where it was.
+  const on = (key) => show == null || show[key] !== false;
   const list = [];
-  if ((flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: chips.IMP.text, label: 'Important' });
-  if ((flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: chips.CAA.text, label: 'CAA details' });
-  if (wx && flight.wxDep && wxColors[flight.wxDep]) list.push({ key: 'WXD', color: wxColors[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
-  if (wx && flight.wxArr && wxColors[flight.wxArr]) list.push({ key: 'WXA', color: wxColors[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
-  for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK_TYPES.has(l.type)).map((l) => l.type))) {
+  if (on('IMP') && (flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: chips.IMP.text, label: 'Important' });
+  if (on('CAA') && (flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: chips.CAA.text, label: 'CAA details' });
+  if (on('WX') && wx && flight.wxDep && wxColors[flight.wxDep]) list.push({ key: 'WXD', color: wxColors[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
+  if (on('WX') && wx && flight.wxArr && wxColors[flight.wxArr]) list.push({ key: 'WXA', color: wxColors[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
+  if (on('NTM')) for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK_TYPES.has(l.type)).map((l) => l.type))) {
     list.push({ key: type, color: chips.NTM.text, label: 'Unreviewed NOTAM' });
   }
   return list;
@@ -252,10 +283,9 @@ export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS } = {}
  * Estimated pixel widths per degradation mode (design 1B) — mono-font
  * heuristics consistent with the pill's other width maths.
  */
-export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = [], { wx = true } = {}) {
-  const markers = [...markerListOf(flight, { wx }), ...extraMarkers];
+export function markerRowWidthEstimate(flight, sz, mode, extraMarkers = [], { wx = true, show = null, gap = 4 } = {}) {
+  const markers = [...markerListOf(flight, { wx, show }), ...extraMarkers];
   if (markers.length === 0) return 0;
-  const gap = 4;
   if (mode === 'dots') return markers.length * (sz(8) + gap);
   if (mode === 'count') return sz(26);
   const per = (m) => {
@@ -321,8 +351,13 @@ export function IcaoTypeChip({ letter, size = 12, variant = 'wall' }) {
   );
 }
 
-export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null, max = null }) {
+export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false, variant = 'wall', mode = 'full', extraMarkers = [], icaoType = null, max = null, gap = 4, padX = null }) {
   const c = useWallColors();
+  // Chip visibility (bug report 7 item 5) applies on the wall surfaces only; console lists keep every chip.
+  const display = useWallDisplay();
+  const show = variant === 'wall' ? display.chips : null;
+  const on = (key) => show == null || show[key] !== false;
+  const px = padX ?? sz(4);
   const chips = markerChipsFor(c);
   const lightChips = markerLightFor(c);
   const light = variant === 'light';
@@ -330,7 +365,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
   // order, at most `max` chips, everything else folded into one "+N" chip.
   // New gated branch — desktop never passes `max`, so nothing changes there.
   if (variant === 'wall' && max != null && mode !== 'dots' && mode !== 'count') {
-    const ordered = orderedMarkersOf(flight, { wx: true, colors: c });
+    const ordered = orderedMarkersOf(flight, { wx: true, colors: c, show });
     if (ordered.length === 0) return null;
     const shown = ordered.slice(0, max);
     const hiddenCount = ordered.length - shown.length;
@@ -340,7 +375,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
       fontWeight: 800,
       border: '1px solid',
       borderRadius: 4,
-      padding: `1px ${sz(4)}px`,
+      padding: `1px ${px}px`,
       lineHeight: `${sz(12)}px`,
       letterSpacing: '.5px',
       flexShrink: 0,
@@ -353,7 +388,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
     };
     const labelOf = (m) => (m.key === 'WXD' || m.key === 'WXA' ? 'WX' : m.key);
     return (
-      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+      <span style={{ display: 'inline-flex', gap, alignItems: 'center', flexShrink: 0 }}>
         {shown.map((m, i) => (
           <span key={`${m.key}-${i}`} title={m.label} style={{ ...chipBase, ...chipStyleOf(m) }}>
             {labelOf(m)}
@@ -374,7 +409,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
   // marker to a coloured dot, count folds everything into one +N chip.
   // Colour meaning survives at every level.
   if (variant === 'wall' && (mode === 'dots' || mode === 'count')) {
-    const markers = [...markerListOf(flight, { wx: false, colors: c }), ...(extraMarkers || [])];
+    const markers = [...markerListOf(flight, { wx: false, colors: c, show }), ...(extraMarkers || [])];
     if (markers.length === 0) return null;
     if (mode === 'count') {
       return (
@@ -387,7 +422,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             color: c.textTimes,
             border: `1px solid ${PILL_SHIPPED.countBorder}`,
             borderRadius: 4,
-            padding: `1px ${sz(4)}px`,
+            padding: `1px ${px}px`,
             lineHeight: `${sz(12)}px`,
             flexShrink: 0,
           }}
@@ -397,7 +432,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
       );
     }
     return (
-      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+      <span style={{ display: 'inline-flex', gap, alignItems: 'center', flexShrink: 0 }}>
         {markers.map((m) => (
           <span
             key={m.key}
@@ -412,16 +447,16 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
   const alertTypes = [
     ...new Set(
       (flight.limitations || [])
-        .filter((lim) => lim.source === 'alert' && ALERT_MARK_TYPES.has(lim.type))
+        .filter((lim) => on('NTM') && lim.source === 'alert' && ALERT_MARK_TYPES.has(lim.type))
         .map((lim) => lim.type)
     ),
   ];
-  const hasImp = (flight.limitations || []).some((lim) => lim.type === 'IMP');
-  const hasCaa = (flight.limitations || []).some((lim) => lim.type === 'CAA');
+  const hasImp = on('IMP') && (flight.limitations || []).some((lim) => lim.type === 'IMP');
+  const hasCaa = on('CAA') && (flight.limitations || []).some((lim) => lim.type === 'CAA');
   const dep = flight.adep?.icao ?? flight.dep ?? 'UNK';
   const arr = flight.ades?.icao ?? flight.arr ?? 'UNK';
   return (
-    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', ...(wrap ? { flexWrap: 'wrap', rowGap: 3 } : {}) }}>
+    <span style={{ display: 'inline-flex', gap, alignItems: 'center', ...(wrap ? { flexWrap: 'wrap', rowGap: 3 } : {}) }}>
       {hasImp && (
         <span
           title="Important limitation — details in the Console"
@@ -453,7 +488,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             fontWeight: 800,
             border: `1px solid ${light ? lightChips.CAA.border : chips.CAA.border}`,
             borderRadius: 4,
-            padding: `1px ${sz(4)}px`,
+            padding: `1px ${px}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
             color: light ? lightChips.CAA.text : chips.CAA.text,
@@ -464,8 +499,8 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
           {iconsOnly ? 'C' : 'CAA'}
         </span>
       )}
-      {variant !== 'wall' && <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} iconOnly={iconsOnly} />}
-      {variant !== 'wall' && <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} iconOnly={iconsOnly} />}
+      {variant !== 'wall' && on('WX') && <WxMark category={flight.wxDep} icao={dep} side="dep" sz={sz} variant={variant} iconOnly={iconsOnly} />}
+      {variant !== 'wall' && on('WX') && <WxMark category={flight.wxArr} icao={arr} side="arr" sz={sz} variant={variant} iconOnly={iconsOnly} />}
       {alertTypes.map((type) => (
         <span
           key={type}
@@ -476,7 +511,7 @@ export function FlightMarkers({ flight, sz = (v) => Math.round(v), wrap = false,
             fontWeight: 700,
             border: '1px solid',
             borderRadius: 4,
-            padding: `1px ${sz(4)}px`,
+            padding: `1px ${px}px`,
             lineHeight: `${sz(12)}px`,
             letterSpacing: '.5px',
             color: light ? lightChips.NTM.text : chips.NTM.text,
@@ -530,6 +565,7 @@ export default function FlightPill({
   bodyContent = 'icao',
   bodyRight = null,       // 'times' | 'duration' — right-hand text in callsign mode
   belowText = null,       // null = today's auto | 'combined' | 'none'
+  horizontal = null,      // bug report 7 item 3: effective horizontal knobs (Board passes the auto-fitted ones)
 }) {
   const { fn, dep, arr, etd, eta, depDelayMin = 0, arrDelayMin = 0, depDeltaMin = 0, arrDeltaMin = 0, depKind = 'STD', arrKind = 'STA', depHm, arrHm, status } = flight;
   // Resolved wall colour tokens (per-account overrides over the shipped
@@ -552,7 +588,10 @@ export default function FlightPill({
   // Marker-row sizing: everything inside <FlightMarkers> (and the LIM chip,
   // which sits in the same row) draws through this scaled helper.
   const szm = (v) => Math.max(1, Math.round(v * scale * markerScale));
-  const V = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale });
+  const display = useWallDisplay();
+  const hz = horizontal ?? display.horizontal;
+  const H = horizontalMetrics(scale, hz, markerScale);
+  const V = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale, callsignScale: hz.callsignScale, routeScale: hz.routeScale });
   const F = {
     id: V.fonts.id,
     times: V.fonts.times,
@@ -586,7 +625,8 @@ export default function FlightPill({
 
   // WX colour for an ICAO: dark tones on solid light fills, bright tones on
   // hollow pills (dark background shows through). null = default colour.
-  const wxIcaoColor = (cat) => (stale || !cat ? null : (hollow ? WX_BRIGHT[cat] : WX_DARK[cat]) ?? null);
+  // WX switched off (bug report 7 item 5): on the wall the ICAO codes ARE the weather marking, so they go plain.
+  const wxIcaoColor = (cat) => (stale || !cat || !display.chips.WX ? null : (hollow ? WX_BRIGHT[cat] : WX_DARK[cat]) ?? null);
 
   const depMs = Number(flight.startUtcMs) || 0;
   const schedArrMs = Number(flight.scheduledEndUtcMs) || depMs;
@@ -604,7 +644,12 @@ export default function FlightPill({
   const arrCrossStartF = clamp(frac(arrCrossStartMs));
   const arrCrossEndF = clamp(frac(arrCrossEndMs));
 
-  const totalF = Math.max(arrCrossEndF - depF, 0.005);
+  // Minimum DRAWN length: the shipped 0.5 % of the window, or the "Minimum pill length" knob when shorter; never
+  // below the pill's own height (a rounded pill can't be narrower than it is tall). Only the END moves: depF —
+  // where the flight sits against the hour ruler — is untouched by every knob.
+  const knobMinF = H.minPillMs / windowDurationMs;
+  const minDrawF = knobMinF >= 0.005 ? 0.005 : Math.max(knobMinF, timelinePx > 0 ? Math.max(6, F.body) / timelinePx : 0);
+  const totalF = Math.max(arrCrossEndF - depF, minDrawF);
   // Wider than the viewport => both ends can't be on screen at once.
   const pillClipped = viewportPx > 0 && totalF * timelinePx > viewportPx;
   const depCrossSectionF = depDeltaMin > 0 ? Math.max(depCrossF - depF, 0) : 0;
@@ -694,7 +739,7 @@ export default function FlightPill({
   // layout cost (+6px safety); the rule is: both codes fit completely or
   // nothing renders inside — the route below the pill is authoritative.
   const icaoCodePx = (code) => String(code).length * (F.icao * 0.62 + 0.5);
-  const inPillIcaoNeedPx = icaoCodePx(dep) + icaoCodePx(arr) + 1 + 2 * 8 + 2 * sz(9) + sz(6);
+  const inPillIcaoNeedPx = icaoCodePx(dep) + icaoCodePx(arr) + 1 + 2 * 8 + 2 * H.pillPadX + sz(6);
   const showFull = timelinePx > 0
     ? mainPx >= inPillIcaoNeedPx
     : (mainSectionF / totalF) > 0.14;
@@ -709,7 +754,7 @@ export default function FlightPill({
   // start in this lane (minus a safety gap), or effectively unlimited when
   // there is no neighbour.
   const budgetPx = Number.isFinite(neighborGapPx)
-    ? Math.max(pillPx, neighborGapPx) - sz(10)
+    ? Math.max(pillPx, neighborGapPx) - H.neighbourSafety
     : Number.POSITIVE_INFINITY;
 
   // Marker row degradation (design 1B): full chips → icon-only chips →
@@ -727,12 +772,13 @@ export default function FlightPill({
   // pill's end and the next flight's front text. 'none' hides them when
   // even a +N cluster can't fit (details stay in the overlay/console).
   const afterGapPx = Number.isFinite(neighborGapPx)
-    ? neighborGapPx - pillPx - sz(10)
+    ? neighborGapPx - pillPx - H.neighbourSafety - H.chipLead
     : Number.POSITIVE_INFINITY;
   const markerMode = forceMarkerMode ?? (() => {
-    if (markerRowWidthEstimate(flight, szm, 'full', [], { wx: false }) <= afterGapPx) return 'full';
-    if (markerRowWidthEstimate(flight, szm, 'icons', [], { wx: false }) <= afterGapPx) return 'icons';
-    if (markerRowWidthEstimate(flight, szm, 'dots', [], { wx: false }) <= afterGapPx) return 'dots';
+    const est = { wx: false, show: display.chips, gap: H.chipGap };
+    if (markerRowWidthEstimate(flight, szm, 'full', [], est) <= afterGapPx) return 'full';
+    if (markerRowWidthEstimate(flight, szm, 'icons', [], est) <= afterGapPx) return 'icons';
+    if (markerRowWidthEstimate(flight, szm, 'dots', [], est) <= afterGapPx) return 'dots';
     if (szm(26) <= afterGapPx) return 'count';
     return 'none';
   })();
@@ -741,7 +787,7 @@ export default function FlightPill({
   // marker/wx token bridges, capped at maxMarkers in IMP > NTM > CAA > WX
   // order. Dots carry presence, the detail sheet carries the words.
   const insideDots = markersInside && markerMode === 'dots'
-    ? orderedMarkersOf(flight, { wx: true, colors: c }).slice(0, maxMarkers ?? 3)
+    ? orderedMarkersOf(flight, { wx: true, colors: c, show: display.chips }).slice(0, maxMarkers ?? 3)
     : null;
   const markersAfterPill = markerMode !== 'none' && !insideDots;
 
@@ -773,7 +819,7 @@ export default function FlightPill({
   };
 
   return (
-    <div style={{
+    <div data-fid={flight.id} data-start={depMs} style={{
       position: 'absolute',
       left: (depF * 100).toFixed(3) + '%',
       width: (totalF * 100).toFixed(3) + '%',
@@ -787,7 +833,7 @@ export default function FlightPill({
       <div style={{ position: 'relative', height: F.band }}>
         {/* Front group: LIM circles + callsign, on the SAME line as the
             pill (old-DigitalWall) — anchored just before the pill start. */}
-        <span style={{ position: 'absolute', right: '100%', marginRight: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: sz(4), whiteSpace: 'nowrap' }}>
+        <span style={{ position: 'absolute', right: '100%', marginRight: H.callsignGap, top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', alignItems: 'center', gap: sz(4), whiteSpace: 'nowrap' }}>
           {hasLim && limIndices.map((indexValue, idx) => {
             // Checked limitations stay VISIBLE but muted: outlined circle,
             // dim number (chosen visual) — solid amber = needs attention.
@@ -834,8 +880,8 @@ export default function FlightPill({
           )}
         </span>
         {markersAfterPill && (
-          <span style={{ position: 'absolute', left: '100%', marginLeft: sz(6), top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}>
-            <FlightMarkers flight={flight} sz={szm} mode={markerMode} max={maxMarkers} />
+          <span style={{ position: 'absolute', left: '100%', marginLeft: H.chipLead, top: '50%', transform: 'translateY(-50%)', display: 'inline-flex', gap: H.chipGap, alignItems: 'center', whiteSpace: 'nowrap' }}>
+            <FlightMarkers flight={flight} sz={szm} mode={markerMode} max={maxMarkers} gap={H.chipGap} padX={H.chipPadX} />
           </span>
         )}
 
@@ -908,7 +954,7 @@ export default function FlightPill({
               boxShadow: hollow ? 'none' : PILL_SHIPPED.edgeInset,
               display: 'flex',
               alignItems: 'center',
-              padding: `0 ${sz(9)}px`,
+              padding: `0 ${H.pillPadX}px`,
               position: 'relative',
               cursor: 'default',
               gap: 8,

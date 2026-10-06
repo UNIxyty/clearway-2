@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchDisplaySettings, saveDisplaySettings, fetchTimelineAircraft } from '../../services/timelineApi';
-import { WALL_FONTS, DEFAULT_WALL_FONT_ID, PLAIN_ZERO_WARNING, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
+import { WALL_FONTS, DEFAULT_WALL_FONT_ID, DEFAULT_ZERO_STYLE, ZERO_STYLES, PLAIN_ZERO_WARNING, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
 import { useWallColors } from '../../theme/WallColorsContext';
-import { Button, Card, ErrorBanner, LoadingState, t, useToast } from './ui';
+import { Button, Card, ErrorBanner, LoadingState, Segmented, t, useToast } from './ui';
 
 // Font tab — built like the Colours tab: the same per-account profile (My view / Main wall), the same
 // GET/PUT /api/display/settings, the same config.changed route that repaints the wall in ~1-2 s, no reload.
@@ -17,6 +17,7 @@ const PREVIEW_FALLBACK = { callsign: 'CWY101', route: 'EVRA → EGGW', reg: 'YL-
 
 export default function FontCard({ deviceId }) {
   const [fontId, setFontId] = useState(DEFAULT_WALL_FONT_ID);
+  const [zeroStyle, setZeroStyle] = useState(DEFAULT_ZERO_STYLE);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [sample, setSample] = useState(PREVIEW_FALLBACK);
@@ -26,7 +27,7 @@ export default function FontCard({ deviceId }) {
 
   useEffect(() => {
     fetchDisplaySettings(deviceId)
-      .then((payload) => setFontId(resolveWallFont(payload.settings?.font).id))
+      .then((payload) => { setFontId(resolveWallFont(payload.settings?.font).id); setZeroStyle(['dotted', 'slashed', 'plain'].includes(payload.settings?.zeroStyle) ? payload.settings.zeroStyle : DEFAULT_ZERO_STYLE); })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
   }, [deviceId]);
@@ -50,14 +51,24 @@ export default function FontCard({ deviceId }) {
     let cancelled = false;
     const run = async () => {
       const out = {};
-      for (const f of WALL_FONTS) out[f.id] = { ...wallFontProbe(f), tabular: await tabularDigits(f.stack) };
+      for (const f0 of WALL_FONTS) { const f = resolveWallFont(f0.id, zeroStyle); out[f.id] = { ...wallFontProbe(f), tabular: await tabularDigits(f.stack) }; }
       if (!cancelled) setProbes(out);
     };
     run();
     return () => { cancelled = true; };
-  }, [fontId]);
+  }, [fontId, zeroStyle]);
 
-  const chosen = useMemo(() => resolveWallFont(fontId), [fontId]);
+  const chosen = useMemo(() => resolveWallFont(fontId, zeroStyle), [fontId, zeroStyle]);
+
+  async function chooseZero(style) {
+    if (style === zeroStyle) return;
+    const previous = zeroStyle;
+    setZeroStyle(style);
+    try {
+      await saveDisplaySettings({ zeroStyle: style }, deviceId);
+      flash(`Zero → ${style} on Nunito, Roboto and Public Sans — wall updates in seconds`);
+    } catch (err) { setZeroStyle(previous); setError(err instanceof Error ? err.message : String(err)); }
+  }
 
   async function choose(id) {
     if (id === fontId) return;
@@ -82,9 +93,10 @@ export default function FontCard({ deviceId }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: t.ink }}>Wall font</div>
           <div style={{ fontSize: 12.5, color: t.muted, marginTop: 3, maxWidth: 620, lineHeight: 1.5 }}>
             The text font of the wall display, per profile like the colours. The wall changes within seconds, no reload.
-            Nunito, Roboto and Public Sans are served from our own server with a dotted zero, so 0 and O cannot be confused across the
-            room. Avenir / Helvetica and Arial are commercial fonts the display machine has to have, and their zero is plain — the
-            notes under each option say what this machine would actually render.
+            The first seven are served from our own server with a zero that cannot be read as O — dotted (Nunito, Roboto, Public
+            Sans) or the font’s own slash (Atkinson Hyperlegible Next, Inter, IBM Plex Sans, Source Sans 3). The last four have a
+            plain zero: the old wall’s Nunito, and the commercial or system fonts the display machine has to supply — the notes
+            under each say what this machine would actually render.
           </div>
         </div>
         <Button size="sm" variant="soft" disabled={fontId === DEFAULT_WALL_FONT_ID} onClick={() => choose(DEFAULT_WALL_FONT_ID)}>Reset to default</Button>
@@ -94,7 +106,13 @@ export default function FontCard({ deviceId }) {
       <Preview font={chosen} sample={sample} colors={colors} probe={probes[chosen.id]} />
 
       <div role="radiogroup" aria-label="Wall font" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-        {WALL_FONTS.map((f) => {
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '4px 2px 2px' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>Zero on Nunito, Roboto and Public Sans</span>
+          <Segmented value={zeroStyle} onChange={(v) => void chooseZero(v)} options={ZERO_STYLES} />
+          <span style={{ fontSize: 12, color: t.muted, flexBasis: '100%' }}>At the wall’s label size a dot can fill in to a blob; a slash leaves two open triangles and survives small sizes better. The other fonts keep the zero they were designed with.</span>
+        </div>
+        {WALL_FONTS.map((f0) => {
+          const f = resolveWallFont(f0.id, zeroStyle);
           const on = f.id === fontId; const p = probes[f.id];
           return (
             <button
@@ -109,7 +127,8 @@ export default function FontCard({ deviceId }) {
                 {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.blue }} />}
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>{f.label}{f.id === DEFAULT_WALL_FONT_ID ? <span style={{ fontWeight: 500, color: t.muted }}> · default</span> : null}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>{f.label}{f.zeroVariants ? ` (${f.zero} zero)` : ''}{f.id === DEFAULT_WALL_FONT_ID ? <span style={{ fontWeight: 500, color: t.muted }}> · default</span> : null}</span>
+                {f.note && <span style={{ fontSize: 11.5, color: t.muted }}>{f.note}</span>}
                 <span style={{ fontSize: 11.5, color: t.faint, fontFamily: t.mono }}>{f.stack}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>

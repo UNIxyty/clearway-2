@@ -19,6 +19,7 @@ import ResponsiveWall from './components/mobile/ResponsiveWall';
 import VoiceReadout from './components/VoiceReadout';
 
 import { WALL_FONT, applyWallFont } from './theme/wallFont';
+import { WallDisplayProvider } from './theme/WallDisplayContext';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -129,6 +130,8 @@ export default function DisplayApp() {
   // same settings fetch as the sizing knobs, so the config.changed SSE
   // (section 'settings' → loadSettings) live-updates colours too.
   const [wallColorOverrides, setWallColorOverrides] = useState({});
+  // Chip visibility + horizontal knobs (bug report 7 items 3 and 5): same fetch, same live route as the colours.
+  const [displayOptions, setDisplayOptions] = useState({});
   // Before the first settings fetch answers, the wall renders in the default text font (the variable's fallback
   // is the same stack, so nothing flashes between fonts unless a different one is saved).
   useEffect(() => { applyWallFont(undefined); }, []);
@@ -181,7 +184,8 @@ export default function DisplayApp() {
       setWallColorOverrides(colors && typeof colors === 'object' ? colors : {});
       // The text font travels with the same fetch as the colours and takes the same live route
       // (config.changed → loadSettings): one CSS variable on <html>, no reload.
-      applyWallFont(payload.settings?.font);
+      applyWallFont(payload.settings?.font, payload.settings?.zeroStyle);
+      setDisplayOptions(payload.settings ?? {});
       setAutoFitRows(payload.settings?.autoFitRows === true);
       if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
       if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
@@ -289,6 +293,7 @@ export default function DisplayApp() {
 
   return (
     <WallColorsProvider colors={wallColorOverrides}>
+    <WallDisplayProvider settings={displayOptions}>
     {vp.isWallDesktop ? (
     <div style={s.shell}>
       {/* Clocks bar + wall sign scale with the SIDEBAR scale; the overlay
@@ -362,6 +367,7 @@ export default function DisplayApp() {
       }}
     />
     )}
+    </WallDisplayProvider>
     </WallColorsProvider>
   );
 }

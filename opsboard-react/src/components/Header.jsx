@@ -14,6 +14,9 @@ export const FALLBACK_CLOCKS = [
   { label: 'UTC', timeZone: 'UTC' },
 ];
 
+const isUtc = (c) => /^(UTC|Etc\/UTC|Etc\/GMT|GMT|Etc\/Universal|Universal|Zulu)$/i.test(String(c.timeZone ?? ''));
+const isLocal = (c) => c.local === true || c.home === true;
+
 function fmt(timeZone) {
   try {
     return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone });
@@ -61,12 +64,13 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
             key={`${c.label}-${c.timeZone}-${i}`}
             style={{ ...s.cell, ...(i === list.length - 1 ? { borderRight: 'none' } : {}) }}
           >
-            <span style={s.city}>{c.label}</span>
-            {/* Bug 6 item 4: UTC and the LOCAL clock each get their own
-                highlight (both are Colours-tab tokens). Local comes from a
-                flag on the clock entry — legacy `home` is honoured — so the
-                right clock stays highlighted if the station changes. */}
-            <span style={{ ...s.time, ...(c.timeZone === 'UTC' ? s.timeUtc : (c.local === true || c.home === true) ? s.timeLocal : {}) }}>{fmt(c.timeZone)}</span>
+            {/* Bug report 7 item 2: three treatments — UTC (token clockUtc), the LOCAL clock (token clockLocal,
+                picked in Settings → clocks; the server defaults it to the station's zone until someone picks), and
+                every other clock in the default colour. If the local clock IS UTC, the UTC colour wins — UTC is the
+                operational reference on this wall — and the label says "· LOCAL" in the local colour, so the
+                double role is visible rather than silently swallowed. */}
+            <span style={s.city}>{c.label}{isUtc(c) && isLocal(c) ? <span style={s.cityLocal}> · LOCAL</span> : null}</span>
+            <span style={{ ...s.time, ...(isUtc(c) ? s.timeUtc : isLocal(c) ? s.timeLocal : {}) }}>{fmt(c.timeZone)}</span>
           </div>
         ))}
       </div>
@@ -93,6 +97,7 @@ function makeStyles(sz, chrome) {
   time: { fontFamily: WALL_FONT, fontSize: sz(42), fontWeight: 600, letterSpacing: '-1.5px', color: chrome.headerTime, lineHeight: 1 },
   timeUtc: { color: chrome.clockUtc },
   timeLocal: { color: chrome.clockLocal },
+  cityLocal: { color: chrome.clockLocal },
   rightSlot: { minWidth: 150, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 },
 };
 }

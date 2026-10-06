@@ -1704,3 +1704,54 @@ states what the actual cause turned out to be.
 Overlap audit re-run after items 1/5/6: 0 real overlaps at 1920 (including
 timeZoom 0.15); the 5 reported pairs are the stacked clock label/time
 elements, which are by-design vertical stacks, not collisions.
+
+## Bug report 7 (Oct 2026) — unconfirmed ring, local clock, horizontal sizing, fonts, chip toggles, EET
+
+1. **Unconfirmed outline "never draws".** Renderer, setting and data are all
+   correct. Leon read-only check (`scripts/check-trip-status.mjs`, 48 h
+   slices because of the 1600 complexity cap): 47 flights in the wall's
+   window all CONFIRMED (status, trip status, flight.isConfirmed, times TBC);
+   484 flights over 37 days, 0 disagreements with the cache, 19 OPTION — none
+   inside the 24 h window. The five named trips through `mapLeonFlight` on
+   the rig: ring + italic on exactly the three OPTION trips, toggle off
+   removes every ring, colour change applies. Side finding: flights between
+   +6 h and the 24 h horizon that were created after the one-off initial
+   sync never reached the cache (movement refresh covers −24 h … +6 h only)
+   → `horizonTopUp` (upsert only, now … horizon + 12 h, first cycle after
+   start then every 15 cycles).
+2. **Second clock colour for local time.** Cause: production
+   `display-clocks.json` carried the legacy `home: true` on the UTC clock;
+   259858e read legacy home as "local", so UTC was local and the UTC colour
+   won → one coloured clock. Rule now: until someone presses Set local
+   (`localChosen: true` is written on the first PUT) the station clock
+   (`WALL_STATION_TIME_ZONE`, default Europe/Riga) is local; legacy home is
+   ignored. At most one local clock (server-enforced). If the chosen local
+   clock IS UTC: UTC colour, label "UTC · LOCAL" in the local colour.
+3. **Horizontal sizing.** Never touches the time axis: callsign text scale,
+   route/time text scale, chip spacing, minimum pill length (5–45 min),
+   pill padding, gap to next flight in the lane, and Auto-fit (largest
+   factor ≤ 1 at which the busiest row stops needing extra lanes). Floors:
+   text 7 CSS px, chip gaps/padding 1 px, pill padding 2 px, lane gap 2 px,
+   minimum drawn pill ≥ pill height. Time-window controls already exist:
+   Hour spacing and Wall content horizons. Proof: `tools/wall-verify.mjs`
+   measures every pill's left edge against the hour ruler — 0.000 px
+   difference at every setting.
+4. **Fonts.** Ops wall chain from device telemetry: 1920×1080 output,
+   Chrome zoom 90 % (DPR 0.9), kiosk/TV. Time label 10 CSS px = 9 device px;
+   every zero counter < 4 px (Nunito dotted 2.4 × 4.6 px, dot gap 0.33 px).
+   Zero style setting (dotted | slashed | plain) for Nunito, Roboto and
+   Public Sans; slashed builds frozen from each font's own `zero` feature
+   (`tools/slashed-zero.py`, `tools/dotted-zero.py --style`). New options:
+   Old Digital Wall (`'Nunito', Roboto, Avenir, Helvetica, Arial` with
+   Google's unpatched Nunito 400), Atkinson Hyperlegible Next, Inter, IBM
+   Plex Sans and Source Sans 3 (the last two under neutral names — OFL
+   Reserved Font Names). All self-hosted, tabular, licences in
+   `public/fonts/LICENSES`. Walls that never chose keep Nunito dotted.
+5. **Chip toggles** IMP / CAA / NOTAM / WX per account, default on; a hidden
+   chip leaves no gap; pills keep their size and place.
+6. **EET.** Leon's EET is `FlightWatch.eet` (seconds) / `eetIso` (HH:MM),
+   mapped to `eetMin`. Bar START: T/O > later of CTOT / ETD > STD. Bar END:
+   LDG > departure + EET > Leon ETA (≠ STA) > STA shifted by the departure
+   delay > STA. EET beats STA when they disagree; the label is always the
+   bar end, with its signed difference from STA. The Upcoming table uses
+   the same end.

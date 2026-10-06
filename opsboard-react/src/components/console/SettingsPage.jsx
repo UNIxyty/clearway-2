@@ -49,6 +49,7 @@ import {
   Segmented,
   t,
   TextInput,
+  Toggle,
   useToast,
 } from './ui';
 
@@ -98,11 +99,12 @@ function ClocksCard() {
   const [, setTick] = useState(0);
   const dragIndex = useRef(null);
   const flash = useToast();
+  const [localSource, setLocalSource] = useState(null);
   const allZones = useMemo(() => timeZoneOptions(), []);
 
   useEffect(() => {
     fetchDisplayClocks()
-      .then((payload) => setClocks(payload.clocks || []))
+      .then((payload) => { setClocks(payload.clocks || []); setLocalSource(payload.localSource ?? null); })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
     const id = setInterval(() => setTick((v) => v + 1), 1000);
@@ -120,6 +122,7 @@ function ClocksCard() {
     try {
       const payload = await saveDisplayClocks(next);
       setClocks(payload.clocks);
+      setLocalSource(payload.localSource ?? null);
       flash('Clocks saved · wall updates in seconds');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -152,8 +155,22 @@ function ClocksCard() {
         </Button>
       </div>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Drag to reorder. UTC and the local clock are each highlighted on the wall (colours in the Colours tab).
+        Drag to reorder. UTC and the local clock are each highlighted on the wall in their own colour (UTC clock time
+        and Local clock time in the Colours tab); every other clock stays the default colour. Press <b>Set local</b> on
+        the clock that is local time for this station — the wall never guesses it from the screen&apos;s own time zone.
+        If the local clock is UTC, the UTC colour wins and the clock is labelled “UTC · LOCAL”.
       </p>
+      {localSource === 'station-default' && (
+        <div style={{ fontSize: 12.5, color: '#92400e', background: '#fef3e2', borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
+          Nobody has picked the local clock yet, so the wall uses the station default ({(clocks.find((c) => c.local) || {}).label}).
+          Press Set local on any clock to make the choice explicit.
+        </div>
+      )}
+      {localSource === 'none' && (
+        <div style={{ fontSize: 12.5, color: t.muted, background: '#f1f2f4', borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
+          No clock is marked local: only UTC is highlighted on the wall.
+        </div>
+      )}
       <ErrorBanner>{error}</ErrorBanner>
       {loading && <LoadingState>Loading clocks…</LoadingState>}
 
@@ -589,6 +606,165 @@ function VerticalSizingCard() {
           onChange={(next) => onChange(row.key, row.label, next)}
         />
       ))}
+    </Card>
+  );
+}
+
+// ── Horizontal sizing (bug report 7 item 3) ─────────────────────────────────────────────────────────────────
+// Mirrors Vertical sizing. The horizontal axis IS time, so nothing here may move a flight against the hour ruler:
+// these knobs size what sits BESIDE a pill on its lane (callsign, route/time line, chips, the reserved minimum
+// length, padding, the gap to the next flight). Fewer collisions → fewer extra lanes → more rows on screen.
+function HorizontalSizingCard() {
+  const { deviceId } = useContext(DeviceCtx);
+  const DEFAULTS = { callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1 };
+  const [values, setValues] = useState(DEFAULTS);
+  const [autoFit, setAutoFit] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const timerRef = useRef(null);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings(deviceId)
+      .then((payload) => {
+        setValues((prev) => {
+          const next = { ...prev };
+          for (const key of Object.keys(DEFAULTS)) if (Number.isFinite(payload.settings?.[key])) next[key] = payload.settings[key];
+          return next;
+        });
+        setAutoFit(payload.settings?.autoFitHorizontal === true);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    return () => clearTimeout(timerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function onChange(key, label, next, unit) {
+    setValues((prev) => ({ ...prev, [key]: next }));
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings({ [key]: next }, deviceId);
+        flash(`${label} ${unit === 'min' ? `${next} min` : `${Number(next).toFixed(2)}×`} — wall updates in seconds`);
+      } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    }, 500);
+  }
+
+  const rows = [
+    { key: 'callsignScale', label: 'Callsign size', hint: 'the flight number in front of the pill (floor 7 px)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
+    { key: 'routeScale', label: 'Route & time size', hint: 'the route/times line under the pill (floor 7 px)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
+    { key: 'chipSpacing', label: 'Chip spacing', hint: 'gap between chips, and from the pill (floor 1 px); chip size is Marker size', min: 0.25, max: 2, step: 0.05, unit: '×' },
+    { key: 'minPillMinutes', label: 'Minimum pill length', hint: 'space a short flight reserves on its lane (floor: the pill’s own height)', min: 5, max: 45, step: 5, unit: 'min' },
+    { key: 'pillPadding', label: 'Pill padding', hint: 'space inside the pill around the airport codes (floor 2 px)', min: 0.2, max: 2, step: 0.05, unit: '×' },
+    { key: 'laneGap', label: 'Gap to next flight', hint: 'from a pill’s end to the next callsign in its lane (floor 2 px)', min: 0.15, max: 2, step: 0.05, unit: '×' },
+  ];
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Horizontal sizing</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        The horizontal axis is time, so none of these moves a flight against the hour ruler: they shrink what sits
+        beside each pill. On this wall labels never print over each other — a flight that would collide drops to a new
+        lane, and extra lanes push rows off the screen; smaller labels and gaps mean fewer lanes and more rows. To cover
+        more hours instead, use <b>Hour spacing</b> above (hours visible across the screen) and the upcoming /
+        post-landing windows under Wall content (which flights are on the board at all).
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? '#f0f6ff' : t.card }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit horizontal sizes</div>
+          <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+            The wall shrinks the six knobs below together, just enough that labels stop forcing extra lanes in the
+            busiest rows, and no further — recomputed live as flights come and go. Sliders become ceilings while on;
+            the floors always win.
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={autoFit ? 'primary' : 'soft'}
+          disabled={!loaded}
+          onClick={async () => {
+            const next = !autoFit;
+            setAutoFit(next);
+            try {
+              await saveDisplaySettings({ autoFitHorizontal: next }, deviceId);
+              flash(`Horizontal auto-fit ${next ? 'ON' : 'off'}`);
+            } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+          }}
+        >
+          {autoFit ? 'Auto-fit ON' : 'Auto-fit off'}
+        </Button>
+      </div>
+      {rows.map((row) => (
+        <WindowRow
+          key={row.key}
+          label={row.label}
+          hint={row.hint}
+          min={row.min}
+          max={row.max}
+          step={row.step}
+          unit={row.unit === 'min' ? ' min' : '×'}
+          value={values[row.key]}
+          defaultValue={DEFAULTS[row.key]}
+          loaded={loaded}
+          onChange={(next) => onChange(row.key, row.label, next, row.unit)}
+        />
+      ))}
+    </Card>
+  );
+}
+
+// ── Chips on the pills (bug report 7 item 5) ────────────────────────────────────────────────────────────────
+function ChipsCard() {
+  const { deviceId } = useContext(DeviceCtx);
+  const KEYS = [
+    { key: 'chipImp', label: 'Important (!)', stops: 'the Important limitation mark on a flight' },
+    { key: 'chipCaa', label: 'CAA', stops: 'the CAA authority-details mark' },
+    { key: 'chipNtm', label: 'NOTAM (NTM)', stops: 'the unreviewed-NOTAM alert on a flight' },
+    { key: 'chipWx', label: 'WX', stops: 'weather marking — on the wall that is the colour of the airport codes; chips on phone and tablet' },
+  ];
+  const [values, setValues] = useState({ chipImp: true, chipCaa: true, chipNtm: true, chipWx: true });
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const flash = useToast();
+  useEffect(() => {
+    fetchDisplaySettings(deviceId)
+      .then((payload) => setValues(Object.fromEntries(KEYS.map((k) => [k.key, payload.settings?.[k.key] !== false]))))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  async function toggle(k) {
+    const next = !values[k.key];
+    setValues((prev) => ({ ...prev, [k.key]: next }));
+    try {
+      await saveDisplaySettings({ [k.key]: next }, deviceId);
+      flash(`${k.label} chip ${next ? 'shown' : 'hidden'} — wall updates in seconds`);
+    } catch (err) { setValues((prev) => ({ ...prev, [k.key]: !next })); setError(err instanceof Error ? err.message : String(err)); }
+  }
+  const hidden = KEYS.filter((k) => values[k.key] === false);
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Chips on the pills</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 6px' }}>
+        Which warning chips the wall shows after each pill. A hidden chip leaves no gap; the row closes up.
+      </p>
+      <p style={{ fontSize: 13, color: '#b91c1c', margin: '0 0 14px', fontWeight: 600 }}>
+        Each chip is a real warning: switching one off means nobody looking at the wall sees it — the information is still
+        in the Console and the flight overlay.
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      {KEYS.map((k) => (
+        <div key={k.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: `1px solid ${t.borderInner}` }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{k.label}</div>
+            <div style={{ fontSize: 12.5, color: values[k.key] === false ? '#b91c1c' : t.faint }}>{values[k.key] === false ? `Hidden: the wall no longer shows ${k.stops}.` : `Shows ${k.stops}.`}</div>
+          </div>
+          <Toggle on={values[k.key] !== false} disabled={!loaded} onToggle={() => void toggle(k)} />
+        </div>
+      ))}
+      {hidden.length > 0 && <div style={{ fontSize: 12.5, color: t.muted, marginTop: 8 }}>{hidden.length} chip type{hidden.length === 1 ? '' : 's'} hidden on this profile.</div>}
     </Card>
   );
 }
@@ -1746,6 +1922,8 @@ export default function SettingsPage() {
                 {group('hour', 'Hour spacing', x(summaryValues?.timeZoom, 1), <HourSpacingCard />, true)}
                 {group('vertical', 'Vertical sizing', x(summaryValues?.rowZoom, 1), <VerticalSizingCard />, true)}
                 {group('panels', 'Overlay & sidebar size', x(summaryValues?.overlayScale, 1.3), <PanelScalesCard />, true)}
+                {group('horizontal', 'Horizontal sizing', summaryValues?.autoFitHorizontal ? 'Auto-fit' : 'Manual', <HorizontalSizingCard />, true)}
+                {group('chips', 'Chips on the pills', ['chipImp', 'chipCaa', 'chipNtm', 'chipWx'].filter((k) => summaryValues?.[k] === false).length ? 'Some hidden' : 'All shown', <ChipsCard />)}
                 {group('table', 'Upcoming Flight Table', summaryValues?.upcomingTableEnabled ? 'On' : 'Off', <UpcomingTableCard />)}
               </div>
             </DeviceCtx.Provider>
@@ -1824,7 +2002,9 @@ export default function SettingsPage() {
               <DisplayScaleCard />
               <HourSpacingCard />
               <VerticalSizingCard />
+              <HorizontalSizingCard />
               <PanelScalesCard />
+              <ChipsCard />
               <UpcomingTableCard />
             </div>
           </DeviceCtx.Provider>

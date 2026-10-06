@@ -24,22 +24,6 @@
   "bytes": 26636
  },
  {
-  "family": "IBM Plex Sans",
-  "file": "IBMPlexSans-var-latin-ext.woff2",
-  "weight": "400 600",
-  "subset": "latin-ext",
-  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
-  "bytes": 25868
- },
- {
-  "family": "IBM Plex Sans",
-  "file": "IBMPlexSans-var-latin.woff2",
-  "weight": "400 600",
-  "subset": "latin",
-  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
-  "bytes": 40240
- },
- {
   "family": "IBM Plex Mono",
   "file": "IBMPlexMono-400-latin-ext.woff2",
   "weight": "400",
@@ -150,5 +134,349 @@
   "subset": "latin",
   "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
   "builtBy": "tools/dotted-zero.py"
+ },
+ {
+  "family": "IBM Plex Sans",
+  "file": "IBMPlexSans-var-latin-ext.woff2",
+  "weight": "400 700",
+  "subset": "latin-ext",
+  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF",
+  "bytes": 25868
+ },
+ {
+  "family": "IBM Plex Sans",
+  "file": "IBMPlexSans-var-latin.woff2",
+  "weight": "400 700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "bytes": 40240
+ },
+ {
+  "family": "Inter",
+  "file": "Inter-var-latin-ext.woff2",
+  "weight": "400 800",
+  "subset": "latin-ext",
+  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF",
+  "bytes": 85272
+ },
+ {
+  "family": "Source Sans 3",
+  "file": "SourceSans3-var-latin-ext.woff2",
+  "weight": "400 800",
+  "subset": "latin-ext",
+  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF",
+  "bytes": 60048
+ },
+ {
+  "family": "Atkinson Hyperlegible Next",
+  "file": "AtkinsonHyperlegibleNext-var-latin-ext.woff2",
+  "weight": "400 800",
+  "subset": "latin-ext",
+  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF",
+  "bytes": 19076
+ },
+ {
+  "family": "Atkinson Hyperlegible Next",
+  "file": "AtkinsonHyperlegibleNext-var-latin.woff2",
+  "weight": "400 800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "bytes": 34024
+ },
+ {
+  "family": "Nunito",
+  "file": "Nunito-plain-400-latin-ext.woff2",
+  "weight": "400",
+  "subset": "latin-ext",
+  "range": "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF",
+  "bytes": 16056
+ },
+ {
+  "family": "Nunito",
+  "file": "Nunito-plain-400-latin.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "bytes": 16368
+ },
+ {
+  "family": "Inter Slashed",
+  "file": "Inter-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "Inter Slashed",
+  "file": "Inter-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "Inter Slashed",
+  "file": "Inter-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "Inter Slashed",
+  "file": "Inter-slashed-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans P",
+  "file": "CWSlashedSansP-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans P",
+  "file": "CWSlashedSansP-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans P",
+  "file": "CWSlashedSansP-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans S",
+  "file": "CWSlashedSansS-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans S",
+  "file": "CWSlashedSansS-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans S",
+  "file": "CWSlashedSansS-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "CW Slashed Sans S",
+  "file": "CWSlashedSansS-slashed-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/slashed-zero.py"
+ },
+ {
+  "family": "Nunito Slashed",
+  "file": "Nunito-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Nunito Slashed",
+  "file": "Nunito-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Nunito Slashed",
+  "file": "Nunito-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Nunito Slashed",
+  "file": "Nunito-slashed-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Nunito Plain",
+  "file": "Nunito-plain-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Nunito Plain",
+  "file": "Nunito-plain-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Nunito Plain",
+  "file": "Nunito-plain-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Nunito Plain",
+  "file": "Nunito-plain-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Roboto Slashed",
+  "file": "Roboto-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Roboto Slashed",
+  "file": "Roboto-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Roboto Slashed",
+  "file": "Roboto-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Roboto Slashed",
+  "file": "Roboto-slashed-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Roboto Plain",
+  "file": "Roboto-plain-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Roboto Plain",
+  "file": "Roboto-plain-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Roboto Plain",
+  "file": "Roboto-plain-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Roboto Plain",
+  "file": "Roboto-plain-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Public Sans Slashed",
+  "file": "PublicSans-slashed-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Public Sans Slashed",
+  "file": "PublicSans-slashed-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Public Sans Slashed",
+  "file": "PublicSans-slashed-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Public Sans Slashed",
+  "file": "PublicSans-slashed-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style slashed"
+ },
+ {
+  "family": "Public Sans Plain",
+  "file": "PublicSans-plain-400.woff2",
+  "weight": "400",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Public Sans Plain",
+  "file": "PublicSans-plain-600.woff2",
+  "weight": "600",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Public Sans Plain",
+  "file": "PublicSans-plain-700.woff2",
+  "weight": "700",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
+ },
+ {
+  "family": "Public Sans Plain",
+  "file": "PublicSans-plain-800.woff2",
+  "weight": "800",
+  "subset": "latin",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+  "builtBy": "tools/dotted-zero.py --style plain"
  }
 ]

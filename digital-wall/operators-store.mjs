@@ -151,14 +151,18 @@ export class OperatorsStore {
       (await supabaseFetch(
         "leon_operators?select=id,opr_id,name,refresh_token,is_active&is_active=eq.true&order=opr_id.asc"
       )) || [];
-    return rows
-      .filter((row) => row.refresh_token)
-      .map((row) => ({
-        id: row.id,
-        oprId: row.opr_id,
-        name: row.name ?? row.opr_id,
-        refreshToken: decryptRefreshToken(row.refresh_token),
-      }));
+    // One operator whose stored token cannot be decrypted must not take every other operator down with it (it
+    // used to throw here, and the sync then saw NO operators at all): that operator is skipped and its row is
+    // marked with the error the Operators page shows; the rest sync as usual.
+    const out = [];
+    for (const row of rows.filter((r) => r.refresh_token)) {
+      try {
+        out.push({ id: row.id, oprId: row.opr_id, name: row.name ?? row.opr_id, refreshToken: decryptRefreshToken(row.refresh_token) });
+      } catch (error) {
+        await this.recordSyncOutcome(row.opr_id, { status: "error", error: `Stored Leon credentials cannot be read: ${error instanceof Error ? error.message : error}` });
+      }
+    }
+    return out;
   }
 
   async upsertOperator({ name, oprId, refreshToken, isActive = true }) {

@@ -109,8 +109,8 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
     };
     const gaps = Object.entries(p).filter(([, v]) => !v).map(([k]) => FIELD_LABELS[k]);
     if (gaps.length) missing.push({ row, where: where(row), fields: gaps });
-    if (doc.masked) fieldWarn("document-masked", `Passenger ${where(row)}: Leon masks this passport for your account, so the number is left blank.`, { row });
-    if (c?.maskingStatus?.isProfileDataMasked && !masked) fieldWarn("profile-masked", `Passenger ${where(row)}: Leon masks this passenger's profile for your account; masked fields are left blank.`, { row });
+    if (doc.masked) fieldWarn("document-masked", `Passenger ${where(row)}: Leon masks this passport for the operator's account, so the number is left blank.`, { row });
+    if (c?.maskingStatus?.isProfileDataMasked && !masked) fieldWarn("profile-masked", `Passenger ${where(row)}: Leon masks this passenger's profile for the operator's account; masked fields are left blank.`, { row });
     if (doc.hasNationalIdOnly) fieldWarn("national-id-only", `Passenger ${where(row)}: only a national ID card is on file for the ${DOCUMENT_LEG}; it is not printed in the PASSPORT No. column.`, { row });
     if (doc.neverExpires) fieldWarn("never-expires", `Passenger ${where(row)}: the document is marked "never expires" in Leon; EXPIRES is left blank.`, { row });
     if (String(c.genderEnum ?? "").toUpperCase() === "UNKNOWN") fieldWarn("sex-unknown", `Passenger ${where(row)}: sex is "unknown" in Leon; left blank.`, { row });

@@ -2,8 +2,9 @@
 // Passenger Manifest from a script — the same generator the agent command calls, without the chat.
 //
 //   node scripts/pax-manifest.mjs --blank --out blank.pdf
-//   node scripts/pax-manifest.mjs --flight klj:74375326 --user <supabase user id> --out manifest.pdf
-//        (reads Leon with THAT user's linked Leon account; on the server: docker compose exec agent-service …)
+//   node scripts/pax-manifest.mjs --flight klj:74375326 --out manifest.pdf
+//        (reads that operator's Leon with its credentials from the operator registry; on the server:
+//         docker compose exec agent-service node scripts/pax-manifest.mjs …)
 //   node scripts/pax-manifest.mjs --rig <state id> --out file.pdf     (rig/manifest/fixtures.mjs, stub Leon; repo only)
 //
 // Prints the result object (warnings by row number, missing fields, page count) as JSON. It never prints a passenger
@@ -24,12 +25,11 @@ if (process.argv.includes("--blank")) {
   const { STATES, stubLeon } = await import("../../rig/manifest/fixtures.mjs");
   const state = STATES.find((s) => s.id === arg("rig"));
   if (!state) { console.error(`unknown rig state; one of: ${STATES.map((s) => s.id).join(", ")}`); process.exit(2); }
-  made = state.blank ? await generateBlankManifest() : await generatePassengerManifest({ flightId: "rig:101", user: null, leon: stubLeon(state.flight()) });
+  made = state.blank ? await generateBlankManifest() : await generatePassengerManifest({ flightId: "rig:101", leon: stubLeon(state.flight()) });
 } else if (arg("flight")) {
-  if (!arg("user")) { console.error("--user <id> is required: the manifest reads Leon as that user, never as a service account"); process.exit(2); }
-  made = await generatePassengerManifest({ flightId: arg("flight"), user: { userId: arg("user") } });
+  made = await generatePassengerManifest({ flightId: arg("flight") });
 } else {
-  console.error("give --blank, --flight <oprId:nid> --user <id>, or --rig <state>"); process.exit(2);
+  console.error("give --blank, --flight <oprId:nid>, or --rig <state>"); process.exit(2);
 }
 writeFileSync(out, made.pdf, { mode: 0o600 });
 console.log(JSON.stringify({ filename: made.filename, ...made.result }, null, 1));

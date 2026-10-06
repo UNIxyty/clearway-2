@@ -154,7 +154,6 @@ import { wallGet as wallGetForServer, portalGet as portalGetForServer } from "./
 import { documentRevision, loadSiblings, publicRevision, revisionFromPortal } from "./lib/knowledge/revision.mjs";
 import { lowRiskCatalogue } from "./lib/tools/framework.mjs";
 import { assertManifestFont } from "./lib/manifest/fonts.mjs";
-import { listLeonLinks, linkLeon, unlinkLeon, LeonAccessError } from "./lib/leon-user.mjs";
 import { routingSettings, setRoutingSettings, userPrefs, setUserPref, setSkipConfirmLock, escalationAfterRound, asksForCare, atLeast, oneUp, costUsd, MANUAL_TIERS } from "./lib/routing.mjs";
 
 /** Raw bytes for an upload, bounded. Anything past the cap ends the request. */
@@ -833,36 +832,6 @@ async function handleRequest(req, res) {
       }
       if (!r) return notFound();
       return sendJson(res, { ok: true, record: { kind, id: String(r.id ?? id), reference: null, heading: String(r.title ?? r.authorityName ?? r.country ?? ""), text: String(r.description ?? r.body ?? r.functionText ?? r.title ?? ""), source: kind === "limitation" ? "digital-wall limitations store" : kind === "important" ? "digital-wall IMPORTANT store" : "digital-wall CAA store", version: null, effectiveFrom: r.startDate ?? r.effectiveFrom ?? null, effectiveTo: r.endDate ?? r.effectiveTo ?? null, approvedBy: r.reviewedBy ?? r.addedBy ?? null, approvedAt: r.reviewedAt ?? r.addedAt ?? null, updatedAt: r.updatedAt ?? null, page: null } });
-    }
-
-    // ── Leon as the signed-in user (passenger manifest) ───────────────────
-    // Each person links their OWN Leon API refresh token per operator tenant; the manifest reads Leon only with it.
-    // The token is verified against Leon, stored encrypted (lib/leon-user.mjs), never returned, never logged, never
-    // put in an audit row — the audit records only that a link was made or removed, by whom, for which tenant.
-    if (pathname === "/api/leon/links" && req.method === "GET") {
-      await assertMayUseAgent(user);
-      return sendJson(res, { ok: true, links: await listLeonLinks(user) });
-    }
-    if (/^\/api\/leon\/links\/[a-z0-9-]+$/i.test(pathname) && (req.method === "PUT" || req.method === "DELETE")) {
-      await assertMayUseAgent(user);
-      const oprId = decodeURIComponent(pathname.split("/").pop()).toLowerCase();
-      try {
-        if (req.method === "DELETE") {
-          const had = await unlinkLeon(user, oprId);
-          await audit({ kind: "leon.unlinked", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { oprId, had } }).catch(() => {});
-          return sendJson(res, { ok: true, links: await listLeonLinks(user) });
-        }
-        const body = await readJsonBody(req);
-        const linked = await linkLeon(user, oprId, body?.refreshToken);
-        await audit({ kind: "leon.linked", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { oprId: linked.oprId } }).catch(() => {});
-        return sendJson(res, { ok: true, link: linked, links: await listLeonLinks(user) });
-      } catch (error) {
-        if (error instanceof LeonAccessError) {
-          const status = ["bad-operator", "bad-token"].includes(error.code) ? 400 : error.code === "rejected" ? 422 : error.code === "not-configured" ? 503 : 502;
-          return sendJson(res, { ok: false, error: error.code, message: error.message }, status);
-        }
-        throw error;
-      }
     }
 
     // ── Generated files: download what the agent produced ─────────────────

@@ -25,7 +25,7 @@ for i, p in enumerate(fitz.open(sys.argv[1])):
             for s in l["spans"]: out.append({"page": i + 1, "text": s["text"], "x": s["origin"][0], "y": s["origin"][1], "size": s["size"], "font": s["font"]})
 print(json.dumps(out))`, f]).toString());
 }
-const gen = (f, extra = {}) => generatePassengerManifest({ flightId: "rig:101", user: null, leon: stubLeon(f, extra) });
+const gen = (f, extra = {}) => generatePassengerManifest({ flightId: "rig:101", leon: stubLeon(f, extra) });
 
 // Strings, verbatim (spec §4), on the blank form.
 const blank = await generateBlankManifest();
@@ -75,10 +75,8 @@ const trunc = await gen(flight({ pax: 1, mutate: (c) => { c[0].contact.surname =
 ok(trunc.result.warnings.some((x) => x.code === "truncated" && x.row === 1), "a name that must be cut → a truncation warning naming the row");
 ok(!JSON.stringify(trunc.result).includes("XXXX") && !JSON.stringify(big.result).match(/TEST\d{5}|EXAMPLE|Testville/), "the result object carries no passenger field");
 
-// Leon access: read-only, refuses mutations at the client.
-const { leonForUser } = await import("../../agent/lib/leon-user.mjs");
-let refused = false; try { await leonForUser({ userId: "nobody" }, "klj"); } catch (e) { refused = e.code === "not-linked"; }
-ok(refused, "no linked Leon account → refused (no fallback credential exists)");
+// The generator asks the user for nothing: its only input is the flight id (operator credentials come from the registry).
+ok(generatePassengerManifest.length === 1 && !/user|token|credential/i.test(String(generatePassengerManifest).split(")")[0]), "generatePassengerManifest takes the flight id only — no user, token or credential parameter");
 
 console.log(failures ? `\n${failures} FAILED` : "\nall passed");
 process.exit(failures ? 1 : 0);

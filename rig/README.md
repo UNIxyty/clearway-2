@@ -70,8 +70,9 @@ Issues) must both be clean. Any message is a finding.
 
 ## Passenger manifest
 
-`rig/manifest/start.sh` (after `rig/start.sh`) restarts the agent against a per-user mock Leon (:3993, fake
-passengers) and a stub wall (:3992). `node rig/manifest/browser.mjs` drives `/manifest` in the console;
+`rig/manifest/start.sh` (after `rig/start.sh`) restarts the agent against a per-operator mock Leon (:3993, fake
+passengers); `node --env-file=.env.rig rig/manifest/operators.mjs seed` puts rig operators in the rig database's
+`leon_operators` (add / break / fix / remove one to test configuration changes live). `node rig/manifest/browser.mjs` drives `/manifest` in the console;
 `node rig/manifest/test-generator.mjs` checks the generator's rules; `python3 rig/manifest/overlay.py
 rig/manifest/CWY_PAX_Manifest.pdf <ours.pdf>` overlays a render on the reference. Samples:
 `cd agent && node scripts/pax-manifest.mjs --rig <state> --out f.pdf`.

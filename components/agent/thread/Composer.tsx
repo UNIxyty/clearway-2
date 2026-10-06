@@ -434,7 +434,7 @@ export default function Composer({
           <ManifestPicker
             panel={panel}
             initialQuery={command.pickerQuery ?? ""}
-            onPick={(f) => sendCommand(command.command, [f.key, [f.callsign, f.registration, `${f.adep} → ${f.ades}`, whenLabelFor(f.std)].filter(Boolean).join(" · ")])}
+            onPick={(f) => sendCommand(command.command, [f.key, [f.callsign, f.registration, `${f.adep} → ${f.ades}`, whenLabelFor(f.std), f.operator].filter(Boolean).join(" · ")])}
             onBlank={sendBlankManifest}
             onClose={() => { setCommand(null); inputRef.current?.focus(); }}
           />

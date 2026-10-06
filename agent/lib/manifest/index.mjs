@@ -7,13 +7,14 @@
 // result = { flight: { flightId, callsign, date, route }, pageCount, passengerCount, crewCount, personsOnBoard,
 //            warnings: [{ code, message, row? }], missing: [{ row, where, fields }], blank }
 //
-// It fetches from Leon itself (the caller passes an identifier, never data), as the signed-in user, read-only. No
-// model output reaches the document. NOTHING here logs, and the result object carries no passenger field — rows
+// It fetches from Leon itself (the caller passes an identifier, never data), read-only, with the credentials of the
+// flight's operator (../leon-operators.mjs — the operator registry; nothing is asked of the user). No model output
+// reaches the document. NOTHING here logs, and the result object carries no passenger field — rows
 // are identified by number and page only — because it is shown in the chat and stored in the audit log.
 import { renderManifest } from "./render.mjs";
 import { buildManifestModel, FIELD_LABELS, where } from "./model.mjs";
 import { parseFlightId, readManifestFlight, ManifestFlightError } from "./leon.mjs";
-import { leonForUser, LeonAccessError } from "../leon-user.mjs";
+import { leonForOperator, OperatorUnavailable } from "../leon-operators.mjs";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -25,10 +26,10 @@ export function manifestFilename(flightNumber, startTimeUTC) {
   return `PAX-Manifest_${fn}_${date}.pdf`;
 }
 
-export async function generatePassengerManifest({ flightId, user, leon = null, progress = null, now = new Date() }) {
+export async function generatePassengerManifest({ flightId, leon = null, progress = null, now = new Date() }) {
   const { oprId, nid } = parseFlightId(flightId);
-  progress?.("Checking your Leon access");
-  const client = leon ?? await leonForUser(user, oprId);
+  progress?.("Connecting to the operator's Leon");
+  const client = leon ?? await leonForOperator(oprId);
   const { flight, unmasked, operatorName, operatorNote } = await readManifestFlight(client, nid, { progress });
   if (flight.isCnl) throw new ManifestFlightError("cancelled", "This flight is cancelled in Leon.");
 
@@ -75,4 +76,4 @@ export async function generateBlankManifest({ now = new Date() } = {}) {
   };
 }
 
-export { ManifestFlightError, LeonAccessError };
+export { ManifestFlightError, OperatorUnavailable };

@@ -1,8 +1,12 @@
-// Passenger manifest — the command, in the real console on the rig (rig/start.sh + rig/manifest/start.sh).
-// Fake passengers only (mock Leon :3993, stub wall :3992). Screenshots go to rig/.scratch/manifest-shots/.
+// Passenger manifest — the command, in the real console on the rig (rig/start.sh + rig/manifest/start.sh, operators
+// seeded with rig/manifest/operators.mjs seed). Fake passengers only (per-operator mock Leon :3993). Nothing asks the
+// user for any Leon credential. Screenshots go to rig/.scratch/manifest-shots/.
 //   node rig/manifest/browser.mjs
 import { mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { chromium } from "../../node_modules/playwright/index.mjs";
+
+const ROOT = new URL("../../", import.meta.url).pathname;
 
 const BASE = "http://127.0.0.1:3999";
 const SHOTS = new URL("../.scratch/manifest-shots/", import.meta.url).pathname;
@@ -19,13 +23,10 @@ const page = await ctx.newPage();
 const consoleErrors = [];
 page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 200)); });
 
-// Leon links: cwy-cwy only (the rig user's own token, mock Leon).
-await page.request.put(`${BASE}/agent/api/leon/links/cwy-cwy`, { data: { refreshToken: "rig-refresh-token-cwy-0001" } });
+// No Leon credential is asked for anywhere: not in settings, not in the flow.
 await page.goto(`${BASE}/agent/settings`, { waitUntil: "load" }); await sleep(2500);
-const leonCard = page.getByRole("region", { name: "Leon access" });
-await leonCard.screenshot({ path: `${SHOTS}01-settings-leon-access.png` }).catch(() => {});
-ok(/cwy-cwy/.test(await leonCard.innerText().catch(() => "")), "Settings → Leon access lists the linked operator (token never shown)");
-ok(!/rig-refresh-token/.test(await page.content()), "the refresh token is nowhere in the settings page");
+ok(!/Leon access|refresh token|Link your Leon|Leon account/i.test(await page.locator("body").innerText()), "Agent settings has no Leon credential field or prompt");
+await page.screenshot({ path: `${SHOTS}01-settings-no-leon-prompt.png` });
 
 const composer = () => page.getByRole("textbox", { name: "Message" });
 const picker = () => page.locator("[data-manifest-picker]");
@@ -55,10 +56,12 @@ await openPicker(); await sleep(1000);
 let rows = await pickerRows();
 await picker().screenshot({ path: `${SHOTS}04-picker-upcoming-no-typing.png` });
 ok(rows[0].startsWith("Blank form"), "first row is the blank form");
-ok(rows.length >= 6, `upcoming flights listed without typing (${rows.length - 1} flights)`);
+ok(rows.length >= 8, `upcoming flights listed without typing (${rows.length - 1} flights)`);
+ok(["Clearway (CWY)", "KlasJet", "ART-Line Wings LLC"].every((op) => rows.some((r) => r.includes(op))), "flights from every configured operator are listed, each row naming its operator");
 const oro = rows.filter((r) => r.includes("ORO2151"));
-ok(oro.length === 2 && oro[0] !== oro[1] && oro.every((r) => /EC-OMU/.test(r) && /→/.test(r) && /\d{2}:\d{2}Z/.test(r)), `same callsign twice today, rows differ: ${oro.map((r) => r.replace(/ CWY-CWY$/, "")).join("  ≠  ")}`);
-ok(!rows.some((r) => r.includes("ORO2150")), "a flight from two days ago is not in the no-typing list");
+ok(oro.length === 2 && oro[0] !== oro[1] && oro.every((r) => /EC-OMU/.test(r) && /→/.test(r) && /\d{2}:\d{2}Z/.test(r)), `same callsign twice today, rows differ: ${oro.join("  ≠  ")}`);
+const k7351 = rows.filter((r) => r.includes("KLJ7351"));
+ok(k7351.length === 2 && k7351.some((r) => r.includes("KlasJet")) && k7351.some((r) => r.includes("Clearway (CWY)")), `same callsign under two operators, told apart by operator: ${k7351.join("  ≠  ")}`);
 // keyboard
 const sel = async () => (await picker().locator('[aria-selected="true"]').innerText()).replace(/\s+/g, " ");
 await page.keyboard.press("ArrowDown"); await page.keyboard.press("ArrowDown");
@@ -73,6 +76,9 @@ await picker().screenshot({ path: `${SHOTS}05-picker-search-registration.png` })
 rows = await search("LIML LEBL");
 ok(rows.slice(1).length >= 1 && rows.slice(1).every((r) => /LIML|LEBL/.test(r)), `route search "LIML LEBL" → ${rows.slice(1).map((r) => r.slice(0, 40)).join(" | ")}`);
 await picker().screenshot({ path: `${SHOTS}06-picker-search-route.png` });
+rows = await search("KlasJet");
+ok(rows.slice(1).length >= 2 && rows.slice(1).every((r) => r.includes("KlasJet")), `operator search "KlasJet" → ${rows.slice(1).map((r) => r.slice(0, 40)).join(" | ")}`);
+await picker().screenshot({ path: `${SHOTS}06b-picker-search-operator.png` });
 rows = await search("the Riga one this evening");
 ok(rows.slice(1).length >= 1 && rows.slice(1).every((r) => /EVRA/.test(r)), `"the Riga one this evening" → ${rows.slice(1).map((r) => r.slice(0, 50)).join(" | ")}`);
 await picker().screenshot({ path: `${SHOTS}07-picker-search-riga-evening.png` });
@@ -82,13 +88,13 @@ await picker().screenshot({ path: `${SHOTS}08-picker-no-matches.png` });
 
 // ── Generate: KLJ7351 (warnings). Progress is shown while it builds; the PDF opens in the viewer; warnings sit above.
 const chatStream = page.waitForResponse((r) => r.url().includes("/agent/api/chat") && r.request().method() === "POST", { timeout: 120_000 }).then((r) => r.text()).catch(() => "");
-rows = await search("KLJ7351");
+rows = await search("KLJ7351 Clearway");
 await page.keyboard.press("Enter");
 let sawProgress = false;
 for (let i = 0; i < 1200 && !sawProgress; i += 1) {
   await sleep(100);
   const t = await page.locator("main, body").first().innerText();
-  if (/Checking your Leon access|Reading the flight from Leon|Filling the form|Laying out|Saving the file/.test(t)) { sawProgress = true; await page.screenshot({ path: `${SHOTS}09-building-progress.png` }); }
+  if (/Connecting to the operator's Leon|Reading the flight from Leon|Filling the form|Laying out|Saving the file/.test(t)) { sawProgress = true; await page.screenshot({ path: `${SHOTS}09-building-progress.png` }); }
 }
 ok(sawProgress, "the build shows named progress steps on screen (not a blank wait)");
 const streamText = await chatStream;
@@ -108,6 +114,7 @@ ok(order === true, "the warnings card is ABOVE the file card");
 const notice = await page.locator('[aria-label="Passenger manifest — read before sending"]').last().innerText();
 await page.locator('[aria-label="Passenger manifest — read before sending"]').last().screenshot({ path: `${SHOTS}11-warnings-card.png` });
 ok(/row 2 on page 1: no place of birth, passport expiry/.test(notice) && /arrival document differs/.test(notice) && /cut short/.test(notice) && /CWY_CWY/.test(notice), "missing fields, differing arrival document, truncation and the operator note are all in the chat");
+ok(!/Leon access|refresh token|link your|sign in to Leon/i.test(await page.locator("body").innerText()), "the whole flow asked for no Leon credential");
 ok(await page.getByRole("link", { name: /Download/ }).count() + await page.getByRole("button", { name: "Download" }).count() > 0, "a download is offered alongside");
 
 // ── The transcript carries no passenger detail (thread DOM outside the viewer, and the stored conversation)
@@ -125,11 +132,17 @@ const zeroText = await page.locator('[aria-label="Passenger manifest — read be
 ok(/0 passengers/.test(zeroText) && /lists no passengers/.test(zeroText), "a flight with no passengers still generates, and says plainly there were none");
 await page.screenshot({ path: `${SHOTS}12-zero-passengers.png` });
 
-// ── A flight the user's Leon account cannot see: refused, no document
-await openPicker(); await search("BTI472"); await page.keyboard.press("Enter");
-await sleep(20000);
-ok(await page.locator('[aria-label^="Generated file PAX-Manifest_BTI472"]').count() === 0, "a flight Leon will not show this account produces no manifest");
-await page.screenshot({ path: `${SHOTS}13-no-access.png` });
+// ── One operator's key broken: the picker names it unavailable and lists every other operator
+execFileSync("node", ["--env-file=.env.rig", "rig/manifest/operators.mjs", "break", "klj"], { cwd: ROOT });
+await sleep(31_000); // the agent re-reads the operator registry every 30 s — no restart
+await openPicker(); await sleep(1500);
+const banner = await picker().locator("[data-unavailable-operators]").innerText().catch(() => "");
+rows = await pickerRows();
+ok(/KlasJet/.test(banner) && !/Clearway|ART-Line/.test(banner), `only the broken operator is named unavailable: "${banner}"`);
+ok(rows.some((r) => r.includes("Clearway (CWY)")) && rows.some((r) => r.includes("ART-Line Wings LLC")) && !rows.some((r) => r.includes("KlasJet")), "every other operator's flights are still listed");
+await picker().screenshot({ path: `${SHOTS}13-one-operator-unavailable.png` });
+await page.keyboard.press("Escape");
+execFileSync("node", ["--env-file=.env.rig", "rig/manifest/operators.mjs", "fix", "klj"], { cwd: ROOT });
 
 // ── Typed "pax manifest for KLJ7350" reaches the same picker, filtered (the voice path calls the same function)
 await composer().fill("pax manifest for KLJ7350"); await page.keyboard.press("Enter"); await sleep(1500);

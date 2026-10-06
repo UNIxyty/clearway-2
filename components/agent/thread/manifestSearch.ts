@@ -54,7 +54,9 @@ function wordMatches(f: PickerFlight, w: string, now: number): boolean {
   if (!fw) return true;
   if (flat(f.callsign).includes(fw) || flat(f.registration).includes(fw)) return true;
   if (f.adep.toLowerCase().startsWith(fw) || f.ades.toLowerCase().startsWith(fw)) return true;
-  if (fw.length >= 3 && (flat(f.adepPlace).includes(fw) || flat(f.adesPlace).includes(fw) || flat(f.operator).includes(fw))) return true;
+  if (fw.length >= 3 && (flat(f.adepPlace).includes(fw) || flat(f.adesPlace).includes(fw))) return true;
+  // Operator: its configured name ("KlasJet") or its Leon id ("klj"), from two letters.
+  if (fw.length >= 2 && (flat(f.operator).includes(fw) || flat(f.key.split(":")[0]).startsWith(fw))) return true;
   if (f.std == null) return false;
   const d = new Date(f.std);
   const today = dayStart(now);
@@ -107,16 +109,4 @@ export function whenLabel(ms: number | null): string {
   if (ms == null) return "no time";
   const d = new Date(ms);
   return `${DAYS[d.getUTCDay()].replace(/^./, (c) => c.toUpperCase())} ${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()].replace(/^./, (c) => c.toUpperCase())} · ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z`;
-}
-
-/** Server-side filters worth asking for when typing reaches past what the first load holds. */
-export function serverFilters(q: string): Record<string, string>[] {
-  const out: Record<string, string>[] = [];
-  for (const w of queryWords(q)) {
-    const up = w.toUpperCase();
-    if (/^[A-Z]{1,2}-[A-Z0-9]{2,5}$/.test(up)) out.push({ registration: up });
-    else if (/^[A-Z]{4}$/.test(up)) out.push({ icao: up });
-    else if (/^[A-Z0-9]{2,4}\d{1,5}[A-Z]?$/.test(up) && /\d/.test(up)) out.push({ callsign: up });
-  }
-  return out.slice(0, 2);
 }

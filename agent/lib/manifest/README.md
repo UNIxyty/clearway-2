@@ -8,16 +8,28 @@ chooses which flight; typed code reads Leon and draws the page.
 
 ```js
 import { generatePassengerManifest, generateBlankManifest } from "./index.mjs";
-const { pdf, filename, result } = await generatePassengerManifest({ flightId: "klj:74375326", user });
+const { pdf, filename, result } = await generatePassengerManifest({ flightId: "klj:74375326" });
 // result: { flight, pageCount, passengerCount, crewCount, personsOnBoard, warnings[], missing[], blank }
 ```
 
-- Takes an identifier, never data; reads Leon itself, **read-only**, **as the signed-in user** (`../leon-user.mjs`:
-  the person's own linked Leon refresh token for that operator tenant — there is no fallback credential).
+- Takes an identifier, never data; reads Leon itself, **read-only**, with the **flight's operator's credentials**
+  from the operator registry (`../leon-operators.mjs`). Nothing is asked of the user: being signed in to the portal
+  with agent access (the agent's existing, fail-closed gate) is the only gate.
 - `result` carries **no passenger field**. Warnings name a passenger by row and page only, because they are shown in
   the chat and stored in the audit log.
-- Script: `node agent/scripts/pax-manifest.mjs --flight <oprId:nid> --user <id> --out f.pdf`, `--blank`, or
-  `--rig <state>` (fake fixtures). Agent: tool `make_passenger_manifest`, commands `/manifest`, `/blank-manifest`.
+- Script: `node agent/scripts/pax-manifest.mjs --flight <oprId:nid> --out f.pdf`, `--blank`, or `--rig <state>`
+  (fake fixtures). Agent: tools `make_passenger_manifest` and `search_manifest_flights`; commands `/manifest`,
+  `/blank-manifest`.
+
+## Operators: where the list lives, how one is added
+
+The operators are the rows of the **`leon_operators`** table (Supabase), the same registry the Digital Wall syncs
+from. To add one, open the **Digital Wall console → Operators → Add operator**, enter a display name, the operator's
+**Leon subdomain** (e.g. `klj` for klj.leon.aero) and the Leon API refresh token the operator gave us, and save; the token is stored
+encrypted. Within 30 seconds the agent's manifest search lists that operator's flights and can generate its
+manifests — no code change, no redeploy. Disabling or deleting the row removes it the same way. An operator whose
+token fails (expired, revoked, unreadable) is shown as unavailable in the picker; every other operator keeps
+working.
 
 ## Rendering route: pdf-lib, fonts embedded
 
@@ -66,7 +78,7 @@ The reference's logo image is 213 × 43 px (≈ 94 dpi at 163.6 pt): a higher-re
 `contact.{surname,name,middleName,genderEnum,dateOfBirth,placeOfBirth,nationality}`, `departurePassport` /
 `arrivalPassport` `{number, expiresDate, neverExpires, isMasked, surname, name, nationality}`, travel documents and
 national IDs. A missing value is blank — never N/A or a dash. Masked passports (`isMasked`) are asked once more via
-`unmaskedData`, which Leon answers only if the user's own account may unmask; otherwise blank + warning. Flights in
+`unmaskedData`, which Leon answers only if the operator's API account may unmask; otherwise blank + warning. Flights in
 the Clearway aggregator tenant are stored under `CWY_CWY`, not their operating carrier: Owner or Operator is left
 blank with a warning (`NOT_AN_OPERATOR` in `leon.mjs`).
 
@@ -83,5 +95,6 @@ blank with a warning (`NOT_AN_OPERATOR` in `leon.mjs`).
 ## Tests
 
 `rig/manifest/test-generator.mjs` (rules: verbatim strings, order, pagination, blanks, dates, warnings),
-`rig/manifest/overlay.py` (reference overlay), `rig/manifest/browser.mjs` (the command in the console: picker, states,
-progress, viewer, warnings, transcript, voice). Rig: `rig/start.sh` then `rig/manifest/start.sh`.
+`rig/manifest/overlay.py` (reference overlay), `rig/manifest/browser.mjs` (the command in the console: every operator,
+picker states, an unavailable operator, progress, viewer, warnings, transcript, voice). Rig: `rig/start.sh`, then
+`rig/manifest/start.sh` and `node --env-file=.env.rig rig/manifest/operators.mjs seed`.

@@ -32,7 +32,7 @@ export function flight({ pax = 0, crew = 3, nid = 101, operator = "SAMPLE AVIATI
   };
 }
 
-/** A stub of leonForUser's client: answers the manifest's flight query from a fixture, refuses everything else. */
+/** A stub of leonForOperator's client: answers the manifest's flight query from a fixture, refuses everything else. */
 export function stubLeon(f, { unmask = null } = {}) {
   return {
     oprId: "rig",

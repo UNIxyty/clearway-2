@@ -4,21 +4,25 @@
 // soonest first. Typing filters on callsign, registration, route and date at once (manifestSearch.ts). Every row shows
 // callsign, registration, route and date WITH departure time, so legs that share a callsign cannot be confused.
 // ↑↓ move · ⏎ choose · Esc close. Loading, no-match and failed states are drawn. No native <select>, no browser
-// autocomplete. The flights come from the user's own session (search_flights → the wall's records); the manifest
-// itself is then read from Leon with the user's own Leon account.
+// autocomplete. The flights come from EVERY configured operator, read live from each operator's Leon
+// (search_manifest_flights); an operator whose credentials fail is named as unavailable and the rest still list.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
-import { pickRows, serverFilters, toPickerFlight, whenLabel, type PickerFlight } from "./manifestSearch";
+import { pickRows, toPickerFlight, whenLabel, type PickerFlight } from "./manifestSearch";
 
 type Status = "loading" | "ready" | "error";
 
-async function searchFlights(input: Record<string, unknown>): Promise<PickerFlight[]> {
-  const r = await fetch(`${AGENT_BASE}/api/tools/invoke`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "search_flights", input }) });
+type OperatorStatus = { oprId: string; name: string; available: boolean; problem: string | null; count: number };
+async function searchFlights(input: Record<string, unknown>): Promise<{ flights: PickerFlight[]; operators: OperatorStatus[] }> {
+  const r = await fetch(`${AGENT_BASE}/api/tools/invoke`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "search_manifest_flights", input }) });
   const b = await r.json().catch(() => null);
   if (!r.ok || !b || b.ok === false || !Array.isArray(b.flights)) throw new Error(b?.message ?? `HTTP ${r.status}`);
-  return (b.flights as Parameters<typeof toPickerFlight>[0][]).map(toPickerFlight).filter((f): f is PickerFlight => Boolean(f));
+  return {
+    flights: (b.flights as Parameters<typeof toPickerFlight>[0][]).map(toPickerFlight).filter((f): f is PickerFlight => Boolean(f)),
+    operators: Array.isArray(b.operators) ? (b.operators as OperatorStatus[]) : [],
+  };
 }
 
 export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBlank, onClose }: {
@@ -30,6 +34,7 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
 }) {
   const [status, setStatus] = useState<Status>("loading");
   const [flights, setFlights] = useState<PickerFlight[]>([]);
+  const [unavailable, setUnavailable] = useState<OperatorStatus[]>([]);
   const [query, setQuery] = useState(initialQuery);
   const [highlight, setHighlight] = useState(0);
   const [attempt, setAttempt] = useState(0);
@@ -37,33 +42,16 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
   const listRef = useRef<HTMLDivElement | null>(null);
   const id = useId();
 
-  // First load: the next fortnight and the past week (what is not loaded here is fetched when typed, below).
+  // One load: every operator's flights from a week ago to 30 days ahead, live from each operator's Leon.
   useEffect(() => {
     let alive = true;
     setStatus("loading");
     const now = Date.now();
-    const iso = (ms: number) => new Date(ms).toISOString();
-    Promise.all([
-      searchFlights({ from: iso(now - 2 * 3600_000), to: iso(now + 14 * 86_400_000), limit: 100 }),
-      searchFlights({ from: iso(now - 7 * 86_400_000), to: iso(now - 2 * 3600_000), limit: 100 }).catch(() => [] as PickerFlight[]),
-    ]).then(([up, past]) => { if (alive) { setFlights([...up, ...past]); setStatus("ready"); } })
+    searchFlights({ from: new Date(now - 7 * 86_400_000).toISOString(), to: new Date(now + 30 * 86_400_000).toISOString() })
+      .then((r) => { if (alive) { setFlights(r.flights); setUnavailable(r.operators.filter((o) => !o.available)); setStatus("ready"); } })
       .catch(() => { if (alive) setStatus("error"); });
     return () => { alive = false; };
   }, [attempt]);
-
-  // Typing a callsign, registration or ICAO also asks the server (past 30 days → next 60), so a flight outside the
-  // first load is still found.
-  useEffect(() => {
-    const filters = serverFilters(query);
-    if (!filters.length || status !== "ready") return;
-    let alive = true;
-    const t = setTimeout(() => {
-      const now = Date.now();
-      Promise.all(filters.map((f) => searchFlights({ ...f, from: new Date(now - 30 * 86_400_000).toISOString(), to: new Date(now + 60 * 86_400_000).toISOString(), limit: 50 }).catch(() => [] as PickerFlight[])))
-        .then((sets) => { if (alive) setFlights((cur) => [...cur, ...sets.flat()]); });
-    }, 250);
-    return () => { alive = false; clearTimeout(t); };
-  }, [query, status]);
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 0); }, []);
   // Esc closes the picker wherever focus is (after voice, focus sits on the voice button, not in the search box).
@@ -98,7 +86,7 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
           ref={inputRef} name="manifest-flight-search" type="text" role="combobox" aria-expanded="true" aria-controls={`${id}-list`} aria-activedescendant={optionId(highlight)} aria-autocomplete="list"
           autoComplete="off" autoCorrect="off" spellCheck={false} data-1p-ignore="" data-lpignore="true"
           value={query} onChange={(e) => { setQuery(e.target.value); setHighlight(e.target.value ? 1 : 0); }} onKeyDown={onKeyDown}
-          placeholder="Callsign, registration, route or date — e.g. KLJ7350, LY-BGS, EVRA, tomorrow"
+          placeholder="Callsign, registration, route, operator or date — e.g. KLJ7350, LY-BGS, EVRA, KlasJet, tomorrow"
           aria-label="Find the flight for the passenger manifest"
           style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: panel ? 13.5 : 14, color: C.ink, minWidth: 0 }}
         />
@@ -111,7 +99,13 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
           <span style={{ fontSize: 12.5, color: C.muted, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{panel ? "for filling by hand" : "no flight — the empty manifest for filling by hand"}</span>
         </Row>
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "8px 10px 2px" }}>{query.trim() ? "MATCHING FLIGHTS" : "UPCOMING FLIGHTS · SOONEST FIRST"}</div>
-        {status === "loading" && <State icon="loader-circle" text="Loading flights…" />}
+        {status === "ready" && unavailable.length > 0 && (
+          <div role="status" data-unavailable-operators="" style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 10px 8px", fontSize: 12.5, color: C.warn, lineHeight: 1.45 }}>
+            <Icon name="circle-alert" size={13} color={C.warn} style={{ marginTop: 2 }} />
+            <span>Unavailable — {unavailable.map((o) => o.name).join(", ")}: {unavailable.length === 1 ? "its" : "their"} Leon credentials failed, so {unavailable.length === 1 ? "its" : "their"} flights are not listed. Every other operator is.</span>
+          </div>
+        )}
+        {status === "loading" && <State icon="loader-circle" text="Loading flights from every operator…" />}
         {status === "error" && (
           <div role="alert" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", fontSize: 13, color: C.danger }}>
             <Icon name="circle-alert" size={14} color={C.danger} />The flight search failed.
@@ -128,7 +122,7 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
                 <span style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0 }}>
                   <span style={mono({ fontSize: 13, fontWeight: 600 })}>{f.callsign || "—"}</span>
                   <span style={{ ...mono({ fontSize: 12 }), color: C.body }}>{f.registration}</span>
-                  {f.cancelled && <span style={{ fontSize: 11, color: C.faint }}>cancelled</span>}
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: C.muted, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{f.operator}</span>
                 </span>
                 <span style={{ ...mono({ fontSize: 12, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? C.ink : C.body, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.adep || "????"} → {f.ades || "????"} · {whenLabel(f.std)}</span>
               </span>
@@ -138,14 +132,14 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
                 <span style={{ ...mono({ fontSize: 12.5 }), color: C.body, minWidth: 66 }}>{f.registration}</span>
                 <span style={{ ...mono({ fontSize: 12.5 }), color: C.body, minWidth: 92 }}>{f.adep || "????"} → {f.ades || "????"}</span>
                 <span style={{ ...mono({ fontSize: 12.5, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? C.ink : C.body }}>{whenLabel(f.std)}</span>
-                <span style={{ fontSize: 12, color: C.faint, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{f.cancelled ? "cancelled · " : ""}{f.operator}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: C.body, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{f.operator}</span>
               </>
             )}
           </Row>
         ))}
       </div>
       <div style={{ display: "flex", gap: 14, padding: panel ? "7px 12px" : "8px 16px", whiteSpace: "nowrap", borderTop: `1px solid ${C.divider}`, background: C.page, fontSize: 12, color: C.faint }}>
-        <span>↑↓ move</span><span>⏎ make{panel ? "" : " the manifest"}</span><span>Esc close</span>{!panel && <><span style={{ flex: 1 }} /><span>Read from Leon with your own account</span></>}
+        <span>↑↓ move</span><span>⏎ make{panel ? "" : " the manifest"}</span><span>Esc close</span>{!panel && <><span style={{ flex: 1 }} /><span>Every operator, live from Leon</span></>}
       </div>
     </div>
   );

@@ -90,10 +90,10 @@ function OperatorForm({ operator = null, onSaved, onCancel }) {
             />
           </div>
           <div>
-            <FieldLabel>Callsign prefix / oprId</FieldLabel>
+            <FieldLabel>Leon subdomain (oprId)</FieldLabel>
             <TextInput
               mono
-              placeholder="e.g. ART"
+              placeholder="e.g. artlw — from artlw.leon.aero"
               required
               value={form.oprId}
               onChange={(e) => setForm((prev) => ({ ...prev, oprId: e.target.value }))}

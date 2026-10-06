@@ -1,7 +1,5 @@
-// Passenger Manifest — the Leon read. READ-ONLY (queries only; leonForUser refuses mutations) and AS THE SIGNED-IN
-// USER (agent/lib/leon-user.mjs: their own linked token for the flight's operator tenant, never a service token).
-// Nothing read here is logged.
-import { LeonAccessError } from "../leon-user.mjs";
+// Passenger Manifest — the Leon read. READ-ONLY (queries only; leonForOperator refuses mutations), with the flight's
+// operator's own credentials from the operator registry (agent/lib/leon-operators.mjs). Nothing read here is logged.
 
 /**
  * Operator names that are not an operator: the Clearway aggregator tenant stores every subchartered flight under its
@@ -35,8 +33,8 @@ const FLIGHT_QUERY = (nid) => `query {
     }
   }
 }`;
-// Asked ONLY when the first read returned masked values: Leon decides from the user's own permissions whether to
-// answer. A refusal leaves the fields blank (with a warning), it never fails the document.
+// Asked ONLY when the first read returned masked values: Leon decides from the operator account's permissions whether
+// to answer. A refusal leaves the fields blank (with a warning), it never fails the document.
 const UNMASK_QUERY = (nid) => `query {
   flight(flightNid: ${nid}) {
     passengerList { passengerContactList {
@@ -60,19 +58,19 @@ export function parseFlightId(flightId) {
 }
 
 /**
- * Reads the flight with the user's own Leon access. Returns { flight, unmasked, operatorName, operatorNote }.
- * `leon` is { graphql(query) } from leonForUser — passed in so tests and the rig can supply a stub.
+ * Reads the flight with its operator's Leon credentials. Returns { flight, unmasked, operatorName, operatorNote }.
+ * `leon` is { graphql(query) } from leonForOperator — passed in so tests and the rig can supply a stub.
  */
 export async function readManifestFlight(leon, nid, { progress } = {}) {
   progress?.("Reading the flight from Leon");
   const first = await leon.graphql(FLIGHT_QUERY(nid));
   if (first.errors?.length || !first.data) {
     const text = (first.errors ?? []).map((e) => String(e?.message ?? "")).join(" ").toLowerCase();
-    if (/permission|access|denied|forbidden|not allowed/.test(text)) throw new ManifestFlightError("no-access", "Leon does not let your account see this flight.");
+    if (/permission|access|denied|forbidden|not allowed/.test(text)) throw new ManifestFlightError("no-access", "Leon does not show this flight to the operator's account.");
     throw new ManifestFlightError("leon-error", "Leon could not return this flight.");
   }
   const flight = first.data.flight;
-  if (!flight) throw new ManifestFlightError("no-access", "Leon has no flight with this id for your account (it may not exist, or your account cannot see it).");
+  if (!flight) throw new ManifestFlightError("no-access", "Leon has no such flight for this operator (it may have been deleted).");
 
   const contacts = flight.passengerList?.passengerContactList ?? [];
   const anyMasked = contacts.some((pc) => pc?.departurePassport?.isMasked || pc?.arrivalPassport?.isMasked || pc?.contact?.maskingStatus?.isProfileDataMasked);
@@ -97,4 +95,3 @@ export async function readManifestFlight(leon, nid, { progress } = {}) {
   return { flight, unmasked, operatorName, operatorNote };
 }
 
-export { LeonAccessError };

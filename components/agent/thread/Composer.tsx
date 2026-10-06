@@ -19,6 +19,8 @@ import Orb from "../ui/Orb";
 import { useKeybinds } from "../ui/keybinds";
 import { DockedSpeaking, MicPermissionCard, VoiceBar, VoiceNote } from "./VoiceBar";
 import VoiceOverlay from "./VoiceOverlay";
+import { ManifestPicker } from "./ManifestPicker";
+import { whenLabel as whenLabelFor } from "./manifestSearch";
 import { useVoiceSession, type VoiceThread } from "./useVoiceSession";
 import { AGENT_BASE, type AgentContext } from "../types";
 import ATTACH from "@/agent/config/attachments.json";
@@ -159,7 +161,7 @@ function Highlight({ text, prefix }: { text: string; prefix: string }) {
 }
 
 // ── / commands ────────────────────────────────────────────────────────────────
-type Need = "icao" | "flight" | "to" | "text" | "tier" | "operator" | "country";
+type Need = "icao" | "flight" | "to" | "text" | "tier" | "operator" | "country" | "manifest-flight";
 type Command = { cmd: string; description: string; args: string; icon: string; kind: string; kindColor: string; needs: Need[]; optional?: string; template: string; ask: (args: string[]) => string };
 // Item 10: the list is CONFIG (agent/config/commands.json + an admin override), served per user by
 // GET /api/commands — a user only sees commands whose tools their role has. Fetched once per page load.
@@ -177,7 +179,13 @@ function loadCommands(): Promise<Command[]> {
   commandCache ??= fetch(`${AGENT_BASE}/api/commands`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : { commands: [] })).then((b) => ((b?.commands ?? []) as Omit<Command, "ask" | "kindColor">[]).map((c) => ({ ...c, kindColor: KIND_COLOR[c.kind] ?? C.faint, ask: (a: string[]) => renderTemplate(c.template, a) }))).catch(() => { commandCache = null; return []; });
   return commandCache;
 }
-export type ActiveCommand = { command: Command; args: string[]; slot: number };
+export type ActiveCommand = { command: Command; args: string[]; slot: number; pickerQuery?: string };
+/** "pax manifest for KLJ7350" / "passenger manifest" / "blank pax manifest", spoken or typed as the whole message. */
+export function manifestIntent(text: string): { blank: boolean; query: string } | null {
+  const m = /^\s*(?:(?:make|generate|build|create|prepare|do)\s+(?:me\s+)?(?:a|an|the)?\s*)?(blank\s+|empty\s+)?(?:pax|passenger)s?\s+manifests?(?:\s+form)?(?:\s+(?:for|of|on))?\s*(.*?)[\s.!?]*$/i.exec(text);
+  if (!m) return null;
+  return { blank: Boolean(m[1]) || /^(?:blank|empty)(?:\s+form)?$/i.test(m[2] ?? ""), query: (m[2] ?? "").trim() };
+}
 
 // ── The composer ──────────────────────────────────────────────────────────────
 export default function Composer({
@@ -212,7 +220,9 @@ export default function Composer({
     docked: true,
     locked,
     thread: voiceThread,
-    send: (text, meta) => onSend(text, [], { mentions: [], command: null, voice: { language: meta.language } }),
+    // "pax manifest for KLJ7350" by voice reaches the same picker as /manifest, filtered — it never sends free text
+    // the model would have to interpret into a flight.
+    send: (text, meta) => { if (!openManifestFromText(text)) onSend(text, [], { mentions: [], command: null, voice: { language: meta.language } }); },
     onStopReply: onStop,
     onKeepText: (text) => { setValue(text); setTimeout(() => inputRef.current?.focus(), 0); },
     onTypeInstead: () => inputRef.current?.focus(),
@@ -260,6 +270,9 @@ export default function Composer({
 
   const [allCommands, setAllCommands] = useState<Command[]>([]);
   useEffect(() => { let alive = true; void loadCommands().then((c) => { if (alive) setAllCommands(c); }); return () => { alive = false; }; }, []);
+  // Read through a ref: the voice session may hold the first render's callback.
+  const commandsRef = useRef<Command[]>([]);
+  commandsRef.current = allCommands;
   const commands = useMemo(() => allCommands.filter((c) => c.cmd.slice(1).startsWith(query.toLowerCase()) || (query.length >= 2 && c.description.toLowerCase().includes(query.toLowerCase()))), [query, allCommands]);
   // `/model <tier>` chooses the tier for the NEXT message (one turn), shown as a chip until it is used.
   const [nextTier, setNextTier] = useState<string | null>(null);
@@ -302,6 +315,9 @@ export default function Composer({
 
   function submit() {
     if (!canSend) return;
+    if (!command && !attachments.length && openManifestFromText(value)) { setValue(""); return; }
+    // With the manifest picker open, Enter in the message box goes to the picker — the flight is chosen there.
+    if (command?.command.needs[0] === "manifest-flight") { document.querySelector<HTMLInputElement>("[data-manifest-picker] input")?.focus(); return; }
     let text = value.trim();
     let commandName: string | null = null;
     if (command) {
@@ -333,6 +349,26 @@ export default function Composer({
     setInserted((list) => [...list, m]);
     setValue((v) => v.replace(/(?:^|\s)@\S*$/, (s) => `${s.startsWith(" ") ? " " : ""}@${m.primary} `));
     setMenu("none"); inputRef.current?.focus();
+  }
+  // Passenger manifest (/manifest): the picker sends at once — choosing the flight IS the request; there is no
+  // confirmation step (generating a document changes nothing). The model only receives the flight id to pass on.
+  function sendCommand(c: Command, args: string[]) {
+    onSend(c.ask(args), [], { mentions: [], command: c.cmd, tier: nextTier });
+    setNextTier(null); setValue(""); setCommand(null); setMenu("none"); setHint(null);
+  }
+  function sendBlankManifest() {
+    const blank = commandsRef.current.find((c) => c.cmd === "/blank-manifest");
+    if (blank) sendCommand(blank, []);
+    else { onSend("Make the blank passenger manifest form for filling by hand.", [], { mentions: [], command: null }); setCommand(null); }
+  }
+  function openManifestFromText(text: string): boolean {
+    const intent = manifestIntent(text);
+    const cmd = commandsRef.current.find((c) => c.cmd === "/manifest");
+    if (!intent || !cmd) return false;
+    if (intent.blank) { sendBlankManifest(); return true; }
+    setCommand({ command: cmd, args: ["", ""], slot: 0, pickerQuery: intent.query });
+    setMenu("none");
+    return true;
   }
   function pickCommand(c: Command) {
     setValue((v) => v.replace(/(?:^|\s)\/\S*$/, "").trimEnd());
@@ -394,6 +430,15 @@ export default function Composer({
             <div style={{ display: "flex", gap: 14, padding: "8px 16px", borderTop: `1px solid ${C.divider}`, background: C.page, fontSize: 12, color: C.faint }}><span>↑↓ move</span><span>⏎ insert</span><span>Tab next type</span><span>Esc close</span><span style={{ flex: 1 }} /><span>Flights search Leon live</span></div>
           </div>
         )}
+        {command?.command.needs[0] === "manifest-flight" && (
+          <ManifestPicker
+            panel={panel}
+            initialQuery={command.pickerQuery ?? ""}
+            onPick={(f) => sendCommand(command.command, [f.key, [f.callsign, f.registration, `${f.adep} → ${f.ades}`, whenLabelFor(f.std)].filter(Boolean).join(" · ")])}
+            onBlank={sendBlankManifest}
+            onClose={() => { setCommand(null); inputRef.current?.focus(); }}
+          />
+        )}
         {menu === "command" && commands.length > 0 && (
           <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 14, boxShadow: SHADOW.menu, padding: 6, zIndex: 20 }}>
             {commands.map((c, i) => (
@@ -422,7 +467,8 @@ export default function Composer({
                 {command.command.cmd}
                 <button type="button" onClick={() => setCommand(null)} aria-label="Remove command" style={{ width: 15, height: 15, borderRadius: 4, background: "rgba(255,255,255,.14)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={9} color={C.surface} /></button>
               </span>
-              {command.args.map((arg, i) => (
+              {command.command.needs[0] === "manifest-flight" && <span style={{ fontSize: 13, color: C.muted }}>Pick the flight above — or the blank form</span>}
+              {command.command.needs[0] !== "manifest-flight" && command.args.map((arg, i) => (
                 <input key={i} name={`command-arg-${i}`} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? (command.command.args.split(" ")[0] || "optional") : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
                   onChange={(e) => setCommand((c) => c ? { ...c, args: c.args.map((a, j) => (j === i ? e.target.value : a)) } : c)}
                   onKeyDown={(e) => { if (e.key === "Tab" && i < command.args.length - 1) { e.preventDefault(); slotRefs.current[i + 1]?.focus(); } if (e.key === "Backspace" && !arg && i === 0) { e.preventDefault(); setCommand(null); inputRef.current?.focus(); } if (e.key === "Enter") { e.preventDefault(); submit(); } if (e.key === "Escape") { setCommand(null); inputRef.current?.focus(); } }}

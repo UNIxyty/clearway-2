@@ -12,6 +12,7 @@ import { LoadingRows } from "@/components/console-kit";
 import { C, SHADOW, mono } from "../ui/tokens";
 import { Button, Eyebrow, Keycap, Toggle } from "../ui/primitives";
 import { PersonalSettings, RoutingSettings } from "./SettingsPersonal";
+import { LeonAccessSettings } from "./SettingsLeon";
 import { BIND_DEFAULTS, DEFAULT_CONFIG, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE } from "../types";
@@ -79,6 +80,7 @@ export default function SettingsPage() {
       <div style={{ padding: "30px 32px", display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 18, alignItems: "start", maxWidth: 1180 }}>
         {error && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13, color: C.danger }}>{error}</div>}
         <PersonalSettings />
+        <LeonAccessSettings />
         <RoutingSettings />
         {forbidden && !caps && <div role="alert" style={{ gridColumn: "1 / -1", fontSize: 13.5, color: C.muted }}>Organisation settings are for admins. Ask an administrator if you need a capability changed.</div>}
 

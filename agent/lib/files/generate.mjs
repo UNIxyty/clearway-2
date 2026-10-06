@@ -13,13 +13,22 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { intakeRoot } from "../intake/blobstore.mjs";
 
 const STORAGE_ROOT = process.env.STORAGE_ROOT || "/storage";
 const OUT_PREFIX = "agent-generated";
 const PDF_TIMEOUT_MS = Number(process.env.AGENT_PDF_TIMEOUT_MS || 45_000);
 
 export function generatedPath(storageKey) {
-  return path.resolve(STORAGE_ROOT, storageKey);
+  // "intake:<key>" = a file kept on the intake root (owner-only, personal data): the passenger manifests.
+  const key = String(storageKey);
+  if (key.startsWith("intake:")) {
+    const root = intakeRoot();
+    const full = path.resolve(root, key.slice("intake:".length));
+    if (!full.startsWith(root + path.sep)) throw new Error("storage key escapes the intake root");
+    return full;
+  }
+  return path.resolve(STORAGE_ROOT, key);
 }
 
 async function persist({ filename, buffer, mime }) {

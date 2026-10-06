@@ -46,6 +46,11 @@ COPY rig/intake/test-timezones.mjs /tmp/tzcheck/rig/intake/test-timezones.mjs
 RUN mkdir -p /tmp/tzcheck/agent/lib && cp /app/lib/tzdata.mjs /tmp/tzcheck/agent/lib/tzdata.mjs \
  && node /tmp/tzcheck/rig/intake/test-timezones.mjs && rm -rf /tmp/tzcheck
 
+# Fail the build, not a border document: the passenger manifest's pinned font (Liberation Sans 2.1.5, shipped in
+# lib/manifest/assets) must be present and exact, and must come out EMBEDDED in a rendered manifest — read back from
+# the PDF itself. No host font is ever used, so this image needs no Helvetica/Arial/Liberation installed.
+RUN node scripts/check-manifest-font.mjs
+
 # The platform's single Resend client, not a copy of one. Kept at the path the
 # agent imports it from (../../digital-wall/lib/mailer.mjs) so the module reads
 # the same in the image as in the repo.

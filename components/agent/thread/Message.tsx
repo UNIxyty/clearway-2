@@ -16,7 +16,7 @@ import Markdown from "../panel/Markdown";
 import { ToolSummary, LiveSteps } from "./ToolActivity";
 import { ClaimedProse, SourceChips, SourceStrip, useHotSource } from "./Sources";
 import { VerbatimFrame, AgentsReading } from "./Verbatim";
-import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, TableResult, MonoBlock } from "./Cards";
+import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, ManifestNotice, TableResult, MonoBlock } from "./Cards";
 import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
 import { ErrorCard, kindFor } from "./ErrorCard";
 import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData, PerformedAction, SentAttachment } from "../types";
@@ -153,7 +153,12 @@ export function AgentReply({
         {mono_.map((x) => <MonoBlock key={x.id} block={x} panel={panel} onShowOnPage={onShowOnPage} />)}
         {documents.map((d) => <DocumentResult key={`${d.kind}-${d.href ?? d.documentId ?? d.title}`} doc={d} panel={panel} onEmail={onEmailDocument} />)}
         {m.streaming && ((b as { building?: BuildingFile[] }).building ?? []).map((f) => <BuildingFileCard key={f.id} file={f} panel={panel} />)}
-        {files.map((f) => <GeneratedFile key={f.id} file={f} panel={panel} onSend={onSendFile} />)}
+        {files.map((f) => (
+          <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: panel ? 8 : 10 }}>
+            {f.manifest && <ManifestNotice manifest={f.manifest} panel={panel} />}
+            <GeneratedFile file={f} panel={panel} onSend={onSendFile} />
+          </div>
+        ))}
 
         {verbatim.map((r) => <VerbatimFrame key={`${r.kind ?? "limitation"}-${r.id}`} record={r} panel={panel} />)}
         {verbatim.length > 0 && shownText && <AgentsReading panel={panel}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</AgentsReading>}

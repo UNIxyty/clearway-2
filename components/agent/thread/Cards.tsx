@@ -5,12 +5,14 @@
 // RESULT the backend returned — a card is never the model's account of a
 // thing. Codes, times, deltas and raw reports are mono (§3 rule 14).
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { C, mono } from "../ui/tokens";
 import { Button, Icon, Pill, Tag, Eyebrow, hmZ, kb } from "../ui/primitives";
 import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type AirportData, type DocumentData, type FileData, type FlightCardData, type MonoData, type TableData } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
+import { takeAutoOpen } from "./autoOpen";
+import type { ManifestInfo } from "../types";
 
 // ── §4.9 Flight card ──────────────────────────────────────────────────────────
 const deltaMin = (sched: string | null | undefined, est: string | null | undefined) => {
@@ -188,6 +190,12 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
   const ext = (file.filename.split(".").pop() ?? "").toUpperCase();
   const isPdf = ext === "PDF";
   const od = useOpenDocument();
+  const openRef = useRef<HTMLButtonElement | null>(null);
+  // A passenger manifest opens in the viewer as soon as it arrives (marked live by useThread; never on reload, and
+  // only where a viewer exists — inside the wall console's frame it would be a pop-up).
+  useEffect(() => {
+    if (file.openInViewer && od.hasViewer && takeAutoOpen(file.id)) void od.openGenerated(file, openRef.current);
+  }, [file, od]);
   return (
     <div role="group" aria-label={`Generated file ${file.filename}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, overflow: "hidden", display: "flex" }}>
       {!panel && (
@@ -206,11 +214,46 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
         <span style={{ ...mono({ fontSize: 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.filename}</span>
         {file.summary && <span style={{ fontSize: 13, lineHeight: 1.5, color: C.muted }}>{file.summary}</span>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <Button variant="primary" size="sm" icon="eye" onClick={(e) => void od.openGenerated(file, e.currentTarget)}>Open</Button>
+          <span ref={openRef as never} style={{ display: "contents" }}><Button variant="primary" size="sm" icon="eye" onClick={(e) => void od.openGenerated(file, e.currentTarget)}>Open</Button></span>
           <a href={file.downloadPath} download={file.filename} style={{ textDecoration: "none" }}><Button variant="secondary" size="sm" icon="download">Download</Button></a>
           <Button variant="secondary" size="sm" onClick={() => onSend?.(file)} disabled={!onSend}>Send…</Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Passenger manifest: what to read before sending ─────────────────────────────
+// Shown ABOVE the file. Built from the generator's result (rows by number and page — the chat never carries a
+// passenger's name or document number): missing fields, a Persons-on-Board disagreement, a differing arrival
+// document, masked or truncated values. A manifest with no passengers says so plainly.
+export function ManifestNotice({ manifest: m, panel = false }: { manifest: ManifestInfo; panel?: boolean }) {
+  if (m.blank) return null;
+  const items: { tone: "warn" | "info"; text: string }[] = [];
+  for (const w of m.warnings) items.push({ tone: w.code === "no-passengers" ? "info" : "warn", text: w.message });
+  for (const x of m.missing) items.push({ tone: "warn", text: `Passenger ${x.where}: no ${x.fields.join(", ")} in Leon — left blank.` });
+  const head = m.flight ? `${m.flight.callsign}${m.flight.route ? ` · ${m.flight.route}` : ""}${m.flight.date ? ` · ${m.flight.date}` : ""}` : "Passenger manifest";
+  const counts = `${m.passengerCount} passenger${m.passengerCount === 1 ? "" : "s"}${m.crewCount != null ? ` · ${m.crewCount} crew` : ""}${m.personsOnBoard != null ? ` · ${m.personsOnBoard} on board` : ""}${m.pageCount ? ` · ${m.pageCount} page${m.pageCount === 1 ? "" : "s"}` : ""}`;
+  const warnCount = items.filter((i) => i.tone === "warn").length;
+  return (
+    <div role="region" aria-label="Passenger manifest — read before sending" style={{ background: warnCount ? C.warnWash : C.surface, border: `1px solid ${warnCount ? C.warnBorder : C.border}`, borderRadius: panel ? 12 : 14, padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Eyebrow color={warnCount ? C.warn : C.okDot}>{warnCount ? `Read before sending · ${warnCount} warning${warnCount === 1 ? "" : "s"}` : "Passenger manifest · no warnings"}</Eyebrow>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+        <span style={mono({ fontSize: 14, fontWeight: 600 })}>{head}</span>
+        <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{counts}</span>
+      </div>
+      {items.length > 0 && (
+        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map((it, i) => (
+            <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, color: C.ink }}>
+              <span style={{ marginTop: 3, flex: "none" }}><Icon name={it.tone === "warn" ? "circle-alert" : "info"} size={13} color={it.tone === "warn" ? C.warn : C.muted} /></span>
+              <span>{it.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

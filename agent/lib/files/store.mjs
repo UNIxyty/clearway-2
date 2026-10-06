@@ -3,6 +3,7 @@
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { generatedPath } from "./generate.mjs";
+import { MANIFEST_RETENTION_DAYS } from "../manifest/config.mjs";
 
 const REST_TIMEOUT_MS = 10_000;
 
@@ -93,11 +94,18 @@ export async function readGeneratedFile(id, user) {
  */
 export async function sweepGeneratedFiles({ now = Date.now() } = {}) {
   const days = Number(process.env.AGENT_FILE_RETENTION_DAYS || 30);
+  // Passenger manifests have their OWN period (agent/lib/manifest/config.mjs): personal data, kept no longer than
+  // that whatever the general setting is.
+  const manifestDays = MANIFEST_RETENTION_DAYS;
+  const manifestCutoff = new Date(now - manifestDays * 86_400_000).toISOString();
   if (!Number.isFinite(days) || days <= 0) return { swept: 0, skipped: "retention disabled" };
   const cutoff = new Date(now - days * 86_400_000).toISOString();
   let rows;
   try {
-    rows = await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(cutoff)}&expired_at=is.null&select=id,storage_key&limit=500`);
+    rows = [
+      ...(await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(cutoff)}&expired_at=is.null&kind=neq.pax-manifest&select=id,storage_key&limit=500`) ?? []),
+      ...(await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(manifestCutoff)}&expired_at=is.null&kind=eq.pax-manifest&select=id,storage_key&limit=500`) ?? []),
+    ];
   } catch (error) {
     process.stderr.write(`[agent-files] retention sweep could not list files: ${error.message}\n`);
     return { swept: 0, error: error.message };

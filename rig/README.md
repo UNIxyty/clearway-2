@@ -67,3 +67,11 @@ Fixture pages are in `rig/fixtures/`.
 After any change to the extension or the agent UI, `rig/ext/t-console.mjs` (side panel and content-script
 consoles; exits 1 on any error, warning, CSP violation or failed request) and `rig/ext/t-issues.mjs` (DevTools
 Issues) must both be clean. Any message is a finding.
+
+## Passenger manifest
+
+`rig/manifest/start.sh` (after `rig/start.sh`) restarts the agent against a per-user mock Leon (:3993, fake
+passengers) and a stub wall (:3992). `node rig/manifest/browser.mjs` drives `/manifest` in the console;
+`node rig/manifest/test-generator.mjs` checks the generator's rules; `python3 rig/manifest/overlay.py
+rig/manifest/CWY_PAX_Manifest.pdf <ours.pdf>` overlays a render on the reference. Samples:
+`cd agent && node scripts/pax-manifest.mjs --rig <state> --out f.pdf`.

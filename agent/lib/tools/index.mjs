@@ -10,6 +10,7 @@ import "./fleet.mjs";
 import "./monitoring.mjs";
 import "./knowledge.mjs";
 import "./files-email.mjs";
+import "./manifest.mjs";
 import "./memory.mjs";
 import "./web.mjs";
 import "./write.mjs";

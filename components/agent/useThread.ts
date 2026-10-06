@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
-import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type PageContextBlock, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
+import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type FileData, type PageContextBlock, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
+import { markForAutoOpen } from "./thread/autoOpen";
 
 export type SendOptions = { tier?: string | null; attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null; pageContext?: PageContextBlock | null; system?: string | null };
 
@@ -124,7 +125,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
             // Item 11: a tool started or reported a step. Long jobs show as running steps; a file being built
             // shows as a building card with its named steps until the finished card replaces it.
             if (payload.step === "start") { tools.push({ name: payload.name, ok: true, error: null, startedAt: new Date().toISOString(), durationMs: null, args: null, state: "running", toolUseId: payload.toolUseId } as never); patchAssistant({ toolActivity: [...tools] }); }
-            if (payload.name === "generate_file") {
+            if (payload.name === "generate_file" || payload.name === "make_passenger_manifest") {
               const prev = building.get(payload.toolUseId) ?? { id: payload.toolUseId, filename: payload.filename ?? "file", format: payload.format ?? null, steps: [] as string[], index: -1 };
               building.set(payload.toolUseId, { ...prev, filename: payload.filename ?? prev.filename, format: payload.format ?? prev.format, steps: payload.steps ?? prev.steps, index: payload.index ?? prev.index });
               patchAssistant({ blocks: { ...(currentBlocks()), building: [...building.values()] } as never });
@@ -133,7 +134,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
           else if (event === "escalated") { escalations.push(payload); patchAssistant({ routeSource: `escalated ${payload.from}→${payload.to}` }); }
           else if (event === "tool") {
             { const r = tools.findIndex((t) => (t as { state?: string }).state === "running" && t.name === payload.name); if (r >= 0) tools.splice(r, 1); }
-            if (payload.name === "generate_file") { for (const [k, v] of building) if (v) { building.delete(k); break; } patchAssistant({ blocks: { ...(currentBlocks()), building: [...building.values()] } as never }); }
+            if (payload.name === "generate_file" || payload.name === "make_passenger_manifest") { for (const [k, v] of building) if (v) { building.delete(k); break; } patchAssistant({ blocks: { ...(currentBlocks()), building: [...building.values()] } as never }); }
             tools.push({ name: payload.name, ok: payload.ok, error: payload.error ?? null, startedAt: payload.startedAt ?? null, durationMs: payload.durationMs ?? null, args: payload.input ?? null, state: "done", write: Boolean(payload.confirmationRequired) });
             setActivity(payload.name);
             patchAssistant({ toolActivity: [...tools] });
@@ -159,6 +160,9 @@ export function useThread({ context, initialConversationId = null, initials = nu
         },
       });
       if (confirmations.length) setPendingConfirmation(confirmations[0]);
+      // A passenger manifest opens in the document viewer as soon as it is ready (ops check it before sending) —
+      // only for a file produced live in this turn, never when an old conversation is reloaded.
+      for (const f of ((d.files as FileData[] | undefined) ?? [])) if (f.openInViewer) markForAutoOpen(f.id);
     } catch (e) {
       const aborted = (e as Error)?.name === "AbortError";
       if (aborted) {

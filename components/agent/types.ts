@@ -111,7 +111,14 @@ export type PerformedAction = { actionId: string; what: string; targetKind: stri
 
 export type MonoData = { id: string; title: string; text: string; tool: string; meta?: string | null; icao?: string | null };
 export type DocumentData = { kind: "aip" | "gen" | "knowledge"; title: string; subtitle: string | null; href: string | null; cached: boolean; note: string | null; documentId: string | null; tool: string; stale?: string | null; revision?: RevisionInfo | null };
-export type FileData = { id: string; filename: string; mime: string | null; bytes: number | null; downloadPath: string; tool: string; pages?: number | null; summary?: string | null; generatedAt?: string | null };
+export type FileData = { id: string; filename: string; mime: string | null; bytes: number | null; downloadPath: string; tool: string; pages?: number | null; summary?: string | null; generatedAt?: string | null; manifest?: ManifestInfo | null; openInViewer?: boolean };
+/** A passenger manifest's result (make_passenger_manifest): counts and warnings — rows by number, never a passenger's details. */
+export type ManifestInfo = {
+  flight: { flightId: string; callsign: string; date: string; route: string } | null;
+  blank: boolean; pageCount: number | null; passengerCount: number; crewCount: number | null; personsOnBoard: number | null;
+  warnings: { code: string; message: string; row: number | null }[];
+  missing: { row: number; where: string; fields: string[] }[];
+};
 export type AirportData = { icao: string; name?: string | null; country: string | null; aipUrl: string | null; aipCached: boolean | null; metar: string | null; metarAt?: string | null; category?: string | null; decoded?: string | null; notamCount: number | null; notamNew?: number | null; limitationCount: number | null; caa?: { name: string; phone?: string | null; email?: string | null } | null };
 export type TableData = { id: string; title?: string | null; columns: string[]; rows: string[][]; monoColumns?: number[]; footer?: { openHref?: string | null; openLabel?: string | null; filterHint?: string | null } | null };
 

@@ -774,7 +774,13 @@ export function filesFromToolCalls(calls) {
   for (const call of calls) {
     if (call.ok === false || !call.result?.file?.id) continue;
     const f = call.result.file;
-    out.push({ id: f.id, filename: f.filename, mime: f.mime ?? null, bytes: f.bytes ?? null, downloadPath: f.downloadPath ?? `/agent/api/files/${f.id}`, tool: call.name });
+    // A passenger manifest carries its warnings (rows by number only — no passenger details) so the chat shows them
+    // ABOVE the file, from the tool's own result, never from model text; and the panel opens it in the viewer.
+    const m = call.name === "make_passenger_manifest" ? call.result.manifest ?? null : null;
+    out.push({
+      id: f.id, filename: f.filename, mime: f.mime ?? null, bytes: f.bytes ?? null, downloadPath: f.downloadPath ?? `/agent/api/files/${f.id}`, tool: call.name,
+      ...(m ? { manifest: { flight: m.flight ?? null, blank: Boolean(m.blank), pageCount: m.pageCount ?? null, passengerCount: m.passengerCount ?? 0, crewCount: m.crewCount ?? null, personsOnBoard: m.personsOnBoard ?? null, warnings: (m.warnings ?? []).map((w) => ({ code: String(w.code), message: String(w.message), row: w.row ?? null })), missing: (m.missing ?? []).map((x) => ({ row: x.row, where: String(x.where), fields: (x.fields ?? []).map(String) })) }, openInViewer: true } : {}),
+    });
   }
   return out;
 }
